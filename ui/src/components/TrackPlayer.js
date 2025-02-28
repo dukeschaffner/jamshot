@@ -16,8 +16,19 @@ export default function TrackPlayer({ audioUrl }) {
     };
   }, [audioUrl]);
 
-  const play = () => soundRef.current?.play();
-  const pause = () => soundRef.current?.pause();
+  const play = () => {
+    console.log('Play clicked, soundRef:', soundRef.current); // Check if sound exists
+    if (soundRef.current) {
+      soundRef.current.play();
+    } else {
+      console.error('No sound instance to play');
+    }
+  };
+
+  const pause = () => {
+    console.log('Pause clicked');
+    soundRef.current?.pause();
+  };
 
   return (
     <div className="mt-2">
