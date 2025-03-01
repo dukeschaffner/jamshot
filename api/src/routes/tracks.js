@@ -41,40 +41,33 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   const { title, parent_track_id } = req.body;
   const userId = req.user.id;
   const file = req.file;
-
   const fileKey = `tracks/${file.filename}`;
-  // const params = {
-  //   Bucket: process.env.S3_BUCKET,
-  //   Key: fileKey,
-  //   Body: fs.createReadStream(file.path),
-  //   ContentType: file.mimetype,
-  // };
+
+  if (parent_track_id) {
+    const parentCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [parent_track_id]);
+    if (parentCheck.rows.length === 0) {
+      return res.status(400).json({ error: 'Parent track not found' });
+    }
+  }
+  
+  const params = {
+    Bucket: process.env.S3_BUCKET,
+    Key: fileKey,
+    Body: fs.createReadStream(file.path),
+    ContentType: file.mimetype,
+  };
 
   try {
-    //await s3.upload(params).promise();
-    // fs.unlinkSync(file.path); // Clean up temp file after S3 upload
+    await s3.upload(params).promise();
+    fs.unlinkSync(file.path); // Clean up temp file after S3 upload
   } catch (err) {
     return res.status(500).json({ error: `S3 upload failed: ${err.message}` });
   }
 
-  const fn = "tracks/1740718749054-pretty panama.mp3";
-
   try {
     const result = await pool.query(
       'INSERT INTO tracks (user_id, title, audio_url, parent_track_id, duration) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [userId, title, fn, 8 || null, 36]
-    );
-    const result1 = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, parent_track_id, duration) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [userId, title, fn, 8 || null, 36]
-    );
-    const result2 = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, parent_track_id, duration) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [userId, title, fn, 8 || null, 36]
-    );
-    const result3 = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, parent_track_id, duration) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [userId, title, fn, 9 || null, 36]
+      [userId, title, fileKey, parent_track_id || null, 36]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {

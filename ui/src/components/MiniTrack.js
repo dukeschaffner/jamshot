@@ -50,7 +50,7 @@ export default function MiniTrack({ track }) {
   };
 
   return (
-    <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded">
+    <div className="flex items-center space-x-2 p-2 bg-p1 rounded">
       <button
         onClick={(e) => {
           e.stopPropagation(); // Prevent parent expand toggle

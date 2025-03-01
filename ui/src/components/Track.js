@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { Howl } from 'howler';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 
 export default function Track({ track }) {
+  const router = useRouter();
   const soundRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -78,7 +80,7 @@ export default function Track({ track }) {
   const collabTracks = relatedTracks.filter(t => t.parent_track_id === track.id);
 
   return (
-    <div className="bg-white rounded shadow">
+    <div className="bg-p1 rounded shadow">
       {/* Collapsed View */}
       <div className="p-4 cursor-pointer" onClick={toggleExpand}>
         <div className="flex items-center space-x-4">
@@ -112,6 +114,7 @@ export default function Track({ track }) {
           className="w-full mt-2"
           disabled={!isLoaded}
         />
+        <button onClick={() => router.push(`/collaborate/${track.id}`)} className="ml-2 text-blue-500">Collaborate</button>
       </div>
 
       {/* Expanded View */}
