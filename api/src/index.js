@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const trackRoutes = require('./routes/tracks');
+const userRoutes = require('./routes/users');
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json()); // Parse JSON bodies
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tracks', trackRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/', (req, res) => res.send('Music Collab API'));
 

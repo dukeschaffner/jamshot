@@ -1,44 +1,15 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Howl } from 'howler';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
+import { useAudio } from '../lib/AudioContext';
 
 export default function Track({ track }) {
   const router = useRouter();
-  const soundRef = useRef(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [relatedTracks, setRelatedTracks] = useState([]);
-
-  useEffect(() => {
-    console.log('Track URL:', track.audio_url);
-    soundRef.current = new Howl({
-      src: [track.audio_url],
-      html5: true,
-      onload: () => {
-        console.log('Audio loaded, duration:', soundRef.current.duration());
-        setIsLoaded(true);
-      },
-      onloaderror: (id, err) => console.error('Load error:', err),
-      onplay: () => setIsPlaying(true),
-      onpause: () => setIsPlaying(false),
-      onend: () => setIsPlaying(false),
-      onseek: () => updateProgress(),
-    });
-
-    const interval = setInterval(() => {
-      if (isPlaying && soundRef.current) updateProgress();
-    }, 1000);
-
-    return () => {
-      soundRef.current?.unload();
-      clearInterval(interval);
-    };
-  }, [track.audio_url]);
+  const { currentTrack, isPlaying, playTrack } = useAudio();
 
   useEffect(() => {
     if (isExpanded) {
@@ -54,26 +25,6 @@ export default function Track({ track }) {
     }
   }, [isExpanded, track.id]);
 
-  const updateProgress = () => {
-    if (soundRef.current) {
-      const pos = soundRef.current.seek();
-      const dur = soundRef.current.duration();
-      setProgress((pos / dur) * 100 || 0);
-    }
-  };
-
-  const play = () => soundRef.current?.play();
-  const pause = () => soundRef.current?.pause();
-
-  const handleSliderChange = (e) => {
-    if (soundRef.current && isLoaded) {
-      const newProgress = e.target.value;
-      const newPosition = (newProgress / 100) * soundRef.current.duration();
-      soundRef.current.seek(newPosition);
-      setProgress(newProgress);
-    }
-  };
-
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
   const originalTrack = relatedTracks.find(t => t.id === track.parent_track_id);
@@ -81,20 +32,18 @@ export default function Track({ track }) {
 
   return (
     <div className="bg-p1 rounded shadow">
-      {/* Collapsed View */}
       <div className="p-4 cursor-pointer" onClick={toggleExpand}>
         <div className="flex items-center space-x-4">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              isPlaying ? pause() : play();
+              playTrack(track);
             }}
-            disabled={!isLoaded}
             className={`w-10 h-10 rounded-full text-white flex items-center justify-center ${
-              isLoaded ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500'
+              currentTrack?.id === track.id && isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
             }`}
           >
-            {isPlaying ? '❚❚' : '▶'}
+            {currentTrack?.id === track.id && isPlaying ? '❚❚' : '▶'}
           </button>
           <div className="flex-1">
             <h2 className="text-lg font-semibold">{track.title}</h2>
@@ -104,20 +53,9 @@ export default function Track({ track }) {
             <p className="text-sm text-gray-600">{track.collab_count} collabs</p>
           </div>
         </div>
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={progress}
-          onChange={handleSliderChange}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full mt-2"
-          disabled={!isLoaded}
-        />
         <button onClick={() => router.push(`/collaborate/${track.id}`)} className="ml-2 text-blue-500">Collaborate</button>
       </div>
 
-      {/* Expanded View */}
       {isExpanded && (
         <div className="p-4 border-t border-gray-200">
           {originalTrack && (
