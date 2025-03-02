@@ -8,10 +8,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --p1: pink;
-  --p2: purple;
-  --s1: lightgreen;
-  --s2: darkgreen;
+  --p1: #e4a794;
+  --p2: #f59771;
+  --s1: #86a699;
+  --s2: #036745;
 }
 
 @media (prefers-color-scheme: dark) {

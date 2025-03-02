@@ -1,8 +1,21 @@
 'use client';
+import { useState, useEffect } from 'react';
 import { useAudio } from '../lib/AudioContext';
+import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import api from '../lib/api';
+import Cookies from 'js-cookie';
 
 export default function MiniTrack({ track, relatedTracks = [] }) {
   const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
+  const [isLiked, setIsLiked] = useState(track.is_liked || false);
+  const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
+  const [isLikeInProgress, setIsLikeInProgress] = useState(false);
+
+  useEffect(() => {
+    // Update like state when track prop changes
+    setIsLiked(track.is_liked || false);
+    setLikeCount(Number(track.like_count) || 0);
+  }, [track.is_liked, track.like_count]);
 
   const handlePlayToggle = (e) => {
     e.stopPropagation();
@@ -18,6 +31,35 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
     }
   };
 
+  const handleLikeToggle = async (e) => {
+    e.stopPropagation();
+    
+    // Prevent action if already in progress
+    if (isLikeInProgress) return;
+    setIsLikeInProgress(true);
+    
+    try {
+      if (isLiked) {
+        await api.delete(`/tracks/${track.id}/like`);
+        setIsLiked(false);
+        setLikeCount(prevCount => Math.max(0, Number(prevCount) - 1));
+      } else {
+        await api.post(`/tracks/${track.id}/like`);
+        setIsLiked(true);
+        setLikeCount(prevCount => Number(prevCount) + 1);
+      }
+    } catch (err) {
+      console.error('Failed to toggle like:', err);
+      // If there's an error, revert the UI state
+      if (err.response && err.response.status === 401) {
+        // User is not authenticated
+        alert('Please log in to like tracks');
+      }
+    } finally {
+      setIsLikeInProgress(false);
+    }
+  };
+
   return (
     <div className="flex items-center space-x-2 p-2 bg-s2 rounded">
       <button
@@ -30,6 +72,17 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
       </button>
       <div className="flex-1">
         <p className="text-sm font-medium">{track.title}</p>
+      </div>
+      <div className="flex items-center space-x-1">
+        <button 
+          onClick={handleLikeToggle} 
+          className={`text-red-500 focus:outline-none ${isLikeInProgress ? 'opacity-50' : ''}`}
+          disabled={!Cookies.get('token') || isLikeInProgress} // Disable if not logged in or in progress
+          title={Cookies.get('token') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+        >
+          {isLiked ? <FaHeart /> : <FaRegHeart />}
+        </button>
+        <span className="text-xs text-gray-600">{Number(likeCount)}</span>
       </div>
     </div>
   );

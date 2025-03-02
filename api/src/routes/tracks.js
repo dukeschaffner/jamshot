@@ -9,7 +9,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const mm = require('music-metadata');
 const ffmpeg = require('fluent-ffmpeg');
 const pool = require('../config/db');
-const authMiddleware = require('../middleware/auth');
+const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 require('dotenv').config;
 
 const router = express.Router();
@@ -69,6 +69,9 @@ async function combineAudioFiles(inputFiles, outputPath) {
       .run();
   });
 }
+
+// Apply optional auth middleware to all routes
+router.use(optionalAuthMiddleware);
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
   const { title, parent_track_id } = req.body;
@@ -161,18 +164,22 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     res.status(500).json({ error: `Upload failed: ${err.message}` });
   }
 });
+
 router.get('/:id/related', async (req, res) => {
   const { id } = req.params;
+  const userId = req.user?.id; // Optional chaining in case user is not authenticated
   try {
     const result = await pool.query(`
       SELECT 
         t.id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-        u.username, u.verified
+        u.username, u.verified,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
       FROM tracks t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.id = $1 OR t.parent_track_id = $1 OR t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)
       ORDER BY t.created_at ASC
-    `, [id]);
+    `, [id, userId || null]);
     
     const tracks = result.rows.map(track => {
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
@@ -194,18 +201,21 @@ router.get('/:id/related', async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
+  const userId = req.user?.id; // Optional chaining in case user is not authenticated
   try {
     const result = await pool.query(`
       SELECT 
         t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
         u.username, u.verified,
         t2.title AS original_title,
-        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count
+        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
       ORDER BY t.created_at DESC
-    `);
+    `, [userId || null]);
     const tracks = result.rows.map(track => {
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
       if (process.env.NODE_ENV !== 'production') {
@@ -228,11 +238,17 @@ router.get('/', async (req, res) => {
 // Get Track and Versions
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
+  const userId = req.user?.id; // Optional chaining in case user is not authenticated
   try {
-    const result = await pool.query(
-      'SELECT * FROM tracks WHERE id = $1 OR parent_track_id = $1 ORDER BY created_at ASC',
-      [id]
-    );
+    const result = await pool.query(`
+      SELECT 
+        t.*,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+      FROM tracks t
+      WHERE t.id = $1 OR t.parent_track_id = $1 
+      ORDER BY t.created_at ASC
+    `, [id, userId || null]);
     const tracks = result.rows.map(track => {
       let audioUrl = track.audio_url;
       let combinedAudioUrl = track.combined_audio_url || track.audio_url; // Fallback to audio_url if no combined
@@ -273,6 +289,21 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
       [userId, id]
     );
     res.status(200).json({ message: 'Liked' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Unlike a Track
+router.delete('/:id/like', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  try {
+    await pool.query(
+      'DELETE FROM likes WHERE user_id = $1 AND track_id = $2',
+      [userId, id]
+    );
+    res.status(200).json({ message: 'Unliked' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

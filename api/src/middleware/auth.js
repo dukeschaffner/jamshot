@@ -14,4 +14,21 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+// Optional authentication middleware - doesn't require auth but extracts user if token exists
+const optionalAuthMiddleware = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded; // Attach user ID to request
+    } catch (err) {
+      // Invalid token, but we don't fail the request
+      console.warn('Invalid token in optional auth:', err.message);
+    }
+  }
+  
+  next(); // Always continue to the next middleware
+};
+
+module.exports = { authMiddleware, optionalAuthMiddleware };
