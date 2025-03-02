@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAudio } from '../lib/AudioContext';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import TrackTags from './TrackTags';
 import api from '../lib/api';
 import Cookies from 'js-cookie';
 
@@ -72,6 +73,13 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
       </button>
       <div className="flex-1">
         <p className="text-sm font-medium">{track.title}</p>
+        {(track.genres?.length > 0 || track.instruments?.length > 0) && (
+          <TrackTags 
+            genres={track.genres || []} 
+            instruments={track.instruments || []} 
+            compact={true} 
+          />
+        )}
       </div>
       <div className="flex items-center space-x-1">
         <button 

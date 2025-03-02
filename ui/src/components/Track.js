@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
+import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
 import { FaCheckCircle, FaHeart, FaRegHeart } from 'react-icons/fa';
 import Cookies from 'js-cookie';
@@ -87,16 +88,29 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
   const collabTracks = relatedTracks.filter(t => t.parent_track_id === track.id);
 
   return (
-    <div className="bg-p1 rounded-lg shadow-md">
-      <div className="p-4 cursor-pointer" onClick={toggleExpand}>
-        <div className="flex items-center space-x-4">
+    <div className={`bg-p1 rounded-lg shadow-md overflow-hidden transition-all duration-300 ${isExpanded ? 'mb-4' : 'mb-2'}`}>
+      <div 
+        className="cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={toggleExpand}
+      >
+        <div className="p-4 flex items-center space-x-4">
           <button
             onClick={handlePlayToggle}
-            className={`w-10 h-10 rounded-full text-white flex items-center justify-center ${
-              currentTrack?.id === track.id && isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-            }`}
+            className={`w-10 h-10 flex items-center justify-center rounded-full ${
+              currentTrack?.id === track.id && isPlaying
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-blue-500 hover:bg-blue-600'
+            } text-white focus:outline-none transition-colors`}
           >
-            {currentTrack?.id === track.id && isPlaying ? '❚❚' : '▶'}
+            {currentTrack?.id === track.id && isPlaying ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+              </svg>
+            )}
           </button>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
@@ -109,7 +123,15 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
             {track.layer > 0 && (
               <p className="text-sm text-gray-600">Layer: {track.layer} (Based on: {track.original_title})</p>
             )}
-            <div className="flex items-center space-x-2">
+            
+            {/* Display tags */}
+            <TrackTags 
+              genres={track.genres || []} 
+              instruments={track.instruments || []} 
+              compact={true} 
+            />
+            
+            <div className="flex items-center space-x-2 mt-1">
               <p className="text-sm text-gray-600">{track.collab_count} collabs</p>
               <div className="flex items-center space-x-1">
                 <button 
@@ -138,6 +160,17 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
 
       {isExpanded && (
         <div className="p-4 border-t border-gray-200">
+          {/* Display full tags when expanded */}
+          {(track.genres?.length > 0 || track.instruments?.length > 0) && (
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-1">Tags</h3>
+              <TrackTags 
+                genres={track.genres || []} 
+                instruments={track.instruments || []} 
+              />
+            </div>
+          )}
+          
           {originalTrack && (
             <div className="mb-4">
               <h3 className="text-sm font-medium text-gray-700">Original Track</h3>

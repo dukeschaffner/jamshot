@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import api from '../../../lib/api';
 import MiniTrack from '../../../components/MiniTrack';
+import TagSelector from '../../../components/TagSelector';
 import { Howl } from 'howler';
 import { FaPlay, FaStop, FaTrash, FaCheck, FaMicrophone, FaMicrophoneSlash, FaCog } from 'react-icons/fa';
 
@@ -181,6 +182,10 @@ export default function CollaboratePage() {
   const [recordingStartTime, setRecordingStartTime] = useState(null);
   const [parentTrackStartTime, setParentTrackStartTime] = useState(null);
   const [levelMeterActive, setLevelMeterActive] = useState(false);
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [selectedInstruments, setSelectedInstruments] = useState([]);
+  const [audioToUpload, setAudioToUpload] = useState(null); // Will store either recorded blob or uploaded file
+  const [isUploading, setIsUploading] = useState(false);
   
   const mediaRecorderRef = useRef(null);
   const parentSoundRef = useRef(null);
@@ -787,54 +792,81 @@ export default function CollaboratePage() {
     setRecordedTakes(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleUpload = async () => {
-    if (!title) return alert('Please enter a title');
-    
-    if (activeTab === 'record') {
-      if (selectedTakeIndex === null) return alert('Please select a take to upload');
+  const handleTagChange = ({ genreIds, instrumentIds }) => {
+    setSelectedGenres(genreIds);
+    setSelectedInstruments(instrumentIds);
+  };
+
+  const prepareAudioForUpload = () => {
+    if (activeTab === 'record' && selectedTakeIndex !== null) {
+      // Use the selected recorded take
       const selectedTake = recordedTakes[selectedTakeIndex];
-      if (!selectedTake) return alert('Selected take not found');
-      
+      if (selectedTake) {
+        // Use the correct file extension based on MIME type
+        let fileExtension = 'webm';
+        if (selectedTake.mimeType.includes('mp4')) {
+          fileExtension = 'mp4';
+        } else if (selectedTake.mimeType.includes('ogg')) {
+          fileExtension = 'ogg';
+        }
+        
+        return {
+          blob: selectedTake.blob,
+          filename: `${title}-${Date.now()}.${fileExtension}`
+        };
+      }
+      return null;
+    } else if (activeTab === 'upload' && file) {
+      // Use the uploaded file
+      return {
+        blob: file,
+        filename: file.name
+      };
+    }
+    return null;
+  };
+
+  const handleUpload = async () => {
+    if (!title) {
+      alert('Please enter a title');
+      return;
+    }
+    
+    const audioData = prepareAudioForUpload();
+    if (!audioData) {
+      alert(activeTab === 'record' 
+        ? 'Please select a take to upload' 
+        : 'Please select a file to upload');
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
       const formData = new FormData();
       formData.append('title', title);
       formData.append('parent_track_id', trackId);
+      formData.append('audio', audioData.blob, audioData.filename);
       
-      // Use the correct file extension based on MIME type
-      let fileExtension = 'webm';
-      if (selectedTake.mimeType.includes('mp4')) {
-        fileExtension = 'mp4';
-      } else if (selectedTake.mimeType.includes('ogg')) {
-        fileExtension = 'ogg';
+      // Add genre and instrument IDs
+      if (selectedGenres.length > 0) {
+        formData.append('genreIds', JSON.stringify(selectedGenres));
       }
       
-      formData.append('audio', selectedTake.blob, `${title}-${Date.now()}.${fileExtension}`);
-
-      try {
-        await api.post('/tracks/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        router.push('/');
-      } catch (err) {
-        console.error('Upload error:', err);
-        alert('Failed to upload track');
+      if (selectedInstruments.length > 0) {
+        formData.append('instrumentIds', JSON.stringify(selectedInstruments));
       }
-    } else {
-      if (!file) return alert('Please select a file');
       
-      const formData = new FormData();
-      formData.append('title', title);
-      formData.append('parent_track_id', trackId);
-      formData.append('audio', file);
-
-      try {
-        await api.post('/tracks/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        router.push('/');
-      } catch (err) {
-        console.error('Upload error:', err);
-        alert('Failed to upload track');
-      }
+      await api.post('/tracks/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      
+      router.push('/');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Failed to upload track: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -853,6 +885,35 @@ export default function CollaboratePage() {
           <div className="mb-6">
             <MiniTrack track={parentTrack} />
           </div>
+          
+          {/* Common form fields moved outside tabs */}
+          <div className="bg-p1 p-4 rounded mb-4">
+            <div className="mb-4">
+              <label htmlFor="title" className="block text-sm font-medium mb-1">Track Title</label>
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter a title for your collaboration"
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Tags</label>
+              <TagSelector 
+                selectedGenres={selectedGenres}
+                selectedInstruments={selectedInstruments}
+                onChange={handleTagChange}
+                parentGenres={parentTrack.genres || []}
+                maxGenres={2}
+                maxInstruments={4}
+              />
+            </div>
+          </div>
+          
           <div className="flex space-x-4 mb-4">
             <button
               onClick={() => {
@@ -882,7 +943,8 @@ export default function CollaboratePage() {
               Upload Pre-Recorded
             </button>
           </div>
-          <div className="bg-p1 p-4 rounded">
+          
+          <div className="bg-p1 p-4 rounded mb-4">
             {activeTab === 'record' && (
               <div>
                 <h2 className="text-lg font-semibold mb-2">Record Live</h2>
@@ -1055,8 +1117,6 @@ export default function CollaboratePage() {
                       </label>
                     </div>
                   </div>
-                  
-                  {/* Waveform Visualization - Removed in favor of vertical level meter */}
                 </div>
                 
                 {/* Recorded Takes */}
@@ -1127,63 +1187,52 @@ export default function CollaboratePage() {
                     </div>
                   </div>
                 )}
-                
-                {/* Upload Form */}
-                {recordedTakes.length > 0 && (
-                  <div className="mt-4">
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Track Title"
-                      className="w-full p-2 border rounded mb-2"
-                    />
-                    <button
-                      onClick={handleUpload}
-                      disabled={selectedTakeIndex === null || !title}
-                      className={`bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ${
-                        selectedTakeIndex === null || !title ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
-                    >
-                      Upload Selected Take
-                    </button>
-                  </div>
-                )}
               </div>
             )}
+            
             {activeTab === 'upload' && (
               <div>
                 <h2 className="text-lg font-semibold mb-2">Upload Pre-Recorded</h2>
                 <button
                   onClick={downloadParentTrack}
-                  className="bg-blue-500 text-white px-4 py-2 rounded mb-2 hover:bg-blue-600"
+                  className="bg-blue-500 text-white px-4 py-2 rounded mb-4 hover:bg-blue-600"
                 >
                   Download Parent Track
                 </button>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={(e) => setFile(e.target.files[0])}
-                  className="w-full p-2 border rounded mb-2"
-                />
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Track Title"
-                  className="w-full p-2 border rounded mb-2"
-                />
-                <button
-                  onClick={handleUpload}
-                  disabled={!file || !title}
-                  className={`px-4 py-2 rounded text-white ${
-                    file && title ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500'
-                  }`}
-                >
-                  Upload File
-                </button>
+                <div className="mb-4">
+                  <label htmlFor="audio-file" className="block text-sm font-medium mb-1">Select Audio File</label>
+                  <input
+                    id="audio-file"
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => setFile(e.target.files[0])}
+                    className="w-full p-2 border rounded"
+                  />
+                </div>
               </div>
             )}
+          </div>
+          
+          {/* Upload button moved outside tabs */}
+          <div className="flex justify-end">
+            <button
+              onClick={handleUpload}
+              disabled={
+                isUploading || 
+                !title || 
+                (activeTab === 'record' && selectedTakeIndex === null) || 
+                (activeTab === 'upload' && !file)
+              }
+              className={`px-6 py-2 rounded text-white ${
+                isUploading ? 'bg-gray-500 cursor-wait' :
+                (title && ((activeTab === 'record' && selectedTakeIndex !== null) || 
+                          (activeTab === 'upload' && file)))
+                  ? 'bg-green-500 hover:bg-green-600' 
+                  : 'bg-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isUploading ? 'Uploading...' : 'Upload Collaboration'}
+            </button>
           </div>
         </>
       ) : (

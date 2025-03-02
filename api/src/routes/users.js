@@ -36,7 +36,7 @@ router.get('/:userId/tracks', async (req, res) => {
       ORDER BY t.created_at DESC
     `, [userId]);
 
-    const tracks = result.rows.map(track => {
+    const tracks = await Promise.all(result.rows.map(async track => {
       let audioUrl = track.audio_url;
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
       if (process.env.NODE_ENV !== 'production') {
@@ -58,8 +58,34 @@ router.get('/:userId/tracks', async (req, res) => {
           });
         }
       }
-      return { ...track, audio_url: audioUrl, combined_audio_url: combinedAudioUrl };
-    });
+      
+      // Get genres for this track
+      const genresResult = await pool.query(
+        `SELECT g.* FROM genres g
+         JOIN track_genres tg ON g.id = tg.genre_id
+         WHERE tg.track_id = $1
+         ORDER BY g.name`,
+        [track.id]
+      );
+      
+      // Get instruments for this track
+      const instrumentsResult = await pool.query(
+        `SELECT i.* FROM instruments i
+         JOIN track_instruments ti ON i.id = ti.instrument_id
+         WHERE ti.track_id = $1
+         ORDER BY i.name`,
+        [track.id]
+      );
+      
+      return { 
+        ...track, 
+        audio_url: audioUrl, 
+        combined_audio_url: combinedAudioUrl,
+        genres: genresResult.rows,
+        instruments: instrumentsResult.rows
+      };
+    }));
+
     res.json(tracks);
   } catch (err) {
     res.status(500).json({ error: err.message });
