@@ -5,7 +5,7 @@ import Track from '../components/Track';
 
 export default function Home() {
   const [tracks, setTracks] = useState([]);
-  const baseApiUrl = process.env.NEXT_PUBLIC_API_URL.replace('/api', '');
+  const [expandedTrackId, setExpandedTrackId] = useState(null);
 
   useEffect(() => {
     const fetchTracks = async () => {
@@ -28,7 +28,12 @@ export default function Home() {
         <ul className="space-y-4">
           {tracks.map((track) => (
             <li key={track.id}>
-              <Track track={track} />
+              <Track
+                track={track}
+                allTracks={tracks}
+                expandedTrackId={expandedTrackId}
+                setExpandedTrackId={setExpandedTrackId}
+              />
             </li>
           ))}
         </ul>

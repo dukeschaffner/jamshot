@@ -8,8 +8,8 @@ export function AudioProvider({ children }) {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [playlist, setPlaylist] = useState([]); // Dynamic playlist
-  const [currentIndex, setCurrentIndex] = useState(-1); // Index in playlist
+  const [playlist, setPlaylist] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   const soundRef = useRef(null);
 
   useEffect(() => {
@@ -21,10 +21,16 @@ export function AudioProvider({ children }) {
         onload: () => console.log('Global audio loaded:', currentTrack.title),
         onplay: () => setIsPlaying(true),
         onpause: () => setIsPlaying(false),
-        onend: () => playNext(),
+        onend: () => {
+          console.log('Track ended, playing next');
+          playNext();
+        },
         onseek: () => updateProgress(),
       });
-      if (isPlaying) soundRef.current.play();
+      if (isPlaying) {
+        console.log('Starting playback:', currentTrack.title);
+        soundRef.current.play();
+      }
     }
 
     const interval = setInterval(() => {
@@ -35,7 +41,18 @@ export function AudioProvider({ children }) {
       if (soundRef.current) soundRef.current.unload();
       clearInterval(interval);
     };
-  }, [currentTrack]);
+  }, [currentTrack]); // Only trigger on currentTrack change
+
+  useEffect(() => {
+    // Sync isPlaying with Howl state
+    if (soundRef.current) {
+      if (isPlaying && !soundRef.current.playing()) {
+        soundRef.current.play();
+      } else if (!isPlaying && soundRef.current.playing()) {
+        soundRef.current.pause();
+      }
+    }
+  }, [isPlaying]); // Sync whenever isPlaying changes
 
   const updateProgress = () => {
     if (soundRef.current) {
@@ -45,29 +62,23 @@ export function AudioProvider({ children }) {
     }
   };
 
-  const playTrack = (track, sourcePlaylist = []) => {
-    const existingIndex = playlist.findIndex(t => t.id === track.id);
-    if (existingIndex >= 0) {
-      // Track already in playlist—play it
-      setCurrentIndex(existingIndex);
-      setCurrentTrack(playlist[existingIndex]);
-      setIsPlaying(true);
-    } else {
-      // Add to playlist and play
-      const newPlaylist = [...playlist, track];
-      setPlaylist(newPlaylist);
-      setCurrentIndex(newPlaylist.length - 1);
-      setCurrentTrack(track);
-      setIsPlaying(true);
-    }
+  const playTrack = (track, tracksToAdd = []) => {
+    console.log('Playing track:', track.title, 'with tracks to add:', tracksToAdd.map(t => t.title));
+    const newPlaylist = [track, ...tracksToAdd];
+    setPlaylist(newPlaylist);
+    setCurrentIndex(0);
+    setCurrentTrack(track);
+    setIsPlaying(true);
   };
 
   const togglePlayPause = () => {
     if (soundRef.current) {
       if (isPlaying) {
         soundRef.current.pause();
+        setIsPlaying(false);
       } else {
         soundRef.current.play();
+        setIsPlaying(true);
       }
     }
   };
@@ -81,16 +92,18 @@ export function AudioProvider({ children }) {
   };
 
   const playNext = () => {
-    if (playlist.length === 0 || currentIndex < 0) return;
-    const nextIndex = (currentIndex + 1) % playlist.length; // Loop to start
+    if (playlist.length === 0 || currentIndex < 0 || currentIndex >= playlist.length - 1) return;
+    const nextIndex = currentIndex + 1;
+    console.log('Next track:', playlist[nextIndex].title);
     setCurrentIndex(nextIndex);
     setCurrentTrack(playlist[nextIndex]);
     setIsPlaying(true);
   };
 
   const playPrevious = () => {
-    if (playlist.length === 0 || currentIndex < 0) return;
-    const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1;
+    if (playlist.length === 0 || currentIndex <= 0) return;
+    const prevIndex = currentIndex - 1;
+    console.log('Previous track:', playlist[prevIndex].title);
     setCurrentIndex(prevIndex);
     setCurrentTrack(playlist[prevIndex]);
     setIsPlaying(true);

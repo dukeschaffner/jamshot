@@ -11,13 +11,14 @@ export default function UserPage() {
   const [tracks, setTracks] = useState([]);
   const [stats, setStats] = useState({ followers: 0, following: 0, isFollowing: false });
   const [loading, setLoading] = useState(true);
+  const [expandedTrackId, setExpandedTrackId] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [tracksResponse, statsResponse] = await Promise.all([
-          api.get(`/users/${userId}/tracks`), // Updated endpoint
-          api.get(`/users/${userId}/stats`),  // Updated endpoint
+          api.get(`/users/${userId}/tracks`),
+          api.get(`/users/${userId}/stats`),
         ]);
         setTracks(tracksResponse.data);
         setStats(statsResponse.data);
@@ -38,10 +39,10 @@ export default function UserPage() {
     }
     try {
       if (stats.isFollowing) {
-        await api.delete(`/users/follow/${userId}`); // Updated endpoint
+        await api.delete(`/users/follow/${userId}`);
         setStats(prev => ({ ...prev, isFollowing: false, followers: prev.followers - 1 }));
       } else {
-        await api.post(`/users/follow/${userId}`); // Updated endpoint
+        await api.post(`/users/follow/${userId}`);
         setStats(prev => ({ ...prev, isFollowing: true, followers: prev.followers + 1 }));
       }
     } catch (err) {
@@ -76,7 +77,12 @@ export default function UserPage() {
         <ul className="space-y-4">
           {tracks.map(track => (
             <li key={track.id}>
-              <Track track={track} playlist={tracks} />
+              <Track
+                track={track}
+                allTracks={tracks}
+                expandedTrackId={expandedTrackId}
+                setExpandedTrackId={setExpandedTrackId}
+              />
             </li>
           ))}
         </ul>
