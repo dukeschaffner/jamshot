@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 
 export default function Track({ track, allTracks, setExpandedTrackId, expandedTrackId }) {
@@ -16,6 +16,8 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
   const [isLikeInProgress, setIsLikeInProgress] = useState(false);
+  const [isReposted, setIsReposted] = useState(track.is_reposted || false);
+  const [isRepostInProgress, setIsRepostInProgress] = useState(false);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
@@ -33,10 +35,11 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
   }, [expandedTrackId, track.id]);
 
   useEffect(() => {
-    // Update like state when track prop changes
+    // Update like and repost state when track prop changes
     setIsLiked(track.is_liked || false);
     setLikeCount(Number(track.like_count) || 0);
-  }, [track.is_liked, track.like_count]);
+    setIsReposted(track.is_reposted || false);
+  }, [track.is_liked, track.like_count, track.is_reposted]);
 
   const toggleExpand = () => {
     setExpandedTrackId(isExpanded ? null : track.id);
@@ -84,11 +87,52 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
     }
   };
 
+  const handleRepostToggle = async (e) => {
+    e.stopPropagation();
+    
+    // Prevent action if already in progress
+    if (isRepostInProgress) return;
+    
+    const token = Cookies.get('token');
+    if (!token) {
+      alert('Please log in to repost tracks');
+      return;
+    }
+    
+    setIsRepostInProgress(true);
+    
+    try {
+      if (isReposted) {
+        await api.delete(`/tracks/${track.id}/repost`);
+        setIsReposted(false);
+      } else {
+        await api.post(`/tracks/${track.id}/repost`);
+        setIsReposted(true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle repost:', err);
+      if (err.response && err.response.status === 400) {
+        alert(err.response.data.error || 'Cannot repost this track');
+      } else if (err.response && err.response.status === 401) {
+        alert('Please log in to repost tracks');
+      } else {
+        alert('Failed to repost track');
+      }
+    } finally {
+      setIsRepostInProgress(false);
+    }
+  };
+
   const originalTrack = relatedTracks.find(t => t.id === track.parent_track_id);
   const collabTracks = relatedTracks.filter(t => t.parent_track_id === track.id);
 
   return (
     <div className={`bg-p1 rounded-lg shadow-md overflow-hidden transition-all duration-300 ${isExpanded ? 'mb-4' : 'mb-2'}`}>
+      {track.is_repost && track.reposted_by_username && (
+        <div className="bg-gray-100 px-4 py-1 text-xs text-gray-600 flex items-center">
+          <FaRetweet className="mr-1" /> Reposted by {track.reposted_by_username}
+        </div>
+      )}
       <div 
         className="cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={toggleExpand}
@@ -131,7 +175,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
               compact={true} 
             />
             
-            <div className="flex items-center space-x-2 mt-1">
+            <div className="flex items-center space-x-4 mt-1">
               <p className="text-sm text-gray-600">{track.collab_count} collabs</p>
               <div className="flex items-center space-x-1">
                 <button 
@@ -143,6 +187,16 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
                   {isLiked ? <FaHeart /> : <FaRegHeart />}
                 </button>
                 <span className="text-sm text-gray-600">{Number(likeCount)}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <button 
+                  onClick={handleRepostToggle} 
+                  className={`focus:outline-none ${isReposted ? 'text-green-500' : 'text-gray-500'} ${isRepostInProgress ? 'opacity-50' : ''}`}
+                  disabled={!Cookies.get('token') || isRepostInProgress} // Disable if not logged in or in progress
+                  title={Cookies.get('token') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+                >
+                  <FaRetweet />
+                </button>
               </div>
             </div>
           </div>

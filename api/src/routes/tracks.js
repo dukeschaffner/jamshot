@@ -165,6 +165,26 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     
     const trackId = result.rows[0].id;
     
+    // Create notification for parent track owner if this is a collaboration
+    if (parent_track_id) {
+      try {
+        const parentTrackOwner = await pool.query(
+          'SELECT user_id FROM tracks WHERE id = $1',
+          [parent_track_id]
+        );
+        
+        if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== userId) {
+          await pool.query(
+            'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+            [parentTrackOwner.rows[0].user_id, 'new_version', parent_track_id]
+          );
+        }
+      } catch (err) {
+        console.error('Error creating collaboration notification:', err);
+        // Continue execution even if notification creation fails
+      }
+    }
+    
     // Add genres if provided
     if (parsedGenreIds && parsedGenreIds.length > 0) {
       for (const genreId of parsedGenreIds) {
@@ -189,6 +209,326 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: `Upload failed: ${err.message}` });
+  }
+});
+
+// Get feed tracks (followed artists + popular)
+router.get('/feed', async (req, res) => {
+  const userId = req.user?.id; // Optional chaining in case user is not authenticated
+  const { page = 1, limit = 5, feedType = 'mixed' } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  
+  try {
+    let query;
+    let queryParams = [];
+    
+    if (feedType === 'following' && userId) {
+      // Tracks from followed artists and their reposts
+      query = `
+        WITH followed_users AS (
+          SELECT following_id FROM follows WHERE follower_id = $1
+        ),
+        followed_tracks AS (
+          SELECT 
+            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+            t.created_at,
+            u.username, u.verified,
+            t2.title AS original_title,
+            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
+            NULL::integer AS reposted_by_id,
+            NULL::text AS reposted_by_username,
+            NULL::timestamp AS reposted_at,
+            FALSE AS is_repost
+          FROM tracks t
+          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+          LEFT JOIN users u ON t.user_id = u.id
+          WHERE t.user_id IN (SELECT following_id FROM followed_users)
+        ),
+        reposted_tracks AS (
+          SELECT 
+            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+            r.created_at,
+            u.username, u.verified,
+            t2.title AS original_title,
+            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
+            r.user_id AS reposted_by_id,
+            ru.username AS reposted_by_username,
+            r.created_at AS reposted_at,
+            TRUE AS is_repost
+          FROM reposts r
+          JOIN tracks t ON r.track_id = t.id
+          JOIN users ru ON r.user_id = ru.id
+          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+          LEFT JOIN users u ON t.user_id = u.id
+          WHERE r.user_id IN (SELECT following_id FROM followed_users)
+        )
+        SELECT * FROM (
+          SELECT * FROM followed_tracks
+          UNION ALL
+          SELECT * FROM reposted_tracks
+        ) combined
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+      queryParams = [userId, limitNum, offset];
+    } else if (feedType === 'popular') {
+      // Popular tracks based on likes
+      query = `
+        SELECT 
+          t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+          t.created_at,
+          u.username, u.verified,
+          t2.title AS original_title,
+          (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+          EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+          (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+          EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
+          NULL::integer AS reposted_by_id,
+          NULL::text AS reposted_by_username,
+          NULL::timestamp AS reposted_at,
+          FALSE AS is_repost
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        ORDER BY like_count DESC, t.created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+      queryParams = [userId || null, limitNum, offset];
+    } else {
+      // Mixed feed: combination of followed artists, their reposts, and popular tracks
+      if (userId) {
+        query = `
+          WITH followed_users AS (
+            SELECT following_id FROM follows WHERE follower_id = $1
+          ),
+          followed_tracks AS (
+            SELECT 
+              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+              t.created_at,
+              u.username, u.verified,
+              t2.title AS original_title,
+              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
+              NULL::integer AS reposted_by_id,
+              NULL::text AS reposted_by_username,
+              NULL::timestamp AS reposted_at,
+              FALSE AS is_repost,
+              1 AS priority
+            FROM tracks t
+            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE t.user_id IN (SELECT following_id FROM followed_users)
+          ),
+          reposted_tracks AS (
+            SELECT 
+              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+              r.created_at,
+              u.username, u.verified,
+              t2.title AS original_title,
+              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
+              r.user_id AS reposted_by_id,
+              ru.username AS reposted_by_username,
+              r.created_at AS reposted_at,
+              TRUE AS is_repost,
+              1 AS priority
+            FROM reposts r
+            JOIN tracks t ON r.track_id = t.id
+            JOIN users ru ON r.user_id = ru.id
+            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE r.user_id IN (SELECT following_id FROM followed_users)
+          ),
+          popular_tracks AS (
+            SELECT 
+              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+              t.created_at,
+              u.username, u.verified,
+              t2.title AS original_title,
+              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
+              NULL::integer AS reposted_by_id,
+              NULL::text AS reposted_by_username,
+              NULL::timestamp AS reposted_at,
+              FALSE AS is_repost,
+              2 AS priority
+            FROM tracks t
+            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE t.id NOT IN (
+              SELECT id FROM followed_tracks
+              UNION
+              SELECT id FROM reposted_tracks
+            )
+            ORDER BY like_count DESC
+            LIMIT $2
+          )
+          SELECT * FROM (
+            SELECT * FROM followed_tracks
+            UNION ALL
+            SELECT * FROM reposted_tracks
+            UNION ALL
+            SELECT * FROM popular_tracks
+          ) combined
+          ORDER BY priority, created_at DESC
+          LIMIT $2 OFFSET $3
+        `;
+        queryParams = [userId, limitNum, offset];
+      } else {
+        // For non-logged in users, just show popular tracks
+        query = `
+          SELECT 
+            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+            t.created_at,
+            u.username, u.verified,
+            t2.title AS original_title,
+            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
+            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
+            NULL::integer AS reposted_by_id,
+            NULL::text AS reposted_by_username,
+            NULL::timestamp AS reposted_at,
+            FALSE AS is_repost
+          FROM tracks t
+          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+          LEFT JOIN users u ON t.user_id = u.id
+          ORDER BY like_count DESC, t.created_at DESC
+          LIMIT $2 OFFSET $3
+        `;
+        queryParams = [null, limitNum, offset];
+      }
+    }
+    
+    const result = await pool.query(query, queryParams);
+    
+    const tracks = await Promise.all(result.rows.map(async track => {
+      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
+      if (process.env.NODE_ENV !== 'production') {
+        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
+      } else if (combinedAudioUrl.startsWith('tracks/')) {
+        combinedAudioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.combined_audio_url || track.audio_url,
+          Expires: 3600,
+        });
+      }
+      
+      // Get genres for this track
+      const genresResult = await pool.query(
+        `SELECT g.* FROM genres g
+         JOIN track_genres tg ON g.id = tg.genre_id
+         WHERE tg.track_id = $1
+         ORDER BY g.name`,
+        [track.id]
+      );
+      
+      // Get instruments for this track
+      const instrumentsResult = await pool.query(
+        `SELECT i.* FROM instruments i
+         JOIN track_instruments ti ON i.id = ti.instrument_id
+         WHERE ti.track_id = $1
+         ORDER BY i.name`,
+        [track.id]
+      );
+      
+      return { 
+        ...track, 
+        combined_audio_url: combinedAudioUrl,
+        genres: genresResult.rows,
+        instruments: instrumentsResult.rows
+      };
+    }));
+    
+    res.json(tracks);
+  } catch (err) {
+    console.error('Feed error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Track and Versions
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id; // Optional chaining in case user is not authenticated
+  try {
+    const result = await pool.query(`
+      SELECT 
+        t.*,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+      FROM tracks t
+      WHERE t.id = $1 OR t.parent_track_id = $1 
+      ORDER BY t.created_at ASC
+    `, [id, userId || null]);
+    
+    const tracks = await Promise.all(result.rows.map(async track => {
+      let audioUrl = track.audio_url;
+      let combinedAudioUrl = track.combined_audio_url || track.audio_url; // Fallback to audio_url if no combined
+      
+      if (process.env.NODE_ENV !== 'production') {
+        audioUrl = `http://localhost:5000${audioUrl}`;
+        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
+      } else {
+        if (audioUrl.startsWith('tracks/')) {
+          audioUrl = s3.getSignedUrl('getObject', {
+            Bucket: process.env.S3_BUCKET,
+            Key: track.audio_url,
+            Expires: 3600,
+          });
+        }
+        if (combinedAudioUrl.startsWith('tracks/')) {
+          combinedAudioUrl = s3.getSignedUrl('getObject', {
+            Bucket: process.env.S3_BUCKET,
+            Key: track.combined_audio_url || track.audio_url,
+            Expires: 3600,
+          });
+        }
+      }
+      
+      // Get genres for this track
+      const genresResult = await pool.query(
+        `SELECT g.* FROM genres g
+         JOIN track_genres tg ON g.id = tg.genre_id
+         WHERE tg.track_id = $1
+         ORDER BY g.name`,
+        [track.id]
+      );
+      
+      // Get instruments for this track
+      const instrumentsResult = await pool.query(
+        `SELECT i.* FROM instruments i
+         JOIN track_instruments ti ON i.id = ti.instrument_id
+         WHERE ti.track_id = $1
+         ORDER BY i.name`,
+        [track.id]
+      );
+      
+      return { 
+        ...track, 
+        audio_url: audioUrl, 
+        combined_audio_url: combinedAudioUrl,
+        genres: genresResult.rows,
+        instruments: instrumentsResult.rows
+      };
+    }));
+    
+    res.json(tracks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -313,87 +653,33 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get Track and Versions
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id; // Optional chaining in case user is not authenticated
-  try {
-    const result = await pool.query(`
-      SELECT 
-        t.*,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
-      FROM tracks t
-      WHERE t.id = $1 OR t.parent_track_id = $1 
-      ORDER BY t.created_at ASC
-    `, [id, userId || null]);
-    
-    const tracks = await Promise.all(result.rows.map(async track => {
-      let audioUrl = track.audio_url;
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url; // Fallback to audio_url if no combined
-      
-      if (process.env.NODE_ENV !== 'production') {
-        audioUrl = `http://localhost:5000${audioUrl}`;
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else {
-        if (audioUrl.startsWith('tracks/')) {
-          audioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.audio_url,
-            Expires: 3600,
-          });
-        }
-        if (combinedAudioUrl.startsWith('tracks/')) {
-          combinedAudioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.combined_audio_url || track.audio_url,
-            Expires: 3600,
-          });
-        }
-      }
-      
-      // Get genres for this track
-      const genresResult = await pool.query(
-        `SELECT g.* FROM genres g
-         JOIN track_genres tg ON g.id = tg.genre_id
-         WHERE tg.track_id = $1
-         ORDER BY g.name`,
-        [track.id]
-      );
-      
-      // Get instruments for this track
-      const instrumentsResult = await pool.query(
-        `SELECT i.* FROM instruments i
-         JOIN track_instruments ti ON i.id = ti.instrument_id
-         WHERE ti.track_id = $1
-         ORDER BY i.name`,
-        [track.id]
-      );
-      
-      return { 
-        ...track, 
-        audio_url: audioUrl, 
-        combined_audio_url: combinedAudioUrl,
-        genres: genresResult.rows,
-        instruments: instrumentsResult.rows
-      };
-    }));
-    
-    res.json(tracks);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Like a Track
 router.post('/:id/like', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
+    // Check if track exists and get track owner
+    const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    // Don't create notification if liking your own track
+    const trackOwnerId = trackCheck.rows[0].user_id;
+    
     await pool.query(
       'INSERT INTO likes (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [userId, id]
     );
+    
+    // Create notification for track owner (if not liking own track)
+    if (trackOwnerId !== userId) {
+      await pool.query(
+        'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+        [trackOwnerId, 'like', id]
+      );
+    }
+    
     res.status(200).json({ message: 'Liked' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -421,10 +707,28 @@ router.post('/:id/comment', authMiddleware, async (req, res) => {
   const { content } = req.body;
   const userId = req.user.id;
   try {
+    // Check if track exists and get track owner
+    const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    // Don't create notification if commenting on your own track
+    const trackOwnerId = trackCheck.rows[0].user_id;
+    
     const result = await pool.query(
       'INSERT INTO comments (user_id, track_id, content) VALUES ($1, $2, $3) RETURNING *',
       [userId, id, content]
     );
+    
+    // Create notification for track owner (if not commenting on own track)
+    if (trackOwnerId !== userId) {
+      await pool.query(
+        'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+        [trackOwnerId, 'comment', id]
+      );
+    }
+    
     res.status(201).json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -515,6 +819,62 @@ router.get('/search', async (req, res) => {
     res.json(tracks);
   } catch (err) {
     console.error('Search error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Repost a Track
+router.post('/:id/repost', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  try {
+    // Check if track exists
+    const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    // Don't allow reposting your own track
+    if (trackCheck.rows[0].user_id === userId) {
+      return res.status(400).json({ error: 'Cannot repost your own track' });
+    }
+    
+    // Create repost
+    await pool.query(
+      'INSERT INTO reposts (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [userId, id]
+    );
+    
+    // Create notification for track owner
+    await pool.query(
+      'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+      [trackCheck.rows[0].user_id, 'repost', id]
+    );
+    
+    res.status(200).json({ message: 'Track reposted successfully' });
+  } catch (err) {
+    console.error('Repost error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Unrepost a Track
+router.delete('/:id/repost', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  try {
+    const result = await pool.query(
+      'DELETE FROM reposts WHERE user_id = $1 AND track_id = $2',
+      [userId, id]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Repost not found' });
+    }
+    
+    res.status(200).json({ message: 'Track unreposted successfully' });
+  } catch (err) {
+    console.error('Unrepost error:', err);
     res.status(500).json({ error: err.message });
   }
 });

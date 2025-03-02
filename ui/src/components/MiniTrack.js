@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAudio } from '../lib/AudioContext';
-import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaRetweet } from 'react-icons/fa';
 import TrackTags from './TrackTags';
 import api from '../lib/api';
 import Cookies from 'js-cookie';
@@ -11,12 +11,15 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
   const [isLikeInProgress, setIsLikeInProgress] = useState(false);
+  const [isReposted, setIsReposted] = useState(track.is_reposted || false);
+  const [isRepostInProgress, setIsRepostInProgress] = useState(false);
 
   useEffect(() => {
-    // Update like state when track prop changes
+    // Update like and repost state when track prop changes
     setIsLiked(track.is_liked || false);
     setLikeCount(Number(track.like_count) || 0);
-  }, [track.is_liked, track.like_count]);
+    setIsReposted(track.is_reposted || false);
+  }, [track.is_liked, track.like_count, track.is_reposted]);
 
   const handlePlayToggle = (e) => {
     e.stopPropagation();
@@ -61,6 +64,42 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
     }
   };
 
+  const handleRepostToggle = async (e) => {
+    e.stopPropagation();
+    
+    // Prevent action if already in progress
+    if (isRepostInProgress) return;
+    
+    const token = Cookies.get('token');
+    if (!token) {
+      alert('Please log in to repost tracks');
+      return;
+    }
+    
+    setIsRepostInProgress(true);
+    
+    try {
+      if (isReposted) {
+        await api.delete(`/tracks/${track.id}/repost`);
+        setIsReposted(false);
+      } else {
+        await api.post(`/tracks/${track.id}/repost`);
+        setIsReposted(true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle repost:', err);
+      if (err.response && err.response.status === 400) {
+        alert(err.response.data.error || 'Cannot repost this track');
+      } else if (err.response && err.response.status === 401) {
+        alert('Please log in to repost tracks');
+      } else {
+        alert('Failed to repost track');
+      }
+    } finally {
+      setIsRepostInProgress(false);
+    }
+  };
+
   return (
     <div className="flex items-center space-x-2 p-2 bg-s2 rounded">
       <button
@@ -81,16 +120,26 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
           />
         )}
       </div>
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-1">
+          <button 
+            onClick={handleLikeToggle} 
+            className={`text-red-500 focus:outline-none ${isLikeInProgress ? 'opacity-50' : ''}`}
+            disabled={!Cookies.get('token') || isLikeInProgress} // Disable if not logged in or in progress
+            title={Cookies.get('token') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+          >
+            {isLiked ? <FaHeart /> : <FaRegHeart />}
+          </button>
+          <span className="text-xs text-gray-600">{Number(likeCount)}</span>
+        </div>
         <button 
-          onClick={handleLikeToggle} 
-          className={`text-red-500 focus:outline-none ${isLikeInProgress ? 'opacity-50' : ''}`}
-          disabled={!Cookies.get('token') || isLikeInProgress} // Disable if not logged in or in progress
-          title={Cookies.get('token') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+          onClick={handleRepostToggle} 
+          className={`focus:outline-none ${isReposted ? 'text-green-500' : 'text-gray-500'} ${isRepostInProgress ? 'opacity-50' : ''}`}
+          disabled={!Cookies.get('token') || isRepostInProgress} // Disable if not logged in or in progress
+          title={Cookies.get('token') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
         >
-          {isLiked ? <FaHeart /> : <FaRegHeart />}
+          <FaRetweet size={14} />
         </button>
-        <span className="text-xs text-gray-600">{Number(likeCount)}</span>
       </div>
     </div>
   );
