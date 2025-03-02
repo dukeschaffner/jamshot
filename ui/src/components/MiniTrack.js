@@ -1,7 +1,7 @@
 'use client';
 import { useAudio } from '../lib/AudioContext';
 
-export default function MiniTrack({ track }) {
+export default function MiniTrack({ track }) { // Removed playlist prop
   const { currentTrack, isPlaying, playTrack } = useAudio();
 
   return (
@@ -9,7 +9,8 @@ export default function MiniTrack({ track }) {
       <button
         onClick={(e) => {
           e.stopPropagation();
-          playTrack(track);
+          console.log('Playing track:', track);
+          playTrack(track); // No playlist arg
         }}
         className={`w-8 h-8 rounded-full text-white flex items-center justify-center ${
           currentTrack?.id === track.id && isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'

@@ -161,24 +161,50 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     res.status(500).json({ error: `Upload failed: ${err.message}` });
   }
 });
+router.get('/:id/related', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(`
+      SELECT 
+        t.id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+        u.username, u.verified
+      FROM tracks t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.id = $1 OR t.parent_track_id = $1 OR t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)
+      ORDER BY t.created_at ASC
+    `, [id]);
+    
+    const tracks = result.rows.map(track => {
+      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
+      if (process.env.NODE_ENV !== 'production') {
+        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
+      } else if (combinedAudioUrl.startsWith('tracks/')) {
+        combinedAudioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.combined_audio_url || track.audio_url,
+          Expires: 3600,
+        });
+      }
+      return { ...track, combined_audio_url: combinedAudioUrl };
+    });
+    res.json(tracks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        t1.id, 
-        t1.user_id, 
-        t1.title, 
-        t1.audio_url,
-        t1.combined_audio_url,
-        t1.duration, 
-        t1.layer, 
-        t1.parent_track_id, 
+        t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+        u.username, u.verified,
         t2.title AS original_title,
-        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t1.id) AS collab_count
-      FROM tracks t1
-      LEFT JOIN tracks t2 ON t1.parent_track_id = t2.id
-      ORDER BY t1.created_at DESC
+        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      ORDER BY t.created_at DESC
     `);
     const tracks = result.rows.map(track => {
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
@@ -230,44 +256,6 @@ router.get('/:id', async (req, res) => {
         }
       }
       return { ...track, audio_url: audioUrl, combined_audio_url: combinedAudioUrl };
-    });
-    res.json(tracks);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/:id/related', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const result = await pool.query(`
-      SELECT 
-        t.id, 
-        t.title, 
-        t.audio_url, 
-        t.combined_audio_url,
-        t.duration, 
-        t.layer, 
-        t.parent_track_id
-      FROM tracks t
-      WHERE t.id = $1 
-         OR t.parent_track_id = $1 
-         OR t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)
-      ORDER BY t.created_at ASC
-    `, [id]);
-    
-    const tracks = result.rows.map(track => {
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (process.env.NODE_ENV !== 'production') {
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else if (combinedAudioUrl.startsWith('tracks/')) {
-        combinedAudioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.combined_audio_url || track.audio_url,
-          Expires: 3600,
-        });
-      }
-      return { ...track, combined_audio_url: combinedAudioUrl };
     });
     res.json(tracks);
   } catch (err) {

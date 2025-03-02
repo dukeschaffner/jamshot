@@ -1,11 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import { useAudio } from '../lib/AudioContext';
+import { FaCheckCircle } from 'react-icons/fa';
 
-export default function Track({ track }) {
+export default function Track({ track }) { // Removed playlist prop
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [relatedTracks, setRelatedTracks] = useState([]);
@@ -31,13 +32,13 @@ export default function Track({ track }) {
   const collabTracks = relatedTracks.filter(t => t.parent_track_id === track.id);
 
   return (
-    <div className="bg-p1 rounded shadow">
+    <div className="bg-p1 rounded-lg shadow-md">
       <div className="p-4 cursor-pointer" onClick={toggleExpand}>
         <div className="flex items-center space-x-4">
           <button
             onClick={(e) => {
               e.stopPropagation();
-              playTrack(track);
+              playTrack(track); // No playlist arg
             }}
             className={`w-10 h-10 rounded-full text-white flex items-center justify-center ${
               currentTrack?.id === track.id && isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
@@ -46,14 +47,28 @@ export default function Track({ track }) {
             {currentTrack?.id === track.id && isPlaying ? '❚❚' : '▶'}
           </button>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold">{track.title}</h2>
-            {!track.is_original && (
-              <p className="text-sm text-gray-600">Based on: {track.original_title}</p>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-lg font-semibold text-gray-800">{track.title}</h2>
+              {track.verified && (
+                <FaCheckCircle className="text-blue-500" title="Verified Artist" />
+              )}
+            </div>
+            <p className="text-sm text-gray-600">by {track.username}</p>
+            {track.layer > 0 && (
+              <p className="text-sm text-gray-600">Layer: {track.layer} (Based on: {track.original_title})</p>
             )}
             <p className="text-sm text-gray-600">{track.collab_count} collabs</p>
           </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/collaborate/${track.id}`);
+            }}
+            className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+          >
+            Collaborate
+          </button>
         </div>
-        <button onClick={() => router.push(`/collaborate/${track.id}`)} className="ml-2 text-blue-500">Collaborate</button>
       </div>
 
       {isExpanded && (

@@ -8,6 +8,8 @@ export function AudioProvider({ children }) {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [playlist, setPlaylist] = useState([]); // Dynamic playlist
+  const [currentIndex, setCurrentIndex] = useState(-1); // Index in playlist
   const soundRef = useRef(null);
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export function AudioProvider({ children }) {
         onload: () => console.log('Global audio loaded:', currentTrack.title),
         onplay: () => setIsPlaying(true),
         onpause: () => setIsPlaying(false),
-        onend: () => setIsPlaying(false),
+        onend: () => playNext(),
         onseek: () => updateProgress(),
       });
       if (isPlaying) soundRef.current.play();
@@ -43,12 +45,20 @@ export function AudioProvider({ children }) {
     }
   };
 
-  const playTrack = (track) => {
-    if (currentTrack?.id !== track.id) {
-      setCurrentTrack(track);
+  const playTrack = (track, sourcePlaylist = []) => {
+    const existingIndex = playlist.findIndex(t => t.id === track.id);
+    if (existingIndex >= 0) {
+      // Track already in playlist—play it
+      setCurrentIndex(existingIndex);
+      setCurrentTrack(playlist[existingIndex]);
       setIsPlaying(true);
     } else {
-      togglePlayPause();
+      // Add to playlist and play
+      const newPlaylist = [...playlist, track];
+      setPlaylist(newPlaylist);
+      setCurrentIndex(newPlaylist.length - 1);
+      setCurrentTrack(track);
+      setIsPlaying(true);
     }
   };
 
@@ -70,8 +80,24 @@ export function AudioProvider({ children }) {
     }
   };
 
+  const playNext = () => {
+    if (playlist.length === 0 || currentIndex < 0) return;
+    const nextIndex = (currentIndex + 1) % playlist.length; // Loop to start
+    setCurrentIndex(nextIndex);
+    setCurrentTrack(playlist[nextIndex]);
+    setIsPlaying(true);
+  };
+
+  const playPrevious = () => {
+    if (playlist.length === 0 || currentIndex < 0) return;
+    const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1;
+    setCurrentIndex(prevIndex);
+    setCurrentTrack(playlist[prevIndex]);
+    setIsPlaying(true);
+  };
+
   return (
-    <AudioContext.Provider value={{ currentTrack, isPlaying, progress, playTrack, togglePlayPause, seek }}>
+    <AudioContext.Provider value={{ currentTrack, isPlaying, progress, playlist, currentIndex, playTrack, togglePlayPause, seek, playNext, playPrevious }}>
       {children}
     </AudioContext.Provider>
   );
