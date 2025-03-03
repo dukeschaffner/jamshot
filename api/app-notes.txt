@@ -1,0 +1,206 @@
+About
+This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
+
+Goals/VALUE
+- music collaboration as a social media
+- Democratize music creation
+- allow musicians to make a meaningful/valuable piece of work without having to complete the process of recording a song from start to finish
+- tracks will be capped at 1:30 to make it simple, fun, and pair well with short form video content like Tik Tok.
+
+Features
+- home feed with tracks/collabs posted by user's follows mixed with popular tracks
+  - click on a track to expand and see other collabs
+- users will have profiles and can be verified artists. There will be a profile page with the user's tracks, picture, reposted tracks, liked tracks, follower count, etc
+- It will also work as a streaming service, were a user can pick a genre and just listen
+  - tracks will have genre and instrument tags to help accommodate this
+
+Layout
+- Navbar with links to home, user account, upload, and a search bar. 
+- global player with track navigation buttons (previous, play/pause, next, shuffle, loop), track title/artist username, song progress indicator
+
+Pages
+- Home
+  - Contains the user's feed, generated from an algorithm
+  - the tracks are shown as an expandable card containing a play button, the user's profile picture, user name, the track title, play count, like count, and a "collaborate" button
+  - When the track is expanded, it shows a list of tracks containing the track that the current track is based on "original" or "based on" and all the tracks based on the current track. There will be fewer details shown on these items. play button, track title - username, like count, play count
+- collaborate/[trackId]
+  - has two tabs, record and upload.
+    - record allows the user to select input device and record several audio takes, view and playback all the takes, choose/delete takes. There is an input level meter and a recording progress bar. they select a take, name the track, and hit upload.
+    - upload allows the user to upload a prerecorded file, name the track, and upload the track
+    - both tabs should allow user to playback their audio with the parent track with a progress bar
+- standard login/register pages (email, password, username)
+- upload
+  - allows user to upload file, name track, and upload the track
+-user
+  - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
+
+
+
+TODO
+- synchronize recording/playback on collaboration
+- add metronome field to track. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
+- content moderation
+- space to play/pause global player
+- track images: generate ai image on upload, then allow user to upload custom picture after upload
+- prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
+
+
+
+PostgreSQL db structure:
+
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL, -- Hashed with bcrypt
+  profile_pic_url VARCHAR(255), -- S3 URL for profile pic
+  bio TEXT, -- Optional short bio
+  verified BOOL not null default false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE tracks (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE, -- Who uploaded it
+  title VARCHAR(100) NOT NULL,
+  audio_url VARCHAR(1000) NOT NULL, -- S3 URL for the clip
+  combined_audio_url VARCHAR(1000) NOT NULL,
+  duration INT NOT NULL, -- Seconds, for UI display
+  layer INT NOT NULL, -- 0-4 (max 5 collaborators)
+  parent_track_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Null for originals, links to parent for versions
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  play_count INT DEFAULT 0
+);
+
+CREATE TABLE likes (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, track_id) -- Prevent duplicate likes
+);
+
+CREATE TABLE comments (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE featured_tracks (
+  id SERIAL PRIMARY KEY,
+  track_id INT UNIQUE REFERENCES tracks(id) ON DELETE CASCADE,
+  featured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP -- When it drops off the featured page
+);
+
+CREATE TABLE follows (
+  id SERIAL PRIMARY KEY,
+  follower_id INT REFERENCES users(id) ON DELETE CASCADE,
+  following_id INT REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (follower_id, following_id) -- No duplicate follows
+);
+
+CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost');
+
+-- Recreate the notifications table with the proper type
+CREATE TABLE notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  type notification_type NOT NULL,
+  related_track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+); 
+
+-- New tables for genre and instrument tagging system
+
+CREATE TABLE genres (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE instruments (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE track_genres (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  genre_id INT REFERENCES genres(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, genre_id) -- Prevent duplicate genre tags for a track
+);
+
+CREATE TABLE track_instruments (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  instrument_id INT REFERENCES instruments(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, instrument_id) -- Prevent duplicate instrument tags for a track
+);
+
+-- Insert some initial genres
+INSERT INTO genres (name) VALUES
+('Rock'),
+('Pop'),
+('Hip Hop'),
+('Electronic'),
+('Jazz'),
+('Classical'),
+('R&B'),
+('Country'),
+('Folk'),
+('Metal');
+
+-- Insert some initial instruments
+INSERT INTO instruments (name) VALUES
+('Guitar'),
+('Piano'),
+('Drums'),
+('Bass'),
+('Vocals'),
+('Synthesizer'),
+('Saxophone'),
+('Violin'),
+('Trumpet'),
+('DJ/Turntables');
+
+CREATE TABLE reposts (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, track_id) -- Prevent duplicate reposts
+);
+
+-- Table for tracking plays
+CREATE TABLE track_plays (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL, -- Can be NULL for anonymous plays
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create function to update play_count on tracks
+CREATE OR REPLACE FUNCTION update_track_play_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE tracks
+  SET play_count = (SELECT COUNT(*) FROM track_plays WHERE track_id = NEW.track_id)
+  WHERE id = NEW.track_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to update play_count when a new play is recorded
+CREATE TRIGGER track_play_count_update
+AFTER INSERT ON track_plays
+FOR EACH ROW
+EXECUTE FUNCTION update_track_play_count();

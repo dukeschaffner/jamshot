@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collabo - Music Collaboration Platform</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --white: #ffffff;
+            --seafoam: #93E9BE;
+            --seafoam-light: #C1F4D9;
+            --rustic-pink: #E9A9A1;
+            --rustic-pink-light: #F4C9C4;
+            --gray-light: #f5f5f5;
+            --gray: #e0e0e0;
+            --dark: #333333;
+            --text: #555555;
+            --shadow: rgba(0, 0, 0, 0.05);
+            
+            /* Dark mode variables */
+            --dark-bg: #121212;
+            --dark-card-bg: #1e1e1e;
+            --dark-text-primary: #ffffff;
+            --dark-text-secondary: #a1a1aa;
+            --dark-border-color: #2e2e2e;
+            --dark-hover-color: #2a2a2a;
+            --dark-shadow: rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--white);
+            color: var(--text);
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            grid-template-rows: 1fr 80px;
+            grid-template-areas:
+                "sidebar main"
+                "player player";
+            min-height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        body.dark-mode {
+            background-color: var(--dark-bg);
+            color: var(--dark-text-primary);
+        }
+
+        /* Navbar Styles */
+        .navbar {
+            grid-area: sidebar;
+            width: 240px;
+            background-color: var(--white);
+            border-right: 1px solid var(--gray);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 0;
+            height: 100%;
+            box-shadow: 2px 0px 10px var(--shadow);
+            z-index: 100;
+            position: relative;
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        body.dark-mode .navbar {
+            background-color: var(--dark-card-bg);
+            border-right: 1px solid var(--dark-border-color);
+            box-shadow: 2px 0px 10px var(--dark-shadow);
+        }
+
+        .logo {
+            padding: 0 24px 24px;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--dark);
+            text-align: left;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .logo {
+            color: var(--dark-text-primary);
+        }
+
+        .logo span {
+            background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+        }
+
+        .nav-link:hover {
+            background-color: var(--seafoam-light);
+        }
+
+        .nav-link.active {
+            color: var(--dark);
+            background-color: var(--seafoam-light);
+            border-left: 4px solid var(--seafoam);
+            padding-left: 20px;
+        }
+
+        .nav-link svg {
+            margin-right: 16px;
+            width: 20px;
+            height: 20px;
+        }
+
+        .nav-link i {
+            margin-right: 16px;
+            width: 20px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .theme-toggle {
+            margin-top: auto;
+            margin-bottom: 16px;
+        }
+
+        body.dark-mode .nav-link:hover {
+            background-color: var(--dark-hover-color);
+        }
+
+        body.dark-mode .nav-link.active {
+            background-color: var(--dark-hover-color);
+            border-left: 4px solid var(--seafoam);
+        }
+
+        .search-box {
+            margin: 0 24px 24px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border: 1px solid var(--gray);
+            border-radius: 20px;
+            background-color: var(--gray-light);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        body.dark-mode .search-box input {
+            background-color: var(--dark-hover-color);
+            border-color: var(--dark-border-color);
+            color: var(--dark-text-primary);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text);
+        }
+
+        .upload-btn {
+            margin: 12px 24px 24px;
+            padding: 12px 20px;
+            background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .upload-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-btn svg {
+            margin-right: 8px;
+        }
+
+        .user-profile {
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            margin-top: auto;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--rustic-pink-light);
+            overflow: hidden;
+            margin-right: 12px;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-info {
+            flex-grow: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 14px;
+        }
+
+        .user-handle {
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            grid-area: main;
+            overflow-y: auto;
+            padding-bottom: 20px;
+        }
+
+        .feed-header {
+            padding: 24px 40px;
+            border-bottom: 1px solid var(--gray);
+            transition: border-color 0.3s ease;
+        }
+
+        body.dark-mode .feed-header {
+            border-bottom: 1px solid var(--dark-border-color);
+        }
+
+        .feed-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 8px;
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .feed-title {
+            color: var(--dark-text-primary);
+        }
+
+        .feed-subtitle {
+            font-size: 14px;
+            color: var(--text);
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .feed-subtitle {
+            color: var(--dark-text-secondary);
+        }
+
+        .feed {
+            padding: 24px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Track Card Styles */
+        .track-card {
+            background-color: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--shadow);
+            overflow: hidden;
+            transition: all 0.2s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        body.dark-mode .track-card {
+            background-color: var(--dark-card-bg);
+            box-shadow: 0 4px 12px var(--dark-shadow);
+        }
+
+        .track-main {
+            display: grid;
+            grid-template-columns: 60px 1fr auto;
+            padding: 16px;
+            gap: 16px;
+            align-items: center;
+            position: relative;
+        }
+
+        .track-play {
+            width: 60px;
+            height: 60px;
+            background-color: var(--seafoam);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: transform 0.2s, background-color 0.2s;
+            position: relative;
+            z-index: 2; /* Ensure play button stays above the clickable card */
+            color: var(--white);
+            font-size: 1.3rem;
+        }
+
+        .track-play:hover {
+            transform: scale(1.05);
+            background-color: var(--rustic-pink);
+        }
+
+        .track-play svg {
+            width: 24px;
+            height: 24px;
+            fill: white;
+        }
+
+        .track-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .track-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 4px;
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .track-title {
+            color: var(--dark-text-primary);
+        }
+
+        .track-artist {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .artist-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+
+        .artist-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .artist-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text);
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .artist-name {
+            color: var(--dark-text-secondary);
+        }
+
+        .track-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 0.9rem;
+            color: var(--text);
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .track-meta {
+            color: var(--dark-text-secondary);
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 50px;
+        }
+
+        .meta-item svg, .meta-item i {
+            width: 14px;
+            height: 14px;
+            margin-right: 2px;
+        }
+
+        .track-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: color 0.2s, background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px;
+        }
+
+        body.dark-mode .action-btn {
+            color: var(--dark-text-secondary);
+        }
+
+        .action-btn:hover {
+            color: var(--dark);
+        }
+
+        body.dark-mode .action-btn:hover {
+            color: var(--dark-text-primary);
+        }
+
+        .collab-btn {
+            background-color: var(--rustic-pink-light);
+            color: var(--dark);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        body.dark-mode .collab-btn {
+            background-color: var(--rustic-pink);
+            color: var(--dark-text-primary);
+        }
+
+        .collab-btn:hover {
+            background-color: var(--rustic-pink);
+            color: white;
+        }
+
+        .like-btn, .share-btn {
+            background: transparent;
+            border: none;
+            padding: 8px;
+        }
+
+        .like-btn.active {
+            color: var(--rustic-pink);
+        }
+
+        body.dark-mode .like-btn.active {
+            color: var(--rustic-pink-light);
+        }
+
+        .like-btn:hover, .share-btn:hover {
+            color: var(--dark);
+        }
+
+        /* Expanded Track Related Section */
+        .track-details {
+            display: none;
+            background-color: var(--gray-light);
+            padding: 16px;
+            border-top: 1px solid var(--gray);
+            border-radius: 0 0 12px 12px;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body.dark-mode .track-details {
+            background-color: var(--dark-hover-color);
+            border-top: 1px solid var(--dark-border-color);
+        }
+
+        .track-card.expanded .track-details {
+            display: block;
+        }
+
+        .related-tracks {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .track-relation {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+            margin-top: 12px;
+        }
+
+        .track-relation:first-child {
+            margin-top: 0;
+        }
+
+        .related-track {
+            display: grid;
+            grid-template-columns: 40px 1fr auto;
+            padding: 8px;
+            gap: 12px;
+            align-items: center;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .related-track:hover {
+            background-color: var(--gray);
+        }
+
+        .related-play {
+            width: 40px;
+            height: 40px;
+            background-color: var(--seafoam-light);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background-color 0.2s;
+            color: var(--dark);
+        }
+
+        .related-play:hover {
+            background-color: var(--seafoam);
+        }
+
+        .related-play i {
+            color: var(--dark);
+            font-size: 0.9rem;
+        }
+
+        .related-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .related-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 4px;
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .related-title {
+            color: var(--dark-text-primary);
+        }
+
+        .related-artist {
+            font-size: 0.8rem;
+            color: var(--text);
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .related-artist {
+            color: var(--dark-text-secondary);
+        }
+
+        .related-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.8rem;
+            color: var(--text);
+        }
+
+        .related-meta .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Global Player Styles */
+        .global-player {
+            grid-area: player;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--white);
+            border-top: 1px solid var(--gray);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            height: 80px;
+            box-shadow: 0 -2px 10px var(--shadow);
+            z-index: 99;
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        body.dark-mode .global-player {
+            background-color: var(--dark-card-bg);
+            border-top: 1px solid var(--dark-border-color);
+            box-shadow: 0 -2px 10px var(--dark-shadow);
+        }
+
+        .now-playing {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .now-playing-img {
+            width: 50px;
+            height: 50px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        .now-playing-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .now-playing-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .now-playing-title {
+            color: var(--dark-text-primary);
+        }
+
+        .now-playing-artist {
+            font-size: 0.8rem;
+            color: var(--text-secondary, var(--text));
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .now-playing-artist {
+            color: var(--dark-text-secondary);
+        }
+
+        .player-controls {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-buttons {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .control-button {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary, var(--text));
+            cursor: pointer;
+            font-size: 1rem;
+            transition: color 0.2s;
+        }
+
+        body.dark-mode .control-button {
+            color: var(--dark-text-secondary);
+        }
+
+        .control-button:hover, .control-button.active {
+            color: var(--text-primary, var(--dark));
+        }
+
+        body.dark-mode .control-button:hover, 
+        body.dark-mode .control-button.active {
+            color: var(--dark-text-primary);
+        }
+
+        .control-button.play-pause {
+            width: 36px;
+            height: 36px;
+            background-color: var(--primary-color, var(--seafoam));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .control-button.play-pause:hover {
+            background-color: var(--primary-light, var(--rustic-pink));
+            color: white;
+        }
+
+        .progress-container {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .time {
+            font-size: 0.7rem;
+            color: var(--text-secondary, var(--text));
+            min-width: 35px;
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .time {
+            color: var(--dark-text-secondary);
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 4px;
+            background-color: var(--hover-color, var(--gray));
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        body.dark-mode .progress-bar {
+            background-color: var(--dark-hover-color);
+        }
+
+        .progress {
+            height: 100%;
+            background-color: var(--primary-color, var(--seafoam));
+            border-radius: 2px;
+            width: 30%;
+            transition: background-color 0.3s ease;
+        }
+
+        .volume-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .volume-icon {
+            color: var(--text-secondary, var(--text));
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        body.dark-mode .volume-icon {
+            color: var(--dark-text-secondary);
+        }
+
+        .volume-slider {
+            width: 80px;
+            height: 4px;
+            background-color: var(--hover-color, var(--gray));
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        body.dark-mode .volume-slider {
+            background-color: var(--dark-hover-color);
+        }
+
+        .volume-level {
+            height: 100%;
+            background-color: var(--text-secondary, var(--seafoam));
+            border-radius: 2px;
+            width: 70%;
+            transition: background-color 0.3s ease;
+        }
+
+        body.dark-mode .volume-level {
+            background-color: var(--seafoam);
+        }
+
+        /* Responsive adjustments for player */
+        @media (max-width: 768px) {
+            .global-player {
+                padding: 0 12px;
+            }
+
+            .now-playing-img {
+                width: 40px;
+                height: 40px;
+            }
+
+            .volume-container {
+                display: none;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .feed {
+                padding: 20px;
+            }
+            
+            .global-player {
+                padding: 16px 20px 16px 260px;
+            }
+        }
+
+        .search-box input:focus {
+            border-color: var(--seafoam);
+            background-color: var(--white);
+        }
+
+        body.dark-mode .search-box input:focus {
+            border-color: var(--seafoam);
+            background-color: var(--dark-hover-color);
+        }
+
+        .track-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode .track-card:hover {
+            box-shadow: 0 6px 16px var(--dark-shadow);
+        }
+
+        .related-track:hover {
+            background-color: var(--gray);
+        }
+
+        body.dark-mode .related-track:hover {
+            background-color: var(--dark-hover-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Vertical Navbar -->
+    <nav class="navbar">
+        <div class="logo">
+            <span>Collabo</span>
+        </div>
+        <div class="search-box">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" placeholder="Search for artists, tracks...">
+        </div>
+        <div class="nav-links">
+            <a href="#" class="nav-link active">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                Home
+            </a>
+            <a href="#" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"></path>
+                    <rect x="3" y="15" width="18" height="7" rx="2"></rect>
+                </svg>
+                Library
+            </a>
+            <a href="#" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <circle cx="10" cy="10.5" r="2.5"></circle>
+                    <path d="M16 18.5c0-1.4-1.1-2.5-2.5-2.5h-7c-1.4 0-2.5 1.1-2.5 2.5"></path>
+                </svg>
+                Artists
+            </a>
+            <a href="#" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                Discover
+            </a>
+            <a href="#" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Saved
+            </a>
+            <a href="#" class="nav-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                Settings
+            </a>
+            <a href="#" class="nav-link theme-toggle">
+                <i class="fas fa-sun"></i>
+                <span>Light Mode</span>
+            </a>
+        </div>
+        <button class="upload-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            Upload Track
+        </button>
+        <div class="user-profile">
+            <div class="user-avatar">
+                <img src="/api/placeholder/80/80" alt="User Avatar">
+            </div>
+            <div class="user-info">
+                <div class="user-name">Jamie Smith</div>
+                <div class="user-handle">@jamiesmith</div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="feed-header">
+            <h1 class="feed-title">Home Feed</h1>
+            <p class="feed-subtitle">Check out the latest tracks from artists you follow and trending collaborations</p>
+        </div>
+
+        <div class="feed">
+            <!-- Track Card 1 -->
+            <div class="track-card">
+                <div class="track-main">
+                    <div class="track-play">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div class="track-info">
+                        <div class="track-title">Summer Breeze (Acoustic Guitar)</div>
+                        <div class="track-artist">
+                            <div class="artist-avatar">
+                                <img src="/api/placeholder/48/48" alt="Artist Avatar">
+                            </div>
+                            <div class="artist-name">Emma Davis</div>
+                        </div>
+                        <div class="track-meta">
+                            <div class="meta-item">
+                                <i class="fas fa-play"></i>
+                                <span>12.5k</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-heart"></i>
+                                <span>842</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-code-branch"></i>
+                                <span>28</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="track-actions">
+                        <button class="action-btn collab-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            Collaborate
+                        </button>
+                        <button class="action-btn like-btn">
+                            <i class="far fa-heart"></i>
+                        </button>
+                        <button class="action-btn share-btn">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="track-details">
+                    <div class="related-tracks">
+                        <div class="track-relation">Original</div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Summer Breeze (Original)</div>
+                                <div class="related-artist">Emma Davis</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>15.2K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>1.2K</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="track-relation">Based on this</div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Summer Breeze (Piano Cover)</div>
+                                <div class="related-artist">PianoMaster</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>8.7K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>645</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Summer Breeze (Vocal Mix)</div>
+                                <div class="related-artist">VocalQueen</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>6.3K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>420</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Track Card 2 -->
+            <div class="track-card">
+                <div class="track-main">
+                    <div class="track-play">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div class="track-info">
+                        <div class="track-title">Midnight Groove</div>
+                        <div class="track-artist">
+                            <div class="artist-avatar">
+                                <img src="/api/placeholder/48/48" alt="Artist Avatar">
+                            </div>
+                            <div class="artist-name">Alex Turner</div>
+                        </div>
+                        <div class="track-meta">
+                            <div class="meta-item">
+                                <i class="fas fa-play"></i>
+                                <span>8.7k</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-heart"></i>
+                                <span>520</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-code-branch"></i>
+                                <span>15</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="track-actions">
+                        <button class="action-btn collab-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            Collaborate
+                        </button>
+                        <button class="action-btn like-btn">
+                            <i class="far fa-heart"></i>
+                        </button>
+                        <button class="action-btn share-btn">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="track-details">
+                    <div class="related-tracks">
+                        <div class="track-relation">Based on</div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Funky Baseline</div>
+                                <div class="related-artist">BassMaster</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>22K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>1.4K</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="track-relation">Based on this</div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Midnight Groove (Saxophone)</div>
+                                <div class="related-artist">JazzSoul</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>9.1K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>725</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Track Card 3 -->
+            <div class="track-card">
+                <div class="track-main">
+                    <div class="track-play">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div class="track-info">
+                        <div class="track-title">Dreamy Synth Pad</div>
+                        <div class="track-artist">
+                            <div class="artist-avatar">
+                                <img src="/api/placeholder/48/48" alt="Artist Avatar">
+                            </div>
+                            <div class="artist-name">Sophia Lee</div>
+                        </div>
+                        <div class="track-meta">
+                            <div class="meta-item">
+                                <i class="fas fa-play"></i>
+                                <span>3.5k</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-heart"></i>
+                                <span>276</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-code-branch"></i>
+                                <span>15</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="track-actions">
+                        <button class="action-btn collab-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            Collaborate
+                        </button>
+                        <button class="action-btn like-btn active">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                        <button class="action-btn share-btn">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="track-details">
+                    <div class="related-tracks">
+                        <div class="track-relation">Original</div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Dreamy Synth Pad (Original)</div>
+                                <div class="related-artist">Sophia Lee</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>3.5K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>276</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="track-relation">Based on this</div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Dreamy Synth Pad (Piano Cover)</div>
+                                <div class="related-artist">PianoMan</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>2.1K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>185</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="related-track">
+                            <div class="related-play">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <div class="related-info">
+                                <div class="related-title">Dreamy Synth Pad (Remix)</div>
+                                <div class="related-artist">ElectroKid</div>
+                            </div>
+                            <div class="related-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-play"></i>
+                                    <span>1.8K</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-heart"></i>
+                                    <span>142</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Global Player -->
+    <div class="global-player">
+        <div class="now-playing">
+            <img src="/api/placeholder/96/96" alt="Album Art" class="now-playing-img">
+            <div class="now-playing-info">
+                <div class="now-playing-title">Summer Breeze (Acoustic Guitar)</div>
+                <div class="now-playing-artist">Emma Davis</div>
+            </div>
+        </div>
+        
+        <div class="player-controls">
+            <div class="control-buttons">
+                <button class="control-button">
+                    <i class="fas fa-random"></i>
+                </button>
+                <button class="control-button">
+                    <i class="fas fa-step-backward"></i>
+                </button>
+                <button class="control-button play-pause">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button class="control-button">
+                    <i class="fas fa-step-forward"></i>
+                </button>
+                <button class="control-button">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </div>
+            
+            <div class="progress-container">
+                <div class="time">1:24</div>
+                <div class="progress-bar">
+                    <div class="progress"></div>
+                </div>
+                <div class="time">3:45</div>
+            </div>
+        </div>
+        
+        <div class="volume-container">
+            <i class="fas fa-volume-up volume-icon"></i>
+            <div class="volume-slider">
+                <div class="volume-level"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Track expansion functionality
+        document.querySelectorAll('.track-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                // Don't expand if clicking on play button or action buttons
+                if (e.target.closest('.track-play') || e.target.closest('.action-btn') || e.target.closest('.related-play')) {
+                    return;
+                }
+                
+                this.classList.toggle('expanded');
+            });
+        });
+
+        // Play button functionality
+        const playButtons = document.querySelectorAll('.track-play, .related-play');
+        
+        playButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                // Prevent the click from bubbling up to the track card
+                e.stopPropagation();
+                
+                // Reset all other play buttons first
+                playButtons.forEach(btn => {
+                    const btnIcon = btn.querySelector('i');
+                    if (btnIcon.classList.contains('fa-pause')) {
+                        btnIcon.classList.remove('fa-pause');
+                        btnIcon.classList.add('fa-play');
+                    }
+                });
+                
+                // Set this button to pause
+                const icon = button.querySelector('i');
+                if (icon.classList.contains('fa-play')) {
+                    icon.classList.remove('fa-play');
+                    icon.classList.add('fa-pause');
+                    
+                    // Set global player to playing state
+                    const globalPlayPauseIcon = document.querySelector('.play-pause i');
+                    globalPlayPauseIcon.classList.remove('fa-play');
+                    globalPlayPauseIcon.classList.add('fa-pause');
+                } else {
+                    icon.classList.remove('fa-pause');
+                    icon.classList.add('fa-play');
+                    
+                    // Set global player to paused state
+                    const globalPlayPauseIcon = document.querySelector('.play-pause i');
+                    globalPlayPauseIcon.classList.remove('fa-pause');
+                    globalPlayPauseIcon.classList.add('fa-play');
+                }
+            });
+        });
+        
+        // Global player play/pause button
+        const globalPlayPauseButton = document.querySelector('.play-pause');
+        
+        globalPlayPauseButton.addEventListener('click', () => {
+            const icon = globalPlayPauseButton.querySelector('i');
+            if (icon.classList.contains('fa-play')) {
+                icon.classList.remove('fa-play');
+                icon.classList.add('fa-pause');
+            } else {
+                icon.classList.remove('fa-pause');
+                icon.classList.add('fa-play');
+            }
+        });
+        
+        // Like button functionality
+        const likeButtons = document.querySelectorAll('.like-btn');
+        
+        likeButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                // Prevent the click from bubbling up to the track card
+                e.stopPropagation();
+                
+                button.classList.toggle('active');
+                const icon = button.querySelector('i');
+                
+                if (button.classList.contains('active')) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                } else {
+                    icon.classList.remove('fas');
+                    icon.classList.add('far');
+                }
+            });
+        });
+        
+        // Prevent share button clicks from expanding the track card
+        document.querySelectorAll('.share-btn, .collab-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+
+        // Dark mode toggle functionality
+        const themeToggle = document.querySelector('.theme-toggle');
+        const themeIcon = themeToggle.querySelector('i');
+        const themeText = themeToggle.querySelector('span');
+        
+        // Check for saved theme preference or use preferred color scheme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.body.classList.add('dark-mode');
+            themeIcon.classList.replace('fa-sun', 'fa-moon');
+            themeText.textContent = 'Dark Mode';
+        }
+        
+        // Toggle theme when button is clicked
+        themeToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.body.classList.toggle('dark-mode');
+            
+            if (document.body.classList.contains('dark-mode')) {
+                themeIcon.classList.replace('fa-sun', 'fa-moon');
+                themeText.textContent = 'Dark Mode';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                themeIcon.classList.replace('fa-moon', 'fa-sun');
+                themeText.textContent = 'Light Mode';
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    </script>
+</body>
+</html>
