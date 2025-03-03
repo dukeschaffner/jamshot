@@ -7,7 +7,7 @@ import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
 import NotificationDropdown from '../components/NotificationDropdown';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
-  FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
+  FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
 
 function GlobalPlayer() {
   const { 
@@ -215,6 +215,10 @@ function AppContent({ children }) {
           <Link href="/" className={`nav-link ${activeLink === '/' ? 'active' : ''}`}>
             <FaHome />
             Home
+          </Link>
+          <Link href="/about" className={`nav-link ${activeLink === '/about' ? 'active' : ''}`}>
+            <FaInfoCircle />
+            About
           </Link>
           {/* <Link href="/library" className={`nav-link ${activeLink === '/library' ? 'active' : ''}`}>
             <FaMusic />
