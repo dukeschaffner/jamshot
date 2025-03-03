@@ -13,6 +13,7 @@ Features
 - users will have profiles and can be verified artists. There will be a profile page with the user's tracks, picture, reposted tracks, liked tracks, follower count, etc
 - It will also work as a streaming service, were a user can pick a genre and just listen
   - tracks will have genre and instrument tags to help accommodate this
+- strong interaction between artists/fans or smaller artists, as well as friend groups who want to quickly and easily share ideas. success likely determined by how many medium to large artist adopt and use the platform.
 
 Layout
 - Navbar with links to home, user account, upload, and a search bar. 
@@ -23,17 +24,20 @@ Pages
   - Contains the user's feed, generated from an algorithm
   - the tracks are shown as an expandable card containing a play button, the user's profile picture, user name, the track title, play count, like count, and a "collaborate" button
   - When the track is expanded, it shows a list of tracks containing the track that the current track is based on "original" or "based on" and all the tracks based on the current track. There will be fewer details shown on these items. play button, track title - username, like count, play count
-- collaborate/[trackId]
-  - has two tabs, record and upload.
-    - record allows the user to select input device and record several audio takes, view and playback all the takes, choose/delete takes. There is an input level meter and a recording progress bar. they select a take, name the track, and hit upload.
-    - upload allows the user to upload a prerecorded file, name the track, and upload the track
-    - both tabs should allow user to playback their audio with the parent track with a progress bar
+
 - standard login/register pages (email, password, username)
 - upload
   - allows user to upload file, name track, and upload the track
 -user
   - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
-
+- track/[trackId]
+  - allows users to explore entire track tree
+  - has a playback gui that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
+  - /collaborate
+    - has two tabs, record and upload.
+      - record allows the user to select input device and record several audio takes, view and playback all the takes, choose/delete takes. There is an input level meter and a recording progress bar. they select a take, name the track, and hit upload.
+      - upload allows the user to upload a prerecorded file, name the track, and upload the track
+      - both tabs should allow user to playback their audio with the parent track with a progress bar
 
 
 TODO

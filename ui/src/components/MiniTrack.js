@@ -1,48 +1,45 @@
 'use client';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAudio } from '../lib/AudioContext';
-import { FaHeart, FaRegHeart, FaRetweet, FaHeadphones } from 'react-icons/fa';
-import TrackTags from './TrackTags';
-import api from '../lib/api';
+import { FaPlay, FaPause, FaHeart, FaRegHeart, FaRetweet, FaCheckCircle } from 'react-icons/fa';
 import Cookies from 'js-cookie';
+import api from '../lib/api';
 
 export default function MiniTrack({ track, relatedTracks = [] }) {
-  const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
+  const { currentTrack, isPlaying, togglePlayPause, playTrack } = useAudio();
+  const isCurrentTrack = currentTrack?.id === track.id;
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
-  const [isLikeInProgress, setIsLikeInProgress] = useState(false);
-  const [isReposted, setIsReposted] = useState(track.is_reposted || false);
-  const [isRepostInProgress, setIsRepostInProgress] = useState(false);
-
+  
   useEffect(() => {
-    // Update like and repost state when track prop changes
+    // Update like state when track prop changes
     setIsLiked(track.is_liked || false);
     setLikeCount(Number(track.like_count) || 0);
-    setIsReposted(track.is_reposted || false);
-  }, [track.is_liked, track.like_count, track.is_reposted]);
-
+  }, [track]);
+  
   const handlePlayToggle = (e) => {
     e.stopPropagation();
-    console.log('Playing track:', track);
-    if (currentTrack?.id === track.id) {
-      console.log('Toggling play/pause for:', track.title);
+    
+    if (isCurrentTrack) {
       togglePlayPause();
     } else {
       const currentIndex = relatedTracks.findIndex(t => t.id === track.id);
-      const tracksToAdd = currentIndex >= 0 ? relatedTracks.slice(currentIndex + 1) : []; // Exclude current
-      console.log('Overwriting playlist with:', tracksToAdd.map(t => t.title));
+      const tracksToAdd = currentIndex >= 0 ? relatedTracks.slice(currentIndex + 1) : [];
       playTrack(track, tracksToAdd);
     }
   };
-
+  
   const handleLikeToggle = async (e) => {
     e.stopPropagation();
     
-    // Prevent action if already in progress
-    if (isLikeInProgress) return;
-    setIsLikeInProgress(true);
-    
     try {
+      const token = Cookies.get('token');
+      if (!token) {
+        // Handle unauthenticated user
+        console.log('Please log in to like tracks');
+        return;
+      }
+      
       if (isLiked) {
         await api.delete(`/tracks/${track.id}/like`);
         setIsLiked(false);
@@ -52,97 +49,94 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
         setIsLiked(true);
         setLikeCount(prevCount => Number(prevCount) + 1);
       }
-    } catch (err) {
-      console.error('Failed to toggle like:', err);
-      // If there's an error, revert the UI state
-      if (err.response && err.response.status === 401) {
-        // User is not authenticated
-        alert('Please log in to like tracks');
-      }
-    } finally {
-      setIsLikeInProgress(false);
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
     }
   };
-
+  
   const handleRepostToggle = async (e) => {
     e.stopPropagation();
     
-    // Prevent action if already in progress
-    if (isRepostInProgress) return;
-    
-    const token = Cookies.get('token');
-    if (!token) {
-      alert('Please log in to repost tracks');
-      return;
-    }
-    
-    setIsRepostInProgress(true);
-    
     try {
-      if (isReposted) {
+      const token = Cookies.get('token');
+      if (!token) {
+        // Handle unauthenticated user
+        console.log('Please log in to repost tracks');
+        return;
+      }
+      
+      if (track.is_reposted) {
         await api.delete(`/tracks/${track.id}/repost`);
-        setIsReposted(false);
+        track.is_reposted = false;
       } else {
         await api.post(`/tracks/${track.id}/repost`);
-        setIsReposted(true);
+        track.is_reposted = true;
       }
-    } catch (err) {
-      console.error('Failed to toggle repost:', err);
-      if (err.response && err.response.status === 400) {
-        alert(err.response.data.error || 'Cannot repost this track');
-      } else if (err.response && err.response.status === 401) {
-        alert('Please log in to repost tracks');
-      } else {
-        alert('Failed to repost track');
-      }
-    } finally {
-      setIsRepostInProgress(false);
+    } catch (error) {
+      console.error('Failed to toggle repost:', error);
     }
   };
-
+  
   return (
-    <div className="flex items-center space-x-2 p-2 bg-s2 rounded">
-      <button
-        onClick={handlePlayToggle}
-        className={`w-8 h-8 rounded-full text-white flex items-center justify-center ${
-          currentTrack?.id === track.id && isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
-        }`}
-      >
-        {currentTrack?.id === track.id && isPlaying ? '❚❚' : '▶'}
-      </button>
-      <div className="flex-1">
-        <p className="text-sm font-medium">{track.title}</p>
-        {(track.genres?.length > 0 || track.instruments?.length > 0) && (
-          <TrackTags 
-            genres={track.genres || []} 
-            instruments={track.instruments || []} 
-            compact={true} 
-          />
-        )}
+    <div className="related-track">
+      <div className="related-play" onClick={handlePlayToggle}>
+        {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
       </div>
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-1">
+      <div className="related-info">
+        <div className="related-title-container">
+          <div className="related-title">{track.title}</div>
+          {(track.tags?.length > 0 || track.genres?.length > 0 || track.instruments?.length > 0) && (
+            <div className="related-tags">
+              {/* Display regular tags */}
+              {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
+                <span key={`tag-${index}`} className="track-tag">
+                  {typeof tag === 'string' ? tag : tag.name}
+                </span>
+              ))}
+              
+              {/* Display genres */}
+              {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
+                <span key={`genre-${index}`} className="track-tag">
+                  {typeof genre === 'string' ? genre : genre.name}
+                </span>
+              ))}
+              
+              {/* Display instruments */}
+              {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
+                <span key={`instrument-${index}`} className="track-tag">
+                  {typeof instrument === 'string' ? instrument : instrument.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="related-artist">
+          {track.username || 'Unknown Artist'}
+          {track.verified && <FaCheckCircle className="verified-icon" />}
+        </div>
+      </div>
+      <div className="related-actions">
+        <div className="related-meta">
+          <div className="meta-item">
+            <FaPlay /> <span>{Number(track.play_count || 0).toLocaleString()}</span>
+          </div>
+          <div className="meta-item">
+            <FaHeart /> <span>{Number(track.like_count || likeCount || 0).toLocaleString()}</span>
+          </div>
+        </div>
+        <div className="related-buttons">
           <button 
-            onClick={handleLikeToggle} 
-            className={`text-red-500 focus:outline-none ${isLikeInProgress ? 'opacity-50' : ''}`}
-            disabled={!Cookies.get('token') || isLikeInProgress} // Disable if not logged in or in progress
-            title={Cookies.get('token') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+            className={`like-btn ${isLiked ? 'active' : ''}`}
+            onClick={handleLikeToggle}
           >
             {isLiked ? <FaHeart /> : <FaRegHeart />}
           </button>
-          <span className="text-xs text-gray-600">{Number(likeCount)}</span>
-        </div>
-        <button 
-          onClick={handleRepostToggle} 
-          className={`focus:outline-none ${isReposted ? 'text-green-500' : 'text-gray-500'} ${isRepostInProgress ? 'opacity-50' : ''}`}
-          disabled={!Cookies.get('token') || isRepostInProgress} // Disable if not logged in or in progress
-          title={Cookies.get('token') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
-        >
-          <FaRetweet size={14} />
-        </button>
-        <div className="flex items-center space-x-1" title="Plays">
-          <FaHeadphones size={12} className="text-gray-500" />
-          <span className="text-xs text-gray-600">{Number(track.play_count || 0)}</span>
+          <button 
+            className={`repost-btn ${track.is_reposted ? 'active' : ''}`}
+            onClick={handleRepostToggle}
+          >
+            <FaRetweet />
+          </button>
         </div>
       </div>
     </div>

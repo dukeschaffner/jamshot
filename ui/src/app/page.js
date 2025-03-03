@@ -73,80 +73,71 @@ export default function Home() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Your Feed</h1>
-        <p className="text-gray-600 mb-4">
-          Discover new tracks from artists you follow and trending collaborations
+    <div className="feed-container">
+      <div className="feed-header">
+        <h1 className="feed-title">Home Feed</h1>
+        <p className="feed-subtitle">
+          Check out the latest tracks from artists you follow and trending collaborations
         </p>
         
-        <div className="flex space-x-2 mb-4">
+        <div className="feed-tabs">
           <button
             onClick={() => handleFeedTypeChange('mixed')}
-            className={`px-4 py-2 rounded-full ${
-              feedType === 'mixed' 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-            }`}
+            className={`feed-tab ${feedType === 'mixed' ? 'active' : ''}`}
           >
             For You
           </button>
           <button
             onClick={() => handleFeedTypeChange('following')}
-            className={`px-4 py-2 rounded-full ${
-              feedType === 'following' 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-            }`}
+            className={`feed-tab ${feedType === 'following' ? 'active' : ''}`}
           >
             Following
           </button>
           <button
             onClick={() => handleFeedTypeChange('popular')}
-            className={`px-4 py-2 rounded-full ${
-              feedType === 'popular' 
-                ? 'bg-blue-500 text-white' 
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-            }`}
+            className={`feed-tab ${feedType === 'popular' ? 'active' : ''}`}
           >
             Popular
           </button>
         </div>
       </div>
 
-      {error && <p className="text-red-500 mb-4">{error}</p>}
+      {error && <p className="error-message">{error}</p>}
       
-      {tracks.length === 0 && !loading ? (
-        <div className="bg-gray-100 p-6 rounded-lg text-center">
-          <p className="text-gray-600">
-            {feedType === 'following' 
-              ? "You're not following any artists yet. Follow some artists to see their tracks here!"
-              : "No tracks available. Check back later or try a different feed type."}
-          </p>
-        </div>
-      ) : (
-        <ul className="space-y-4">
-          {tracks.map((track, index) => (
-            <li 
-              key={track.id} 
-              ref={index === tracks.length - 1 ? lastTrackElementRef : null}
-            >
-              <Track
-                track={track}
-                allTracks={tracks}
-                expandedTrackId={expandedTrackId}
-                setExpandedTrackId={setExpandedTrackId}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      
-      {loading && (
-        <div className="flex justify-center my-6">
-          <FaSpinner className="animate-spin text-blue-500 text-2xl" />
-        </div>
-      )}
+      <div className="feed">
+        {tracks.length === 0 && !loading ? (
+          <div className="empty-feed">
+            <p>
+              {feedType === 'following' 
+                ? "You're not following any artists yet. Follow some artists to see their tracks here!"
+                : "No tracks available. Check back later or try a different feed type."}
+            </p>
+          </div>
+        ) : (
+          <div className="track-list">
+            {tracks.map((track, index) => (
+              <div 
+                key={track.id} 
+                ref={index === tracks.length - 1 ? lastTrackElementRef : null}
+                className="track-item"
+              >
+                <Track
+                  track={track}
+                  allTracks={tracks}
+                  expandedTrackId={expandedTrackId}
+                  setExpandedTrackId={setExpandedTrackId}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {loading && (
+          <div className="loading-spinner">
+            <FaSpinner className="spinner-icon" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
