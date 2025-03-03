@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Howl } from 'howler';
+import api from './api';
 
 const AudioContext = createContext();
 
@@ -15,6 +16,9 @@ export function AudioProvider({ children }) {
   const soundRef = useRef(null);
   const shuffledIndicesRef = useRef([]);
   const currentPositionRef = useRef(0);
+  // Refs for play counter
+  const listeningTimeRef = useRef(0);
+  const playRecordedRef = useRef(false);
 
   useEffect(() => {
     if (currentTrack) {
@@ -26,6 +30,10 @@ export function AudioProvider({ children }) {
         soundRef.current.unload();
       }
       
+      // Reset play counter state for new track
+      listeningTimeRef.current = 0;
+      playRecordedRef.current = false;
+      
       soundRef.current = new Howl({
         src: [currentTrack.combined_audio_url],
         html5: true,
@@ -34,6 +42,8 @@ export function AudioProvider({ children }) {
         onpause: () => setIsPlaying(false),
         onend: () => {
           console.log('Track ended, playing next');
+          // If track ended naturally and play wasn't recorded yet, record it
+          checkAndRecordPlay();
           handleTrackEnd();
         },
         onseek: () => updateProgress(),
@@ -46,7 +56,10 @@ export function AudioProvider({ children }) {
     }
 
     const interval = setInterval(() => {
-      if (isPlaying && soundRef.current) updateProgress();
+      if (isPlaying && soundRef.current) {
+        updateProgress();
+        updateListeningTime();
+      }
     }, 1000);
 
     return () => {
@@ -55,11 +68,50 @@ export function AudioProvider({ children }) {
     };
   }, [currentTrack]); // Only trigger on currentTrack change
 
+  // Check and record play based on listening criteria
+  const checkAndRecordPlay = () => {
+    if (!currentTrack || playRecordedRef.current) return;
+    
+    const duration = soundRef.current?.duration() || 0;
+    const threshold = duration < 30 ? duration * 0.9 : 30;
+    
+    // Record play if:
+    // 1. User listened to at least 30 seconds, OR
+    // 2. For tracks < 30 seconds, user listened to at least 90% of the track
+    if (listeningTimeRef.current >= threshold) {
+      recordPlay();
+    }
+  };
+  
+  // Record a play via API
+  const recordPlay = async () => {
+    if (!currentTrack || playRecordedRef.current) return;
+    
+    try {
+      playRecordedRef.current = true;
+      console.log(`Recording play for track: ${currentTrack.title}`);
+      await api.post(`/tracks/${currentTrack.id}/play`);
+    } catch (err) {
+      console.error('Failed to record play:', err);
+    }
+  };
+  
+  // Update total listening time
+  const updateListeningTime = () => {
+    if (isPlaying && soundRef.current && !playRecordedRef.current) {
+      listeningTimeRef.current += 1; // Add one second
+      checkAndRecordPlay();
+    }
+  };
+
   // Handle track end based on loop state
   const handleTrackEnd = () => {
     if (isLoopOn && playlist.length === 1) {
       // If loop is on and there's only one track, replay it
       soundRef.current.play();
+      // Reset play counter state for looped track
+      listeningTimeRef.current = 0;
+      playRecordedRef.current = false;
     } else {
       playNext();
     }

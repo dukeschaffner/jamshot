@@ -232,7 +232,7 @@ router.get('/feed', async (req, res) => {
         followed_tracks AS (
           SELECT 
             t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at,
+            t.created_at, t.play_count,
             u.username, u.verified,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -250,7 +250,7 @@ router.get('/feed', async (req, res) => {
         ),
         reposted_tracks AS (
           SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count
             r.created_at,
             u.username, u.verified,
             t2.title AS original_title,
@@ -283,7 +283,7 @@ router.get('/feed', async (req, res) => {
       query = `
         SELECT 
           t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-          t.created_at,
+          t.created_at, t.play_count,
           u.username, u.verified,
           t2.title AS original_title,
           (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -311,7 +311,7 @@ router.get('/feed', async (req, res) => {
           followed_tracks AS (
             SELECT 
               t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              t.created_at,
+              t.created_at, t.play_count,
               u.username, u.verified,
               t2.title AS original_title,
               (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -331,7 +331,7 @@ router.get('/feed', async (req, res) => {
           reposted_tracks AS (
             SELECT 
               t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              r.created_at,
+              r.created_at, t.play_count,
               u.username, u.verified,
               t2.title AS original_title,
               (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -353,7 +353,7 @@ router.get('/feed', async (req, res) => {
           popular_tracks AS (
             SELECT 
               t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              t.created_at,
+              t.created_at, t.play_count,
               u.username, u.verified,
               t2.title AS original_title,
               (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -392,7 +392,7 @@ router.get('/feed', async (req, res) => {
         query = `
           SELECT 
             t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at,
+            t.created_at, t.play_count,
             u.username, u.verified,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -538,7 +538,7 @@ router.get('/:id/related', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        t.id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+        t.id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
         u.username, u.verified,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
         (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
@@ -597,7 +597,7 @@ router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+        t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
         u.username, u.verified,
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -743,7 +743,7 @@ router.get('/search', async (req, res) => {
   try {
     let query = `
       SELECT DISTINCT
-        t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+        t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
         u.username, u.verified,
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,

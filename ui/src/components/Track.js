@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaHeadphones } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 
 export default function Track({ track, allTracks, setExpandedTrackId, expandedTrackId }) {
@@ -197,6 +197,10 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
                 >
                   <FaRetweet />
                 </button>
+              </div>
+              <div className="flex items-center space-x-1">
+                <FaHeadphones className="text-gray-500" />
+                <span className="text-sm text-gray-600">{Number(track.play_count || 0)}</span>
               </div>
             </div>
           </div>

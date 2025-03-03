@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useAudio } from '../lib/AudioContext';
-import { FaHeart, FaRegHeart, FaRetweet } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaRetweet, FaHeadphones } from 'react-icons/fa';
 import TrackTags from './TrackTags';
 import api from '../lib/api';
 import Cookies from 'js-cookie';
@@ -140,6 +140,10 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
         >
           <FaRetweet size={14} />
         </button>
+        <div className="flex items-center space-x-1" title="Plays">
+          <FaHeadphones size={12} className="text-gray-500" />
+          <span className="text-xs text-gray-600">{Number(track.play_count || 0)}</span>
+        </div>
       </div>
     </div>
   );
