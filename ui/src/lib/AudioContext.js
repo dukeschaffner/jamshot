@@ -7,7 +7,7 @@ const AudioContext = createContext();
 export function AudioProvider({ children }) {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(0); // Progress in seconds
   const [playlist, setPlaylist] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isShuffleOn, setIsShuffleOn] = useState(false);
@@ -101,8 +101,7 @@ export function AudioProvider({ children }) {
   const updateProgress = () => {
     if (soundRef.current) {
       const pos = soundRef.current.seek();
-      const dur = soundRef.current.duration();
-      setProgress((pos / dur) * 100 || 0);
+      setProgress(pos || 0);
     }
   };
 
@@ -131,7 +130,7 @@ export function AudioProvider({ children }) {
     if (soundRef.current) {
       const newPosition = (percentage / 100) * soundRef.current.duration();
       soundRef.current.seek(newPosition);
-      setProgress(percentage);
+      setProgress(newPosition);
     }
   };
 

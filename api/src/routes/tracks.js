@@ -879,4 +879,55 @@ router.delete('/:id/repost', authMiddleware, async (req, res) => {
   }
 });
 
+// Record a play for a track
+// This endpoint is called when a user listens to:
+// - At least 30 seconds of a track that's 30+ seconds long
+// - At least 90% of a track that's less than 30 seconds long
+router.post('/:id/play', async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id; // Optional - can be null for anonymous plays
+  
+  try {
+    // Check if track exists
+    const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [id]);
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    // For logged-in users, check if they've played this track recently (within the last hour)
+    // This prevents abuse while still allowing legitimate repeat plays
+    if (userId) {
+      const recentPlay = await pool.query(
+        'SELECT id FROM track_plays WHERE track_id = $1 AND user_id = $2 AND created_at > NOW() - INTERVAL \'1 hour\'',
+        [id, userId]
+      );
+      
+      if (recentPlay.rows.length > 0) {
+        // User has played this track recently, don't count it again yet
+        return res.status(200).json({ message: 'Play already recorded recently' });
+      }
+    }
+    
+    // Record the play
+    await pool.query(
+      'INSERT INTO track_plays (track_id, user_id) VALUES ($1, $2)',
+      [id, userId]
+    );
+    
+    // Get updated play count
+    const playCountResult = await pool.query(
+      'SELECT play_count FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    res.status(200).json({ 
+      message: 'Play recorded successfully',
+      play_count: playCountResult.rows[0].play_count
+    });
+  } catch (err) {
+    console.error('Error recording play:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
