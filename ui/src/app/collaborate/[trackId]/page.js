@@ -197,6 +197,7 @@ export default function CollaboratePage() {
   const [title, setTitle] = useState('');
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
+  const [metronomeBpm, setMetronomeBpm] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   
   // Refs
@@ -861,6 +862,11 @@ export default function CollaboratePage() {
         formData.append('instrumentIds', JSON.stringify(selectedInstruments));
       }
       
+      // Add metronome BPM if provided
+      if (metronomeBpm) {
+        formData.append('metronome_bpm', metronomeBpm);
+      }
+      
       await api.post('/tracks/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -1247,16 +1253,39 @@ export default function CollaboratePage() {
               <h2 className="text-lg font-semibold mb-4 text-dark dark:text-dark-text-primary">Track Details</h2>
               
               <div className="mb-4">
-                <label htmlFor="title" className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">Track Title</label>
+                <label htmlFor="track-title" className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">Track Title</label>
                 <input
-                  id="title"
+                  id="track-title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter a title for your collaboration"
+                  placeholder="Enter a title for your track"
                   className="w-full p-2 border rounded bg-gray-light dark:bg-dark-hover-color border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                   required
                 />
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="metronome" className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">Metronome (BPM)</label>
+                <div className="flex items-center">
+                  <input
+                    id="metronome"
+                    type="number"
+                    min="40"
+                    max="240"
+                    value={metronomeBpm}
+                    onChange={(e) => setMetronomeBpm(e.target.value)}
+                    placeholder="e.g., 120"
+                    className="w-full p-2 border rounded bg-gray-light dark:bg-dark-hover-color border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
+                  />
+                </div>
+                <div className="mt-2 p-3 bg-seafoam-light dark:bg-dark-hover-color border border-seafoam dark:border-seafoam rounded flex items-start">
+                  <FaInfoCircle className="text-seafoam mt-1 mr-2 flex-shrink-0" />
+                  <p className="text-sm text-dark dark:text-dark-text-secondary">
+                    <strong>Important:</strong> Only specify a metronome BPM if your track actually follows this tempo precisely. 
+                    This helps future collaborators stay in sync with your track. Leave blank if unsure.
+                  </p>
+                </div>
               </div>
               
               <div className="mb-4">
@@ -1265,7 +1294,6 @@ export default function CollaboratePage() {
                   selectedGenres={selectedGenres}
                   selectedInstruments={selectedInstruments}
                   onChange={handleTagChange}
-                  parentGenres={parentTrack.genres || []}
                   maxGenres={2}
                   maxInstruments={4}
                 />

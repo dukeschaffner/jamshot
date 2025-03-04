@@ -74,7 +74,7 @@ async function combineAudioFiles(inputFiles, outputPath) {
 router.use(optionalAuthMiddleware);
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
-  const { title, parent_track_id, genreIds, instrumentIds } = req.body;
+  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm } = req.body;
   const userId = req.user.id;
   const file = req.file;
 
@@ -83,6 +83,9 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   // Parse genre and instrument IDs if they're provided as strings
   const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
   const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];
+  
+  // Parse metronome_bpm if provided
+  const parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
 
   let audioUrl, combinedAudioUrl, duration;
   const isLocal = process.env.NODE_ENV !== 'production';
@@ -159,8 +162,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     }
 
     const result = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null]
+      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm]
     );
     
     const trackId = result.rows[0].id;
