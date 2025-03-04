@@ -176,8 +176,8 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           
           <div className="track-artist">
             <div className="artist-avatar">
-              {track.user_avatar ? (
-                <img src={track.user_avatar} alt={track.username} />
+              {track.profile_pic_url ? (
+                <img src={track.profile_pic_url} alt={track.username} />
               ) : (
                 <div className="avatar-placeholder"></div>
               )}

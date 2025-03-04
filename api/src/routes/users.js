@@ -3,12 +3,29 @@ const router = express.Router();
 const AWS = require('aws-sdk');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const multer = require('multer');
+const sharp = require('sharp');
 
 AWS.config.update({ signatureVersion: 'v4' });
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION,
+});
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not an image! Please upload an image.'), false);
+    }
+  },
 });
 
 // Apply optional auth middleware to all routes
@@ -18,7 +35,7 @@ router.use(optionalAuthMiddleware);
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, email, verified FROM users WHERE id = $1',
+      'SELECT id, username, email, verified, profile_pic_url FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -47,9 +64,13 @@ router.get('/:userId/tracks', async (req, res) => {
         t.layer, 
         t.parent_track_id, 
         t2.title AS original_title,
+        u.username,
+        u.verified,
+        u.profile_pic_url,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
       WHERE t.user_id = $1
       ORDER BY t.created_at DESC
     `, [userId]);
@@ -190,6 +211,7 @@ router.get('/:userId/reposts', async (req, res) => {
         r.created_at AS reposted_at,
         u.username, 
         u.verified,
+        u.profile_pic_url,
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -258,6 +280,125 @@ router.get('/:userId/reposts', async (req, res) => {
   } catch (err) {
     console.error('Get reposts error:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Update user profile
+router.put('/me', authMiddleware, async (req, res) => {
+  try {
+    const { username, bio } = req.body;
+    
+    // Check if username is taken (if username is being updated)
+    if (username) {
+      const existingUser = await pool.query(
+        'SELECT id FROM users WHERE username = $1 AND id != $2',
+        [username, req.user.id]
+      );
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({ error: 'Username is already taken' });
+      }
+    }
+    
+    // Update user profile
+    const result = await pool.query(
+      `UPDATE users 
+       SET username = COALESCE($1, username),
+           bio = COALESCE($2, bio)
+       WHERE id = $3
+       RETURNING id, username, email, bio, profile_image_url, verified`,
+      [username, bio, req.user.id]
+    );
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Upload and update profile image
+router.post('/me/profile-image', authMiddleware, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Parse position if provided, default to center if not
+    let gravity = 'center'; // Sharp uses 'center' not 'centre'
+    if (req.body.position) {
+      try {
+        const posData = JSON.parse(req.body.position);
+        // Convert x,y coordinates to gravity values
+        if (posData.y < 0.4) {
+          if (posData.x < 0.4) gravity = 'northwest';
+          else if (posData.x > 0.6) gravity = 'northeast';
+          else gravity = 'north';
+        } else if (posData.y > 0.6) {
+          if (posData.x < 0.4) gravity = 'southwest';
+          else if (posData.x > 0.6) gravity = 'southeast';
+          else gravity = 'south';
+        } else {
+          if (posData.x < 0.4) gravity = 'west';
+          else if (posData.x > 0.6) gravity = 'east';
+        }
+      } catch (e) {
+        console.warn('Invalid position data:', e);
+      }
+    }
+
+    // Get user's current profile image URL
+    const currentUser = await pool.query(
+      'SELECT profile_pic_url FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    // If user has an existing profile image, delete it from S3
+    if (currentUser.rows[0]?.profile_pic_url) {
+      const oldKey = currentUser.rows[0].profile_pic_url;
+      try {
+        await s3.deleteObject({
+          Bucket: process.env.S3_BUCKET,
+          Key: oldKey
+        }).promise();
+      } catch (err) {
+        console.warn('Failed to delete old profile image:', err);
+        // Continue with upload even if delete fails
+      }
+    }
+
+    // Process image with sharp
+    const processedImageBuffer = await sharp(req.file.buffer)
+      .resize(400, 400, {
+        fit: sharp.fit.cover,
+        position: gravity
+      })
+      .toFormat('jpeg')
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    // Generate unique filename
+    const filename = `images/profile/${req.user.id}-${Date.now()}.jpg`;
+
+    // Upload to S3
+    await s3.putObject({
+      Bucket: process.env.S3_BUCKET,
+      Key: filename,
+      Body: processedImageBuffer,
+      ContentType: 'image/jpeg'
+    }).promise();
+
+    // Get the S3 URL for the uploaded image
+    const s3Url = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${filename}`;
+
+    // Update user's profile_image_url in database with the S3 URL
+    const result = await pool.query(
+      'UPDATE users SET profile_pic_url = $1 WHERE id = $2 RETURNING id, username, email, bio, profile_pic_url, verified',
+      [s3Url, req.user.id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Profile image upload error:', err);
+    res.status(500).json({ error: 'Failed to upload profile image' });
   }
 });
 
