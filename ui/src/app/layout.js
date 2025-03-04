@@ -322,22 +322,26 @@ function AppContent({ children }) {
               Upload Track
             </Link>
             
-            <div className="user-profile">
+            <Link href={`/user/${userId}`} className="user-profile">
               <div className="user-avatar">
-                <img src="/api/placeholder/80/80" alt="User Avatar" />
+                <img 
+                  src={userDetails?.profile_pic_url || '/api/placeholder/80/80'} 
+                  alt={`${userDetails?.username || 'User'}'s avatar`} 
+                />
               </div>
               <div className="user-info">
                 <div className="user-name">{userDetails?.username || 'Loading...'}</div>
                 <div className="user-handle">@{userDetails?.username || 'loading'}</div>
               </div>
-              <button 
-                onClick={handleLogout} 
-                className="ml-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                title="Logout"
-              >
-                Logout
-              </button>
-            </div>
+            </Link>
+            
+            <button 
+              onClick={handleLogout} 
+              className="ml-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              title="Logout"
+            >
+              Logout
+            </button>
           </>
         ) : (
           <div className="auth-buttons">

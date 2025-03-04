@@ -111,8 +111,10 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
           )}
         </div>
         <div className="related-artist">
-          {track.username || 'Unknown Artist'}
-          {track.verified && <FaCheckCircle className="verified-icon" />}
+          <span className="artist-name">
+            {track.username || 'Unknown Artist'}
+            {track.verified && <FaCheckCircle className="verified-icon" />}
+          </span>
         </div>
       </div>
       <div className="related-actions">

@@ -214,7 +214,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
 // Get feed tracks (followed artists + popular)
 router.get('/feed', async (req, res) => {
-  const userId = req.user?.id; // Optional chaining in case user is not authenticated
+  const userId = req.user?.id;
   const { page = 1, limit = 5, feedType = 'mixed' } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
@@ -224,7 +224,6 @@ router.get('/feed', async (req, res) => {
     let queryParams = [];
     
     if (feedType === 'following' && userId) {
-      // Tracks from followed artists and their reposts
       query = `
         WITH followed_users AS (
           SELECT following_id FROM follows WHERE follower_id = $1
@@ -233,7 +232,7 @@ router.get('/feed', async (req, res) => {
           SELECT 
             t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
             t.created_at, t.play_count,
-            u.username, u.verified,
+            u.username, u.verified, u.profile_pic_url,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
             EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -250,9 +249,9 @@ router.get('/feed', async (req, res) => {
         ),
         reposted_tracks AS (
           SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count
+            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
             r.created_at,
-            u.username, u.verified,
+            u.username, u.verified, u.profile_pic_url,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
             EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -279,12 +278,11 @@ router.get('/feed', async (req, res) => {
       `;
       queryParams = [userId, limitNum, offset];
     } else if (feedType === 'popular') {
-      // Popular tracks based on likes
       query = `
         SELECT 
           t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
           t.created_at, t.play_count,
-          u.username, u.verified,
+          u.username, u.verified, u.profile_pic_url,
           t2.title AS original_title,
           (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
           EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -312,7 +310,7 @@ router.get('/feed', async (req, res) => {
             SELECT 
               t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
               t.created_at, t.play_count,
-              u.username, u.verified,
+              u.username, u.verified, u.profile_pic_url,
               t2.title AS original_title,
               (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
               EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -332,7 +330,7 @@ router.get('/feed', async (req, res) => {
             SELECT 
               t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
               r.created_at, t.play_count,
-              u.username, u.verified,
+              u.username, u.verified, u.profile_pic_url,
               t2.title AS original_title,
               (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
               EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -354,7 +352,7 @@ router.get('/feed', async (req, res) => {
             SELECT 
               t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
               t.created_at, t.play_count,
-              u.username, u.verified,
+              u.username, u.verified, u.profile_pic_url,
               t2.title AS original_title,
               (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
               EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -393,16 +391,11 @@ router.get('/feed', async (req, res) => {
           SELECT 
             t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
             t.created_at, t.play_count,
-            u.username, u.verified,
+            u.username, u.verified, u.profile_pic_url,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
             EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-            NULL::integer AS reposted_by_id,
-            NULL::text AS reposted_by_username,
-            NULL::timestamp AS reposted_at,
-            FALSE AS is_repost
+            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
           FROM tracks t
           LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
           LEFT JOIN users u ON t.user_id = u.id
@@ -463,14 +456,18 @@ router.get('/feed', async (req, res) => {
 // Get Track and Versions
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?.id; // Optional chaining in case user is not authenticated
+  const userId = req.user?.id;
   try {
     const result = await pool.query(`
       SELECT 
         t.*,
+        u.username,
+        u.verified,
+        u.profile_pic_url,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
         (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
       FROM tracks t
+      LEFT JOIN users u ON t.user_id = u.id
       WHERE t.id = $1 OR t.parent_track_id = $1 
       ORDER BY t.created_at ASC
     `, [id, userId || null]);
@@ -534,12 +531,12 @@ router.get('/:id', async (req, res) => {
 
 router.get('/:id/related', async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?.id; // Optional chaining in case user is not authenticated
+  const userId = req.user?.id;
   try {
     const result = await pool.query(`
       SELECT 
         t.id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-        u.username, u.verified,
+        u.username, u.verified, u.profile_pic_url,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
         (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
       FROM tracks t
@@ -593,12 +590,12 @@ router.get('/:id/related', async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
-  const userId = req.user?.id; // Optional chaining in case user is not authenticated
+  const userId = req.user?.id;
   try {
     const result = await pool.query(`
       SELECT 
         t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-        u.username, u.verified,
+        u.username, u.verified, u.profile_pic_url,
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -738,13 +735,13 @@ router.post('/:id/comment', authMiddleware, async (req, res) => {
 // Search tracks by genre or instrument
 router.get('/search', async (req, res) => {
   const { genreId, instrumentId } = req.query;
-  const userId = req.user?.id; // Optional chaining in case user is not authenticated
+  const userId = req.user?.id;
   
   try {
     let query = `
       SELECT DISTINCT
         t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-        u.username, u.verified,
+        u.username, u.verified, u.profile_pic_url,
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
