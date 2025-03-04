@@ -11,6 +11,9 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./api/
     
     steps:
     - name: Checkout code
@@ -20,18 +23,15 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '22'
-        # Disabling cache to bypass lock file issue
-        # cache: 'npm'
-        # cache-dependency-path: 'api/package-lock.json'
+        cache: 'npm'
+        cache-dependency-path: './api/package-lock.json'
         
     - name: Install dependencies
       run: |
-        cd api
         npm ci
         
     - name: Build
       run: |
-        cd api
         npm run build --if-present
         
     - name: Deploy to Azure Web App
@@ -39,4 +39,4 @@ jobs:
       with:
         app-name: 'jamshot-api'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
-        package: './api' 
+        package: './api'
