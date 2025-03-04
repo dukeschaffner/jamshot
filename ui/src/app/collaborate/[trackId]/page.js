@@ -5,7 +5,11 @@ import api from '../../../lib/api';
 import MiniTrack from '../../../components/MiniTrack';
 import TagSelector from '../../../components/TagSelector';
 import { Howl } from 'howler';
-import { FaPlay, FaStop, FaTrash, FaCheck, FaMicrophone, FaMicrophoneSlash, FaCog } from 'react-icons/fa';
+import { 
+  FaPlay, FaStop, FaTrash, FaCheck, FaMicrophone, 
+  FaMicrophoneSlash, FaCog, FaUpload, FaArrowLeft, 
+  FaInfoCircle, FaChevronRight 
+} from 'react-icons/fa';
 
 // Waveform visualization component
 const WaveformVisualizer = ({ analyserNode, color = '#3B82F6', height = 100 }) => {
@@ -160,15 +164,17 @@ export default function CollaboratePage() {
   const { trackId } = useParams();
   const router = useRouter();
   const [parentTrack, setParentTrack] = useState(null);
-  const [activeTab, setActiveTab] = useState('record'); // Tabs: 'record' or 'upload'
+  
+  // Page flow state
+  const [currentPage, setCurrentPage] = useState('options'); // options, record, upload, details
+  const [selectedOption, setSelectedOption] = useState(null); // record or upload
+  
+  // Audio recording state
   const [audioDevices, setAudioDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordedTakes, setRecordedTakes] = useState([]);
   const [selectedTakeIndex, setSelectedTakeIndex] = useState(null);
-  const [title, setTitle] = useState('');
-  const [file, setFile] = useState(null);
-  const [progress, setProgress] = useState(0);
   const [autoRestart, setAutoRestart] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingTake, setCurrentPlayingTake] = useState(null);
@@ -182,11 +188,18 @@ export default function CollaboratePage() {
   const [recordingStartTime, setRecordingStartTime] = useState(null);
   const [parentTrackStartTime, setParentTrackStartTime] = useState(null);
   const [levelMeterActive, setLevelMeterActive] = useState(false);
+  const [progress, setProgress] = useState(0);
+  
+  // Upload state
+  const [file, setFile] = useState(null);
+  
+  // Track details state
+  const [title, setTitle] = useState('');
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
-  const [audioToUpload, setAudioToUpload] = useState(null); // Will store either recorded blob or uploaded file
   const [isUploading, setIsUploading] = useState(false);
   
+  // Refs
   const mediaRecorderRef = useRef(null);
   const parentSoundRef = useRef(null);
   const progressIntervalRef = useRef(null);
@@ -237,66 +250,47 @@ export default function CollaboratePage() {
     fetchParentTrack();
   }, [trackId]);
 
-  // Get audio input devices after permission
+  // Get audio input devices only when record option is selected
   useEffect(() => {
-    const initDevices = async () => {
-      try {
-        // Request permission first
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioInputs = devices.filter(device => device.kind === 'audioinput');
-        console.log('Audio devices:', audioInputs); // Debug
-        setAudioDevices(audioInputs);
-        setSelectedDevice(audioInputs[0]?.deviceId || '');
-      } catch (err) {
-        console.error('Failed to initialize audio devices:', err);
-      }
-    };
-    initDevices();
-  }, []);
+    if (selectedOption === 'record' && currentPage === 'record') {
+      const initDevices = async () => {
+        try {
+          // Request permission first
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const audioInputs = devices.filter(device => device.kind === 'audioinput');
+          console.log('Audio devices:', audioInputs); // Debug
+          setAudioDevices(audioInputs);
+          setSelectedDevice(audioInputs[0]?.deviceId || '');
+        } catch (err) {
+          console.error('Failed to get audio devices:', err);
+        }
+      };
+      initDevices();
+    }
+  }, [selectedOption, currentPage]);
 
-  // Initialize level meter when on record tab
+  // Setup level meter when device is selected
   useEffect(() => {
-    let isMounted = true;
-    
-    const setupLevelMeter = async () => {
-      if (activeTab === 'record' && selectedDevice && !recording && isMounted) {
-        console.log('Setting up level meter from useEffect');
-        await initLevelMeter();
-      }
-    };
-    
-    setupLevelMeter();
+    if (selectedOption === 'record' && currentPage === 'record' && selectedDevice && !levelMeterActive) {
+      const setupLevelMeter = async () => {
+        try {
+          await initLevelMeter();
+        } catch (err) {
+          console.error('Failed to setup level meter:', err);
+        }
+      };
+      setupLevelMeter();
+    }
     
     return () => {
-      isMounted = false;
-      if (activeTab !== 'record' || !selectedDevice) {
-        console.log('Cleaning up level meter from useEffect');
+      if (levelMeterActive) {
         cleanupLevelMeter();
       }
     };
-  }, [activeTab, selectedDevice, recording]);
+  }, [selectedDevice, selectedOption, currentPage]);
 
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-      }
-      if (parentSoundRef.current) {
-        parentSoundRef.current.stop();
-      }
-      takeSoundsRef.current.forEach(sound => {
-        if (sound) sound.stop();
-      });
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      cleanupLevelMeter();
-    };
-  }, []);
-
-  // Initialize the level meter
+  // Initialize level meter
   const initLevelMeter = async () => {
     if (levelMeterActive || recording) return;
     
@@ -354,7 +348,7 @@ export default function CollaboratePage() {
     }
   };
 
-  // Clean up level meter resources
+  // Cleanup level meter
   const cleanupLevelMeter = () => {
     console.log('Cleaning up level meter resources');
     setLevelMeterActive(false);
@@ -390,6 +384,7 @@ export default function CollaboratePage() {
     }
   };
 
+  // Toggle recording
   const toggleRecording = async () => {
     if (recording) {
       stopRecording();
@@ -398,6 +393,7 @@ export default function CollaboratePage() {
     }
   };
 
+  // Start recording
   const startRecording = async () => {
     if (!selectedDevice) return alert('Please select an audio input device');
     if (!parentTrack) return alert('Parent track not loaded');
@@ -567,6 +563,7 @@ export default function CollaboratePage() {
     }
   };
 
+  // Stop recording
   const stopRecording = () => {
     if (mediaRecorderRef.current && recording) {
       // Make sure we collect any remaining data
@@ -600,7 +597,7 @@ export default function CollaboratePage() {
       // Don't clean up audio context and analyzer - keep them for the level meter
       // Instead, reinitialize the level meter to continue showing it
       setTimeout(() => {
-        if (activeTab === 'record') {
+        if (currentPage === 'record') {
           initLevelMeter();
         }
       }, 500);
@@ -618,6 +615,7 @@ export default function CollaboratePage() {
     }
   };
 
+  // Finish take
   const finishTake = () => {
     if (chunksRef.current.length > 0) {
       // Create blob with the selected MIME type
@@ -667,6 +665,7 @@ export default function CollaboratePage() {
     }
   };
 
+  // Play take
   const playTake = (index) => {
     // Stop any currently playing audio
     if (currentPlayingTake !== null && takeSoundsRef.current[currentPlayingTake]) {
@@ -757,6 +756,7 @@ export default function CollaboratePage() {
     setCurrentPlayingTake(index);
   };
 
+  // Stop playback
   const stopPlayback = () => {
     if (currentPlayingTake !== null && takeSoundsRef.current[currentPlayingTake]) {
       takeSoundsRef.current[currentPlayingTake].stop();
@@ -770,6 +770,7 @@ export default function CollaboratePage() {
     setIsPlaying(false);
   };
 
+  // Delete take
   const deleteTake = (index) => {
     // Stop if playing
     if (currentPlayingTake === index && takeSoundsRef.current[index]) {
@@ -792,13 +793,15 @@ export default function CollaboratePage() {
     setRecordedTakes(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Handle tag change
   const handleTagChange = ({ genreIds, instrumentIds }) => {
     setSelectedGenres(genreIds);
     setSelectedInstruments(instrumentIds);
   };
 
+  // Prepare audio for upload
   const prepareAudioForUpload = () => {
-    if (activeTab === 'record' && selectedTakeIndex !== null) {
+    if (selectedOption === 'record' && selectedTakeIndex !== null) {
       // Use the selected recorded take
       const selectedTake = recordedTakes[selectedTakeIndex];
       if (selectedTake) {
@@ -816,7 +819,7 @@ export default function CollaboratePage() {
         };
       }
       return null;
-    } else if (activeTab === 'upload' && file) {
+    } else if (selectedOption === 'upload' && file) {
       // Use the uploaded file
       return {
         blob: file,
@@ -826,6 +829,7 @@ export default function CollaboratePage() {
     return null;
   };
 
+  // Handle upload
   const handleUpload = async () => {
     if (!title) {
       alert('Please enter a title');
@@ -834,7 +838,7 @@ export default function CollaboratePage() {
     
     const audioData = prepareAudioForUpload();
     if (!audioData) {
-      alert(activeTab === 'record' 
+      alert(selectedOption === 'record' 
         ? 'Please select a take to upload' 
         : 'Please select a file to upload');
       return;
@@ -870,6 +874,7 @@ export default function CollaboratePage() {
     }
   };
 
+  // Download parent track
   const downloadParentTrack = () => {
     const link = document.createElement('a');
     link.href = parentTrack.combined_audio_url;
@@ -877,363 +882,422 @@ export default function CollaboratePage() {
     link.click();
   };
 
+  // Handle option selection
+  const handleOptionSelect = (option) => {
+    setSelectedOption(option);
+    setCurrentPage(option);
+  };
+
+  // Navigate to details page
+  const goToDetailsPage = () => {
+    setCurrentPage('details');
+  };
+
+  // Navigate back
+  const goBack = () => {
+    if (currentPage === 'details') {
+      setCurrentPage(selectedOption);
+    } else {
+      setCurrentPage('options');
+      // Clean up if leaving record page
+      if (selectedOption === 'record') {
+        cleanupLevelMeter();
+      }
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Collaborate on Track</h1>
+      
       {parentTrack ? (
         <>
-          <div className="mb-6">
+          {/* Parent track always visible at the top */}
+          <div className="mb-6 bg-p1 p-4 rounded">
             <MiniTrack track={parentTrack} />
           </div>
           
-          {/* Common form fields moved outside tabs */}
-          <div className="bg-p1 p-4 rounded mb-4">
-            <div className="mb-4">
-              <label htmlFor="title" className="block text-sm font-medium mb-1">Track Title</label>
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter a title for your collaboration"
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
+          {/* Navigation buttons */}
+          <div className="flex mb-4">
+            {currentPage !== 'options' && (
+              <button
+                onClick={goBack}
+                className="flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 mr-2"
+              >
+                <FaArrowLeft className="mr-2" /> Back
+              </button>
+            )}
             
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Tags</label>
-              <TagSelector 
-                selectedGenres={selectedGenres}
-                selectedInstruments={selectedInstruments}
-                onChange={handleTagChange}
-                parentGenres={parentTrack.genres || []}
-                maxGenres={2}
-                maxInstruments={4}
-              />
+            {currentPage !== 'details' && currentPage !== 'options' && (
+              <button
+                onClick={goToDetailsPage}
+                className="flex items-center px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                disabled={
+                  (selectedOption === 'record' && selectedTakeIndex === null) || 
+                  (selectedOption === 'upload' && !file)
+                }
+              >
+                Track Details <FaChevronRight className="ml-2" />
+              </button>
+            )}
+          </div>
+          
+          {/* Options page */}
+          {currentPage === 'options' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div 
+                onClick={() => handleOptionSelect('record')}
+                className="bg-p1 p-6 rounded cursor-pointer hover:bg-blue-100 transition-colors flex flex-col items-center justify-center aspect-square"
+              >
+                <FaMicrophone className="text-5xl mb-4 text-blue-500" />
+                <h2 className="text-xl font-semibold">Record Live</h2>
+                <p className="text-center mt-2 text-gray-600">Record your collaboration in real-time</p>
+              </div>
+              
+              <div 
+                onClick={() => handleOptionSelect('upload')}
+                className="bg-p1 p-6 rounded cursor-pointer hover:bg-blue-100 transition-colors flex flex-col items-center justify-center aspect-square"
+              >
+                <FaUpload className="text-5xl mb-4 text-blue-500" />
+                <h2 className="text-xl font-semibold">Upload Audio</h2>
+                <p className="text-center mt-2 text-gray-600">Upload a pre-recorded audio file</p>
+              </div>
             </div>
-          </div>
+          )}
           
-          <div className="flex space-x-4 mb-4">
-            <button
-              onClick={() => {
-                if (activeTab !== 'record') {
-                  setActiveTab('record');
-                  // Only initialize level meter if we're switching to record tab
-                  if (selectedDevice && !recording) {
-                    console.log('Switching to record tab, initializing level meter');
-                    setTimeout(() => initLevelMeter(), 100);
-                  }
-                }
-              }}
-              className={`px-4 py-2 rounded ${activeTab === 'record' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'} hover:bg-blue-400`}
-            >
-              Record Live
-            </button>
-            <button
-              onClick={() => {
-                if (activeTab !== 'upload') {
-                  console.log('Switching to upload tab, cleaning up level meter');
-                  cleanupLevelMeter();
-                  setActiveTab('upload');
-                }
-              }}
-              className={`px-4 py-2 rounded ${activeTab === 'upload' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'} hover:bg-blue-400`}
-            >
-              Upload Pre-Recorded
-            </button>
-          </div>
-          
-          <div className="bg-p1 p-4 rounded mb-4">
-            {activeTab === 'record' && (
-              <div>
-                <h2 className="text-lg font-semibold mb-2">Record Live</h2>
-                
-                {/* Device Selection */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-1">Select Microphone</label>
-                  <select
-                    value={selectedDevice}
-                    onChange={(e) => setSelectedDevice(e.target.value)}
-                    className="w-full p-2 border rounded"
-                    disabled={recording}
-                  >
-                    {audioDevices.map(device => (
-                      <option key={device.deviceId} value={device.deviceId}>
-                        {device.label || `Mic ${audioDevices.indexOf(device) + 1}`}
-                      </option>
-                    ))}
-                  </select>
+          {/* Record page */}
+          {currentPage === 'record' && (
+            <div className="bg-p1 p-4 rounded mb-4">
+              <h2 className="text-lg font-semibold mb-4">Record Live</h2>
+              
+              {/* Device Selection */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">Select Microphone</label>
+                <select
+                  value={selectedDevice}
+                  onChange={(e) => setSelectedDevice(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  disabled={recording}
+                >
+                  {audioDevices.map(device => (
+                    <option key={device.deviceId} value={device.deviceId}>
+                      {device.label || `Mic ${audioDevices.indexOf(device) + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Advanced Settings Toggle */}
+              <div className="mb-4">
+                <button
+                  onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                  className="flex items-center text-sm text-blue-500 hover:text-blue-700"
+                  disabled={recording}
+                >
+                  <FaCog className="mr-1" />
+                  {showAdvancedSettings ? 'Hide Advanced Settings' : 'Show Advanced Settings'}
+                </button>
+              </div>
+              
+              {/* Advanced Settings */}
+              {showAdvancedSettings && (
+                <div className="mb-4 p-3 bg-gray-100 rounded">
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium mb-1">
+                      Audio Quality
+                    </label>
+                    <select
+                      value={audioQuality}
+                      onChange={(e) => setAudioQuality(e.target.value)}
+                      className="w-full p-2 border rounded"
+                      disabled={recording}
+                    >
+                      <option value="low">Low (64kbps)</option>
+                      <option value="medium">Medium (128kbps)</option>
+                      <option value="high">High (256kbps)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Higher quality uses more bandwidth and storage.
+                    </p>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium mb-1">
+                      Audio Format
+                    </label>
+                    <select
+                      value={audioMimeType}
+                      onChange={(e) => setAudioMimeType(e.target.value)}
+                      className="w-full p-2 border rounded"
+                      disabled={recording}
+                    >
+                      {supportedMimeTypes.map(type => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Opus codec generally provides the best quality.
+                    </p>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium mb-1">
+                      Latency Compensation (ms)
+                    </label>
+                    <input
+                      type="number"
+                      value={latencyCompensation}
+                      onChange={(e) => setLatencyCompensation(parseInt(e.target.value) || 0)}
+                      min="0"
+                      max="1000"
+                      step="10"
+                      className="w-full p-2 border rounded"
+                      disabled={recording || syncMethod !== 'latency'}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Adjust if your recording is not synchronized with the parent track.
+                      Higher values will delay the parent track playback.
+                    </p>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium mb-1">
+                      Synchronization Method
+                    </label>
+                    <select
+                      value={syncMethod}
+                      onChange={(e) => setSyncMethod(e.target.value)}
+                      className="w-full p-2 border rounded"
+                      disabled={recording}
+                    >
+                      <option value="latency">Latency Compensation</option>
+                      <option value="timestamp">Timestamp-based (Experimental)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Latency Compensation: Delays parent track playback by a fixed amount.<br/>
+                      Timestamp-based: Uses precise timing for better synchronization.
+                    </p>
+                  </div>
                 </div>
-                
-                {/* Advanced Settings Toggle */}
-                <div className="mb-4">
-                  <button
-                    onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                    className="flex items-center text-sm text-blue-500 hover:text-blue-700"
-                    disabled={recording}
-                  >
-                    <FaCog className="mr-1" />
-                    {showAdvancedSettings ? 'Hide Advanced Settings' : 'Show Advanced Settings'}
-                  </button>
-                </div>
-                
-                {/* Advanced Settings */}
-                {showAdvancedSettings && (
-                  <div className="mb-4 p-3 bg-gray-100 rounded">
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium mb-1">
-                        Audio Quality
-                      </label>
-                      <select
-                        value={audioQuality}
-                        onChange={(e) => setAudioQuality(e.target.value)}
-                        className="w-full p-2 border rounded"
-                        disabled={recording}
-                      >
-                        <option value="low">Low (64kbps)</option>
-                        <option value="medium">Medium (128kbps)</option>
-                        <option value="high">High (256kbps)</option>
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Higher quality uses more bandwidth and storage.
-                      </p>
-                    </div>
-                    
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium mb-1">
-                        Audio Format
-                      </label>
-                      <select
-                        value={audioMimeType}
-                        onChange={(e) => setAudioMimeType(e.target.value)}
-                        className="w-full p-2 border rounded"
-                        disabled={recording}
-                      >
-                        {supportedMimeTypes.map(type => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Opus codec generally provides the best quality.
-                      </p>
-                    </div>
-                    
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium mb-1">
-                        Latency Compensation (ms)
-                      </label>
-                      <input
-                        type="number"
-                        value={latencyCompensation}
-                        onChange={(e) => setLatencyCompensation(parseInt(e.target.value) || 0)}
-                        min="0"
-                        max="1000"
-                        step="10"
-                        className="w-full p-2 border rounded"
-                        disabled={recording || syncMethod !== 'latency'}
+              )}
+              
+              {/* Recording Controls */}
+              <div className="mb-4">
+                <div className="flex items-center space-x-4 mb-2">
+                  {/* Vertical Level Meter */}
+                  <div className="h-16 flex items-center justify-center">
+                    {(visualizerAnalyser) ? (
+                      <VerticalLevelMeter 
+                        analyserNode={visualizerAnalyser} 
+                        height={64} 
+                        width={24}
+                        isRecording={recording}
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Adjust if your recording is not synchronized with the parent track.
-                        Higher values will delay the parent track playback.
-                      </p>
+                    ) : (
+                      <div className="h-16 w-6 bg-gray-800 rounded-lg"></div>
+                    )}
+                  </div>
+                  
+                  <button
+                    onClick={toggleRecording}
+                    disabled={!selectedDevice}
+                    className={`p-4 rounded-full text-white flex items-center justify-center ${
+                      !selectedDevice ? 'bg-gray-500' : 
+                      recording ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
+                    }`}
+                    title={recording ? "Stop Recording" : "Start Recording"}
+                  >
+                    {recording ? <FaMicrophoneSlash size={24} /> : <FaMicrophone size={24} />}
+                  </button>
+                  
+                  <div className="flex-1">
+                    <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+                      <div 
+                        className="bg-blue-500 h-4 rounded-full transition-all duration-100"
+                        style={{ width: `${progress}%` }}
+                      ></div>
                     </div>
-                    
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium mb-1">
-                        Synchronization Method
-                      </label>
-                      <select
-                        value={syncMethod}
-                        onChange={(e) => setSyncMethod(e.target.value)}
-                        className="w-full p-2 border rounded"
-                        disabled={recording}
-                      >
-                        <option value="latency">Latency Compensation</option>
-                        <option value="timestamp">Timestamp-based (Experimental)</option>
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Latency Compensation: Delays parent track playback by a fixed amount.<br/>
-                        Timestamp-based: Uses precise timing for better synchronization.
-                      </p>
+                    <div className="text-sm text-gray-600">
+                      {recording ? 'Recording in progress...' : 'Ready to record'}
                     </div>
                   </div>
-                )}
-                
-                {/* Recording Controls */}
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="autoRestart"
+                      checked={autoRestart}
+                      onChange={() => setAutoRestart(!autoRestart)}
+                      className="mr-2"
+                      disabled={recording}
+                    />
+                    <label htmlFor="autoRestart" className="text-sm">
+                      Auto-restart
+                    </label>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Recorded Takes */}
+              {recordedTakes.length > 0 && (
                 <div className="mb-4">
-                  <div className="flex items-center space-x-4 mb-2">
-                    {/* Vertical Level Meter */}
-                    <div className="h-16 flex items-center justify-center">
-                      {(visualizerAnalyser) ? (
-                        <VerticalLevelMeter 
-                          analyserNode={visualizerAnalyser} 
-                          height={64} 
-                          width={24}
-                          isRecording={recording}
-                        />
-                      ) : (
-                        <div className="h-16 w-6 bg-gray-800 rounded-lg"></div>
-                      )}
-                    </div>
-                    
-                    <button
-                      onClick={toggleRecording}
-                      disabled={!selectedDevice}
-                      className={`p-4 rounded-full text-white flex items-center justify-center ${
-                        !selectedDevice ? 'bg-gray-500' : 
-                        recording ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
-                      }`}
-                      title={recording ? "Stop Recording" : "Start Recording"}
-                    >
-                      {recording ? <FaMicrophoneSlash size={24} /> : <FaMicrophone size={24} />}
-                    </button>
-                    
-                    <div className="flex-1">
-                      <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
-                        <div 
-                          className="bg-blue-500 h-4 rounded-full transition-all duration-100"
-                          style={{ width: `${progress}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {recording ? 'Recording in progress...' : 'Ready to record'}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center">
+                  <h3 className="text-md font-medium mb-2">Your Takes</h3>
+                  
+                  {/* Playback Options */}
+                  <div className="flex items-center mb-2">
+                    <label className="flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        id="autoRestart"
-                        checked={autoRestart}
-                        onChange={() => setAutoRestart(!autoRestart)}
+                        checked={playSynchronized}
+                        onChange={() => setPlaySynchronized(!playSynchronized)}
                         className="mr-2"
-                        disabled={recording}
                       />
-                      <label htmlFor="autoRestart" className="text-sm">
-                        Auto-restart
-                      </label>
-                    </div>
+                      <span className="text-sm">
+                        Play takes synchronized with parent track
+                      </span>
+                    </label>
                   </div>
-                </div>
-                
-                {/* Recorded Takes */}
-                {recordedTakes.length > 0 && (
-                  <div className="mb-4">
-                    <h3 className="text-md font-medium mb-2">Your Takes</h3>
-                    
-                    {/* Playback Options */}
-                    <div className="flex items-center mb-2">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={playSynchronized}
-                          onChange={() => setPlaySynchronized(!playSynchronized)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm">
-                          Play takes synchronized with parent track
-                        </span>
-                      </label>
-                    </div>
-                    
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {recordedTakes.map((take, index) => (
-                        <div 
-                          key={take.id}
-                          className={`flex bg-s1 items-center p-2 rounded ${
-                            selectedTakeIndex === index ? 'bg-blue-100 border border-blue-300' : 'bg-gray-100'
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="font-medium">{take.name}</div>
-                            <div className="text-xs text-gray-500">
-                              Quality: {take.quality || 'standard'} | Format: {take.mimeType?.split(';')[0] || 'webm'}
-                            </div>
-                          </div>
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => currentPlayingTake === index && isPlaying ? stopPlayback() : playTake(index)}
-                              className="p-2 rounded bg-blue-500 text-white hover:bg-blue-600"
-                              title={currentPlayingTake === index && isPlaying 
-                                ? "Stop" 
-                                : playSynchronized ? "Play with parent track" : "Play take only"}
-                            >
-                              {currentPlayingTake === index && isPlaying ? <FaStop /> : <FaPlay />}
-                            </button>
-                            <button 
-                              onClick={() => setSelectedTakeIndex(index)}
-                              className={`p-2 rounded ${
-                                selectedTakeIndex === index 
-                                  ? 'bg-green-500 text-white' 
-                                  : 'bg-gray-300 hover:bg-gray-400'
-                              }`}
-                              title="Select for upload"
-                            >
-                              <FaCheck />
-                            </button>
-                            <button 
-                              onClick={() => deleteTake(index)}
-                              className="p-2 rounded bg-red-500 text-white hover:bg-red-600"
-                              title="Delete take"
-                            >
-                              <FaTrash />
-                            </button>
+                  
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {recordedTakes.map((take, index) => (
+                      <div 
+                        key={take.id}
+                        className={`flex bg-s1 items-center p-2 rounded ${
+                          selectedTakeIndex === index ? 'bg-blue-100 border border-blue-300' : 'bg-gray-100'
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{take.name}</div>
+                          <div className="text-xs text-gray-500">
+                            Quality: {take.quality || 'standard'} | Format: {take.mimeType?.split(';')[0] || 'webm'}
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex space-x-2">
+                          <button 
+                            onClick={() => currentPlayingTake === index && isPlaying ? stopPlayback() : playTake(index)}
+                            className="p-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+                            title={currentPlayingTake === index && isPlaying 
+                              ? "Stop" 
+                              : playSynchronized ? "Play with parent track" : "Play take only"}
+                          >
+                            {currentPlayingTake === index && isPlaying ? <FaStop /> : <FaPlay />}
+                          </button>
+                          <button 
+                            onClick={() => setSelectedTakeIndex(index)}
+                            className={`p-2 rounded ${
+                              selectedTakeIndex === index 
+                                ? 'bg-green-500 text-white' 
+                                : 'bg-gray-300 hover:bg-gray-400'
+                            }`}
+                            title="Select for upload"
+                          >
+                            <FaCheck />
+                          </button>
+                          <button 
+                            onClick={() => deleteTake(index)}
+                            className="p-2 rounded bg-red-500 text-white hover:bg-red-600"
+                            title="Delete take"
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Upload page */}
+          {currentPage === 'upload' && (
+            <div className="bg-p1 p-4 rounded mb-4">
+              <h2 className="text-lg font-semibold mb-4">Upload Pre-Recorded</h2>
+              <button
+                onClick={downloadParentTrack}
+                className="bg-blue-500 text-white px-4 py-2 rounded mb-4 hover:bg-blue-600"
+              >
+                Download Parent Track
+              </button>
+              <div className="mb-4">
+                <label htmlFor="audio-file" className="block text-sm font-medium mb-1">Select Audio File</label>
+                <input
+                  id="audio-file"
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => setFile(e.target.files[0])}
+                  className="w-full p-2 border rounded"
+                />
+                {file && (
+                  <div className="mt-2 p-2 bg-green-100 text-green-800 rounded">
+                    Selected file: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
                   </div>
                 )}
               </div>
-            )}
-            
-            {activeTab === 'upload' && (
-              <div>
-                <h2 className="text-lg font-semibold mb-2">Upload Pre-Recorded</h2>
-                <button
-                  onClick={downloadParentTrack}
-                  className="bg-blue-500 text-white px-4 py-2 rounded mb-4 hover:bg-blue-600"
-                >
-                  Download Parent Track
-                </button>
-                <div className="mb-4">
-                  <label htmlFor="audio-file" className="block text-sm font-medium mb-1">Select Audio File</label>
-                  <input
-                    id="audio-file"
-                    type="file"
-                    accept="audio/*"
-                    onChange={(e) => setFile(e.target.files[0])}
-                    className="w-full p-2 border rounded"
-                  />
+            </div>
+          )}
+          
+          {/* Details page */}
+          {currentPage === 'details' && (
+            <div className="bg-p1 p-4 rounded mb-4">
+              <h2 className="text-lg font-semibold mb-4">Track Details</h2>
+              
+              <div className="mb-4">
+                <label htmlFor="title" className="block text-sm font-medium mb-1">Track Title</label>
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter a title for your collaboration"
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Tags</label>
+                <TagSelector 
+                  selectedGenres={selectedGenres}
+                  selectedInstruments={selectedInstruments}
+                  onChange={handleTagChange}
+                  parentGenres={parentTrack.genres || []}
+                  maxGenres={2}
+                  maxInstruments={4}
+                />
+              </div>
+              
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded mb-4">
+                <div className="flex items-start">
+                  <FaInfoCircle className="text-blue-500 mt-1 mr-2" />
+                  <div>
+                    <h3 className="font-medium text-blue-800">Ready to Upload</h3>
+                    <p className="text-sm text-blue-700">
+                      {selectedOption === 'record' 
+                        ? 'You are about to upload your recorded take.' 
+                        : 'You are about to upload your audio file.'}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-          
-          {/* Upload button moved outside tabs */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleUpload}
-              disabled={
-                isUploading || 
-                !title || 
-                (activeTab === 'record' && selectedTakeIndex === null) || 
-                (activeTab === 'upload' && !file)
-              }
-              className={`px-6 py-2 rounded text-white ${
-                isUploading ? 'bg-gray-500 cursor-wait' :
-                (title && ((activeTab === 'record' && selectedTakeIndex !== null) || 
-                          (activeTab === 'upload' && file)))
-                  ? 'bg-green-500 hover:bg-green-600' 
-                  : 'bg-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isUploading ? 'Uploading...' : 'Upload Collaboration'}
-            </button>
-          </div>
+              
+              <div className="flex justify-end">
+                <button
+                  onClick={handleUpload}
+                  disabled={isUploading || !title}
+                  className={`px-6 py-2 rounded text-white ${
+                    isUploading ? 'bg-gray-500 cursor-wait' :
+                    !title ? 'bg-gray-400 cursor-not-allowed' :
+                    'bg-green-500 hover:bg-green-600'
+                  }`}
+                >
+                  {isUploading ? 'Uploading...' : 'Upload Collaboration'}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <p>Loading parent track...</p>
