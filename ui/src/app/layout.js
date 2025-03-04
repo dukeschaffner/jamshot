@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import Cookies from 'js-cookie';
 import './globals.css';
 import { AudioProvider, useAudio } from '../lib/AudioContext';
@@ -8,6 +9,7 @@ import { NotificationProvider } from '../lib/NotificationContext';
 import NotificationDropdown from '../components/NotificationDropdown';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
   FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
+import api from '../lib/api';
 
 function GlobalPlayer() {
   const { 
@@ -144,12 +146,61 @@ function formatTime(seconds) {
 function AppContent({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [userDetails, setUserDetails] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
-  const [activeLink, setActiveLink] = useState('/');
   const searchInputRef = useRef(null);
-  const { currentTrack } = useAudio();
+  const { currentTrack, isPlaying, togglePlayPause } = useAudio();
   const playerVisible = !!currentTrack;
+  const pathname = usePathname();
 
+  // Function to check and update auth state
+  const checkAuthState = () => {
+    const token = Cookies.get('token');
+    setIsLoggedIn(!!token);
+    
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserId(payload.id);
+      } catch (e) {
+        console.error('Failed to parse token:', e);
+      }
+    } else {
+      setUserId(null);
+      setUserDetails(null);
+    }
+  };
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Check if there's a current track and the pressed key is space
+      if (currentTrack && e.code === 'Space') {
+        // Check if the active element is an input, textarea, or button
+        const activeElement = document.activeElement;
+        const isFormElement = activeElement.tagName === 'INPUT' ||
+                            activeElement.tagName === 'TEXTAREA' ||
+                            activeElement.tagName === 'BUTTON' ||
+                            activeElement.isContentEditable;
+        
+        // Only toggle play/pause if not focused on a form element
+        if (!isFormElement) {
+          e.preventDefault(); // Prevent space from scrolling the page
+          togglePlayPause();
+        }
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyPress);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [currentTrack, togglePlayPause]);
+
+  // Initial setup
   useEffect(() => {
     // Check for saved theme preference or use preferred color scheme
     const savedTheme = localStorage.getItem('theme');
@@ -160,23 +211,39 @@ function AppContent({ children }) {
       setDarkMode(true);
     }
     
-    const token = Cookies.get('token');
-    setIsLoggedIn(!!token);
-    
-    // Get user ID from token if available
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserId(payload.id);
-      } catch (e) {
-        console.error('Failed to parse token:', e);
-      }
-    }
-    
-    // Set active link based on current path
-    const path = window.location.pathname;
-    setActiveLink(path);
+    // Initial auth check
+    checkAuthState();
+
+    // Set up cookie change listener
+    const handleCookieChange = () => {
+      checkAuthState();
+    };
+
+    // Check for auth state changes every second
+    const interval = setInterval(handleCookieChange, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
+
+  useEffect(() => {
+    // Fetch user details when userId is available
+    const fetchUserDetails = async () => {
+      if (userId) {
+        try {
+          const response = await api.get('/users/me');
+          setUserDetails(response.data);
+        } catch (err) {
+          console.error('Failed to fetch user details:', err);
+          // If we get an error fetching user details, the token might be invalid
+          handleLogout();
+        }
+      }
+    };
+    
+    fetchUserDetails();
+  }, [userId]);
 
   const toggleTheme = (e) => {
     e.preventDefault();
@@ -190,6 +257,7 @@ function AppContent({ children }) {
     Cookies.remove('token');
     setIsLoggedIn(false);
     setUserId(null);
+    setUserDetails(null);
   };
 
   return (
@@ -212,31 +280,31 @@ function AppContent({ children }) {
         </div>
         
         <div className="nav-links">
-          <Link href="/" className={`nav-link ${activeLink === '/' ? 'active' : ''}`}>
+          <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
             <FaHome />
             Home
           </Link>
-          <Link href="/about" className={`nav-link ${activeLink === '/about' ? 'active' : ''}`}>
+          <Link href="/about" className={`nav-link ${pathname === '/about' ? 'active' : ''}`}>
             <FaInfoCircle />
             About
           </Link>
-          {/* <Link href="/library" className={`nav-link ${activeLink === '/library' ? 'active' : ''}`}>
+          {/* <Link href="/library" className={`nav-link ${pathname === '/library' ? 'active' : ''}`}>
             <FaMusic />
             Library
           </Link>
-          <Link href="/artists" className={`nav-link ${activeLink === '/artists' ? 'active' : ''}`}>
+          <Link href="/artists" className={`nav-link ${pathname === '/artists' ? 'active' : ''}`}>
             <FaUserFriends />
             Artists
           </Link>
-          <Link href="/discover" className={`nav-link ${activeLink === '/discover' ? 'active' : ''}`}>
+          <Link href="/discover" className={`nav-link ${pathname === '/discover' ? 'active' : ''}`}>
             <FaCompass />
             Discover
           </Link>
-          <Link href="/saved" className={`nav-link ${activeLink === '/saved' ? 'active' : ''}`}>
+          <Link href="/saved" className={`nav-link ${pathname === '/saved' ? 'active' : ''}`}>
             <FaBookmark />
             Saved
           </Link>
-          <Link href="/settings" className={`nav-link ${activeLink === '/settings' ? 'active' : ''}`}>
+          <Link href="/settings" className={`nav-link ${pathname === '/settings' ? 'active' : ''}`}>
             <FaCog />
             Settings
           </Link> */}
@@ -259,8 +327,8 @@ function AppContent({ children }) {
                 <img src="/api/placeholder/80/80" alt="User Avatar" />
               </div>
               <div className="user-info">
-                <div className="user-name">User</div>
-                <div className="user-handle">@user</div>
+                <div className="user-name">{userDetails?.username || 'Loading...'}</div>
+                <div className="user-handle">@{userDetails?.username || 'loading'}</div>
               </div>
               <button 
                 onClick={handleLogout} 

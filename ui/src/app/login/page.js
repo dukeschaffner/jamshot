@@ -15,6 +15,7 @@ export default function Login() {
     try {
       const response = await api.post('/auth/login', { email, password });
       Cookies.set('token', response.data.token, { expires: 1 }); // 1 day
+      router.refresh(); // Force a refresh of the page data
       router.push('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');

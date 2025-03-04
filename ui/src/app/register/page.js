@@ -16,6 +16,7 @@ export default function Register() {
     try {
       const response = await api.post('/auth/register', { username, email, password });
       Cookies.set('token', response.data.token, { expires: 1 });
+      router.refresh();
       router.push('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');

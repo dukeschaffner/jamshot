@@ -14,6 +14,24 @@ const s3 = new AWS.S3({
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
 
+// Get current user details
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, email, verified FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get user's tracks
 router.get('/:userId/tracks', async (req, res) => {
   const { userId } = req.params;

@@ -907,13 +907,13 @@ export default function CollaboratePage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Collaborate on Track</h1>
+    <div className="max-w-4xl mx-auto p-4 text-text dark:text-dark-text-primary">
+      <h1 className="text-2xl font-bold mb-4 text-dark dark:text-dark-text-primary">Collaborate on Track</h1>
       
       {parentTrack ? (
         <>
           {/* Parent track always visible at the top */}
-          <div className="mb-6 bg-p1 p-4 rounded">
+          <div className="mb-6 bg-white dark:bg-dark-card-bg p-4 rounded shadow-md dark:shadow-dark-shadow border border-gray dark:border-dark-border-color transition-all duration-300">
             <MiniTrack track={parentTrack} />
           </div>
           
@@ -922,7 +922,7 @@ export default function CollaboratePage() {
             {currentPage !== 'options' && (
               <button
                 onClick={goBack}
-                className="flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 mr-2"
+                className="flex items-center px-4 py-2 bg-gray-light dark:bg-dark-hover-color text-text dark:text-dark-text-secondary rounded hover:bg-gray dark:hover:bg-dark-border-color transition-all duration-200 mr-2"
               >
                 <FaArrowLeft className="mr-2" /> Back
               </button>
@@ -931,7 +931,7 @@ export default function CollaboratePage() {
             {currentPage !== 'details' && currentPage !== 'options' && (
               <button
                 onClick={goToDetailsPage}
-                className="flex items-center px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="flex items-center px-4 py-2 bg-seafoam dark:bg-seafoam text-white rounded hover:bg-rustic-pink dark:hover:opacity-90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={
                   (selectedOption === 'record' && selectedTakeIndex === null) || 
                   (selectedOption === 'upload' && !file)
@@ -947,36 +947,36 @@ export default function CollaboratePage() {
             <div className="grid grid-cols-2 gap-4">
               <div 
                 onClick={() => handleOptionSelect('record')}
-                className="bg-p1 p-6 rounded cursor-pointer hover:bg-blue-100 transition-colors flex flex-col items-center justify-center aspect-square"
+                className="bg-white dark:bg-dark-card-bg p-6 rounded cursor-pointer hover:bg-seafoam-light dark:hover:bg-dark-hover-color transition-all duration-200 flex flex-col items-center justify-center aspect-square border border-gray dark:border-dark-border-color shadow-md dark:shadow-dark-shadow hover:shadow-lg dark:hover:shadow-lg hover:transform hover:-translate-y-1"
               >
-                <FaMicrophone className="text-5xl mb-4 text-blue-500" />
-                <h2 className="text-xl font-semibold">Record Live</h2>
-                <p className="text-center mt-2 text-gray-600">Record your collaboration in real-time</p>
+                <FaMicrophone className="text-5xl mb-4 text-seafoam" />
+                <h2 className="text-xl font-semibold text-dark dark:text-dark-text-primary">Record Live</h2>
+                <p className="text-center mt-2 text-text dark:text-dark-text-secondary">Record your collaboration in real-time</p>
               </div>
               
               <div 
                 onClick={() => handleOptionSelect('upload')}
-                className="bg-p1 p-6 rounded cursor-pointer hover:bg-blue-100 transition-colors flex flex-col items-center justify-center aspect-square"
+                className="bg-white dark:bg-dark-card-bg p-6 rounded cursor-pointer hover:bg-rustic-pink-light dark:hover:bg-dark-hover-color transition-all duration-200 flex flex-col items-center justify-center aspect-square border border-gray dark:border-dark-border-color shadow-md dark:shadow-dark-shadow hover:shadow-lg dark:hover:shadow-lg hover:transform hover:-translate-y-1"
               >
-                <FaUpload className="text-5xl mb-4 text-blue-500" />
-                <h2 className="text-xl font-semibold">Upload Audio</h2>
-                <p className="text-center mt-2 text-gray-600">Upload a pre-recorded audio file</p>
+                <FaUpload className="text-5xl mb-4 text-rustic-pink" />
+                <h2 className="text-xl font-semibold text-dark dark:text-dark-text-primary">Upload Audio</h2>
+                <p className="text-center mt-2 text-text dark:text-dark-text-secondary">Upload a pre-recorded audio file</p>
               </div>
             </div>
           )}
           
           {/* Record page */}
           {currentPage === 'record' && (
-            <div className="bg-p1 p-4 rounded mb-4">
-              <h2 className="text-lg font-semibold mb-4">Record Live</h2>
+            <div className="bg-white dark:bg-dark-card-bg p-4 rounded mb-4 border border-gray dark:border-dark-border-color shadow-md dark:shadow-dark-shadow transition-all duration-300">
+              <h2 className="text-lg font-semibold mb-4 text-dark dark:text-dark-text-primary">Record Live</h2>
               
               {/* Device Selection */}
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Select Microphone</label>
+                <label className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">Select Microphone</label>
                 <select
                   value={selectedDevice}
                   onChange={(e) => setSelectedDevice(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-gray-light dark:bg-dark-hover-color border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                   disabled={recording}
                 >
                   {audioDevices.map(device => (
@@ -991,7 +991,7 @@ export default function CollaboratePage() {
               <div className="mb-4">
                 <button
                   onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-                  className="flex items-center text-sm text-blue-500 hover:text-blue-700"
+                  className="flex items-center text-sm text-seafoam hover:text-rustic-pink transition-colors duration-200"
                   disabled={recording}
                 >
                   <FaCog className="mr-1" />
@@ -1001,34 +1001,34 @@ export default function CollaboratePage() {
               
               {/* Advanced Settings */}
               {showAdvancedSettings && (
-                <div className="mb-4 p-3 bg-gray-100 rounded">
+                <div className="mb-4 p-3 bg-gray-light dark:bg-dark-hover-color rounded border border-gray dark:border-dark-border-color">
                   <div className="mb-3">
-                    <label className="block text-sm font-medium mb-1">
+                    <label className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">
                       Audio Quality
                     </label>
                     <select
                       value={audioQuality}
                       onChange={(e) => setAudioQuality(e.target.value)}
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border rounded bg-white dark:bg-dark-card-bg border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                       disabled={recording}
                     >
                       <option value="low">Low (64kbps)</option>
                       <option value="medium">Medium (128kbps)</option>
                       <option value="high">High (256kbps)</option>
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-text dark:text-dark-text-secondary mt-1">
                       Higher quality uses more bandwidth and storage.
                     </p>
                   </div>
                   
                   <div className="mb-3">
-                    <label className="block text-sm font-medium mb-1">
+                    <label className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">
                       Audio Format
                     </label>
                     <select
                       value={audioMimeType}
                       onChange={(e) => setAudioMimeType(e.target.value)}
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border rounded bg-white dark:bg-dark-card-bg border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                       disabled={recording}
                     >
                       {supportedMimeTypes.map(type => (
@@ -1037,13 +1037,13 @@ export default function CollaboratePage() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-text dark:text-dark-text-secondary mt-1">
                       Opus codec generally provides the best quality.
                     </p>
                   </div>
                   
                   <div className="mb-3">
-                    <label className="block text-sm font-medium mb-1">
+                    <label className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">
                       Latency Compensation (ms)
                     </label>
                     <input
@@ -1053,29 +1053,29 @@ export default function CollaboratePage() {
                       min="0"
                       max="1000"
                       step="10"
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border rounded bg-white dark:bg-dark-card-bg border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                       disabled={recording || syncMethod !== 'latency'}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-text dark:text-dark-text-secondary mt-1">
                       Adjust if your recording is not synchronized with the parent track.
                       Higher values will delay the parent track playback.
                     </p>
                   </div>
                   
                   <div className="mb-3">
-                    <label className="block text-sm font-medium mb-1">
+                    <label className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">
                       Synchronization Method
                     </label>
                     <select
                       value={syncMethod}
                       onChange={(e) => setSyncMethod(e.target.value)}
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border rounded bg-white dark:bg-dark-card-bg border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                       disabled={recording}
                     >
                       <option value="latency">Latency Compensation</option>
                       <option value="timestamp">Timestamp-based (Experimental)</option>
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-text dark:text-dark-text-secondary mt-1">
                       Latency Compensation: Delays parent track playback by a fixed amount.<br/>
                       Timestamp-based: Uses precise timing for better synchronization.
                     </p>
@@ -1096,16 +1096,16 @@ export default function CollaboratePage() {
                         isRecording={recording}
                       />
                     ) : (
-                      <div className="h-16 w-6 bg-gray-800 rounded-lg"></div>
+                      <div className="h-16 w-6 bg-gray-800 dark:bg-dark-hover-color rounded-lg"></div>
                     )}
                   </div>
                   
                   <button
                     onClick={toggleRecording}
                     disabled={!selectedDevice}
-                    className={`p-4 rounded-full text-white flex items-center justify-center ${
-                      !selectedDevice ? 'bg-gray-500' : 
-                      recording ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
+                    className={`p-4 rounded-full text-white flex items-center justify-center transition-all duration-200 ${
+                      !selectedDevice ? 'bg-gray cursor-not-allowed' : 
+                      recording ? 'bg-rustic-pink hover:bg-rustic-pink-light' : 'bg-seafoam hover:bg-seafoam-light'
                     }`}
                     title={recording ? "Stop Recording" : "Start Recording"}
                   >
@@ -1113,13 +1113,13 @@ export default function CollaboratePage() {
                   </button>
                   
                   <div className="flex-1">
-                    <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+                    <div className="w-full bg-gray-light dark:bg-dark-hover-color rounded-full h-4 mb-2">
                       <div 
-                        className="bg-blue-500 h-4 rounded-full transition-all duration-100"
+                        className="bg-seafoam h-4 rounded-full transition-all duration-100"
                         style={{ width: `${progress}%` }}
                       ></div>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-text dark:text-dark-text-secondary">
                       {recording ? 'Recording in progress...' : 'Ready to record'}
                     </div>
                   </div>
@@ -1130,10 +1130,10 @@ export default function CollaboratePage() {
                       id="autoRestart"
                       checked={autoRestart}
                       onChange={() => setAutoRestart(!autoRestart)}
-                      className="mr-2"
+                      className="mr-2 accent-seafoam"
                       disabled={recording}
                     />
-                    <label htmlFor="autoRestart" className="text-sm">
+                    <label htmlFor="autoRestart" className="text-sm text-text dark:text-dark-text-secondary">
                       Auto-restart
                     </label>
                   </div>
@@ -1143,7 +1143,7 @@ export default function CollaboratePage() {
               {/* Recorded Takes */}
               {recordedTakes.length > 0 && (
                 <div className="mb-4">
-                  <h3 className="text-md font-medium mb-2">Your Takes</h3>
+                  <h3 className="text-md font-medium mb-2 text-dark dark:text-dark-text-primary">Your Takes</h3>
                   
                   {/* Playback Options */}
                   <div className="flex items-center mb-2">
@@ -1152,9 +1152,9 @@ export default function CollaboratePage() {
                         type="checkbox"
                         checked={playSynchronized}
                         onChange={() => setPlaySynchronized(!playSynchronized)}
-                        className="mr-2"
+                        className="mr-2 accent-seafoam"
                       />
-                      <span className="text-sm">
+                      <span className="text-sm text-text dark:text-dark-text-secondary">
                         Play takes synchronized with parent track
                       </span>
                     </label>
@@ -1164,20 +1164,22 @@ export default function CollaboratePage() {
                     {recordedTakes.map((take, index) => (
                       <div 
                         key={take.id}
-                        className={`flex bg-s1 items-center p-2 rounded ${
-                          selectedTakeIndex === index ? 'bg-blue-100 border border-blue-300' : 'bg-gray-100'
+                        className={`flex items-center p-2 rounded transition-all duration-200 ${
+                          selectedTakeIndex === index 
+                            ? 'bg-seafoam-light dark:bg-dark-hover-color border border-seafoam dark:border-seafoam' 
+                            : 'bg-gray-light dark:bg-dark-hover-color border border-gray dark:border-dark-border-color'
                         }`}
                       >
                         <div className="flex-1">
-                          <div className="font-medium">{take.name}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="font-medium text-dark dark:text-dark-text-primary">{take.name}</div>
+                          <div className="text-xs text-text dark:text-dark-text-secondary">
                             Quality: {take.quality || 'standard'} | Format: {take.mimeType?.split(';')[0] || 'webm'}
                           </div>
                         </div>
                         <div className="flex space-x-2">
                           <button 
                             onClick={() => currentPlayingTake === index && isPlaying ? stopPlayback() : playTake(index)}
-                            className="p-2 rounded bg-blue-500 text-white hover:bg-blue-600"
+                            className="p-2 rounded bg-seafoam text-white hover:bg-seafoam-light transition-colors duration-200"
                             title={currentPlayingTake === index && isPlaying 
                               ? "Stop" 
                               : playSynchronized ? "Play with parent track" : "Play take only"}
@@ -1186,10 +1188,10 @@ export default function CollaboratePage() {
                           </button>
                           <button 
                             onClick={() => setSelectedTakeIndex(index)}
-                            className={`p-2 rounded ${
+                            className={`p-2 rounded transition-colors duration-200 ${
                               selectedTakeIndex === index 
-                                ? 'bg-green-500 text-white' 
-                                : 'bg-gray-300 hover:bg-gray-400'
+                                ? 'bg-seafoam text-white' 
+                                : 'bg-gray-light dark:bg-dark-hover-color text-text dark:text-dark-text-secondary hover:bg-gray dark:hover:bg-dark-border-color'
                             }`}
                             title="Select for upload"
                           >
@@ -1197,7 +1199,7 @@ export default function CollaboratePage() {
                           </button>
                           <button 
                             onClick={() => deleteTake(index)}
-                            className="p-2 rounded bg-red-500 text-white hover:bg-red-600"
+                            className="p-2 rounded bg-rustic-pink text-white hover:bg-rustic-pink-light transition-colors duration-200"
                             title="Delete take"
                           >
                             <FaTrash />
@@ -1213,25 +1215,25 @@ export default function CollaboratePage() {
           
           {/* Upload page */}
           {currentPage === 'upload' && (
-            <div className="bg-p1 p-4 rounded mb-4">
-              <h2 className="text-lg font-semibold mb-4">Upload Pre-Recorded</h2>
+            <div className="bg-white dark:bg-dark-card-bg p-4 rounded mb-4 border border-gray dark:border-dark-border-color shadow-md dark:shadow-dark-shadow transition-all duration-300">
+              <h2 className="text-lg font-semibold mb-4 text-dark dark:text-dark-text-primary">Upload Pre-Recorded</h2>
               <button
                 onClick={downloadParentTrack}
-                className="bg-blue-500 text-white px-4 py-2 rounded mb-4 hover:bg-blue-600"
+                className="bg-seafoam text-white px-4 py-2 rounded mb-4 hover:bg-rustic-pink transition-colors duration-200"
               >
                 Download Parent Track
               </button>
               <div className="mb-4">
-                <label htmlFor="audio-file" className="block text-sm font-medium mb-1">Select Audio File</label>
+                <label htmlFor="audio-file" className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">Select Audio File</label>
                 <input
                   id="audio-file"
                   type="file"
                   accept="audio/*"
                   onChange={(e) => setFile(e.target.files[0])}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-gray-light dark:bg-dark-hover-color border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                 />
                 {file && (
-                  <div className="mt-2 p-2 bg-green-100 text-green-800 rounded">
+                  <div className="mt-2 p-2 bg-seafoam-light dark:bg-dark-hover-color text-dark dark:text-dark-text-primary rounded border border-seafoam dark:border-seafoam">
                     Selected file: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
                   </div>
                 )}
@@ -1241,24 +1243,24 @@ export default function CollaboratePage() {
           
           {/* Details page */}
           {currentPage === 'details' && (
-            <div className="bg-p1 p-4 rounded mb-4">
-              <h2 className="text-lg font-semibold mb-4">Track Details</h2>
+            <div className="bg-white dark:bg-dark-card-bg p-4 rounded mb-4 border border-gray dark:border-dark-border-color shadow-md dark:shadow-dark-shadow transition-all duration-300">
+              <h2 className="text-lg font-semibold mb-4 text-dark dark:text-dark-text-primary">Track Details</h2>
               
               <div className="mb-4">
-                <label htmlFor="title" className="block text-sm font-medium mb-1">Track Title</label>
+                <label htmlFor="title" className="block text-sm font-medium mb-1 text-dark dark:text-dark-text-primary">Track Title</label>
                 <input
                   id="title"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter a title for your collaboration"
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-gray-light dark:bg-dark-hover-color border-gray dark:border-dark-border-color text-text dark:text-dark-text-primary focus:border-seafoam dark:focus:border-seafoam outline-none transition-all duration-200"
                   required
                 />
               </div>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Tags</label>
+                <label className="block text-sm font-medium mb-2 text-dark dark:text-dark-text-primary">Tags</label>
                 <TagSelector 
                   selectedGenres={selectedGenres}
                   selectedInstruments={selectedInstruments}
@@ -1269,12 +1271,12 @@ export default function CollaboratePage() {
                 />
               </div>
               
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded mb-4">
+              <div className="p-3 bg-seafoam-light dark:bg-dark-hover-color border border-seafoam dark:border-seafoam rounded mb-4">
                 <div className="flex items-start">
-                  <FaInfoCircle className="text-blue-500 mt-1 mr-2" />
+                  <FaInfoCircle className="text-seafoam mt-1 mr-2" />
                   <div>
-                    <h3 className="font-medium text-blue-800">Ready to Upload</h3>
-                    <p className="text-sm text-blue-700">
+                    <h3 className="font-medium text-dark dark:text-dark-text-primary">Ready to Upload</h3>
+                    <p className="text-sm text-text dark:text-dark-text-secondary">
                       {selectedOption === 'record' 
                         ? 'You are about to upload your recorded take.' 
                         : 'You are about to upload your audio file.'}
@@ -1287,10 +1289,10 @@ export default function CollaboratePage() {
                 <button
                   onClick={handleUpload}
                   disabled={isUploading || !title}
-                  className={`px-6 py-2 rounded text-white ${
-                    isUploading ? 'bg-gray-500 cursor-wait' :
-                    !title ? 'bg-gray-400 cursor-not-allowed' :
-                    'bg-green-500 hover:bg-green-600'
+                  className={`px-6 py-2 rounded text-white transition-all duration-200 ${
+                    isUploading ? 'bg-gray cursor-wait' :
+                    !title ? 'bg-gray-light dark:bg-dark-hover-color cursor-not-allowed' :
+                    'bg-rustic-pink hover:bg-rustic-pink-light hover:shadow-md'
                   }`}
                 >
                   {isUploading ? 'Uploading...' : 'Upload Collaboration'}
@@ -1300,7 +1302,9 @@ export default function CollaboratePage() {
           )}
         </>
       ) : (
-        <p>Loading parent track...</p>
+        <div className="bg-white dark:bg-dark-card-bg p-4 rounded border border-gray dark:border-dark-border-color shadow-md dark:shadow-dark-shadow transition-all duration-300">
+          <p className="text-text dark:text-dark-text-secondary">Loading parent track...</p>
+        </div>
       )}
     </div>
   );
