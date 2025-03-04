@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useAudio } from '../lib/AudioContext';
-import { FaPlay, FaPause, FaHeart, FaRegHeart, FaRetweet, FaCheckCircle } from 'react-icons/fa';
+import { FaPlay, FaPause, FaHeart, FaRegHeart, FaRetweet, FaCheckCircle, FaMusic } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import api from '../lib/api';
 
@@ -85,6 +85,11 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
       <div className="related-info">
         <div className="related-title-container">
           <div className="related-title">{track.title}</div>
+          {track.metronome_bpm && (
+            <div className="metronome-info">
+              <FaMusic className="metronome-icon" /> {track.metronome_bpm} BPM
+            </div>
+          )}
           {(track.tags?.length > 0 || track.genres?.length > 0 || track.instruments?.length > 0) && (
             <div className="related-tags">
               {/* Display regular tags */}

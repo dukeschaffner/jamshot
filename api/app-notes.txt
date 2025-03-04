@@ -74,7 +74,8 @@ CREATE TABLE tracks (
   layer INT NOT NULL, -- 0-4 (max 5 collaborators)
   parent_track_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Null for originals, links to parent for versions
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  play_count INT DEFAULT 0
+  play_count INT DEFAULT 0,
+  metronome_bpm INTEGER;
 );
 
 CREATE TABLE likes (

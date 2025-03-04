@@ -2608,3 +2608,22 @@ body.dark-mode .tab.active {
 .dark-mode .action-btn:hover {
   background-color: var(--dark-gray-light);
 }
+
+/* Metronome styling */
+.track-stat.metronome,
+.meta-item .fa-music {
+  color: #6c5ce7;
+}
+
+.track-stat.metronome svg,
+.meta-item .fa-music {
+  margin-right: 4px;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .track-stat.metronome,
+  .meta-item .fa-music {
+    color: #a29bfe;
+  }
+}

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import TrackTags from './TrackTags';
 
@@ -146,6 +146,11 @@ export default function TrackTreeNode({
           <div className="track-stat">
             <FaUsers /> {track.child_count || 0}
           </div>
+          {track.metronome_bpm && (
+            <div className="track-stat metronome">
+              <FaMusic /> {track.metronome_bpm} BPM
+            </div>
+          )}
         </div>
         
         <div className="track-actions">

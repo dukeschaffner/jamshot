@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 
 export default function Track({ track, allTracks, setExpandedTrackId, expandedTrackId }) {
@@ -205,6 +205,12 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
               <FaUsers /> 
               <span>{Number(track.collab_count || 0).toLocaleString()}</span>
             </div>
+            {track.metronome_bpm && (
+              <div className="meta-item">
+                <FaMusic /> 
+                <span>{track.metronome_bpm} BPM</span>
+              </div>
+            )}
           </div>
         </div>
         
