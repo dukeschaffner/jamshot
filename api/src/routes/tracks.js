@@ -927,4 +927,143 @@ router.post('/:id/play', async (req, res) => {
   }
 });
 
+// Get full track tree (ancestors and children)
+router.get('/:id/tree', async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  
+  try {
+    // First, get the current track
+    const currentTrackResult = await pool.query(`
+      SELECT 
+        t.*,
+        u.username,
+        u.verified,
+        u.profile_pic_url,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
+      FROM tracks t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.id = $1
+    `, [id, userId || null]);
+    
+    if (currentTrackResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const currentTrack = currentTrackResult.rows[0];
+    
+    // Get all ancestors (tracks up the tree to the root)
+    const ancestors = [];
+    let parentId = currentTrack.parent_track_id;
+    
+    while (parentId) {
+      const parentResult = await pool.query(`
+        SELECT 
+          t.*,
+          u.username,
+          u.verified,
+          u.profile_pic_url,
+          EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+          (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+          (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
+        FROM tracks t
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE t.id = $1
+      `, [parentId, userId || null]);
+      
+      if (parentResult.rows.length === 0) {
+        break;
+      }
+      
+      const parent = parentResult.rows[0];
+      ancestors.unshift(parent); // Add to the beginning of the array
+      parentId = parent.parent_track_id;
+    }
+    
+    // Get direct children of the current track
+    const childrenResult = await pool.query(`
+      SELECT 
+        t.*,
+        u.username,
+        u.verified,
+        u.profile_pic_url,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
+      FROM tracks t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.parent_track_id = $1
+      ORDER BY t.created_at ASC
+    `, [id, userId || null]);
+    
+    // Process all tracks to add signed URLs and tags
+    const processTrack = async (track) => {
+      let audioUrl = track.audio_url;
+      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
+      
+      if (process.env.NODE_ENV !== 'production') {
+        audioUrl = `http://localhost:5000${audioUrl}`;
+        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
+      } else {
+        if (audioUrl.startsWith('tracks/')) {
+          audioUrl = s3.getSignedUrl('getObject', {
+            Bucket: process.env.S3_BUCKET,
+            Key: track.audio_url,
+            Expires: 3600,
+          });
+        }
+        if (combinedAudioUrl.startsWith('tracks/')) {
+          combinedAudioUrl = s3.getSignedUrl('getObject', {
+            Bucket: process.env.S3_BUCKET,
+            Key: track.combined_audio_url || track.audio_url,
+            Expires: 3600,
+          });
+        }
+      }
+      
+      // Get genres for this track
+      const genresResult = await pool.query(
+        `SELECT g.* FROM genres g
+         JOIN track_genres tg ON g.id = tg.genre_id
+         WHERE tg.track_id = $1
+         ORDER BY g.name`,
+        [track.id]
+      );
+      
+      // Get instruments for this track
+      const instrumentsResult = await pool.query(
+        `SELECT i.* FROM instruments i
+         JOIN track_instruments ti ON i.id = ti.instrument_id
+         WHERE ti.track_id = $1
+         ORDER BY i.name`,
+        [track.id]
+      );
+      
+      return { 
+        ...track, 
+        audio_url: audioUrl, 
+        combined_audio_url: combinedAudioUrl,
+        genres: genresResult.rows,
+        instruments: instrumentsResult.rows
+      };
+    };
+    
+    // Process all tracks
+    const processedCurrentTrack = await processTrack(currentTrack);
+    const processedAncestors = await Promise.all(ancestors.map(processTrack));
+    const processedChildren = await Promise.all(childrenResult.rows.map(processTrack));
+    
+    res.json({
+      current: processedCurrentTrack,
+      ancestors: processedAncestors,
+      children: processedChildren
+    });
+  } catch (err) {
+    console.error('Error fetching track tree:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

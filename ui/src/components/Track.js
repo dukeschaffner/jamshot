@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 
 export default function Track({ track, allTracks, setExpandedTrackId, expandedTrackId }) {
@@ -239,6 +239,13 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           
           <button className="share-btn">
             <FaShareAlt />
+          </button>
+          
+          <button className="action-btn" onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/track/${track.id}`);
+          }}>
+            <FaInfoCircle /> Details
           </button>
         </div>
       </div>
