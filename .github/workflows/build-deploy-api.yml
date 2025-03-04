@@ -1,58 +1,40 @@
-name: Deploy API
+name: Deploy API to Azure
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'Development'
-        type: choice
-        options:
-        - Development
-        - Production
-
-env:
-  AZURE_WEBAPP_NAME: jamshot-api    # set this to your API application's name
-  NODE_VERSION: '22.x'              # set this to the node version to use
-
-permissions:
-  contents: read
+      reason:
+        description: 'Reason for deployment'
+        required: false
+        default: 'Manual deployment'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-
-    steps:
-    - uses: actions/checkout@v4
     
-    - name: Use Node.js ${{ env.NODE_VERSION }}
-      uses: actions/setup-node@v4
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Node.js 22
+      uses: actions/setup-node@v3
       with:
-        node-version: ${{ env.NODE_VERSION }}
-
+        node-version: '22'
+        cache: 'npm'
+        
     - name: Install dependencies
-      working-directory: api
       run: |
-        if [ -f "package-lock.json" ]; then
-          npm ci
-        else
-          npm install
-        fi
-
+        cd api
+        npm ci
+        
     - name: Build
-      working-directory: api
-      run: npm run build --if-present
-
-    - name: Test
-      working-directory: api
-      run: npm test --if-present
-
-    - name: 'Deploy API to Azure WebApp'
-      id: deploy-to-webapp
+      run: |
+        cd api
+        npm run build --if-present
+        
+    - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        app-name: 'jamshot-api'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
-        package: api 
+        package: './api' 
