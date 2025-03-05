@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { formatDuration, posToTime, timeToPos } from '@/lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPlay, faPause, faStepBackward, faStepForward, 
   faDrum, faMicrophone, faTrash, faUpload, faCloudUploadAlt,
   faHeart, faComment
 } from '@fortawesome/free-solid-svg-icons';
+import TracksWidget from './TracksWidget';
 
 export default function CollabInterface({ track }) {
   // State
@@ -27,8 +27,6 @@ export default function CollabInterface({ track }) {
   const [showUploadSection, setShowUploadSection] = useState(false);
   const [takes, setTakes] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [inputLevel, setInputLevel] = useState(0);
-  const [audioElement, setAudioElement] = useState(null);
   const [fileName, setFileName] = useState('');
   
   // Positions (in percentage)
@@ -44,7 +42,6 @@ export default function CollabInterface({ track }) {
   const looperHandleRightRef = useRef(null);
   const looperRegionRef = useRef(null);
   const playheadAnimationRef = useRef(null);
-  const inputMeterAnimationRef = useRef(null);
   const audioRef = useRef(null);
   
   // Track duration in seconds (default to 90 seconds if not available)
@@ -66,11 +63,7 @@ export default function CollabInterface({ track }) {
   const [recordedChunks, setRecordedChunks] = useState([]);
   
   // Refs
-  const timeTooltipRef = useRef(null);
   const recordingStream = useRef(null);
-  const audioContext = useRef(null);
-  const analyser = useRef(null);
-  const animationFrameId = useRef(null);
   
   // State for take playback
   const [playingTakeId, setPlayingTakeId] = useState(null);
@@ -103,7 +96,6 @@ export default function CollabInterface({ track }) {
         console.error('Audio loading error:', e);
       });
       
-      setAudioElement(audio);
       audioRef.current = audio;
       
       // Set up audio event listeners
@@ -113,7 +105,7 @@ export default function CollabInterface({ track }) {
         const percent = (currentTime / duration) * 100;
         
         // Only update playhead position if not dragging
-        if (!isDraggingPlayhead) {
+        if (!isDragging()) {
           setPlayheadPos(percent);
         }
         
@@ -283,7 +275,7 @@ export default function CollabInterface({ track }) {
         const duration = audio.duration || trackDuration;
         const percent = (currentTime / duration) * 100;
         
-        if (!isDraggingPlayhead) {
+        if (!isDragging()) {
           setPlayheadPos(percent);
         }
         
@@ -295,7 +287,6 @@ export default function CollabInterface({ track }) {
         }
       });
       
-      setAudioElement(audio);
       audioRef.current = audio;
     }
     
@@ -628,57 +619,13 @@ export default function CollabInterface({ track }) {
         });
         
         recordingStream.current = stream;
-        
-        // Set up audio context and analyzer
-        if (!audioContext.current) {
-          audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        const source = audioContext.current.createMediaStreamSource(stream);
-        analyser.current = audioContext.current.createAnalyser();
-        analyser.current.fftSize = 256;
-        source.connect(analyser.current);
-        
-        // Start visualizing input level
-        visualizeInputLevel();
       } catch (error) {
         console.error('Error setting up audio analyzer:', error);
       }
     };
     
     setupAudioAnalyzer();
-    
-    return () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-    };
   }, [selectedInputDevice]);
-  
-  // Visualize input level
-  const visualizeInputLevel = () => {
-    if (!analyser.current) return;
-    
-    const dataArray = new Uint8Array(analyser.current.frequencyBinCount);
-    
-    const updateLevel = () => {
-      analyser.current.getByteFrequencyData(dataArray);
-      
-      // Calculate average level
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i];
-      }
-      const average = sum / dataArray.length;
-      const normalizedLevel = average / 255; // Normalize to 0-1
-      
-      setInputLevel(normalizedLevel);
-      
-      animationFrameId.current = requestAnimationFrame(updateLevel);
-    };
-    
-    updateLevel();
-  };
   
   // Mouse event handlers
   useEffect(() => {
@@ -840,6 +787,25 @@ export default function CollabInterface({ track }) {
       });
   };
   
+  // Delete a take
+  const deleteTake = (takeId) => {
+    // Stop playback if this take is playing
+    if (playingTakeId === takeId && takesAudioRef.current[takeId]) {
+      takesAudioRef.current[takeId].pause();
+      setPlayingTakeId(null);
+    }
+    
+    // Remove the take from the list
+    setTakes(prev => prev.filter(take => take.id !== takeId));
+    
+    // Clean up the audio element
+    if (takesAudioRef.current[takeId]) {
+      takesAudioRef.current[takeId].pause();
+      takesAudioRef.current[takeId].src = '';
+      takesAudioRef.current[takeId] = null;
+    }
+  };
+  
   // Clean up take audio elements when takes change
   useEffect(() => {
     // Clean up any removed takes
@@ -862,6 +828,12 @@ export default function CollabInterface({ track }) {
       });
     };
   }, [takes]);
+  
+  // Helper function to check if any dragging is happening
+  const isDragging = () => {
+    // This is now handled in TracksWidget
+    return false;
+  };
   
   return (
     <div className="collab-container">
@@ -904,91 +876,24 @@ export default function CollabInterface({ track }) {
         </div>
       </div>
 
-      {/* DAW Interface */}
-      <div className="daw-container">
-        {/* Timeline */}
-        <div className="timeline">
-          <div className="track-label"></div>
-          <div className="time-markers">
-            <div className="time-marker" style={{ left: '0%' }}>0:00</div>
-            <div className="time-marker" style={{ left: '16.67%' }}>0:15</div>
-            <div className="time-marker" style={{ left: '33.33%' }}>0:30</div>
-            <div className="time-marker" style={{ left: '50%' }}>0:45</div>
-            <div className="time-marker" style={{ left: '66.67%' }}>1:00</div>
-            <div className="time-marker" style={{ left: '83.33%' }}>1:15</div>
-            <div className="time-marker" style={{ left: '100%' }}>1:30</div>
-          </div>
-        </div>
-
-        {/* Parent Track */}
-        <div className="track-container parent-track">
-          <div className="track-label">
-            <span>Original</span>
-          </div>
-          <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
-            <div className="waveform">
-              {/* SVG Waveform */}
-              <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
-                <path 
-                  d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
-                  fill="none" 
-                  stroke="var(--seafoam)" 
-                  strokeWidth="2"
-                />
-              </svg>
-              {/* Playhead */}
-              <div 
-                className="playhead" 
-                ref={playheadRef}
-                style={{ left: `${playheadPos}%` }}
-                onMouseDown={handlePlayheadMouseDown}
-              ></div>
-            </div>
-            {/* Looper */}
-            <div 
-              className="looper" 
-              ref={looperRef}
-              style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
-            >
-              <div 
-                className="looper-handle left" 
-                ref={looperHandleLeftRef}
-                onMouseDown={handleLooperLeftMouseDown}
-              ></div>
-              <div 
-                className="looper-region" 
-                ref={looperRegionRef}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsLooping(prev => !prev);
-                }}
-                onMouseDown={handleLooperRegionMouseDown}
-              ></div>
-              <div 
-                className="looper-handle right" 
-                ref={looperHandleRightRef}
-                onMouseDown={handleLooperRightMouseDown}
-              ></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Your Recording */}
-        <div className="track-container your-track">
-          <div className="track-label">
-            <span>Your Recording</span>
-          </div>
-          <div 
-            className="waveform-container empty"
-            onClick={showCollabModal}
-          >
-            <div className="empty-message">
-              <FontAwesomeIcon icon={faMicrophone} />
-              <span>Record your collaboration</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Tracks Widget */}
+      <TracksWidget 
+        track={track}
+        isPlaying={isPlaying}
+        isLooping={isLooping}
+        playheadPos={playheadPos}
+        looperLeftPos={looperLeftPos}
+        looperRightPos={looperRightPos}
+        trackDuration={trackDuration}
+        setPlayheadPos={setPlayheadPos}
+        setLooperLeftPos={setLooperLeftPos}
+        setLooperRightPos={setLooperRightPos}
+        setIsLooping={setIsLooping}
+        audioRef={audioRef}
+        showCollabModal={showCollabModal}
+        posToTime={posToTime}
+        timeToPos={timeToPos}
+      />
 
       {/* Recording Section */}
       {showRecordingSection && (
@@ -1001,12 +906,6 @@ export default function CollabInterface({ track }) {
                 <option key={device.deviceId} value={device.deviceId}>{device.label || device.deviceId}</option>
               ))}
             </select>
-          </div>
-          <div className="input-meter-container">
-            <div className="input-label">Input Level</div>
-            <div className="input-meter">
-              <div className="meter-level" style={{ width: `${inputLevel * 100}%` }}></div>
-            </div>
           </div>
           <div className="record-buttons">
             <button 
