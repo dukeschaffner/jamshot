@@ -10,8 +10,6 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function CollabInterface({ track }) {
-  console.log('CollabInterface received track:', track);
-
   // State
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -29,13 +27,14 @@ export default function CollabInterface({ track }) {
   const [showUploadSection, setShowUploadSection] = useState(false);
   const [takes, setTakes] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [inputLevel, setInputLevel] = useState(20);
+  const [inputLevel, setInputLevel] = useState(0);
   const [audioElement, setAudioElement] = useState(null);
+  const [fileName, setFileName] = useState('');
   
   // Positions (in percentage)
-  const [looperLeftPos, setLooperLeftPos] = useState(20);
-  const [looperRightPos, setLooperRightPos] = useState(40);
-  const [playheadPos, setPlayheadPos] = useState(30);
+  const [looperLeftPos, setLooperLeftPos] = useState(0);
+  const [looperRightPos, setLooperRightPos] = useState(100);
+  const [playheadPos, setPlayheadPos] = useState(0);
   
   // Refs
   const waveformContainerRef = useRef(null);
@@ -50,6 +49,37 @@ export default function CollabInterface({ track }) {
   
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
+  
+  // Helper functions
+  const posToTime = (pos, duration) => {
+    return (pos / 100) * duration;
+  };
+  
+  const timeToPos = (time, duration) => {
+    return (time / duration) * 100;
+  };
+  
+  // Get available input devices
+  const [inputDevices, setInputDevices] = useState([]);
+  const [selectedInputDevice, setSelectedInputDevice] = useState(null);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [recordedChunks, setRecordedChunks] = useState([]);
+  
+  // Refs
+  const timeTooltipRef = useRef(null);
+  const recordingStream = useRef(null);
+  const audioContext = useRef(null);
+  const analyser = useRef(null);
+  const animationFrameId = useRef(null);
+  
+  // State for take playback
+  const [playingTakeId, setPlayingTakeId] = useState(null);
+  const takesAudioRef = useRef({});
+  
+  // Log track data only once
+  useEffect(() => {
+    console.log('CollabInterface received track:', track);
+  }, []);
   
   // Initialize audio element
   useEffect(() => {
@@ -78,14 +108,20 @@ export default function CollabInterface({ track }) {
       
       // Set up audio event listeners
       audio.addEventListener('timeupdate', () => {
-        const percent = (audio.currentTime / audio.duration) * 100;
+        const currentTime = audio.currentTime;
+        const duration = audio.duration || trackDuration;
+        const percent = (currentTime / duration) * 100;
+        
+        // Only update playhead position if not dragging
         if (!isDraggingPlayhead) {
           setPlayheadPos(percent);
         }
         
         // Check if we need to loop
         if (isLooping && percent >= looperRightPos) {
-          audio.currentTime = posToTime(looperLeftPos, audio.duration);
+          console.log('Reached loop end, resetting to loop start');
+          const loopStartTime = posToTime(looperLeftPos, duration);
+          audio.currentTime = loopStartTime;
         }
       });
       
@@ -113,7 +149,7 @@ export default function CollabInterface({ track }) {
         audioRef.current = null;
       }
     };
-  }, [track]);
+  }, [track, isLooping, looperLeftPos, looperRightPos]);
   
   // Check if audio URL is valid
   useEffect(() => {
@@ -243,9 +279,19 @@ export default function CollabInterface({ track }) {
       
       // Set up basic event listeners
       audio.addEventListener('timeupdate', () => {
-        const percent = (audio.currentTime / audio.duration) * 100;
+        const currentTime = audio.currentTime;
+        const duration = audio.duration || trackDuration;
+        const percent = (currentTime / duration) * 100;
+        
         if (!isDraggingPlayhead) {
           setPlayheadPos(percent);
+        }
+        
+        // Check if we need to loop
+        if (isLooping && percent >= looperRightPos) {
+          console.log('Reached loop end, resetting to loop start');
+          const loopStartTime = posToTime(looperLeftPos, duration);
+          audio.currentTime = loopStartTime;
         }
       });
       
@@ -260,10 +306,16 @@ export default function CollabInterface({ track }) {
         setIsPlaying(false);
       } else {
         console.log('Attempting to play audio');
-        // If playhead is outside loop region and looping is enabled, move to loop start
-        if (isLooping && (playheadPos < looperLeftPos || playheadPos > looperRightPos)) {
-          console.log('Adjusting to loop start position');
-          audioRef.current.currentTime = posToTime(looperLeftPos, audioRef.current.duration);
+        
+        // Check if playhead is outside loop region when looping is enabled
+        if (isLooping) {
+          const currentPos = playheadPos;
+          if (currentPos < looperLeftPos || currentPos > looperRightPos) {
+            console.log('Playhead outside loop region, moving to loop start');
+            const loopStartTime = posToTime(looperLeftPos, audioRef.current.duration);
+            audioRef.current.currentTime = loopStartTime;
+            setPlayheadPos(looperLeftPos);
+          }
         }
         
         // Force load if not loaded
@@ -288,19 +340,103 @@ export default function CollabInterface({ track }) {
   };
   
   // Toggle recording
-  const toggleRecording = () => {
-    setIsRecording(prev => !prev);
+  const toggleRecording = async () => {
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      
+      // Stop the track playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+      
+      setIsRecording(false);
+    } else {
+      // Start recording
+      if (!selectedInputDevice) {
+        alert('Please select an input device first');
+        return;
+      }
+      
+      try {
+        // Stop any existing stream
+        if (recordingStream.current) {
+          recordingStream.current.getTracks().forEach(track => track.stop());
+        }
+        
+        // Create new stream with selected device
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: { exact: selectedInputDevice }
+          }
+        });
+        
+        recordingStream.current = stream;
+        
+        // Create media recorder
+        const recorder = new MediaRecorder(stream);
+        setMediaRecorder(recorder);
+        
+        // Clear previous chunks
+        setRecordedChunks([]);
+        
+        // Set up event handlers
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            setRecordedChunks(prev => [...prev, e.data]);
+          }
+        };
+        
+        recorder.onstop = () => {
+          // Create blob from chunks
+          const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+          
+          // Create object URL
+          const url = URL.createObjectURL(blob);
+          
+          // Add new take
+          const newTake = {
+            id: Date.now(),
+            url,
+            blob,
+            name: `Take ${takes.length + 1}`,
+            duration: audioRef.current ? audioRef.current.duration : trackDuration
+          };
+          
+          setTakes(prev => [...prev, newTake]);
+        };
+        
+        // Start recording
+        recorder.start();
+        setIsRecording(true);
+        
+        // Play the track from the beginning of the loop region or the beginning of the track
+        if (audioRef.current) {
+          // If looping is enabled, start from the loop start position
+          if (isLooping) {
+            audioRef.current.currentTime = posToTime(looperLeftPos, audioRef.current.duration);
+          } else {
+            // Otherwise start from the beginning
+            audioRef.current.currentTime = 0;
+          }
+          
+          // Play the track
+          await safePlayAudio();
+          setIsPlaying(true);
+        }
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        alert('Failed to start recording: ' + error.message);
+      }
+    }
   };
   
-  // Add a new take
-  const addNewTake = () => {
-    const takeNumber = takes.length + 1;
-    setTakes(prev => [...prev, { id: takeNumber, name: `Take ${takeNumber}` }]);
-  };
-  
-  // Delete a take
-  const deleteTake = (takeId) => {
-    setTakes(prev => prev.filter(take => take.id !== takeId));
+  // Handle input device selection
+  const handleInputDeviceChange = (e) => {
+    setSelectedInputDevice(e.target.value);
   };
   
   // Show the collaboration modal
@@ -315,18 +451,123 @@ export default function CollabInterface({ track }) {
     setShowUploadSection(false);
   };
   
-  // Handle upload option selection
-  const handleUploadOption = () => {
-    setShowModal(false);
-    setShowUploadSection(true);
-    setShowRecordingSection(false);
+  // Handle file upload
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Check if file is an audio file
+    if (!file.type.startsWith('audio/')) {
+      alert('Please select an audio file');
+      return;
+    }
+    
+    setSelectedFile(file);
+    setFileName(file.name);
+    
+    // Create object URL for the file
+    const url = URL.createObjectURL(file);
+    
+    // Add as a new take
+    const newTake = {
+      id: Date.now(),
+      url,
+      blob: file,
+      name: file.name
+    };
+    
+    setTakes(prev => [...prev, newTake]);
   };
   
-  // Handle file selection
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+  // Handle upload option
+  const handleUploadOption = () => {
+    setShowModal(false);
+    // Trigger file input click
+    document.getElementById('file-upload').click();
+  };
+  
+  // Handle drag and drop
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.add('drag-over');
+  };
+  
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+  };
+  
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+    
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    
+    // Check if file is an audio file
+    if (!file.type.startsWith('audio/')) {
+      alert('Please select an audio file');
+      return;
     }
+    
+    setSelectedFile(file);
+    setFileName(file.name);
+    
+    // Create object URL for the file
+    const url = URL.createObjectURL(file);
+    
+    // Add as a new take
+    const newTake = {
+      id: Date.now(),
+      url,
+      blob: file,
+      name: file.name
+    };
+    
+    setTakes(prev => [...prev, newTake]);
+  };
+  
+  // Handle waveform click
+  const handleWaveformClick = (e) => {
+    if (!waveformContainerRef.current || !audioRef.current) return;
+    
+    const rect = waveformContainerRef.current.getBoundingClientRect();
+    const clickPos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    
+    // Update playhead position
+    setPlayheadPos(clickPos);
+    
+    // Update audio position
+    const newTime = posToTime(clickPos, audioRef.current.duration);
+    audioRef.current.currentTime = newTime;
+  };
+  
+  // Mouse down handlers for dragging
+  const handlePlayheadMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingPlayhead(true);
+  };
+  
+  const handleLooperLeftMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingLooperLeft(true);
+  };
+  
+  const handleLooperRightMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingLooperRight(true);
+  };
+  
+  const handleLooperRegionMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingLooperRegion(true);
+    setDragStartX(e.clientX);
+    setLooperStartLeft(looperLeftPos);
+    // Store the width of the looper region
+    setLooperStartWidth(looperRightPos - looperLeftPos);
   };
   
   // Effects
@@ -339,20 +580,105 @@ export default function CollabInterface({ track }) {
     isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion
   ]);
   
-  // Handle recording
+  // Get available input devices
   useEffect(() => {
-    if (isRecording) {
-      // Simulate input level changes
-      inputMeterAnimationRef.current = setInterval(() => {
-        setInputLevel(Math.random() * 80 + 10); // Random between 10% and 90%
-      }, 100);
-    } else {
-      clearInterval(inputMeterAnimationRef.current);
-      setInputLevel(20);
-    }
+    const getInputDevices = async () => {
+      try {
+        // Request permission to access media devices
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Get list of available devices
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+        
+        console.log('Available audio input devices:', audioInputDevices);
+        setInputDevices(audioInputDevices);
+        
+        // Set default device
+        if (audioInputDevices.length > 0) {
+          setSelectedInputDevice(audioInputDevices[0].deviceId);
+        }
+        
+        // Stop the temporary stream
+        stream.getTracks().forEach(track => track.stop());
+      } catch (error) {
+        console.error('Error getting input devices:', error);
+      }
+    };
     
-    return () => clearInterval(inputMeterAnimationRef.current);
-  }, [isRecording]);
+    getInputDevices();
+  }, []);
+  
+  // Set up audio analyzer for input level visualization
+  useEffect(() => {
+    if (!selectedInputDevice) return;
+    
+    const setupAudioAnalyzer = async () => {
+      try {
+        // Stop any existing stream
+        if (recordingStream.current) {
+          recordingStream.current.getTracks().forEach(track => track.stop());
+        }
+        
+        // Create new stream with selected device
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: { exact: selectedInputDevice }
+          }
+        });
+        
+        recordingStream.current = stream;
+        
+        // Set up audio context and analyzer
+        if (!audioContext.current) {
+          audioContext.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        const source = audioContext.current.createMediaStreamSource(stream);
+        analyser.current = audioContext.current.createAnalyser();
+        analyser.current.fftSize = 256;
+        source.connect(analyser.current);
+        
+        // Start visualizing input level
+        visualizeInputLevel();
+      } catch (error) {
+        console.error('Error setting up audio analyzer:', error);
+      }
+    };
+    
+    setupAudioAnalyzer();
+    
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+    };
+  }, [selectedInputDevice]);
+  
+  // Visualize input level
+  const visualizeInputLevel = () => {
+    if (!analyser.current) return;
+    
+    const dataArray = new Uint8Array(analyser.current.frequencyBinCount);
+    
+    const updateLevel = () => {
+      analyser.current.getByteFrequencyData(dataArray);
+      
+      // Calculate average level
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / dataArray.length;
+      const normalizedLevel = average / 255; // Normalize to 0-1
+      
+      setInputLevel(normalizedLevel);
+      
+      animationFrameId.current = requestAnimationFrame(updateLevel);
+    };
+    
+    updateLevel();
+  };
   
   // Mouse event handlers
   useEffect(() => {
@@ -366,17 +692,42 @@ export default function CollabInterface({ track }) {
         // Dragging playhead
         if (isDraggingPlayhead && audioRef.current) {
           setPlayheadPos(mousePos);
-          audioRef.current.currentTime = posToTime(mousePos, audioRef.current.duration);
+          const newTime = posToTime(mousePos, audioRef.current.duration);
+          audioRef.current.currentTime = newTime;
+          
+          // Show time tooltip
+          showTimeTooltip(playheadRef.current, mousePos, formatDuration(newTime));
         }
         
         // Dragging left looper handle
         if (isDraggingLooperLeft) {
-          setLooperLeftPos(Math.max(0, Math.min(looperRightPos - 5, mousePos)));
+          const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
+          setLooperLeftPos(newLeftPos);
+          
+          // If playhead is to the left of the new left position and audio is playing,
+          // move the playhead to the new left position
+          if (playheadPos < newLeftPos && isPlaying && audioRef.current) {
+            setPlayheadPos(newLeftPos);
+            audioRef.current.currentTime = posToTime(newLeftPos, audioRef.current.duration);
+          }
+          
+          // Show time tooltip
+          if (audioRef.current) {
+            const time = posToTime(newLeftPos, audioRef.current.duration);
+            showTimeTooltip(looperHandleLeftRef.current, newLeftPos, formatDuration(time));
+          }
         }
         
         // Dragging right looper handle
         if (isDraggingLooperRight) {
-          setLooperRightPos(Math.max(looperLeftPos + 5, Math.min(100, mousePos)));
+          const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
+          setLooperRightPos(newRightPos);
+          
+          // Show time tooltip
+          if (audioRef.current) {
+            const time = posToTime(newRightPos, audioRef.current.duration);
+            showTimeTooltip(looperHandleRightRef.current, newRightPos, formatDuration(time));
+          }
         }
         
         // Dragging entire looper region
@@ -402,6 +753,26 @@ export default function CollabInterface({ track }) {
           // Update looper positions
           setLooperLeftPos(newLeftPos);
           setLooperRightPos(newRightPos);
+          
+          // If playhead is outside the new looper region and audio is playing,
+          // move the playhead to the new left position
+          if (isPlaying && audioRef.current && isLooping) {
+            if (playheadPos < newLeftPos || playheadPos > newRightPos) {
+              setPlayheadPos(newLeftPos);
+              audioRef.current.currentTime = posToTime(newLeftPos, audioRef.current.duration);
+            }
+          }
+          
+          // Show tooltip with start and end times
+          if (audioRef.current) {
+            const looperStartTime = posToTime(newLeftPos, audioRef.current.duration);
+            const looperEndTime = posToTime(newRightPos, audioRef.current.duration);
+            showTimeTooltip(
+              looperRegionRef.current, 
+              (newLeftPos + newRightPos) / 2, 
+              `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
+            );
+          }
         }
       }
     };
@@ -425,6 +796,72 @@ export default function CollabInterface({ track }) {
     isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion,
     looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth
   ]);
+  
+  // Play/pause a take
+  const toggleTakePlayback = (takeId) => {
+    // If this take is already playing, pause it
+    if (playingTakeId === takeId) {
+      if (takesAudioRef.current[takeId]) {
+        takesAudioRef.current[takeId].pause();
+        setPlayingTakeId(null);
+      }
+      return;
+    }
+    
+    // If another take is playing, pause it first
+    if (playingTakeId && takesAudioRef.current[playingTakeId]) {
+      takesAudioRef.current[playingTakeId].pause();
+    }
+    
+    // Find the take
+    const take = takes.find(t => t.id === takeId);
+    if (!take) return;
+    
+    // Create or get audio element for this take
+    if (!takesAudioRef.current[takeId]) {
+      const audio = new Audio(take.url);
+      
+      // Set up ended event
+      audio.addEventListener('ended', () => {
+        setPlayingTakeId(null);
+      });
+      
+      takesAudioRef.current[takeId] = audio;
+    }
+    
+    // Play the take
+    takesAudioRef.current[takeId].currentTime = 0;
+    takesAudioRef.current[takeId].play()
+      .then(() => {
+        setPlayingTakeId(takeId);
+      })
+      .catch(error => {
+        console.error('Error playing take:', error);
+      });
+  };
+  
+  // Clean up take audio elements when takes change
+  useEffect(() => {
+    // Clean up any removed takes
+    Object.keys(takesAudioRef.current).forEach(id => {
+      if (!takes.some(take => take.id === parseInt(id))) {
+        if (takesAudioRef.current[id]) {
+          takesAudioRef.current[id].pause();
+          takesAudioRef.current[id] = null;
+        }
+      }
+    });
+    
+    return () => {
+      // Clean up all take audio elements on unmount
+      Object.values(takesAudioRef.current).forEach(audio => {
+        if (audio) {
+          audio.pause();
+          audio.src = '';
+        }
+      });
+    };
+  }, [takes]);
   
   return (
     <div className="collab-container">
@@ -488,7 +925,7 @@ export default function CollabInterface({ track }) {
           <div className="track-label">
             <span>Original</span>
           </div>
-          <div className="waveform-container" ref={waveformContainerRef}>
+          <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
             <div className="waveform">
               {/* SVG Waveform */}
               <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
@@ -504,11 +941,7 @@ export default function CollabInterface({ track }) {
                 className="playhead" 
                 ref={playheadRef}
                 style={{ left: `${playheadPos}%` }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setIsDraggingPlayhead(true);
-                  showTimeTooltip(playheadRef.current, playheadPos);
-                }}
+                onMouseDown={handlePlayheadMouseDown}
               ></div>
             </div>
             {/* Looper */}
@@ -520,11 +953,7 @@ export default function CollabInterface({ track }) {
               <div 
                 className="looper-handle left" 
                 ref={looperHandleLeftRef}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setIsDraggingLooperLeft(true);
-                  showTimeTooltip(looperHandleLeftRef.current, looperLeftPos);
-                }}
+                onMouseDown={handleLooperLeftMouseDown}
               ></div>
               <div 
                 className="looper-region" 
@@ -533,33 +962,12 @@ export default function CollabInterface({ track }) {
                   e.stopPropagation();
                   setIsLooping(prev => !prev);
                 }}
-                onMouseDown={(e) => {
-                  if (e.target === looperRegionRef.current) {
-                    e.stopPropagation();
-                    setIsDraggingLooperRegion(true);
-                    setDragStartX(e.clientX);
-                    setLooperStartLeft(looperLeftPos);
-                    setLooperStartWidth(looperRightPos - looperLeftPos);
-                    
-                    // Show tooltip with start and end times
-                    const looperStartTime = posToTime(looperLeftPos, trackDuration);
-                    const looperEndTime = posToTime(looperRightPos, trackDuration);
-                    showTimeTooltip(
-                      looperRegionRef.current, 
-                      (looperLeftPos + looperRightPos) / 2, 
-                      `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
-                    );
-                  }
-                }}
+                onMouseDown={handleLooperRegionMouseDown}
               ></div>
               <div 
                 className="looper-handle right" 
                 ref={looperHandleRightRef}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  setIsDraggingLooperRight(true);
-                  showTimeTooltip(looperHandleRightRef.current, looperRightPos);
-                }}
+                onMouseDown={handleLooperRightMouseDown}
               ></div>
             </div>
           </div>
@@ -587,29 +995,23 @@ export default function CollabInterface({ track }) {
         <div className="recording-section">
           <div className="input-device-selector">
             <label htmlFor="input-device" className="input-device-label">Select Input Device</label>
-            <select id="input-device" className="input-device-select">
-              <option value="default">Default Microphone</option>
-              <option value="mic1">Microphone 1</option>
-              <option value="mic2">Microphone 2</option>
-              <option value="line-in">Line In</option>
+            <select id="input-device" className="input-device-select" onChange={handleInputDeviceChange}>
+              <option value="">Select Input Device</option>
+              {inputDevices.map(device => (
+                <option key={device.deviceId} value={device.deviceId}>{device.label || device.deviceId}</option>
+              ))}
             </select>
           </div>
           <div className="input-meter-container">
             <div className="input-label">Input Level</div>
             <div className="input-meter">
-              <div className="meter-level" style={{ width: `${inputLevel}%` }}></div>
+              <div className="meter-level" style={{ width: `${inputLevel * 100}%` }}></div>
             </div>
           </div>
           <div className="record-buttons">
             <button 
               className={`record-btn ${isRecording ? 'recording' : ''}`}
-              onClick={() => {
-                toggleRecording();
-                if (isRecording) {
-                  // If stopping recording, add a new take
-                  addNewTake();
-                }
-              }}
+              onClick={toggleRecording}
             >
               <FontAwesomeIcon icon={isRecording ? faPlay : faMicrophone} />
               {isRecording ? 'Stop Recording' : 'Start Recording'}
@@ -617,25 +1019,39 @@ export default function CollabInterface({ track }) {
           </div>
           <div className="takes-container">
             <h3>Your Takes</h3>
-            <div className="takes-list">
-              {takes.map(take => (
-                <div className="take-item" key={take.id}>
-                  <span className="take-name">{take.name}</span>
-                  <div className="take-controls">
-                    <button className="take-play">
-                      <FontAwesomeIcon icon={faPlay} />
-                    </button>
-                    <button 
-                      className="take-delete"
-                      onClick={() => deleteTake(take.id)}
-                    >
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                    <button className="take-use">Use This Take</button>
+            {takes.length === 0 ? (
+              <div className="empty-takes">
+                <p>No takes yet. Record or upload your collaboration.</p>
+              </div>
+            ) : (
+              <div className="takes-list">
+                {takes.map((take) => (
+                  <div key={take.id} className="take-item">
+                    <div className="take-info">
+                      <span className="take-name">{take.name}</span>
+                      <div className="take-controls">
+                        <button 
+                          className={`take-play-btn ${playingTakeId === take.id ? 'playing' : ''}`}
+                          onClick={() => toggleTakePlayback(take.id)}
+                        >
+                          <FontAwesomeIcon icon={playingTakeId === take.id ? faPause : faPlay} />
+                        </button>
+                        <button 
+                          className="take-delete-btn"
+                          onClick={() => deleteTake(take.id)}
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="take-waveform">
+                      {/* Placeholder for waveform visualization */}
+                      <div className="take-waveform-placeholder"></div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -643,23 +1059,35 @@ export default function CollabInterface({ track }) {
       {/* Upload Section */}
       {showUploadSection && (
         <div className="upload-section">
-          <label htmlFor="audio-file" className="file-upload-container">
-            <FontAwesomeIcon icon={faCloudUploadAlt} className="file-upload-icon" />
+          <div 
+            className="file-upload-area"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <FontAwesomeIcon icon={faCloudUploadAlt} className="upload-icon" />
             <div className="file-upload-text">
-              <p>Drag and drop your audio file here</p>
-              <p>or click to browse</p>
+              Drag and drop your audio file here or
+              <button 
+                className="browse-btn"
+                onClick={() => document.getElementById('file-upload').click()}
+              >
+                Browse
+              </button>
             </div>
             <input 
               type="file" 
-              id="audio-file" 
+              id="file-upload" 
               className="file-upload-input" 
               accept="audio/*"
               onChange={handleFileChange}
             />
-          </label>
-          {selectedFile && (
-            <div className="file-name">{selectedFile.name}</div>
-          )}
+            {fileName && (
+              <div className="file-name">
+                Selected file: {fileName}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
