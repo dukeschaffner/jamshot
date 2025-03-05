@@ -50,6 +50,8 @@ export default function TracksWidget({
   const recordingBufferRef = useRef(null);
   const startTimeRef = useRef(0);
   const pausedAtRef = useRef(0);
+  const playheadIntervalRef = useRef(null);
+  const lastUpdateTimeRef = useRef(0); // Track last update time
   
   // Refs
   const waveformContainerRef = useRef(null);
@@ -180,9 +182,7 @@ export default function TracksWidget({
       
       // Store start time for tracking playhead position
       startTimeRef.current = audioContextRef.current.currentTime - loopStartTime;
-      
-      // Set up playhead animation
-      requestAnimationFrame(updatePlayhead);
+      lastUpdateTimeRef.current = 0; // Reset last update time
     };
     
     const pauseAudio = () => {
@@ -205,44 +205,70 @@ export default function TracksWidget({
       }
     };
     
-    const updatePlayhead = () => {
-      if (!isPlaying || !audioContextRef.current) return;
-      
-      // Calculate current position
-      const currentTime = audioContextRef.current.currentTime - startTimeRef.current;
-      const percent = timeToPos(currentTime, trackDuration);
-      
-      // Update playhead position if not dragging
-      if (!isDraggingPlayhead) {
-        setPlayheadPos(percent);
-      }
-      
-      // Check if we need to loop
-      if (isLooping && percent >= looperRightPos) {
-        // Reset to loop start
-        const loopStartTime = posToTime(looperLeftPos, trackDuration);
-        startTimeRef.current = audioContextRef.current.currentTime - loopStartTime;
-        setPlayheadPos(looperLeftPos);
-        
-        // Restart playback
-        playAudio();
-        return;
-      }
-      
-      // Continue animation
-      requestAnimationFrame(updatePlayhead);
-    };
-    
     // Handle play/pause
     if (isPlaying) {
       playAudio();
+      
+      // Clear any existing interval
+      if (playheadIntervalRef.current) {
+        clearInterval(playheadIntervalRef.current);
+      }
+      
+      // We'll use a very infrequent interval just to check for looping
+      // This won't update the UI directly
+      playheadIntervalRef.current = setInterval(() => {
+        if (!audioContextRef.current) return;
+        
+        // Calculate current position
+        const currentTime = audioContextRef.current.currentTime - startTimeRef.current;
+        const percent = timeToPos(currentTime, trackDuration);
+        
+        // Check if we need to loop
+        if (isLooping && percent >= looperRightPos) {
+          // Reset to loop start
+          const loopStartTime = posToTime(looperLeftPos, trackDuration);
+          startTimeRef.current = audioContextRef.current.currentTime - loopStartTime;
+          
+          // Update playhead position
+          if (playheadRef.current) {
+            playheadRef.current.style.left = `${looperLeftPos}%`;
+          }
+          
+          // Restart playback
+          playAudio();
+        } else if (!isDraggingPlayhead) {
+          // Only update DOM directly if significant time has passed (250ms)
+          // This reduces the frequency of DOM updates
+          const now = Date.now();
+          if (now - lastUpdateTimeRef.current > 20) {
+            lastUpdateTimeRef.current = now;
+            
+            // Update playhead position directly in the DOM
+            if (playheadRef.current) {
+              playheadRef.current.style.left = `${percent}%`;
+            }
+          }
+        }
+      }, 20); // Check every 250ms - very infrequent
     } else {
       pauseAudio();
+      
+      // Clear interval when paused
+      if (playheadIntervalRef.current) {
+        clearInterval(playheadIntervalRef.current);
+        playheadIntervalRef.current = null;
+      }
     }
     
     // Clean up
     return () => {
       pauseAudio();
+      
+      // Clear interval on cleanup
+      if (playheadIntervalRef.current) {
+        clearInterval(playheadIntervalRef.current);
+        playheadIntervalRef.current = null;
+      }
     };
   }, [isPlaying, isLooping, looperLeftPos, looperRightPos, playheadPos, trackDuration, setIsPlaying]);
   
