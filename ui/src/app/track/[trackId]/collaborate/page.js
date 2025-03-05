@@ -72,10 +72,6 @@ export default function CollaboratePage() {
   return (
     <div className="w-full">
       <CollabInterface track={track} />
-      {/* Debug output */}
-      <pre style={{ display: 'none' }}>
-        {JSON.stringify({ track }, null, 2)}
-      </pre>
     </div>
   );
 } 

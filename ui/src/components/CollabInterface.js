@@ -53,37 +53,105 @@ export default function CollabInterface({ track }) {
   
   // Initialize audio element
   useEffect(() => {
-    if (track?.combined_audio_url && !audioElement) {
-      const audio = new Audio(track.combined_audio_url);
+    console.log('Track data in useEffect:', track);
+    console.log('Audio URL:', track?.combined_audio_url);
+    
+    if (track?.combined_audio_url) {
+      console.log('Creating new Audio element');
+      const audio = new Audio();
+      audio.src = track.combined_audio_url;
       audio.preload = 'auto';
+      
+      // Log when audio is loaded
+      audio.addEventListener('loadeddata', () => {
+        console.log('Audio loaded successfully');
+        console.log('Audio duration:', audio.duration);
+      });
+      
+      // Log any errors
+      audio.addEventListener('error', (e) => {
+        console.error('Audio loading error:', e);
+      });
+      
       setAudioElement(audio);
       audioRef.current = audio;
       
       // Set up audio event listeners
       audio.addEventListener('timeupdate', () => {
         const percent = (audio.currentTime / audio.duration) * 100;
-        setPlayheadPos(percent);
+        if (!isDraggingPlayhead) {
+          setPlayheadPos(percent);
+        }
+        
+        // Check if we need to loop
+        if (isLooping && percent >= looperRightPos) {
+          audio.currentTime = posToTime(looperLeftPos, audio.duration);
+        }
       });
       
       audio.addEventListener('ended', () => {
+        console.log('Audio playback ended');
         if (isLooping) {
           // If looping, jump back to loop start
           const loopStartTime = posToTime(looperLeftPos, audio.duration);
           audio.currentTime = loopStartTime;
-          audio.play();
+          audio.play().catch(err => console.error('Error restarting loop:', err));
         } else {
           setIsPlaying(false);
         }
       });
+      
+      // Try to load the audio
+      audio.load();
     }
     
     return () => {
       if (audioRef.current) {
+        console.log('Cleaning up audio element');
         audioRef.current.pause();
         audioRef.current.src = '';
+        audioRef.current = null;
       }
     };
-  }, [track, isLooping, looperLeftPos]);
+  }, [track]);
+  
+  // Check if audio URL is valid
+  useEffect(() => {
+    const checkAudioUrl = async () => {
+      if (track?.combined_audio_url) {
+        try {
+          console.log('Checking audio URL:', track.combined_audio_url);
+          const response = await fetch(track.combined_audio_url, { method: 'HEAD' });
+          if (response.ok) {
+            console.log('Audio URL is valid and accessible');
+          } else {
+            console.error('Audio URL returned status:', response.status);
+          }
+        } catch (error) {
+          console.error('Error checking audio URL:', error);
+        }
+      }
+    };
+    
+    checkAudioUrl();
+  }, [track?.combined_audio_url]);
+  
+  // Helper function to safely play audio
+  const safePlayAudio = async () => {
+    if (!audioRef.current) {
+      console.error('No audio element available');
+      return false;
+    }
+    
+    try {
+      await audioRef.current.play();
+      console.log('Audio playing successfully');
+      return true;
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      return false;
+    }
+  };
   
   // Show time tooltip
   const showTimeTooltip = (element, position, customText) => {
@@ -162,20 +230,56 @@ export default function CollabInterface({ track }) {
   };
   
   // Toggle play/pause
-  const togglePlay = () => {
+  const togglePlay = async () => {
+    console.log('Toggle play clicked, isPlaying:', isPlaying);
+    console.log('Audio element:', audioRef.current);
+    console.log('Track audio URL:', track?.combined_audio_url);
+    
+    if (!audioRef.current && track?.combined_audio_url) {
+      console.log('Audio element not initialized, creating new one');
+      const audio = new Audio();
+      audio.src = track.combined_audio_url;
+      audio.preload = 'auto';
+      
+      // Set up basic event listeners
+      audio.addEventListener('timeupdate', () => {
+        const percent = (audio.currentTime / audio.duration) * 100;
+        if (!isDraggingPlayhead) {
+          setPlayheadPos(percent);
+        }
+      });
+      
+      setAudioElement(audio);
+      audioRef.current = audio;
+    }
+    
     if (audioRef.current) {
       if (isPlaying) {
+        console.log('Pausing audio');
         audioRef.current.pause();
+        setIsPlaying(false);
       } else {
+        console.log('Attempting to play audio');
         // If playhead is outside loop region and looping is enabled, move to loop start
         if (isLooping && (playheadPos < looperLeftPos || playheadPos > looperRightPos)) {
-          const loopStartTime = posToTime(looperLeftPos, audioRef.current.duration);
-          audioRef.current.currentTime = loopStartTime;
+          console.log('Adjusting to loop start position');
+          audioRef.current.currentTime = posToTime(looperLeftPos, audioRef.current.duration);
         }
-        audioRef.current.play();
+        
+        // Force load if not loaded
+        if (audioRef.current.readyState === 0) {
+          console.log('Audio not loaded, forcing load');
+          audioRef.current.load();
+        }
+        
+        const success = await safePlayAudio();
+        if (success) {
+          setIsPlaying(true);
+        }
       }
+    } else {
+      console.error('No audio element available and could not create one');
     }
-    setIsPlaying(prev => !prev);
   };
   
   // Toggle metronome
@@ -257,29 +361,22 @@ export default function CollabInterface({ track }) {
       
       if (waveformContainerRef.current) {
         const rect = waveformContainerRef.current.getBoundingClientRect();
-        const mousePos = ((e.clientX - rect.left) / rect.width) * 100;
+        const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        
+        // Dragging playhead
+        if (isDraggingPlayhead && audioRef.current) {
+          setPlayheadPos(mousePos);
+          audioRef.current.currentTime = posToTime(mousePos, audioRef.current.duration);
+        }
         
         // Dragging left looper handle
         if (isDraggingLooperLeft) {
-          // Ensure left handle doesn't go past right handle (with minimum width)
           setLooperLeftPos(Math.max(0, Math.min(looperRightPos - 5, mousePos)));
         }
         
         // Dragging right looper handle
         if (isDraggingLooperRight) {
-          // Ensure right handle doesn't go before left handle (with minimum width)
           setLooperRightPos(Math.max(looperLeftPos + 5, Math.min(100, mousePos)));
-        }
-        
-        // Dragging playhead
-        if (isDraggingPlayhead) {
-          setPlayheadPos(Math.max(0, Math.min(100, mousePos)));
-          
-          // Update audio position if playing
-          if (audioRef.current) {
-            const newTime = posToTime(mousePos, audioRef.current.duration);
-            audioRef.current.currentTime = newTime;
-          }
         }
         
         // Dragging entire looper region
@@ -480,7 +577,6 @@ export default function CollabInterface({ track }) {
             <div className="empty-message">
               <FontAwesomeIcon icon={faMicrophone} />
               <span>Record your collaboration</span>
-              <button className="start-collab-btn">Start Collaborating</button>
             </div>
           </div>
         </div>
