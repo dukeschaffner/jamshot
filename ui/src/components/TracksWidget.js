@@ -505,31 +505,48 @@ export default function TracksWidget({
     
     // Get audio data
     const channelData = buffer.getChannelData(0);
-    const step = Math.ceil(channelData.length / width);
+    
+    // Number of segments to divide the waveform into (fewer segments = simpler waveform)
+    const numSegments = 100; // Reduced from using every pixel
+    const samplesPerSegment = Math.floor(channelData.length / numSegments);
     
     // Start drawing
     ctx.beginPath();
     ctx.moveTo(0, height / 2);
     
-    for (let i = 0; i < width; i++) {
-      const dataIndex = i * step;
-      let min = 1.0;
-      let max = -1.0;
+    // Draw simplified waveform
+    for (let i = 0; i < numSegments; i++) {
+      const startSample = i * samplesPerSegment;
+      let sum = 0;
+      let count = 0;
+      let maxAmp = 0;
       
-      // Find min/max in this segment
-      for (let j = 0; j < step; j++) {
-        const datum = channelData[dataIndex + j];
-        if (datum < min) min = datum;
-        if (datum > max) max = datum;
+      // Calculate average amplitude for this segment
+      for (let j = 0; j < samplesPerSegment && (startSample + j) < channelData.length; j++) {
+        const amplitude = Math.abs(channelData[startSample + j]);
+        sum += amplitude;
+        count++;
+        maxAmp = Math.max(maxAmp, amplitude);
       }
       
-      // Draw line from min to max
-      const y1 = ((min + 1) / 2) * height;
-      const y2 = ((max + 1) / 2) * height;
+      // Calculate average and scale it (blend average with max for better visual)
+      const avgAmp = count > 0 ? sum / count : 0;
+      const blendedAmp = (avgAmp * 0.7) + (maxAmp * 0.3); // Blend for better visual representation
       
-      ctx.lineTo(i, y1);
-      ctx.lineTo(i, y2);
+      // Calculate x position (scaled to canvas width)
+      const x = (i / numSegments) * width;
+      
+      // Calculate y positions (center line +/- amplitude)
+      const centerY = height / 2;
+      const ampHeight = blendedAmp * height * 0.8; // Scale amplitude to 80% of half height
+      
+      // Draw a vertical line for this segment
+      ctx.lineTo(x, centerY - ampHeight);
+      ctx.lineTo(x, centerY + ampHeight);
     }
+    
+    // Add final point
+    ctx.lineTo(width, height / 2);
     
     ctx.stroke();
   };
