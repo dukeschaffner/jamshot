@@ -15,4 +15,9 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export const fetchTrack = async (trackId) => {
+  const response = await api.get(`/tracks/${trackId}`);
+  return response.data;
+};
+
 export default api;

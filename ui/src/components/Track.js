@@ -219,7 +219,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
             className="collab-btn"
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/collaborate/${track.id}`);
+              router.push(`/track/${track.id}/collaborate`);
             }}
           >
             <FaUsers /> Collab
