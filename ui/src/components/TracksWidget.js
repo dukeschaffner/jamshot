@@ -8,22 +8,29 @@ import { faMicrophone } from '@fortawesome/free-solid-svg-icons';
 export default function TracksWidget({ 
   track,
   isPlaying,
-  isLooping,
-  playheadPos,
-  looperLeftPos,
-  looperRightPos,
-  trackDuration,
-  setPlayheadPos,
-  setLooperLeftPos,
-  setLooperRightPos,
-  setIsLooping,
-  audioRef,
+  setIsPlaying,
   showCollabModal,
-  posToTime,
-  timeToPos,
   originalAudioChunks = null,
   recordingAudioChunks = null
 }) {
+  // Internal state
+  const [isLooping, setIsLooping] = useState(true);
+  const [playheadPos, setPlayheadPos] = useState(0);
+  const [looperLeftPos, setLooperLeftPos] = useState(0);
+  const [looperRightPos, setLooperRightPos] = useState(100);
+  
+  // Track duration in seconds (default to 90 seconds if not available)
+  const trackDuration = track?.duration || 90;
+  
+  // Helper functions
+  const posToTime = (pos, duration) => {
+    return (pos / 100) * duration;
+  };
+  
+  const timeToPos = (time, duration) => {
+    return (time / duration) * 100;
+  };
+  
   // State for dragging
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const [isDraggingLooperLeft, setIsDraggingLooperLeft] = useState(false);
@@ -237,7 +244,7 @@ export default function TracksWidget({
     return () => {
       pauseAudio();
     };
-  }, [isPlaying, isLooping, looperLeftPos, looperRightPos, playheadPos, trackDuration]);
+  }, [isPlaying, isLooping, looperLeftPos, looperRightPos, playheadPos, trackDuration, setIsPlaying]);
   
   // Show time tooltip
   const showTimeTooltip = (element, position, customText) => {
