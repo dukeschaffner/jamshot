@@ -134,11 +134,32 @@ export default function TracksWidget({
         audioContextRef.current.resume();
       }
       
-      // Calculate start position
-      const loopStartTime = isLooping && playheadPos < looperLeftPos ? 
-        posToTime(looperLeftPos, trackDuration) : 
-        posToTime(playheadPos, trackDuration);
+      const x = pausedAtRef.current;
+      const y = posToTime(looperLeftPos, trackDuration);
+      const z = posToTime(playheadPos, trackDuration);
+      console.log('x', x);
+      console.log('y', y);
+      console.log('z', z);
       
+      // Calculate start position
+      const loopStartTime2 = isLooping ? 
+        posToTime(looperLeftPos, trackDuration) : 
+        pausedAtRef.current > trackDuration - 1;
+        
+      let loopStartTime;
+      if(isLooping){
+        loopStartTime = posToTime(looperLeftPos, trackDuration);
+      }
+      else{
+        if(pausedAtRef.current > trackDuration - 1){
+          pausedAtRef.current = 0;
+          loopStartTime = 0;
+        }
+        else{
+          loopStartTime = pausedAtRef.current;
+        }
+      }
+
       // Play original track if buffer exists
       if (originalBufferRef.current) {
         // Stop previous source if exists
@@ -187,7 +208,7 @@ export default function TracksWidget({
     
     const pauseAudio = () => {
       // Store current position
-      if (audioContextRef.current) {
+      if (audioContextRef.current && !isPlaying) {
         pausedAtRef.current = audioContextRef.current.currentTime - startTimeRef.current;
       }
       
@@ -228,6 +249,7 @@ export default function TracksWidget({
           // Reset to loop start
           const loopStartTime = posToTime(looperLeftPos, trackDuration);
           startTimeRef.current = audioContextRef.current.currentTime - loopStartTime;
+          pausedAtRef.current = loopStartTime;
           
           // Update playhead position
           if (playheadRef.current) {
@@ -249,7 +271,7 @@ export default function TracksWidget({
             }
           }
         }
-      }, 20); // Check every 250ms - very infrequent
+      }, 20); // Check every 20ms
     } else {
       pauseAudio();
       
@@ -260,10 +282,8 @@ export default function TracksWidget({
       }
     }
     
-    // Clean up
+    // Clean up interval only when dependencies change
     return () => {
-      pauseAudio();
-      
       // Clear interval on cleanup
       if (playheadIntervalRef.current) {
         clearInterval(playheadIntervalRef.current);
@@ -271,6 +291,29 @@ export default function TracksWidget({
       }
     };
   }, [isPlaying, isLooping, looperLeftPos, looperRightPos, playheadPos, trackDuration, setIsPlaying]);
+  
+  // Add a separate useEffect for component unmount only
+  useEffect(() => {
+    // This cleanup function will only run when the component unmounts
+    return () => {
+      // Pause audio only when component unmounts
+      if (audioContextRef.current) {
+        
+        // Stop sources
+        if (originalSourceNodeRef.current) {
+          originalSourceNodeRef.current.stop();
+          originalSourceNodeRef.current.disconnect();
+          originalSourceNodeRef.current = null;
+        }
+        
+        if (recordingSourceNodeRef.current) {
+          recordingSourceNodeRef.current.stop();
+          recordingSourceNodeRef.current.disconnect();
+          recordingSourceNodeRef.current = null;
+        }
+      }
+    };
+  }, []); // Empty dependency array means this only runs on mount/unmount
   
   // Show time tooltip
   const showTimeTooltip = (element, position, customText) => {
@@ -357,11 +400,7 @@ export default function TracksWidget({
     
     // Update playhead position
     setPlayheadPos(clickPos);
-    
-    // If playing, restart from new position
-    if (isPlaying) {
-      pausedAtRef.current = posToTime(clickPos, trackDuration);
-    }
+    pausedAtRef.current = posToTime(clickPos, trackDuration);
   };
   
   // Mouse down handlers for dragging
