@@ -968,36 +968,19 @@
             height: 24px;
             position: relative;
             margin-bottom: 8px;
-            display: grid;
-            grid-template-columns: 100px 1fr;
-            gap: 12px;
-        }
-
-        .timeline .track-label {
-            width: 100px;
         }
 
         .time-markers {
-            position: relative;
+            display: flex;
+            justify-content: space-between;
             width: 100%;
+            padding: 0 12px;
         }
 
         .time-marker {
             font-size: 0.8rem;
             color: var(--text);
-            position: absolute;
-            transform: translateX(-50%);
-            white-space: nowrap;
-        }
-
-        .time-marker:first-child {
-            transform: translateX(0);
-            left: 0;
-        }
-
-        .time-marker:last-child {
-            transform: translateX(-100%);
-            left: 100%;
+            position: relative;
         }
 
         body.dark-mode .time-marker {
@@ -1031,7 +1014,6 @@
             background-color: var(--white);
             border-radius: 6px;
             overflow: hidden;
-            width: 100%;
         }
 
         body.dark-mode .waveform-container {
@@ -1114,7 +1096,6 @@
             justify-content: center;
             background-color: var(--gray-light);
             border: 2px dashed var(--gray);
-            cursor: pointer;
         }
 
         body.dark-mode .waveform-container.empty {
@@ -1126,7 +1107,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             color: var(--text);
             font-size: 0.9rem;
         }
@@ -1138,22 +1119,6 @@
         .empty-message i {
             font-size: 1.5rem;
             color: var(--rustic-pink);
-        }
-
-        .start-collab-btn {
-            padding: 8px 16px;
-            background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
-            color: white;
-            border: none;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .start-collab-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
         /* Recording Controls */
@@ -1172,277 +1137,282 @@
             box-shadow: 0 2px 8px var(--dark-shadow);
         }
 
+        .input-meter-container {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        body.dark-mode .input-label {
+            color: var(--dark-text-secondary);
+        }
+
+        .input-meter {
+            height: 24px;
+            background-color: var(--gray-light);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        body.dark-mode .input-meter {
+            background-color: var(--dark-hover-color);
+        }
+
+        .meter-level {
+            height: 100%;
+            background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+            border-radius: 12px;
+            transition: width 0.1s ease;
+        }
+
+        .record-buttons {
+            display: flex;
+            gap: 16px;
+        }
+
+        .record-btn, .upload-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .record-btn {
+            background-color: var(--rustic-pink-light);
+            color: var(--dark);
+        }
+
+        .record-btn:hover {
+            background-color: var(--rustic-pink);
+            color: white;
+        }
+
+        .record-btn.recording {
+            background-color: var(--rustic-pink);
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .upload-btn {
+            background-color: var(--seafoam-light);
+            color: var(--dark);
+        }
+
+        .upload-btn:hover {
+            background-color: var(--seafoam);
+            color: white;
+        }
+
+        /* Takes Container */
+        .takes-container {
+            grid-column: 1 / -1;
+        }
+
+        .takes-container h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--dark);
+        }
+
+        body.dark-mode .takes-container h3 {
+            color: var(--dark-text-primary);
+        }
+
+        .takes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .take-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background-color: var(--gray-light);
+            border-radius: 6px;
+        }
+
+        body.dark-mode .take-item {
+            background-color: var(--dark-hover-color);
+        }
+
+        .take-name {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        body.dark-mode .take-name {
+            color: var(--dark-text-primary);
+        }
+
+        .take-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .take-play, .take-delete {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        body.dark-mode .take-play, 
+        body.dark-mode .take-delete {
+            color: var(--dark-text-secondary);
+        }
+
+        .take-play:hover {
+            color: var(--seafoam);
+        }
+
+        .take-delete:hover {
+            color: var(--rustic-pink);
+        }
+
+        .take-use {
+            padding: 6px 12px;
+            background-color: var(--seafoam);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .take-use:hover {
+            background-color: var(--rustic-pink);
+        }
+
+        /* Publish Section */
+        .publish-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 20px;
+            background-color: var(--white);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        body.dark-mode .publish-section {
+            background-color: var(--dark-card-bg);
+            box-shadow: 0 2px 8px var(--dark-shadow);
+        }
+
+        .track-name-input {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            margin-right: 24px;
+        }
+
+        .track-name-input label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        body.dark-mode .track-name-input label {
+            color: var(--dark-text-secondary);
+        }
+
+        .track-name-input input {
+            padding: 12px;
+            border: 1px solid var(--gray);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        body.dark-mode .track-name-input input {
+            background-color: var(--dark-hover-color);
+            border-color: var(--dark-border-color);
+            color: var(--dark-text-primary);
+        }
+
+        .track-name-input input:focus {
+            border-color: var(--seafoam);
+        }
+
+        .publish-btn {
+            padding: 12px 24px;
+            background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .publish-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Responsive Adjustments */
         @media (max-width: 992px) {
+            .collab-container {
+                padding: 16px 20px;
+            }
+            
+            .track-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+            
+            .track-header .track-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
             .recording-controls {
                 grid-template-columns: 1fr;
             }
-        }
-
-        /* Time Tooltip */
-        .time-tooltip {
-            position: absolute;
-            background-color: var(--dark);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            pointer-events: none;
-            z-index: 100;
-            transform: translateX(-50%);
-            display: none;
-        }
-
-        body.dark-mode .time-tooltip {
-            background-color: var(--seafoam);
-            color: var(--dark);
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .modal-content {
-            background-color: var(--white);
-            border-radius: 12px;
-            padding: 24px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            transform: translateY(20px);
-            transition: transform 0.3s ease;
-            position: relative;
-            z-index: 1001;
-        }
-
-        body.dark-mode .modal-content {
-            background-color: var(--dark-card-bg);
-            box-shadow: 0 10px 25px var(--dark-shadow);
-        }
-
-        .modal-overlay.active .modal-content {
-            transform: translateY(0);
-        }
-
-        .modal-header {
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--dark);
-            margin-bottom: 8px;
-        }
-
-        body.dark-mode .modal-title {
-            color: var(--dark-text-primary);
-        }
-
-        .modal-subtitle {
-            font-size: 0.9rem;
-            color: var(--text);
-        }
-
-        body.dark-mode .modal-subtitle {
-            color: var(--dark-text-secondary);
-        }
-
-        .modal-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .option-card {
-            background-color: var(--gray-light);
-            border-radius: 8px;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            aspect-ratio: 1 / 1;
-        }
-
-        body.dark-mode .option-card {
-            background-color: var(--dark-hover-color);
-        }
-
-        .option-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        body.dark-mode .option-card:hover {
-            box-shadow: 0 8px 15px var(--dark-shadow);
-        }
-
-        .option-icon {
-            font-size: 2.5rem;
-            color: var(--seafoam);
-        }
-
-        .option-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--dark);
-            text-align: center;
-        }
-
-        body.dark-mode .option-title {
-            color: var(--dark-text-primary);
-        }
-
-        .option-description {
-            font-size: 0.8rem;
-            color: var(--text);
-            text-align: center;
-        }
-
-        body.dark-mode .option-description {
-            color: var(--dark-text-secondary);
-        }
-
-        /* Recording Section Styles */
-        .recording-section {
-            display: none;
-            padding: 20px;
-            background-color: var(--white);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px var(--shadow);
-            margin-top: 24px;
-        }
-
-        body.dark-mode .recording-section {
-            background-color: var(--dark-card-bg);
-            box-shadow: 0 2px 8px var(--dark-shadow);
-        }
-
-        .input-device-selector {
-            margin-bottom: 20px;
-        }
-
-        .input-device-label {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--dark);
-        }
-
-        body.dark-mode .input-device-label {
-            color: var(--dark-text-primary);
-        }
-
-        .input-device-select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--gray);
-            border-radius: 6px;
-            background-color: var(--white);
-            color: var(--dark);
-            font-size: 0.9rem;
-        }
-
-        body.dark-mode .input-device-select {
-            background-color: var(--dark-hover-color);
-            border-color: var(--dark-border-color);
-            color: var(--dark-text-primary);
-        }
-
-        /* Upload Section Styles */
-        .upload-section {
-            display: none;
-            padding: 20px;
-            background-color: var(--white);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px var(--shadow);
-            margin-top: 24px;
-        }
-
-        body.dark-mode .upload-section {
-            background-color: var(--dark-card-bg);
-            box-shadow: 0 2px 8px var(--dark-shadow);
-        }
-
-        .file-upload-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            padding: 30px;
-            border: 2px dashed var(--gray);
-            border-radius: 8px;
-            background-color: var(--gray-light);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        body.dark-mode .file-upload-container {
-            background-color: var(--dark-hover-color);
-            border-color: var(--dark-border-color);
-        }
-
-        .file-upload-container:hover {
-            background-color: var(--seafoam-light);
-            border-color: var(--seafoam);
-        }
-
-        body.dark-mode .file-upload-container:hover {
-            background-color: rgba(147, 233, 190, 0.1);
-            border-color: var(--seafoam);
-        }
-
-        .file-upload-icon {
-            font-size: 2.5rem;
-            color: var(--seafoam);
-        }
-
-        .file-upload-text {
-            font-size: 1rem;
-            color: var(--dark);
-            text-align: center;
-        }
-
-        body.dark-mode .file-upload-text {
-            color: var(--dark-text-primary);
-        }
-
-        .file-upload-input {
-            display: none;
-        }
-
-        .file-name {
-            font-size: 0.9rem;
-            color: var(--text);
-            margin-top: 8px;
-            display: none;
-        }
-
-        body.dark-mode .file-name {
-            color: var(--dark-text-secondary);
+            
+            .publish-section {
+                flex-direction: column;
+                gap: 16px;
+                align-items: stretch;
+            }
+            
+            .track-name-input {
+                margin-right: 0;
+            }
         }
     </style>
 </head>
@@ -1567,15 +1537,14 @@
             <div class="daw-container">
                 <!-- Timeline -->
                 <div class="timeline">
-                    <div class="track-label"></div>
                     <div class="time-markers">
-                        <div class="time-marker" style="left: 0%">0:00</div>
-                        <div class="time-marker" style="left: 16.67%">0:15</div>
-                        <div class="time-marker" style="left: 33.33%">0:30</div>
-                        <div class="time-marker" style="left: 50%">0:45</div>
-                        <div class="time-marker" style="left: 66.67%">1:00</div>
-                        <div class="time-marker" style="left: 83.33%">1:15</div>
-                        <div class="time-marker" style="left: 100%">1:30</div>
+                        <div class="time-marker">0:00</div>
+                        <div class="time-marker">0:15</div>
+                        <div class="time-marker">0:30</div>
+                        <div class="time-marker">0:45</div>
+                        <div class="time-marker">1:00</div>
+                        <div class="time-marker">1:15</div>
+                        <div class="time-marker">1:30</div>
                     </div>
                 </div>
 
@@ -1616,52 +1585,8 @@
                 </div>
             </div>
 
-            <!-- Recording Section -->
-            <div class="recording-section" id="recording-section" style="display: none;">
-                <div class="input-device-selector">
-                    <label for="input-device" class="input-device-label">Select Input Device</label>
-                    <select id="input-device" class="input-device-select">
-                        <option value="default">Default Microphone</option>
-                        <option value="mic1">Microphone 1</option>
-                        <option value="mic2">Microphone 2</option>
-                        <option value="line-in">Line In</option>
-                    </select>
-                </div>
-                <div class="input-meter-container">
-                    <div class="input-label">Input Level</div>
-                    <div class="input-meter">
-                        <div class="meter-level" style="width: 20%"></div>
-                    </div>
-                </div>
-                <div class="record-buttons">
-                    <button class="record-btn">
-                        <i class="fas fa-microphone"></i>
-                        Start Recording
-                    </button>
-                </div>
-                <div class="takes-container">
-                    <h3>Your Takes</h3>
-                    <div class="takes-list">
-                        <!-- Takes will be added here dynamically -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Upload Section -->
-            <div class="upload-section" id="upload-section" style="display: none;">
-                <label for="audio-file" class="file-upload-container">
-                    <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
-                    <div class="file-upload-text">
-                        <p>Drag and drop your audio file here</p>
-                        <p>or click to browse</p>
-                    </div>
-                    <input type="file" id="audio-file" class="file-upload-input" accept="audio/*">
-                </label>
-                <div class="file-name" id="file-name"></div>
-            </div>
-
             <!-- Recording Controls -->
-            <div class="recording-controls" style="display: none;">
+            <div class="recording-controls">
                 <div class="input-meter-container">
                     <div class="input-label">Input Level</div>
                     <div class="input-meter">
@@ -1694,7 +1619,7 @@
             </div>
 
             <!-- Publish Section -->
-            <div class="publish-section" style="display: none;">
+            <div class="publish-section">
                 <div class="track-name-input">
                     <label for="track-name">Name your track</label>
                     <input type="text" id="track-name" placeholder="My awesome collab">
@@ -1753,28 +1678,6 @@
         </div>
     </div>
 
-    <!-- Modal for Collaboration Options -->
-    <div class="modal-overlay" id="collab-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title">How would you like to collaborate?</h2>
-                <p class="modal-subtitle">Choose an option to continue</p>
-            </div>
-            <div class="modal-options">
-                <div class="option-card" id="record-option">
-                    <i class="fas fa-microphone option-icon"></i>
-                    <h3 class="option-title">Record Live</h3>
-                    <p class="option-description">Record your collaboration in real-time</p>
-                </div>
-                <div class="option-card" id="upload-option">
-                    <i class="fas fa-upload option-icon"></i>
-                    <h3 class="option-title">Upload File</h3>
-                    <p class="option-description">Upload a pre-recorded audio file</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
         // Toggle dark mode
         document.querySelector('.theme-toggle').addEventListener('click', function() {
@@ -1815,9 +1718,6 @@
             const recordBtn = document.querySelector('.record-btn');
             const inputMeter = document.querySelector('.meter-level');
             
-            // Track duration in seconds
-            const trackDuration = 90; // 1:30 in seconds
-            
             // State
             let isPlaying = false;
             let isRecording = false;
@@ -1826,67 +1726,20 @@
             let isDraggingPlayhead = false;
             let isDraggingLooperLeft = false;
             let isDraggingLooperRight = false;
-            let isDraggingLooperRegion = false;
-            let dragStartX = 0;
-            let looperStartWidth = 0;
-            let looperStartLeft = 0;
             
             // Initialize positions
             let looperLeftPos = 20; // percentage
             let looperRightPos = 40; // percentage
             let playheadPos = 30; // percentage
             
-            // Format time from seconds to MM:SS
-            function formatTime(seconds) {
-                const minutes = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${minutes}:${secs.toString().padStart(2, '0')}`;
-            }
-            
-            // Convert percentage position to time in seconds
-            function posToTime(position) {
-                return (position / 100) * trackDuration;
-            }
-            
-            // Create or update time tooltip
-            function showTimeTooltip(element, position, customText) {
-                let tooltip = document.querySelector('.time-tooltip');
-                if (!tooltip) {
-                    tooltip = document.createElement('div');
-                    tooltip.className = 'time-tooltip';
-                    document.body.appendChild(tooltip);
-                }
-                
-                const time = customText || formatTime(posToTime(position));
-                tooltip.textContent = time;
-                
-                const rect = waveformContainer.getBoundingClientRect();
-                const elementRect = element.getBoundingClientRect();
-                
-                // Position tooltip above the element
-                const tooltipLeft = rect.left + (position / 100) * rect.width;
-                tooltip.style.left = `${tooltipLeft}px`;
-                tooltip.style.top = `${elementRect.top - 25}px`;
-                tooltip.style.display = 'block';
-            }
-            
-            // Hide time tooltip
-            function hideTimeTooltip() {
-                const tooltip = document.querySelector('.time-tooltip');
-                if (tooltip) {
-                    tooltip.style.display = 'none';
-                }
-            }
-            
             // Update visual elements based on state
             function updateVisuals() {
                 // Update playhead position
                 playhead.style.left = `${playheadPos}%`;
                 
-                // Update looper position and width
-                const looperWidth = looperRightPos - looperLeftPos;
+                // Update looper position
                 looper.style.left = `${looperLeftPos}%`;
-                looper.style.width = `${looperWidth}%`;
+                looper.style.right = `${100 - looperRightPos}%`;
                 
                 // Update looper color based on state
                 if (isLooping) {
@@ -1921,15 +1774,6 @@
                     recordBtn.classList.remove('recording');
                     recordBtn.innerHTML = '<i class="fas fa-microphone"></i> Start Recording';
                 }
-                
-                // Update time tooltips if dragging
-                if (isDraggingLooperLeft) {
-                    showTimeTooltip(looperHandleLeft, looperLeftPos);
-                } else if (isDraggingLooperRight) {
-                    showTimeTooltip(looperHandleRight, looperRightPos);
-                } else if (isDraggingPlayhead) {
-                    showTimeTooltip(playhead, playheadPos);
-                }
             }
             
             // Playhead animation
@@ -1952,9 +1796,6 @@
                     }
                     
                     updateVisuals();
-                    
-                    // Show current time while playing
-                    showTimeTooltip(playhead, playheadPos);
                 }, 50);
             }
             
@@ -1968,7 +1809,6 @@
                     startPlayheadAnimation();
                 } else {
                     clearInterval(playheadAnimation);
-                    hideTimeTooltip();
                 }
                 
                 updateVisuals();
@@ -2022,112 +1862,6 @@
                 updateVisuals();
             });
             
-            // Drag functionality for looper region
-            looperRegion.addEventListener('mousedown', function(e) {
-                if (e.target === looperRegion) {
-                    e.stopPropagation();
-                    isDraggingLooperRegion = true;
-                    dragStartX = e.clientX;
-                    looperStartLeft = looperLeftPos;
-                    looperStartWidth = looperRightPos - looperLeftPos;
-                    
-                    // Show tooltip with start and end times
-                    const looperStartTime = posToTime(looperLeftPos);
-                    const looperEndTime = posToTime(looperRightPos);
-                    showTimeTooltip(looperRegion, (looperLeftPos + looperRightPos) / 2, `${formatTime(looperStartTime)} - ${formatTime(looperEndTime)}`);
-                }
-            });
-            
-            // Drag functionality for looper handles
-            looperHandleLeft.addEventListener('mousedown', function(e) {
-                e.stopPropagation();
-                isDraggingLooperLeft = true;
-                showTimeTooltip(looperHandleLeft, looperLeftPos);
-            });
-            
-            looperHandleRight.addEventListener('mousedown', function(e) {
-                e.stopPropagation();
-                isDraggingLooperRight = true;
-                showTimeTooltip(looperHandleRight, looperRightPos);
-            });
-            
-            // Playhead dragging
-            playhead.addEventListener('mousedown', function(e) {
-                e.stopPropagation();
-                isDraggingPlayhead = true;
-                showTimeTooltip(playhead, playheadPos);
-            });
-            
-            document.addEventListener('mousemove', function(e) {
-                if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion) return;
-                
-                const rect = waveformContainer.getBoundingClientRect();
-                const mousePos = ((e.clientX - rect.left) / rect.width) * 100;
-                
-                // Dragging left looper handle
-                if (isDraggingLooperLeft) {
-                    // Ensure left handle doesn't go past right handle (with minimum width)
-                    looperLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-                    showTimeTooltip(looperHandleLeft, looperLeftPos);
-                    updateVisuals();
-                }
-                
-                // Dragging right looper handle
-                if (isDraggingLooperRight) {
-                    // Ensure right handle doesn't go before left handle (with minimum width)
-                    looperRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-                    showTimeTooltip(looperHandleRight, looperRightPos);
-                    updateVisuals();
-                }
-                
-                // Dragging playhead
-                if (isDraggingPlayhead) {
-                    playheadPos = Math.max(0, Math.min(100, mousePos));
-                    showTimeTooltip(playhead, playheadPos);
-                    updateVisuals();
-                }
-                
-                // Dragging entire looper region
-                if (isDraggingLooperRegion) {
-                    const deltaX = e.clientX - dragStartX;
-                    const deltaPercent = (deltaX / rect.width) * 100;
-                    
-                    // Calculate new positions
-                    let newLeftPos = looperStartLeft + deltaPercent;
-                    let newRightPos = newLeftPos + looperStartWidth;
-                    
-                    // Ensure the looper stays within bounds
-                    if (newLeftPos < 0) {
-                        newLeftPos = 0;
-                        newRightPos = looperStartWidth;
-                    }
-                    
-                    if (newRightPos > 100) {
-                        newRightPos = 100;
-                        newLeftPos = 100 - looperStartWidth;
-                    }
-                    
-                    // Update looper positions
-                    looperLeftPos = newLeftPos;
-                    looperRightPos = newRightPos;
-                    
-                    // Show tooltip with range
-                    const looperStartTime = posToTime(looperLeftPos);
-                    const looperEndTime = posToTime(looperRightPos);
-                    showTimeTooltip(looperRegion, (looperLeftPos + looperRightPos) / 2, `${formatTime(looperStartTime)} - ${formatTime(looperEndTime)}`);
-                    
-                    updateVisuals();
-                }
-            });
-            
-            document.addEventListener('mouseup', function() {
-                isDraggingLooperLeft = false;
-                isDraggingLooperRight = false;
-                isDraggingPlayhead = false;
-                isDraggingLooperRegion = false;
-                hideTimeTooltip();
-            });
-            
             // Waveform click for playhead positioning
             waveformContainer.addEventListener('click', function(e) {
                 if (isDraggingLooperLeft || isDraggingLooperRight) return;
@@ -2137,175 +1871,43 @@
                 
                 playheadPos = Math.max(0, Math.min(100, clickPos));
                 updateVisuals();
+            });
+            
+            // Drag functionality for looper handles
+            looperHandleLeft.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                isDraggingLooperLeft = true;
+            });
+            
+            looperHandleRight.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                isDraggingLooperRight = true;
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isDraggingLooperLeft && !isDraggingLooperRight) return;
                 
-                // Show time tooltip briefly
-                showTimeTooltip(playhead, playheadPos);
-                setTimeout(hideTimeTooltip, 1000);
+                const rect = waveformContainer.getBoundingClientRect();
+                const mousePos = ((e.clientX - rect.left) / rect.width) * 100;
+                
+                if (isDraggingLooperLeft) {
+                    looperLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
+                }
+                
+                if (isDraggingLooperRight) {
+                    looperRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
+                }
+                
+                updateVisuals();
+            });
+            
+            document.addEventListener('mouseup', function() {
+                isDraggingLooperLeft = false;
+                isDraggingLooperRight = false;
             });
             
             // Initialize visuals
             updateVisuals();
-        });
-
-        // JavaScript for showing recording controls and publish section
-        const emptyTrack = document.querySelector('.waveform-container.empty');
-        const emptyMessage = document.querySelector('.empty-message');
-        const recordingControls = document.querySelector('.recording-controls');
-        const publishSection = document.querySelector('.publish-section');
-        const collabModal = document.getElementById('collab-modal');
-        const recordOption = document.getElementById('record-option');
-        const uploadOption = document.getElementById('upload-option');
-        const recordingSection = document.getElementById('recording-section');
-        const uploadSection = document.getElementById('upload-section');
-        const audioFileInput = document.getElementById('audio-file');
-        const fileNameDisplay = document.getElementById('file-name');
-
-        // Show modal when clicking on empty track
-        function showCollabModal() {
-            collabModal.classList.add('active');
-            // Ensure modal is centered in the viewport
-            document.body.style.overflow = 'hidden'; // Prevent scrolling while modal is open
-        }
-
-        emptyTrack.addEventListener('click', function(e) {
-            e.preventDefault();
-            showCollabModal();
-        });
-
-        // Handle record option selection
-        recordOption.addEventListener('click', function() {
-            collabModal.classList.remove('active');
-            document.body.style.overflow = ''; // Restore scrolling
-            recordingSection.style.display = 'block';
-            uploadSection.style.display = 'none';
-            
-            // Scroll to the recording section with offset to account for navbar
-            setTimeout(() => {
-                const yOffset = -80; // Adjust based on your layout
-                const y = recordingSection.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({top: y, behavior: 'smooth'});
-            }, 100);
-        });
-
-        // Handle upload option selection
-        uploadOption.addEventListener('click', function() {
-            collabModal.classList.remove('active');
-            document.body.style.overflow = ''; // Restore scrolling
-            uploadSection.style.display = 'block';
-            recordingSection.style.display = 'none';
-            
-            // Scroll to the upload section with offset to account for navbar
-            setTimeout(() => {
-                const yOffset = -80; // Adjust based on your layout
-                const y = uploadSection.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({top: y, behavior: 'smooth'});
-            }, 100);
-        });
-
-        // Handle file upload
-        audioFileInput.addEventListener('change', function(e) {
-            if (this.files && this.files[0]) {
-                const fileName = this.files[0].name;
-                fileNameDisplay.textContent = fileName;
-                fileNameDisplay.style.display = 'block';
-                
-                // Show publish section after file is selected
-                setTimeout(() => {
-                    publishSection.style.display = 'flex';
-                    
-                    // Scroll to the publish section with offset
-                    const yOffset = -80;
-                    const y = publishSection.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                    window.scrollTo({top: y, behavior: 'smooth'});
-                }, 500);
-            }
-        });
-
-        // Simulate recording functionality
-        const recordBtn = document.querySelector('.record-btn');
-        let isRecording = false;
-        let inputMeterAnimation;
-
-        recordBtn.addEventListener('click', function() {
-            isRecording = !isRecording;
-            
-            if (isRecording) {
-                recordBtn.classList.add('recording');
-                recordBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
-                
-                // Simulate input level changes
-                inputMeterAnimation = setInterval(() => {
-                    const randomLevel = Math.random() * 80 + 10; // Random between 10% and 90%
-                    document.querySelector('.meter-level').style.width = `${randomLevel}%`;
-                }, 100);
-            } else {
-                recordBtn.classList.remove('recording');
-                recordBtn.innerHTML = '<i class="fas fa-microphone"></i> Start Recording';
-                clearInterval(inputMeterAnimation);
-                document.querySelector('.meter-level').style.width = '20%';
-                
-                // Simulate adding a new take
-                const takesList = document.querySelector('.takes-list');
-                const takeNumber = takesList.children.length + 1;
-                
-                const takeItem = document.createElement('div');
-                takeItem.className = 'take-item';
-                takeItem.innerHTML = `
-                    <span class="take-name">Take ${takeNumber}</span>
-                    <div class="take-controls">
-                        <button class="take-play"><i class="fas fa-play"></i></button>
-                        <button class="take-delete"><i class="fas fa-trash"></i></button>
-                        <button class="take-use">Use This Take</button>
-                    </div>
-                `;
-                
-                takesList.appendChild(takeItem);
-            }
-        });
-
-        // Show publish section when a take is selected
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('take-use') || e.target.closest('.take-use')) {
-                publishSection.style.display = 'flex';
-                
-                // Scroll to the publish section with offset
-                const yOffset = -80;
-                const y = publishSection.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({top: y, behavior: 'smooth'});
-            }
-        });
-
-        // Handle take deletion
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('take-delete') || e.target.closest('.take-delete')) {
-                const takeItem = e.target.closest('.take-item');
-                takeItem.remove();
-            }
-        });
-
-        // Handle take playback
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('take-play') || e.target.closest('.take-play')) {
-                const playBtn = e.target.closest('.take-play');
-                const isPlaying = playBtn.innerHTML.includes('fa-pause');
-                
-                // Reset all play buttons
-                document.querySelectorAll('.take-play').forEach(btn => {
-                    btn.innerHTML = '<i class="fas fa-play"></i>';
-                });
-                
-                if (!isPlaying) {
-                    playBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                }
-            }
-        });
-
-        // Close modal if clicked outside
-        collabModal.addEventListener('click', function(e) {
-            if (e.target === collabModal) {
-                collabModal.classList.remove('active');
-                document.body.style.overflow = ''; // Restore scrolling
-            }
         });
     </script>
 </body>
