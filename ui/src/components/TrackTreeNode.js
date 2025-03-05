@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic, FaInfoCircle, FaRetweet } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import TrackTags from './TrackTags';
 
@@ -25,6 +25,8 @@ export default function TrackTreeNode({
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
   const [isLikeInProgress, setIsLikeInProgress] = useState(false);
+  const [isReposted, setIsReposted] = useState(track.is_reposted || false);
+  const [isRepostInProgress, setIsRepostInProgress] = useState(false);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
@@ -37,7 +39,8 @@ export default function TrackTreeNode({
     // Update like state when track prop changes
     setIsLiked(track.is_liked || false);
     setLikeCount(Number(track.like_count) || 0);
-  }, [track.is_liked, track.like_count]);
+    setIsReposted(track.is_reposted || false);
+  }, [track.is_liked, track.like_count, track.is_reposted]);
 
   const fetchChildTracks = async () => {
     if (childTracks.length > 0 || track.child_count === 0) return;
@@ -100,9 +103,45 @@ export default function TrackTreeNode({
     }
   };
 
+  const handleRepostToggle = async (e) => {
+    e.stopPropagation();
+    
+    // Prevent action if already in progress
+    if (isRepostInProgress) return;
+    
+    const token = Cookies.get('token');
+    if (!token) {
+      alert('Please log in to repost tracks');
+      return;
+    }
+    
+    setIsRepostInProgress(true);
+    
+    try {
+      if (isReposted) {
+        await api.delete(`/tracks/${track.id}/repost`);
+        setIsReposted(false);
+      } else {
+        await api.post(`/tracks/${track.id}/repost`);
+        setIsReposted(true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle repost:', err);
+      if (err.response && err.response.status === 400) {
+        alert(err.response.data.error || 'Cannot repost this track');
+      } else if (err.response && err.response.status === 401) {
+        alert('Please log in to repost tracks');
+      } else {
+        alert('Failed to repost track');
+      }
+    } finally {
+      setIsRepostInProgress(false);
+    }
+  };
+
   const handleCollaborate = (e) => {
     e.stopPropagation();
-    router.push(`/collaborate/${track.id}`);
+    router.push(`/track/${track.id}/collaborate`);
   };
 
   const handleChildClick = (childId) => {
@@ -112,10 +151,16 @@ export default function TrackTreeNode({
   };
 
   return (
-    <div className={`track-tree-node ${isExpanded ? 'expanded' : ''} ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
-      <div className="track-node-main" onClick={toggleExpand}>
+    <div className={`track-card ${isExpanded ? 'expanded' : ''} ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
+      {track.is_repost && track.reposted_by_username && (
+        <div className="repost-banner">
+          <FaRetweet className="repost-icon" /> Reposted by {track.reposted_by_username}
+        </div>
+      )}
+      
+      <div className="track-main" onClick={toggleExpand}>
         <div className="track-play" onClick={handlePlayToggle}>
-          {isPlaying ? <FaPause /> : <FaPlay />}
+          {currentTrack?.id === track.id && isPlaying ? <FaPause /> : <FaPlay />}
         </div>
         
         <div className="track-info">
@@ -137,81 +182,130 @@ export default function TrackTreeNode({
               {track.verified && <FaCheckCircle className="verified-icon" />}
             </div>
           </div>
-        </div>
-        
-        <div className="track-stats">
-          <div className="track-stat">
-            <FaHeadphones /> {track.play_count || 0}
-          </div>
-          <div className="track-stat">
-            <FaUsers /> {track.child_count || 0}
-          </div>
-          {track.metronome_bpm && (
-            <div className="track-stat metronome">
-              <FaMusic /> {track.metronome_bpm} BPM
-            </div>
+          
+          {track.layer > 0 && (
+            <div className="track-layer">Layer: {track.layer} (Based on: {track.original_title})</div>
           )}
+          
+          <div className="track-meta">
+            <div className="meta-item">
+              <FaPlay /> 
+              <span>{Number(track.play_count || 0).toLocaleString()}</span>
+            </div>
+            <div className="meta-item">
+              <FaHeart /> 
+              <span>{Number(likeCount).toLocaleString()}</span>
+            </div>
+            <div className="meta-item">
+              <FaUsers /> 
+              <span>{Number(track.child_count || 0).toLocaleString()}</span>
+            </div>
+            {track.metronome_bpm && (
+              <div className="meta-item">
+                <FaMusic /> 
+                <span>{track.metronome_bpm} BPM</span>
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="track-actions">
           <button 
-            className={`action-btn ${isLiked ? 'active' : ''}`} 
-            onClick={handleLikeToggle}
-            disabled={isLikeInProgress}
+            className="collab-btn"
+            onClick={handleCollaborate}
           >
-            {isLiked ? <FaHeart /> : <FaRegHeart />} {likeCount}
+            <FaUsers /> Collab
           </button>
           
-          <button className="action-btn" onClick={handleCollaborate}>
-            <FaCodeBranch /> Collab
+          <button 
+            className={`like-btn ${isLiked ? 'active' : ''}`}
+            onClick={handleLikeToggle}
+            disabled={!Cookies.get('token') || isLikeInProgress}
+            title={Cookies.get('token') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+          >
+            {isLiked ? <FaHeart /> : <FaRegHeart />}
           </button>
           
-          <button className="expand-btn" onClick={toggleExpand}>
-            {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
-            {isExpanded ? ' Hide' : ' Show'} {track.child_count > 0 ? track.child_count : ''} {track.child_count === 1 ? 'Child' : 'Children'}
+          <button 
+            className={`action-btn ${isReposted ? 'active' : ''}`}
+            onClick={handleRepostToggle}
+            disabled={!Cookies.get('token') || isRepostInProgress}
+            title={Cookies.get('token') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+          >
+            <FaRetweet />
           </button>
+          
+          <button className="share-btn">
+            <FaShareAlt />
+          </button>
+          
+          <button className="action-btn" onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/track/${track.id}`);
+          }}>
+            <FaInfoCircle /> Details
+          </button>
+          
+          {track.child_count > 0 && (
+            <button className="expand-btn" onClick={toggleExpand}>
+              {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+            </button>
+          )}
         </div>
       </div>
       
       {isExpanded && (
-        <div className="track-node-details">
+        <div className="track-details">
           {track.child_count > 0 ? (
-            <div className="child-tracks">
-              <h3>Collaborations</h3>
+            <div className="related-tracks">
+              <div className="track-relation">Based on this</div>
               {loadingChildren ? (
-                <div className="loading">Loading collaborations...</div>
+                <div className="loading-spinner">Loading collaborations...</div>
               ) : (
-                <div className="child-tracks-list">
-                  {childTracks.map(child => (
-                    <div 
-                      key={child.id} 
-                      className="child-track-item"
-                      onClick={() => handleChildClick(child.id)}
-                      title={`View details for "${child.title}" by ${child.username}`}
-                    >
-                      <div className="child-track-play" onClick={(e) => {
-                        e.stopPropagation();
-                        playTrack(child);
-                      }}>
-                        {currentTrack?.id === child.id && isPlaying ? <FaPause /> : <FaPlay />}
+                childTracks.map(child => (
+                  <div 
+                    key={child.id} 
+                    className="related-track"
+                    onClick={() => handleChildClick(child.id)}
+                  >
+                    <div className="related-play" onClick={(e) => {
+                      e.stopPropagation();
+                      playTrack(child);
+                    }}>
+                      {currentTrack?.id === child.id && isPlaying ? <FaPause /> : <FaPlay />}
+                    </div>
+                    <div className="related-info">
+                      <div className="related-title">{child.title}</div>
+                      <div className="related-artist">
+                        {child.username}
+                        {child.verified && <FaCheckCircle className="verified-icon" />}
                       </div>
-                      <div className="child-track-info">
-                        <div className="child-track-title">{child.title}</div>
-                        <div className="child-track-artist">
-                          {child.username}
-                          {child.verified && <FaCheckCircle className="verified-icon" />}
-                        </div>
-                      </div>
-                      <div className="child-track-view">
-                        View
+                      <div className="related-stats">
+                        <span><FaPlay /> {child.play_count || 0}</span>
+                        <span><FaHeart /> {child.like_count || 0}</span>
+                        <span><FaUsers /> {child.child_count || 0}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="related-actions">
+                      <button className="related-action-btn" onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/track/${child.id}/collaborate`);
+                      }}>
+                        <FaUsers />
+                      </button>
+                      <button className="related-action-btn" onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/track/${child.id}`);
+                      }}>
+                        <FaInfoCircle />
+                      </button>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           ) : (
-            <div className="no-children">No collaborations yet</div>
+            <div className="no-related">No collaborations yet</div>
           )}
         </div>
       )}
