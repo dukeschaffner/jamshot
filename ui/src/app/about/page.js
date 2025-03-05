@@ -23,13 +23,13 @@ export default function About() {
           <div className="vision-text">
             <p>
               JamShot was born from a simple idea: <strong>music is better when created together</strong>. 
-              As a musician myself, I've experienced the magic that happens when artists collaborate, 
+              As a musician myself, I&apos;ve experienced the magic that happens when artists collaborate, 
               bringing different perspectives, skills, and ideas to the creative process.
             </p>
             <p>
-              In today's digital world, musicians are often separated by distance, but that shouldn't 
+              In today&apos;s digital world, musicians are often separated by distance, but that shouldn&apos;t 
               limit our ability to create together. JamShot bridges this gap by providing a platform 
-              where musicians can share their work, find collaborators, and build upon each other's 
+              where musicians can share their work, find collaborators, and build upon each other&apos;s 
               creativity in a seamless, intuitive way.
             </p>
             <p>
@@ -44,7 +44,7 @@ export default function About() {
             </ul>
             <p>
               We believe that the future of music lies in breaking down the barriers between artists 
-              and creating new pathways for collaborative creation. JamShot isn't just a platform—it's 
+              and creating new pathways for collaborative creation. JamShot isn&apos;t just a platform—it&apos;s 
               a movement toward a more connected, collaborative musical ecosystem.
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function About() {
         <section className="contact-section">
           <h2 className="section-title">Get in Touch</h2>
           <p>
-            Have questions, suggestions, or just want to say hello? We'd love to hear from you!
+            Have questions, suggestions, or just want to say hello? We&apos;d love to hear from you!
           </p>
           <Link href="/contact" className="contact-btn">
             Contact Us
