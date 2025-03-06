@@ -499,6 +499,25 @@ body.dark-mode .control-button.active {
   color: white;
 }
 
+.control-button.record-stop {
+  width: 36px;
+  height: 36px;
+  background-color: red;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.control-button.record-stop:hover {
+  background-color: var(--rustic-pink);
+  color: white;
+}
+
+
 .progress-container {
   width: 100%;
   display: flex;
