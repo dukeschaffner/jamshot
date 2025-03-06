@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import './globals.css';
 import { AudioProvider, useAudio } from '../lib/AudioContext';
@@ -152,6 +152,8 @@ function AppContent({ children }) {
   const { currentTrack, isPlaying, togglePlayPause } = useAudio();
   const playerVisible = !!currentTrack;
   const pathname = usePathname();
+  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
 
   // Function to check and update auth state
   const checkAuthState = () => {
@@ -260,6 +262,14 @@ function AppContent({ children }) {
     setUserDetails(null);
   };
 
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?query=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+    }
+  };
+
   return (
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>
       {/* Vertical Navbar */}
@@ -271,12 +281,16 @@ function AppContent({ children }) {
         </div>
         
         <div className="search-box">
-          <FaSearch className="search-icon" />
-          <input 
-            ref={searchInputRef}
-            type="text" 
-            placeholder="Search for artists, tracks..." 
-          />
+          <form onSubmit={handleSearch}>
+            <FaSearch className="search-icon" />
+            <input 
+              ref={searchInputRef}
+              type="text" 
+              placeholder="Search for artists, tracks..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </form>
         </div>
         
         <div className="nav-links">

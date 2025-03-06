@@ -5,6 +5,7 @@ const trackRoutes = require('./routes/tracks');
 const userRoutes = require('./routes/users');
 const tagRoutes = require('./routes/tags');
 const notificationRoutes = require('./routes/notifications');
+const searchRoutes = require('./routes/search');
 require('dotenv').config();
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/tracks', trackRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/search', searchRoutes);
 
 app.get('/', (req, res) => res.send('Music Collab API'));
 
