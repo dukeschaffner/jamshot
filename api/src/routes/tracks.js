@@ -94,7 +94,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
   try {
     const metadata = await mm.parseBuffer(file.buffer, file.mimetype);
-    duration = Math.round(metadata.format.duration);
+    duration = metadata.format.duration;
   } catch (err) {
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
   }

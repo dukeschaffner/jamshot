@@ -1,1 +1,9 @@
+TEST:
+
 ALTER TABLE tracks ADD COLUMN metronome_bpm INTEGER;
+
+ALTER TABLE tracks
+ALTER COLUMN duration TYPE FLOAT;
+
+PROD:
+**DB doesn't exist yet

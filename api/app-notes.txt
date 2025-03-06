@@ -1,11 +1,19 @@
+Instructions:
+- Use this file for reference about the application. Feel free to update the Features/pages section when major updates are made. 
+- When db changes are required, update the db model in this file, and put the change query in db-updates.txt.
+
+
 About
 This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
+
 
 Goals/VALUE
 - music collaboration as a social media
 - Democratize music creation
 - allow musicians to make a meaningful/valuable piece of work without having to complete the process of recording a song from start to finish
 - tracks will be capped at 1:30 to make it simple, fun, and pair well with short form video content like Tik Tok.
+- The equivalent of going from books/publications to posts on social media. New content is released daily and from more sources, and just as social media posts allow you to comment your textual thoughts/ideas on someone else's textual posts, with this app, you can comment your musical thoughts/ideas on someone else's musical posts
+
 
 Features
 - home feed with tracks/collabs posted by user's follows mixed with popular tracks
@@ -15,9 +23,11 @@ Features
   - tracks will have genre and instrument tags to help accommodate this
 - strong interaction between artists/fans or smaller artists, as well as friend groups who want to quickly and easily share ideas. success likely determined by how many medium to large artist adopt and use the platform.
 
+
 Layout
 - Navbar with links to home, user account, upload, and a search bar. 
 - global player with track navigation buttons (previous, play/pause, next, shuffle, loop), track title/artist username, song progress indicator
+
 
 Pages
 - Home
@@ -26,10 +36,13 @@ Pages
   - When the track is expanded, it shows a list of tracks containing the track that the current track is based on "original" or "based on" and all the tracks based on the current track. There will be fewer details shown on these items. play button, track title - username, like count, play count
 
 - standard login/register pages (email, password, username)
+
 - upload
   - allows user to upload file, name track, and upload the track
+
 -user
   - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
+  
 - track/[trackId]
   - allows users to explore entire track tree
   - has a playback gui that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
@@ -47,7 +60,6 @@ TODO
 - space to play/pause global player
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
-
 
 
 PostgreSQL db structure:
@@ -70,7 +82,7 @@ CREATE TABLE tracks (
   title VARCHAR(100) NOT NULL,
   audio_url VARCHAR(1000) NOT NULL, -- S3 URL for the clip
   combined_audio_url VARCHAR(1000) NOT NULL,
-  duration INT NOT NULL, -- Seconds, for UI display
+  duration FLOAT NOT NULL, -- Seconds, for UI display
   layer INT NOT NULL, -- 0-4 (max 5 collaborators)
   parent_track_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Null for originals, links to parent for versions
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -209,7 +221,3 @@ CREATE TRIGGER track_play_count_update
 AFTER INSERT ON track_plays
 FOR EACH ROW
 EXECUTE FUNCTION update_track_play_count();
-
-
-
-add a tracks/[id] page which has even more track detail. There is a tree created by the tracks and collab system. the root is the original track, which can have x children, each of whom can have x children, and so on. since a track is only allowed to have 5 layers max, that is the max number of levels on the tree. when a user loads this track details page, it should display the track as a track component (or maybe create a new component based on the track component if there is too much new functionality needed). then traverse up the tree, displaying a track component for each track until it reaches the root. at each level in the tree, all the children of that track should be listed below the track in an expandable panel (like how its done in the track component). at any level the user can select one of the child tracks to choose that as the track for level n + 1, and then display that track below the n track as its own component
