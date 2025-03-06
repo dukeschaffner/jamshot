@@ -3,21 +3,27 @@
 import { useState, useEffect, useRef } from 'react';
 import { formatDuration } from '@/lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faPlay } from '@fortawesome/free-solid-svg-icons';
+import './TracksWidget.css';
 
 export default function TracksWidget({ 
   track,
   isPlaying,
   setIsPlaying,
   showCollabModal,
+  isRecording,
   originalAudioChunks = null,
-  recordingAudioChunks = null
+  recordingAudioChunks = null,
+  selectedAudioInputDevice = null,
+  setRecordingAudioChunks = null
 }) {
   // Internal state
   const [isLooping, setIsLooping] = useState(true);
   const [playheadPos, setPlayheadPos] = useState(0);
   const [looperLeftPos, setLooperLeftPos] = useState(0);
   const [looperRightPos, setLooperRightPos] = useState(100);
+  const [takes, setTakes] = useState([]);
+  const [selectedTake, setSelectedTake] = useState(null);
   
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -61,12 +67,49 @@ export default function TracksWidget({
   const looperHandleRightRef = useRef(null);
   const looperRegionRef = useRef(null);
   
+  // Media recorder refs
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const takesCountRef = useRef(0); // Ref to track the number of takes
+  
+  // Canvas refs for waveform visualization
+  const originalCanvasRef = useRef(null);
+  const recordingCanvasRef = useRef(null);
+  
+  // Update takesCountRef when takes change
+  useEffect(() => {
+    takesCountRef.current = takes.length;
+  }, [takes]);
+  
   // Initialize Web Audio API
   useEffect(() => {
     // Create AudioContext
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      try {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: 48000,
+          latencyHint: 'interactive'
+        });
+      } catch (error) {
+        console.error('Error creating AudioContext:', error);
+        // Fallback to default constructor
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
     }
+    
+    // Resume audio context if suspended
+    const resumeAudioContext = async () => {
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        try {
+          await audioContextRef.current.resume();
+        } catch (error) {
+          console.error('Error resuming AudioContext:', error);
+        }
+      }
+    };
+    
+    resumeAudioContext();
     
     // Create gain nodes
     if (!originalGainNodeRef.current) {
@@ -134,18 +177,7 @@ export default function TracksWidget({
         audioContextRef.current.resume();
       }
       
-      const x = pausedAtRef.current;
-      const y = posToTime(looperLeftPos, trackDuration);
-      const z = posToTime(playheadPos, trackDuration);
-      console.log('x', x);
-      console.log('y', y);
-      console.log('z', z);
-      
       // Calculate start position
-      const loopStartTime2 = isLooping ? 
-        posToTime(looperLeftPos, trackDuration) : 
-        pausedAtRef.current > trackDuration - 1;
-        
       let loopStartTime;
       if(isLooping){
         loopStartTime = posToTime(looperLeftPos, trackDuration);
@@ -197,7 +229,7 @@ export default function TracksWidget({
         recordingSourceNodeRef.current.buffer = recordingBufferRef.current;
         recordingSourceNodeRef.current.connect(recordingGainNodeRef.current);
         
-        // Start playback
+        // Start playback at the exact same time as the original track for sync
         recordingSourceNodeRef.current.start(0, loopStartTime);
       }
       
@@ -616,9 +648,6 @@ export default function TracksWidget({
     ctx.stroke();
   };
   
-  // Canvas refs for waveform visualization
-  const originalCanvasRef = useRef(null);
-  const recordingCanvasRef = useRef(null);
   
   // Render waveforms when buffers change
   useEffect(() => {
@@ -631,8 +660,204 @@ export default function TracksWidget({
     }
   }, [originalBufferRef.current, recordingBufferRef.current]);
   
+  // Handle recording state changes
+  useEffect(() => {
+    let cleanup = () => {};
+    
+    if (isRecording) {
+      const startRecording = async () => {
+        try {
+          // Stop any existing stream
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+          }
+          
+          // Get media stream with selected device or default
+          const constraints = {
+            audio: {
+              deviceId: selectedAudioInputDevice 
+                ? { exact: selectedAudioInputDevice } 
+                : undefined,
+              sampleRate: 48000,
+              channelCount: 2,
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          };
+          
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          mediaStreamRef.current = stream;
+          
+          // Check for supported MIME types
+          let mimeType = 'audio/webm;codecs=opus';
+          let options = {
+            audioBitsPerSecond: 256000
+          };
+          
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            // Fallback to other formats
+            if (MediaRecorder.isTypeSupported('audio/webm')) {
+              mimeType = 'audio/webm';
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+              mimeType = 'audio/mp4';
+            } else {
+              // Use default
+              mimeType = '';
+            }
+          }
+          
+          if (mimeType) {
+            options.mimeType = mimeType;
+          }
+          
+          // Create media recorder with high quality settings
+          const mediaRecorder = new MediaRecorder(stream, options);
+          mediaRecorderRef.current = mediaRecorder;
+          
+          // Clear previous chunks
+          recordedChunksRef.current = [];
+          
+          // Set up event handlers
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              recordedChunksRef.current.push(e.data);
+            }
+          };
+          
+          mediaRecorder.onstop = async () => {
+            try {
+              if(recordedChunksRef.current.length == 0) return;
+              // Create blob from recorded chunks with the correct MIME type
+              const blob = new Blob(recordedChunksRef.current, { 
+                type: mediaRecorder.mimeType || options.mimeType || 'audio/webm' 
+              });
+              
+              // Convert blob to array buffer
+              const arrayBuffer = await blob.arrayBuffer();
+              
+              // Create Uint8Array chunks
+              const chunks = [new Uint8Array(arrayBuffer)];
+              
+              // Create a new take
+              const takeNumber = takesCountRef.current + 1;
+              const newTake = {
+                id: Date.now().toString(),
+                name: `Take ${takeNumber}`,
+                chunks: chunks,
+                recordedAt: Date.now(),
+                mimeType: mediaRecorder.mimeType || options.mimeType || 'audio/webm'
+              };
+              
+              // Add the new take to the takes list
+              setTakes(prevTakes => [...prevTakes, newTake]);
+              
+              // Set the new take as the selected take
+              setSelectedTake(newTake);
+              
+            } catch (error) {
+              console.error('Error processing recorded audio chunks:', error);
+            }
+          };
+          
+          // Start recording
+          mediaRecorder.start(1000); // Collect data every second
+          
+          // Start playing the original track for sync
+          if (!isPlaying) {
+            // Reset playhead to beginning for better sync
+            pausedAtRef.current = 0;
+            setPlayheadPos(0);
+            setIsPlaying(true);
+          }
+          
+          // Define cleanup for this specific recording session
+          cleanup = () => {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+              mediaRecorderRef.current.stop();
+            }
+            
+            if (mediaStreamRef.current) {
+              mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+          };
+        } catch (error) {
+          console.error('Error starting recording:', error);
+        }
+      };
+      
+      startRecording();
+    } else {
+      // Only stop recording when transitioning from recording to not recording
+      const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop();
+        }
+
+        mediaRecorderRef.current = null;
+        
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        
+        // Stop playback when recording stops
+        if (isPlaying) {
+          setIsPlaying(false);
+        }
+      };
+      
+      // Only call stopRecording if we were previously recording
+      if (mediaRecorderRef.current) {
+        stopRecording();
+      }
+    }
+    
+    // Return the cleanup function that will only be used for unmounting
+    // or when isRecording changes
+    return cleanup;
+  }, [isRecording, selectedAudioInputDevice, isPlaying, setIsPlaying]);
+  
+  
+  // Update recordingAudioChunks when selectedTake changes
+  useEffect(() => {
+    if (selectedTake) {
+      // Process the selected take's audio chunks
+      const processAudioChunks = async () => {
+        try {
+          // Create blob from chunks with the correct MIME type
+          const blob = new Blob(selectedTake.chunks, { 
+            type: selectedTake.mimeType || 'audio/webm' 
+          });
+          
+          // Update recordingAudioChunks in parent component
+          if (setRecordingAudioChunks) {
+            setRecordingAudioChunks(selectedTake.chunks);
+          }
+          
+        // Convert blob to array buffer
+        const arrayBuffer = await blob.arrayBuffer();
+        
+        // Decode audio data
+        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+        
+        // Store buffer
+        recordingBufferRef.current = audioBuffer;
+        
+        // Render waveform if canvas is available
+        if (recordingCanvasRef.current) {
+            renderWaveform(audioBuffer, recordingCanvasRef);
+        }
+        } catch (error) {
+          console.error('Error processing selected take audio chunks:', error);
+        }
+      };
+      
+      processAudioChunks();
+    }
+  }, [selectedTake, setRecordingAudioChunks]);
+  
   // Determine if recording track has content
-  const hasRecordingTrack = recordingBufferRef.current !== null;
+  const hasRecordingTrack = recordingBufferRef.current !== null || selectedTake !== null;
   
   return (
     <div className="daw-container">
@@ -741,6 +966,33 @@ export default function TracksWidget({
           </div>
         )}
       </div>
+      
+      {/* Takes List */}
+      {takes.length > 0 && (
+        <div className="takes-container">
+          <h3>Your Takes</h3>
+          <div className="takes-list">
+            {takes.map(take => (
+              <div 
+                key={take.id} 
+                className={`take-item ${selectedTake?.id === take.id ? 'selected' : ''}`}
+                onClick={() => setSelectedTake(take)}
+              >
+                <span className="take-name">{take.name}</span>
+                <div className="take-controls">
+                  <button className="take-play" onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTake(take);
+                    setIsPlaying(true);
+                  }}>
+                    <FontAwesomeIcon icon={faPlay} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPlay, faPause, faStepBackward, faStepForward, 
   faDrum, faMicrophone, faTrash, faUpload, faCloudUploadAlt,
-  faHeart, faComment
+  faHeart, faComment, faCircle, faStop
 } from '@fortawesome/free-solid-svg-icons';
 import TracksWidget from './TracksWidget';
 
@@ -20,6 +20,10 @@ export default function CollabInterface({ track }) {
   const [fileName, setFileName] = useState('');
   const [originalAudioChunks, setOriginalAudioChunks] = useState(null);
   const [recordingAudioChunks, setRecordingAudioChunks] = useState(null);
+  const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
+  const [audioInputDevices, setAudioInputDevices] = useState([]);
+  const [selectedAudioInputDevice, setSelectedAudioInputDevice] = useState(null);
+  const [selectedTake, setSelectedTake] = useState(null);
   
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -46,6 +50,21 @@ export default function CollabInterface({ track }) {
     
     fetchOriginalAudio();
   }, [track]);
+  
+  // Fetch available audio input devices
+  useEffect(() => {
+    const getAudioInputDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+        setAudioInputDevices(audioInputs);
+      } catch (error) {
+        console.error('Error getting audio input devices:', error);
+      }
+    };
+    
+    getAudioInputDevices();
+  }, []);
   
   // Toggle play/pause
   const togglePlay = async () => {
@@ -145,9 +164,28 @@ export default function CollabInterface({ track }) {
     }
   };
   
-
+  // Handle audio input device selection
+  const handleAudioInputDeviceChange = (e) => {
+    setSelectedAudioInputDevice(e.target.value);
+  };
   
-
+  // Start recording after device selection
+  const startRecordingAfterDeviceSelection = () => {
+    setShowAudioSettingsModal(false);
+    toggleRecording();
+  };
+  
+  // Toggle recording state
+  const toggleRecording = () => {
+    // If not recording and no device selected, show audio settings modal
+    if (!isRecording && !selectedAudioInputDevice) {
+      setShowAudioSettingsModal(true);
+      return;
+    }
+    
+    // Toggle recording state
+    setIsRecording(!isRecording);
+  };
   
   return (
     <div className="collab-container">
@@ -169,8 +207,18 @@ export default function CollabInterface({ track }) {
           </div>
         </div>
         <div className="track-controls">
-          <button className="control-button play-pause" onClick={togglePlay}>
+          <button 
+            className="control-button play-pause" 
+            onClick={togglePlay}
+            disabled={isRecording}
+          >
             <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
+          </button>
+          <button 
+            className="control-button record-stop"
+            onClick={toggleRecording}
+          >
+            <FontAwesomeIcon icon={isRecording ? faStop : faCircle}/>
           </button>
           <button className="control-button">
             <FontAwesomeIcon icon={faStepBackward} />
@@ -199,6 +247,9 @@ export default function CollabInterface({ track }) {
         showCollabModal={showCollabModal}
         originalAudioChunks={originalAudioChunks}
         recordingAudioChunks={recordingAudioChunks}
+        isRecording={isRecording}
+        selectedAudioInputDevice={selectedAudioInputDevice}
+        setRecordingAudioChunks={setRecordingAudioChunks}
       />
 
       {/* Recording Section */}
@@ -262,6 +313,55 @@ export default function CollabInterface({ track }) {
                 <h3 className="option-title">Upload File</h3>
                 <p className="option-description">Upload a pre-recorded audio file</p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audio Settings Modal */}
+      {showAudioSettingsModal && (
+        <div className="modal-overlay active" onClick={(e) => {
+          if (e.target.className === 'modal-overlay active') {
+            setShowAudioSettingsModal(false);
+          }
+        }}>
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2 className="modal-title">Audio Settings</h2>
+              <p className="modal-subtitle">Select your audio input device</p>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="audio-input-device">Audio Input Device</label>
+                <select 
+                  id="audio-input-device" 
+                  className="form-control"
+                  value={selectedAudioInputDevice || ''}
+                  onChange={handleAudioInputDeviceChange}
+                >
+                  <option value="">Select an audio input device</option>
+                  {audioInputDevices.map(device => (
+                    <option key={device.deviceId} value={device.deviceId}>
+                      {device.label || `Microphone ${device.deviceId.slice(0, 5)}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowAudioSettingsModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={startRecordingAfterDeviceSelection}
+                disabled={!selectedAudioInputDevice}
+              >
+                Start Recording
+              </button>
             </div>
           </div>
         </div>
