@@ -2348,24 +2348,6 @@ body.dark-mode .tab.active {
   content: "Click to collapse";
 }
 
-.track-play {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  margin-right: 16px;
-  flex-shrink: 0;
-}
-
-.track-play:hover {
-  background-color: var(--primary-light);
-}
-
 .track-info {
   flex-grow: 1;
   min-width: 0;
