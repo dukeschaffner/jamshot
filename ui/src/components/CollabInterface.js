@@ -387,8 +387,8 @@ export default function CollabInterface({ track }) {
                     type="range"
                     id="latency-compensation"
                     className="form-range"
-                    min="-100"
-                    max="100"
+                    min="-5000"
+                    max="5000"
                     step="1"
                     value={userLatencyCompensation}
                     onChange={handleLatencyCompensationChange}

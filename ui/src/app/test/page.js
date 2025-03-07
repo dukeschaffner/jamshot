@@ -8,6 +8,7 @@ export default function AudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [canRecord, setCanRecord] = useState(false);
   const [canPlay, setCanPlay] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [inputLatency, setInputLatency] = useState(200); // Default latency compensation in ms
   
   // Refs to store audio objects and data
@@ -18,6 +19,7 @@ export default function AudioRecorder() {
   const playbackSourceRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
   const isRecordingRef = useRef(false);
+  const activeSourcesRef = useRef([]); // Track active audio sources for stopping playback
 
   // Initialize the audio context
   useEffect(() => {
@@ -221,10 +223,10 @@ export default function AudioRecorder() {
     
     // Create gain nodes for volume control
     const recordedGain = audioContext.createGain();
-    recordedGain.gain.value = 0.8; // Set volume for recorded audio
+    recordedGain.gain.value = 1; // Set volume for recorded audio
     
     const trackGain = audioContext.createGain();
-    trackGain.gain.value = 1.0; // Set volume for backing track
+    trackGain.gain.value = 0.7; // Set volume for backing track
     
     // Connect the sources through the gain nodes to the destination
     recordedSource.connect(recordedGain);
@@ -233,22 +235,50 @@ export default function AudioRecorder() {
     recordedGain.connect(audioContext.destination);
     trackGain.connect(audioContext.destination);
     
+    // Store active sources for stopping playback
+    activeSourcesRef.current = [recordedSource, trackSource];
+    
     // Calculate the latency offset in seconds
     const latencyOffset = inputLatency / 1000; // Convert ms to seconds
     
     // Start playback with latency compensation
     const currentTime = audioContext.currentTime;
-    trackSource.start(currentTime);
-    recordedSource.start(currentTime - latencyOffset); // Start recorded audio earlier to compensate
+    trackSource.start(0);
+    recordedSource.start(0,latencyOffset); // Start recorded audio earlier to compensate
     
     setStatus('Playing synchronized audio...');
     setCanPlay(false);
+    setIsPlaying(true);
     
     // Enable the play button when playback is complete
     trackSource.onended = function() {
       setStatus('Playback complete');
       setCanPlay(true);
+      setIsPlaying(false);
+      activeSourcesRef.current = [];
     };
+  };
+  
+  // Stop playback of all active audio sources
+  const stopPlayback = () => {
+    if (activeSourcesRef.current.length > 0) {
+      // Stop all active audio sources
+      activeSourcesRef.current.forEach(source => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (error) {
+          console.error('Error stopping audio source:', error);
+        }
+      });
+      
+      // Clear the active sources array
+      activeSourcesRef.current = [];
+      
+      setStatus('Playback stopped');
+      setCanPlay(true);
+      setIsPlaying(false);
+    }
   };
 
   // Update the latency compensation value
@@ -321,6 +351,14 @@ export default function AudioRecorder() {
             className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Play Result
+          </button>
+          
+          <button
+            onClick={stopPlayback}
+            disabled={!isPlaying}
+            className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Stop Playback
           </button>
         </div>
         
