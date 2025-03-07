@@ -15,7 +15,8 @@ export default function TracksWidget({
   originalAudioChunks = null,
   recordingAudioChunks = null,
   selectedAudioInputDevice = null,
-  setRecordingAudioChunks = null
+  setRecordingAudioChunks = null,
+  userLatencyCompensation = 0
 }) {
   // Internal state
   const [isLooping, setIsLooping] = useState(true);
@@ -58,6 +59,8 @@ export default function TracksWidget({
   const pausedAtRef = useRef(0);
   const playheadIntervalRef = useRef(null);
   const lastUpdateTimeRef = useRef(0); // Track last update time
+  const recordingStartTimeRef = useRef(0); // Track when recording starts
+  const playbackStartTimeRef = useRef(0); // Track when playback starts
   
   // Refs
   const waveformContainerRef = useRef(null);
@@ -205,8 +208,12 @@ export default function TracksWidget({
         originalSourceNodeRef.current.buffer = originalBufferRef.current;
         originalSourceNodeRef.current.connect(originalGainNodeRef.current);
         
+        // Record the exact time when playback starts
+        playbackStartTimeRef.current = performance.now();
+        
         // Start playback
         originalSourceNodeRef.current.start(0, loopStartTime);
+        console.log("playback started at", new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }));
         
         // Set up ended event
         originalSourceNodeRef.current.onended = () => {
@@ -217,7 +224,7 @@ export default function TracksWidget({
       }
       
       // Play recording track if buffer exists
-      if (recordingBufferRef.current) {
+      if (recordingBufferRef.current && !isRecording) {
         // Stop previous source if exists
         if (recordingSourceNodeRef.current) {
           recordingSourceNodeRef.current.stop();
@@ -229,8 +236,21 @@ export default function TracksWidget({
         recordingSourceNodeRef.current.buffer = recordingBufferRef.current;
         recordingSourceNodeRef.current.connect(recordingGainNodeRef.current);
         
-        // Start playback at the exact same time as the original track for sync
-        recordingSourceNodeRef.current.start(0, loopStartTime);
+        // Apply latency compensation if available in the selected take
+        let adjustedStartTime = loopStartTime;
+        if (selectedTake) {
+          // Apply both the take's latency compensation and the user's latency compensation
+          const takeLatencyCompensation = selectedTake.latencyCompensation || 0;
+          const totalCompensationMs = takeLatencyCompensation + userLatencyCompensation;
+          const compensationInSeconds = totalCompensationMs / 1000;
+          
+          adjustedStartTime = Math.max(0, loopStartTime - compensationInSeconds);
+          console.log("Applying total latency compensation:", totalCompensationMs, "ms", 
+            "(take:", selectedTake.latencyCompensation || 0, "ms, user:", userLatencyCompensation, "ms)");
+        }
+        
+        // Start playback at the adjusted time for sync
+        recordingSourceNodeRef.current.start(0, adjustedStartTime);
       }
       
       // Store start time for tracking playhead position
@@ -739,6 +759,10 @@ export default function TracksWidget({
               // Create Uint8Array chunks
               const chunks = [new Uint8Array(arrayBuffer)];
               
+              // Calculate latency compensation (difference between recording start and playback start)
+              const latencyCompensation = playbackStartTimeRef.current - recordingStartTimeRef.current;
+              console.log("Latency compensation:", latencyCompensation, "ms");
+              
               // Create a new take
               const takeNumber = takesCountRef.current + 1;
               const newTake = {
@@ -746,7 +770,8 @@ export default function TracksWidget({
                 name: `Take ${takeNumber}`,
                 chunks: chunks,
                 recordedAt: Date.now(),
-                mimeType: mediaRecorder.mimeType || options.mimeType || 'audio/webm'
+                mimeType: mediaRecorder.mimeType || options.mimeType || 'audio/webm',
+                latencyCompensation
               };
               
               // Add the new take to the takes list
@@ -762,6 +787,10 @@ export default function TracksWidget({
           
           // Start recording
           mediaRecorder.start(1000); // Collect data every second
+          console.log("recording started at", new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }));
+          
+          // Record the exact time when recording starts
+          recordingStartTimeRef.current = performance.now();
           
           // Start playing the original track for sync
           if (!isPlaying) {
