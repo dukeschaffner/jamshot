@@ -5,9 +5,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPlay, faPause, faStepBackward, faStepForward, 
   faDrum, faMicrophone, faTrash, faUpload, faCloudUploadAlt,
-  faHeart, faComment, faCircle, faStop
+  faHeart, faComment, faCircle, faStop, faCog
 } from '@fortawesome/free-solid-svg-icons';
 import TracksWidget from './TracksWidget';
+import Cookies from 'js-cookie';
+import './CollabInterface.css';
 
 export default function CollabInterface({ track }) {
   // State
@@ -24,6 +26,7 @@ export default function CollabInterface({ track }) {
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [selectedAudioInputDevice, setSelectedAudioInputDevice] = useState(null);
   const [selectedTake, setSelectedTake] = useState(null);
+  const [userLatencyCompensation, setUserLatencyCompensation] = useState(0);
   
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -64,7 +67,21 @@ export default function CollabInterface({ track }) {
     };
     
     getAudioInputDevices();
+    
+    // Load latency compensation from cookies
+    const savedLatencyCompensation = Cookies.get('userLatencyCompensation');
+    if (savedLatencyCompensation !== undefined) {
+      setUserLatencyCompensation(parseInt(savedLatencyCompensation, 10));
+    } else {
+      // Default value of 20ms if not set
+      setUserLatencyCompensation(20);
+    }
   }, []);
+  
+  // Save latency compensation to cookies when it changes
+  useEffect(() => {
+    Cookies.set('userLatencyCompensation', userLatencyCompensation.toString(), { expires: 365 });
+  }, [userLatencyCompensation]);
   
   // Toggle play/pause
   const togglePlay = async () => {
@@ -169,6 +186,11 @@ export default function CollabInterface({ track }) {
     setSelectedAudioInputDevice(e.target.value);
   };
   
+  // Handle latency compensation change
+  const handleLatencyCompensationChange = (e) => {
+    setUserLatencyCompensation(parseInt(e.target.value, 10));
+  };
+  
   // Start recording after device selection
   const startRecordingAfterDeviceSelection = () => {
     setShowAudioSettingsModal(false);
@@ -235,6 +257,13 @@ export default function CollabInterface({ track }) {
               <FontAwesomeIcon icon={faDrum} />
             </button>
           </div>
+          <button 
+            className="control-button settings"
+            onClick={() => setShowAudioSettingsModal(true)}
+            title="Audio Settings"
+          >
+            <FontAwesomeIcon icon={faCog} />
+          </button>
         </div>
       </div>
 
@@ -250,6 +279,7 @@ export default function CollabInterface({ track }) {
         isRecording={isRecording}
         selectedAudioInputDevice={selectedAudioInputDevice}
         setRecordingAudioChunks={setRecordingAudioChunks}
+        userLatencyCompensation={userLatencyCompensation}
       />
 
       {/* Recording Section */}
@@ -328,7 +358,7 @@ export default function CollabInterface({ track }) {
           <div className="modal-content">
             <div className="modal-header">
               <h2 className="modal-title">Audio Settings</h2>
-              <p className="modal-subtitle">Select your audio input device</p>
+              <p className="modal-subtitle">Configure your recording settings</p>
             </div>
             <div className="modal-body">
               <div className="form-group">
@@ -347,21 +377,45 @@ export default function CollabInterface({ track }) {
                   ))}
                 </select>
               </div>
+              
+              <div className="form-group mt-4">
+                <label htmlFor="latency-compensation">
+                  Latency Compensation: {userLatencyCompensation} ms
+                </label>
+                <div className="slider-container">
+                  <input
+                    type="range"
+                    id="latency-compensation"
+                    className="form-range"
+                    min="-100"
+                    max="100"
+                    step="1"
+                    value={userLatencyCompensation}
+                    onChange={handleLatencyCompensationChange}
+                  />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Adjust this value if your recording is not in sync with the original track.
+                  Negative values play your recording earlier, positive values play it later.
+                </p>
+              </div>
             </div>
             <div className="modal-footer">
               <button 
                 className="btn btn-secondary"
                 onClick={() => setShowAudioSettingsModal(false)}
               >
-                Cancel
+                Close
               </button>
-              <button 
-                className="btn btn-primary"
-                onClick={startRecordingAfterDeviceSelection}
-                disabled={!selectedAudioInputDevice}
-              >
-                Start Recording
-              </button>
+              {!isRecording && (
+                <button 
+                  className="btn btn-primary"
+                  onClick={startRecordingAfterDeviceSelection}
+                  disabled={!selectedAudioInputDevice}
+                >
+                  Start Recording
+                </button>
+              )}
             </div>
           </div>
         </div>
