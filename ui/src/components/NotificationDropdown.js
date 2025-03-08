@@ -2,8 +2,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useNotifications } from '../lib/NotificationContext';
-import { FaBell, FaCheck, FaComment, FaHeart, FaMusic, FaRetweet, FaTrash } from 'react-icons/fa';
+import { FaBell, FaCheck, FaComment, FaHeart, FaMusic, FaRetweet, FaTrash, FaUserPlus, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { formatDistanceToNow } from 'date-fns';
+import api from '../lib/api';
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,6 +41,11 @@ export default function NotificationDropdown() {
       markAsRead(notification.id);
     }
     
+    // For follow requests, don't navigate
+    if (notification.type === 'follow_request') {
+      return;
+    }
+    
     // Navigate to the track
     router.push(`/track/${notification.related_track_id}`);
     setIsOpen(false);
@@ -55,6 +61,8 @@ export default function NotificationDropdown() {
         return <FaMusic className="text-green-500" />;
       case 'repost':
         return <FaRetweet className="text-purple-500" />;
+      case 'follow_request':
+        return <FaUserPlus className="text-indigo-500" />;
       default:
         return <FaBell className="text-gray-500" />;
     }
@@ -72,13 +80,35 @@ export default function NotificationDropdown() {
         return `${actor_username} created a new version of your track "${track_title}"`;
       case 'repost':
         return `${actor_username} reposted your track "${track_title}"`;
+      case 'follow_request':
+        return `${actor_username} requested to follow you`;
       default:
         return `New activity on your track "${track_title}"`;
     }
   };
 
+  const handleAcceptFollowRequest = async (notification) => {
+    try {
+      await api.post(`/users/follow-requests/${notification.follow_request_id}/accept`);
+      // Remove the notification from the list
+      deleteNotification(notification.id);
+    } catch (err) {
+      console.error('Failed to accept follow request:', err);
+    }
+  };
+
+  const handleRejectFollowRequest = async (notification) => {
+    try {
+      await api.post(`/users/follow-requests/${notification.follow_request_id}/reject`);
+      // Remove the notification from the list
+      deleteNotification(notification.id);
+    } catch (err) {
+      console.error('Failed to reject follow request:', err);
+    }
+  };
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative notification-dropdown" ref={dropdownRef}>
       <button
         onClick={() => {
           setIsOpen(!isOpen);
@@ -86,24 +116,26 @@ export default function NotificationDropdown() {
             fetchNotifications();
           }
         }}
-        className="relative p-2 text-gray-700 hover:text-blue-500 focus:outline-none"
+        className="notification-button"
+        title="Notifications"
       >
         <FaBell size={20} />
+        Notifications
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full">
+          <span className="notification-badge">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
-          <div className="p-2 border-b flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Notifications</h3>
+        <div className="notification-panel">
+          <div className="notification-header">
+            <h3>Notifications</h3>
             {notifications.length > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="text-sm text-blue-500 hover:text-blue-700"
+                className="mark-all-read"
                 title="Mark all as read"
               >
                 <FaCheck className="inline mr-1" /> Mark all read
@@ -112,39 +144,62 @@ export default function NotificationDropdown() {
           </div>
 
           {loading ? (
-            <div className="p-4 text-center text-gray-500">Loading...</div>
+            <div className="notification-loading">Loading...</div>
           ) : error ? (
-            <div className="p-4 text-center text-red-500">{error}</div>
+            <div className="notification-error">{error}</div>
           ) : notifications.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">No notifications</div>
+            <div className="notification-empty">No notifications</div>
           ) : (
-            <ul>
+            <ul className="notification-list">
               {notifications.map(notification => (
                 <li
                   key={notification.id}
-                  className={`p-3 border-b hover:bg-gray-50 flex items-start ${
-                    !notification.is_read ? 'bg-blue-50' : ''
+                  className={`notification-item ${
+                    !notification.is_read ? 'unread' : ''
                   }`}
                 >
-                  <div className="mr-3 mt-1">{getNotificationIcon(notification.type)}</div>
+                  <div className="notification-icon-container">{getNotificationIcon(notification.type)}</div>
                   <div 
-                    className="flex-1 cursor-pointer"
+                    className="notification-content"
                     onClick={() => handleNotificationClick(notification)}
                   >
-                    <p className="text-sm">{getNotificationText(notification)}</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="notification-text">{getNotificationText(notification)}</p>
+                    <p className="notification-time">
                       {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                     </p>
+                    
+                    {notification.type === 'follow_request' && (
+                      <div className="notification-actions">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAcceptFollowRequest(notification);
+                          }}
+                          className="accept-btn"
+                        >
+                          <FaCheckCircle className="mr-1" /> Accept
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRejectFollowRequest(notification);
+                          }}
+                          className="reject-btn"
+                        >
+                          <FaTimesCircle className="mr-1" /> Reject
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteNotification(notification.id);
                     }}
-                    className="text-gray-400 hover:text-red-500"
+                    className="delete-btn"
                     title="Delete notification"
                   >
-                    <FaTrash size={14} />
+                    <FaTrash />
                   </button>
                 </li>
               ))}

@@ -183,19 +183,21 @@ body.dark-mode .logo {
 }
 
 .nav-link svg {
-  margin-right: 16px;
-  width: 20px;
-  height: 20px;
+  margin-right: 12px;
+  font-size: 1.2rem;
+}
+
+body.dark-mode .nav-link {
+  color: var(--dark-text-secondary);
 }
 
 body.dark-mode .nav-link:hover {
-  background-color: var(--dark-hover-color);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 body.dark-mode .nav-link.active {
-  background-color: var(--dark-hover-color);
-  border-left: 4px solid var(--seafoam);
   color: var(--dark-text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .search-box {
@@ -2915,4 +2917,395 @@ body.dark-mode .no-results {
     margin-top: 1rem;
     align-self: flex-start;
   }
+}
+
+/* Private account styles */
+.private-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.5rem;
+  color: var(--p2);
+  font-size: 0.9rem;
+}
+
+.privacy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.privacy-btn.private {
+  background-color: var(--p2);
+  color: white;
+}
+
+.privacy-btn.public {
+  background-color: var(--gray);
+  color: var(--text);
+}
+
+.privacy-btn:hover {
+  opacity: 0.9;
+}
+
+.profile-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Follow requests section */
+.follow-requests-section {
+  background-color: var(--white);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px var(--shadow);
+  padding: 1rem;
+  margin-bottom: 2rem;
+}
+
+body.dark-mode .follow-requests-section {
+  background-color: var(--dark-card-bg);
+  box-shadow: 0 2px 8px var(--dark-shadow);
+}
+
+.follow-requests-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--foreground);
+}
+
+body.dark-mode .follow-requests-section h3 {
+  color: var(--dark-text-primary);
+}
+
+.follow-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.follow-request-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background-color: var(--bg);
+  border-radius: 6px;
+}
+
+body.dark-mode .follow-request-item {
+  background-color: var(--dark-bg);
+}
+
+.follow-request-item .user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.follow-request-item .user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.follow-request-item .username {
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+body.dark-mode .follow-request-item .username {
+  color: var(--dark-text-primary);
+}
+
+.follow-request-item .request-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.follow-request-item .accept-btn,
+.follow-request-item .reject-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.follow-request-item .accept-btn {
+  background-color: var(--p2);
+  color: white;
+}
+
+.follow-request-item .reject-btn {
+  background-color: var(--gray);
+  color: var(--text);
+}
+
+.follow-request-item .accept-btn:hover {
+  background-color: var(--p1);
+}
+
+/* Notification styles */
+.notification-nav-link {
+  position: relative;
+  padding: 0 !important;
+  margin-bottom: 8px;
+}
+
+.notification-dropdown {
+  width: 100%;
+}
+
+.notification-button {
+  display: flex;
+  align-items: center;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  padding: 12px 24px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+body.dark-mode .notification-button {
+  color: var(--dark-text-secondary);
+}
+
+.notification-button:hover {
+  background-color: var(--seafoam-light);
+}
+
+body.dark-mode .notification-button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.notification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  background-color: var(--red);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  border-radius: 9999px;
+  margin-left: auto;
+}
+
+.notification-panel {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 8px;
+  width: 320px;
+  max-height: 480px;
+  overflow-y: auto;
+  background-color: var(--white);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 50;
+}
+
+body.dark-mode .notification-panel {
+  background-color: var(--dark-card-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+body.dark-mode .notification-header {
+  border-bottom-color: var(--dark-border);
+}
+
+.notification-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+body.dark-mode .notification-header h3 {
+  color: var(--dark-text-primary);
+}
+
+.mark-all-read {
+  font-size: 0.8rem;
+  color: var(--p2);
+  transition: color 0.2s ease;
+}
+
+.mark-all-read:hover {
+  color: var(--p1);
+}
+
+.notification-loading,
+.notification-error,
+.notification-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+body.dark-mode .notification-loading,
+body.dark-mode .notification-empty {
+  color: var(--dark-text-secondary);
+}
+
+body.dark-mode .notification-error {
+  color: var(--red);
+}
+
+.notification-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s ease;
+}
+
+body.dark-mode .notification-item {
+  border-bottom-color: var(--dark-border);
+}
+
+.notification-item:hover {
+  background-color: var(--bg);
+}
+
+body.dark-mode .notification-item:hover {
+  background-color: var(--dark-bg);
+}
+
+.notification-item.unread {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+body.dark-mode .notification-item.unread {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+.notification-icon-container {
+  margin-right: 0.75rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.notification-text {
+  font-size: 0.875rem;
+  color: var(--foreground);
+  margin-bottom: 0.25rem;
+}
+
+body.dark-mode .notification-text {
+  color: var(--dark-text-primary);
+}
+
+.notification-time {
+  font-size: 0.75rem;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+body.dark-mode .notification-time {
+  color: var(--dark-text-secondary);
+}
+
+.notification-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.notification-actions .accept-btn,
+.notification-actions .reject-btn {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.notification-actions .accept-btn {
+  background-color: var(--p2);
+  color: white;
+}
+
+.notification-actions .accept-btn:hover {
+  background-color: var(--p1);
+}
+
+.notification-actions .reject-btn {
+  background-color: var(--gray);
+  color: var(--text);
+}
+
+.notification-actions .reject-btn:hover {
+  background-color: var(--red);
+  color: white;
+}
+
+.delete-btn {
+  color: var(--text);
+  opacity: 0.5;
+  transition: all 0.2s ease;
+  padding: 0.25rem;
+}
+
+.delete-btn:hover {
+  color: var(--red);
+  opacity: 1;
 }

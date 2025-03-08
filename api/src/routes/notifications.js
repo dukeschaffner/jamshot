@@ -17,12 +17,31 @@ router.get('/', async (req, res) => {
         n.is_read, 
         n.created_at,
         n.related_track_id,
-        t.title AS track_title,
-        u.username AS actor_username,
-        u.verified AS actor_verified
+        n.related_user_id,
+        CASE 
+          WHEN n.type = 'follow_request' THEN NULL
+          ELSE t.title 
+        END AS track_title,
+        CASE 
+          WHEN n.type = 'follow_request' THEN u_related.username
+          ELSE u_actor.username
+        END AS actor_username,
+        CASE 
+          WHEN n.type = 'follow_request' THEN u_related.verified
+          ELSE u_actor.verified
+        END AS actor_verified,
+        CASE
+          WHEN n.type = 'follow_request' THEN (
+            SELECT id FROM follow_requests 
+            WHERE requester_id = n.related_user_id AND target_id = n.user_id
+            LIMIT 1
+          )
+          ELSE NULL
+        END AS follow_request_id
       FROM notifications n
-      JOIN tracks t ON n.related_track_id = t.id
-      LEFT JOIN users u ON (
+      LEFT JOIN tracks t ON n.related_track_id = t.id
+      LEFT JOIN users u_related ON n.related_user_id = u_related.id
+      LEFT JOIN users u_actor ON (
         CASE 
           WHEN n.type = 'like' THEN (
             SELECT user_id FROM likes
@@ -50,7 +69,7 @@ router.get('/', async (req, res) => {
           )
           ELSE NULL
         END
-      ) = u.id
+      ) = u_actor.id
       WHERE n.user_id = $1
       ORDER BY n.created_at DESC
       LIMIT 50

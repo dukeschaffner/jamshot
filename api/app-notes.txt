@@ -42,7 +42,7 @@ Pages
 
 -user
   - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
-  
+
 - track/[trackId]
   - allows users to explore entire track tree
   - has a playback gui that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
@@ -60,7 +60,7 @@ TODO
 - space to play/pause global player
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
-
+- delete tracks
 
 PostgreSQL db structure:
 
@@ -73,7 +73,8 @@ CREATE TABLE users (
   bio TEXT, -- Optional short bio
   verified BOOL not null default false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  is_private BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE tracks (
@@ -121,7 +122,7 @@ CREATE TABLE follows (
   UNIQUE (follower_id, following_id) -- No duplicate follows
 );
 
-CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost');
+CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost','follow_request');
 
 -- Recreate the notifications table with the proper type
 CREATE TABLE notifications (
@@ -130,7 +131,8 @@ CREATE TABLE notifications (
   type notification_type NOT NULL,
   related_track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   is_read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  related_user_id INT REFERENCES users(id) ON DELETE CASCADE
 ); 
 
 -- New tables for genre and instrument tagging system
@@ -221,3 +223,11 @@ CREATE TRIGGER track_play_count_update
 AFTER INSERT ON track_plays
 FOR EACH ROW
 EXECUTE FUNCTION update_track_play_count();
+
+CREATE TABLE follow_requests (
+  id SERIAL PRIMARY KEY,
+  requester_id INT REFERENCES users(id) ON DELETE CASCADE,
+  target_id INT REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (requester_id, target_id) -- Prevent duplicate requests
+);

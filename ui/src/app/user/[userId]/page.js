@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import Track from '../../../components/Track';
 import Cookies from 'js-cookie';
-import { FaCamera, FaTimes, FaCheck } from 'react-icons/fa';
+import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
 
 export default function UserPage() {
@@ -23,6 +23,8 @@ export default function UserPage() {
   const [showImageCropper, setShowImageCropper] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const fileInputRef = useRef(null);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [pendingFollowRequests, setPendingFollowRequests] = useState([]);
 
   useEffect(() => {
     const token = Cookies.get('token');
@@ -46,6 +48,7 @@ export default function UserPage() {
           api.get(`/users/${userId}/stats`),
         ]);
         setUserProfile(userResponse.data);
+        setIsPrivate(userResponse.data.is_private);
         setEditForm({
           username: userResponse.data.username,
           bio: userResponse.data.bio || ''
@@ -53,6 +56,16 @@ export default function UserPage() {
         setTracks(tracksResponse.data);
         setRepostedTracks(repostsResponse.data);
         setStats(statsResponse.data);
+
+        // If this is the user's own profile, fetch pending follow requests
+        if (isOwnProfile) {
+          try {
+            const requestsResponse = await api.get('/users/me/follow-requests');
+            setPendingFollowRequests(requestsResponse.data);
+          } catch (err) {
+            console.error('Failed to fetch follow requests:', err);
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch user data:', err);
       } finally {
@@ -60,7 +73,7 @@ export default function UserPage() {
       }
     };
     fetchData();
-  }, [userId]);
+  }, [userId, isOwnProfile]);
 
   const handleFollow = async () => {
     if (isOwnProfile) return; // Prevent following yourself
@@ -75,8 +88,13 @@ export default function UserPage() {
         await api.delete(`/users/follow/${userId}`);
         setStats(prev => ({ ...prev, isFollowing: false, followers: prev.followers - 1 }));
       } else {
-        await api.post(`/users/follow/${userId}`);
-        setStats(prev => ({ ...prev, isFollowing: true, followers: prev.followers + 1 }));
+        const response = await api.post(`/users/follow/${userId}`);
+        // If the account is private, don't increment follower count yet
+        if (response.data.message === 'Follow request sent') {
+          alert('Follow request sent. Waiting for approval.');
+        } else {
+          setStats(prev => ({ ...prev, isFollowing: true, followers: prev.followers + 1 }));
+        }
       }
     } catch (err) {
       console.error('Follow/unfollow error:', err);
@@ -139,6 +157,40 @@ export default function UserPage() {
     }
   };
 
+  const handlePrivacyToggle = async () => {
+    try {
+      const response = await api.put('/users/me/privacy', { is_private: !isPrivate });
+      setIsPrivate(response.data.is_private);
+      alert(`Your account is now ${response.data.is_private ? 'private' : 'public'}`);
+    } catch (err) {
+      console.error('Failed to update privacy settings:', err);
+      alert('Failed to update privacy settings');
+    }
+  };
+
+  const handleAcceptFollowRequest = async (requestId) => {
+    try {
+      await api.post(`/users/follow-requests/${requestId}/accept`);
+      // Remove from pending requests and update follower count
+      setPendingFollowRequests(prev => prev.filter(req => req.id !== requestId));
+      setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
+    } catch (err) {
+      console.error('Failed to accept follow request:', err);
+      alert('Failed to accept follow request');
+    }
+  };
+
+  const handleRejectFollowRequest = async (requestId) => {
+    try {
+      await api.post(`/users/follow-requests/${requestId}/reject`);
+      // Remove from pending requests
+      setPendingFollowRequests(prev => prev.filter(req => req.id !== requestId));
+    } catch (err) {
+      console.error('Failed to reject follow request:', err);
+      alert('Failed to reject follow request');
+    }
+  };
+
   if (loading) return <p>Loading...</p>;
 
   return (
@@ -169,59 +221,61 @@ export default function UserPage() {
         </div>
 
         <div className="profile-info">
-          {isEditing ? (
-            <form onSubmit={handleEditSubmit} className="edit-form">
-              <input
-                type="text"
-                value={editForm.username}
-                onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
-                placeholder="Username"
-                className="edit-input"
-              />
-              <textarea
-                value={editForm.bio}
-                onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                placeholder="Bio"
-                className="edit-input"
-              />
-              <div className="edit-buttons">
-                <button type="submit" className="save-btn">
-                  <FaCheck /> Save
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setIsEditing(false)}
-                  className="cancel-btn"
-                >
-                  <FaTimes /> Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <h1 className="username">{userProfile?.username}</h1>
-              <p className="bio">{userProfile?.bio || 'No bio yet'}</p>
-              <div className="stats">
-                <span>{stats.followers} followers</span>
-                <span>{stats.following} following</span>
-              </div>
-              {isOwnProfile ? (
-                <button 
-                  onClick={() => setIsEditing(true)}
-                  className="edit-profile-btn"
-                >
-                  Edit Profile
-                </button>
-              ) : (
-                <button 
-                  onClick={handleFollow}
-                  className={`follow-btn ${stats.isFollowing ? 'following' : ''}`}
-                >
-                  {stats.isFollowing ? 'Following' : 'Follow'}
-                </button>
+          <div className="profile-header-top">
+            <h1 className="profile-username">
+              {userProfile?.username}
+              {userProfile?.verified && (
+                <span className="verified-badge" title="Verified Artist">✓</span>
               )}
-            </>
-          )}
+              {userProfile?.is_private && (
+                <span className="private-badge" title="Private Account">
+                  <FaLock />
+                </span>
+              )}
+            </h1>
+            
+            {isOwnProfile ? (
+              <div className="profile-actions">
+                {isEditing ? (
+                  <div className="edit-actions">
+                    <button className="cancel-btn" onClick={() => setIsEditing(false)}>
+                      <FaTimes /> Cancel
+                    </button>
+                    <button className="save-btn" onClick={handleEditSubmit}>
+                      <FaCheck /> Save
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button className="edit-btn" onClick={() => setIsEditing(true)}>
+                      Edit Profile
+                    </button>
+                    <button 
+                      className={`privacy-btn ${isPrivate ? 'private' : 'public'}`}
+                      onClick={handlePrivacyToggle}
+                      title={isPrivate ? 'Make account public' : 'Make account private'}
+                    >
+                      {isPrivate ? <FaLock /> : <FaLockOpen />}
+                      {isPrivate ? 'Private' : 'Public'}
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <button 
+                className={`follow-btn ${stats.isFollowing ? 'following' : ''}`}
+                onClick={handleFollow}
+              >
+                {stats.isFollowing ? 'Following' : 'Follow'}
+              </button>
+            )}
+          </div>
+          
+          <p className="bio">{userProfile?.bio || 'No bio yet'}</p>
+          <div className="stats">
+            <span>{stats.followers} followers</span>
+            <span>{stats.following} following</span>
+          </div>
         </div>
       </div>
 
@@ -273,6 +327,43 @@ export default function UserPage() {
             setSelectedImage(null);
           }}
         />
+      )}
+
+      {isOwnProfile && pendingFollowRequests.length > 0 && (
+        <div className="follow-requests-section">
+          <h3>Pending Follow Requests ({pendingFollowRequests.length})</h3>
+          <div className="follow-requests-list">
+            {pendingFollowRequests.map(request => (
+              <div key={request.id} className="follow-request-item">
+                <div className="user-info">
+                  <img 
+                    src={request.profile_pic_url || '/api/placeholder/50/50'} 
+                    alt={request.username}
+                    className="user-avatar"
+                  />
+                  <span className="username">
+                    {request.username}
+                    {request.verified && <span className="verified-badge">✓</span>}
+                  </span>
+                </div>
+                <div className="request-actions">
+                  <button 
+                    className="accept-btn"
+                    onClick={() => handleAcceptFollowRequest(request.id)}
+                  >
+                    <FaCheck /> Accept
+                  </button>
+                  <button 
+                    className="reject-btn"
+                    onClick={() => handleRejectFollowRequest(request.id)}
+                  >
+                    <FaTimes /> Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
