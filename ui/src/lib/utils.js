@@ -67,7 +67,8 @@ export function renderWaveform(buffer, canvasRef){
   const channelData = buffer.getChannelData(0);
   
   // Number of segments to divide the waveform into (fewer segments = simpler waveform)
-  const numSegments = 100; // Reduced from using every pixel
+  const segmentsPerSecond = 6;
+  const numSegments = buffer.duration * segmentsPerSecond;
   const samplesPerSegment = Math.floor(channelData.length / numSegments);
   
   // Start drawing
