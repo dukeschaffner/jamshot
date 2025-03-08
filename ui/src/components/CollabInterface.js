@@ -229,13 +229,15 @@ export default function CollabInterface({ track }) {
           </div>
         </div>
         <div className="track-controls">
-          <button 
-            className="control-button play-pause" 
-            onClick={togglePlay}
-            disabled={isRecording}
-          >
-            <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
-          </button>
+            {!isRecording && (
+                <button 
+                className="control-button play-pause" 
+                onClick={togglePlay}
+                disabled={isRecording}
+              >
+                <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
+              </button>
+            )}
           <button 
             className="control-button record-stop"
             onClick={toggleRecording}
@@ -269,7 +271,6 @@ export default function CollabInterface({ track }) {
 
       {/* Tracks Widget */}
       <TracksWidget 
-        track={track}
         isPlaying={isPlaying}
         setIsPlaying={setIsPlaying}
         trackDuration={trackDuration}
@@ -387,8 +388,8 @@ export default function CollabInterface({ track }) {
                     type="range"
                     id="latency-compensation"
                     className="form-range"
-                    min="-5000"
-                    max="5000"
+                    min="0"
+                    max="100"
                     step="1"
                     value={userLatencyCompensation}
                     onChange={handleLatencyCompensationChange}
