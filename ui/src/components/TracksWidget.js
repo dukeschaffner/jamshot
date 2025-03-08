@@ -18,131 +18,61 @@ export default function TracksWidget({
   setRecordingAudioChunks = null,
   userLatencyCompensation = 0
 }) {
-  // Internal state
-  const [isLooping, setIsLooping] = useState(true);
-  const [playheadPos, setPlayheadPos] = useState(0);
-  const [looperLeftPos, setLooperLeftPos] = useState(0);
-  const [looperRightPos, setLooperRightPos] = useState(100);
-  const [takes, setTakes] = useState([]);
-  const [selectedTake, setSelectedTake] = useState(null);
-  
-  // Track duration in seconds (default to 90 seconds if not available)
-  const trackDuration = track?.duration || 90;
-  
-  // Helper functions
-  const posToTime = (pos, duration) => {
-    return (pos / 100) * duration;
-  };
-  
-  const timeToPos = (time, duration) => {
-    return (time / duration) * 100;
-  };
-  
-  // State for dragging
-  const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
-  const [isDraggingLooperLeft, setIsDraggingLooperLeft] = useState(false);
-  const [isDraggingLooperRight, setIsDraggingLooperRight] = useState(false);
-  const [isDraggingLooperRegion, setIsDraggingLooperRegion] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [looperStartWidth, setLooperStartWidth] = useState(0);
-  const [looperStartLeft, setLooperStartLeft] = useState(0);
-  
-  // Web Audio API refs
-  const audioContextRef = useRef(null);
-  const originalSourceNodeRef = useRef(null);
-  const recordingSourceNodeRef = useRef(null);
-  const originalGainNodeRef = useRef(null);
-  const recordingGainNodeRef = useRef(null);
-  const originalBufferRef = useRef(null);
-  const recordingBufferRef = useRef(null);
-  const startTimeRef = useRef(0);
-  const pausedAtRef = useRef(0);
-  const playheadIntervalRef = useRef(null);
-  const lastUpdateTimeRef = useRef(0); // Track last update time
-  const recordingStartTimeRef = useRef(0); // Track when recording starts
-  const playbackStartTimeRef = useRef(0); // Track when playback starts
-  
-  // Refs
-  const waveformContainerRef = useRef(null);
-  const playheadRef = useRef(null);
-  const looperRef = useRef(null);
-  const looperHandleLeftRef = useRef(null);
-  const looperHandleRightRef = useRef(null);
-  const looperRegionRef = useRef(null);
-  
-  // Media recorder refs
-  const mediaRecorderRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const recordedChunksRef = useRef([]);
-  const takesCountRef = useRef(0); // Ref to track the number of takes
-  
-  // Canvas refs for waveform visualization
-  const originalCanvasRef = useRef(null);
-  const recordingCanvasRef = useRef(null);
-  
-  // Update takesCountRef when takes change
-  useEffect(() => {
-    takesCountRef.current = takes.length;
-  }, [takes]);
-  
-  // Initialize Web Audio API
-  useEffect(() => {
-    // Create AudioContext
-    if (!audioContextRef.current) {
-      try {
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
-          sampleRate: 48000,
-          latencyHint: 'interactive'
-        });
-      } catch (error) {
-        console.error('Error creating AudioContext:', error);
-        // Fallback to default constructor
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-    }
+    const [audioContext, setAudioContext] = useState(null);
     
-    // Resume audio context if suspended
-    const resumeAudioContext = async () => {
-      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+    // Refs to store audio objects and data
+    const playbackTrackRef = useRef(null);
+    const recordedBufferRef = useRef(null);
+    const micStreamRef = useRef(null);
+    const recorderRef = useRef(null);
+    const playbackSourceRef = useRef(null);
+    const recordingStartTimeRef = useRef(null);
+    const isRecordingRef = useRef(false);
+    const activeSourcesRef = useRef([]); // Track active audio sources for stopping playback
+
+    const startingPlaybackRef = useRef(false);
+    const startingRecordingRef = useRef(false);
+
+
+    //old
+    // Canvas refs for waveform visualization
+    const waveformContainerRef = useRef(null);
+    const originalCanvasRef = useRef(null);
+    const recordingCanvasRef = useRef(null);
+
+    const [takes, setTakes] = useState([]);
+    const [selectedTake, setSelectedTake] = useState(null);
+    const takesCountRef = useRef(0); // Ref to track the number of takes
+  
+    // Initialize the audio context
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
         try {
-          await audioContextRef.current.resume();
-        } catch (error) {
-          console.error('Error resuming AudioContext:', error);
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          setAudioContext(new AudioContext());
+        } catch (e) {
+          setStatus('Web Audio API is not supported in this browser');
+          console.error('Web Audio API error:', e);
         }
       }
-    };
-    
-    resumeAudioContext();
-    
-    // Create gain nodes
-    if (!originalGainNodeRef.current) {
-      originalGainNodeRef.current = audioContextRef.current.createGain();
-      originalGainNodeRef.current.connect(audioContextRef.current.destination);
-    }
-    
-    if (!recordingGainNodeRef.current) {
-      recordingGainNodeRef.current = audioContextRef.current.createGain();
-      recordingGainNodeRef.current.connect(audioContextRef.current.destination);
-    }
-    
-    return () => {
-      // Clean up
-      if (originalSourceNodeRef.current) {
-        originalSourceNodeRef.current.stop();
-        originalSourceNodeRef.current.disconnect();
-      }
       
-      if (recordingSourceNodeRef.current) {
-        recordingSourceNodeRef.current.stop();
-        recordingSourceNodeRef.current.disconnect();
-      }
-    };
-  }, []);
+      // Cleanup function
+      return () => {
+        if (micStreamRef.current) {
+          micStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+      };
+    }, []);
   
+    // Sync the isRecording ref with the state
+    useEffect(() => {
+      isRecordingRef.current = isRecording;
+    }, [isRecording]);
+
   // Process audio chunks when they change
   useEffect(() => {
-    const processAudioChunks = async (chunks, bufferRef, sourceNodeRef, gainNodeRef) => {
-      if (!chunks || chunks.length === 0 || !audioContextRef.current) return;
+    const processAudioChunks = async (chunks, bufferRef) => {
+      if (!chunks || chunks.length === 0 || !audioContext) return;
       
       try {
         // Create blob from chunks
@@ -152,7 +82,7 @@ export default function TracksWidget({
         const arrayBuffer = await blob.arrayBuffer();
         
         // Decode audio data
-        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         
         // Store buffer
         bufferRef.current = audioBuffer;
@@ -162,731 +92,396 @@ export default function TracksWidget({
     };
     
     if (originalAudioChunks) {
-      processAudioChunks(originalAudioChunks, originalBufferRef, originalSourceNodeRef, originalGainNodeRef);
+      processAudioChunks(originalAudioChunks, playbackTrackRef);
     }
     
-    if (recordingAudioChunks) {
-      processAudioChunks(recordingAudioChunks, recordingBufferRef, recordingSourceNodeRef, recordingGainNodeRef);
-    }
+    // if (recordingAudioChunks) {
+    //   processAudioChunks(recordingAudioChunks, recordingBufferRef);
+    // }
   }, [originalAudioChunks, recordingAudioChunks]);
-  
-  // Handle play/pause with Web Audio API
-  useEffect(() => {
-    const playAudio = () => {
-      if (!audioContextRef.current) return;
-      
-      // Resume audio context if suspended
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
-      }
-      
-      // Calculate start position
-      let loopStartTime;
-      if(isLooping){
-        loopStartTime = posToTime(looperLeftPos, trackDuration);
-      }
-      else{
-        if(pausedAtRef.current > trackDuration - 1){
-          pausedAtRef.current = 0;
-          loopStartTime = 0;
-        }
-        else{
-          loopStartTime = pausedAtRef.current;
-        }
-      }
 
-      // Play original track if buffer exists
-      if (originalBufferRef.current) {
-        // Stop previous source if exists
-        if (originalSourceNodeRef.current) {
-          originalSourceNodeRef.current.stop();
-          originalSourceNodeRef.current.disconnect();
-        }
-        
-        // Create new source
-        originalSourceNodeRef.current = audioContextRef.current.createBufferSource();
-        originalSourceNodeRef.current.buffer = originalBufferRef.current;
-        originalSourceNodeRef.current.connect(originalGainNodeRef.current);
-        
-        // Record the exact time when playback starts
-        playbackStartTimeRef.current = performance.now();
-        
-        // Start playback
-        originalSourceNodeRef.current.start(0, loopStartTime);
-        console.log("playback started at", new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }));
-        
-        // Set up ended event
-        originalSourceNodeRef.current.onended = () => {
-          if (!isLooping) {
-            setIsPlaying(false);
-          }
-        };
-      }
-      
-      // Play recording track if buffer exists
-      if (recordingBufferRef.current && !isRecording) {
-        // Stop previous source if exists
-        if (recordingSourceNodeRef.current) {
-          recordingSourceNodeRef.current.stop();
-          recordingSourceNodeRef.current.disconnect();
-        }
-        
-        // Create new source
-        recordingSourceNodeRef.current = audioContextRef.current.createBufferSource();
-        recordingSourceNodeRef.current.buffer = recordingBufferRef.current;
-        recordingSourceNodeRef.current.connect(recordingGainNodeRef.current);
-        
-        // Apply latency compensation if available in the selected take
-        let adjustedStartTime = loopStartTime;
-        if (selectedTake) {
-          // Apply both the take's latency compensation and the user's latency compensation
-          const takeLatencyCompensation = selectedTake.latencyCompensation || 0;
-          const totalCompensationMs = takeLatencyCompensation + userLatencyCompensation;
-          const compensationInSeconds = totalCompensationMs / 1000;
-          
-          adjustedStartTime = Math.max(0, loopStartTime - compensationInSeconds);
-          console.log("Applying total latency compensation:", totalCompensationMs, "ms", 
-            "(take:", selectedTake.latencyCompensation || 0, "ms, user:", userLatencyCompensation, "ms)");
-        }
-        
-        // Start playback at the adjusted time for sync
-        recordingSourceNodeRef.current.start(0, adjustedStartTime);
-      }
-      
-      // Store start time for tracking playhead position
-      startTimeRef.current = audioContextRef.current.currentTime - loopStartTime;
-      lastUpdateTimeRef.current = 0; // Reset last update time
-    };
-    
-    const pauseAudio = () => {
-      // Store current position
-      if (audioContextRef.current && !isPlaying) {
-        pausedAtRef.current = audioContextRef.current.currentTime - startTimeRef.current;
-      }
-      
-      // Stop sources
-      if (originalSourceNodeRef.current) {
-        originalSourceNodeRef.current.stop();
-        originalSourceNodeRef.current.disconnect();
-        originalSourceNodeRef.current = null;
-      }
-      
-      if (recordingSourceNodeRef.current) {
-        recordingSourceNodeRef.current.stop();
-        recordingSourceNodeRef.current.disconnect();
-        recordingSourceNodeRef.current = null;
-      }
-    };
-    
-    // Handle play/pause
-    if (isPlaying) {
-      playAudio();
-      
-      // Clear any existing interval
-      if (playheadIntervalRef.current) {
-        clearInterval(playheadIntervalRef.current);
-      }
-      
-      // We'll use a very infrequent interval just to check for looping
-      // This won't update the UI directly
-      playheadIntervalRef.current = setInterval(() => {
-        if (!audioContextRef.current) return;
-        
-        // Calculate current position
-        const currentTime = audioContextRef.current.currentTime - startTimeRef.current;
-        const percent = timeToPos(currentTime, trackDuration);
-        
-        // Check if we need to loop
-        if (isLooping && percent >= looperRightPos) {
-          // Reset to loop start
-          const loopStartTime = posToTime(looperLeftPos, trackDuration);
-          startTimeRef.current = audioContextRef.current.currentTime - loopStartTime;
-          pausedAtRef.current = loopStartTime;
-          
-          // Update playhead position
-          if (playheadRef.current) {
-            playheadRef.current.style.left = `${looperLeftPos}%`;
-          }
-          
-          // Restart playback
-          playAudio();
-        } else if (!isDraggingPlayhead) {
-          // Only update DOM directly if significant time has passed (250ms)
-          // This reduces the frequency of DOM updates
-          const now = Date.now();
-          if (now - lastUpdateTimeRef.current > 20) {
-            lastUpdateTimeRef.current = now;
-            
-            // Update playhead position directly in the DOM
-            if (playheadRef.current) {
-              playheadRef.current.style.left = `${percent}%`;
-            }
-          }
-        }
-      }, 20); // Check every 20ms
-    } else {
-      pauseAudio();
-      
-      // Clear interval when paused
-      if (playheadIntervalRef.current) {
-        clearInterval(playheadIntervalRef.current);
-        playheadIntervalRef.current = null;
-      }
+  // Play back the recorded audio synchronized with the original track
+  const play = () => {
+    if (!playbackTrackRef.current || !audioContext) {
+      return;
     }
     
-    // Clean up interval only when dependencies change
-    return () => {
-      // Clear interval on cleanup
-      if (playheadIntervalRef.current) {
-        clearInterval(playheadIntervalRef.current);
-        playheadIntervalRef.current = null;
-      }
-    };
-  }, [isPlaying, isLooping, looperLeftPos, looperRightPos, playheadPos, trackDuration, setIsPlaying]);
-  
-  // Add a separate useEffect for component unmount only
-  useEffect(() => {
-    // This cleanup function will only run when the component unmounts
-    return () => {
-      // Pause audio only when component unmounts
-      if (audioContextRef.current) {
-        
-        // Stop sources
-        if (originalSourceNodeRef.current) {
-          originalSourceNodeRef.current.stop();
-          originalSourceNodeRef.current.disconnect();
-          originalSourceNodeRef.current = null;
-        }
-        
-        if (recordingSourceNodeRef.current) {
-          recordingSourceNodeRef.current.stop();
-          recordingSourceNodeRef.current.disconnect();
-          recordingSourceNodeRef.current = null;
-        }
-      }
-    };
-  }, []); // Empty dependency array means this only runs on mount/unmount
-  
-  // Show time tooltip
-  const showTimeTooltip = (element, position, customText) => {
-    if (!element) return;
+    // Resume context if needed
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+
+    console.log('playing');
     
-    let tooltip = document.querySelector('.time-tooltip');
-    if (!tooltip) {
-      tooltip = document.createElement('div');
-      tooltip.className = 'time-tooltip';
-      document.body.appendChild(tooltip);
+    // Create source nodes for both tracks
+
+    
+    const trackSource = audioContext.createBufferSource();
+    trackSource.buffer = playbackTrackRef.current;
+    const trackGain = audioContext.createGain();
+    trackGain.gain.value = 0.7; // Set volume for backing track
+    trackSource.connect(trackGain);
+    trackGain.connect(audioContext.destination);
+
+    let activeSources = [trackSource];
+
+    const recordedGain = audioContext.createGain();
+    recordedGain.gain.value = 1; // Set volume for recorded audio
+    const recordedSource = audioContext.createBufferSource();
+    recordedSource.buffer = recordedBufferRef.current;
+    recordedSource.connect(recordedGain);
+    recordedGain.connect(audioContext.destination);
+
+    if(!isRecording){
+      activeSources.push(recordedSource);
     }
     
-    const time = customText || formatDuration(posToTime(position, trackDuration));
-    tooltip.textContent = time;
+    // Store active sources for stopping playback
+    activeSourcesRef.current = [trackSource, recordedSource];
     
-    if (waveformContainerRef.current) {
-      const rect = waveformContainerRef.current.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
+    // Calculate the latency offset in seconds
+    const latencyOffset = userLatencyCompensation / 1000; // Convert ms to seconds
+    
+    // Start playback with latency compensation
+    const currentTime = audioContext.currentTime;
+    trackSource.start(0);
+    if(!isRecording){
+      recordedSource.start(0,latencyOffset); // Start recorded audio earlier to compensate
+    }
+    
+    setIsPlaying(true);
+    
+    // Enable the play button when playback is complete
+    trackSource.onended = function() {
+      setIsPlaying(false);
+      activeSourcesRef.current = [];
+    };
+  };
+  
+  // Stop playback of all active audio sources
+  const pause = () => {
+    if (activeSourcesRef.current.length > 0) {
+      // Stop all active audio sources
+      activeSourcesRef.current.forEach(source => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (error) {
+          console.error('Error stopping audio source:', error);
+        }
+      });
       
-      // Position tooltip above the element
-      const tooltipLeft = rect.left + (position / 100) * rect.width;
-      tooltip.style.left = `${tooltipLeft}px`;
-      tooltip.style.top = `${elementRect.top - 25}px`;
-      tooltip.style.display = 'block';
+      // Clear the active sources array
+      activeSourcesRef.current = [];
+
+      setIsPlaying(false);
     }
   };
   
-  // Hide time tooltip
-  const hideTimeTooltip = () => {
-    const tooltip = document.querySelector('.time-tooltip');
-    if (tooltip) {
-      tooltip.style.display = 'none';
+  const startRecording = async () => {
+    if (!isRecording || !audioContext || !playbackTrackRef.current) return;
+    
+    try {
+      // Resume the audio context if it's suspended (important for Chrome)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      
+      // Get media stream with selected device and high-quality audio settings
+      const constraints = {
+        audio: {
+          deviceId: selectedAudioInputDevice 
+            ? { exact: selectedAudioInputDevice } 
+            : undefined,
+          // High-quality audio settings
+          sampleRate: 48000, // Professional audio sample rate
+          sampleSize: 24,    // 24-bit audio (higher quality)
+          channelCount: 1,   // Mono recording for simplicity
+          echoCancellation: false, // Disable echo cancellation for raw audio
+          noiseSuppression: false, // Disable noise suppression for raw audio
+          autoGainControl: false   // Disable automatic gain control for raw audio
+        }
+      };
+
+      // Request microphone access with high-quality settings
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      micStreamRef.current = stream;
+      
+      // Create the recorder nodes
+      const micSource = audioContext.createMediaStreamSource(stream);
+      
+      // Use a larger buffer size for better quality (must be power of 2)
+      // Larger buffer size = less chance of audio dropouts
+      const processorNode = audioContext.createScriptProcessor(8192, 1, 1);
+      
+      // Create an array to store the recorded data
+      const recordedData = [];
+      
+      // Set up the recording processor - using the ref instead of state
+      processorNode.onaudioprocess = function(e) {
+        if (isRecordingRef.current) {
+          const inputBuffer = e.inputBuffer;
+          const channelData = inputBuffer.getChannelData(0);
+          
+          // Create a copy of the buffer to prevent modification
+          const bufferCopy = new Float32Array(channelData.length);
+          bufferCopy.set(channelData);
+          
+          // Store the raw audio data without any processing
+          recordedData.push(bufferCopy);
+        }
+      };
+      
+      // Connect the microphone directly to the processor
+      // This ensures we're capturing the raw microphone input
+      micSource.connect(processorNode);
+      
+      // Connect the processor to the destination (required for ScriptProcessorNode to work)
+      // This doesn't affect the recording quality
+      processorNode.connect(audioContext.destination);
+      
+      // Store the recorder components for later use
+      recorderRef.current = {
+        processorNode,
+        recordedData,
+        sampleRate: audioContext.sampleRate
+      };
+      
+      // Don't call play() directly here, instead use setIsPlaying
+      // This prevents double-playing since the isPlaying useEffect will handle it
+      if (!isPlaying) {
+        setIsPlaying(true);
+      }
+      
+      // Track start time for synchronization
+      recordingStartTimeRef.current = audioContext.currentTime;
+      
+      isRecordingRef.current = true;
+      
+      console.log('Recording started with sample rate:', audioContext.sampleRate);
+    } catch (e) {
+      console.error('Recording error:', e);
     }
   };
-  
-  // Update visual elements based on state
-  const updateVisuals = () => {
-    if (playheadRef.current) {
-      playheadRef.current.style.left = `${playheadPos}%`;
+
+  // Helper function to convert AudioBuffer to high-quality WAV format
+  const audioBufferToWav = (buffer, sampleRate) => {
+    // Use the provided sample rate or default to the buffer's sample rate
+    const useSampleRate = sampleRate || buffer.sampleRate;
+    
+    // High-quality WAV settings
+    const numOfChannels = buffer.numberOfChannels;
+    const bitsPerSample = 24; // 24-bit for higher quality (CD quality is 16-bit)
+    const bytesPerSample = bitsPerSample / 8;
+    const blockAlign = numOfChannels * bytesPerSample;
+    const byteRate = useSampleRate * blockAlign;
+    const dataSize = buffer.length * numOfChannels * bytesPerSample;
+    
+    // Create WAV file container
+    const arrayBuffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(arrayBuffer);
+    
+    // RIFF identifier
+    writeString(view, 0, 'RIFF');
+    // RIFF chunk length
+    view.setUint32(4, 36 + dataSize, true);
+    // RIFF type
+    writeString(view, 8, 'WAVE');
+    // Format chunk identifier
+    writeString(view, 12, 'fmt ');
+    // Format chunk length
+    view.setUint32(16, 16, true);
+    // Sample format (raw)
+    view.setUint16(20, 1, true);
+    // Channel count
+    view.setUint16(22, numOfChannels, true);
+    // Sample rate
+    view.setUint32(24, useSampleRate, true);
+    // Byte rate (sample rate * block align)
+    view.setUint32(28, byteRate, true);
+    // Block align (channel count * bytes per sample)
+    view.setUint16(32, blockAlign, true);
+    // Bits per sample
+    view.setUint16(34, bitsPerSample, true);
+    // Data chunk identifier
+    writeString(view, 36, 'data');
+    // Data chunk length
+    view.setUint32(40, dataSize, true);
+    
+    // Write the PCM samples with high precision
+    const offset = 44;
+    const channelData = [];
+    for (let i = 0; i < numOfChannels; i++) {
+      channelData.push(buffer.getChannelData(i));
     }
     
-    if (looperRef.current) {
-      const looperWidth = looperRightPos - looperLeftPos;
-      looperRef.current.style.left = `${looperLeftPos}%`;
-      looperRef.current.style.width = `${looperWidth}%`;
-    }
-    
-    if (looperRegionRef.current) {
-      if (isLooping) {
-        looperRegionRef.current.style.backgroundColor = 'rgba(147, 233, 190, 0.4)';
-        if (looperHandleLeftRef.current) looperHandleLeftRef.current.style.backgroundColor = 'var(--seafoam)';
-        if (looperHandleRightRef.current) looperHandleRightRef.current.style.backgroundColor = 'var(--seafoam)';
-      } else {
-        looperRegionRef.current.style.backgroundColor = 'rgba(147, 233, 190, 0.1)';
-        if (looperHandleLeftRef.current) looperHandleLeftRef.current.style.backgroundColor = 'var(--gray)';
-        if (looperHandleRightRef.current) looperHandleRightRef.current.style.backgroundColor = 'var(--gray)';
+    let pos = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numOfChannels; ch++) {
+        // Clamp the value to the -1 to 1 range
+        const sample = Math.max(-1, Math.min(1, channelData[ch][i]));
+        
+        // For 24-bit audio, we need to write 3 bytes
+        if (bitsPerSample === 24) {
+          // Convert to 24-bit signed integer
+          const value = sample < 0 ? sample * 0x800000 : sample * 0x7FFFFF;
+          const intValue = Math.floor(value);
+          
+          // Write the 3 bytes (little-endian)
+          view.setUint8(offset + pos, intValue & 0xFF);
+          view.setUint8(offset + pos + 1, (intValue >> 8) & 0xFF);
+          view.setUint8(offset + pos + 2, (intValue >> 16) & 0xFF);
+          pos += 3;
+        } else {
+          // Fallback to 16-bit if needed
+          const value = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+          view.setInt16(offset + pos, value, true);
+          pos += 2;
+        }
       }
     }
     
-    // Update time tooltips if dragging
-    if (isDraggingLooperLeft && looperHandleLeftRef.current) {
-      showTimeTooltip(looperHandleLeftRef.current, looperLeftPos);
-    } else if (isDraggingLooperRight && looperHandleRightRef.current) {
-      showTimeTooltip(looperHandleRightRef.current, looperRightPos);
-    } else if (isDraggingPlayhead && playheadRef.current) {
-      showTimeTooltip(playheadRef.current, playheadPos);
-    } else if (isDraggingLooperRegion && looperRegionRef.current) {
-      const looperStartTime = posToTime(looperLeftPos, trackDuration);
-      const looperEndTime = posToTime(looperRightPos, trackDuration);
-      showTimeTooltip(
-        looperRegionRef.current, 
-        (looperLeftPos + looperRightPos) / 2, 
-        `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
+    return arrayBuffer;
+  };
+  
+  // Helper function to write strings to DataView
+  const writeString = (view, offset, string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  // Function to create a new take from the recorded buffer
+  const createTakeFromRecordedBuffer = () => {
+    if (!recordedBufferRef.current) {
+      console.error('No recorded buffer available');
+      return;
+    }
+    
+    try {
+      // Get the recorded buffer
+      const recordedBuffer = recordedBufferRef.current;
+      
+      // Convert to high-quality WAV format
+      const wavArrayBuffer = audioBufferToWav(
+        recordedBuffer, 
+        recorderRef.current?.sampleRate || audioContext.sampleRate
       );
-    }
-  };
-  
-  // Handle waveform click
-  const handleWaveformClick = (e) => {
-    if (!waveformContainerRef.current) return;
-    
-    const rect = waveformContainerRef.current.getBoundingClientRect();
-    const clickPos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    
-    // Update playhead position
-    setPlayheadPos(clickPos);
-    pausedAtRef.current = posToTime(clickPos, trackDuration);
-  };
-  
-  // Mouse down handlers for dragging
-  const handlePlayheadMouseDown = (e) => {
-    e.stopPropagation();
-    setIsDraggingPlayhead(true);
-  };
-  
-  const handleLooperLeftMouseDown = (e) => {
-    e.stopPropagation();
-    setIsDraggingLooperLeft(true);
-  };
-  
-  const handleLooperRightMouseDown = (e) => {
-    e.stopPropagation();
-    setIsDraggingLooperRight(true);
-  };
-  
-  const handleLooperRegionMouseDown = (e) => {
-    e.stopPropagation();
-    setIsDraggingLooperRegion(true);
-    setDragStartX(e.clientX);
-    setLooperStartLeft(looperLeftPos);
-    // Store the width of the looper region
-    setLooperStartWidth(looperRightPos - looperLeftPos);
-  };
-  
-  // Update visuals when state changes
-  useEffect(() => {
-    updateVisuals();
-  }, [
-    playheadPos, looperLeftPos, looperRightPos, isLooping,
-    isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion
-  ]);
-  
-  // Mouse event handlers
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion) return;
       
-      if (waveformContainerRef.current) {
-        const rect = waveformContainerRef.current.getBoundingClientRect();
-        const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-        
-        // Dragging playhead
-        if (isDraggingPlayhead) {
-          setPlayheadPos(mousePos);
-          
-          // Update audio position if playing
-          if (isPlaying && audioContextRef.current) {
-            pausedAtRef.current = posToTime(mousePos, trackDuration);
-          }
-          
-          // Show time tooltip
-          const time = posToTime(mousePos, trackDuration);
-          showTimeTooltip(playheadRef.current, mousePos, formatDuration(time));
-        }
-        
-        // Dragging left looper handle
-        if (isDraggingLooperLeft) {
-          const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-          setLooperLeftPos(newLeftPos);
-          
-          // If playhead is to the left of the new left position and audio is playing,
-          // move the playhead to the new left position
-          if (playheadPos < newLeftPos && isPlaying) {
-            setPlayheadPos(newLeftPos);
-            pausedAtRef.current = posToTime(newLeftPos, trackDuration);
-          }
-          
-          // Show time tooltip
-          const time = posToTime(newLeftPos, trackDuration);
-          showTimeTooltip(looperHandleLeftRef.current, newLeftPos, formatDuration(time));
-        }
-        
-        // Dragging right looper handle
-        if (isDraggingLooperRight) {
-          const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-          setLooperRightPos(newRightPos);
-          
-          // Show time tooltip
-          const time = posToTime(newRightPos, trackDuration);
-          showTimeTooltip(looperHandleRightRef.current, newRightPos, formatDuration(time));
-        }
-        
-        // Dragging entire looper region
-        if (isDraggingLooperRegion) {
-          const deltaX = e.clientX - dragStartX;
-          const deltaPercent = (deltaX / rect.width) * 100;
-          
-          // Calculate new positions
-          let newLeftPos = looperStartLeft + deltaPercent;
-          let newRightPos = newLeftPos + looperStartWidth;
-          
-          // Ensure the looper stays within bounds
-          if (newLeftPos < 0) {
-            newLeftPos = 0;
-            newRightPos = looperStartWidth;
-          }
-          
-          if (newRightPos > 100) {
-            newRightPos = 100;
-            newLeftPos = 100 - looperStartWidth;
-          }
-          
-          // Update looper positions
-          setLooperLeftPos(newLeftPos);
-          setLooperRightPos(newRightPos);
-          
-          // If playhead is outside the new looper region and audio is playing,
-          // move the playhead to the new left position
-          if (isPlaying && isLooping) {
-            if (playheadPos < newLeftPos || playheadPos > newRightPos) {
-              setPlayheadPos(newLeftPos);
-              pausedAtRef.current = posToTime(newLeftPos, trackDuration);
-            }
-          }
-          
-          // Show tooltip with start and end times
-          const looperStartTime = posToTime(newLeftPos, trackDuration);
-          const looperEndTime = posToTime(newRightPos, trackDuration);
-          showTimeTooltip(
-            looperRegionRef.current, 
-            (newLeftPos + newRightPos) / 2, 
-            `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
-          );
-        }
-      }
-    };
-    
-    const handleMouseUp = () => {
-      setIsDraggingLooperLeft(false);
-      setIsDraggingLooperRight(false);
-      setIsDraggingPlayhead(false);
-      setIsDraggingLooperRegion(false);
-      hideTimeTooltip();
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [
-    isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion,
-    looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
-    isPlaying, playheadPos, isLooping, trackDuration
-  ]);
-  
-  // Render waveform for audio buffer
-  const renderWaveform = (buffer, canvasRef) => {
-    if (!buffer || !canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-    
-    // Set up drawing
-    ctx.strokeStyle = 'var(--seafoam)';
-    ctx.lineWidth = 2;
-    
-    // Get audio data
-    const channelData = buffer.getChannelData(0);
-    
-    // Number of segments to divide the waveform into (fewer segments = simpler waveform)
-    const numSegments = 100; // Reduced from using every pixel
-    const samplesPerSegment = Math.floor(channelData.length / numSegments);
-    
-    // Start drawing
-    ctx.beginPath();
-    ctx.moveTo(0, height / 2);
-    
-    // Draw simplified waveform
-    for (let i = 0; i < numSegments; i++) {
-      const startSample = i * samplesPerSegment;
-      let sum = 0;
-      let count = 0;
-      let maxAmp = 0;
-      
-      // Calculate average amplitude for this segment
-      for (let j = 0; j < samplesPerSegment && (startSample + j) < channelData.length; j++) {
-        const amplitude = Math.abs(channelData[startSample + j]);
-        sum += amplitude;
-        count++;
-        maxAmp = Math.max(maxAmp, amplitude);
-      }
-      
-      // Calculate average and scale it (blend average with max for better visual)
-      const avgAmp = count > 0 ? sum / count : 0;
-      const blendedAmp = (avgAmp * 0.7) + (maxAmp * 0.3); // Blend for better visual representation
-      
-      // Calculate x position (scaled to canvas width)
-      const x = (i / numSegments) * width;
-      
-      // Calculate y positions (center line +/- amplitude)
-      const centerY = height / 2;
-      const ampHeight = blendedAmp * height * 0.8; // Scale amplitude to 80% of half height
-      
-      // Draw a vertical line for this segment
-      ctx.lineTo(x, centerY - ampHeight);
-      ctx.lineTo(x, centerY + ampHeight);
-    }
-    
-    // Add final point
-    ctx.lineTo(width, height / 2);
-    
-    ctx.stroke();
-  };
-  
-  
-  // Render waveforms when buffers change
-  useEffect(() => {
-    if (originalBufferRef.current) {
-      renderWaveform(originalBufferRef.current, originalCanvasRef);
-    }
-    
-    if (recordingBufferRef.current) {
-      renderWaveform(recordingBufferRef.current, recordingCanvasRef);
-    }
-  }, [originalBufferRef.current, recordingBufferRef.current]);
-  
-  // Handle recording state changes
-  useEffect(() => {
-    let cleanup = () => {};
-    
-    if (isRecording) {
-      const startRecording = async () => {
-        try {
-          // Stop any existing stream
-          if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach(track => track.stop());
-          }
-          
-          // Get media stream with selected device or default
-          const constraints = {
-            audio: {
-              deviceId: selectedAudioInputDevice 
-                ? { exact: selectedAudioInputDevice } 
-                : undefined,
-              sampleRate: 48000,
-              channelCount: 2,
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false
-            }
-          };
-          
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-          mediaStreamRef.current = stream;
-          
-          // Check for supported MIME types
-          let mimeType = 'audio/webm;codecs=opus';
-          let options = {
-            audioBitsPerSecond: 256000
-          };
-          
-          if (!MediaRecorder.isTypeSupported(mimeType)) {
-            // Fallback to other formats
-            if (MediaRecorder.isTypeSupported('audio/webm')) {
-              mimeType = 'audio/webm';
-            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-              mimeType = 'audio/mp4';
-            } else {
-              // Use default
-              mimeType = '';
-            }
-          }
-          
-          if (mimeType) {
-            options.mimeType = mimeType;
-          }
-          
-          // Create media recorder with high quality settings
-          const mediaRecorder = new MediaRecorder(stream, options);
-          mediaRecorderRef.current = mediaRecorder;
-          
-          // Clear previous chunks
-          recordedChunksRef.current = [];
-          
-          // Set up event handlers
-          mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-              recordedChunksRef.current.push(e.data);
-            }
-          };
-          
-          mediaRecorder.onstop = async () => {
-            try {
-              if(recordedChunksRef.current.length == 0) return;
-              // Create blob from recorded chunks with the correct MIME type
-              const blob = new Blob(recordedChunksRef.current, { 
-                type: mediaRecorder.mimeType || options.mimeType || 'audio/webm' 
-              });
-              
-              // Convert blob to array buffer
-              const arrayBuffer = await blob.arrayBuffer();
-              
-              // Create Uint8Array chunks
-              const chunks = [new Uint8Array(arrayBuffer)];
-              
-              // Calculate latency compensation (difference between recording start and playback start)
-              const latencyCompensation = playbackStartTimeRef.current - recordingStartTimeRef.current;
-              console.log("Latency compensation:", latencyCompensation, "ms");
-              
-              // Create a new take
-              const takeNumber = takesCountRef.current + 1;
-              const newTake = {
-                id: Date.now().toString(),
-                name: `Take ${takeNumber}`,
-                chunks: chunks,
-                recordedAt: Date.now(),
-                mimeType: mediaRecorder.mimeType || options.mimeType || 'audio/webm',
-                latencyCompensation
-              };
-              
-              // Add the new take to the takes list
-              setTakes(prevTakes => [...prevTakes, newTake]);
-              
-              // Set the new take as the selected take
-              setSelectedTake(newTake);
-              
-            } catch (error) {
-              console.error('Error processing recorded audio chunks:', error);
-            }
-          };
-          
-          // Start recording
-          mediaRecorder.start(1000); // Collect data every second
-          console.log("recording started at", new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }));
-          
-          // Record the exact time when recording starts
-          recordingStartTimeRef.current = performance.now();
-          
-          // Start playing the original track for sync
-          if (!isPlaying) {
-            // Reset playhead to beginning for better sync
-            pausedAtRef.current = 0;
-            setPlayheadPos(0);
-            setIsPlaying(true);
-          }
-          
-          // Define cleanup for this specific recording session
-          cleanup = () => {
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-              mediaRecorderRef.current.stop();
-            }
-            
-            if (mediaStreamRef.current) {
-              mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            }
-          };
-        } catch (error) {
-          console.error('Error starting recording:', error);
-        }
+      // Create a take with the high-quality WAV data
+      const takeNumber = takes.length + 1;
+      const newTake = {
+        id: Date.now().toString(),
+        name: `Take ${takeNumber}`,
+        chunks: [new Uint8Array(wavArrayBuffer)],
+        recordedAt: Date.now(),
+        mimeType: 'audio/wav',
+        sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
+        bitDepth: 24 // Store the bit depth for reference
       };
       
-      startRecording();
-    } else {
-      // Only stop recording when transitioning from recording to not recording
-      const stopRecording = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-          mediaRecorderRef.current.stop();
-        }
+      // Add the new take to the takes list
+      setTakes(prevTakes => [...prevTakes, newTake]);
+      
+      // Set the new take as the selected take
+      setSelectedTake(newTake);
+      
+      console.log('Created high-quality take with sample rate:', newTake.sampleRate, 'and bit depth:', newTake.bitDepth);
+    } catch (error) {
+      console.error('Error creating take from recorded buffer:', error);
+    }
+  };
 
-        mediaRecorderRef.current = null;
-        
-        if (mediaStreamRef.current) {
-          mediaStreamRef.current.getTracks().forEach(track => track.stop());
-        }
-        
-        // Stop playback when recording stops
-        if (isPlaying) {
-          setIsPlaying(false);
-        }
-      };
-      
-      // Only call stopRecording if we were previously recording
-      if (mediaRecorderRef.current) {
-        stopRecording();
+  // Update the stopRecording function to create a take
+  const stopRecording = () => {
+    if (isRecording || !audioContext) return;
+    
+    isRecordingRef.current = false;
+    
+    // Stop the playback
+    pause();
+    
+    // Stop the recording
+    if (recorderRef.current && recorderRef.current.processorNode) {
+      try {
+        recorderRef.current.processorNode.disconnect();
+      } catch (e) {
+        console.error('Error disconnecting processor node:', e);
       }
     }
     
-    // Return the cleanup function that will only be used for unmounting
-    // or when isRecording changes
-    return cleanup;
-  }, [isRecording, selectedAudioInputDevice, isPlaying, setIsPlaying]);
-  
-  
-  // Update recordingAudioChunks when selectedTake changes
-  useEffect(() => {
-    if (selectedTake) {
-      // Process the selected take's audio chunks
-      const processAudioChunks = async () => {
-        try {
-          // Create blob from chunks with the correct MIME type
-          const blob = new Blob(selectedTake.chunks, { 
-            type: selectedTake.mimeType || 'audio/webm' 
-          });
-          
-          // Update recordingAudioChunks in parent component
-          if (setRecordingAudioChunks) {
-            setRecordingAudioChunks(selectedTake.chunks);
-          }
-          
-        // Convert blob to array buffer
-        const arrayBuffer = await blob.arrayBuffer();
-        
-        // Decode audio data
-        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-        
-        // Store buffer
-        recordingBufferRef.current = audioBuffer;
-        
-        // Render waveform if canvas is available
-        if (recordingCanvasRef.current) {
-            renderWaveform(audioBuffer, recordingCanvasRef);
-        }
-        } catch (error) {
-          console.error('Error processing selected take audio chunks:', error);
-        }
-      };
-      
-      processAudioChunks();
+    // Stop the microphone
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(track => track.stop());
+      micStreamRef.current = null;
     }
-  }, [selectedTake, setRecordingAudioChunks]);
+    
+    // Create a buffer from the recorded data
+    if (recorderRef.current && recorderRef.current.recordedData && recorderRef.current.recordedData.length > 0) {
+      const recordedData = recorderRef.current.recordedData;
+      console.log(`Recorded ${recordedData.length} chunks of audio data`);
+      
+      const recordedLength = recordedData.reduce((acc, buffer) => acc + buffer.length, 0);
+      console.log(`Total recorded samples: ${recordedLength}`);
+      
+      // Create a single buffer to hold all the recorded data
+      const mergedBuffer = new Float32Array(recordedLength);
+      
+      // Merge all chunks into a single buffer without any processing
+      let offset = 0;
+      for (const buffer of recordedData) {
+        mergedBuffer.set(buffer, offset);
+        offset += buffer.length;
+      }
+      
+      // Create an AudioBuffer with the same duration as the recording
+      // Use the exact sample rate that was used during recording
+      const recordedBuffer = audioContext.createBuffer(
+        1, // Mono channel
+        mergedBuffer.length,
+        recorderRef.current.sampleRate || audioContext.sampleRate
+      );
+      
+      // Fill the buffer with the raw recorded data without any processing
+      recordedBuffer.getChannelData(0).set(mergedBuffer);
+      
+      // Store the buffer for playback
+      recordedBufferRef.current = recordedBuffer;
+      
+      console.log('Recording completed and processed at sample rate:', 
+                 recorderRef.current.sampleRate || audioContext.sampleRate);
+      
+      // Create a take from the recorded buffer
+      createTakeFromRecordedBuffer();
+    } else {
+      console.error('No recorded data available', recorderRef.current);
+    }
+  };
+
+  useEffect(() => {
+    if (isPlaying && !startingPlaybackRef.current) {
+      startingPlaybackRef.current = true;
+      play();
+    } else {
+      pause();
+      startingPlaybackRef.current = false;
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (isRecording && !startingRecordingRef.current) {
+      startingRecordingRef.current = true;
+      startRecording();
+    }
+    else{
+      stopRecording();
+      startingRecordingRef.current = false;
+    }
+  }, [isRecording]);
+  
   
   // Determine if recording track has content
-  const hasRecordingTrack = recordingBufferRef.current !== null || selectedTake !== null;
+  const hasRecordingTrack = recordedBufferRef.current !== null || selectedTake !== null;
   
   return (
     <div className="daw-container">
@@ -909,10 +504,10 @@ export default function TracksWidget({
         <div className="track-label">
           <span>Original</span>
         </div>
-        <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
+        <div className="waveform-container" ref={waveformContainerRef}>
           <div className="waveform">
             {/* Canvas Waveform */}
-            {originalBufferRef.current ? (
+            {playbackTrackRef.current ? (
               <canvas 
                 ref={originalCanvasRef} 
                 width="1000" 
@@ -933,35 +528,21 @@ export default function TracksWidget({
             {/* Playhead */}
             <div 
               className="playhead" 
-              ref={playheadRef}
-              style={{ left: `${playheadPos}%` }}
-              onMouseDown={handlePlayheadMouseDown}
             ></div>
           </div>
           {/* Looper */}
           <div 
             className="looper" 
-            ref={looperRef}
-            style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
+            style={{ left: `${15}%`, width: `${20}%` }}
           >
             <div 
               className="looper-handle left" 
-              ref={looperHandleLeftRef}
-              onMouseDown={handleLooperLeftMouseDown}
             ></div>
             <div 
               className="looper-region" 
-              ref={looperRegionRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLooping(prev => !prev);
-              }}
-              onMouseDown={handleLooperRegionMouseDown}
             ></div>
             <div 
               className="looper-handle right" 
-              ref={looperHandleRightRef}
-              onMouseDown={handleLooperRightMouseDown}
             ></div>
           </div>
         </div>
@@ -973,7 +554,7 @@ export default function TracksWidget({
           <span>Your Recording</span>
         </div>
         {hasRecordingTrack ? (
-          <div className="waveform-container" onClick={handleWaveformClick}>
+          <div className="waveform-container">
             <div className="waveform">
               <canvas 
                 ref={recordingCanvasRef} 
