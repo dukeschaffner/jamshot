@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { formatDuration } from '@/lib/utils';
+import { formatDuration, renderWaveform } from '@/lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMicrophone, faPlay } from '@fortawesome/free-solid-svg-icons';
 import './TracksWidget.css';
 
 export default function TracksWidget({ 
-  track,
   isPlaying,
   setIsPlaying,
   showCollabModal,
@@ -15,35 +14,52 @@ export default function TracksWidget({
   originalAudioChunks = null,
   recordingAudioChunks = null,
   selectedAudioInputDevice = null,
-  setRecordingAudioChunks = null,
   userLatencyCompensation = 0
 }) {
+    //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
     
     // Refs to store audio objects and data
-    const playbackTrackRef = useRef(null);
+    const originalBufferRef = useRef(null);
     const recordedBufferRef = useRef(null);
     const micStreamRef = useRef(null);
     const recorderRef = useRef(null);
-    const playbackSourceRef = useRef(null);
-    const recordingStartTimeRef = useRef(null);
     const isRecordingRef = useRef(false);
     const activeSourcesRef = useRef([]); // Track active audio sources for stopping playback
 
     const startingPlaybackRef = useRef(false);
     const startingRecordingRef = useRef(false);
-
-
-    //old
-    // Canvas refs for waveform visualization
-    const waveformContainerRef = useRef(null);
-    const originalCanvasRef = useRef(null);
-    const recordingCanvasRef = useRef(null);
+    const recordingStartTimeRef = useRef(null);
+    
 
     const [takes, setTakes] = useState([]);
     const [selectedTake, setSelectedTake] = useState(null);
+    
+    //#endregion
+
+    //#region ui properties
+    const waveformContainerRef = useRef(null);
+    const originalCanvasRef = useRef(null);
+    const recordingCanvasRef = useRef(null);
+    const playheadRef = useRef(null);
+
     const takesCountRef = useRef(0); // Ref to track the number of takes
+    const [playheadPos, setPlayheadPos] = useState(0);
+    //#endregion
+
+    // Helper functions
+    const posToTime = (pos, duration) => {
+        return (pos / 100) * duration;
+    };
+    
+    const timeToPos = (time, duration) => {
+        return (time / duration) * 100;
+    };
   
+
+    //#region audio processing
+
+
     // Initialize the audio context
     useEffect(() => {
       if (typeof window !== 'undefined') {
@@ -92,7 +108,7 @@ export default function TracksWidget({
     };
     
     if (originalAudioChunks) {
-      processAudioChunks(originalAudioChunks, playbackTrackRef);
+      processAudioChunks(originalAudioChunks, originalBufferRef);
     }
     
     // if (recordingAudioChunks) {
@@ -102,7 +118,7 @@ export default function TracksWidget({
 
   // Play back the recorded audio synchronized with the original track
   const play = () => {
-    if (!playbackTrackRef.current || !audioContext) {
+    if (!originalBufferRef.current || !audioContext) {
       return;
     }
     
@@ -117,7 +133,7 @@ export default function TracksWidget({
 
     
     const trackSource = audioContext.createBufferSource();
-    trackSource.buffer = playbackTrackRef.current;
+    trackSource.buffer = originalBufferRef.current;
     const trackGain = audioContext.createGain();
     trackGain.gain.value = 0.7; // Set volume for backing track
     trackSource.connect(trackGain);
@@ -179,7 +195,7 @@ export default function TracksWidget({
   };
   
   const startRecording = async () => {
-    if (!isRecording || !audioContext || !playbackTrackRef.current) return;
+    if (!isRecording || !audioContext || !originalBufferRef.current) return;
     
     try {
       // Resume the audio context if it's suspended (important for Chrome)
@@ -478,7 +494,24 @@ export default function TracksWidget({
       startingRecordingRef.current = false;
     }
   }, [isRecording]);
+
+  //#endregion
   
+
+  //#region ui rendering
+  // Render waveforms when buffers change
+  useEffect(() => {
+    if (originalBufferRef.current) {
+      renderWaveform(originalBufferRef.current, originalCanvasRef);
+    }
+    
+    if (recordedBufferRef.current) {
+      renderWaveform(recordedBufferRef.current, recordingCanvasRef);
+    }
+  }, [originalBufferRef.current, recordedBufferRef.current]);
+
+  
+
   
   // Determine if recording track has content
   const hasRecordingTrack = recordedBufferRef.current !== null || selectedTake !== null;
@@ -507,7 +540,7 @@ export default function TracksWidget({
         <div className="waveform-container" ref={waveformContainerRef}>
           <div className="waveform">
             {/* Canvas Waveform */}
-            {playbackTrackRef.current ? (
+            {originalBufferRef.current ? (
               <canvas 
                 ref={originalCanvasRef} 
                 width="1000" 
