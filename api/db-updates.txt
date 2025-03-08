@@ -7,3 +7,21 @@ ALTER COLUMN duration TYPE FLOAT;
 
 PROD:
 **DB doesn't exist yet
+
+-- Add private account flag to users table
+ALTER TABLE users ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Create follow_requests table
+CREATE TABLE follow_requests (
+  id SERIAL PRIMARY KEY,
+  requester_id INT REFERENCES users(id) ON DELETE CASCADE,
+  target_id INT REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (requester_id, target_id) -- Prevent duplicate requests
+);
+
+-- Add follow_request notification type
+ALTER TYPE notification_type ADD VALUE 'follow_request';
+
+-- Add related_user_id to notifications table for follow requests
+ALTER TABLE notifications ADD COLUMN related_user_id INT REFERENCES users(id) ON DELETE CASCADE;

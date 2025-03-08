@@ -302,6 +302,13 @@ function AppContent({ children }) {
             <FaInfoCircle />
             About
           </Link>
+          
+          {isLoggedIn && (
+            <div className="nav-link notification-nav-link">
+              <NotificationDropdown />
+            </div>
+          )}
+          
           {/* <Link href="/library" className={`nav-link ${pathname === '/library' ? 'active' : ''}`}>
             <FaMusic />
             Library
