@@ -56,7 +56,7 @@ export default function TracksWidget({
   const originalBufferRef = useRef(null);
   const recordingBufferRef = useRef(null);
   const startTimeRef = useRef(0);
-  const pausedAtRef = useRef(0);
+  
   const playheadIntervalRef = useRef(null);
   const lastUpdateTimeRef = useRef(0); // Track last update time
   const recordingStartTimeRef = useRef(0); // Track when recording starts

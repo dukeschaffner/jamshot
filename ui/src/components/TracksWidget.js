@@ -9,6 +9,7 @@ import './TracksWidget.css';
 export default function TracksWidget({ 
   isPlaying,
   setIsPlaying,
+  trackDuration,
   showCollabModal,
   isRecording,
   originalAudioChunks = null,
@@ -18,6 +19,9 @@ export default function TracksWidget({
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
+    const [takes, setTakes] = useState([]);
+    const [selectedTake, setSelectedTake] = useState(null);
+    const [playheadTime, setPlayheadTime] = useState(0); //Used to scrub and to set playback start time
     
     // Refs to store audio objects and data
     const originalBufferRef = useRef(null);
@@ -26,25 +30,30 @@ export default function TracksWidget({
     const recorderRef = useRef(null);
     const isRecordingRef = useRef(false);
     const activeSourcesRef = useRef([]); // Track active audio sources for stopping playback
-
     const startingPlaybackRef = useRef(false);
     const startingRecordingRef = useRef(false);
-    const recordingStartTimeRef = useRef(null);
-    
 
-    const [takes, setTakes] = useState([]);
-    const [selectedTake, setSelectedTake] = useState(null);
+    const absoluteRecordingStartTimeRef = useRef(null); // For calculating the latency offset
+    const relativeRecordingStartTimeRef = useRef(0); // Tracks when the recording starts relative to the original track
+
+    const absolutePlaybackStartTimeRef = useRef(0);
+    //const relativePlaybackStartTimeRef = useRef(0);
+
+    const playheadIntervalTimeRef = useRef(0);
     
     //#endregion
 
     //#region ui properties
+    const [playheadPos, setPlayheadPos] = useState(0);
+
     const waveformContainerRef = useRef(null);
     const originalCanvasRef = useRef(null);
     const recordingCanvasRef = useRef(null);
     const playheadRef = useRef(null);
+    const playheadIntervalRef = useRef(null);
 
     const takesCountRef = useRef(0); // Ref to track the number of takes
-    const [playheadPos, setPlayheadPos] = useState(0);
+    
     //#endregion
 
     // Helper functions
@@ -84,6 +93,10 @@ export default function TracksWidget({
     useEffect(() => {
       isRecordingRef.current = isRecording;
     }, [isRecording]);
+
+    useEffect(() => {
+      playheadIntervalTimeRef.current = playheadTime;
+    }, [playheadTime]);
 
   // Process audio chunks when they change
   useEffect(() => {
@@ -160,15 +173,20 @@ export default function TracksWidget({
     
     // Start playback with latency compensation
     const currentTime = audioContext.currentTime;
-    trackSource.start(0);
+    trackSource.start(0, playheadIntervalTimeRef.current);
     if(!isRecording){
-      recordedSource.start(0,latencyOffset); // Start recorded audio earlier to compensate
+      recordedSource.start(0,playheadIntervalTimeRef.current + latencyOffset); // Start recorded audio earlier to compensate
     }
+
+    absolutePlaybackStartTimeRef.current = currentTime;
     
     setIsPlaying(true);
     
     // Enable the play button when playback is complete
     trackSource.onended = function() {
+      if(audioContext.currentTime - absolutePlaybackStartTimeRef.current > trackDuration - 1){
+        playheadIntervalTimeRef.current = 0;
+      }
       setIsPlaying(false);
       activeSourcesRef.current = [];
     };
@@ -177,6 +195,7 @@ export default function TracksWidget({
   // Stop playback of all active audio sources
   const pause = () => {
     if (activeSourcesRef.current.length > 0) {
+      playheadIntervalTimeRef.current = playheadIntervalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
       // Stop all active audio sources
       activeSourcesRef.current.forEach(source => {
         try {
@@ -510,6 +529,27 @@ export default function TracksWidget({
     }
   }, [originalBufferRef.current, recordedBufferRef.current]);
 
+  // Update playhead position when playback starts
+  useEffect(() => {
+    if (isPlaying) {
+      const updatePlayhead = () => {
+        if (playheadRef.current) {
+          const currentTime = playheadIntervalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
+          const playheadPos = timeToPos(currentTime, trackDuration);
+          setPlayheadPos(playheadPos);
+        }
+      };
+      
+      updatePlayhead();
+      
+      playheadIntervalRef.current = setInterval(updatePlayhead, 100);
+      
+      return () => {
+        clearInterval(playheadIntervalRef.current);
+      };
+    }
+  }, [isPlaying]);
+  
   
 
   
@@ -561,6 +601,8 @@ export default function TracksWidget({
             {/* Playhead */}
             <div 
               className="playhead" 
+              ref={playheadRef}
+              style={{ left: `${playheadPos}%` }}
             ></div>
           </div>
           {/* Looper */}
