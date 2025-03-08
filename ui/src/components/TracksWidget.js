@@ -39,12 +39,14 @@ export default function TracksWidget({
     const absolutePlaybackStartTimeRef = useRef(0);
     //const relativePlaybackStartTimeRef = useRef(0);
 
-    const playheadIntervalTimeRef = useRef(0);
+    const playheadInternalTimeRef = useRef(0);
     
     //#endregion
 
     //#region ui properties
     const [playheadPos, setPlayheadPos] = useState(0);
+    const [recordingStartPos, setRecordingStartPos] = useState(0);
+    const [recordingWidth, setRecordingWidth] = useState(0);
 
     const waveformContainerRef = useRef(null);
     const originalCanvasRef = useRef(null);
@@ -95,7 +97,7 @@ export default function TracksWidget({
     }, [isRecording]);
 
     useEffect(() => {
-      playheadIntervalTimeRef.current = playheadTime;
+      playheadInternalTimeRef.current = playheadTime;
     }, [playheadTime]);
 
   // Process audio chunks when they change
@@ -173,29 +175,31 @@ export default function TracksWidget({
     
     // Start playback with latency compensation
     const currentTime = audioContext.currentTime;
-    trackSource.start(0, playheadIntervalTimeRef.current);
+    trackSource.start(0, playheadInternalTimeRef.current);
     if(!isRecording){
-      recordedSource.start(0,playheadIntervalTimeRef.current + latencyOffset); // Start recorded audio earlier to compensate
+      recordedSource.start(0,playheadInternalTimeRef.current + latencyOffset); // Start recorded audio earlier to compensate
+    }
+    else{
+      relativeRecordingStartTimeRef.current = playheadInternalTimeRef.current;
     }
 
     absolutePlaybackStartTimeRef.current = currentTime;
-    
-    setIsPlaying(true);
-    
+
     // Enable the play button when playback is complete
     trackSource.onended = function() {
-      if(audioContext.currentTime - absolutePlaybackStartTimeRef.current > trackDuration - 1){
-        playheadIntervalTimeRef.current = 0;
+      if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) > trackDuration - 1){ //Ended naturally, no looping
+        playheadInternalTimeRef.current = 0;
+        setIsPlaying(false);
+        activeSourcesRef.current = [];
       }
-      setIsPlaying(false);
-      activeSourcesRef.current = [];
+      
     };
   };
   
   // Stop playback of all active audio sources
   const pause = () => {
     if (activeSourcesRef.current.length > 0) {
-      playheadIntervalTimeRef.current = playheadIntervalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
+      playheadInternalTimeRef.current = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
       // Stop all active audio sources
       activeSourcesRef.current.forEach(source => {
         try {
@@ -210,6 +214,35 @@ export default function TracksWidget({
       activeSourcesRef.current = [];
 
       setIsPlaying(false);
+    }
+  };
+
+  const seekToTime = (time) => {
+    // Update the playhead position and time
+    setPlayheadTime(time);
+    setPlayheadPos(timeToPos(time, trackDuration));
+    
+    // Update the internal time reference
+    playheadInternalTimeRef.current = time;
+    
+    // If currently playing, stop current sources and restart at new position
+    if (isPlaying) {
+      // Stop all active audio sources
+      activeSourcesRef.current.forEach(source => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (error) {
+          console.error('Error stopping audio source:', error);
+        }
+      });
+      
+      // Clear the active sources array
+      activeSourcesRef.current = [];
+      
+      // Directly call play to restart at the new position
+      // This avoids toggling isPlaying state
+      play();
     }
   };
   
@@ -410,6 +443,8 @@ export default function TracksWidget({
         name: `Take ${takeNumber}`,
         chunks: [new Uint8Array(wavArrayBuffer)],
         recordedAt: Date.now(),
+        startTime: relativeRecordingStartTimeRef.current,
+        endTime: relativeRecordingStartTimeRef.current + recordedBuffer.duration,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
         bitDepth: 24 // Store the bit depth for reference
@@ -534,7 +569,7 @@ export default function TracksWidget({
     if (isPlaying) {
       const updatePlayhead = () => {
         if (playheadRef.current) {
-          const currentTime = playheadIntervalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
+          const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
           const playheadPos = timeToPos(currentTime, trackDuration);
           setPlayheadPos(playheadPos);
         }
@@ -549,6 +584,27 @@ export default function TracksWidget({
       };
     }
   }, [isPlaying]);
+
+
+
+    // Handle waveform click
+    const handleWaveformClick = (e) => {
+        if (!waveformContainerRef.current || isRecording) return; //
+        
+        const rect = waveformContainerRef.current.getBoundingClientRect();
+        const clickPos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        
+        seekToTime(posToTime(clickPos, trackDuration));
+    };
+
+  useEffect(() => {
+    if(selectedTake){
+      const startPos = timeToPos(selectedTake.startTime, trackDuration);
+      setRecordingStartPos(startPos);
+      const width = timeToPos(selectedTake.endTime - selectedTake.startTime, trackDuration);
+      setRecordingWidth(width);
+    }
+  }, [selectedTake]);
   
   
 
@@ -577,7 +633,7 @@ export default function TracksWidget({
         <div className="track-label">
           <span>Original</span>
         </div>
-        <div className="waveform-container" ref={waveformContainerRef}>
+        <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
           <div className="waveform">
             {/* Canvas Waveform */}
             {originalBufferRef.current ? (
@@ -629,7 +685,13 @@ export default function TracksWidget({
           <span>Your Recording</span>
         </div>
         {hasRecordingTrack ? (
-          <div className="waveform-container">
+          <div className="waveform-container"
+          style={{
+            left: `${recordingStartPos}%`,
+            width: `${recordingWidth}%`,
+          }}
+          onClick={handleWaveformClick}
+          >
             <div className="waveform">
               <canvas 
                 ref={recordingCanvasRef} 
