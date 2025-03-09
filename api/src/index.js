@@ -12,10 +12,18 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({
-  origin: [
-      'http://localhost:3000', // Local development
-      'https://jamshot-lwxlungma-duke-schaffners-projects.vercel.app' // Vercel production UI
-  ],
+  origin: (origin, callback) => {
+    // Allow local development
+    if (!origin || origin === 'http://localhost:3000') {
+      return callback(null, true);
+    }
+    // Allow any Vercel deployment under your project
+    if (origin.startsWith('https://jamshot-') && origin.endsWith('-duke-schaffners-projects.vercel.app')) {
+      return callback(null, true);
+    }
+    // Deny other origins
+    callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
