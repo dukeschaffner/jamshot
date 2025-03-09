@@ -111,4 +111,116 @@
 
 .take-play:hover {
   background-color: #0062cc;
+}
+
+/* Time markers styling */
+.time-markers {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  margin-bottom: 5px;
+}
+
+.time-marker {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #666);
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* Special styling for start marker */
+.time-marker-start {
+  transform: translateX(0);
+  left: 0 !important;
+}
+
+/* Special styling for end marker */
+.time-marker-end {
+  transform: translateX(-100%);
+  left: 100% !important;
+}
+
+/* Ensure mid markers don't get too close to each other */
+@media (max-width: 768px) {
+  .time-marker-mid:nth-child(even) {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .time-marker-mid {
+    display: none;
+  }
+  
+  /* Only show start and end markers on very small screens */
+  .time-marker-start,
+  .time-marker-end {
+    display: block;
+  }
+}
+
+/* Waveform container and grid positioning */
+.waveform-container {
+  position: relative;
+  height: 100px;
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 6px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.waveform {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* Ensure canvas is above the grid */
+.waveform canvas {
+  position: relative;
+  z-index: 3;
+  opacity: 0.9; /* Make slightly transparent to see grid through it */
+}
+
+/* Musical Grid */
+.musical-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Allow clicks to pass through to the waveform */
+  z-index: 1;
+}
+
+.grid-line {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 1px;
+  pointer-events: none;
+}
+
+/* Measure lines (strong) */
+.measure-line {
+  background-color: rgba(0, 0, 0, 0.2);
+  z-index: 2;
+}
+
+/* Beat lines (weaker) */
+.beat-line {
+  background-color: rgba(0, 0, 0, 0.1);
+  z-index: 1;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .measure-line {
+    background-color: black;
+  }
+  
+  .beat-line {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
 } 
