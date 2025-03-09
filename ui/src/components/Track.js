@@ -7,6 +7,7 @@ import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic } from 'react-icons/fa';
 import Cookies from 'js-cookie';
+import Image from 'next/image';
 
 export default function Track({ track, allTracks, setExpandedTrackId, expandedTrackId }) {
   const router = useRouter();
@@ -177,7 +178,13 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           <div className="track-artist">
             <div className="artist-avatar">
               {track.profile_pic_url ? (
-                <img src={track.profile_pic_url} alt={track.username} />
+                <Image 
+                  src={track.profile_pic_url} 
+                  alt={track.username} 
+                  width={40} 
+                  height={40}
+                  style={{ borderRadius: '50%', objectFit: 'cover' }}
+                />
               ) : (
                 <div className="avatar-placeholder"></div>
               )}
