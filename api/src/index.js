@@ -12,10 +12,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({
-    origin: 'http://localhost:3000', // Allow only this origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Allowed headers
-  }));
+  origin: [
+      'http://localhost:3000', // Local development
+      'https://jamshot-lwxlungma-duke-schaffners-projects.vercel.app' // Vercel production UI
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json()); // Parse JSON bodies
 
