@@ -920,19 +920,147 @@ export default function TracksWidget({
   // Determine if recording track has content
   const hasRecordingTrack = recordedBufferRef.current !== null || selectedTake !== null;
   
+  // Generate dynamic time markers based on track duration
+  const generateTimeMarkers = () => {
+    const markers = [];
+    
+    // Determine appropriate interval based on track duration
+    let interval; // in seconds
+    let numMarkers;
+    
+    if (trackDuration <= 30) {
+      // For short tracks (≤30s), show markers every 5 seconds
+      interval = 5;
+      numMarkers = Math.ceil(trackDuration / interval) + 1;
+    } else if (trackDuration <= 60) {
+      // For medium tracks (≤60s), show markers every 10 seconds
+      interval = 10;
+      numMarkers = Math.ceil(trackDuration / interval) + 1;
+    } else if (trackDuration <= 180) {
+      // For longer tracks (≤3min), show markers every 30 seconds
+      interval = 30;
+      numMarkers = Math.ceil(trackDuration / interval) + 1;
+    } else if (trackDuration <= 600) {
+      // For very long tracks (≤10min), show markers every minute
+      interval = 60;
+      numMarkers = Math.ceil(trackDuration / interval) + 1;
+    } else {
+      // For extremely long tracks (>10min), show markers every 2 minutes
+      interval = 120;
+      numMarkers = Math.ceil(trackDuration / interval) + 1;
+    }
+    
+    // Limit the number of markers to prevent overcrowding
+    const maxMarkers = 15;
+    if (numMarkers > maxMarkers) {
+      interval = Math.ceil(trackDuration / (maxMarkers - 1));
+      numMarkers = Math.ceil(trackDuration / interval) + 1;
+    }
+    
+    // Always include start marker
+    markers.push(
+      <div 
+        key="marker-start" 
+        className="time-marker time-marker-start" 
+        style={{ left: '0%' }}
+      >
+        {formatDuration(0)}
+      </div>
+    );
+    
+    // Add intermediate markers
+    for (let i = 1; i < numMarkers - 1; i++) {
+      const time = i * interval;
+      if (time < trackDuration) { // Only add if within track duration
+        const percentage = timeToPos(time, trackDuration);
+        markers.push(
+          <div 
+            key={`marker-${i}`} 
+            className="time-marker time-marker-mid" 
+            style={{ left: `${percentage}%` }}
+          >
+            {formatDuration(time)}
+          </div>
+        );
+      }
+    }
+    
+    // Always include end marker (unless it's very close to the last interval marker)
+    const lastIntervalTime = (numMarkers - 1) * interval;
+    if (Math.abs(trackDuration - lastIntervalTime) > interval / 5) {
+      markers.push(
+        <div 
+          key="marker-end" 
+          className="time-marker time-marker-end" 
+          style={{ left: '100%' }}
+        >
+          {formatDuration(trackDuration)}
+        </div>
+      );
+    }
+    
+    return markers;
+  };
+  
+  // Generate musical grid lines based on BPM and time signature
+  const generateMusicalGrid = () => {
+    const bpm = 115; // Beats per minute
+    const beatsPerMeasure = 4; // 4/4 time signature
+    
+    // Calculate seconds per beat and seconds per measure
+    const secondsPerBeat = 60 / bpm;
+    const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+    
+    const gridLines = [];
+    
+    // Calculate how many measures fit in the track
+    const totalMeasures = Math.ceil(trackDuration / secondsPerMeasure);
+    
+    // Generate measure lines (strong grid lines)
+    for (let measure = 0; measure <= totalMeasures; measure++) {
+      const measureTime = measure * secondsPerMeasure;
+      if (measureTime <= trackDuration) {
+        const position = timeToPos(measureTime, trackDuration);
+        gridLines.push(
+          <div 
+            key={`measure-${measure}`} 
+            className="grid-line measure-line" 
+            style={{ left: `${position}%` }}
+            title={`Measure ${measure + 1}`}
+          />
+        );
+      }
+    }
+    
+    // Generate beat lines (weaker grid lines)
+    for (let beat = 0; beat <= totalMeasures * beatsPerMeasure; beat++) {
+      // Skip beats that fall on measure boundaries (already covered by measure lines)
+      if (beat % beatsPerMeasure !== 0) {
+        const beatTime = beat * secondsPerBeat;
+        if (beatTime <= trackDuration) {
+          const position = timeToPos(beatTime, trackDuration);
+          gridLines.push(
+            <div 
+              key={`beat-${beat}`} 
+              className="grid-line beat-line" 
+              style={{ left: `${position}%` }}
+              title={`Beat ${(beat % beatsPerMeasure) + 1}`}
+            />
+          );
+        }
+      }
+    }
+    
+    return gridLines;
+  };
+  
   return (
     <div className="daw-container">
       {/* Timeline */}
       <div className="timeline">
         <div className="track-label"></div>
         <div className="time-markers">
-          <div className="time-marker" style={{ left: '0%' }}>0:00</div>
-          <div className="time-marker" style={{ left: '16.67%' }}>0:15</div>
-          <div className="time-marker" style={{ left: '33.33%' }}>0:30</div>
-          <div className="time-marker" style={{ left: '50%' }}>0:45</div>
-          <div className="time-marker" style={{ left: '66.67%' }}>1:00</div>
-          <div className="time-marker" style={{ left: '83.33%' }}>1:15</div>
-          <div className="time-marker" style={{ left: '100%' }}>1:30</div>
+          {generateTimeMarkers()}
         </div>
       </div>
 
@@ -943,6 +1071,11 @@ export default function TracksWidget({
         </div>
         <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
           <div className="waveform">
+            {/* Musical Grid */}
+            <div className="musical-grid">
+              {generateMusicalGrid()}
+            </div>
+            
             {/* Canvas Waveform */}
             {originalBufferRef.current ? (
               <canvas 
@@ -1012,6 +1145,11 @@ export default function TracksWidget({
           onClick={handleWaveformClick}
           >
             <div className="waveform">
+              {/* Musical Grid */}
+              <div className="musical-grid">
+                {generateMusicalGrid()}
+              </div>
+              
               <canvas 
                 ref={recordingCanvasRef} 
                 width="1000" 
