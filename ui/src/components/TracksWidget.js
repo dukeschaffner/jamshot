@@ -192,6 +192,8 @@ export default function TracksWidget({
     if(isLooping){
         startTime = posToTime(looperLeftPos, trackDuration);
         setPlayheadTime(startTime);
+        setPlayheadPos(looperLeftPos);
+        playheadInternalTimeRef.current = startTime;
     }
     else{
         startTime = playheadInternalTimeRef.current;
@@ -212,6 +214,9 @@ export default function TracksWidget({
         playheadInternalTimeRef.current = 0;
         setIsPlaying(false);
         activeSourcesRef.current = [];
+        if(isRecording){
+          stopRecording();
+        }
       }
       
     };
@@ -441,15 +446,57 @@ export default function TracksWidget({
   };
 
   // Function to create a new take from the recorded buffer
-  const createTakeFromRecordedBuffer = () => {
-    if (!recordedBufferRef.current) {
+  const createTakeFromRecordedBuffer = (buffer) => {
+    if (!buffer) {
       console.error('No recorded buffer available');
       return;
     }
     
     try {
       // Get the recorded buffer
-      const recordedBuffer = recordedBufferRef.current;
+      let recordedBuffer = buffer;
+      
+      // Check if we need to pad the buffer (if it's shorter than the original track)
+      if (originalBufferRef.current && recordedBuffer.duration < originalBufferRef.current.duration) {
+        console.log('Padding recorded buffer to match original track duration');
+        
+        // Create a new buffer with the same duration as the original track
+        const paddedBuffer = audioContext.createBuffer(
+          recordedBuffer.numberOfChannels,
+          originalBufferRef.current.length,
+          recordedBuffer.sampleRate
+        );
+        
+        // Calculate the start position for the recorded audio
+        // This centers the recording if it started in the middle of the track
+        const startSample = Math.floor(relativeRecordingStartTimeRef.current * recordedBuffer.sampleRate);
+        
+        // Copy the recorded data into the padded buffer at the correct position
+        for (let channel = 0; channel < recordedBuffer.numberOfChannels; channel++) {
+          const paddedData = paddedBuffer.getChannelData(channel);
+          const recordedData = recordedBuffer.getChannelData(channel);
+          
+          // Fill with zeros before the recording (if needed)
+          for (let i = 0; i < startSample; i++) {
+            paddedData[i] = 0;
+          }
+          
+          // Copy the recorded data
+          for (let i = 0; i < recordedBuffer.length; i++) {
+            if (startSample + i < paddedBuffer.length) {
+              paddedData[startSample + i] = recordedData[i];
+            }
+          }
+          
+          // Fill with zeros after the recording (if needed)
+          for (let i = startSample + recordedBuffer.length; i < paddedBuffer.length; i++) {
+            paddedData[i] = 0;
+          }
+        }
+        
+        // Use the padded buffer instead of the original recorded buffer
+        recordedBuffer = paddedBuffer;
+      }
       
       // Convert to high-quality WAV format
       const wavArrayBuffer = audioBufferToWav(
@@ -462,10 +509,10 @@ export default function TracksWidget({
       const newTake = {
         id: Date.now().toString(),
         name: `Take ${takeNumber}`,
-        chunks: [new Uint8Array(wavArrayBuffer)],
+        buffer: recordedBuffer,
         recordedAt: Date.now(),
         startTime: relativeRecordingStartTimeRef.current,
-        endTime: relativeRecordingStartTimeRef.current + recordedBuffer.duration,
+        endTime: relativeRecordingStartTimeRef.current + buffer.duration,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
         bitDepth: 24 // Store the bit depth for reference
@@ -536,14 +583,8 @@ export default function TracksWidget({
       // Fill the buffer with the raw recorded data without any processing
       recordedBuffer.getChannelData(0).set(mergedBuffer);
       
-      // Store the buffer for playback
-      recordedBufferRef.current = recordedBuffer;
-      
-      console.log('Recording completed and processed at sample rate:', 
-                 recorderRef.current.sampleRate || audioContext.sampleRate);
-      
       // Create a take from the recorded buffer
-      createTakeFromRecordedBuffer();
+      createTakeFromRecordedBuffer(recordedBuffer);
     } else {
       console.error('No recorded data available', recorderRef.current);
     }
@@ -558,6 +599,56 @@ export default function TracksWidget({
       startingPlaybackRef.current = false;
     }
   }, [isPlaying]);
+
+  // Add keyboard shortcut handler for space key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only handle space key and prevent default behavior (page scrolling)
+      if (e.code === 'Space' || e.key === ' ') {
+        // Ignore if user is typing in an input field, textarea, or contentEditable element
+        if (
+          e.target.tagName === 'INPUT' || 
+          e.target.tagName === 'TEXTAREA' || 
+          e.target.isContentEditable
+        ) {
+          return;
+        }
+        
+        e.preventDefault();
+        
+        // If recording, stop recording
+        if (isRecordingRef.current) {
+          stopRecording();
+        } 
+        // Otherwise toggle playback
+        else {
+          setIsPlaying(prevState => !prevState);
+        }
+      }
+      else if (e.code === 'Enter' || e.key === 'Enter') {
+        // Ignore if user is typing in an input field, textarea, or contentEditable element
+        if (
+          e.target.tagName === 'INPUT' || 
+          e.target.tagName === 'TEXTAREA' || 
+          e.target.isContentEditable
+        ) {
+          return;
+        }
+        
+        e.preventDefault();
+        
+        seekToTime(0);
+      }
+    };
+
+    // Add event listener to the window
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Clean up the event listener when component unmounts
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [stopRecording, setIsPlaying]); // Include dependencies
 
   useEffect(() => {
     if (isRecording && !startingRecordingRef.current) {
@@ -580,8 +671,8 @@ export default function TracksWidget({
       renderWaveform(originalBufferRef.current, originalCanvasRef);
     }
     
-    if (recordedBufferRef.current) {
-      renderWaveform(recordedBufferRef.current, recordingCanvasRef);
+    if (recordedBufferRef.current && selectedTake) {
+      renderWaveform(recordedBufferRef.current, recordingCanvasRef, selectedTake.startTime, selectedTake.endTime);
     }
   }, [originalBufferRef.current, recordedBufferRef.current]);
 
@@ -655,6 +746,7 @@ export default function TracksWidget({
 
   useEffect(() => {
     if(selectedTake){
+      recordedBufferRef.current = selectedTake.buffer;
       const startPos = timeToPos(selectedTake.startTime, trackDuration);
       setRecordingStartPos(startPos);
       const width = timeToPos(selectedTake.endTime - selectedTake.startTime, trackDuration);

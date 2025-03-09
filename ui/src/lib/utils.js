@@ -48,7 +48,7 @@ export function timeToPos(time, duration) {
 } 
 
 // Render waveform for audio buffer
-export function renderWaveform(buffer, canvasRef){
+export function renderWaveform(buffer, canvasRef, cropStart, cropEnd){
   if (!buffer || !canvasRef.current) return;
   
   const canvas = canvasRef.current;
@@ -66,10 +66,27 @@ export function renderWaveform(buffer, canvasRef){
   // Get audio data
   const channelData = buffer.getChannelData(0);
   
+  // Calculate crop indices if cropStart and cropEnd are provided
+  let startSampleIndex = 0;
+  let endSampleIndex = channelData.length - 1;
+  
+  if (cropStart !== undefined && cropStart !== null) {
+    startSampleIndex = Math.floor(cropStart * buffer.sampleRate);
+    startSampleIndex = Math.max(0, startSampleIndex); // Ensure it's not negative
+  }
+  
+  if (cropEnd !== undefined && cropEnd !== null) {
+    endSampleIndex = Math.floor(cropEnd * buffer.sampleRate);
+    endSampleIndex = Math.min(channelData.length - 1, endSampleIndex); // Ensure it's within bounds
+  }
+  
+  // Calculate the actual duration of the cropped audio
+  const croppedDuration = (endSampleIndex - startSampleIndex + 1) / buffer.sampleRate;
+  
   // Number of segments to divide the waveform into (fewer segments = simpler waveform)
   const segmentsPerSecond = 6;
-  const numSegments = buffer.duration * segmentsPerSecond;
-  const samplesPerSegment = Math.floor(channelData.length / numSegments);
+  const numSegments = croppedDuration * segmentsPerSecond;
+  const samplesPerSegment = Math.floor((endSampleIndex - startSampleIndex + 1) / numSegments);
   
   // Start drawing
   ctx.beginPath();
@@ -77,14 +94,14 @@ export function renderWaveform(buffer, canvasRef){
   
   // Draw simplified waveform
   for (let i = 0; i < numSegments; i++) {
-    const startSample = i * samplesPerSegment;
+    const segmentStartSample = startSampleIndex + (i * samplesPerSegment);
     let sum = 0;
     let count = 0;
     let maxAmp = 0;
     
     // Calculate average amplitude for this segment
-    for (let j = 0; j < samplesPerSegment && (startSample + j) < channelData.length; j++) {
-      const amplitude = Math.abs(channelData[startSample + j]);
+    for (let j = 0; j < samplesPerSegment && (segmentStartSample + j) <= endSampleIndex; j++) {
+      const amplitude = Math.abs(channelData[segmentStartSample + j]);
       sum += amplitude;
       count++;
       maxAmp = Math.max(maxAmp, amplitude);
