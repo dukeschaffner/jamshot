@@ -231,3 +231,6 @@ CREATE TABLE follow_requests (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (requester_id, target_id) -- Prevent duplicate requests
 );
+
+
+test
