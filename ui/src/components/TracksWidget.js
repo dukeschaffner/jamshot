@@ -22,6 +22,9 @@ export default function TracksWidget({
     const [takes, setTakes] = useState([]);
     const [selectedTake, setSelectedTake] = useState(null);
     const [playheadTime, setPlayheadTime] = useState(0); //Used to scrub and to set playback start time
+    const [isLooping, setIsLooping] = useState(true);
+    const [looperLeftPos, setLooperLeftPos] = useState(0);
+    const [looperRightPos, setLooperRightPos] = useState(100);
     
     // Refs to store audio objects and data
     const originalBufferRef = useRef(null);
@@ -47,12 +50,23 @@ export default function TracksWidget({
     const [playheadPos, setPlayheadPos] = useState(0);
     const [recordingStartPos, setRecordingStartPos] = useState(0);
     const [recordingWidth, setRecordingWidth] = useState(0);
+    const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+    const [isDraggingLooperLeft, setIsDraggingLooperLeft] = useState(false);
+    const [isDraggingLooperRight, setIsDraggingLooperRight] = useState(false);
+    const [isDraggingLooperRegion, setIsDraggingLooperRegion] = useState(false);
+    const [dragStartX, setDragStartX] = useState(0);
+    const [looperStartWidth, setLooperStartWidth] = useState(0);
+    const [looperStartLeft, setLooperStartLeft] = useState(0);
 
     const waveformContainerRef = useRef(null);
     const originalCanvasRef = useRef(null);
     const recordingCanvasRef = useRef(null);
     const playheadRef = useRef(null);
     const playheadIntervalRef = useRef(null);
+    const looperRef = useRef(null);
+    const looperHandleLeftRef = useRef(null);
+    const looperHandleRightRef = useRef(null);
+    const looperRegionRef = useRef(null);
 
     const takesCountRef = useRef(0); // Ref to track the number of takes
     
@@ -174,16 +188,23 @@ export default function TracksWidget({
     const latencyOffset = userLatencyCompensation / 1000; // Convert ms to seconds
     
     // Start playback with latency compensation
-    const currentTime = audioContext.currentTime;
-    trackSource.start(0, playheadInternalTimeRef.current);
-    if(!isRecording){
-      recordedSource.start(0,playheadInternalTimeRef.current + latencyOffset); // Start recorded audio earlier to compensate
+    let startTime
+    if(isLooping){
+        startTime = posToTime(looperLeftPos, trackDuration);
+        setPlayheadTime(startTime);
     }
     else{
-      relativeRecordingStartTimeRef.current = playheadInternalTimeRef.current;
+        startTime = playheadInternalTimeRef.current;
+    }
+    trackSource.start(0, startTime);
+    if(!isRecording){
+      recordedSource.start(0,startTime + latencyOffset); // Start recorded audio earlier to compensate
+    }
+    else{
+      relativeRecordingStartTimeRef.current = startTime;
     }
 
-    absolutePlaybackStartTimeRef.current = currentTime;
+    absolutePlaybackStartTimeRef.current = audioContext.currentTime;
 
     // Enable the play button when playback is complete
     trackSource.onended = function() {
@@ -571,13 +592,20 @@ export default function TracksWidget({
         if (playheadRef.current) {
           const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
           const playheadPos = timeToPos(currentTime, trackDuration);
-          setPlayheadPos(playheadPos);
+          if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
+            seekToTime(posToTime(looperLeftPos, trackDuration));
+          }
+          else{
+            setPlayheadPos(playheadPos);
+          }
+          
+          
         }
       };
       
       updatePlayhead();
       
-      playheadIntervalRef.current = setInterval(updatePlayhead, 100);
+      playheadIntervalRef.current = setInterval(updatePlayhead, 20);
       
       return () => {
         clearInterval(playheadIntervalRef.current);
@@ -597,6 +625,34 @@ export default function TracksWidget({
         seekToTime(posToTime(clickPos, trackDuration));
     };
 
+      // Mouse down handlers for dragging
+//   const handlePlayheadMouseDown = (e) => {
+//     e.stopPropagation();
+//     setIsDraggingPlayhead(true);
+//   };
+  
+  const handleLooperLeftMouseDown = (e) => {
+    e.stopPropagation();
+    if(isPlaying) {return;}
+    setIsDraggingLooperLeft(true);
+  };
+
+  const handleLooperRightMouseDown = (e) => {
+    e.stopPropagation();
+    if(isPlaying) {return;}
+    setIsDraggingLooperRight(true);
+  };
+  
+  const handleLooperRegionMouseDown = (e) => {
+    e.stopPropagation();
+    if(isPlaying) {return;}
+    setIsDraggingLooperRegion(true);
+    setDragStartX(e.clientX);
+    setLooperStartLeft(looperLeftPos);
+    // Store the width of the looper region
+    setLooperStartWidth(looperRightPos - looperLeftPos);
+  };
+
   useEffect(() => {
     if(selectedTake){
       const startPos = timeToPos(selectedTake.startTime, trackDuration);
@@ -605,6 +661,166 @@ export default function TracksWidget({
       setRecordingWidth(width);
     }
   }, [selectedTake]);
+
+    // Mouse event handlers
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion) return;
+          
+          if (waveformContainerRef.current) {
+            const rect = waveformContainerRef.current.getBoundingClientRect();
+            const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+            
+            // Dragging playhead
+            // if (isDraggingPlayhead) {
+            //   setPlayheadPos(mousePos);
+              
+            //   // Update audio position if playing
+            //   if (isPlaying && audioContextRef.current) {
+            //     pausedAtRef.current = posToTime(mousePos, trackDuration);
+            //   }
+              
+            //   // Show time tooltip
+            //   const time = posToTime(mousePos, trackDuration);
+            //   showTimeTooltip(playheadRef.current, mousePos, formatDuration(time));
+            // }
+            
+            // Dragging left looper handle
+            if (isDraggingLooperLeft) {
+              const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
+              setLooperLeftPos(newLeftPos);
+              
+              // If playhead is to the left of the new left position and audio is playing,
+              // move the playhead to the new left position
+            //   if (playheadPos < newLeftPos && isPlaying) {
+            //     setPlayheadPos(newLeftPos);
+            //     pausedAtRef.current = posToTime(newLeftPos, trackDuration);
+            //   }
+              
+              // Show time tooltip
+            //   const time = posToTime(newLeftPos, trackDuration);
+            //   showTimeTooltip(looperHandleLeftRef.current, newLeftPos, formatDuration(time));
+            }
+            
+            // Dragging right looper handle
+            if (isDraggingLooperRight) {
+              const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
+              setLooperRightPos(newRightPos);
+              
+              // Show time tooltip
+            //   const time = posToTime(newRightPos, trackDuration);
+            //   showTimeTooltip(looperHandleRightRef.current, newRightPos, formatDuration(time));
+            }
+            
+            // Dragging entire looper region
+            if (isDraggingLooperRegion) {
+              const deltaX = e.clientX - dragStartX;
+              const deltaPercent = (deltaX / rect.width) * 100;
+              
+              // Calculate new positions
+              let newLeftPos = looperStartLeft + deltaPercent;
+              let newRightPos = newLeftPos + looperStartWidth;
+              
+              // Ensure the looper stays within bounds
+              if (newLeftPos < 0) {
+                newLeftPos = 0;
+                newRightPos = looperStartWidth;
+              }
+              
+              if (newRightPos > 100) {
+                newRightPos = 100;
+                newLeftPos = 100 - looperStartWidth;
+              }
+              
+              // Update looper positions
+              setLooperLeftPos(newLeftPos);
+              setLooperRightPos(newRightPos);
+              
+              // If playhead is outside the new looper region and audio is playing,
+              // move the playhead to the new left position
+            //   if (isPlaying && isLooping) {
+            //     if (playheadPos < newLeftPos || playheadPos > newRightPos) {
+            //       setPlayheadPos(newLeftPos);
+            //       pausedAtRef.current = posToTime(newLeftPos, trackDuration);
+            //     }
+            //   }
+              
+              // Show tooltip with start and end times
+            //   const looperStartTime = posToTime(newLeftPos, trackDuration);
+            //   const looperEndTime = posToTime(newRightPos, trackDuration);
+            //   showTimeTooltip(
+            //     looperRegionRef.current, 
+            //     (newLeftPos + newRightPos) / 2, 
+            //     `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
+            //   );
+            }
+          }
+        };
+        
+        const handleMouseUp = () => {
+          setIsDraggingLooperLeft(false);
+          setIsDraggingLooperRight(false);
+          setIsDraggingPlayhead(false);
+          setIsDraggingLooperRegion(false);
+          //hideTimeTooltip();
+        };
+        
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        return () => {
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+        };
+      }, [
+        isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion,
+        looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
+        isPlaying, playheadPos, isLooping, trackDuration
+      ]);
+
+      useEffect(() => {
+        // Update visual elements based on state
+        const updateVisuals = () => {
+            if (looperRef.current) {
+                const looperWidth = looperRightPos - looperLeftPos;
+                looperRef.current.style.left = `${looperLeftPos}%`;
+                looperRef.current.style.width = `${looperWidth}%`;
+            }
+            
+            if (looperRegionRef.current) {
+                if (isLooping) {
+                    looperRegionRef.current.style.backgroundColor = 'rgba(147, 233, 190, 0.4)';
+                    if (looperHandleLeftRef.current) looperHandleLeftRef.current.style.backgroundColor = 'var(--seafoam)';
+                    if (looperHandleRightRef.current) looperHandleRightRef.current.style.backgroundColor = 'var(--seafoam)';
+                } else {
+                    looperRegionRef.current.style.backgroundColor = 'rgba(147, 233, 190, 0.1)';
+                    if (looperHandleLeftRef.current) looperHandleLeftRef.current.style.backgroundColor = 'var(--gray)';
+                    if (looperHandleRightRef.current) looperHandleRightRef.current.style.backgroundColor = 'var(--gray)';
+                }
+            }
+            
+            // Update time tooltips if dragging
+            // if (isDraggingLooperLeft && looperHandleLeftRef.current) {
+            // showTimeTooltip(looperHandleLeftRef.current, looperLeftPos);
+            // } else if (isDraggingLooperRight && looperHandleRightRef.current) {
+            // showTimeTooltip(looperHandleRightRef.current, looperRightPos);
+            // } else if (isDraggingPlayhead && playheadRef.current) {
+            // showTimeTooltip(playheadRef.current, playheadPos);
+            // } else if (isDraggingLooperRegion && looperRegionRef.current) {
+            // const looperStartTime = posToTime(looperLeftPos, trackDuration);
+            // const looperEndTime = posToTime(looperRightPos, trackDuration);
+            // showTimeTooltip(
+            //     looperRegionRef.current, 
+            //     (looperLeftPos + looperRightPos) / 2, 
+            //     `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
+            // );
+            // }
+        };
+        updateVisuals();
+
+    }, [looperLeftPos, looperRightPos, isLooping]);
+
+
   
   
 
@@ -664,16 +880,27 @@ export default function TracksWidget({
           {/* Looper */}
           <div 
             className="looper" 
-            style={{ left: `${15}%`, width: `${20}%` }}
+            ref={looperRef}
+            style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
           >
             <div 
               className="looper-handle left" 
+              ref={looperHandleLeftRef}
+              onMouseDown={handleLooperLeftMouseDown}
             ></div>
             <div 
               className="looper-region" 
+              ref={looperRegionRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLooping(prev => !prev);
+              }}
+              onMouseDown={handleLooperRegionMouseDown}
             ></div>
             <div 
               className="looper-handle right" 
+              ref={looperHandleRightRef}
+              onMouseDown={handleLooperRightMouseDown}
             ></div>
           </div>
         </div>
