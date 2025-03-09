@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Howl } from 'howler';
 import api from './api';
 
@@ -20,6 +20,94 @@ export function AudioProvider({ children }) {
   const listeningTimeRef = useRef(0);
   const playRecordedRef = useRef(false);
 
+  // Define functions with useCallback to prevent unnecessary re-creation
+  const updateListeningTime = useCallback(() => {
+    if (isPlaying && soundRef.current && !playRecordedRef.current) {
+      listeningTimeRef.current += 1; // Add one second
+    }
+  }, [isPlaying]);
+
+  // Define playNext function before it's used in handleTrackEnd
+  const playNext = useCallback(() => {
+    if (playlist.length === 0) return;
+    
+    let nextIndex;
+    
+    if (isShuffleOn) {
+      // Get the next shuffled index
+      const currentShuffleIndex = shuffledIndicesRef.current.indexOf(currentIndex);
+      const nextShuffleIndex = (currentShuffleIndex + 1) % playlist.length;
+      nextIndex = shuffledIndicesRef.current[nextShuffleIndex];
+    } else {
+      // Normal sequential playback
+      nextIndex = (currentIndex + 1) % playlist.length;
+    }
+    
+    setCurrentIndex(nextIndex);
+    setCurrentTrack(playlist[nextIndex]);
+  }, [playlist, currentIndex, isShuffleOn]);
+
+  // Handle track end based on loop state
+  const handleTrackEnd = useCallback(() => {
+    if (isLoopOn && playlist.length === 1) {
+      // If loop is on and there's only one track, replay it
+      soundRef.current.play();
+      // Reset play counter state for looped track
+      listeningTimeRef.current = 0;
+      playRecordedRef.current = false;
+    } else {
+      playNext();
+    }
+  }, [isLoopOn, playlist.length, playNext]);
+
+  // Check and record play based on listening criteria
+  const checkAndRecordPlay = useCallback(() => {
+    if (!currentTrack || playRecordedRef.current) return;
+    
+    const duration = soundRef.current?.duration() || 0;
+    const threshold = duration < 30 ? duration * 0.9 : 30;
+    
+    // Record play if:
+    // 1. User listened to at least 30 seconds, OR
+    // 2. For tracks < 30 seconds, user listened to at least 90% of the track
+    if (listeningTimeRef.current >= threshold) {
+      recordPlay();
+    }
+  }, [currentTrack]);
+
+  // Record a play via API
+  const recordPlay = async () => {
+    if (!currentTrack || playRecordedRef.current) return;
+    
+    try {
+      playRecordedRef.current = true;
+      console.log(`Recording play for track: ${currentTrack.title}`);
+      await api.post(`/tracks/${currentTrack.id}/play`);
+    } catch (err) {
+      console.error('Failed to record play:', err);
+    }
+  };
+
+  // Now use these callbacks in the useEffect
+  useEffect(() => {
+    if (!currentTrack) return;
+    
+    // Reset play counter state for new track
+    listeningTimeRef.current = 0;
+    playRecordedRef.current = false;
+    
+    // Set up interval to track listening time and check for play recording
+    const interval = setInterval(() => {
+      updateListeningTime();
+      checkAndRecordPlay();
+    }, 1000);
+    
+    return () => {
+      if (soundRef.current) soundRef.current.unload();
+      clearInterval(interval);
+    };
+  }, [currentTrack, updateListeningTime, checkAndRecordPlay]);
+
   useEffect(() => {
     if (currentTrack) {
       if (soundRef.current) {
@@ -30,10 +118,6 @@ export function AudioProvider({ children }) {
         soundRef.current.unload();
       }
       
-      // Reset play counter state for new track
-      listeningTimeRef.current = 0;
-      playRecordedRef.current = false;
-      
       soundRef.current = new Howl({
         src: [currentTrack.combined_audio_url],
         html5: true,
@@ -42,8 +126,6 @@ export function AudioProvider({ children }) {
         onpause: () => setIsPlaying(false),
         onend: () => {
           console.log('Track ended, playing next');
-          // If track ended naturally and play wasn't recorded yet, record it
-          checkAndRecordPlay();
           handleTrackEnd();
         },
         onseek: () => updateProgress(),
@@ -66,67 +148,7 @@ export function AudioProvider({ children }) {
       if (soundRef.current) soundRef.current.unload();
       clearInterval(interval);
     };
-  }, [currentTrack]); // Only trigger on currentTrack change
-
-  // Check and record play based on listening criteria
-  const checkAndRecordPlay = () => {
-    if (!currentTrack || playRecordedRef.current) return;
-    
-    const duration = soundRef.current?.duration() || 0;
-    const threshold = duration < 30 ? duration * 0.9 : 30;
-    
-    // Record play if:
-    // 1. User listened to at least 30 seconds, OR
-    // 2. For tracks < 30 seconds, user listened to at least 90% of the track
-    if (listeningTimeRef.current >= threshold) {
-      recordPlay();
-    }
-  };
-  
-  // Record a play via API
-  const recordPlay = async () => {
-    if (!currentTrack || playRecordedRef.current) return;
-    
-    try {
-      playRecordedRef.current = true;
-      console.log(`Recording play for track: ${currentTrack.title}`);
-      await api.post(`/tracks/${currentTrack.id}/play`);
-    } catch (err) {
-      console.error('Failed to record play:', err);
-    }
-  };
-  
-  // Update total listening time
-  const updateListeningTime = () => {
-    if (isPlaying && soundRef.current && !playRecordedRef.current) {
-      listeningTimeRef.current += 1; // Add one second
-      checkAndRecordPlay();
-    }
-  };
-
-  // Handle track end based on loop state
-  const handleTrackEnd = () => {
-    if (isLoopOn && playlist.length === 1) {
-      // If loop is on and there's only one track, replay it
-      soundRef.current.play();
-      // Reset play counter state for looped track
-      listeningTimeRef.current = 0;
-      playRecordedRef.current = false;
-    } else {
-      playNext();
-    }
-  };
-
-  useEffect(() => {
-    // Sync isPlaying with Howl state
-    if (soundRef.current) {
-      if (isPlaying && !soundRef.current.playing()) {
-        soundRef.current.play();
-      } else if (!isPlaying && soundRef.current.playing()) {
-        soundRef.current.pause();
-      }
-    }
-  }, [isPlaying]); // Sync whenever isPlaying changes
+  }, [currentTrack, handleTrackEnd, isPlaying, updateListeningTime]);
 
   // Generate shuffled indices when playlist or shuffle state changes
   useEffect(() => {
@@ -184,37 +206,6 @@ export function AudioProvider({ children }) {
       soundRef.current.seek(newPosition);
       setProgress(newPosition);
     }
-  };
-
-  const playNext = () => {
-    if (playlist.length === 0 || currentIndex < 0) return;
-    
-    let nextIndex;
-    
-    if (isShuffleOn) {
-      // Find the current position in the shuffled array
-      const currentPosition = shuffledIndicesRef.current.indexOf(currentIndex);
-      // Get the next position, or loop back to the beginning
-      const nextPosition = (currentPosition + 1) % shuffledIndicesRef.current.length;
-      nextIndex = shuffledIndicesRef.current[nextPosition];
-    } else {
-      // Regular sequential play
-      if (currentIndex >= playlist.length - 1) {
-        if (isLoopOn) {
-          // Loop back to the beginning if loop is on
-          nextIndex = 0;
-        } else {
-          return; // End of playlist and no loop
-        }
-      } else {
-        nextIndex = currentIndex + 1;
-      }
-    }
-    
-    console.log('Next track:', playlist[nextIndex].title);
-    setCurrentIndex(nextIndex);
-    setCurrentTrack(playlist[nextIndex]);
-    setIsPlaying(true);
   };
 
   const playPrevious = () => {
