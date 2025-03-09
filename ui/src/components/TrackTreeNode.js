@@ -1,11 +1,14 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useAudio } from '../lib/AudioContext';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic, FaInfoCircle, FaRetweet } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import TrackTags from './TrackTags';
+import { formatDuration, formatDate } from '../lib/utils';
+import Link from 'next/link';
+import Image from 'next/image';
 
 export default function TrackTreeNode({ 
   track, 
@@ -23,38 +26,34 @@ export default function TrackTreeNode({
   const [loadingChildren, setLoadingChildren] = useState(false);
   const { playTrack, togglePlayPause, currentTrack } = useAudio();
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
-  const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
+  const [likeCount, setLikeCount] = useState(track.like_count || 0);
   const [isLikeInProgress, setIsLikeInProgress] = useState(false);
   const [isReposted, setIsReposted] = useState(track.is_reposted || false);
   const [isRepostInProgress, setIsRepostInProgress] = useState(false);
+
+  // Wrap fetchChildTracks in useCallback to prevent it from changing on every render
+  const fetchChildTracks = useCallback(async () => {
+    try {
+      const response = await api.get(`/tracks/${track.id}/children`);
+      setChildTracks(response.data);
+    } catch (error) {
+      console.error('Error fetching child tracks:', error);
+    }
+  }, [track.id]);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
     if (expandedTrackId === track.id && track.child_count > 0) {
       fetchChildTracks();
     }
-  }, [expandedTrackId, track.id]);
+  }, [expandedTrackId, track.id, fetchChildTracks, track.child_count]);
 
   useEffect(() => {
     // Update like state when track prop changes
     setIsLiked(track.is_liked || false);
-    setLikeCount(Number(track.like_count) || 0);
+    setLikeCount(track.like_count || 0);
     setIsReposted(track.is_reposted || false);
   }, [track.is_liked, track.like_count, track.is_reposted]);
-
-  const fetchChildTracks = async () => {
-    if (childTracks.length > 0 || track.child_count === 0) return;
-    
-    try {
-      setLoadingChildren(true);
-      const response = await api.get(`/tracks/${track.id}/tree`);
-      setChildTracks(response.data.children);
-    } catch (err) {
-      console.error('Failed to fetch child tracks:', err);
-    } finally {
-      setLoadingChildren(false);
-    }
-  };
 
   const toggleExpand = () => {
     setExpandedTrackId(isExpanded ? null : track.id);
@@ -172,7 +171,13 @@ export default function TrackTreeNode({
           <div className="track-artist">
             <div className="artist-avatar">
               {track.profile_pic_url ? (
-                <img src={track.profile_pic_url} alt={track.username} />
+                <Image 
+                  src={track.profile_pic_url} 
+                  alt={track.username} 
+                  width={40} 
+                  height={40}
+                  style={{ borderRadius: '50%', objectFit: 'cover' }}
+                />
               ) : (
                 <div className="avatar-placeholder"></div>
               )}
