@@ -77,6 +77,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm } = req.body;
   const userId = req.user.id;
   const file = req.file;
+  let layer = 0;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
 
@@ -126,7 +127,11 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
         }
 
         duration = parentResult.rows[0].duration;
-
+        layer = parentResult.rows[0].layer + 1;
+        if (layer > 4) {
+          return res.status(400).json({ error: 'Layer limit reached' });
+        }
+        
         const parentCombinedKey = parentResult.rows[0].combined_audio_url || parentResult.rows[0].audio_url;
         const localFiles = [];
 
@@ -162,8 +167,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     }
 
     const result = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm]
+      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer]
     );
     
     const trackId = result.rows[0].id;
