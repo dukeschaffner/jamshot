@@ -60,9 +60,7 @@ router.get('/', async (req, res) => {
       
       tracks = await Promise.all(tracksResult.rows.map(async track => {
         let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-        if (process.env.NODE_ENV !== 'production') {
-          combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-        } else if (combinedAudioUrl.startsWith('tracks/')) {
+        if (combinedAudioUrl.startsWith('tracks/')) {
           combinedAudioUrl = s3.getSignedUrl('getObject', {
             Bucket: process.env.S3_BUCKET,
             Key: track.combined_audio_url || track.audio_url,

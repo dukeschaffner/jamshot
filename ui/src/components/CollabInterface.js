@@ -58,6 +58,9 @@ export default function CollabInterface({ track }) {
   useEffect(() => {
     const getAudioInputDevices = async () => {
       try {
+        if(showAudioSettingsModal){
+          await navigator.mediaDevices.getUserMedia({ audio: true }); 
+        }
         const devices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = devices.filter(device => device.kind === 'audioinput');
         setAudioInputDevices(audioInputs);
@@ -76,7 +79,7 @@ export default function CollabInterface({ track }) {
       // Default value of 20ms if not set
       setUserLatencyCompensation(20);
     }
-  }, []);
+  }, [showAudioSettingsModal]);
   
   // Save latency compensation to cookies when it changes
   useEffect(() => {

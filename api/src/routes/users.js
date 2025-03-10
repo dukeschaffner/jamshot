@@ -125,24 +125,20 @@ router.get('/:userId/tracks', async (req, res) => {
     const tracks = await Promise.all(result.rows.map(async track => {
       let audioUrl = track.audio_url;
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (process.env.NODE_ENV !== 'production') {
-        audioUrl = `http://localhost:5000${audioUrl}`;
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else {
-        if (audioUrl.startsWith('tracks/')) {
-          audioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.audio_url,
-            Expires: 3600,
-          });
-        }
-        if (combinedAudioUrl.startsWith('tracks/')) {
-          combinedAudioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.combined_audio_url || track.audio_url,
-            Expires: 3600,
-          });
-        }
+
+      if (audioUrl.startsWith('tracks/')) {
+        audioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.audio_url,
+          Expires: 3600,
+        });
+      }
+      if (combinedAudioUrl.startsWith('tracks/')) {
+        combinedAudioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.combined_audio_url || track.audio_url,
+          Expires: 3600,
+        });
       }
       
       // Get genres for this track
@@ -356,24 +352,19 @@ router.get('/:userId/reposts', async (req, res) => {
     const tracks = await Promise.all(result.rows.map(async track => {
       let audioUrl = track.audio_url;
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (process.env.NODE_ENV !== 'production') {
-        audioUrl = `http://localhost:5000${audioUrl}`;
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else {
-        if (audioUrl.startsWith('tracks/')) {
-          audioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.audio_url,
-            Expires: 3600,
-          });
-        }
-        if (combinedAudioUrl.startsWith('tracks/')) {
-          combinedAudioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.combined_audio_url || track.audio_url,
-            Expires: 3600,
-          });
-        }
+      if (audioUrl.startsWith('tracks/')) {
+        audioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.audio_url,
+          Expires: 3600,
+        });
+      }
+      if (combinedAudioUrl.startsWith('tracks/')) {
+        combinedAudioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.combined_audio_url || track.audio_url,
+          Expires: 3600,
+        });
       }
       
       // Get genres for this track
