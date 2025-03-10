@@ -89,7 +89,6 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   const parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
 
   let audioUrl, combinedAudioUrl, duration;
-  const isLocal = process.env.NODE_ENV !== 'production';
   const tempDir = path.join(__dirname, '../../temp');
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
@@ -101,69 +100,62 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   }
 
   try {
-    if (isLocal) {
-      const localPath = path.join(uploadDir, `${Date.now()}-${file.originalname}`);
-      await fsPromises.writeFile(localPath, file.buffer);
-      audioUrl = `/uploads/${path.basename(localPath)}`;
-      combinedAudioUrl = audioUrl;
-    } else {
-      // 1. Upload raw file to S3
-      audioUrl = `tracks/${Date.now()}-${file.originalname}`;
-      const uploadParams = {
-        Bucket: process.env.S3_BUCKET,
-        Key: audioUrl,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      };
-      await s3.upload(uploadParams).promise();
+    // 1. Upload raw file to S3
+    audioUrl = `tracks/${Date.now()}-${file.originalname}`;
+    const uploadParams = {
+      Bucket: process.env.S3_BUCKET,
+      Key: audioUrl,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+    await s3.upload(uploadParams).promise();
 
-      if (parent_track_id) {
-        const parentResult = await pool.query(
-          'SELECT combined_audio_url, audio_url, duration FROM tracks WHERE id = $1',
-          [parent_track_id]
-        );
-        if (parentResult.rows.length === 0) {
-          return res.status(400).json({ error: 'Parent track not found' });
-        }
-
-        duration = parentResult.rows[0].duration;
-        layer = parentResult.rows[0].layer + 1;
-        if (layer > 4) {
-          return res.status(400).json({ error: 'Layer limit reached' });
-        }
-        
-        const parentCombinedKey = parentResult.rows[0].combined_audio_url || parentResult.rows[0].audio_url;
-        const localFiles = [];
-
-        const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
-        await fsPromises.writeFile(uploadedLocalPath, file.buffer);
-        localFiles.push(uploadedLocalPath);
-
-        if (parentCombinedKey) {
-          const parentLocalPath = path.join(tempDir, `parent-${Date.now()}-${path.basename(parentCombinedKey)}`);
-          console.log('Downloading parent:', parentCombinedKey, 'to:', parentLocalPath);
-          await downloadS3File(parentCombinedKey, parentLocalPath);
-          localFiles.push(parentLocalPath);
-        }
-
-        console.log('Local files before combining:', localFiles);
-        combinedAudioUrl = `tracks/combined-${Date.now()}-${title}.mp3`;
-        const combinedPath = path.join(tempDir, path.basename(combinedAudioUrl));
-        await combineAudioFiles(localFiles, combinedPath);
-
-        const combinedParams = {
-          Bucket: process.env.S3_BUCKET,
-          Key: combinedAudioUrl,
-          Body: fs.createReadStream(combinedPath),
-          ContentType: 'audio/mpeg',
-        };
-        await s3.upload(combinedParams).promise();
-
-        await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(err => console.error('Cleanup error:', err))));
-        await fsPromises.unlink(combinedPath).catch(err => console.error('Cleanup error:', err));
-      } else {
-        combinedAudioUrl = audioUrl;
+    if (parent_track_id) {
+      const parentResult = await pool.query(
+        'SELECT combined_audio_url, audio_url, duration FROM tracks WHERE id = $1',
+        [parent_track_id]
+      );
+      if (parentResult.rows.length === 0) {
+        return res.status(400).json({ error: 'Parent track not found' });
       }
+
+      duration = parentResult.rows[0].duration;
+      layer = parentResult.rows[0].layer + 1;
+      if (layer > 4) {
+        return res.status(400).json({ error: 'Layer limit reached' });
+      }
+      
+      const parentCombinedKey = parentResult.rows[0].combined_audio_url || parentResult.rows[0].audio_url;
+      const localFiles = [];
+
+      const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
+      await fsPromises.writeFile(uploadedLocalPath, file.buffer);
+      localFiles.push(uploadedLocalPath);
+
+      if (parentCombinedKey) {
+        const parentLocalPath = path.join(tempDir, `parent-${Date.now()}-${path.basename(parentCombinedKey)}`);
+        console.log('Downloading parent:', parentCombinedKey, 'to:', parentLocalPath);
+        await downloadS3File(parentCombinedKey, parentLocalPath);
+        localFiles.push(parentLocalPath);
+      }
+
+      console.log('Local files before combining:', localFiles);
+      combinedAudioUrl = `tracks/combined-${Date.now()}-${title}.mp3`;
+      const combinedPath = path.join(tempDir, path.basename(combinedAudioUrl));
+      await combineAudioFiles(localFiles, combinedPath);
+
+      const combinedParams = {
+        Bucket: process.env.S3_BUCKET,
+        Key: combinedAudioUrl,
+        Body: fs.createReadStream(combinedPath),
+        ContentType: 'audio/mpeg',
+      };
+      await s3.upload(combinedParams).promise();
+
+      await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(err => console.error('Cleanup error:', err))));
+      await fsPromises.unlink(combinedPath).catch(err => console.error('Cleanup error:', err));
+    } else {
+      combinedAudioUrl = audioUrl;
     }
 
     const result = await pool.query(
@@ -418,9 +410,7 @@ router.get('/feed', async (req, res) => {
     
     const tracks = await Promise.all(result.rows.map(async track => {
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (process.env.NODE_ENV !== 'production') {
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else if (combinedAudioUrl.startsWith('tracks/')) {
+      if (combinedAudioUrl.startsWith('tracks/')) {
         combinedAudioUrl = s3.getSignedUrl('getObject', {
           Bucket: process.env.S3_BUCKET,
           Key: track.combined_audio_url || track.audio_url,
@@ -484,24 +474,19 @@ router.get('/:id', async (req, res) => {
       let audioUrl = track.audio_url;
       let combinedAudioUrl = track.combined_audio_url || track.audio_url; // Fallback to audio_url if no combined
       
-      if (process.env.NODE_ENV !== 'production') {
-        audioUrl = `http://localhost:5000${audioUrl}`;
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else {
-        if (audioUrl.startsWith('tracks/')) {
-          audioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.audio_url,
-            Expires: 3600,
-          });
-        }
-        if (combinedAudioUrl.startsWith('tracks/')) {
-          combinedAudioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.combined_audio_url || track.audio_url,
-            Expires: 3600,
-          });
-        }
+      if (audioUrl.startsWith('tracks/')) {
+        audioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.audio_url,
+          Expires: 3600,
+        });
+      }
+      if (combinedAudioUrl.startsWith('tracks/')) {
+        combinedAudioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.combined_audio_url || track.audio_url,
+          Expires: 3600,
+        });
       }
       
       // Get genres for this track
@@ -555,9 +540,7 @@ router.get('/:id/related', async (req, res) => {
     
     const tracks = await Promise.all(result.rows.map(async track => {
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (process.env.NODE_ENV !== 'production') {
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else if (combinedAudioUrl.startsWith('tracks/')) {
+      if (combinedAudioUrl.startsWith('tracks/')) {
         combinedAudioUrl = s3.getSignedUrl('getObject', {
           Bucket: process.env.S3_BUCKET,
           Key: track.combined_audio_url || track.audio_url,
@@ -616,9 +599,7 @@ router.get('/', async (req, res) => {
     
     const tracks = await Promise.all(result.rows.map(async track => {
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (process.env.NODE_ENV !== 'production') {
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else if (combinedAudioUrl.startsWith('tracks/')) {
+      if (combinedAudioUrl.startsWith('tracks/')) {
         combinedAudioUrl = s3.getSignedUrl('getObject', {
           Bucket: process.env.S3_BUCKET,
           Key: track.combined_audio_url || track.audio_url,
@@ -785,9 +766,7 @@ router.get('/search', async (req, res) => {
     
     const tracks = await Promise.all(result.rows.map(async track => {
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (process.env.NODE_ENV !== 'production') {
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else if (combinedAudioUrl.startsWith('tracks/')) {
+      if (combinedAudioUrl.startsWith('tracks/')) {
         combinedAudioUrl = s3.getSignedUrl('getObject', {
           Bucket: process.env.S3_BUCKET,
           Key: track.combined_audio_url || track.audio_url,
@@ -1011,24 +990,19 @@ router.get('/:id/tree', async (req, res) => {
       let audioUrl = track.audio_url;
       let combinedAudioUrl = track.combined_audio_url || track.audio_url;
       
-      if (process.env.NODE_ENV !== 'production') {
-        audioUrl = `http://localhost:5000${audioUrl}`;
-        combinedAudioUrl = `http://localhost:5000${combinedAudioUrl}`;
-      } else {
-        if (audioUrl.startsWith('tracks/')) {
-          audioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.audio_url,
-            Expires: 3600,
-          });
-        }
-        if (combinedAudioUrl.startsWith('tracks/')) {
-          combinedAudioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.combined_audio_url || track.audio_url,
-            Expires: 3600,
-          });
-        }
+      if (audioUrl.startsWith('tracks/')) {
+        audioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.audio_url,
+          Expires: 3600,
+        });
+      }
+      if (combinedAudioUrl.startsWith('tracks/')) {
+        combinedAudioUrl = s3.getSignedUrl('getObject', {
+          Bucket: process.env.S3_BUCKET,
+          Key: track.combined_audio_url || track.audio_url,
+          Expires: 3600,
+        });
       }
       
       // Get genres for this track
