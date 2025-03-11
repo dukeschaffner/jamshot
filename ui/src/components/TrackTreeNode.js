@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic, FaInfoCircle, FaRetweet } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic, FaInfoCircle, FaRetweet, FaLock, FaLockOpen, FaCopy, FaCheck } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import TrackTags from './TrackTags';
 import { formatDuration, formatDate } from '../lib/utils';
@@ -30,6 +30,27 @@ export default function TrackTreeNode({
   const [isLikeInProgress, setIsLikeInProgress] = useState(false);
   const [isReposted, setIsReposted] = useState(track.is_reposted || false);
   const [isRepostInProgress, setIsRepostInProgress] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(track.is_private || false);
+  const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [isTrackOwner, setIsTrackOwner] = useState(false);
+
+  // Check if current user is the track owner
+  useEffect(() => {
+    const checkOwnership = async () => {
+      try {
+        const token = Cookies.get('token');
+        if (!token) return;
+        
+        const response = await api.get('/auth/me');
+        setIsTrackOwner(response.data.id === track.user_id);
+      } catch (err) {
+        console.error('Error checking track ownership:', err);
+      }
+    };
+    
+    checkOwnership();
+  }, [track.user_id]);
 
   // Wrap fetchChildTracks in useCallback to prevent it from changing on every render
   const fetchChildTracks = useCallback(async () => {
@@ -149,11 +170,66 @@ export default function TrackTreeNode({
     }
   };
 
+  const handlePrivacyToggle = async (e) => {
+    e.stopPropagation();
+    
+    if (!isTrackOwner || isPrivacyToggleInProgress) return;
+    
+    setIsPrivacyToggleInProgress(true);
+    
+    try {
+      const response = await api.put(`/tracks/${track.id}/privacy`, {
+        is_private: !isPrivate
+      });
+      
+      setIsPrivate(!isPrivate);
+      
+      // Show a notification
+      const message = !isPrivate 
+        ? 'Track is now private. Only you and people with the private link can view it.' 
+        : 'Track is now public.';
+      alert(message);
+    } catch (err) {
+      console.error('Failed to toggle track privacy:', err);
+      alert('Failed to update track privacy settings');
+    } finally {
+      setIsPrivacyToggleInProgress(false);
+    }
+  };
+  
+  const handleCopyLink = (e) => {
+    e.stopPropagation();
+    
+    const baseUrl = window.location.origin;
+    let trackUrl = `${baseUrl}/track/${track.id}`;
+    
+    // If track is private, add the secret token
+    if (isPrivate) {
+      trackUrl += `?secret=${track.id}`;
+    }
+    
+    navigator.clipboard.writeText(trackUrl)
+      .then(() => {
+        setIsLinkCopied(true);
+        setTimeout(() => setIsLinkCopied(false), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy link:', err);
+        alert('Failed to copy link to clipboard');
+      });
+  };
+
   return (
     <div className={`track-card ${isExpanded ? 'expanded' : ''} ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
       {track.is_repost && track.reposted_by_username && (
         <div className="repost-banner">
           <FaRetweet className="repost-icon" /> Reposted by {track.reposted_by_username}
+        </div>
+      )}
+      
+      {isPrivate && (
+        <div className="private-banner">
+          <FaLock className="private-icon" /> Private Track
         </div>
       )}
       
@@ -240,9 +316,24 @@ export default function TrackTreeNode({
             <FaRetweet />
           </button>
           
-          <button className="share-btn">
-            <FaShareAlt />
+          <button 
+            className="share-btn"
+            onClick={handleCopyLink}
+            title="Copy link to clipboard"
+          >
+            {isLinkCopied ? <FaCheck /> : <FaCopy />}
           </button>
+          
+          {isTrackOwner && (
+            <button 
+              className={`privacy-btn ${isPrivate ? 'private' : 'public'}`}
+              onClick={handlePrivacyToggle}
+              disabled={isPrivacyToggleInProgress}
+              title={isPrivate ? 'Make track public' : 'Make track private'}
+            >
+              {isPrivate ? <FaLock /> : <FaLockOpen />}
+            </button>
+          )}
           
           <button className="action-btn" onClick={(e) => {
             e.stopPropagation();

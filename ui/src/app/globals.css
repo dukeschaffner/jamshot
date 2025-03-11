@@ -3309,3 +3309,62 @@ body.dark-mode .notification-time {
   color: var(--red);
   opacity: 1;
 }
+
+/* Privacy toggle and copy link button styles */
+.privacy-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.privacy-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.privacy-btn.private {
+  color: var(--primary);
+}
+
+.privacy-btn.public {
+  color: var(--text-secondary);
+}
+
+.share-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.private-banner {
+  background-color: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.private-icon {
+  font-size: 0.8rem;
+}

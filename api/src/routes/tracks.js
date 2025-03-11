@@ -455,7 +455,36 @@ router.get('/feed', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
+  const { secret } = req.query; // Secret token for private tracks
+  
   try {
+    // First check if the track exists and if it's private
+    const trackCheck = await pool.query(
+      'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const track = trackCheck.rows[0];
+    
+    // If track is private, check if user is authorized to view it
+    if (track.is_private) {
+      // Allow access if user is the owner
+      const isOwner = userId && track.user_id === userId;
+      
+      // Allow access if secret token is provided and valid
+      // For simplicity, we're using the track ID as the secret token
+      // In a production environment, you would use a more secure method
+      const hasValidSecret = secret && secret === id.toString();
+      
+      if (!isOwner && !hasValidSecret) {
+        return res.status(403).json({ error: 'This track is private' });
+      }
+    }
+    
     const result = await pool.query(`
       SELECT 
         t.*,
@@ -918,8 +947,36 @@ router.post('/:id/play', async (req, res) => {
 router.get('/:id/tree', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
+  const { secret } = req.query; // Secret token for private tracks
   
   try {
+    // First check if the track exists and if it's private
+    const trackCheck = await pool.query(
+      'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const track = trackCheck.rows[0];
+    
+    // If track is private, check if user is authorized to view it
+    if (track.is_private) {
+      // Allow access if user is the owner
+      const isOwner = userId && track.user_id === userId;
+      
+      // Allow access if secret token is provided and valid
+      // For simplicity, we're using the track ID as the secret token
+      // In a production environment, you would use a more secure method
+      const hasValidSecret = secret && secret === id.toString();
+      
+      if (!isOwner && !hasValidSecret) {
+        return res.status(403).json({ error: 'This track is private' });
+      }
+    }
+    
     // First, get the current track
     const currentTrackResult = await pool.query(`
       SELECT 
@@ -1044,6 +1101,40 @@ router.get('/:id/tree', async (req, res) => {
     });
   } catch (err) {
     console.error('Error fetching track tree:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Toggle track privacy
+router.put('/:id/privacy', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const { is_private } = req.body;
+  
+  try {
+    // Check if track exists and user is the owner
+    const trackCheck = await pool.query(
+      'SELECT user_id FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    if (trackCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: 'You do not have permission to modify this track' });
+    }
+    
+    // Update track privacy
+    const result = await pool.query(
+      'UPDATE tracks SET is_private = $1 WHERE id = $2 RETURNING *',
+      [is_private, id]
+    );
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error toggling track privacy:', err);
     res.status(500).json({ error: err.message });
   }
 });

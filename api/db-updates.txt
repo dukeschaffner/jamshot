@@ -1,1 +1,4 @@
 TEST:
+
+-- Add is_private column to tracks table
+ALTER TABLE tracks ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT FALSE;

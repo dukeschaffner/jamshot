@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import api from '../../../lib/api';
 import Track from '../../../components/Track';
 import TrackTreeNode from '../../../components/TrackTreeNode';
@@ -11,6 +11,8 @@ import { useAudio } from '../../../lib/AudioContext';
 export default function TrackDetailPage() {
   const { trackId } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const secret = searchParams.get('secret');
   const [trackTree, setTrackTree] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,20 +24,29 @@ export default function TrackDetailPage() {
     const fetchTrackTree = async () => {
       try {
         setLoading(true);
-        const response = await api.get(`/tracks/${trackId}/tree`);
+        // Include secret in the request if available
+        const url = secret 
+          ? `/tracks/${trackId}/tree?secret=${secret}`
+          : `/tracks/${trackId}/tree`;
+        
+        const response = await api.get(url);
         setTrackTree(response.data);
         // Expand the current track by default
         setExpandedTrackId(response.data.current.id);
       } catch (err) {
         console.error('Failed to fetch track tree:', err);
-        setError('Failed to load track data. Please try again later.');
+        if (err.response && err.response.status === 403) {
+          setError('This track is private. You do not have permission to view it.');
+        } else {
+          setError('Failed to load track data. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchTrackTree();
-  }, [trackId]);
+  }, [trackId, secret]);
 
   const handleChildSelect = (childId) => {
     // Navigate to the selected child track's page instead of just showing its children
