@@ -96,8 +96,8 @@ export default function UploadForm({
     if (isCollab && recordingAudioBuffer) {
       // Convert recording chunks to a blob
       const chunks = new Uint8Array(recordingAudioBuffer);
-      const blob = new Blob(chunks, { type: 'audio/wav' });
-      formData.append('audio', blob, 'recording.wav');
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      formData.append('audio', blob, 'recording.webm');
       
       // Add parent track ID for collab
       if (parentTrack && parentTrack.id) {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { formatDuration, renderWaveform } from '@/lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone, faPlay } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faPlay, faPause, faStepBackward, faStepForward, faTrash, faUpload, faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import './TracksWidget.css';
 
 export default function TracksWidget({ 
@@ -1031,6 +1031,77 @@ export default function TracksWidget({
     return gridLines;
   };
   
+  // File handling functions
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Check if file is an audio file
+    if (!file.type.startsWith('audio/')) {
+      alert('Please select an audio file');
+      return;
+    }
+    
+    try {
+      // Read file as array buffer
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Create chunks
+      const chunks = [new Uint8Array(arrayBuffer)];
+      
+      // Process the file
+      const fileBuffer = await processAudioChunks(chunks);
+      
+      // Create a take from the file
+      createTakeFromRecordedBuffer(fileBuffer, true);
+    } catch (error) {
+      console.error('Error processing uploaded file:', error);
+    }
+  };
+  
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.add('drag-over');
+  };
+  
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+  };
+  
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+    
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    
+    // Check if file is an audio file
+    if (!file.type.startsWith('audio/')) {
+      alert('Please select an audio file');
+      return;
+    }
+    
+    try {
+      // Read file as array buffer
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Create chunks
+      const chunks = [new Uint8Array(arrayBuffer)];
+      
+      // Process the file
+      const fileBuffer = await processAudioChunks(chunks);
+      
+      // Create a take from the file
+      createTakeFromRecordedBuffer(fileBuffer, true);
+    } catch (error) {
+      console.error('Error processing dropped file:', error);
+    }
+  };
+  
   return (
     <div className="daw-container">
       {/* Timeline */}
@@ -1138,11 +1209,24 @@ export default function TracksWidget({
         ) : (
           <div 
             className="waveform-container empty"
-            onClick={showCollabModal}
+            onClick={() => {
+                document.getElementById('audio-file-input').click();
+            }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           >
             <div className="empty-message">
-              <FontAwesomeIcon icon={faMicrophone} />
-              <span>Record your collaboration</span>
+                <FontAwesomeIcon icon={faCloudUploadAlt} />
+                <span>Drop audio file here or start recording</span>
+                <input 
+                type="file" 
+                id="audio-file-input" 
+                className="file-upload-input" 
+                accept="audio/*"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+                />
             </div>
           </div>
         )}
