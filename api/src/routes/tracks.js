@@ -120,7 +120,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
       }
 
       duration = parentResult.rows[0].duration;
-      layer = parentResult.rows[0].layer + 1;
+      layer = (parentResult.rows[0].layer ?? 0) + 1;
       if (layer > 4) {
         return res.status(400).json({ error: 'Layer limit reached' });
       }
