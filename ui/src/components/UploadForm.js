@@ -7,6 +7,7 @@ import { FaInfoCircle } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import './UploadForm.css';
+import { audioBufferToWav } from '../lib/utils';
 
 export default function UploadForm({ 
   isCollab = false, 
@@ -83,46 +84,56 @@ export default function UploadForm({
       return;
     }
     
-    // For collab upload, check if recording chunks exist
+    // For collab upload, check if recording buffer exists
     if (isCollab && !recordingAudioBuffer) {
       setError('No audio recording found');
       return;
     }
 
-    const formData = new FormData();
-    formData.append('title', title);
-    
-    // Add audio file or recording chunks
-    if (isCollab && recordingAudioBuffer) {
-      // Convert recording chunks to a blob
-      const chunks = new Uint8Array(recordingAudioBuffer);
-      const blob = new Blob(chunks, { type: 'audio/webm' });
-      formData.append('audio', blob, 'recording.webm');
-      
-      // Add parent track ID for collab
-      if (parentTrack && parentTrack.id) {
-        formData.append('parent_track_id', parentTrack.id);
-      }
-    } else {
-      formData.append('audio', audioFile);
-    }
-    
-    // Add genre and instrument IDs
-    if (selectedGenres.length > 0) {
-      formData.append('genreIds', JSON.stringify(selectedGenres));
-    }
-    
-    if (selectedInstruments.length > 0) {
-      formData.append('instrumentIds', JSON.stringify(selectedInstruments));
-    }
-
-    // Add metronome BPM if provided
-    if (metronomeBpm) {
-      formData.append('metronome_bpm', metronomeBpm);
-    }
-
     try {
-      await api.post('/tracks/upload', formData, {
+      const formData = new FormData();
+      formData.append('title', title);
+      
+      // Add audio file or recording buffer
+      if (isCollab && recordingAudioBuffer) {
+        try {
+          // Convert recording buffer to WAV format
+          const numberOfChannels = recordingAudioBuffer.numberOfChannels || 1;
+          const sampleRate = recordingAudioBuffer.sampleRate || 44100;
+          
+          // Create a WAV file from the audio buffer
+          const wavBuffer = audioBufferToWav(recordingAudioBuffer);
+          const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+          formData.append('audio', blob, 'recording.wav');
+          
+          // Add parent track ID for collab
+          if (parentTrack && parentTrack.id) {
+            formData.append('parent_track_id', parentTrack.id);
+          }
+        } catch (audioError) {
+          console.error('Error processing audio buffer:', audioError);
+          setError('Error processing audio: ' + audioError.message);
+          return;
+        }
+      } else {
+        formData.append('audio', audioFile);
+      }
+      
+      // Add genre and instrument IDs
+      if (selectedGenres.length > 0) {
+        formData.append('genreIds', JSON.stringify(selectedGenres));
+      }
+      
+      if (selectedInstruments.length > 0) {
+        formData.append('instrumentIds', JSON.stringify(selectedInstruments));
+      }
+
+      // Add metronome BPM if provided
+      if (metronomeBpm) {
+        formData.append('metronome_bpm', metronomeBpm);
+      }
+
+      const response = await api.post('/tracks/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       
@@ -135,7 +146,8 @@ export default function UploadForm({
       // Otherwise, redirect to home
       router.push('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Upload failed');
+      console.error('Upload error:', err);
+      setError(err.response?.data?.error || 'Upload failed: ' + (err.message || 'Unknown error'));
     }
   };
 
