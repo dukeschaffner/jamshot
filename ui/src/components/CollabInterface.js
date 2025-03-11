@@ -8,6 +8,7 @@ import {
   faHeart, faComment, faCircle, faStop, faCog
 } from '@fortawesome/free-solid-svg-icons';
 import TracksWidget from './TracksWidget';
+import UploadForm from './UploadForm';
 import Cookies from 'js-cookie';
 import './CollabInterface.css';
 
@@ -17,15 +18,13 @@ export default function CollabInterface({ track }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showRecordingSection, setShowRecordingSection] = useState(false);
-  const [showUploadSection, setShowUploadSection] = useState(false);
-  const [fileName, setFileName] = useState('');
+  const [showUploadForm, setShowUploadForm] = useState(false);
   const [originalAudioChunks, setOriginalAudioChunks] = useState(null);
-  const [recordingAudioChunks, setRecordingAudioChunks] = useState(null);
+  const [recordingPlaybackBuffer, setRecordingPlaybackBuffer] = useState(null);
+  const [fileChunks, setFileChunks] = useState(null);
   const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [selectedAudioInputDevice, setSelectedAudioInputDevice] = useState(null);
-  const [selectedTake, setSelectedTake] = useState(null);
   const [userLatencyCompensation, setUserLatencyCompensation] = useState(0);
   
   // Track duration in seconds (default to 90 seconds if not available)
@@ -104,7 +103,6 @@ export default function CollabInterface({ track }) {
   const handleRecordOption = () => {
     setShowModal(false);
     setShowRecordingSection(true);
-    setShowUploadSection(false);
   };
   
   // Handle file upload
@@ -127,7 +125,7 @@ export default function CollabInterface({ track }) {
       
       // Create chunks
       const chunks = [new Uint8Array(arrayBuffer)];
-      setRecordingAudioChunks(chunks);
+      setFileChunks(chunks);
       
     } catch (error) {
       console.error('Error processing uploaded file:', error);
@@ -137,8 +135,7 @@ export default function CollabInterface({ track }) {
   // Handle upload option
   const handleUploadOption = () => {
     setShowModal(false);
-    // Trigger file input click
-    document.getElementById('file-upload').click();
+    setShowUploadForm(true);
   };
   
   // Handle drag and drop
@@ -177,7 +174,7 @@ export default function CollabInterface({ track }) {
       
       // Create chunks
       const chunks = [new Uint8Array(arrayBuffer)];
-      setRecordingAudioChunks(chunks);
+      setFileChunks(chunks);
       
     } catch (error) {
       console.error('Error processing dropped file:', error);
@@ -210,6 +207,13 @@ export default function CollabInterface({ track }) {
     
     // Toggle recording state
     setIsRecording(!isRecording);
+  };
+
+  // Handle upload recording
+  const handleUploadRecording = () => {
+    if (recordingPlaybackBuffer) {
+      setShowUploadForm(true);
+    }
   };
   
   return (
@@ -247,6 +251,15 @@ export default function CollabInterface({ track }) {
           >
             <FontAwesomeIcon icon={isRecording ? faStop : faCircle}/>
           </button>
+          {recordingPlaybackBuffer && !isRecording && (
+            <button 
+              className="control-button upload"
+              onClick={handleUploadRecording}
+              title="Upload Recording"
+            >
+              <FontAwesomeIcon icon={faUpload} />
+            </button>
+          )}
           <button className="control-button">
             <FontAwesomeIcon icon={faStepBackward} />
           </button>
@@ -273,55 +286,30 @@ export default function CollabInterface({ track }) {
       </div>
 
       {/* Tracks Widget */}
-      <TracksWidget 
-        isPlaying={isPlaying}
-        setIsPlaying={setIsPlaying}
-        trackDuration={trackDuration}
-        showCollabModal={showCollabModal}
-        originalAudioChunks={originalAudioChunks}
-        recordingAudioChunks={recordingAudioChunks}
-        isRecording={isRecording}
-        selectedAudioInputDevice={selectedAudioInputDevice}
-        setRecordingAudioChunks={setRecordingAudioChunks}
-        userLatencyCompensation={userLatencyCompensation}
-      />
+      {!showUploadForm && (
+        <TracksWidget 
+          isPlaying={isPlaying}
+          setIsPlaying={setIsPlaying}
+          trackDuration={trackDuration}
+          showCollabModal={showCollabModal}
+          originalAudioChunks={originalAudioChunks}
+          fileChunks={fileChunks}
+          recordingPlaybackBuffer={recordingPlaybackBuffer}
+          setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
+          isRecording={isRecording}
+          selectedAudioInputDevice={selectedAudioInputDevice}
+          userLatencyCompensation={userLatencyCompensation}
+        />
+      )}
 
-      {/* Recording Section */}
-      
-
-      {/* Upload Section */}
-      {showUploadSection && (
-        <div className="upload-section">
-          <div 
-            className="file-upload-area"
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <FontAwesomeIcon icon={faCloudUploadAlt} className="upload-icon" />
-            <div className="file-upload-text">
-              Drag and drop your audio file here or
-              <button 
-                className="browse-btn"
-                onClick={() => document.getElementById('file-upload').click()}
-              >
-                Browse
-              </button>
-            </div>
-            <input 
-              type="file" 
-              id="file-upload" 
-              className="file-upload-input" 
-              accept="audio/*"
-              onChange={handleFileChange}
-            />
-            {fileName && (
-              <div className="file-name">
-                Selected file: {fileName}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Upload Form */}
+      {recordingPlaybackBuffer && showUploadForm && (
+        <UploadForm 
+          isCollab={true}
+          recordingAudioBuffer={recordingPlaybackBuffer}
+          parentTrack={track}
+          onCancel={() => setShowUploadForm(false)}
+        />
       )}
 
       {/* Modal for Collaboration Options */}

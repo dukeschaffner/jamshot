@@ -128,3 +128,89 @@ export function renderWaveform(buffer, canvasRef, cropStart, cropEnd){
   
   ctx.stroke();
 };
+
+// Helper function to write strings to DataView
+export function writeString(view, offset, string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+};
+
+export function audioBufferToWav(buffer, sampleRate) {
+  // Use the provided sample rate or default to the buffer's sample rate
+  const useSampleRate = sampleRate || buffer.sampleRate;
+  
+  // High-quality WAV settings
+  const numOfChannels = buffer.numberOfChannels;
+  const bitsPerSample = 24; // 24-bit for higher quality (CD quality is 16-bit)
+  const bytesPerSample = bitsPerSample / 8;
+  const blockAlign = numOfChannels * bytesPerSample;
+  const byteRate = useSampleRate * blockAlign;
+  const dataSize = buffer.length * numOfChannels * bytesPerSample;
+  
+  // Create WAV file container
+  const arrayBuffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(arrayBuffer);
+  
+  // RIFF identifier
+  writeString(view, 0, 'RIFF');
+  // RIFF chunk length
+  view.setUint32(4, 36 + dataSize, true);
+  // RIFF type
+  writeString(view, 8, 'WAVE');
+  // Format chunk identifier
+  writeString(view, 12, 'fmt ');
+  // Format chunk length
+  view.setUint32(16, 16, true);
+  // Sample format (raw)
+  view.setUint16(20, 1, true);
+  // Channel count
+  view.setUint16(22, numOfChannels, true);
+  // Sample rate
+  view.setUint32(24, useSampleRate, true);
+  // Byte rate (sample rate * block align)
+  view.setUint32(28, byteRate, true);
+  // Block align (channel count * bytes per sample)
+  view.setUint16(32, blockAlign, true);
+  // Bits per sample
+  view.setUint16(34, bitsPerSample, true);
+  // Data chunk identifier
+  writeString(view, 36, 'data');
+  // Data chunk length
+  view.setUint32(40, dataSize, true);
+  
+  // Write the PCM samples with high precision
+  const offset = 44;
+  const channelData = [];
+  for (let i = 0; i < numOfChannels; i++) {
+    channelData.push(buffer.getChannelData(i));
+  }
+  
+  let pos = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    for (let ch = 0; ch < numOfChannels; ch++) {
+      // Clamp the value to the -1 to 1 range
+      const sample = Math.max(-1, Math.min(1, channelData[ch][i]));
+      
+      // For 24-bit audio, we need to write 3 bytes
+      if (bitsPerSample === 24) {
+        // Convert to 24-bit signed integer
+        const value = sample < 0 ? sample * 0x800000 : sample * 0x7FFFFF;
+        const intValue = Math.floor(value);
+        
+        // Write the 3 bytes (little-endian)
+        view.setUint8(offset + pos, intValue & 0xFF);
+        view.setUint8(offset + pos + 1, (intValue >> 8) & 0xFF);
+        view.setUint8(offset + pos + 2, (intValue >> 16) & 0xFF);
+        pos += 3;
+      } else {
+        // Fallback to 16-bit if needed
+        const value = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset + pos, value, true);
+        pos += 2;
+      }
+    }
+  }
+  
+  return arrayBuffer;
+};
