@@ -13,7 +13,9 @@ export default function TracksWidget({
   showCollabModal,
   isRecording,
   originalAudioChunks = null,
-  recordingAudioChunks = null,
+  recordingPlaybackBuffer,
+  setRecordingPlaybackBuffer,
+  fileChunks,
   selectedAudioInputDevice = null,
   userLatencyCompensation = 0
 }) {
@@ -80,6 +82,26 @@ export default function TracksWidget({
     const timeToPos = (time, duration) => {
         return (time / duration) * 100;
     };
+
+    const processAudioChunks = async (chunks) => {
+        if (!chunks || chunks.length === 0 || !audioContext) return;
+        
+        try {
+          // Create blob from chunks
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          
+          // Convert blob to array buffer
+          const arrayBuffer = await blob.arrayBuffer();
+          
+          // Decode audio data
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          // Store buffer
+          return audioBuffer;
+        } catch (error) {
+          console.error('Error processing audio chunks:', error);
+        }
+    };
   
 
     //#region audio processing
@@ -116,34 +138,14 @@ export default function TracksWidget({
 
   // Process audio chunks when they change
   useEffect(() => {
-    const processAudioChunks = async (chunks, bufferRef) => {
-      if (!chunks || chunks.length === 0 || !audioContext) return;
-      
-      try {
-        // Create blob from chunks
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        
-        // Convert blob to array buffer
-        const arrayBuffer = await blob.arrayBuffer();
-        
-        // Decode audio data
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        
-        // Store buffer
-        bufferRef.current = audioBuffer;
-      } catch (error) {
-        console.error('Error processing audio chunks:', error);
+    const processOriginalAudioChunks = async () => {
+      if (originalAudioChunks) {
+        originalBufferRef.current = await processAudioChunks(originalAudioChunks);
       }
     };
-    
-    if (originalAudioChunks) {
-      processAudioChunks(originalAudioChunks, originalBufferRef);
-    }
-    
-    // if (recordingAudioChunks) {
-    //   processAudioChunks(recordingAudioChunks, recordingBufferRef);
-    // }
-  }, [originalAudioChunks, recordingAudioChunks]);
+
+    processOriginalAudioChunks();
+  }, [originalAudioChunks]);
 
   // Play back the recorded audio synchronized with the original track
   const play = () => {
@@ -173,7 +175,7 @@ export default function TracksWidget({
     const recordedGain = audioContext.createGain();
     recordedGain.gain.value = 1; // Set volume for recorded audio
     const recordedSource = audioContext.createBufferSource();
-    recordedSource.buffer = recordedBufferRef.current;
+    recordedSource.buffer = recordingPlaybackBuffer;
     recordedSource.connect(recordedGain);
     recordedGain.connect(audioContext.destination);
 
@@ -183,9 +185,6 @@ export default function TracksWidget({
     
     // Store active sources for stopping playback
     activeSourcesRef.current = [trackSource, recordedSource];
-    
-    // Calculate the latency offset in seconds
-    const latencyOffset = userLatencyCompensation / 1000; // Convert ms to seconds
     
     // Start playback with latency compensation
     let startTime
@@ -200,7 +199,7 @@ export default function TracksWidget({
     }
     trackSource.start(0, startTime);
     if(!isRecording){
-      recordedSource.start(0,startTime + latencyOffset); // Start recorded audio earlier to compensate
+      recordedSource.start(0,startTime);
     }
     else{
       relativeRecordingStartTimeRef.current = startTime;
@@ -348,7 +347,7 @@ export default function TracksWidget({
       }
       
       // Track start time for synchronization
-      recordingStartTimeRef.current = audioContext.currentTime;
+      absoluteRecordingStartTimeRef.current = audioContext.currentTime;
       
       isRecordingRef.current = true;
       
@@ -358,161 +357,34 @@ export default function TracksWidget({
     }
   };
 
-  // Helper function to convert AudioBuffer to high-quality WAV format
-  const audioBufferToWav = (buffer, sampleRate) => {
-    // Use the provided sample rate or default to the buffer's sample rate
-    const useSampleRate = sampleRate || buffer.sampleRate;
-    
-    // High-quality WAV settings
-    const numOfChannels = buffer.numberOfChannels;
-    const bitsPerSample = 24; // 24-bit for higher quality (CD quality is 16-bit)
-    const bytesPerSample = bitsPerSample / 8;
-    const blockAlign = numOfChannels * bytesPerSample;
-    const byteRate = useSampleRate * blockAlign;
-    const dataSize = buffer.length * numOfChannels * bytesPerSample;
-    
-    // Create WAV file container
-    const arrayBuffer = new ArrayBuffer(44 + dataSize);
-    const view = new DataView(arrayBuffer);
-    
-    // RIFF identifier
-    writeString(view, 0, 'RIFF');
-    // RIFF chunk length
-    view.setUint32(4, 36 + dataSize, true);
-    // RIFF type
-    writeString(view, 8, 'WAVE');
-    // Format chunk identifier
-    writeString(view, 12, 'fmt ');
-    // Format chunk length
-    view.setUint32(16, 16, true);
-    // Sample format (raw)
-    view.setUint16(20, 1, true);
-    // Channel count
-    view.setUint16(22, numOfChannels, true);
-    // Sample rate
-    view.setUint32(24, useSampleRate, true);
-    // Byte rate (sample rate * block align)
-    view.setUint32(28, byteRate, true);
-    // Block align (channel count * bytes per sample)
-    view.setUint16(32, blockAlign, true);
-    // Bits per sample
-    view.setUint16(34, bitsPerSample, true);
-    // Data chunk identifier
-    writeString(view, 36, 'data');
-    // Data chunk length
-    view.setUint32(40, dataSize, true);
-    
-    // Write the PCM samples with high precision
-    const offset = 44;
-    const channelData = [];
-    for (let i = 0; i < numOfChannels; i++) {
-      channelData.push(buffer.getChannelData(i));
-    }
-    
-    let pos = 0;
-    for (let i = 0; i < buffer.length; i++) {
-      for (let ch = 0; ch < numOfChannels; ch++) {
-        // Clamp the value to the -1 to 1 range
-        const sample = Math.max(-1, Math.min(1, channelData[ch][i]));
-        
-        // For 24-bit audio, we need to write 3 bytes
-        if (bitsPerSample === 24) {
-          // Convert to 24-bit signed integer
-          const value = sample < 0 ? sample * 0x800000 : sample * 0x7FFFFF;
-          const intValue = Math.floor(value);
-          
-          // Write the 3 bytes (little-endian)
-          view.setUint8(offset + pos, intValue & 0xFF);
-          view.setUint8(offset + pos + 1, (intValue >> 8) & 0xFF);
-          view.setUint8(offset + pos + 2, (intValue >> 16) & 0xFF);
-          pos += 3;
-        } else {
-          // Fallback to 16-bit if needed
-          const value = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-          view.setInt16(offset + pos, value, true);
-          pos += 2;
-        }
-      }
-    }
-    
-    return arrayBuffer;
-  };
-  
-  // Helper function to write strings to DataView
-  const writeString = (view, offset, string) => {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
-    }
-  };
+
 
   // Function to create a new take from the recorded buffer
-  const createTakeFromRecordedBuffer = (buffer) => {
+  const createTakeFromRecordedBuffer = (buffer, isFile = false) => {
     if (!buffer) {
       console.error('No recorded buffer available');
       return;
     }
     
     try {
-      // Get the recorded buffer
-      let recordedBuffer = buffer;
-      
-      // Check if we need to pad the buffer (if it's shorter than the original track)
-      if (originalBufferRef.current && recordedBuffer.duration < originalBufferRef.current.duration) {
-        console.log('Padding recorded buffer to match original track duration');
-        
-        // Create a new buffer with the same duration as the original track
-        const paddedBuffer = audioContext.createBuffer(
-          recordedBuffer.numberOfChannels,
-          originalBufferRef.current.length,
-          recordedBuffer.sampleRate
-        );
-        
-        // Calculate the start position for the recorded audio
-        // This centers the recording if it started in the middle of the track
-        const startSample = Math.floor(relativeRecordingStartTimeRef.current * recordedBuffer.sampleRate);
-        
-        // Copy the recorded data into the padded buffer at the correct position
-        for (let channel = 0; channel < recordedBuffer.numberOfChannels; channel++) {
-          const paddedData = paddedBuffer.getChannelData(channel);
-          const recordedData = recordedBuffer.getChannelData(channel);
-          
-          // Fill with zeros before the recording (if needed)
-          for (let i = 0; i < startSample; i++) {
-            paddedData[i] = 0;
-          }
-          
-          // Copy the recorded data
-          for (let i = 0; i < recordedBuffer.length; i++) {
-            if (startSample + i < paddedBuffer.length) {
-              paddedData[startSample + i] = recordedData[i];
-            }
-          }
-          
-          // Fill with zeros after the recording (if needed)
-          for (let i = startSample + recordedBuffer.length; i < paddedBuffer.length; i++) {
-            paddedData[i] = 0;
-          }
-        }
-        
-        // Use the padded buffer instead of the original recorded buffer
-        recordedBuffer = paddedBuffer;
-      }
-      
       // Convert to high-quality WAV format
-      const wavArrayBuffer = audioBufferToWav(
-        recordedBuffer, 
-        recorderRef.current?.sampleRate || audioContext.sampleRate
-      );
+    //   const wavArrayBuffer = audioBufferToWav(
+    //     recordedBuffer, 
+    //     recorderRef.current?.sampleRate || audioContext.sampleRate
+    //   );
       
+      const startTime = isFile ? 0 : relativeRecordingStartTimeRef.current;
+      const endTime = isFile ? buffer.duration : startTime + buffer.duration;
+
       // Create a take with the high-quality WAV data
       const takeNumber = takes.length + 1;
       const newTake = {
         id: Date.now().toString(),
         name: `Take ${takeNumber}`,
-        buffer: recordedBuffer,
+        buffer: buffer,
         recordedAt: Date.now(),
-        startTime: relativeRecordingStartTimeRef.current,
-        endTime: relativeRecordingStartTimeRef.current + buffer.duration,
+        startTime: startTime,
+        endTime: endTime,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
         bitDepth: 24 // Store the bit depth for reference
@@ -529,6 +401,13 @@ export default function TracksWidget({
       console.error('Error creating take from recorded buffer:', error);
     }
   };
+
+  useEffect(() => {
+    if(fileChunks){
+      let fileBuffer = processAudioChunks(fileChunks);
+      createTakeFromRecordedBuffer(fileBuffer);
+    }
+  }, [fileChunks]);
 
   // Update the stopRecording function to create a take
   const stopRecording = () => {
@@ -660,6 +539,104 @@ export default function TracksWidget({
       startingRecordingRef.current = false;
     }
   }, [isRecording]);
+
+  //Generate recording playback buffer
+  useEffect(() => {
+    const createRecordingPlaybackBuffer = (selectedTake) => {
+      if(!selectedTake) return;
+      let recordedBuffer = selectedTake.buffer;
+      let resultBuffer;
+      
+      // Check if we need to pad the buffer (if it's shorter than the original track)
+      if (originalBufferRef.current && recordedBuffer.duration < originalBufferRef.current.duration) {
+        console.log('Padding recorded buffer to match original track duration');
+        const adjustedStartTime = selectedTake.startTime - userLatencyCompensation / 1000;
+        
+        // Create a new buffer with the same duration as the original track
+        const paddedBuffer = audioContext.createBuffer(
+          recordedBuffer.numberOfChannels,
+          originalBufferRef.current.length,
+          recordedBuffer.sampleRate
+        );
+        
+        // Calculate the start position for the recorded audio
+        // This centers the recording if it started in the middle of the track
+        const startSample = Math.floor(adjustedStartTime * recordedBuffer.sampleRate);
+        
+        // Copy the recorded data into the padded buffer at the correct position
+        for (let channel = 0; channel < recordedBuffer.numberOfChannels; channel++) {
+          const paddedData = paddedBuffer.getChannelData(channel);
+          const recordedData = recordedBuffer.getChannelData(channel);
+          
+          // Fill with zeros before the recording (if needed)
+          for (let i = 0; i < startSample; i++) {
+            paddedData[i] = 0;
+          }
+          
+          // Copy the recorded data
+          for (let i = 0; i < recordedBuffer.length; i++) {
+            if (startSample + i < paddedBuffer.length) {
+              paddedData[startSample + i] = recordedData[i];
+            }
+          }
+          
+          // Fill with zeros after the recording (if needed)
+          for (let i = startSample + recordedBuffer.length; i < paddedBuffer.length; i++) {
+            paddedData[i] = 0;
+          }
+        }
+        
+        resultBuffer = paddedBuffer;
+      }
+      else if(originalBufferRef.current && recordedBuffer.duration > originalBufferRef.current.duration) {
+        console.log('Trimming recorded buffer to match original track duration');
+        
+        // Create a new buffer with the same duration as the original track
+        const trimmedBuffer = audioContext.createBuffer(
+          recordedBuffer.numberOfChannels,
+          originalBufferRef.current.length,
+          recordedBuffer.sampleRate
+        );
+        
+        // Calculate the adjusted start time with latency compensation
+        const adjustedStartTime = selectedTake.startTime - userLatencyCompensation / 1000;
+        const startSample = Math.floor(adjustedStartTime * recordedBuffer.sampleRate);
+        
+        // Copy only the portion of the recorded data that fits within the original duration
+        for (let channel = 0; channel < recordedBuffer.numberOfChannels; channel++) {
+          const trimmedData = trimmedBuffer.getChannelData(channel);
+          const recordedData = recordedBuffer.getChannelData(channel);
+          
+          // Fill with zeros before the recording (if needed)
+          for (let i = 0; i < startSample && i < trimmedBuffer.length; i++) {
+            trimmedData[i] = 0;
+          }
+          
+          // Copy the recorded data, but only up to the original buffer length
+          for (let i = 0; i < trimmedBuffer.length - startSample; i++) {
+            if (i < recordedBuffer.length) {
+              trimmedData[startSample + i] = recordedData[i];
+            } else {
+              trimmedData[startSample + i] = 0;
+            }
+          }
+        }
+        
+        resultBuffer = trimmedBuffer;
+      } else {
+        // If no original buffer or durations match, just use the recorded buffer as is
+        resultBuffer = recordedBuffer;
+      }
+      
+      return resultBuffer;
+    };
+    
+    // Check if we have a selected take
+    if(selectedTake) {
+      let recordedBuffer = createRecordingPlaybackBuffer(selectedTake);
+      setRecordingPlaybackBuffer(recordedBuffer);
+    }
+  }, [selectedTake, userLatencyCompensation]);
 
   //#endregion
   
