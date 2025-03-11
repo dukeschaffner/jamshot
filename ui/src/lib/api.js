@@ -15,8 +15,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export const fetchTrack = async (trackId) => {
-  const response = await api.get(`/tracks/${trackId}`);
+export const fetchTrack = async (trackId, secret) => {
+  const url = secret 
+    ? `/tracks/${trackId}?secret=${secret}`
+    : `/tracks/${trackId}`;
+  
+  const response = await api.get(url);
   return response.data;
 };
 

@@ -99,6 +99,7 @@ CREATE TABLE tracks (
   parent_track_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Null for originals, links to parent for versions
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   play_count INT DEFAULT 0,
+  is_private BOOLEAN NOT NULL DEFAULT FALSE,
   metronome_bpm INTEGER;
 );
 

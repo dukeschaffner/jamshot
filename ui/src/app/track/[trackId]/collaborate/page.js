@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
@@ -10,6 +10,8 @@ import './collaborate.css';
 
 export default function CollaboratePage() {
   const { trackId } = useParams();
+  const searchParams = useSearchParams();
+  const secret = searchParams.get('secret');
   const [track, setTrack] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,7 +20,7 @@ export default function CollaboratePage() {
     async function loadTrack() {
       try {
         setLoading(true);
-        const data = await fetchTrack(trackId);
+        const data = await fetchTrack(trackId, secret);
         console.log('Track data loaded:', data);
         // Since fetchTrack returns an array, we take the first track
         const mainTrack = Array.isArray(data) && data.length > 0 ? data[0] : null;
@@ -29,7 +31,11 @@ export default function CollaboratePage() {
         setLoading(false);
       } catch (err) {
         console.error('Error loading track:', err);
-        setError('Failed to load track. Please try again later.');
+        if (err.response && err.response.status === 403) {
+          setError('This track is private. You do not have permission to view it.');
+        } else {
+          setError('Failed to load track. Please try again later.');
+        }
         setLoading(false);
       }
     }
@@ -37,7 +43,7 @@ export default function CollaboratePage() {
     if (trackId) {
       loadTrack();
     }
-  }, [trackId]);
+  }, [trackId, secret]);
 
   if (loading) {
     return (
