@@ -135,51 +135,11 @@ export default function CollabInterface({ track }) {
   // Handle upload option
   const handleUploadOption = () => {
     setShowModal(false);
-    setShowUploadForm(true);
+    // Instead of showing the upload form directly, we'll close the modal
+    // and let the user use the file input in the TracksWidget
   };
   
-  // Handle drag and drop
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.add('drag-over');
-  };
   
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-  };
-  
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-    
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    
-    // Check if file is an audio file
-    if (!file.type.startsWith('audio/')) {
-      alert('Please select an audio file');
-      return;
-    }
-    
-    setSelectedFile(file);
-    setFileName(file.name);
-    
-    try {
-      // Read file as array buffer
-      const arrayBuffer = await file.arrayBuffer();
-      
-      // Create chunks
-      const chunks = [new Uint8Array(arrayBuffer)];
-      setFileChunks(chunks);
-      
-    } catch (error) {
-      console.error('Error processing dropped file:', error);
-    }
-  };
   
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
