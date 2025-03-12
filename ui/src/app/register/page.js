@@ -9,15 +9,24 @@ export default function Register() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setShowPasswordRequirements(true);
+      return;
+    }
     
     try {
       const response = await api.post('/auth/register', { username, email, password });
@@ -31,8 +40,10 @@ export default function Register() {
       setUsername('');
       setEmail('');
       setPassword('');
+      setConfirmPassword('');
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
+      setShowPasswordRequirements(true);
     }
   };
 
@@ -94,16 +105,32 @@ export default function Register() {
               className="w-full p-2 border rounded"
               required
             />
-            <div className="mt-1 text-xs text-gray-500">
-              <p>Password must:</p>
-              <ul className="list-disc pl-5">
-                <li>Be at least 8 characters long</li>
-                <li>Contain at least one uppercase letter</li>
-                <li>Contain at least one lowercase letter</li>
-                <li>Contain at least one number</li>
-                <li>Contain at least one special character (!@#$%^&*)</li>
-              </ul>
-            </div>
+            {showPasswordRequirements && (
+              <div className="mt-1 text-xs text-gray-500">
+                <p>Password must:</p>
+                <ul className="list-disc pl-5">
+                  <li>Be at least 8 characters long</li>
+                  <li>Contain at least one uppercase letter</li>
+                  <li>Contain at least one lowercase letter</li>
+                  <li>Contain at least one number</li>
+                  <li>Contain at least one special character (!@#$%^&*)</li>
+                </ul>
+              </div>
+            )}
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              Confirm Password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm Password"
+              className="w-full p-2 border rounded"
+              required
+            />
           </div>
           
           {error && (
