@@ -1139,4 +1139,93 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
   }
 });
 
+// Delete a track
+router.delete('/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  
+  try {
+    // Check if track exists and user is the owner
+    const trackCheck = await pool.query(
+      'SELECT user_id, audio_url, combined_audio_url FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    if (trackCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: 'You do not have permission to delete this track' });
+    }
+    
+    // Check if track has children
+    const childrenCheck = await pool.query(
+      'SELECT COUNT(*) FROM tracks WHERE parent_track_id = $1',
+      [id]
+    );
+    
+    const hasChildren = parseInt(childrenCheck.rows[0].count) > 0;
+    
+    if (hasChildren) {
+      // Soft delete - clear user_id and make track public
+      await pool.query(
+        'UPDATE tracks SET user_id = NULL, is_private = FALSE WHERE id = $1 RETURNING id',
+        [id]
+      );
+      
+      return res.status(200).json({ 
+        message: 'Track has been soft-deleted because it has collaborations',
+        soft_delete: true
+      });
+    } else {
+      // Hard delete - remove track and delete files from S3
+      const audioUrl = trackCheck.rows[0].audio_url;
+      const combinedAudioUrl = trackCheck.rows[0].combined_audio_url;
+      
+      // Delete from database first
+      await pool.query('DELETE FROM tracks WHERE id = $1', [id]);
+      
+      // Delete files from S3
+      const deletePromises = [];
+      
+      if (audioUrl && audioUrl.startsWith('tracks/')) {
+        deletePromises.push(
+          s3.deleteObject({
+            Bucket: process.env.S3_BUCKET,
+            Key: audioUrl
+          }).promise()
+        );
+      }
+      
+      if (combinedAudioUrl && combinedAudioUrl !== audioUrl && combinedAudioUrl.startsWith('tracks/')) {
+        deletePromises.push(
+          s3.deleteObject({
+            Bucket: process.env.S3_BUCKET,
+            Key: combinedAudioUrl
+          }).promise()
+        );
+      }
+      
+      // Wait for all S3 deletions to complete
+      if (deletePromises.length > 0) {
+        try {
+          await Promise.all(deletePromises);
+        } catch (s3Error) {
+          console.error('Error deleting files from S3:', s3Error);
+          // Continue with response even if S3 deletion fails
+        }
+      }
+      
+      return res.status(200).json({ 
+        message: 'Track has been permanently deleted',
+        soft_delete: false
+      });
+    }
+  } catch (err) {
+    console.error('Error deleting track:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

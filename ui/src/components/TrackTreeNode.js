@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic, FaInfoCircle, FaRetweet, FaLock, FaLockOpen, FaCopy, FaCheck } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaChevronDown, FaChevronUp, FaMusic, FaInfoCircle, FaRetweet, FaLock, FaLockOpen, FaCopy, FaCheck, FaTrash } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import TrackTags from './TrackTags';
 import { formatDuration, formatDate } from '../lib/utils';
@@ -34,6 +34,7 @@ export default function TrackTreeNode({
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const [isTrackOwner, setIsTrackOwner] = useState(false);
+  const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
 
   // Check if current user is the track owner
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function TrackTreeNode({
         const token = Cookies.get('token');
         if (!token) return;
         
-        const response = await api.get('/auth/me');
+        const response = await api.get('/users/me');
         setIsTrackOwner(response.data.id === track.user_id);
       } catch (err) {
         console.error('Error checking track ownership:', err);
@@ -219,6 +220,45 @@ export default function TrackTreeNode({
       });
   };
 
+  const handleDeleteTrack = async (e) => {
+    e.stopPropagation();
+    
+    if (!isTrackOwner || isDeleteInProgress) return;
+    
+    // Confirm deletion with user
+    const hasChildren = track.child_count > 0;
+    let confirmMessage = 'Are you sure you want to delete this track?';
+    
+    if (hasChildren) {
+      confirmMessage = 'This track has collaborations. Deleting it will remove your ownership, but the track will remain available for others. Continue?';
+    }
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    setIsDeleteInProgress(true);
+    
+    try {
+      const response = await api.delete(`/tracks/${track.id}`);
+      
+      // Show appropriate message based on deletion type
+      if (response.data.soft_delete) {
+        alert('Track has been removed from your profile but remains available for collaborations.');
+      } else {
+        alert('Track has been permanently deleted.');
+      }
+      
+      // Redirect to home page or refresh the current page
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Failed to delete track:', err);
+      alert('Failed to delete track. Please try again later.');
+    } finally {
+      setIsDeleteInProgress(false);
+    }
+  };
+
   return (
     <div className={`track-card ${isExpanded ? 'expanded' : ''} ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
       {track.is_repost && track.reposted_by_username && (
@@ -332,6 +372,17 @@ export default function TrackTreeNode({
               title={isPrivate ? 'Make track public' : 'Make track private'}
             >
               {isPrivate ? <FaLock /> : <FaLockOpen />}
+            </button>
+          )}
+          
+          {isTrackOwner && (
+            <button 
+              className="delete-btn"
+              onClick={handleDeleteTrack}
+              disabled={isDeleteInProgress}
+              title="Delete track"
+            >
+              <FaTrash />
             </button>
           )}
           
