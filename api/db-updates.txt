@@ -10,3 +10,20 @@ ALTER TABLE tracks ADD COLUMN secret_token VARCHAR(64);
 ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Note: The 'verified' field is reserved for well-known artists and should not be used for email verification.
+
+-- 2023-07-XX: Add refresh token system
+CREATE TABLE refresh_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  revoked BOOLEAN DEFAULT FALSE,
+  device_info TEXT -- Optional: Store device/browser info for token management
+);
+
+-- Create index for faster token lookups
+CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+
+-- Create index for user's tokens
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);

@@ -1,12 +1,46 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const pool = require('../config/db');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 const { authMiddleware } = require('../middleware/auth');
 require('dotenv').config();
 
 const router = express.Router();
+
+// Helper function to generate refresh token
+const generateRefreshToken = () => {
+  return crypto.randomBytes(40).toString('hex');
+};
+
+// Helper function to save refresh token to database
+const saveRefreshToken = async (userId, token, deviceInfo = null) => {
+  // Set expiration to 30 days from now
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 30);
+  
+  const result = await pool.query(
+    'INSERT INTO refresh_tokens (user_id, token, expires_at, device_info) VALUES ($1, $2, $3, $4) RETURNING id',
+    [userId, token, expiresAt, deviceInfo]
+  );
+  
+  return result.rows[0].id;
+};
+
+// Helper function to generate tokens
+const generateTokens = async (userId, deviceInfo = null) => {
+  // Generate access token (short-lived, 1 hour)
+  const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  
+  // Generate refresh token (long-lived, 30 days)
+  const refreshToken = generateRefreshToken();
+  
+  // Save refresh token to database
+  await saveRefreshToken(userId, refreshToken, deviceInfo);
+  
+  return { accessToken, refreshToken };
+};
 
 // Password validation function
 const validatePassword = (password) => {
@@ -41,6 +75,7 @@ const validatePassword = (password) => {
 // Register
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
+  const deviceInfo = req.headers['user-agent'] || null;
   
   try {
     // Validate password
@@ -77,9 +112,12 @@ router.post('/register', async (req, res) => {
       // Continue with registration even if email fails
     }
     
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Generate tokens
+    const { accessToken, refreshToken } = await generateTokens(user.id, deviceInfo);
+    
     res.status(201).json({ 
-      token,
+      accessToken,
+      refreshToken,
       message: 'Registration successful. Please check your email to verify your account.'
     });
   } catch (err) {
@@ -90,6 +128,8 @@ router.post('/register', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
+  const deviceInfo = req.headers['user-agent'] || null;
+  
   try {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
@@ -105,8 +145,69 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
+    // Generate tokens
+    const { accessToken, refreshToken } = await generateTokens(user.id, deviceInfo);
+    
+    res.json({ 
+      accessToken,
+      refreshToken
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Refresh token endpoint
+router.post('/refresh-token', async (req, res) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token is required' });
+  }
+  
+  try {
+    // Find the refresh token in the database
+    const tokenResult = await pool.query(
+      'SELECT * FROM refresh_tokens WHERE token = $1 AND revoked = false AND expires_at > NOW()',
+      [refreshToken]
+    );
+    
+    if (tokenResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+    
+    const tokenData = tokenResult.rows[0];
+    const userId = tokenData.user_id;
+    
+    // Generate a new access token
+    const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    
+    // Optionally, you can implement a rotation strategy for refresh tokens
+    // This would involve revoking the old token and issuing a new one
+    // For simplicity, we'll just return a new access token
+    
+    res.json({ accessToken });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Logout endpoint
+router.post('/logout', async (req, res) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token is required' });
+  }
+  
+  try {
+    // Revoke the refresh token
+    await pool.query(
+      'UPDATE refresh_tokens SET revoked = true WHERE token = $1',
+      [refreshToken]
+    );
+    
+    res.json({ message: 'Logged out successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -224,6 +325,12 @@ router.post('/reset-password', async (req, res) => {
     await pool.query(
       'UPDATE users SET password_hash = $1 WHERE id = $2',
       [hashedPassword, decoded.id]
+    );
+    
+    // Revoke all refresh tokens for this user (force re-login after password reset)
+    await pool.query(
+      'UPDATE refresh_tokens SET revoked = true WHERE user_id = $1',
+      [decoded.id]
     );
     
     res.json({ message: 'Password reset successful' });

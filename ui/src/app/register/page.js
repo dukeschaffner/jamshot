@@ -30,7 +30,21 @@ export default function Register() {
     
     try {
       const response = await api.post('/auth/register', { username, email, password });
-      Cookies.set('token', response.data.token, { expires: 1 });
+      
+      // Store both tokens in cookies
+      const { accessToken, refreshToken } = response.data;
+      
+      // Store access token with short expiry (1 hour)
+      Cookies.set('accessToken', accessToken, { 
+        expires: 1/24, // 1 hour in days
+        sameSite: 'strict'
+      });
+      
+      // Store refresh token with longer expiry (30 days)
+      Cookies.set('refreshToken', refreshToken, { 
+        expires: 30, 
+        sameSite: 'strict'
+      });
       
       // Show success message instead of redirecting
       setSuccess(response.data.message || 'Registration successful! Please check your email to verify your account.');
