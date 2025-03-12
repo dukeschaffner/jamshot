@@ -54,8 +54,11 @@ Pages
 
 
 TODO (MVP)
-- synchronize recording/playback on collaboration
-- add metronome field to track. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
+- DAW
+  - synchronize recording/playback on collaboration
+  - add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
+  - volume faders
+  - recording indicator
 - content moderation
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
