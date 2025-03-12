@@ -9,7 +9,7 @@ import { NotificationProvider } from '../lib/NotificationContext';
 import NotificationDropdown from '../components/NotificationDropdown';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
   FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
-import api from '../lib/api';
+import api, { logout } from '../lib/api';
 
 function GlobalPlayer() {
   const { 
@@ -157,7 +157,7 @@ function AppContent({ children }) {
 
   // Function to check and update auth state
   const checkAuthState = () => {
-    const token = Cookies.get('token');
+    const token = Cookies.get('accessToken');
     setIsLoggedIn(!!token);
     
     if (token) {
@@ -255,11 +255,12 @@ function AppContent({ children }) {
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
   };
 
-  const handleLogout = () => {
-    Cookies.remove('token');
+  const handleLogout = async () => {
+    await logout(); // Use the new logout function from api.js
     setIsLoggedIn(false);
     setUserId(null);
     setUserDetails(null);
+    router.push('/login');
   };
 
   const handleSearch = (e) => {

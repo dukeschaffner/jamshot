@@ -10,6 +10,14 @@ const authMiddleware = (req, res, next) => {
     req.user = decoded; // Attach user ID to request
     next();
   } catch (err) {
+    // Instead of immediately returning 401, check if it's a token expiration
+    if (err.name === 'TokenExpiredError') {
+      // Set a flag that can be used by the client to know it should try refreshing
+      return res.status(401).json({ 
+        error: 'Token expired',
+        code: 'TOKEN_EXPIRED'
+      });
+    }
     res.status(401).json({ error: 'Invalid token' });
   }
 };

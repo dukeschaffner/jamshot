@@ -15,11 +15,21 @@ export default function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Check if user just verified their email
+  // Check for messages on component mount
   useEffect(() => {
+    // Check if user just verified their email
     const verified = searchParams.get('verified');
     if (verified === 'true') {
       setSuccess('Email verified successfully! You can now log in.');
+    }
+    
+    // Check for auth error message (e.g., expired token)
+    if (typeof window !== 'undefined') {
+      const authError = sessionStorage.getItem('authError');
+      if (authError) {
+        setError(authError);
+        sessionStorage.removeItem('authError'); // Clear the message after displaying it
+      }
     }
   }, [searchParams]);
 
@@ -31,7 +41,22 @@ export default function Login() {
     
     try {
       const response = await api.post('/auth/login', { email, password });
-      Cookies.set('token', response.data.token, { expires: 1 }); // 1 day
+      
+      // Store both tokens in cookies
+      const { accessToken, refreshToken } = response.data;
+      
+      // Store access token with short expiry (1 hour)
+      Cookies.set('accessToken', accessToken, { 
+        expires: 1/24, // 1 hour in days
+        sameSite: 'strict'
+      });
+      
+      // Store refresh token with longer expiry (30 days)
+      Cookies.set('refreshToken', refreshToken, { 
+        expires: 30, 
+        sameSite: 'strict'
+      });
+      
       router.refresh(); // Force a refresh of the page data
       router.push('/');
     } catch (err) {
