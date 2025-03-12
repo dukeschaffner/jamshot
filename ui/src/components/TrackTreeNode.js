@@ -192,7 +192,13 @@ export default function TrackTreeNode({
       alert(message);
     } catch (err) {
       console.error('Failed to toggle track privacy:', err);
-      alert('Failed to update track privacy settings');
+      
+      // Check for specific error about collaborations
+      if (err.response && err.response.data && err.response.data.error === 'Cannot make track private because it has collaborations') {
+        alert('Cannot make track private because it has collaborations. Tracks with collaborations must remain public.');
+      } else {
+        alert('Failed to update track privacy settings');
+      }
     } finally {
       setIsPrivacyToggleInProgress(false);
     }
