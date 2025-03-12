@@ -10,6 +10,7 @@ const mm = require('music-metadata');
 const ffmpeg = require('fluent-ffmpeg');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const crypto = require('crypto');
 require('dotenv').config;
 
 const router = express.Router();
@@ -68,6 +69,11 @@ async function combineAudioFiles(inputFiles, outputPath) {
       })
       .run();
   });
+}
+
+// Generate a secure random token
+function generateSecureToken(length = 32) {
+  return crypto.randomBytes(length).toString('hex');
 }
 
 // Apply optional auth middleware to all routes
@@ -452,7 +458,7 @@ router.get('/feed', async (req, res) => {
 });
 
 // Get Track and Versions
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { secret } = req.query; // Secret token for private tracks
@@ -460,7 +466,7 @@ router.get('/:id', async (req, res) => {
   try {
     // First check if the track exists and if it's private
     const trackCheck = await pool.query(
-      'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
+      'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
       [id]
     );
     
@@ -475,10 +481,8 @@ router.get('/:id', async (req, res) => {
       // Allow access if user is the owner
       const isOwner = userId && track.user_id === userId;
       
-      // Allow access if secret token is provided and valid
-      // For simplicity, we're using the track ID as the secret token
-      // In a production environment, you would use a more secure method
-      const hasValidSecret = secret && secret === id.toString();
+      // Check if a valid secret token is provided
+      const hasValidSecret = secret && track.secret_token && secret === track.secret_token;
       
       if (!isOwner && !hasValidSecret) {
         return res.status(403).json({ error: 'This track is private' });
@@ -952,7 +956,7 @@ router.get('/:id/tree', async (req, res) => {
   try {
     // First check if the track exists and if it's private
     const trackCheck = await pool.query(
-      'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
+      'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
       [id]
     );
     
@@ -967,10 +971,8 @@ router.get('/:id/tree', async (req, res) => {
       // Allow access if user is the owner
       const isOwner = userId && track.user_id === userId;
       
-      // Allow access if secret token is provided and valid
-      // For simplicity, we're using the track ID as the secret token
-      // In a production environment, you would use a more secure method
-      const hasValidSecret = secret && secret === id.toString();
+      // Check if a valid secret token is provided
+      const hasValidSecret = secret && track.secret_token && secret === track.secret_token;
       
       if (!isOwner && !hasValidSecret) {
         return res.status(403).json({ error: 'This track is private' });
@@ -1242,6 +1244,60 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Error deleting track:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Generate a share link with a secret token for a private track
+router.post('/:id/share', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  
+  try {
+    // Check if the track exists and belongs to the user
+    const trackCheck = await pool.query(
+      'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const track = trackCheck.rows[0];
+    
+    // Only the track owner can generate a share link
+    if (track.user_id !== userId) {
+      return res.status(403).json({ error: 'You do not have permission to share this track' });
+    }
+    
+    // If a secret token already exists, return it
+    if (track.secret_token) {
+      const shareLink = `${process.env.FRONTEND_URL}/track/${id}?secret=${track.secret_token}`;
+      return res.json({ 
+        shareLink,
+        secretToken: track.secret_token
+      });
+    }
+    
+    // Generate a secure random token
+    const secretToken = generateSecureToken();
+    
+    // Store the token in the tracks table
+    await pool.query(
+      'UPDATE tracks SET secret_token = $1 WHERE id = $2',
+      [secretToken, id]
+    );
+    
+    // Return the share link
+    const shareLink = `${process.env.FRONTEND_URL}/track/${id}?secret=${secretToken}`;
+    
+    res.json({ 
+      shareLink,
+      secretToken
+    });
+  } catch (error) {
+    console.error('Error generating share link:', error);
+    res.status(500).json({ error: 'Failed to generate share link' });
   }
 });
 

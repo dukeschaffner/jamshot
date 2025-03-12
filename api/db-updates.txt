@@ -2,3 +2,6 @@ TEST:
 
 -- Add is_private column to tracks table
 ALTER TABLE tracks ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Add secret_token column to tracks table for secure sharing
+ALTER TABLE tracks ADD COLUMN secret_token VARCHAR(64);

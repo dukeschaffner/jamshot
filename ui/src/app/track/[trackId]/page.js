@@ -165,12 +165,19 @@ function ChildrenSubtree({ parentId, level, expandedTrackId, setExpandedTrackId 
   const [loading, setLoading] = useState(true);
   const { currentTrack } = useAudio();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const secret = searchParams.get('secret');
 
   useEffect(() => {
     const fetchChildren = async () => {
       try {
         setLoading(true);
-        const response = await api.get(`/tracks/${parentId}/tree`);
+        // Include secret in the request if available
+        const url = secret 
+          ? `/tracks/${parentId}/tree?secret=${secret}`
+          : `/tracks/${parentId}/tree`;
+        
+        const response = await api.get(url);
         setChildren(response.data.children);
       } catch (err) {
         console.error('Failed to fetch children:', err);
@@ -180,7 +187,7 @@ function ChildrenSubtree({ parentId, level, expandedTrackId, setExpandedTrackId 
     };
 
     fetchChildren();
-  }, [parentId]);
+  }, [parentId, secret]);
 
   const handleChildSelect = (childId) => {
     router.push(`/track/${childId}`);
