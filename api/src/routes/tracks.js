@@ -1126,6 +1126,23 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to modify this track' });
     }
     
+    // If trying to make the track private, check if it has collaborations
+    if (is_private) {
+      // Check if track has children (collaborations)
+      const childrenCheck = await pool.query(
+        'SELECT COUNT(*) FROM tracks WHERE parent_track_id = $1',
+        [id]
+      );
+      
+      const hasChildren = parseInt(childrenCheck.rows[0].count) > 0;
+      
+      if (hasChildren) {
+        return res.status(400).json({ 
+          error: 'Cannot make track private because it has collaborations'
+        });
+      }
+    }
+    
     // Update track privacy
     const result = await pool.query(
       'UPDATE tracks SET is_private = $1 WHERE id = $2 RETURNING *',
