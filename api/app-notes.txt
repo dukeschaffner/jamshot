@@ -103,7 +103,8 @@ CREATE TABLE tracks (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   play_count INT DEFAULT 0,
   is_private BOOLEAN NOT NULL DEFAULT FALSE,
-  metronome_bpm INTEGER;
+  metronome_bpm INTEGER,
+  secret_token VARCHAR(64) -- For secure sharing of private tracks
 );
 
 CREATE TABLE likes (

@@ -2300,21 +2300,68 @@ body.dark-mode .tab.active {
 
 /* Track Tree Node Styles */
 .track-tree-node {
-  background-color: var(--background-primary);
-  border-radius: var(--border-radius);
-  overflow: hidden;
-  transition: all 0.3s ease;
-  border: 1px solid var(--gray);
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
 }
 
 .track-tree-node.current {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
 .track-tree-node.selected {
-  border-color: var(--seafoam);
-  box-shadow: 0 0 0 1px var(--seafoam);
+  background-color: #f0f9ff;
+}
+
+.track-node-header {
+  display: flex;
+  padding: 12px;
+  cursor: pointer;
+  align-items: center;
+}
+
+.track-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.track-title {
+  font-weight: 600;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.private-icon {
+  color: #f59e0b;
+  font-size: 14px;
+}
+
+.track-duration {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Share button styles */
+.share-btn-private {
+  background-color: #f59e0b !important;
+  color: white !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px !important;
+}
+
+.share-text {
+  display: inline-block;
+  margin-left: 4px;
 }
 
 .track-node-main {

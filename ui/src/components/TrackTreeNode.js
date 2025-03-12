@@ -204,15 +204,24 @@ export default function TrackTreeNode({
     }
   };
   
-  const handleCopyLink = (e) => {
+  const handleCopyLink = async (e) => {
     e.stopPropagation();
     
     const baseUrl = window.location.origin;
     let trackUrl = `${baseUrl}/track/${track.id}`;
     
-    // If track is private, add the secret token
-    if (isPrivate) {
-      trackUrl += `?secret=${track.id}`;
+    // If track is private, get the secret token from the API
+    if (isPrivate && isTrackOwner) {
+      try {
+        setIsLinkCopied(true); // Show loading state
+        const response = await api.post(`/tracks/${track.id}/share`);
+        trackUrl += `?secret=${response.data.secretToken}`;
+      } catch (err) {
+        console.error('Failed to generate share link:', err);
+        alert('Failed to generate share link');
+        setIsLinkCopied(false);
+        return;
+      }
     }
     
     navigator.clipboard.writeText(trackUrl)
@@ -223,6 +232,7 @@ export default function TrackTreeNode({
       .catch(err => {
         console.error('Failed to copy link:', err);
         alert('Failed to copy link to clipboard');
+        setIsLinkCopied(false);
       });
   };
 
@@ -266,28 +276,19 @@ export default function TrackTreeNode({
   };
 
   return (
-    <div className={`track-card ${isExpanded ? 'expanded' : ''} ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
-      {track.is_repost && track.reposted_by_username && (
-        <div className="repost-banner">
-          <FaRetweet className="repost-icon" /> Reposted by {track.reposted_by_username}
-        </div>
-      )}
-      
-      {isPrivate && (
-        <div className="private-banner">
-          <FaLock className="private-icon" /> Private Track
-        </div>
-      )}
-      
-      <div className="track-main" onClick={toggleExpand}>
+    <div className={`track-tree-node ${isExpanded ? 'expanded' : ''} ${isCurrent ? 'current' : ''} ${isSelected ? 'selected' : ''}`}>
+      <div className="track-node-header" onClick={toggleExpand}>
         <div className="track-play" onClick={handlePlayToggle}>
           {currentTrack?.id === track.id && isPlaying ? <FaPause /> : <FaPlay />}
         </div>
         
         <div className="track-info">
-          <div className="track-title">
-            {track.title}
-            <TrackTags track={track} />
+          <div className="track-title-row">
+            <div className="track-title">
+              {track.title}
+              {isPrivate && <FaLock className="private-icon" title="This track is private" />}
+            </div>
+            <div className="track-duration">{formatDuration(track.duration)}</div>
           </div>
           
           <div className="track-artist">
@@ -295,60 +296,75 @@ export default function TrackTreeNode({
               {track.profile_pic_url ? (
                 <Image 
                   src={track.profile_pic_url} 
-                  alt={track.username} 
-                  width={40} 
-                  height={40}
+                  alt={track.username || 'Artist'} 
+                  width={24} 
+                  height={24}
                   style={{ borderRadius: '50%', objectFit: 'cover' }}
                 />
               ) : (
                 <div className="avatar-placeholder"></div>
               )}
             </div>
-            <div className="artist-name">
-              {track.username}
-              {track.verified && <FaCheckCircle className="verified-icon" />}
-            </div>
+            <Link href={`/user/${track.username}`} onClick={(e) => e.stopPropagation()}>
+              <div className="artist-name">
+                {track.username}
+                {track.verified && <FaCheckCircle className="verified-icon" />}
+              </div>
+            </Link>
           </div>
-          
-          {track.layer > 0 && (
-            <div className="track-layer">Layer: {track.layer} (Based on: {track.original_title})</div>
-          )}
           
           <div className="track-meta">
             <div className="meta-item">
-              <FaPlay /> 
+              <FaHeadphones /> 
               <span>{Number(track.play_count || 0).toLocaleString()}</span>
             </div>
             <div className="meta-item">
               <FaHeart /> 
               <span>{Number(likeCount).toLocaleString()}</span>
             </div>
-            <div className="meta-item">
-              <FaUsers /> 
-              <span>{Number(track.child_count || 0).toLocaleString()}</span>
-            </div>
+            {track.child_count > 0 && (
+              <div className="meta-item">
+                <FaCodeBranch /> 
+                <span>{Number(track.child_count).toLocaleString()}</span>
+              </div>
+            )}
             {track.metronome_bpm && (
               <div className="meta-item">
                 <FaMusic /> 
                 <span>{track.metronome_bpm} BPM</span>
               </div>
             )}
+            <div className="meta-item">
+              <FaInfoCircle /> 
+              <span>{formatDate(track.created_at)}</span>
+            </div>
           </div>
         </div>
         
         <div className="track-actions">
+          {/* Share button - more prominent for private tracks */}
           <button 
-            className="collab-btn"
-            onClick={handleCollaborate}
+            className={`action-btn ${isPrivate ? 'share-btn-private' : ''}`}
+            onClick={handleCopyLink}
+            title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
           >
-            <FaUsers /> Collab
+            {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
+            {isPrivate && isTrackOwner && <span className="share-text">Share</span>}
+          </button>
+          
+          <button 
+            className="action-btn"
+            onClick={handleCollaborate}
+            title="Collaborate on this track"
+          >
+            <FaUsers />
           </button>
           
           <button 
             className={`like-btn ${isLiked ? 'active' : ''}`}
             onClick={handleLikeToggle}
-            disabled={!Cookies.get('token') || isLikeInProgress}
-            title={Cookies.get('token') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+            disabled={isLikeInProgress}
+            title={isLiked ? 'Unlike' : 'Like'}
           >
             {isLiked ? <FaHeart /> : <FaRegHeart />}
           </button>
@@ -356,54 +372,41 @@ export default function TrackTreeNode({
           <button 
             className={`action-btn ${isReposted ? 'active' : ''}`}
             onClick={handleRepostToggle}
-            disabled={!Cookies.get('token') || isRepostInProgress}
-            title={Cookies.get('token') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+            disabled={isRepostInProgress}
+            title={isReposted ? 'Unrepost' : 'Repost'}
           >
             <FaRetweet />
           </button>
           
+          {isTrackOwner && (
+            <>
+              <button 
+                className="action-btn"
+                onClick={handlePrivacyToggle}
+                disabled={isPrivacyToggleInProgress}
+                title={isPrivate ? 'Make track public' : 'Make track private'}
+              >
+                {isPrivate ? <FaLock /> : <FaLockOpen />}
+              </button>
+              
+              <button 
+                className="action-btn delete-btn"
+                onClick={handleDeleteTrack}
+                disabled={isDeleteInProgress}
+                title="Delete track"
+              >
+                <FaTrash />
+              </button>
+            </>
+          )}
+          
           <button 
-            className="share-btn"
-            onClick={handleCopyLink}
-            title="Copy link to clipboard"
+            className="expand-btn"
+            onClick={toggleExpand}
+            title={isExpanded ? 'Collapse' : 'Expand'}
           >
-            {isLinkCopied ? <FaCheck /> : <FaCopy />}
+            {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
           </button>
-          
-          {isTrackOwner && (
-            <button 
-              className={`privacy-btn ${isPrivate ? 'private' : 'public'}`}
-              onClick={handlePrivacyToggle}
-              disabled={isPrivacyToggleInProgress}
-              title={isPrivate ? 'Make track public' : 'Make track private'}
-            >
-              {isPrivate ? <FaLock /> : <FaLockOpen />}
-            </button>
-          )}
-          
-          {isTrackOwner && (
-            <button 
-              className="delete-btn"
-              onClick={handleDeleteTrack}
-              disabled={isDeleteInProgress}
-              title="Delete track"
-            >
-              <FaTrash />
-            </button>
-          )}
-          
-          <button className="action-btn" onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/track/${track.id}`);
-          }}>
-            <FaInfoCircle /> Details
-          </button>
-          
-          {track.child_count > 0 && (
-            <button className="expand-btn" onClick={toggleExpand}>
-              {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
-            </button>
-          )}
         </div>
       </div>
       
