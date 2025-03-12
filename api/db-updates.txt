@@ -5,3 +5,8 @@ ALTER TABLE tracks ADD COLUMN is_private BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Add secret_token column to tracks table for secure sharing
 ALTER TABLE tracks ADD COLUMN secret_token VARCHAR(64);
+
+-- 2023-07-15: Add email_verified field to users table
+ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Note: The 'verified' field is reserved for well-known artists and should not be used for email verification.

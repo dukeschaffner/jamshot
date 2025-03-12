@@ -85,7 +85,8 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL, -- Hashed with bcrypt
   profile_pic_url VARCHAR(255), -- S3 URL for profile pic
   bio TEXT, -- Optional short bio
-  verified BOOL not null default false,
+  verified BOOL not null default false, -- Reserved for well-known artists
+  email_verified BOOL not null default false, -- For email verification
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_private BOOLEAN NOT NULL DEFAULT FALSE
