@@ -6,6 +6,7 @@ const userRoutes = require('./routes/users');
 const tagRoutes = require('./routes/tags');
 const notificationRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
+const paymentRoutes = require('./routes/payments');
 require('dotenv').config();
 
 const app = express();
@@ -28,6 +29,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Special handling for Stripe webhook
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+// Regular JSON parsing for all other routes
 app.use(express.json()); // Parse JSON bodies
 
 // Routes
@@ -37,6 +42,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/', (req, res) => res.send('Music Collab API'));
 

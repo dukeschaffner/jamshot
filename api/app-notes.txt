@@ -66,8 +66,6 @@ TODO (MVP)
 - block users
 - view followers/following if account is public 
 - allows tracks to be made private - share link should include secret
-- email verfication
-- token expired/log in/log out -> refresh page
 - accept payments
 
 TODO (after beta testing)

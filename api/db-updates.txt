@@ -27,3 +27,22 @@ CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 
 -- Create index for user's tokens
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+
+-- 2024-07-XX: Add supporter functionality
+-- Add is_supporter column to users table
+ALTER TABLE users ADD COLUMN is_supporter BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Create payments table to track payment history
+CREATE TABLE payments (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+  stripe_payment_id VARCHAR(255) NOT NULL,
+  stripe_checkout_id VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index for user payments
+CREATE INDEX idx_payments_user_id ON payments(user_id);

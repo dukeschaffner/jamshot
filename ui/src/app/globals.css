@@ -3439,3 +3439,48 @@ body.dark-mode .notification-time {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Stripe button styles */
+.stripe-btn {
+  background-color: #635bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.stripe-btn:hover {
+  background-color: #4b45c6;
+}
+
+.stripe-btn:disabled {
+  background-color: #a8a5e6;
+  cursor: not-allowed;
+}
+
+/* Payment status messages */
+.payment-status {
+  margin: 20px auto;
+  padding: 15px;
+  border-radius: 8px;
+  max-width: 800px;
+  text-align: center;
+}
+
+.payment-status.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.payment-status.canceled {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.payment-status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}

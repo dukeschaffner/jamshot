@@ -1,13 +1,55 @@
 'use client';
-import { useState } from 'react';
-import { FaHeart, FaPaypal, FaBitcoin, FaPatreon, FaGithub, FaTwitter, FaInstagram } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaHeart, FaPatreon, FaBitcoin, FaGithub, FaTwitter, FaInstagram, FaStripe } from 'react-icons/fa';
+import { loadStripe } from '@stripe/stripe-js';
 import Link from 'next/link';
+import api from '../../lib/api';
+import { useSearchParams } from 'next/navigation';
+
+// Initialize Stripe
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 export default function About() {
   const [donationAmount, setDonationAmount] = useState(5);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    // Check for payment status in URL
+    const payment = searchParams.get('payment');
+    if (payment === 'success') {
+      setPaymentStatus('success');
+    } else if (payment === 'canceled') {
+      setPaymentStatus('canceled');
+    }
+  }, [searchParams]);
   
   const handleDonationChange = (e) => {
     setDonationAmount(parseInt(e.target.value, 10));
+  };
+  
+  const handleStripeCheckout = async () => {
+    try {
+      setIsProcessing(true);
+      
+      // Get the Stripe checkout session from our API
+      const response = await api.post(`/payments/create-checkout-session`, {
+        amount: donationAmount
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Redirect to Stripe Checkout
+      window.location.href = response.data.url;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      setPaymentStatus('error');
+    } finally {
+      setIsProcessing(false);
+    }
   };
   
   return (
@@ -16,6 +58,25 @@ export default function About() {
         <h1 className="about-title">About JamShot</h1>
         <p className="about-subtitle">Empowering musicians to collaborate and create together</p>
       </div>
+      
+      {paymentStatus === 'success' && (
+        <div className="payment-status success">
+          <h3>Thank you for your support!</h3>
+          <p>Your donation helps us continue to build and improve JamShot for musicians everywhere.</p>
+        </div>
+      )}
+      
+      {paymentStatus === 'canceled' && (
+        <div className="payment-status canceled">
+          <p>Your payment was canceled. If you'd like to try again, please select an amount below.</p>
+        </div>
+      )}
+      
+      {paymentStatus === 'error' && (
+        <div className="payment-status error">
+          <p>There was an error processing your payment. Please try again later.</p>
+        </div>
+      )}
       
       <div className="about-content">
         <section className="vision-section">
@@ -137,9 +198,13 @@ export default function About() {
             <div className="payment-methods">
               <h3>Payment methods</h3>
               <div className="payment-buttons">
-                <a href="#" className="payment-btn paypal-btn">
-                  <FaPaypal /> Donate with PayPal
-                </a>
+                <button 
+                  className="payment-btn stripe-btn"
+                  onClick={handleStripeCheckout}
+                  disabled={isProcessing}
+                >
+                  <FaStripe /> {isProcessing ? 'Processing...' : 'Donate with Stripe'}
+                </button>
                 <a href="#" className="payment-btn patreon-btn">
                   <FaPatreon /> Become a Patron
                 </a>
