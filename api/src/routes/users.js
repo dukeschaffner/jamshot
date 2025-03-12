@@ -35,7 +35,7 @@ router.use(optionalAuthMiddleware);
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, email, verified, profile_pic_url, is_private FROM users WHERE id = $1',
+      'SELECT id, username, email, verified, email_verified, profile_pic_url, is_private FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -425,7 +425,7 @@ router.put('/me', authMiddleware, async (req, res) => {
            bio = COALESCE($2, bio),
            is_private = COALESCE($3, is_private)
        WHERE id = $4
-       RETURNING id, username, email, bio, profile_pic_url, verified, is_private`,
+       RETURNING id, username, email, bio, profile_pic_url, verified, email_verified, is_private`,
       [username, bio, is_private, req.user.id]
     );
     
