@@ -1,0 +1,97 @@
+About
+This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
+
+
+Goals/VALUE
+- music collaboration as a social media
+- Democratize music creation
+- allow musicians to make a meaningful/valuable piece of work without having to complete the process of recording a song from start to finish
+- tracks will be capped at 1:30 to make it simple, fun, and pair well with short form video content like Tik Tok.
+- The equivalent of going from books/publications to posts on social media. New content is released daily and from more sources, and just as social media posts allow you to comment your textual thoughts/ideas on someone else's textual posts, with this app, you can comment your musical thoughts/ideas on someone else's musical posts
+- The goal is to encourage artists to share as much as possible, not feeling hindered by the desire or pressure to completely finish/polish a song, or have just the right name or album artwork, opening the musical floodgates.
+
+Features
+- home feed with tracks/collabs posted by user's follows mixed with popular tracks
+  - click on a track to expand and see other collabs
+- users will have profiles and can be verified artists. There will be a profile page with the user's tracks, picture, reposted tracks, liked tracks, follower count, etc
+- It will also work as a streaming service, were a user can pick a genre and just listen
+  - tracks will have genre and instrument tags to help accommodate this
+- strong interaction between artists/fans or smaller artists, as well as friend groups who want to quickly and easily share ideas. success likely determined by how many medium to large artist adopt and use the platform.
+
+
+Layout
+- Navbar with links to home, user account, upload, and a search bar. 
+- global player with track navigation buttons (previous, play/pause, next, shuffle, loop), track title/artist username, song progress indicator
+
+
+Pages
+- Home
+  - Contains the user's feed, generated from an algorithm
+  - the tracks are shown as an expandable card containing a play button, the user's profile picture, user name, the track title, play count, like count, and a "collaborate" button
+  - When the track is expanded, it shows a list of tracks containing the track that the current track is based on "original" or "based on" and all the tracks based on the current track. There will be fewer details shown on these items. play button, track title - username, like count, play count
+
+- standard login/register pages (email, password, username)
+
+- upload
+  - allows user to upload file, name track, and upload the track
+
+-user
+  - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
+
+- track/[trackId]
+  - allows users to explore entire track tree
+  - has a playback gui that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
+  - /collaborate
+    - has two tabs, record and upload.
+      - record allows the user to select input device and record several audio takes, view and playback all the takes, choose/delete takes. There is an input level meter and a recording progress bar. they select a take, name the track, and hit upload.
+      - upload allows the user to upload a prerecorded file, name the track, and upload the track
+      - both tabs should allow user to playback their audio with the parent track with a progress bar
+
+
+TODO (MVP)
+- DAW
+  - synchronize recording/playback on collaboration
+  - add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
+  - volume faders
+  - recording indicator
+- content moderation
+- track images: generate ai image on upload, then allow user to upload custom picture after upload
+- prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
+- block users
+- view followers/following if account is public 
+- improve feed logic
+
+TODO (after beta testing)
+- list/sell samples in track
+- posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
+- Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
+- advanced DAW editor
+
+
+THOUGHTS:
+- Mac DeMarco released an album of like 200 "songs" that were just quick projects that he whipped up and never ended up turning into actual songs. This is great, but you have to be Mac Demarco-level famous to be able to get away with something like that. I want to make it to where any artist to get value from sharing those types of ideas/creations
+
+
+come up with some creative name ideas for the application.
+- include names that are are two words compounded that indicate the purpose of the application (instagram, facebook, youtube, Soundcloud)
+- include names that are a single word whose meaning is adjacent or indicative of the purpose, but still abstract (Reverb, Apple, TikTok)
+- include any other name format that you are inspired to share
+- be creative, but not cheesy
+- Ideas to capture:
+  - setting music free
+  - giving smaller artists a chance to collab with bigger ones/ the idea that anyone can collab with anyone at any time
+  - the social media aspect of the application
+
+
+words:
+- tree
+- wave
+- crave
+- sketch
+
+
+
+
+ideas:
+- postwav/postwave
+- sketchwave

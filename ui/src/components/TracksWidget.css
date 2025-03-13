@@ -3,6 +3,44 @@
   font-weight: bold;
   margin-left: 10px;
   animation: pulse 1.5s infinite;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recording-indicator svg {
+  font-size: 14px;
+}
+
+.recording-indicator span {
+  font-size: 12px;
+}
+
+/* Visual recording indicator */
+.recording-indicator-visual {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  left: 0 !important;
+  top: 0;
+  background-color: rgba(255, 59, 48, 0.3);
+  border-left: 2px solid rgba(255, 59, 48, 0.8);
+  border-right: 2px solid rgba(255, 59, 48, 0.8);
+  z-index: 200;
+  pointer-events: none;
+  animation: recording-pulse 1.5s infinite;
+}
+
+@keyframes recording-pulse {
+  0% {
+    background-color: rgba(255, 59, 48, 0.7);
+  }
+  50% {
+    background-color: rgba(255, 59, 48, 1);
+  }
+  100% {
+    background-color: rgba(255, 59, 48, 0.7);
+  }
 }
 
 @keyframes pulse {
