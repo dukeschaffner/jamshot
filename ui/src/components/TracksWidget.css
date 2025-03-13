@@ -204,7 +204,7 @@
   height: 100px;
   background-color: rgba(0, 0, 0, 0.03);
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
 }
 
@@ -227,9 +227,10 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 240px;;
   pointer-events: none; /* Allow clicks to pass through to the waveform */
   z-index: 1;
+  background-color: beige;
 }
 
 .grid-line {
@@ -369,4 +370,48 @@
 
 .browse-btn:hover {
   background-color: #2563eb;
+}
+
+/* Solo button styling */
+.solo-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: transparent;
+  border: 1px solid var(--gray, #ccc);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 10px;
+}
+
+.solo-button:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-color: var(--text-secondary, #666);
+}
+
+.solo-button.active {
+  background-color: var(--seafoam, #93e9be);
+  border-color: var(--seafoam-dark, #5dc990);
+  color: var(--text-primary, #333);
+}
+
+.solo-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.solo-button svg {
+  font-size: 12px;
+}
+
+/* Ensure track label can accommodate the solo button */
+.track-label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
 } 
