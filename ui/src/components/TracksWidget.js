@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { formatDuration, renderWaveform } from '@/lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone, faPlay, faPause, faStepBackward, faStepForward, faTrash, faUpload, faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faPlay, faPause, faStepBackward, faStepForward, faTrash, faUpload, faCloudUploadAlt, faHeadphones } from '@fortawesome/free-solid-svg-icons';
 import './TracksWidget.css';
 
 export default function TracksWidget({ 
@@ -27,6 +27,8 @@ export default function TracksWidget({
     const [isLooping, setIsLooping] = useState(true);
     const [looperLeftPos, setLooperLeftPos] = useState(0);
     const [looperRightPos, setLooperRightPos] = useState(100);
+    const [originalTrackSolo, setOriginalTrackSolo] = useState(false);
+    const [recordingTrackSolo, setRecordingTrackSolo] = useState(false);
     
     // Refs to store audio objects and data
     const originalBufferRef = useRef(null);
@@ -160,30 +162,45 @@ export default function TracksWidget({
     console.log('playing');
     
     // Create source nodes for both tracks
-
-    
     const trackSource = audioContext.createBufferSource();
     trackSource.buffer = originalBufferRef.current;
     const trackGain = audioContext.createGain();
-    trackGain.gain.value = 0.7; // Set volume for backing track
+    
+    // Apply solo/mute logic for original track
+    if (recordingTrackSolo && !originalTrackSolo) {
+      trackGain.gain.value = 0; // Mute original track if only recording is solo'd
+    } else {
+      trackGain.gain.value = 0.7; // Normal volume
+    }
+    
     trackSource.connect(trackGain);
     trackGain.connect(audioContext.destination);
 
     let activeSources = [trackSource];
 
-    const recordedGain = audioContext.createGain();
-    recordedGain.gain.value = 1; // Set volume for recorded audio
-    const recordedSource = audioContext.createBufferSource();
-    recordedSource.buffer = recordingPlaybackBuffer;
-    recordedSource.connect(recordedGain);
-    recordedGain.connect(audioContext.destination);
-
-    if(!isRecording){
+    // Only set up recording playback if we're not recording and have a buffer
+    if (!isRecording && recordingPlaybackBuffer) {
+      const recordedGain = audioContext.createGain();
+      
+      // Apply solo/mute logic for recording track
+      if (originalTrackSolo && !recordingTrackSolo) {
+        recordedGain.gain.value = 0; // Mute recording track if only original is solo'd
+      } else {
+        recordedGain.gain.value = 1; // Normal volume
+      }
+      
+      const recordedSource = audioContext.createBufferSource();
+      recordedSource.buffer = recordingPlaybackBuffer;
+      recordedSource.connect(recordedGain);
+      recordedGain.connect(audioContext.destination);
       activeSources.push(recordedSource);
+      
+      // Store active sources for stopping playback
+      activeSourcesRef.current = [trackSource, recordedSource];
+    } else {
+      // Store only the original track source
+      activeSourcesRef.current = [trackSource];
     }
-    
-    // Store active sources for stopping playback
-    activeSourcesRef.current = [trackSource, recordedSource];
     
     // Start playback with latency compensation
     let startTime
@@ -196,18 +213,20 @@ export default function TracksWidget({
     else{
         startTime = playheadInternalTimeRef.current;
     }
+    
     trackSource.start(0, startTime);
-    if(!isRecording){
-      recordedSource.start(0,startTime);
+    
+    if(!isRecording && recordingPlaybackBuffer && activeSources.length > 1){
+      activeSources[1].start(0, startTime);
     }
-    else{
+    else if(isRecording){
       relativeRecordingStartTimeRef.current = startTime;
     }
 
     absolutePlaybackStartTimeRef.current = audioContext.currentTime;
 
     if(isRecording){
-      setRecordingStartPos(playheadPos);
+      setRecordingStartPos(timeToPos(startTime, trackDuration));
       setRecordingWidth(0);
     }
 
@@ -1112,6 +1131,48 @@ export default function TracksWidget({
     }
   };
   
+  // Toggle solo for original track
+  const toggleOriginalSolo = (e) => {
+    e.stopPropagation();
+    
+    // If recording track is solo'd, unsolo it
+    if (recordingTrackSolo) {
+      setRecordingTrackSolo(false);
+    }
+    
+    // Toggle original track solo
+    setOriginalTrackSolo(prev => !prev);
+    
+    // If currently playing, restart playback to apply solo changes
+    if (isPlaying) {
+      pause();
+      setTimeout(() => {
+        setIsPlaying(true);
+      }, 50);
+    }
+  };
+  
+  // Toggle solo for recording track
+  const toggleRecordingSolo = (e) => {
+    e.stopPropagation();
+    
+    // If original track is solo'd, unsolo it
+    if (originalTrackSolo) {
+      setOriginalTrackSolo(false);
+    }
+    
+    // Toggle recording track solo
+    setRecordingTrackSolo(prev => !prev);
+    
+    // If currently playing, restart playback to apply solo changes
+    if (isPlaying) {
+      pause();
+      setTimeout(() => {
+        setIsPlaying(true);
+      }, 50);
+    }
+  };
+
   return (
     <div className="daw-container">
       {/* Timeline */}
@@ -1122,17 +1183,28 @@ export default function TracksWidget({
         </div>
       </div>
 
+
       {/* Parent Track */}
       <div className="track-container parent-track">
         <div className="track-label">
           <span>Original</span>
+          <button 
+            className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
+            onClick={toggleOriginalSolo}
+            disabled={isRecording}
+            title="Solo original track"
+          >
+            <FontAwesomeIcon icon={faHeadphones} />
+            <span>Solo</span>
+          </button>
         </div>
         <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
-          <div className="waveform">
             {/* Musical Grid */}
-            <div className="musical-grid">
-              {generateMusicalGrid()}
-            </div>
+            {/* <div className="musical-grid">
+                {generateMusicalGrid()}
+            </div> */}
+          <div className="waveform">
+            
             
             {/* Canvas Waveform */}
             {originalBufferRef.current ? (
@@ -1193,6 +1265,15 @@ export default function TracksWidget({
       <div className="track-container your-track">
         <div className="track-label">
           <span>Your Recording</span>
+          <button 
+            className={`solo-button ${recordingTrackSolo ? 'active' : ''}`}
+            onClick={toggleRecordingSolo}
+            disabled={isRecording || !hasRecordingTrack}
+            title="Solo your recording"
+          >
+            <FontAwesomeIcon icon={faHeadphones} />
+            <span>Solo</span>
+          </button>
           {isRecording && (
             <div className="recording-indicator">
               <FontAwesomeIcon icon={faMicrophone} />
@@ -1209,10 +1290,6 @@ export default function TracksWidget({
           onClick={handleWaveformClick}
           >
             <div className="waveform">
-              {/* Musical Grid */}
-              <div className="musical-grid">
-                {generateMusicalGrid()}
-              </div>
               {/* Recording Indicator */}
                 {isRecording ? (
                 <div className="recording-indicator-visual"/>
