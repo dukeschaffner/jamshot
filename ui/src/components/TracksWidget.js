@@ -69,7 +69,6 @@ export default function TracksWidget({
     const looperHandleLeftRef = useRef(null);
     const looperHandleRightRef = useRef(null);
     const looperRegionRef = useRef(null);
-
     const takesCountRef = useRef(0); // Ref to track the number of takes
     
     //#endregion
@@ -206,6 +205,11 @@ export default function TracksWidget({
     }
 
     absolutePlaybackStartTimeRef.current = audioContext.currentTime;
+
+    if(isRecording){
+      setRecordingStartPos(playheadPos);
+      setRecordingWidth(0);
+    }
 
     // Enable the play button when playback is complete
     trackSource.onended = function() {
@@ -665,6 +669,13 @@ export default function TracksWidget({
           }
           else{
             setPlayheadPos(playheadPos);
+            
+            // Update recording indicator width when recording
+            if (isRecording) {
+              const indicatorWidth = playheadPos - recordingStartPos;
+              setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
+              console.log('indicatorWidth', indicatorWidth);
+            }
           }
           
           
@@ -680,7 +691,6 @@ export default function TracksWidget({
       };
     }
   }, [isPlaying]);
-
 
 
     // Handle waveform click
@@ -1183,8 +1193,14 @@ export default function TracksWidget({
       <div className="track-container your-track">
         <div className="track-label">
           <span>Your Recording</span>
+          {isRecording && (
+            <div className="recording-indicator">
+              <FontAwesomeIcon icon={faMicrophone} />
+              <span>Recording</span>
+            </div>
+          )}
         </div>
-        {hasRecordingTrack ? (
+        {hasRecordingTrack || isRecording ? (
           <div className="waveform-container"
           style={{
             left: `${recordingStartPos}%`,
@@ -1197,13 +1213,18 @@ export default function TracksWidget({
               <div className="musical-grid">
                 {generateMusicalGrid()}
               </div>
-              
-              <canvas 
+              {/* Recording Indicator */}
+                {isRecording ? (
+                <div className="recording-indicator-visual"/>
+                ) :(
+            <canvas 
                 ref={recordingCanvasRef} 
                 width="1000" 
                 height="100" 
                 style={{ width: '100%', height: '100%' }}
               />
+                )}
+              
             </div>
           </div>
         ) : (
@@ -1230,6 +1251,8 @@ export default function TracksWidget({
             </div>
           </div>
         )}
+        
+        
       </div>
       
       {/* Takes List */}

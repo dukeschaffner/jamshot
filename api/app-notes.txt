@@ -62,11 +62,9 @@ TODO (MVP)
 - content moderation
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
-- delete tracks
 - block users
 - view followers/following if account is public 
-- allows tracks to be made private - share link should include secret
-- accept payments
+- improve feed logic
 
 TODO (after beta testing)
 - list/sell samples in track
@@ -87,7 +85,8 @@ CREATE TABLE users (
   email_verified BOOL not null default false, -- For email verification
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  is_private BOOLEAN NOT NULL DEFAULT FALSE
+  is_private BOOLEAN NOT NULL DEFAULT FALSE,
+  is_supporter BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE tracks (
@@ -262,3 +261,17 @@ CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 
 -- Create index for user's tokens
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+
+CREATE TABLE payments (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+  stripe_payment_id VARCHAR(255) NOT NULL,
+  stripe_checkout_id VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index for user payments
+CREATE INDEX idx_payments_user_id ON payments(user_id);
