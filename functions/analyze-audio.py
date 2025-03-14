@@ -1,5 +1,6 @@
 import librosa
 import numpy as np
+import sys
 
 def analyze_audio_rhythm(file_path):
     """
@@ -54,11 +55,13 @@ def analyze_audio_rhythm(file_path):
         
         # Check if there's a consistent loop period
         is_looped = False
+        loop_duration = None
+        audio_duration = len(y) / sr
+        
         if len(peak_times) > 0:
             # Estimate loop duration from the first significant peak
             loop_duration = peak_times[0]
             # Check if the audio duration is a multiple of the loop duration
-            audio_duration = len(y) / sr
             loop_ratio = audio_duration / loop_duration
             # If the ratio is close to an integer (within 5% tolerance), it's likely looped
             if abs(loop_ratio - round(loop_ratio)) < 0.05 and loop_ratio >= 1:
@@ -72,7 +75,7 @@ def analyze_audio_rhythm(file_path):
             "details": {
                 "beat_count": len(beat_times),
                 "audio_duration": round(audio_duration, 2),
-                "detected_loop_period": round(loop_duration, 2) if is_looped else None
+                "detected_loop_period": round(loop_duration, 2) if loop_duration else None
             }
         }
     
@@ -87,7 +90,10 @@ def analyze_audio_rhythm(file_path):
 
 # Example usage
 if __name__ == "__main__":
-    audio_file = "path/to/your/audio.wav"  # Replace with your audio file path
+    if len(sys.argv) > 1:
+        audio_file = sys.argv[1]  # Get file path from command line argument
+    else:
+        audio_file = "/Users/dukeschaffner/Music/sunhertz/Bounces/over this.m4a"
     result = analyze_audio_rhythm(audio_file)
     
     print(f"BPM: {result['bpm']}")

@@ -95,3 +95,9 @@ words:
 ideas:
 - postwav/postwave
 - sketchwave
+- altchorus
+- rechorus
+- novochorus
+- polychorus
+- polywave
+- altwave

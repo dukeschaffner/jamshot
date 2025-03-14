@@ -39,6 +39,11 @@ export default function TracksWidget({
     const activeSourcesRef = useRef([]); // Track active audio sources for stopping playback
     const startingPlaybackRef = useRef(false);
     const startingRecordingRef = useRef(false);
+    // Refs for gain nodes to control volume in real-time
+    const originalGainNodeRef = useRef(null);
+    const recordingGainNodeRef = useRef(null);
+    const originalTrackGainRef = useRef(.8);
+    const recordingTrackGainRef = useRef(.8);
 
     const absoluteRecordingStartTimeRef = useRef(null); // For calculating the latency offset
     const relativeRecordingStartTimeRef = useRef(0); // Tracks when the recording starts relative to the original track
@@ -170,11 +175,14 @@ export default function TracksWidget({
     if (recordingTrackSolo && !originalTrackSolo) {
       trackGain.gain.value = 0; // Mute original track if only recording is solo'd
     } else {
-      trackGain.gain.value = 0.7; // Normal volume
+      trackGain.gain.value = originalTrackGainRef.current; // Normal volume
     }
     
     trackSource.connect(trackGain);
     trackGain.connect(audioContext.destination);
+    
+    // Store the gain node in the ref for real-time control
+    originalGainNodeRef.current = trackGain;
 
     let activeSources = [trackSource];
 
@@ -186,7 +194,7 @@ export default function TracksWidget({
       if (originalTrackSolo && !recordingTrackSolo) {
         recordedGain.gain.value = 0; // Mute recording track if only original is solo'd
       } else {
-        recordedGain.gain.value = 1; // Normal volume
+        recordedGain.gain.value = recordingTrackGainRef.current; // Normal volume
       }
       
       const recordedSource = audioContext.createBufferSource();
@@ -195,11 +203,16 @@ export default function TracksWidget({
       recordedGain.connect(audioContext.destination);
       activeSources.push(recordedSource);
       
+      // Store the gain node in the ref for real-time control
+      recordingGainNodeRef.current = recordedGain;
+      
       // Store active sources for stopping playback
       activeSourcesRef.current = [trackSource, recordedSource];
     } else {
       // Store only the original track source
       activeSourcesRef.current = [trackSource];
+      // Reset recording gain node ref when not playing recording
+      recordingGainNodeRef.current = null;
     }
     
     // Start playback with latency compensation
@@ -260,6 +273,10 @@ export default function TracksWidget({
       
       // Clear the active sources array
       activeSourcesRef.current = [];
+      
+      // Clear gain node references
+      originalGainNodeRef.current = null;
+      recordingGainNodeRef.current = null;
 
       setIsPlaying(false);
     }
@@ -1131,24 +1148,44 @@ export default function TracksWidget({
     }
   };
   
+  // Function to update gain values based on solo states without restarting playback
+  const updateGainValues = (updates) => {
+    //updates has form [{node: originalGainNodeRef, gain: 0.7}, {node: recordingGainNodeRef, gain: 1}]
+    updates.forEach((update) => {
+        update.node.gain.setValueAtTime(update.gain, audioContext.currentTime);
+        update.node.gain.linearRampToValueAtTime(update.gain, audioContext.currentTime + 0.05);
+    });
+  };
+
   // Toggle solo for original track
   const toggleOriginalSolo = (e) => {
     e.stopPropagation();
     
+    let updates = [];
+
     // If recording track is solo'd, unsolo it
     if (recordingTrackSolo) {
-      setRecordingTrackSolo(false);
+        updates.push({node: recordingGainNodeRef.current, gain: 0});
+        updates.push({node: originalGainNodeRef.current, gain: originalTrackGainRef.current});
+        setRecordingTrackSolo(false);
     }
-    
+    else if (originalTrackSolo) {
+        updates.push({node: recordingGainNodeRef.current, gain: recordingTrackGainRef.current});
+    }
+    else if (!originalTrackSolo && !recordingTrackSolo) {
+        updates.push({node: originalGainNodeRef.current, gain: originalTrackGainRef.current});
+        updates.push({node: recordingGainNodeRef.current, gain: 0});
+    }
+
     // Toggle original track solo
     setOriginalTrackSolo(prev => !prev);
-    
-    // If currently playing, restart playback to apply solo changes
-    if (isPlaying) {
-      pause();
+
+    // If currently playing, update gain values in real-time
+    if (isPlaying && audioContext) {
+      // Use setTimeout to ensure state has updated before updating gain values
       setTimeout(() => {
-        setIsPlaying(true);
-      }, 50);
+        updateGainValues(updates);
+      }, 10);
     }
   };
   
@@ -1156,20 +1193,31 @@ export default function TracksWidget({
   const toggleRecordingSolo = (e) => {
     e.stopPropagation();
     
+    let updates = [];
+
     // If original track is solo'd, unsolo it
     if (originalTrackSolo) {
-      setOriginalTrackSolo(false);
+        updates.push({node: originalGainNodeRef.current, gain: 0});
+        updates.push({node: recordingGainNodeRef.current, gain: recordingTrackGainRef.current});
+        setOriginalTrackSolo(false);
+    }
+    else if (recordingTrackSolo) {
+        updates.push({node: originalGainNodeRef.current, gain: originalTrackGainRef.current});
+    }
+    else if (!originalTrackSolo && !recordingTrackSolo) {
+        updates.push({node: originalGainNodeRef.current, gain: 0});
+        updates.push({node: recordingGainNodeRef.current, gain: recordingTrackGainRef.current});
     }
     
     // Toggle recording track solo
     setRecordingTrackSolo(prev => !prev);
-    
-    // If currently playing, restart playback to apply solo changes
-    if (isPlaying) {
-      pause();
+
+    // If currently playing, update gain values in real-time
+    if (isPlaying && audioContext) {
+      // Use setTimeout to ensure state has updated before updating gain values
       setTimeout(() => {
-        setIsPlaying(true);
-      }, 50);
+        updateGainValues(updates);
+      }, 10);
     }
   };
 
