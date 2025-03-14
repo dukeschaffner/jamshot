@@ -43,7 +43,7 @@ export default function About() {
       });
       
       // Redirect to Stripe Checkout
-      window.location.href = response.data.url;
+       window.location.href = response.data.url;
     } catch (error) {
       console.error('Error creating checkout session:', error);
       setPaymentStatus('error');
