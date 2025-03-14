@@ -27,30 +27,38 @@ export default function TracksWidget({
     const [isLooping, setIsLooping] = useState(true);
     const [looperLeftPos, setLooperLeftPos] = useState(0);
     const [looperRightPos, setLooperRightPos] = useState(100);
-    const [originalTrackSolo, setOriginalTrackSolo] = useState(false);
-    const [recordingTrackSolo, setRecordingTrackSolo] = useState(false);
-    
-    // Refs to store audio objects and data
+
     const originalBufferRef = useRef(null);
+    const originalGainNodeRef = useRef(null);
+    const originalTrackGainRef = useRef(.8);
+    const originalAnalyzerRef = useRef(null);
+    const [originalTrackSolo, setOriginalTrackSolo] = useState(false);
+    const [originalTrackLevel, setOriginalTrackLevel] = useState(-60); // dB level for original track
+
     const recordedBufferRef = useRef(null);
+    const recordingGainNodeRef = useRef(null);
+    const recordingTrackGainRef = useRef(.8);
+    const recordingAnalyzerRef = useRef(null);
+    const [recordingTrackSolo, setRecordingTrackSolo] = useState(false);
+    const [recordingTrackLevel, setRecordingTrackLevel] = useState(-60); // dB level for recording track
+
+    
     const micStreamRef = useRef(null);
+    const [inputLevel, setInputLevel] = useState(-60); // dB level for microphone input
+    const inputAnalyzerRef = useRef(null);
     const recorderRef = useRef(null);
+
+    
     const isRecordingRef = useRef(false);
+    const isPlayingRef = useRef(false);
     const activeSourcesRef = useRef([]); // Track active audio sources for stopping playback
     const startingPlaybackRef = useRef(false);
     const startingRecordingRef = useRef(false);
-    // Refs for gain nodes to control volume in real-time
-    const originalGainNodeRef = useRef(null);
-    const recordingGainNodeRef = useRef(null);
-    const originalTrackGainRef = useRef(.8);
-    const recordingTrackGainRef = useRef(.8);
-
+    const meterAnimationFrameRef = useRef(null);
     const absoluteRecordingStartTimeRef = useRef(null); // For calculating the latency offset
     const relativeRecordingStartTimeRef = useRef(0); // Tracks when the recording starts relative to the original track
-
     const absolutePlaybackStartTimeRef = useRef(0);
     //const relativePlaybackStartTimeRef = useRef(0);
-
     const playheadInternalTimeRef = useRef(0);
     
     //#endregion
@@ -118,7 +126,27 @@ export default function TracksWidget({
       if (typeof window !== 'undefined') {
         try {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
-          setAudioContext(new AudioContext());
+          const newAudioContext = new AudioContext();
+          setAudioContext(newAudioContext);
+          
+          // Create analyzer nodes for meters
+          const originalAnalyzer = newAudioContext.createAnalyser();
+          originalAnalyzer.fftSize = 2048;
+          originalAnalyzer.smoothingTimeConstant = 0.8;
+          originalAnalyzerRef.current = originalAnalyzer;
+          
+          const recordingAnalyzer = newAudioContext.createAnalyser();
+          recordingAnalyzer.fftSize = 2048;
+          recordingAnalyzer.smoothingTimeConstant = 0.8;
+          recordingAnalyzerRef.current = recordingAnalyzer;
+          
+          const inputAnalyzer = newAudioContext.createAnalyser();
+          inputAnalyzer.fftSize = 2048;
+          inputAnalyzer.smoothingTimeConstant = 0.8;
+          inputAnalyzerRef.current = inputAnalyzer;
+
+          // Start the meter animation loop
+          startMeterAnimation();
         } catch (e) {
           setStatus('Web Audio API is not supported in this browser');
           console.error('Web Audio API error:', e);
@@ -130,10 +158,16 @@ export default function TracksWidget({
         if (micStreamRef.current) {
           micStreamRef.current.getTracks().forEach(track => track.stop());
         }
+        if (meterAnimationFrameRef.current) {
+          cancelAnimationFrame(meterAnimationFrameRef.current);
+        }
       };
     }, []);
   
     // Sync the isRecording ref with the state
+    useEffect(() => {
+        isPlayingRef.current = isPlaying;
+      }, [isPlaying]);
     useEffect(() => {
       isRecordingRef.current = isRecording;
     }, [isRecording]);
@@ -178,8 +212,10 @@ export default function TracksWidget({
       trackGain.gain.value = originalTrackGainRef.current; // Normal volume
     }
     
+    // Connect to analyzer for meter
     trackSource.connect(trackGain);
-    trackGain.connect(audioContext.destination);
+    trackGain.connect(originalAnalyzerRef.current);
+    originalAnalyzerRef.current.connect(audioContext.destination);
     
     // Store the gain node in the ref for real-time control
     originalGainNodeRef.current = trackGain;
@@ -200,7 +236,11 @@ export default function TracksWidget({
       const recordedSource = audioContext.createBufferSource();
       recordedSource.buffer = recordingPlaybackBuffer;
       recordedSource.connect(recordedGain);
-      recordedGain.connect(audioContext.destination);
+      
+      // Connect to analyzer for meter
+      recordedGain.connect(recordingAnalyzerRef.current);
+      recordingAnalyzerRef.current.connect(audioContext.destination);
+      
       activeSources.push(recordedSource);
       
       // Store the gain node in the ref for real-time control
@@ -342,6 +382,9 @@ export default function TracksWidget({
       
       // Create the recorder nodes
       const micSource = audioContext.createMediaStreamSource(stream);
+      
+      // Connect to input analyzer for meter
+      micSource.connect(inputAnalyzerRef.current);
       
       // Use a larger buffer size for better quality (must be power of 2)
       // Larger buffer size = less chance of audio dropouts
@@ -1221,97 +1264,119 @@ export default function TracksWidget({
     }
   };
 
+  // Function to start the meter animation loop
+  const startMeterAnimation = () => {
+    const updateMeters = () => {
+      // Update original track meter
+      if (originalAnalyzerRef.current && isPlayingRef.current && !originalTrackSolo) {
+        const dataArray = new Uint8Array(originalAnalyzerRef.current.frequencyBinCount);
+        originalAnalyzerRef.current.getByteFrequencyData(dataArray);
+        
+        // Calculate RMS value
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += (dataArray[i] / 255.0) ** 2;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        
+        // Convert to dB (with a floor of -60dB)
+        const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+        setOriginalTrackLevel(Math.max(-60, db));
+      } else if (!isPlayingRef.current) {
+        // Gradually decrease level when not playing
+        setOriginalTrackLevel(prevLevel => Math.max(-60, prevLevel - 3));
+      }
+      
+      // Update recording track meter during playback
+      if (recordingAnalyzerRef.current && isPlayingRef.current && !isRecording && !recordingTrackSolo) {
+        const dataArray = new Uint8Array(recordingAnalyzerRef.current.frequencyBinCount);
+        recordingAnalyzerRef.current.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += (dataArray[i] / 255.0) ** 2;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+        setRecordingTrackLevel(Math.max(-60, db));
+      } else if (isRecording && inputAnalyzerRef.current) {
+        // Update input level meter during recording
+        const dataArray = new Uint8Array(inputAnalyzerRef.current.frequencyBinCount);
+        inputAnalyzerRef.current.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += (dataArray[i] / 255.0) ** 2;
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+        
+        // Update both input and recording level during recording
+        setInputLevel(Math.max(-60, db));
+        setRecordingTrackLevel(Math.max(-60, db));
+      } else if (!isPlayingRef.current && !isRecording) {
+        // Gradually decrease level when not playing or recording
+        setRecordingTrackLevel(prevLevel => Math.max(-60, prevLevel - 3));
+        setInputLevel(prevLevel => Math.max(-60, prevLevel - 3));
+      }
+      
+      meterAnimationFrameRef.current = requestAnimationFrame(updateMeters);
+    };
+    
+    meterAnimationFrameRef.current = requestAnimationFrame(updateMeters);
+  };
+
+  // Helper function to convert dB to meter width percentage
+  const dbToPercent = (db) => {
+    // Map -60dB to 0% and 0dB to 100%
+    return Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+  };
+
+  // Helper function to get meter color based on level
+  const getMeterColor = (db) => {
+    if (db > -6) return '#ff3b30'; // Red for high levels
+    if (db > -12) return '#ff9500'; // Orange for medium-high levels
+    if (db > -24) return '#34c759'; // Green for good levels
+    return '#007aff'; // Blue for low levels
+  };
+
   return (
     <div className="daw-container">
-      {/* Timeline */}
-      <div className="timeline">
-        <div className="track-label"></div>
-        <div className="time-markers">
-          {generateTimeMarkers()}
+        <div className="daw-header">
+            {/* Timeline */}
+            <div className="timeline">
+                <div className="track-label"></div>
+                <div className="time-markers">
+                    {generateTimeMarkers()}
+                </div>
+            </div>
         </div>
-      </div>
-
-
-      {/* Parent Track */}
-      <div className="track-container parent-track">
-        <div className="track-label">
-          <span>Original</span>
-          <button 
-            className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
-            onClick={toggleOriginalSolo}
-            disabled={isRecording}
-            title="Solo original track"
-          >
-            <FontAwesomeIcon icon={faHeadphones} />
-            <span>Solo</span>
-          </button>
-        </div>
-        <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
-            {/* Musical Grid */}
-            {/* <div className="musical-grid">
-                {generateMusicalGrid()}
-            </div> */}
-          <div className="waveform">
+        <div className="daw-body">
+        <div className="daw-tracks-headers">
+            <div className="track-label">
+                <span>Original</span>
+                <button 
+                    className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
+                    onClick={toggleOriginalSolo}
+                    disabled={isRecording}
+                    title="Solo original track"
+                >
+                    <FontAwesomeIcon icon={faHeadphones} />
+                    <span>Solo</span>
+                </button>
             
-            
-            {/* Canvas Waveform */}
-            {originalBufferRef.current ? (
-              <canvas 
-                ref={originalCanvasRef} 
-                width="1000" 
-                height="100" 
-                style={{ width: '100%', height: '100%' }}
-              />
-            ) : (
-              /* SVG Waveform Fallback */
-              <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
-                <path 
-                  d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
-                  fill="none" 
-                  stroke="var(--seafoam)" 
-                  strokeWidth="2"
-                />
-              </svg>
-            )}
-            {/* Playhead */}
-            <div 
-              className="playhead" 
-              ref={playheadRef}
-              style={{ left: `${playheadPos}%` }}
-            ></div>
-          </div>
-          {/* Looper */}
-          <div 
-            className="looper" 
-            ref={looperRef}
-            style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
-          >
-            <div 
-              className="looper-handle left" 
-              ref={looperHandleLeftRef}
-              onMouseDown={handleLooperLeftMouseDown}
-            ></div>
-            <div 
-              className="looper-region" 
-              ref={looperRegionRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLooping(prev => !prev);
-              }}
-              onMouseDown={handleLooperRegionMouseDown}
-            ></div>
-            <div 
-              className="looper-handle right" 
-              ref={looperHandleRightRef}
-              onMouseDown={handleLooperRightMouseDown}
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Your Recording */}
-      <div className="track-container your-track">
-        <div className="track-label">
+                {/* Original Track Meter */}
+                <div className="audio-meter-container">
+                    <div 
+                    className="audio-meter-bar" 
+                    style={{ 
+                        width: `${dbToPercent(originalTrackLevel)}%`,
+                        backgroundColor: getMeterColor(originalTrackLevel)
+                    }}
+                    ></div>
+                </div>
+            </div>
+            <div className="track-label">
           <span>Your Recording</span>
           <button 
             className={`solo-button ${recordingTrackSolo ? 'active' : ''}`}
@@ -1328,7 +1393,91 @@ export default function TracksWidget({
               <span>Recording</span>
             </div>
           )}
+          
+          {/* Recording Track Meter */}
+          <div className="audio-meter-container">
+            <div 
+              className="audio-meter-bar" 
+              style={{ 
+                width: `${dbToPercent(isRecording ? inputLevel : recordingTrackLevel)}%`,
+                backgroundColor: getMeterColor(isRecording ? inputLevel : recordingTrackLevel)
+              }}
+            ></div>
+          </div>
         </div>
+        </div>
+        <div className="daw-tracks-container">
+            
+
+            {/* Parent Track */}
+            <div className="track-container parent-track">
+                    
+                <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
+                        {/* Musical Grid */}
+                        {/* <div className="musical-grid">
+                            {generateMusicalGrid()}
+                        </div> */}
+                    <div className="waveform">
+                        
+                        
+                        {/* Canvas Waveform */}
+                        {originalBufferRef.current ? (
+                        <canvas 
+                            ref={originalCanvasRef} 
+                            width="1000" 
+                            height="100" 
+                            style={{ width: '100%', height: '100%' }}
+                        />
+                        ) : (
+                        /* SVG Waveform Fallback */
+                        <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                            <path 
+                            d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
+                            fill="none" 
+                            stroke="var(--seafoam)" 
+                            strokeWidth="2"
+                            />
+                        </svg>
+                        )}
+                        {/* Playhead */}
+                        <div 
+                        className="playhead" 
+                        ref={playheadRef}
+                        style={{ left: `${playheadPos}%` }}
+                        ></div>
+                    </div>
+                    {/* Looper */}
+                    <div 
+                        className="looper" 
+                        ref={looperRef}
+                        style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
+                    >
+                        <div 
+                        className="looper-handle left" 
+                        ref={looperHandleLeftRef}
+                        onMouseDown={handleLooperLeftMouseDown}
+                        ></div>
+                        <div 
+                        className="looper-region" 
+                        ref={looperRegionRef}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsLooping(prev => !prev);
+                        }}
+                        onMouseDown={handleLooperRegionMouseDown}
+                        ></div>
+                        <div 
+                        className="looper-handle right" 
+                        ref={looperHandleRightRef}
+                        onMouseDown={handleLooperRightMouseDown}
+                        ></div>
+                    </div>
+                    </div>
+                </div>
+
+                {/* Your Recording */}
+      <div className="track-container your-track">
+        
         {hasRecordingTrack || isRecording ? (
           <div className="waveform-container"
           style={{
@@ -1379,9 +1528,25 @@ export default function TracksWidget({
         
         
       </div>
+            </div>
+        </div>
+        
+        
+
+        
+
+
+
+
+
+
+
+      
+
+      
       
       {/* Takes List */}
-      {takes.length > 0 && (
+      {/* {takes.length > 0 && (
         <div className="takes-container">
           <h3>Your Takes</h3>
           <div className="takes-list">
@@ -1405,7 +1570,7 @@ export default function TracksWidget({
             ))}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 } 
