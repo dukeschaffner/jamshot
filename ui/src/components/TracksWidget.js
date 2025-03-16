@@ -1266,58 +1266,71 @@ export default function TracksWidget({
 
   // Function to start the meter animation loop
   const startMeterAnimation = () => {
+    // Use time-based throttling instead of frame counting
+    let lastUpdateTime = 0;
+    // Update interval in milliseconds (higher = less frequent updates)
+    const updateInterval = 60; // Update every 100ms (adjust as needed)
+    
     const updateMeters = () => {
-      // Update original track meter
-      if (originalAnalyzerRef.current && isPlayingRef.current && !originalTrackSolo) {
-        const dataArray = new Uint8Array(originalAnalyzerRef.current.frequencyBinCount);
-        originalAnalyzerRef.current.getByteFrequencyData(dataArray);
-        
-        // Calculate RMS value
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += (dataArray[i] / 255.0) ** 2;
-        }
-        const rms = Math.sqrt(sum / dataArray.length);
-        
-        // Convert to dB (with a floor of -60dB)
-        const db = rms > 0 ? 20 * Math.log10(rms) : -60;
-        setOriginalTrackLevel(Math.max(-60, db));
-      } else if (!isPlayingRef.current) {
-        // Gradually decrease level when not playing
-        setOriginalTrackLevel(prevLevel => Math.max(-60, prevLevel - 3));
-      }
+      const currentTime = performance.now();
+      const timeSinceLastUpdate = currentTime - lastUpdateTime;
       
-      // Update recording track meter during playback
-      if (recordingAnalyzerRef.current && isPlayingRef.current && !isRecording && !recordingTrackSolo) {
-        const dataArray = new Uint8Array(recordingAnalyzerRef.current.frequencyBinCount);
-        recordingAnalyzerRef.current.getByteFrequencyData(dataArray);
+      // Only process meter updates if enough time has passed
+      if (timeSinceLastUpdate >= updateInterval) {
+        lastUpdateTime = currentTime;
         
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += (dataArray[i] / 255.0) ** 2;
+        // Update original track meter
+        if (originalAnalyzerRef.current && isPlayingRef.current && !originalTrackSolo) {
+          const dataArray = new Uint8Array(originalAnalyzerRef.current.frequencyBinCount);
+          originalAnalyzerRef.current.getByteFrequencyData(dataArray);
+          
+          // Calculate RMS value
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += (dataArray[i] / 255.0) ** 2;
+          }
+          const rms = Math.sqrt(sum / dataArray.length);
+          
+          // Convert to dB (with a floor of -60dB)
+          const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+          setOriginalTrackLevel(Math.max(-60, db));
+        } else if (!isPlayingRef.current) {
+          // Gradually decrease level when not playing
+          setOriginalTrackLevel(prevLevel => Math.max(-60, prevLevel - 3));
         }
-        const rms = Math.sqrt(sum / dataArray.length);
-        const db = rms > 0 ? 20 * Math.log10(rms) : -60;
-        setRecordingTrackLevel(Math.max(-60, db));
-      } else if (isRecording && inputAnalyzerRef.current) {
-        // Update input level meter during recording
-        const dataArray = new Uint8Array(inputAnalyzerRef.current.frequencyBinCount);
-        inputAnalyzerRef.current.getByteFrequencyData(dataArray);
         
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += (dataArray[i] / 255.0) ** 2;
+        // Update recording track meter during playback
+        if (recordingAnalyzerRef.current && isPlayingRef.current && !isRecording && !recordingTrackSolo) {
+          const dataArray = new Uint8Array(recordingAnalyzerRef.current.frequencyBinCount);
+          recordingAnalyzerRef.current.getByteFrequencyData(dataArray);
+          
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += (dataArray[i] / 255.0) ** 2;
+          }
+          const rms = Math.sqrt(sum / dataArray.length);
+          const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+          setRecordingTrackLevel(Math.max(-60, db));
+        } else if (isRecording && inputAnalyzerRef.current) {
+          // Update input level meter during recording
+          const dataArray = new Uint8Array(inputAnalyzerRef.current.frequencyBinCount);
+          inputAnalyzerRef.current.getByteFrequencyData(dataArray);
+          
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += (dataArray[i] / 255.0) ** 2;
+          }
+          const rms = Math.sqrt(sum / dataArray.length);
+          const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+          
+          // Update both input and recording level during recording
+          setInputLevel(Math.max(-60, db));
+          setRecordingTrackLevel(Math.max(-60, db));
+        } else if (!isPlayingRef.current && !isRecording) {
+          // Gradually decrease level when not playing or recording
+          setRecordingTrackLevel(prevLevel => Math.max(-60, prevLevel - 3));
+          setInputLevel(prevLevel => Math.max(-60, prevLevel - 3));
         }
-        const rms = Math.sqrt(sum / dataArray.length);
-        const db = rms > 0 ? 20 * Math.log10(rms) : -60;
-        
-        // Update both input and recording level during recording
-        setInputLevel(Math.max(-60, db));
-        setRecordingTrackLevel(Math.max(-60, db));
-      } else if (!isPlayingRef.current && !isRecording) {
-        // Gradually decrease level when not playing or recording
-        setRecordingTrackLevel(prevLevel => Math.max(-60, prevLevel - 3));
-        setInputLevel(prevLevel => Math.max(-60, prevLevel - 3));
       }
       
       meterAnimationFrameRef.current = requestAnimationFrame(updateMeters);
@@ -1343,13 +1356,33 @@ export default function TracksWidget({
   return (
     <div className="daw-container">
         <div className="daw-header">
-            {/* Timeline */}
+            <div className="daw-header-left">
+
+            </div>
+            
             <div className="timeline">
+                
+                {/* Playhead */}
+                <div 
+                    className="playhead" 
+                    ref={playheadRef}
+                    style={{ left: `${playheadPos}%` }}
+                ></div>
+
+                {/* Timeline */}
                 <div className="track-label"></div>
                 <div className="time-markers">
                     {generateTimeMarkers()}
                 </div>
+
+                {/* Musical Grid */}
+                <div className="musical-grid">
+                    {generateMusicalGrid()}
+                </div>
             </div>
+
+                
+            
         </div>
         <div className="daw-body">
         <div className="daw-tracks-headers">
@@ -1406,17 +1439,15 @@ export default function TracksWidget({
           </div>
         </div>
         </div>
-        <div className="daw-tracks-container">
-            
 
+
+
+        <div className="daw-tracks-container">
             {/* Parent Track */}
             <div className="track-container parent-track">
                     
                 <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
-                        {/* Musical Grid */}
-                        {/* <div className="musical-grid">
-                            {generateMusicalGrid()}
-                        </div> */}
+                        
                     <div className="waveform">
                         
                         
@@ -1439,12 +1470,6 @@ export default function TracksWidget({
                             />
                         </svg>
                         )}
-                        {/* Playhead */}
-                        <div 
-                        className="playhead" 
-                        ref={playheadRef}
-                        style={{ left: `${playheadPos}%` }}
-                        ></div>
                     </div>
                     {/* Looper */}
                     <div 
