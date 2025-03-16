@@ -60,7 +60,10 @@ export default function TracksWidget({
     const absolutePlaybackStartTimeRef = useRef(0);
     //const relativePlaybackStartTimeRef = useRef(0);
     const playheadInternalTimeRef = useRef(0);
-    
+
+
+    const tempRecordingStartTimeRef1 = useRef(0);
+    const tempRecordingStartTimeRef2 = useRef(0);
     //#endregion
 
     //#region ui properties
@@ -277,6 +280,7 @@ export default function TracksWidget({
     }
 
     absolutePlaybackStartTimeRef.current = audioContext.currentTime;
+    console.log('Absolute playback start time set:', absolutePlaybackStartTimeRef.current);
 
     if(isRecording){
       setRecordingStartPos(timeToPos(startTime, trackDuration));
@@ -360,6 +364,9 @@ export default function TracksWidget({
         await audioContext.resume();
       }
       
+      console.log('Recording started - audioContext.currentTime:', audioContext.currentTime);
+      tempRecordingStartTimeRef1.current = audioContext.currentTime;
+      
       // Get media stream with selected device and high-quality audio settings
       const constraints = {
         audio: {
@@ -403,6 +410,12 @@ export default function TracksWidget({
           const bufferCopy = new Float32Array(channelData.length);
           bufferCopy.set(channelData);
           
+          //if recorded data length is 0, log the time that the first sample in the buffer would have been recorded
+          if(recordedData.length === 0){
+            tempRecordingStartTimeRef2.current = audioContext.currentTime - (bufferCopy.length / audioContext.sampleRate);
+            console.log('Recording start based on buffer:', tempRecordingStartTimeRef2.current, 'seconds');
+            
+        }
           // Store the raw audio data without any processing
           recordedData.push(bufferCopy);
         }
@@ -431,6 +444,7 @@ export default function TracksWidget({
       
       // Track start time for synchronization
       absoluteRecordingStartTimeRef.current = audioContext.currentTime;
+      console.log('Absolute recording start time set:', absoluteRecordingStartTimeRef.current, 'Relative start time:', relativeRecordingStartTimeRef.current);
       
       isRecordingRef.current = true;
       
@@ -455,6 +469,16 @@ export default function TracksWidget({
     //     recordedBuffer, 
     //     recorderRef.current?.sampleRate || audioContext.sampleRate
     //   );
+
+    //TODO: cleanup latency methods
+    // const recordingLatency1 = absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current;
+    // const recordingLatency2 = absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current;
+    const recordingLatency3 = absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current;
+
+    console.log('Input latency point 1:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current, 'seconds');
+    console.log('Input latency point 2:', absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current, 'seconds');
+    console.log('Input latency based on buffer:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current, 'seconds');
+
       
       const startTime = isFile ? 0 : relativeRecordingStartTimeRef.current;
       const endTime = isFile ? buffer.duration : startTime + buffer.duration;
@@ -468,6 +492,7 @@ export default function TracksWidget({
         recordedAt: Date.now(),
         startTime: startTime,
         endTime: endTime,
+        recordingLatency: recordingLatency3,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
         bitDepth: 24 // Store the bit depth for reference
@@ -630,11 +655,13 @@ export default function TracksWidget({
       let recordedBuffer = selectedTake.buffer;
       let resultBuffer;
       
+      const adjustedStartTime = selectedTake.startTime - userLatencyCompensation / 1000 - selectedTake.recordingLatency;
+        
+
       // Check if we need to pad the buffer (if it's shorter than the original track)
       if (originalBufferRef.current && recordedBuffer.duration < originalBufferRef.current.duration) {
         console.log('Padding recorded buffer to match original track duration');
-        const adjustedStartTime = selectedTake.startTime - userLatencyCompensation / 1000;
-        
+
         // Create a new buffer with the same duration as the original track
         const paddedBuffer = audioContext.createBuffer(
           recordedBuffer.numberOfChannels,
@@ -681,8 +708,6 @@ export default function TracksWidget({
           recordedBuffer.sampleRate
         );
         
-        // Calculate the adjusted start time with latency compensation
-        const adjustedStartTime = selectedTake.startTime - userLatencyCompensation / 1000;
         const startSample = Math.floor(adjustedStartTime * recordedBuffer.sampleRate);
         
         // Copy only the portion of the recorded data that fits within the original duration
@@ -753,7 +778,6 @@ export default function TracksWidget({
             if (isRecording) {
               const indicatorWidth = playheadPos - recordingStartPos;
               setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
-              console.log('indicatorWidth', indicatorWidth);
             }
           }
           
