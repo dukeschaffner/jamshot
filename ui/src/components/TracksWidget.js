@@ -74,13 +74,16 @@ export default function TracksWidget({
     const [isDraggingLooperLeft, setIsDraggingLooperLeft] = useState(false);
     const [isDraggingLooperRight, setIsDraggingLooperRight] = useState(false);
     const [isDraggingLooperRegion, setIsDraggingLooperRegion] = useState(false);
+    const [isDraggingRecordingRegion, setIsDraggingRecordingRegion] = useState(false);
     const [dragStartX, setDragStartX] = useState(0);
+    const [recordingStartPosBeforeDrag, setRecordingStartPosBeforeDrag] = useState(0);
     const [looperStartWidth, setLooperStartWidth] = useState(0);
     const [looperStartLeft, setLooperStartLeft] = useState(0);
 
     const waveformContainerRef = useRef(null);
     const originalCanvasRef = useRef(null);
     const recordingCanvasRef = useRef(null);
+    const recordingContainerRef = useRef(null);
     const playheadRef = useRef(null);
     const playheadIntervalRef = useRef(null);
     const looperRef = useRef(null);
@@ -473,12 +476,12 @@ export default function TracksWidget({
     //TODO: cleanup latency methods
     // const recordingLatency1 = absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current;
     // const recordingLatency2 = absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current;
-    const recordingLatency3 = absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current;
+    const recordingLatency3 = audioContext.outputLatency + (absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current);
 
     console.log('Input latency point 1:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current, 'seconds');
     console.log('Input latency point 2:', absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current, 'seconds');
     console.log('Input latency based on buffer:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current, 'seconds');
-
+    console.log('output latency:', audioContext.outputLatency, 'seconds');
       
       const startTime = isFile ? 0 : relativeRecordingStartTimeRef.current;
       const endTime = isFile ? buffer.duration : startTime + buffer.duration;
@@ -834,6 +837,16 @@ export default function TracksWidget({
     setLooperStartWidth(looperRightPos - looperLeftPos);
   };
 
+  const handleRecordingRegionMouseDown = (e) => {
+    e.stopPropagation();
+    // Only allow dragging if not playing or recording
+    if (isPlaying || isRecording) return;
+    
+    setIsDraggingRecordingRegion(true);
+    setDragStartX(e.clientX);
+    setRecordingStartPosBeforeDrag(recordingStartPos);
+  };
+
   useEffect(() => {
     if(selectedTake){
       recordedBufferRef.current = selectedTake.buffer;
@@ -847,7 +860,7 @@ export default function TracksWidget({
     // Mouse event handlers
     useEffect(() => {
         const handleMouseMove = (e) => {
-          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion) return;
+          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion) return;
           
           if (waveformContainerRef.current) {
             const rect = waveformContainerRef.current.getBoundingClientRect();
@@ -936,6 +949,27 @@ export default function TracksWidget({
             //     `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
             //   );
             }
+
+            // Dragging recording region
+            if (isDraggingRecordingRegion && selectedTake) {
+              const deltaX = e.clientX - dragStartX;
+              const deltaPercent = (deltaX / rect.width) * 100;
+              
+              // Calculate new position
+              let newStartPos = recordingStartPosBeforeDrag + deltaPercent;
+              
+              // Ensure the recording stays within bounds
+              if (newStartPos < 0) {
+                newStartPos = 0;
+              }
+              
+              if (newStartPos + recordingWidth > 100) {
+                newStartPos = 100 - recordingWidth;
+              }
+              
+              // Update recording position
+              setRecordingStartPos(newStartPos);
+            }
           }
         };
         
@@ -944,6 +978,22 @@ export default function TracksWidget({
           setIsDraggingLooperRight(false);
           setIsDraggingPlayhead(false);
           setIsDraggingLooperRegion(false);
+          
+          // If we were dragging the recording region, update the selected take's startTime and endTime
+          if (isDraggingRecordingRegion && selectedTake) {
+            const newStartTime = posToTime(recordingStartPos, trackDuration);
+            const recordingDuration = selectedTake.endTime - selectedTake.startTime;
+            const newEndTime = newStartTime + recordingDuration;
+            
+            // Update the selected take with new start and end times
+            setSelectedTake(prevTake => ({
+              ...prevTake,
+              startTime: newStartTime,
+              endTime: newEndTime
+            }));
+          }
+          
+          setIsDraggingRecordingRegion(false);
           //hideTimeTooltip();
         };
         
@@ -955,9 +1005,9 @@ export default function TracksWidget({
           document.removeEventListener('mouseup', handleMouseUp);
         };
       }, [
-        isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion,
+        isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion, isDraggingRecordingRegion,
         looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
-        isPlaying, playheadPos, isLooping, trackDuration
+        isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, selectedTake
       ]);
 
       useEffect(() => {
@@ -1528,12 +1578,15 @@ export default function TracksWidget({
       <div className="track-container your-track">
         
         {hasRecordingTrack || isRecording ? (
-          <div className="waveform-container"
+          <div className={`waveform-container ${isDraggingRecordingRegion ? 'dragging' : ''}`}
           style={{
             left: `${recordingStartPos}%`,
             width: `${recordingWidth}%`,
+            cursor: isPlaying || isRecording ? 'default' : 'grab'
           }}
           onClick={handleWaveformClick}
+          onMouseDown={isPlaying || isRecording ? null : handleRecordingRegionMouseDown}
+          ref={recordingContainerRef}
           >
             <div className="waveform">
               {/* Recording Indicator */}
