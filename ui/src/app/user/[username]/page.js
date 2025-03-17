@@ -8,7 +8,7 @@ import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
 
 export default function UserPage() {
-  const { userId } = useParams();
+  const { username } = useParams();
   const router = useRouter();
   const [tracks, setTracks] = useState([]);
   const [repostedTracks, setRepostedTracks] = useState([]);
@@ -31,21 +31,22 @@ export default function UserPage() {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        setIsOwnProfile(payload.id === parseInt(userId));
+        // We'll check if this is the user's own profile when we fetch the user data
+        // since we now use username instead of ID
       } catch (e) {
         console.error('Failed to parse token:', e);
       }
     }
-  }, [userId]);
+  }, [username]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [userResponse, tracksResponse, repostsResponse, statsResponse] = await Promise.all([
-          api.get(`/users/${userId}`),
-          api.get(`/users/${userId}/tracks`),
-          api.get(`/users/${userId}/reposts`),
-          api.get(`/users/${userId}/stats`),
+          api.get(`/users/by-username/${username}`),
+          api.get(`/users/by-username/${username}/tracks`),
+          api.get(`/users/by-username/${username}/reposts`),
+          api.get(`/users/by-username/${username}/stats`),
         ]);
         setUserProfile(userResponse.data);
         setIsPrivate(userResponse.data.is_private);
@@ -56,14 +57,25 @@ export default function UserPage() {
         setTracks(tracksResponse.data);
         setRepostedTracks(repostsResponse.data);
         setStats(statsResponse.data);
-
-        // If this is the user's own profile, fetch pending follow requests
-        if (isOwnProfile) {
+        
+        // Check if this is the user's own profile
+        const token = Cookies.get('token');
+        if (token) {
           try {
-            const requestsResponse = await api.get('/users/me/follow-requests');
-            setPendingFollowRequests(requestsResponse.data);
-          } catch (err) {
-            console.error('Failed to fetch follow requests:', err);
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            setIsOwnProfile(payload.username === username);
+            
+            // If this is the user's own profile, fetch pending follow requests
+            if (payload.username === username) {
+              try {
+                const requestsResponse = await api.get('/users/me/follow-requests');
+                setPendingFollowRequests(requestsResponse.data);
+              } catch (err) {
+                console.error('Failed to fetch follow requests:', err);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to parse token:', e);
           }
         }
       } catch (err) {
@@ -73,7 +85,7 @@ export default function UserPage() {
       }
     };
     fetchData();
-  }, [userId, isOwnProfile]);
+  }, [username]);
 
   const handleFollow = async () => {
     if (isOwnProfile) return; // Prevent following yourself
@@ -85,10 +97,10 @@ export default function UserPage() {
     }
     try {
       if (stats.isFollowing) {
-        await api.delete(`/users/follow/${userId}`);
+        await api.delete(`/users/follow/username/${username}`);
         setStats(prev => ({ ...prev, isFollowing: false, followers: prev.followers - 1 }));
       } else {
-        const response = await api.post(`/users/follow/${userId}`);
+        const response = await api.post(`/users/follow/username/${username}`);
         // If the account is private, don't increment follower count yet
         if (response.data.message === 'Follow request sent') {
           alert('Follow request sent. Waiting for approval.');

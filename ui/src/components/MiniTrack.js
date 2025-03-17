@@ -4,8 +4,10 @@ import { useAudio } from '../lib/AudioContext';
 import { FaPlay, FaPause, FaHeart, FaRegHeart, FaRetweet, FaCheckCircle, FaMusic } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import api from '../lib/api';
+import { useRouter } from 'next/navigation';
 
 export default function MiniTrack({ track, relatedTracks = [] }) {
+  const router = useRouter();
   const { currentTrack, isPlaying, togglePlayPause, playTrack } = useAudio();
   const isCurrentTrack = currentTrack?.id === track.id;
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
@@ -77,6 +79,11 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
     }
   };
   
+  const navigateToUserProfile = (e) => {
+    e.stopPropagation();
+    router.push(`/user/${track.username}`);
+  };
+  
   return (
     <div className="related-track">
       <div className="related-play" onClick={handlePlayToggle}>
@@ -116,7 +123,10 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
           )}
         </div>
         <div className="related-artist">
-          <span className="artist-name">
+          <span 
+            className="artist-name"
+            onClick={navigateToUserProfile}
+          >
             {track.username || 'Unknown Artist'}
             {track.verified && <FaCheckCircle className="verified-icon" />}
           </span>
@@ -146,6 +156,16 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
           </button>
         </div>
       </div>
+      
+      <style jsx>{`
+        .artist-name {
+          cursor: pointer;
+          transition: text-decoration 0.2s ease;
+        }
+        .artist-name:hover {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }

@@ -144,6 +144,11 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
   const originalTrack = relatedTracks.find(t => t.id === track.parent_track_id);
   const collabTracks = relatedTracks.filter(t => t.parent_track_id === track.id);
 
+  const navigateToUserProfile = (e) => {
+    e.stopPropagation();
+    router.push(`/user/${track.username}`);
+  };
+
   return (
     <div className={`track-card ${isExpanded ? 'expanded' : ''}`}>
       {track.is_repost && track.reposted_by_username && (
@@ -176,21 +181,26 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           </div>
           
           <div className="track-artist">
-            <div className="artist-avatar">
+            <div className="artist-avatar" onClick={navigateToUserProfile}>
               {track.profile_pic_url ? (
                 <Image 
                   src={track.profile_pic_url} 
                   alt={track.username} 
                   width={40} 
                   height={40}
-                  style={{ borderRadius: '50%', objectFit: 'cover' }}
+                  style={{ borderRadius: '50%', objectFit: 'cover', cursor: 'pointer' }}
                 />
               ) : (
-                <div className="avatar-placeholder"></div>
+                <div className="avatar-placeholder" style={{ cursor: 'pointer' }}></div>
               )}
             </div>
             <div className="artist-name">
-              {track.username}
+              <span 
+                className="username-link" 
+                onClick={navigateToUserProfile}
+              >
+                {track.username}
+              </span>
               {track.verified && <FaCheckCircle className="verified-icon" />}
             </div>
           </div>
@@ -294,6 +304,16 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .username-link {
+          cursor: pointer;
+          transition: text-decoration 0.2s ease;
+        }
+        .username-link:hover {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }
