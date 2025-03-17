@@ -652,4 +652,307 @@ router.post('/follow-requests/:requestId/reject', authMiddleware, async (req, re
   }
 });
 
+// Get user profile by username
+router.get('/by-username/:username', async (req, res) => {
+  const { username } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT id, username, bio, verified, profile_pic_url, is_private FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get user's tracks by username
+router.get('/by-username/:username/tracks', async (req, res) => {
+  const { username } = req.params;
+  const currentUserId = req.user?.id;
+  
+  try {
+    // First get the user ID from username
+    const userResult = await pool.query(
+      'SELECT id, is_private FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    const isPrivate = userResult.rows[0].is_private;
+    
+    // If account is private, check if the current user is following them
+    if (isPrivate && currentUserId !== userId) {
+      // Check if the current user is following this user
+      const isFollowing = currentUserId ? await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
+        [currentUserId, userId]
+      ) : { rows: [{ is_following: false }] };
+      
+      // If not following, return empty array
+      if (!isFollowing.rows[0].is_following) {
+        return res.json([]);
+      }
+    }
+    
+    // Get tracks with additional info
+    const tracksQuery = `
+      SELECT t.*, 
+             u.username, 
+             u.verified,
+             u.profile_pic_url,
+             COALESCE(l.like_count, 0) as like_count,
+             COALESCE(p.play_count, 0) as play_count,
+             COALESCE(c.collab_count, 0) as collab_count,
+             ot.title as original_title,
+             CASE WHEN ul.user_id IS NOT NULL THEN true ELSE false END as is_liked,
+             CASE WHEN ur.user_id IS NOT NULL THEN true ELSE false END as is_reposted
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      LEFT JOIN (SELECT track_id, COUNT(*) as like_count FROM likes GROUP BY track_id) l ON t.id = l.track_id
+      LEFT JOIN (SELECT track_id, COUNT(*) as play_count FROM plays GROUP BY track_id) p ON t.id = p.track_id
+      LEFT JOIN (SELECT parent_track_id, COUNT(*) as collab_count FROM tracks WHERE parent_track_id IS NOT NULL GROUP BY parent_track_id) c ON t.id = c.parent_track_id
+      LEFT JOIN tracks ot ON t.parent_track_id = ot.id
+      LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
+      LEFT JOIN reposts ur ON t.id = ur.track_id AND ur.user_id = $2
+      WHERE t.user_id = $1
+      ORDER BY t.created_at DESC
+    `;
+    
+    const tracksResult = await pool.query(tracksQuery, [userId, currentUserId || null]);
+    res.json(tracksResult.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get user's reposts by username
+router.get('/by-username/:username/reposts', async (req, res) => {
+  const { username } = req.params;
+  const currentUserId = req.user?.id;
+  
+  try {
+    // First get the user ID from username
+    const userResult = await pool.query(
+      'SELECT id, is_private FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    const isPrivate = userResult.rows[0].is_private;
+    
+    // If account is private, check if the current user is following them
+    if (isPrivate && currentUserId !== userId) {
+      // Check if the current user is following this user
+      const isFollowing = currentUserId ? await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
+        [currentUserId, userId]
+      ) : { rows: [{ is_following: false }] };
+      
+      // If not following, return empty array
+      if (!isFollowing.rows[0].is_following) {
+        return res.json([]);
+      }
+    }
+    
+    // Get reposts with additional info
+    const repostsQuery = `
+      SELECT t.*, 
+             u.username, 
+             u.verified,
+             u.profile_pic_url,
+             r.created_at as repost_date,
+             ru.username as reposted_by_username,
+             COALESCE(l.like_count, 0) as like_count,
+             COALESCE(p.play_count, 0) as play_count,
+             COALESCE(c.collab_count, 0) as collab_count,
+             ot.title as original_title,
+             CASE WHEN ul.user_id IS NOT NULL THEN true ELSE false END as is_liked,
+             true as is_reposted
+      FROM reposts r
+      JOIN tracks t ON r.track_id = t.id
+      JOIN users u ON t.user_id = u.id
+      JOIN users ru ON r.user_id = ru.id
+      LEFT JOIN (SELECT track_id, COUNT(*) as like_count FROM likes GROUP BY track_id) l ON t.id = l.track_id
+      LEFT JOIN (SELECT track_id, COUNT(*) as play_count FROM plays GROUP BY track_id) p ON t.id = p.track_id
+      LEFT JOIN (SELECT parent_track_id, COUNT(*) as collab_count FROM tracks WHERE parent_track_id IS NOT NULL GROUP BY parent_track_id) c ON t.id = c.parent_track_id
+      LEFT JOIN tracks ot ON t.parent_track_id = ot.id
+      LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
+      WHERE r.user_id = $1
+      ORDER BY r.created_at DESC
+    `;
+    
+    const repostsResult = await pool.query(repostsQuery, [userId, currentUserId || null]);
+    res.json(repostsResult.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get user stats by username
+router.get('/by-username/:username/stats', async (req, res) => {
+  const { username } = req.params;
+  const currentUserId = req.user?.id;
+  
+  try {
+    // First get the user ID from username
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Get follower count
+    const followersResult = await pool.query(
+      'SELECT COUNT(*) as followers FROM follows WHERE following_id = $1',
+      [userId]
+    );
+    
+    // Get following count
+    const followingResult = await pool.query(
+      'SELECT COUNT(*) as following FROM follows WHERE follower_id = $1',
+      [userId]
+    );
+    
+    // Check if current user is following this user
+    let isFollowing = false;
+    if (currentUserId) {
+      const followCheckResult = await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
+        [currentUserId, userId]
+      );
+      isFollowing = followCheckResult.rows[0].is_following;
+    }
+    
+    res.json({
+      followers: parseInt(followersResult.rows[0].followers),
+      following: parseInt(followingResult.rows[0].following),
+      isFollowing
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Follow a user by username
+router.post('/follow/username/:username', authMiddleware, async (req, res) => {
+  const { username } = req.params;
+  const followerId = req.user.id;
+  
+  try {
+    // Get the user ID from username
+    const userResult = await pool.query(
+      'SELECT id, is_private FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const followingId = userResult.rows[0].id;
+    const isPrivate = userResult.rows[0].is_private;
+    
+    // Prevent following yourself
+    if (followerId === followingId) {
+      return res.status(400).json({ error: 'You cannot follow yourself' });
+    }
+    
+    // Check if already following
+    const existingFollow = await pool.query(
+      'SELECT * FROM follows WHERE follower_id = $1 AND following_id = $2',
+      [followerId, followingId]
+    );
+    
+    if (existingFollow.rows.length > 0) {
+      return res.status(400).json({ error: 'Already following this user' });
+    }
+    
+    // If the account is private, create a follow request instead of direct follow
+    if (isPrivate) {
+      // Check if there's already a pending request
+      const existingRequest = await pool.query(
+        'SELECT * FROM follow_requests WHERE requester_id = $1 AND target_id = $2 AND status = $3',
+        [followerId, followingId, 'pending']
+      );
+      
+      if (existingRequest.rows.length > 0) {
+        return res.status(400).json({ error: 'Follow request already sent' });
+      }
+      
+      // Create follow request
+      await pool.query(
+        'INSERT INTO follow_requests (requester_id, target_id, status) VALUES ($1, $2, $3)',
+        [followerId, followingId, 'pending']
+      );
+      
+      return res.status(200).json({ message: 'Follow request sent' });
+    } else {
+      // For public accounts, create direct follow
+      await pool.query(
+        'INSERT INTO follows (follower_id, following_id) VALUES ($1, $2)',
+        [followerId, followingId]
+      );
+      
+      return res.status(200).json({ message: 'Now following user' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Unfollow a user by username
+router.delete('/follow/username/:username', authMiddleware, async (req, res) => {
+  const { username } = req.params;
+  const followerId = req.user.id;
+  
+  try {
+    // Get the user ID from username
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const followingId = userResult.rows[0].id;
+    
+    // Delete the follow relationship
+    await pool.query(
+      'DELETE FROM follows WHERE follower_id = $1 AND following_id = $2',
+      [followerId, followingId]
+    );
+    
+    // Also delete any pending follow requests
+    await pool.query(
+      'DELETE FROM follow_requests WHERE requester_id = $1 AND target_id = $2',
+      [followerId, followingId]
+    );
+    
+    res.status(200).json({ message: 'Unfollowed user' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
