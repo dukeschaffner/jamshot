@@ -13,7 +13,7 @@ Goals/VALUE
 - allow musicians to make a meaningful/valuable piece of work without having to complete the process of recording a song from start to finish
 - tracks will be capped at 1:30 to make it simple, fun, and pair well with short form video content like Tik Tok.
 - The equivalent of going from books/publications to posts on social media. New content is released daily and from more sources, and just as social media posts allow you to comment your textual thoughts/ideas on someone else's textual posts, with this app, you can comment your musical thoughts/ideas on someone else's musical posts
-
+- the simple DAW makes it easy to get into music recording
 
 Features
 - home feed with tracks/collabs posted by user's follows mixed with popular tracks
@@ -65,11 +65,22 @@ TODO (MVP)
 - view followers/following if account is public 
 - improve feed logic
 
+
 TODO (after beta testing)
 - list/sell samples in track
 - posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
 - Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
 - advanced DAW editor
+
+LEGAL
+- option to allow others to 'steal' (use) the track?
+- splitting royalties if song uploaded
+
+
+
+
+
+
 
 PostgreSQL db structure:
 
