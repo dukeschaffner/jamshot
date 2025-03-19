@@ -119,7 +119,6 @@ export default function Home() {
               <div 
                 key={track.id} 
                 ref={index === tracks.length - 1 ? lastTrackElementRef : null}
-                className="track-item"
               >
                 <Track
                   track={track}

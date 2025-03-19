@@ -91,6 +91,8 @@ export default function TracksWidget({
     const looperHandleRightRef = useRef(null);
     const looperRegionRef = useRef(null);
     const takesCountRef = useRef(0); // Ref to track the number of takes
+
+    const recordingStartPosRef = useRef(0);
     
     //#endregion
 
@@ -181,6 +183,10 @@ export default function TracksWidget({
     useEffect(() => {
       playheadInternalTimeRef.current = playheadTime;
     }, [playheadTime]);
+
+    useEffect(() => {
+      recordingStartPosRef.current = recordingStartPos;
+    }, [recordingStartPos]);
 
   // Process audio chunks when they change
   useEffect(() => {
@@ -969,11 +975,14 @@ export default function TracksWidget({
               
               // Update recording position
               setRecordingStartPos(newStartPos);
+              recordingStartPosRef.current = newStartPos;
             }
           }
         };
         
-        const handleMouseUp = () => {
+        const handleMouseUp = (e) => {
+            //stop propagation
+            e.stopPropagation();
           setIsDraggingLooperLeft(false);
           setIsDraggingLooperRight(false);
           setIsDraggingPlayhead(false);
@@ -981,7 +990,7 @@ export default function TracksWidget({
           
           // If we were dragging the recording region, update the selected take's startTime and endTime
           if (isDraggingRecordingRegion && selectedTake) {
-            const newStartTime = posToTime(recordingStartPos, trackDuration);
+            const newStartTime = posToTime(recordingStartPosRef.current,trackDuration);
             const recordingDuration = selectedTake.endTime - selectedTake.startTime;
             const newEndTime = newStartTime + recordingDuration;
             

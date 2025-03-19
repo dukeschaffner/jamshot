@@ -150,7 +150,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
   };
 
   return (
-    <div className={`track-card ${isExpanded ? 'expanded' : ''}`}>
+    <div className={`track-item ${isExpanded ? 'expanded' : ''}`}>
       {track.is_repost && track.reposted_by_username && (
         <div className="repost-banner">
           <FaRetweet className="repost-icon" /> Reposted by {track.reposted_by_username}
