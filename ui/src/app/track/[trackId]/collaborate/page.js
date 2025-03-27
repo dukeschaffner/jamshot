@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
-import CollabInterface from '@/components/CollabInterface';
+import DawInterface from '@/components/DawInterface';
 import './collaborate.css';
 
 export default function CollaboratePage() {
@@ -77,7 +77,7 @@ export default function CollaboratePage() {
 
   return (
     <div className="w-full">
-      <CollabInterface track={track} />
+      <DawInterface track={track} isCollab={true} />
     </div>
   );
 } 

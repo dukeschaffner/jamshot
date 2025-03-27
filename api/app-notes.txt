@@ -44,26 +44,27 @@ Pages
   - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
 
 - track/[trackId]
-  - allows users to explore entire track tree
-  - has a playback gui that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
-  - /collaborate
-    - has two tabs, record and upload.
-      - record allows the user to select input device and record several audio takes, view and playback all the takes, choose/delete takes. There is an input level meter and a recording progress bar. they select a take, name the track, and hit upload.
-      - upload allows the user to upload a prerecorded file, name the track, and upload the track
-      - both tabs should allow user to playback their audio with the parent track with a progress bar
+  - has a simple DAW that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
+  - user can either record from an audio input, recording several takes and selcting the best one, or upload audio file to attach collaboration
 
+- explore/[trackId]
+  - allows users to explore entire track tree, showing the track, all of its ancestors up to the original, and all of its immediate children
+  - user can select any ancestor or child track to show the track tree for that track
 
 TODO (MVP)
 - DAW
   - synchronize recording/playback on collaboration
   - add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
   - volume faders
+  - trimming regions
+  - reusing daw for upload action
 - content moderation
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
 - block users
 - view followers/following if account is public 
 - improve feed logic
+- global player: seeking, pictures, audio level
 
 
 TODO (after beta testing)

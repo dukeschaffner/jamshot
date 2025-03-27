@@ -17,7 +17,8 @@ export default function TracksWidget({
   setRecordingPlaybackBuffer,
   fileChunks,
   selectedAudioInputDevice = null,
-  userLatencyCompensation = 0
+  userLatencyCompensation = 0,
+  isCollab = false
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -80,6 +81,7 @@ export default function TracksWidget({
     const [looperStartWidth, setLooperStartWidth] = useState(0);
     const [looperStartLeft, setLooperStartLeft] = useState(0);
 
+    const dawHeaderRef = useRef(null);
     const waveformContainerRef = useRef(null);
     const originalCanvasRef = useRef(null);
     const recordingCanvasRef = useRef(null);
@@ -103,6 +105,24 @@ export default function TracksWidget({
     
     const timeToPos = (time, duration) => {
         return (time / duration) * 100;
+    };
+
+    // Calculate the effective duration based on mode and available audio
+    const getEffectiveDuration = () => {
+        // In collab mode, always use the provided trackDuration
+        if (isCollab) {
+            return trackDuration;
+        }
+        
+        // In non-collab mode, check for recorded/uploaded audio
+        if (selectedTake && selectedTake.buffer) {
+            return selectedTake.buffer.duration;
+        } else if (recordingPlaybackBuffer) {
+            return recordingPlaybackBuffer.duration;
+        } else {
+            // Default to 1:30 (90 seconds) if no audio is available
+            return 90;
+        }
     };
 
     const processAudioChunks = async (chunks) => {
@@ -199,9 +219,9 @@ export default function TracksWidget({
     processOriginalAudioChunks();
   }, [originalAudioChunks]);
 
-  // Play back the recorded audio synchronized with the original track
+  // Play back the recorded audio synchronized with the original track (if in collab mode)
   const play = () => {
-    if (!originalBufferRef.current || !audioContext) {
+    if ((!originalBufferRef.current && isCollab) || !audioContext) {
       return;
     }
     
@@ -212,37 +232,47 @@ export default function TracksWidget({
 
     console.log('playing');
     
-    // Create source nodes for both tracks
-    const trackSource = audioContext.createBufferSource();
-    trackSource.buffer = originalBufferRef.current;
-    const trackGain = audioContext.createGain();
-    
-    // Apply solo/mute logic for original track
-    if (recordingTrackSolo && !originalTrackSolo) {
-      trackGain.gain.value = 0; // Mute original track if only recording is solo'd
-    } else {
-      trackGain.gain.value = originalTrackGainRef.current; // Normal volume
+    let activeSources = [];
+
+    // Only setup original track if in collab mode or if it's the selected take
+    if (isCollab && originalBufferRef.current) {
+      // Create source nodes for original track
+      const trackSource = audioContext.createBufferSource();
+      trackSource.buffer = originalBufferRef.current;
+      const trackGain = audioContext.createGain();
+      
+      // Apply solo/mute logic for original track
+      if (recordingTrackSolo && !originalTrackSolo) {
+        trackGain.gain.value = 0; // Mute original track if only recording is solo'd
+      } else {
+        trackGain.gain.value = originalTrackGainRef.current; // Normal volume
+      }
+      
+      // Connect to analyzer for meter
+      trackSource.connect(trackGain);
+      trackGain.connect(originalAnalyzerRef.current);
+      originalAnalyzerRef.current.connect(audioContext.destination);
+      
+      // Store the gain node in the ref for real-time control
+      originalGainNodeRef.current = trackGain;
+      
+      activeSources.push(trackSource);
     }
-    
-    // Connect to analyzer for meter
-    trackSource.connect(trackGain);
-    trackGain.connect(originalAnalyzerRef.current);
-    originalAnalyzerRef.current.connect(audioContext.destination);
-    
-    // Store the gain node in the ref for real-time control
-    originalGainNodeRef.current = trackGain;
 
-    let activeSources = [trackSource];
-
-    // Only set up recording playback if we're not recording and have a buffer
+    // Play recording buffer if available and not recording
     if (!isRecording && recordingPlaybackBuffer) {
       const recordedGain = audioContext.createGain();
       
-      // Apply solo/mute logic for recording track
-      if (originalTrackSolo && !recordingTrackSolo) {
-        recordedGain.gain.value = 0; // Mute recording track if only original is solo'd
+      // Apply solo/mute logic for recording track in collab mode
+      if (isCollab) {
+        if (originalTrackSolo && !recordingTrackSolo) {
+          recordedGain.gain.value = 0; // Mute recording track if only original is solo'd
+        } else {
+          recordedGain.gain.value = recordingTrackGainRef.current; // Normal volume
+        }
       } else {
-        recordedGain.gain.value = recordingTrackGainRef.current; // Normal volume
+        // In non-collab mode, always play at normal volume (no solo logic needed)
+        recordedGain.gain.value = recordingTrackGainRef.current;
       }
       
       const recordedSource = audioContext.createBufferSource();
@@ -257,20 +287,19 @@ export default function TracksWidget({
       
       // Store the gain node in the ref for real-time control
       recordingGainNodeRef.current = recordedGain;
-      
-      // Store active sources for stopping playback
-      activeSourcesRef.current = [trackSource, recordedSource];
-    } else {
-      // Store only the original track source
-      activeSourcesRef.current = [trackSource];
-      // Reset recording gain node ref when not playing recording
-      recordingGainNodeRef.current = null;
+    }
+    
+    // Store active sources for stopping playback
+    activeSourcesRef.current = activeSources;
+    
+    if (activeSources.length === 0) {
+      return; // No sources to play
     }
     
     // Start playback with latency compensation
-    let startTime
+    let startTime;
     if(isLooping){
-        startTime = posToTime(looperLeftPos, trackDuration);
+        startTime = posToTime(looperLeftPos, getEffectiveDuration());
         setPlayheadTime(startTime);
         setPlayheadPos(looperLeftPos);
         playheadInternalTimeRef.current = startTime;
@@ -279,35 +308,33 @@ export default function TracksWidget({
         startTime = playheadInternalTimeRef.current;
     }
     
-    trackSource.start(0, startTime);
+    // Start playback for each source
+    activeSources.forEach(source => {
+      source.start(0, startTime);
+    });
     
-    if(!isRecording && recordingPlaybackBuffer && activeSources.length > 1){
-      activeSources[1].start(0, startTime);
-    }
-    else if(isRecording){
+    if(isRecording){
       relativeRecordingStartTimeRef.current = startTime;
+      setRecordingStartPos(timeToPos(startTime, getEffectiveDuration()));
+      setRecordingWidth(0);
     }
 
     absolutePlaybackStartTimeRef.current = audioContext.currentTime;
     console.log('Absolute playback start time set:', absolutePlaybackStartTimeRef.current);
 
-    if(isRecording){
-      setRecordingStartPos(timeToPos(startTime, trackDuration));
-      setRecordingWidth(0);
-    }
-
     // Enable the play button when playback is complete
-    trackSource.onended = function() {
-      if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) > trackDuration - 1){ //Ended naturally, no looping
-        playheadInternalTimeRef.current = 0;
-        setIsPlaying(false);
-        activeSourcesRef.current = [];
-        if(isRecording){
-          stopRecording();
+    if (activeSources.length > 0) {
+      activeSources[0].onended = function() {
+        if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) > getEffectiveDuration() - 1){ //Ended naturally, no looping
+          playheadInternalTimeRef.current = 0;
+          setIsPlaying(false);
+          activeSourcesRef.current = [];
+          if(isRecording){
+            stopRecording();
+          }
         }
-      }
-      
-    };
+      };
+    }
   };
   
   // Stop playback of all active audio sources
@@ -338,7 +365,7 @@ export default function TracksWidget({
   const seekToTime = (time) => {
     // Update the playhead position and time
     setPlayheadTime(time);
-    setPlayheadPos(timeToPos(time, trackDuration));
+    setPlayheadPos(timeToPos(time, getEffectiveDuration()));
     
     // Update the internal time reference
     playheadInternalTimeRef.current = time;
@@ -776,9 +803,9 @@ export default function TracksWidget({
       const updatePlayhead = () => {
         if (playheadRef.current) {
           const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
-          const playheadPos = timeToPos(currentTime, trackDuration);
+          const playheadPos = timeToPos(currentTime, getEffectiveDuration());
           if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
-            seekToTime(posToTime(looperLeftPos, trackDuration));
+            seekToTime(posToTime(looperLeftPos, getEffectiveDuration()));
           }
           else{
             setPlayheadPos(playheadPos);
@@ -812,7 +839,7 @@ export default function TracksWidget({
         const rect = waveformContainerRef.current.getBoundingClientRect();
         const clickPos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
         
-        seekToTime(posToTime(clickPos, trackDuration));
+        seekToTime(posToTime(clickPos, getEffectiveDuration()));
     };
 
       // Mouse down handlers for dragging
@@ -856,9 +883,9 @@ export default function TracksWidget({
   useEffect(() => {
     if(selectedTake){
       recordedBufferRef.current = selectedTake.buffer;
-      const startPos = timeToPos(selectedTake.startTime, trackDuration);
+      const startPos = timeToPos(selectedTake.startTime, getEffectiveDuration());
       setRecordingStartPos(startPos);
-      const width = timeToPos(selectedTake.endTime - selectedTake.startTime, trackDuration);
+      const width = timeToPos(selectedTake.endTime - selectedTake.startTime, getEffectiveDuration());
       setRecordingWidth(width);
     }
   }, [selectedTake]);
@@ -868,74 +895,73 @@ export default function TracksWidget({
         const handleMouseMove = (e) => {
           if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion) return;
           
-          if (waveformContainerRef.current) {
-            const rect = waveformContainerRef.current.getBoundingClientRect();
-            const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        const rect = dawHeaderRef.current.getBoundingClientRect();
+        const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+        
+        // Dragging playhead
+        // if (isDraggingPlayhead) {
+        //   setPlayheadPos(mousePos);
             
-            // Dragging playhead
-            // if (isDraggingPlayhead) {
-            //   setPlayheadPos(mousePos);
-              
-            //   // Update audio position if playing
-            //   if (isPlaying && audioContextRef.current) {
-            //     pausedAtRef.current = posToTime(mousePos, trackDuration);
-            //   }
-              
-            //   // Show time tooltip
-            //   const time = posToTime(mousePos, trackDuration);
-            //   showTimeTooltip(playheadRef.current, mousePos, formatDuration(time));
-            // }
+        //   // Update audio position if playing
+        //   if (isPlaying && audioContextRef.current) {
+        //     pausedAtRef.current = posToTime(mousePos, trackDuration);
+        //   }
             
-            // Dragging left looper handle
-            if (isDraggingLooperLeft) {
-              const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-              setLooperLeftPos(newLeftPos);
-              
-              // If playhead is to the left of the new left position and audio is playing,
-              // move the playhead to the new left position
-            //   if (playheadPos < newLeftPos && isPlaying) {
-            //     setPlayheadPos(newLeftPos);
-            //     pausedAtRef.current = posToTime(newLeftPos, trackDuration);
-            //   }
-              
-              // Show time tooltip
-            //   const time = posToTime(newLeftPos, trackDuration);
-            //   showTimeTooltip(looperHandleLeftRef.current, newLeftPos, formatDuration(time));
+        //   // Show time tooltip
+        //   const time = posToTime(mousePos, trackDuration);
+        //   showTimeTooltip(playheadRef.current, mousePos, formatDuration(time));
+        // }
+        
+        // Dragging left looper handle
+        if (isDraggingLooperLeft) {
+            const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
+            setLooperLeftPos(newLeftPos);
+            
+            // If playhead is to the left of the new left position and audio is playing,
+            // move the playhead to the new left position
+        //   if (playheadPos < newLeftPos && isPlaying) {
+        //     setPlayheadPos(newLeftPos);
+        //     pausedAtRef.current = posToTime(newLeftPos, trackDuration);
+        //   }
+            
+            // Show time tooltip
+        //   const time = posToTime(newLeftPos, trackDuration);
+        //   showTimeTooltip(looperHandleLeftRef.current, newLeftPos, formatDuration(time));
+        }
+        
+        // Dragging right looper handle
+        if (isDraggingLooperRight) {
+            const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
+            setLooperRightPos(newRightPos);
+            
+            // Show time tooltip
+        //   const time = posToTime(newRightPos, trackDuration);
+        //   showTimeTooltip(looperHandleRightRef.current, newRightPos, formatDuration(time));
+        }
+        
+        // Dragging entire looper region
+        if (isDraggingLooperRegion) {
+            const deltaX = e.clientX - dragStartX;
+            const deltaPercent = (deltaX / rect.width) * 100;
+            
+            // Calculate new positions
+            let newLeftPos = looperStartLeft + deltaPercent;
+            let newRightPos = newLeftPos + looperStartWidth;
+            
+            // Ensure the looper stays within bounds
+            if (newLeftPos < 0) {
+            newLeftPos = 0;
+            newRightPos = looperStartWidth;
             }
             
-            // Dragging right looper handle
-            if (isDraggingLooperRight) {
-              const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-              setLooperRightPos(newRightPos);
-              
-              // Show time tooltip
-            //   const time = posToTime(newRightPos, trackDuration);
-            //   showTimeTooltip(looperHandleRightRef.current, newRightPos, formatDuration(time));
+            if (newRightPos > 100) {
+            newRightPos = 100;
+            newLeftPos = 100 - looperStartWidth;
             }
             
-            // Dragging entire looper region
-            if (isDraggingLooperRegion) {
-              const deltaX = e.clientX - dragStartX;
-              const deltaPercent = (deltaX / rect.width) * 100;
-              
-              // Calculate new positions
-              let newLeftPos = looperStartLeft + deltaPercent;
-              let newRightPos = newLeftPos + looperStartWidth;
-              
-              // Ensure the looper stays within bounds
-              if (newLeftPos < 0) {
-                newLeftPos = 0;
-                newRightPos = looperStartWidth;
-              }
-              
-              if (newRightPos > 100) {
-                newRightPos = 100;
-                newLeftPos = 100 - looperStartWidth;
-              }
-              
-              // Update looper positions
-              setLooperLeftPos(newLeftPos);
-              setLooperRightPos(newRightPos);
+            // Update looper positions
+            setLooperLeftPos(newLeftPos);
+            setLooperRightPos(newRightPos);
               
               // If playhead is outside the new looper region and audio is playing,
               // move the playhead to the new left position
@@ -954,7 +980,6 @@ export default function TracksWidget({
             //     (newLeftPos + newRightPos) / 2, 
             //     `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
             //   );
-            }
 
             // Dragging recording region
             if (isDraggingRecordingRegion && selectedTake) {
@@ -990,7 +1015,7 @@ export default function TracksWidget({
           
           // If we were dragging the recording region, update the selected take's startTime and endTime
           if (isDraggingRecordingRegion && selectedTake) {
-            const newStartTime = posToTime(recordingStartPosRef.current,trackDuration);
+            const newStartTime = posToTime(recordingStartPosRef.current, getEffectiveDuration());
             const recordingDuration = selectedTake.endTime - selectedTake.startTime;
             const newEndTime = newStartTime + recordingDuration;
             
@@ -1016,7 +1041,8 @@ export default function TracksWidget({
       }, [
         isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion, isDraggingRecordingRegion,
         looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
-        isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, selectedTake
+        isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, selectedTake,
+        isCollab, recordingPlaybackBuffer
       ]);
 
       useEffect(() => {
@@ -1073,37 +1099,40 @@ export default function TracksWidget({
   const generateTimeMarkers = () => {
     const markers = [];
     
+    // Determine the effective duration to use for markers
+    let effectiveDuration = getEffectiveDuration();
+    
     // Determine appropriate interval based on track duration
     let interval; // in seconds
     let numMarkers;
     
-    if (trackDuration <= 30) {
+    if (effectiveDuration <= 30) {
       // For short tracks (≤30s), show markers every 5 seconds
       interval = 5;
-      numMarkers = Math.ceil(trackDuration / interval) + 1;
-    } else if (trackDuration <= 60) {
+      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
+    } else if (effectiveDuration <= 60) {
       // For medium tracks (≤60s), show markers every 10 seconds
       interval = 10;
-      numMarkers = Math.ceil(trackDuration / interval) + 1;
-    } else if (trackDuration <= 180) {
+      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
+    } else if (effectiveDuration <= 180) {
       // For longer tracks (≤3min), show markers every 30 seconds
       interval = 30;
-      numMarkers = Math.ceil(trackDuration / interval) + 1;
-    } else if (trackDuration <= 600) {
+      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
+    } else if (effectiveDuration <= 600) {
       // For very long tracks (≤10min), show markers every minute
       interval = 60;
-      numMarkers = Math.ceil(trackDuration / interval) + 1;
+      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
     } else {
       // For extremely long tracks (>10min), show markers every 2 minutes
       interval = 120;
-      numMarkers = Math.ceil(trackDuration / interval) + 1;
+      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
     }
     
     // Limit the number of markers to prevent overcrowding
     const maxMarkers = 15;
     if (numMarkers > maxMarkers) {
-      interval = Math.ceil(trackDuration / (maxMarkers - 1));
-      numMarkers = Math.ceil(trackDuration / interval) + 1;
+      interval = Math.ceil(effectiveDuration / (maxMarkers - 1));
+      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
     }
     
     // Always include start marker
@@ -1120,8 +1149,8 @@ export default function TracksWidget({
     // Add intermediate markers
     for (let i = 1; i < numMarkers - 1; i++) {
       const time = i * interval;
-      if (time < trackDuration) { // Only add if within track duration
-        const percentage = timeToPos(time, trackDuration);
+      if (time < effectiveDuration) { // Only add if within track duration
+        const percentage = timeToPos(time, effectiveDuration);
         markers.push(
           <div 
             key={`marker-${i}`} 
@@ -1136,14 +1165,14 @@ export default function TracksWidget({
     
     // Always include end marker (unless it's very close to the last interval marker)
     const lastIntervalTime = (numMarkers - 1) * interval;
-    if (Math.abs(trackDuration - lastIntervalTime) > interval / 5) {
+    if (Math.abs(effectiveDuration - lastIntervalTime) > interval / 5) {
       markers.push(
         <div 
           key="marker-end" 
           className="time-marker time-marker-end" 
           style={{ left: '100%' }}
         >
-          {formatDuration(trackDuration)}
+          {formatDuration(effectiveDuration)}
         </div>
       );
     }
@@ -1163,13 +1192,13 @@ export default function TracksWidget({
     const gridLines = [];
     
     // Calculate how many measures fit in the track
-    const totalMeasures = Math.ceil(trackDuration / secondsPerMeasure);
+    const totalMeasures = Math.ceil(getEffectiveDuration() / secondsPerMeasure);
     
     // Generate measure lines (strong grid lines)
     for (let measure = 0; measure <= totalMeasures; measure++) {
       const measureTime = measure * secondsPerMeasure;
-      if (measureTime <= trackDuration) {
-        const position = timeToPos(measureTime, trackDuration);
+      if (measureTime <= getEffectiveDuration()) {
+        const position = timeToPos(measureTime, getEffectiveDuration());
         gridLines.push(
           <div 
             key={`measure-${measure}`} 
@@ -1186,8 +1215,8 @@ export default function TracksWidget({
       // Skip beats that fall on measure boundaries (already covered by measure lines)
       if (beat % beatsPerMeasure !== 0) {
         const beatTime = beat * secondsPerBeat;
-        if (beatTime <= trackDuration) {
-          const position = timeToPos(beatTime, trackDuration);
+        if (beatTime <= getEffectiveDuration()) {
+          const position = timeToPos(beatTime, getEffectiveDuration());
           gridLines.push(
             <div 
               key={`beat-${beat}`} 
@@ -1436,6 +1465,11 @@ export default function TracksWidget({
     return '#007aff'; // Blue for low levels
   };
 
+  // Determine if we have any audio content
+  const hasAudioContent = isCollab ? 
+    (originalBufferRef.current !== null || hasRecordingTrack) : 
+    hasRecordingTrack;
+
   return (
     <div className="daw-container">
         <div className="daw-header">
@@ -1443,7 +1477,7 @@ export default function TracksWidget({
 
             </div>
             
-            <div className="timeline">
+            <div className="timeline" ref={dawHeaderRef}>
                 
                 {/* Playhead */}
                 <div 
@@ -1459,9 +1493,38 @@ export default function TracksWidget({
                 </div>
 
                 {/* Musical Grid */}
-                <div className="musical-grid">
+                {/* <div className="musical-grid">
                     {generateMusicalGrid()}
-                </div>
+                </div> */}
+
+                {/* Looper - Only show if there's audio content */}
+                {hasAudioContent && (
+                  <div 
+                    className="looper" 
+                    ref={looperRef}
+                    style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
+                  >
+                    <div 
+                      className="looper-handle left" 
+                      ref={looperHandleLeftRef}
+                      onMouseDown={handleLooperLeftMouseDown}
+                    ></div>
+                    <div 
+                      className="looper-region" 
+                      ref={looperRegionRef}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsLooping(prev => !prev);
+                      }}
+                      onMouseDown={handleLooperRegionMouseDown}
+                    ></div>
+                    <div 
+                      className="looper-handle right" 
+                      ref={looperHandleRightRef}
+                      onMouseDown={handleLooperRightMouseDown}
+                    ></div>
+                  </div>
+                )}
             </div>
 
                 
@@ -1469,219 +1532,152 @@ export default function TracksWidget({
         </div>
         <div className="daw-body">
         <div className="daw-tracks-headers">
+            {isCollab && (
+              <div className="track-label">
+                  <span>Original</span>
+                  <button 
+                      className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
+                      onClick={toggleOriginalSolo}
+                      disabled={isRecording}
+                      title="Solo original track"
+                  >
+                      <FontAwesomeIcon icon={faHeadphones} />
+                      <span>Solo</span>
+                  </button>
+              
+                  {/* Original Track Meter */}
+                  <div className="audio-meter-container">
+                      <div 
+                      className="audio-meter-bar" 
+                      style={{ 
+                          width: `${dbToPercent(originalTrackLevel)}%`,
+                          backgroundColor: getMeterColor(originalTrackLevel)
+                      }}
+                      ></div>
+                  </div>
+              </div>
+            )}
             <div className="track-label">
-                <span>Original</span>
+              <span>{isCollab ? 'Your Recording' : 'Your Track'}</span>
+              {isCollab && (
                 <button 
-                    className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
-                    onClick={toggleOriginalSolo}
-                    disabled={isRecording}
-                    title="Solo original track"
+                  className={`solo-button ${recordingTrackSolo ? 'active' : ''}`}
+                  onClick={toggleRecordingSolo}
+                  disabled={isRecording || !hasRecordingTrack}
+                  title="Solo your recording"
                 >
-                    <FontAwesomeIcon icon={faHeadphones} />
-                    <span>Solo</span>
+                  <FontAwesomeIcon icon={faHeadphones} />
+                  <span>Solo</span>
                 </button>
-            
-                {/* Original Track Meter */}
-                <div className="audio-meter-container">
-                    <div 
-                    className="audio-meter-bar" 
-                    style={{ 
-                        width: `${dbToPercent(originalTrackLevel)}%`,
-                        backgroundColor: getMeterColor(originalTrackLevel)
-                    }}
-                    ></div>
+              )}
+              {isRecording && (
+                <div className="recording-indicator">
+                  <FontAwesomeIcon icon={faMicrophone} />
+                  <span>Recording</span>
                 </div>
+              )}
+              
+              {/* Recording Track Meter */}
+              <div className="audio-meter-container">
+                <div 
+                  className="audio-meter-bar" 
+                  style={{ 
+                    width: `${dbToPercent(isRecording ? inputLevel : recordingTrackLevel)}%`,
+                    backgroundColor: getMeterColor(isRecording ? inputLevel : recordingTrackLevel)
+                  }}
+                ></div>
+              </div>
             </div>
-            <div className="track-label">
-          <span>Your Recording</span>
-          <button 
-            className={`solo-button ${recordingTrackSolo ? 'active' : ''}`}
-            onClick={toggleRecordingSolo}
-            disabled={isRecording || !hasRecordingTrack}
-            title="Solo your recording"
-          >
-            <FontAwesomeIcon icon={faHeadphones} />
-            <span>Solo</span>
-          </button>
-          {isRecording && (
-            <div className="recording-indicator">
-              <FontAwesomeIcon icon={faMicrophone} />
-              <span>Recording</span>
-            </div>
-          )}
-          
-          {/* Recording Track Meter */}
-          <div className="audio-meter-container">
-            <div 
-              className="audio-meter-bar" 
-              style={{ 
-                width: `${dbToPercent(isRecording ? inputLevel : recordingTrackLevel)}%`,
-                backgroundColor: getMeterColor(isRecording ? inputLevel : recordingTrackLevel)
-              }}
-            ></div>
-          </div>
-        </div>
         </div>
 
 
 
         <div className="daw-tracks-container">
-            {/* Parent Track */}
-            <div className="track-container parent-track">
-                    
+            {/* Original Track - only shown in collab mode */}
+            {isCollab && (
+              <div className="track-container parent-track">
                 <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
-                        
-                    <div className="waveform">
-                        
-                        
-                        {/* Canvas Waveform */}
-                        {originalBufferRef.current ? (
-                        <canvas 
-                            ref={originalCanvasRef} 
-                            width="1000" 
-                            height="100" 
-                            style={{ width: '100%', height: '100%' }}
+                  <div className="waveform">
+                    {/* Canvas Waveform */}
+                    {originalBufferRef.current ? (
+                      <canvas 
+                        ref={originalCanvasRef} 
+                        width="1000" 
+                        height="100" 
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    ) : (
+                      /* SVG Waveform Fallback */
+                      <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                        <path 
+                          d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
+                          fill="none" 
+                          stroke="var(--seafoam)" 
+                          strokeWidth="2"
                         />
-                        ) : (
-                        /* SVG Waveform Fallback */
-                        <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
-                            <path 
-                            d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
-                            fill="none" 
-                            stroke="var(--seafoam)" 
-                            strokeWidth="2"
-                            />
-                        </svg>
-                        )}
-                    </div>
-                    {/* Looper */}
-                    <div 
-                        className="looper" 
-                        ref={looperRef}
-                        style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
-                    >
-                        <div 
-                        className="looper-handle left" 
-                        ref={looperHandleLeftRef}
-                        onMouseDown={handleLooperLeftMouseDown}
-                        ></div>
-                        <div 
-                        className="looper-region" 
-                        ref={looperRegionRef}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsLooping(prev => !prev);
-                        }}
-                        onMouseDown={handleLooperRegionMouseDown}
-                        ></div>
-                        <div 
-                        className="looper-handle right" 
-                        ref={looperHandleRightRef}
-                        onMouseDown={handleLooperRightMouseDown}
-                        ></div>
-                    </div>
-                    </div>
-                </div>
-
-                {/* Your Recording */}
-      <div className="track-container your-track">
-        
-        {hasRecordingTrack || isRecording ? (
-          <div className={`waveform-container ${isDraggingRecordingRegion ? 'dragging' : ''}`}
-          style={{
-            left: `${recordingStartPos}%`,
-            width: `${recordingWidth}%`,
-            cursor: isPlaying || isRecording ? 'default' : 'grab'
-          }}
-          onClick={handleWaveformClick}
-          onMouseDown={isPlaying || isRecording ? null : handleRecordingRegionMouseDown}
-          ref={recordingContainerRef}
-          >
-            <div className="waveform">
-              {/* Recording Indicator */}
-                {isRecording ? (
-                <div className="recording-indicator-visual"/>
-                ) :(
-            <canvas 
-                ref={recordingCanvasRef} 
-                width="1000" 
-                height="100" 
-                style={{ width: '100%', height: '100%' }}
-              />
-                )}
-              
-            </div>
-          </div>
-        ) : (
-          <div 
-            className="waveform-container empty"
-            onClick={() => {
-                document.getElementById('audio-file-input').click();
-            }}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="empty-message">
-                <FontAwesomeIcon icon={faCloudUploadAlt} />
-                <span>Drop audio file here or start recording</span>
-                <input 
-                type="file" 
-                id="audio-file-input" 
-                className="file-upload-input" 
-                accept="audio/*"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-                />
-            </div>
-          </div>
-        )}
-        
-        
-      </div>
-            </div>
-        </div>
-        
-        
-
-        
-
-
-
-
-
-
-
-      
-
-      
-      
-      {/* Takes List */}
-      {/* {takes.length > 0 && (
-        <div className="takes-container">
-          <h3>Your Takes</h3>
-          <div className="takes-list">
-            {takes.map(take => (
-              <div 
-                key={take.id} 
-                className={`take-item ${selectedTake?.id === take.id ? 'selected' : ''}`}
-                onClick={() => setSelectedTake(take)}
-              >
-                <span className="take-name">{take.name}</span>
-                <div className="take-controls">
-                  <button className="take-play" onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedTake(take);
-                    setIsPlaying(true);
-                  }}>
-                    <FontAwesomeIcon icon={faPlay} />
-                  </button>
+                      </svg>
+                    )}
+                  </div>
+                  
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Recording Track - shown in both modes */}
+            <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`}>
+              {hasRecordingTrack || isRecording ? (
+                <div 
+                  className={`waveform-container ${isDraggingRecordingRegion ? 'dragging' : ''}`}
+                  style={{
+                    left: isCollab ? `${recordingStartPos}%` : '0',
+                    width: isCollab ? `${recordingWidth}%` : '100%',
+                    cursor: isPlaying || isRecording ? 'default' : 'grab'
+                  }}
+                  onClick={handleWaveformClick}
+                  onMouseDown={isPlaying || isRecording ? null : (isCollab ? handleRecordingRegionMouseDown : null)}
+                  ref={recordingContainerRef}
+                >
+                  <div className="waveform">
+                    {/* Recording Indicator */}
+                    {isRecording ? (
+                      <div className="recording-indicator-visual"/>
+                    ) : (
+                      <canvas 
+                        ref={recordingCanvasRef} 
+                        width="1000" 
+                        height="100" 
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="waveform-container empty"
+                  onClick={() => {
+                    document.getElementById('audio-file-input').click();
+                  }}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <div className="empty-message">
+                    <FontAwesomeIcon icon={faCloudUploadAlt} />
+                    <span>Drop audio file here or start recording</span>
+                    <input 
+                      type="file" 
+                      id="audio-file-input" 
+                      className="file-upload-input" 
+                      accept="audio/*"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      )} */}
     </div>
   );
 } 
