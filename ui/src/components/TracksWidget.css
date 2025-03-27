@@ -526,6 +526,7 @@
 
 .daw-header{
   display: flex;
+  height: 40px;
 }
 
 .daw-header-left{
@@ -537,9 +538,8 @@
 
 /* Timeline */
 .timeline {
-  height: 24px;
+  height: 100%;
   position: relative;
-  margin-bottom: 8px;
   display: grid;
   grid-template-columns: 0px 1fr;
   flex-grow: 1;
@@ -637,7 +637,7 @@
 /* Looper */
 .looper {
   position: absolute;
-  top: 0;
+  bottom: 0;
   height: 16px;
   cursor: pointer;
   z-index: 20;

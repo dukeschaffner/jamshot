@@ -1,6 +1,7 @@
 'use client';
-import UploadForm from '../../components/UploadForm';
-
+import DawInterface from '../../components/DawInterface';
 export default function Upload() {
-  return <UploadForm />;
+  return (
+    <DawInterface isCollab={false} />
+  );
 }

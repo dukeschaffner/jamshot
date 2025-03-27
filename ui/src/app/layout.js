@@ -344,7 +344,7 @@ function AppContent({ children }) {
               Upload Track
             </Link>
             
-            <Link href={`/user/${userId}`} className="user-profile">
+            <Link href={`/user/${userDetails?.username}`} className="user-profile">
               <div className="user-avatar">
                 <img 
                   src={userDetails?.profile_pic_url || '/api/placeholder/80/80'} 

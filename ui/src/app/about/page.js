@@ -205,12 +205,12 @@ export default function About() {
                 >
                   <FaStripe /> {isProcessing ? 'Processing...' : 'Donate with Stripe'}
                 </button>
-                <a href="#" className="payment-btn patreon-btn">
+                {/* <a href="#" className="payment-btn patreon-btn">
                   <FaPatreon /> Become a Patron
                 </a>
                 <a href="#" className="payment-btn crypto-btn">
                   <FaBitcoin /> Donate Crypto
-                </a>
+                </a> */}
               </div>
             </div>
           </div>

@@ -42,21 +42,20 @@ export default function UserPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [userResponse, tracksResponse, repostsResponse, statsResponse] = await Promise.all([
-          api.get(`/users/by-username/${username}`),
-          api.get(`/users/by-username/${username}/tracks`),
-          api.get(`/users/by-username/${username}/reposts`),
-          api.get(`/users/by-username/${username}/stats`),
-        ]);
-        setUserProfile(userResponse.data);
-        setIsPrivate(userResponse.data.is_private);
+        const user = await api.get(`/users/by-username/${username}`);
+        const userId = user.data.id;
+        const tracks = await api.get(`/users/${userId}/tracks`);
+        const reposts = await api.get(`/users/${userId}/reposts`);
+        const stats = await api.get(`/users/${userId}/stats`);
+        setUserProfile(user.data);
+        setIsPrivate(user.data.is_private);
         setEditForm({
-          username: userResponse.data.username,
-          bio: userResponse.data.bio || ''
+          username: user.username,
+          bio: user.bio || ''
         });
-        setTracks(tracksResponse.data);
-        setRepostedTracks(repostsResponse.data);
-        setStats(statsResponse.data);
+        setTracks(tracks.data);
+        setRepostedTracks(reposts.data);
+        setStats(stats.data);
         
         // Check if this is the user's own profile
         const token = Cookies.get('token');

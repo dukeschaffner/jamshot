@@ -10,9 +10,9 @@ import {
 import TracksWidget from './TracksWidget';
 import UploadForm from './UploadForm';
 import Cookies from 'js-cookie';
-import './CollabInterface.css';
+import './DawInterface.css';
 
-export default function CollabInterface({ track }) {
+export default function DawInterface({ track, isCollab = false }) {
   // State
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -30,10 +30,11 @@ export default function CollabInterface({ track }) {
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
   
-  // Fetch original audio when track changes
+  // Fetch original audio when track changes and in collab mode
   useEffect(() => {
     const fetchOriginalAudio = async () => {
-      if (!track?.combined_audio_url) return;
+      // Only fetch original audio in collab mode and if track has combined_audio_url
+      if (!isCollab || !track?.combined_audio_url) return;
       
       try {
         const response = await fetch(track.combined_audio_url);
@@ -51,7 +52,7 @@ export default function CollabInterface({ track }) {
     };
     
     fetchOriginalAudio();
-  }, [track]);
+  }, [track, isCollab]);
   
   // Fetch available audio input devices
   useEffect(() => {
@@ -99,47 +100,6 @@ export default function CollabInterface({ track }) {
     setShowModal(true);
   };
   
-  // Handle record option selection
-  const handleRecordOption = () => {
-    setShowModal(false);
-    setShowRecordingSection(true);
-  };
-  
-  // Handle file upload
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // Check if file is an audio file
-    if (!file.type.startsWith('audio/')) {
-      alert('Please select an audio file');
-      return;
-    }
-    
-    setSelectedFile(file);
-    setFileName(file.name);
-    
-    try {
-      // Read file as array buffer
-      const arrayBuffer = await file.arrayBuffer();
-      
-      // Create chunks
-      const chunks = [new Uint8Array(arrayBuffer)];
-      setFileChunks(chunks);
-      
-    } catch (error) {
-      console.error('Error processing uploaded file:', error);
-    }
-  };
-  
-  // Handle upload option
-  const handleUploadOption = () => {
-    setShowModal(false);
-    // Instead of showing the upload form directly, we'll close the modal
-    // and let the user use the file input in the TracksWidget
-  };
-  
-  
   
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
@@ -176,27 +136,22 @@ export default function CollabInterface({ track }) {
     }
   };
   
+  // Determine if there's any audio content available
+  const hasAudioContent = isCollab ? 
+    (originalAudioChunks !== null || recordingPlaybackBuffer !== null) : 
+    recordingPlaybackBuffer !== null;
+  
   return (
-    <div className="collab-container">
+    <>
+    <div 
+      className="collab-container" 
+      style={{display: showUploadForm ? 'none' : 'block'}}
+    >
       {/* Track Header */}
       <div className="track-header">
-        <div className="track-info">
-          <h1 className="track-title">{track?.title || 'Untitled Track'}</h1>
-          <div className="track-artist">
-            <div className="artist-avatar">
-              <img src={track?.profile_pic_url || '/placeholder-avatar.png'} alt="Artist Avatar" />
-            </div>
-            <span className="artist-name">{track?.username || 'Unknown Artist'}</span>
-            {track?.verified && <span className="verified-badge">✓</span>}
-          </div>
-          <div className="track-meta">
-            <span className="meta-item"><FontAwesomeIcon icon={faPlay} /> {track?.play_count || 0}</span>
-            <span className="meta-item"><FontAwesomeIcon icon={faHeart} /> {track?.like_count || 0}</span>
-            <span className="meta-item"><FontAwesomeIcon icon={faComment} /> {track?.collab_count || 0} collabs</span>
-          </div>
-        </div>
+        {/* Track info can be conditionally shown based on isCollab if needed */}
         <div className="track-controls">
-            {!isRecording && (
+            {!isRecording && hasAudioContent && (
                 <button 
                 className="control-button play-pause" 
                 onClick={togglePlay}
@@ -220,12 +175,12 @@ export default function CollabInterface({ track }) {
               <FontAwesomeIcon icon={faUpload} />
             </button>
           )}
-          <button className="control-button">
+          {/* <button className="control-button">
             <FontAwesomeIcon icon={faStepBackward} />
           </button>
           <button className="control-button">
             <FontAwesomeIcon icon={faStepForward} />
-          </button>
+          </button> */}
           <div className="bpm-control">
             <span>{track?.metronome_bpm || 120} BPM</span>
             <button 
@@ -246,59 +201,21 @@ export default function CollabInterface({ track }) {
       </div>
 
       {/* Tracks Widget */}
-      {!showUploadForm && (
-        <TracksWidget 
-          isPlaying={isPlaying}
-          setIsPlaying={setIsPlaying}
-          trackDuration={trackDuration}
-          showCollabModal={showCollabModal}
-          originalAudioChunks={originalAudioChunks}
-          fileChunks={fileChunks}
-          recordingPlaybackBuffer={recordingPlaybackBuffer}
-          setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
-          isRecording={isRecording}
-          selectedAudioInputDevice={selectedAudioInputDevice}
-          userLatencyCompensation={userLatencyCompensation}
-        />
-      )}
 
-      {/* Upload Form */}
-      {recordingPlaybackBuffer && showUploadForm && (
-        <UploadForm 
-          isCollab={true}
-          recordingAudioBuffer={recordingPlaybackBuffer}
-          parentTrack={track}
-          onCancel={() => setShowUploadForm(false)}
-        />
-      )}
-
-      {/* Modal for Collaboration Options */}
-      {showModal && (
-        <div className="modal-overlay active" onClick={(e) => {
-          if (e.target.className === 'modal-overlay active') {
-            setShowModal(false);
-          }
-        }}>
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2 className="modal-title">How would you like to collaborate?</h2>
-              <p className="modal-subtitle">Choose an option to continue</p>
-            </div>
-            <div className="modal-options">
-              <div className="option-card" onClick={handleRecordOption}>
-                <FontAwesomeIcon icon={faMicrophone} className="option-icon" />
-                <h3 className="option-title">Record Live</h3>
-                <p className="option-description">Record your collaboration in real-time</p>
-              </div>
-              <div className="option-card" onClick={handleUploadOption}>
-                <FontAwesomeIcon icon={faUpload} className="option-icon" />
-                <h3 className="option-title">Upload File</h3>
-                <p className="option-description">Upload a pre-recorded audio file</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <TracksWidget 
+        isPlaying={isPlaying}
+        setIsPlaying={setIsPlaying}
+        trackDuration={trackDuration}
+        showCollabModal={showCollabModal}
+        originalAudioChunks={originalAudioChunks}
+        fileChunks={fileChunks}
+        recordingPlaybackBuffer={recordingPlaybackBuffer}
+        setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
+        isRecording={isRecording}
+        selectedAudioInputDevice={selectedAudioInputDevice}
+        userLatencyCompensation={userLatencyCompensation}
+        isCollab={isCollab}
+      />
 
       {/* Audio Settings Modal */}
       {showAudioSettingsModal && (
@@ -372,6 +289,21 @@ export default function CollabInterface({ track }) {
           </div>
         </div>
       )}
+      
     </div>
+
+    {/* Upload Form */}
+    {recordingPlaybackBuffer && showUploadForm && (
+        <UploadForm 
+          isCollab={isCollab}
+          recordingAudioBuffer={recordingPlaybackBuffer}
+          parentTrack={isCollab ? track : null}
+          onCancel={() => setShowUploadForm(false)}
+        />
+      )}
+    </>
+
+
+
   );
 } 
