@@ -303,7 +303,7 @@
   background-color: rgba(59, 130, 246, 0.05);
 }
 
-.empty-message {
+/* .empty-message {
   text-align: center;
   color: #666;
   padding: 2rem;
@@ -320,7 +320,7 @@
   display: block;
   margin-top: 0.5rem;
   font-size: 1rem;
-}
+} */
 
 /* Collaboration options */
 .collab-options {

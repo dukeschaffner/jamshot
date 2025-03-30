@@ -1,221 +1,106 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import api from '../../../lib/api';
-import Track from '../../../components/Track';
-import TrackTreeNode from '../../../components/TrackTreeNode';
-import { FaArrowLeft, FaSpinner } from 'react-icons/fa';
-import { useAudio } from '../../../lib/AudioContext';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { fetchTrack } from '@/lib/api';
+import { formatDuration } from '@/lib/utils';
+import DawInterface from '@/components/DawInterface';
+import './collaborate.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faPlay, faPause, faStepBackward, faStepForward, 
+  faDrum, faMicrophone, faTrash, faUpload, faCloudUploadAlt,
+  faHeart, faComment, faCircle, faStop, faCog
+} from '@fortawesome/free-solid-svg-icons';
 
-export default function TrackDetailPage() {
+export default function CollaboratePage() {
   const { trackId } = useParams();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const secret = searchParams.get('secret');
-  const [trackTree, setTrackTree] = useState(null);
+  const [track, setTrack] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [expandedTrackId, setExpandedTrackId] = useState(null);
-  const [selectedChildId, setSelectedChildId] = useState(null);
-  const { currentTrack } = useAudio();
 
   useEffect(() => {
-    const fetchTrackTree = async () => {
+    async function loadTrack() {
       try {
         setLoading(true);
-        // Include secret in the request if available
-        const url = secret 
-          ? `/tracks/${trackId}/tree?secret=${secret}`
-          : `/tracks/${trackId}/tree`;
-        
-        const response = await api.get(url);
-        setTrackTree(response.data);
-        // Expand the current track by default
-        setExpandedTrackId(response.data.current.id);
+        const data = await fetchTrack(trackId, secret);
+        console.log('Track data loaded:', data);
+        // Since fetchTrack returns an array, we take the first track
+        const mainTrack = Array.isArray(data) && data.length > 0 ? data[0] : null;
+        if (!mainTrack) {
+          throw new Error('Track not found');
+        }
+        setTrack(mainTrack);
+        setLoading(false);
       } catch (err) {
-        console.error('Failed to fetch track tree:', err);
+        console.error('Error loading track:', err);
         if (err.response && err.response.status === 403) {
           setError('This track is private. You do not have permission to view it.');
         } else {
-          setError('Failed to load track data. Please try again later.');
+          setError('Failed to load track. Please try again later.');
         }
-      } finally {
         setLoading(false);
       }
-    };
+    }
 
-    fetchTrackTree();
+    if (trackId) {
+      loadTrack();
+    }
   }, [trackId, secret]);
-
-  const handleChildSelect = (childId) => {
-    // Navigate to the selected child track's page instead of just showing its children
-    router.push(`/track/${childId}`);
-  };
-
-  const handleBackClick = () => {
-    router.back();
-  };
 
   if (loading) {
     return (
-      <div className="track-detail-page loading">
-        <FaSpinner className="spinner" />
-        <p>Loading track details...</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="track-detail-page error">
-        <p>{error}</p>
-        <button onClick={handleBackClick} className="back-button">
-          <FaArrowLeft /> Go Back
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="text-red-500 mb-4">{error}</div>
+        <Link href="/" className="text-primary hover:underline">
+          Return to Home
+        </Link>
       </div>
     );
   }
 
-  if (!trackTree) {
-    return null;
-  }
-
-  const { current, ancestors, children } = trackTree;
-
-  return (
-    <div className="track-detail-page">
-      <div className="track-detail-header">
-        <button onClick={handleBackClick} className="back-button">
-          <FaArrowLeft /> Back
-        </button>
-        <h1>Track Details</h1>
+  if (!track) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="mb-4">Track not found</div>
+        <Link href="/" className="text-primary hover:underline">
+          Return to Home
+        </Link>
       </div>
-
-      <div className="track-tree-container">
-        {/* Ancestors (tracks up to the root) */}
-        {ancestors.length > 0 && (
-          <div className="track-ancestors">
-            <h2>Original Track & Ancestors</h2>
-            <div className="ancestors-list">
-              {ancestors.map((ancestor, index) => (
-                <div key={ancestor.id} className="ancestor-level">
-                  <div className="level-indicator">Level {index + 1}</div>
-                  <TrackTreeNode 
-                    track={ancestor}
-                    expandedTrackId={expandedTrackId}
-                    setExpandedTrackId={setExpandedTrackId}
-                    onChildSelect={handleChildSelect}
-                    isPlaying={currentTrack?.id === ancestor.id}
-                    level={index + 1}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Current track */}
-        <div className="current-track-container">
-          <div className="level-indicator">
-            {ancestors.length > 0 
-              ? `Level ${ancestors.length + 1}` 
-              : 'Original Track'}
-          </div>
-          <TrackTreeNode 
-            track={current}
-            expandedTrackId={expandedTrackId}
-            setExpandedTrackId={setExpandedTrackId}
-            onChildSelect={handleChildSelect}
-            isPlaying={currentTrack?.id === current.id}
-            level={ancestors.length + 1}
-            isCurrent={true}
-          />
-        </div>
-
-        {/* Children of the current track */}
-        {children.length > 0 && (
-          <div className="track-children">
-            <h2>Collaborations</h2>
-            <div className="children-list">
-              {children.map((child) => (
-                <div key={child.id} className="child-track">
-                  <TrackTreeNode 
-                    track={child}
-                    expandedTrackId={expandedTrackId}
-                    setExpandedTrackId={setExpandedTrackId}
-                    onChildSelect={handleChildSelect}
-                    isPlaying={currentTrack?.id === child.id}
-                    level={ancestors.length + 2}
-                    isSelected={selectedChildId === child.id}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Component to fetch and display children of a selected track
-function ChildrenSubtree({ parentId, level, expandedTrackId, setExpandedTrackId }) {
-  const [children, setChildren] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const { currentTrack } = useAudio();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const secret = searchParams.get('secret');
-
-  useEffect(() => {
-    const fetchChildren = async () => {
-      try {
-        setLoading(true);
-        // Include secret in the request if available
-        const url = secret 
-          ? `/tracks/${parentId}/tree?secret=${secret}`
-          : `/tracks/${parentId}/tree`;
-        
-        const response = await api.get(url);
-        setChildren(response.data.children);
-      } catch (err) {
-        console.error('Failed to fetch children:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchChildren();
-  }, [parentId, secret]);
-
-  const handleChildSelect = (childId) => {
-    router.push(`/track/${childId}`);
-  };
-
-  if (loading) {
-    return <div className="loading-spinner"><FaSpinner className="spinner" /> Loading...</div>;
-  }
-
-  if (children.length === 0) {
-    return <p>No collaborations found for this track.</p>;
+    );
   }
 
   return (
-    <div className="children-subtree">
-      {children.map((child) => (
-        <div key={child.id} className="subtree-child">
-          <div className="level-indicator">Level {level}</div>
-          <TrackTreeNode 
-            track={child}
-            expandedTrackId={expandedTrackId}
-            setExpandedTrackId={setExpandedTrackId}
-            onChildSelect={handleChildSelect}
-            isPlaying={currentTrack?.id === child.id}
-            level={level}
-          />
-        </div>
-      ))}
+    <div className="w-full">
+        <div className="track-header">
+         <div className="track-info">
+           <h1 className="track-title">{track?.title || 'Untitled Track'}</h1>
+           <div className="track-artist">
+             <div className="artist-avatar">
+               <img src={track?.profile_pic_url || '/placeholder-avatar.png'} alt="Artist Avatar" />
+             </div>
+             <span className="artist-name">{track?.username || 'Unknown Artist'}</span>
+             {track?.verified && <span className="verified-badge">✓</span>}
+           </div>
+           <div className="track-meta">
+             <span className="meta-item"><FontAwesomeIcon icon={faPlay} /> {track?.play_count || 0}</span>
+             <span className="meta-item"><FontAwesomeIcon icon={faHeart} /> {track?.like_count || 0}</span>
+             <span className="meta-item"><FontAwesomeIcon icon={faComment} /> {track?.collab_count || 0} collabs</span>
+           </div>
+         </div>
+      </div>
+      <DawInterface track={track} isCollab={true} />
     </div>
   );
 } 

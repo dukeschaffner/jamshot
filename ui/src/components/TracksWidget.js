@@ -392,7 +392,7 @@ export default function TracksWidget({
   };
   
   const startRecording = async () => {
-    if (!isRecording || !audioContext || !originalBufferRef.current) return;
+    if (!isRecording || !audioContext) return;
     
     try {
       // Resume the audio context if it's suspended (important for Chrome)
@@ -1483,7 +1483,7 @@ export default function TracksWidget({
                 <div 
                     className="playhead" 
                     ref={playheadRef}
-                    style={{ left: `${playheadPos}%` }}
+                    style={{ left: `${playheadPos}%`, height: `${24 + 116 + (isCollab ? 116 : 0)}px` }}
                 ></div>
 
                 {/* Timeline */}

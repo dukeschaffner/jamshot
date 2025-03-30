@@ -1,3 +1,0 @@
-when user starts recording:
-- if looper disabled:
-    - start recording at playhead location
