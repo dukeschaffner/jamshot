@@ -51,6 +51,10 @@ Pages
   - allows users to explore entire track tree, showing the track, all of its ancestors up to the original, and all of its immediate children
   - user can select any ancestor or child track to show the track tree for that track
 
+
+
+
+
 TODO (MVP)
 - DAW
   - synchronize recording/playback on collaboration
