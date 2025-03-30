@@ -7,12 +7,7 @@ import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import DawInterface from '@/components/DawInterface';
 import './collaborate.css';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faPlay, faPause, faStepBackward, faStepForward, 
-  faDrum, faMicrophone, faTrash, faUpload, faCloudUploadAlt,
-  faHeart, faComment, faCircle, faStop, faCog
-} from '@fortawesome/free-solid-svg-icons';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic } from 'react-icons/fa';
 
 export default function CollaboratePage() {
   const { trackId } = useParams();
@@ -88,15 +83,15 @@ export default function CollaboratePage() {
            <h1 className="track-title">{track?.title || 'Untitled Track'}</h1>
            <div className="track-artist">
              <div className="artist-avatar">
-               <img src={track?.profile_pic_url || '/placeholder-avatar.png'} alt="Artist Avatar" />
+               <img src={track?.profile_pic_url || '/avatar.svg'} alt="Artist Avatar" />
              </div>
              <span className="artist-name">{track?.username || 'Unknown Artist'}</span>
-             {track?.verified && <span className="verified-badge">✓</span>}
+             {track?.verified && <FaCheckCircle className="verified-icon" />}
            </div>
            <div className="track-meta">
-             <span className="meta-item"><FontAwesomeIcon icon={faPlay} /> {track?.play_count || 0}</span>
-             <span className="meta-item"><FontAwesomeIcon icon={faHeart} /> {track?.like_count || 0}</span>
-             <span className="meta-item"><FontAwesomeIcon icon={faComment} /> {track?.collab_count || 0} collabs</span>
+             <span className="meta-item"><FaPlay/> {track?.play_count || 0}</span>
+             <span className="meta-item"><FaHeart/> {track?.like_count || 0}</span>
+             <span className="meta-item"><FaCodeBranch/> {track?.collab_count || 0} collabs</span>
            </div>
          </div>
       </div>

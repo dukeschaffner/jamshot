@@ -212,7 +212,7 @@ export default function UserPage() {
           onClick={handleImageClick}
         >
           <img 
-            src={userProfile?.profile_pic_url || '/api/placeholder/200/200'} 
+            src={userProfile?.profile_pic_url || '/avatar.svg'} 
             alt={`${userProfile?.username}'s profile`}
             className="profile-image"
           />

@@ -1,1 +1,18 @@
-<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- 5 stacked horizontal rectangles in pastel colors -->
+  
+  <!-- Layer 1: Seafoam Green -->
+  <rect x="40" y="40" width="120" height="24" rx="6" ry="6" fill="#98d7c2"/>
+  
+  <!-- Layer 2: Rustic Pink -->
+  <rect x="40" y="72" width="120" height="24" rx="6" ry="6" fill="#e8b4b8"/>
+  
+  <!-- Layer 3: Pastel Yellow -->
+  <rect x="40" y="104" width="120" height="24" rx="6" ry="6" fill="#f9eeb8"/>
+  
+  <!-- Layer 4: Pastel Blue -->
+  <rect x="40" y="136" width="120" height="24" rx="6" ry="6" fill="#b5d8eb"/>
+  
+  <!-- Layer 5: Pastel Lavender -->
+  <rect x="40" y="168" width="120" height="24" rx="6" ry="6" fill="#d9c8e3"/>
+</svg>
