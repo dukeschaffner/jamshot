@@ -206,6 +206,7 @@
   border-radius: 6px;
   overflow: visible;
   width: 100%;
+  user-select: none;
 }
 
 /* Draggable recording region styling */
@@ -502,6 +503,7 @@
   border-radius: 8px;
   padding: 16px;
   position: relative;
+  user-select: none;
 }
 
 .dark-mode .daw-container {
@@ -527,6 +529,7 @@
 .daw-header{
   display: flex;
   height: 40px;
+  user-select: none;
 }
 
 .daw-header-left{
@@ -543,6 +546,7 @@
   display: grid;
   grid-template-columns: 0px 1fr;
   flex-grow: 1;
+  user-select: none;
 }
 
 .timeline .track-label {
@@ -552,6 +556,7 @@
 .time-markers {
   position: relative;
   width: 100%;
+  user-select: none;
 }
 
 .time-marker {
@@ -607,6 +612,7 @@
   border-radius: 6px;
   overflow: hidden;
   width: 100%;
+  user-select: none;
 }
 
 .dark-mode .waveform-container {
@@ -632,6 +638,7 @@
   background-color: var(--rustic-pink);
   z-index: 10;
   cursor: ew-resize;
+  user-select: none;
 }
 
 /* Looper */
@@ -639,8 +646,8 @@
   position: absolute;
   bottom: 0;
   height: 16px;
-  cursor: pointer;
   z-index: 20;
+  user-select: none;
 }
 
 .looper-region {
@@ -652,6 +659,7 @@
   background-color: rgba(147, 233, 190, 0.4);
   border-top: 2px solid var(--seafoam);
   border-bottom: 2px solid var(--seafoam);
+  user-select: none;
 }
 
 .dark-mode .looper-region {
@@ -666,6 +674,7 @@
   background-color: var(--seafoam);
   cursor: ew-resize;
   z-index: 21;
+  user-select: none;
 }
 
 .looper-handle.left {
@@ -693,4 +702,80 @@
 .dark-mode .waveform-container.empty {
   background-color: var(--dark-bg);
   border: 2px dashed var(--dark-border-color);
+}
+
+.waveform-container.selected {
+  outline: 2px solid #ff9500;
+  box-shadow: 0 0 8px rgba(255, 149, 0, 0.5);
+}
+
+.context-menu {
+  user-select: none;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.modal-body {
+  padding: 16px;
+}
+
+.modal-footer {
+  padding: 16px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-secondary {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.btn-danger {
+  background-color: #ff3b30;
+  color: white;
+}
+
+/* For situations where we do want text to be selectable */
+.selectable-text {
+  user-select: text;
 }

@@ -347,7 +347,7 @@ function AppContent({ children }) {
             <Link href={`/user/${userDetails?.username}`} className="user-profile">
               <div className="user-avatar">
                 <img 
-                  src={userDetails?.profile_pic_url || '/api/placeholder/80/80'} 
+                  src={userDetails?.profile_pic_url || '/avatar.svg'} 
                   alt={`${userDetails?.username || 'User'}'s avatar`} 
                 />
               </div>
@@ -391,6 +391,10 @@ function AppContent({ children }) {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/next.svg" />
+        <title>JamShot</title>
+      </head>
       <body>
         <AudioProvider>
           <NotificationProvider>

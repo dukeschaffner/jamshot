@@ -182,17 +182,13 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           
           <div className="track-artist">
             <div className="artist-avatar" onClick={navigateToUserProfile}>
-              {track.profile_pic_url ? (
-                <Image 
-                  src={track.profile_pic_url} 
-                  alt={track.username} 
-                  width={40} 
-                  height={40}
-                  style={{ borderRadius: '50%', objectFit: 'cover', cursor: 'pointer' }}
-                />
-              ) : (
-                <div className="avatar-placeholder" style={{ cursor: 'pointer' }}></div>
-              )}
+              <Image 
+                src={track?.profile_pic_url || '/avatar.svg'} 
+                alt={track.username} 
+                width={40} 
+                height={40}
+                style={{ borderRadius: '50%', objectFit: 'cover', cursor: 'pointer' }}
+              />
             </div>
             <div className="artist-name">
               <span 
@@ -219,7 +215,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
               <span>{Number(likeCount).toLocaleString()}</span>
             </div>
             <div className="meta-item">
-              <FaUsers /> 
+              <FaCodeBranch /> 
               <span>{Number(track.collab_count || 0).toLocaleString()}</span>
             </div>
             {track.metronome_bpm && (
@@ -262,13 +258,6 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           
           <button className="share-btn">
             <FaShareAlt />
-          </button>
-          
-          <button className="action-btn" onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/track/${track.id}`);
-          }}>
-            <FaInfoCircle /> Details
           </button>
         </div>
       </div>

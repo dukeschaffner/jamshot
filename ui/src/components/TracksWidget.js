@@ -80,6 +80,10 @@ export default function TracksWidget({
     const [recordingStartPosBeforeDrag, setRecordingStartPosBeforeDrag] = useState(0);
     const [looperStartWidth, setLooperStartWidth] = useState(0);
     const [looperStartLeft, setLooperStartLeft] = useState(0);
+    const [selectedForDeletion, setSelectedForDeletion] = useState(false);
+    const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+    const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+    const [showContextMenu, setShowContextMenu] = useState(false);
 
     const dawHeaderRef = useRef(null);
     const waveformContainerRef = useRef(null);
@@ -292,9 +296,9 @@ export default function TracksWidget({
     // Store active sources for stopping playback
     activeSourcesRef.current = activeSources;
     
-    if (activeSources.length === 0) {
-      return; // No sources to play
-    }
+    // if (activeSources.length === 0) {
+    //   return; // No sources to play
+    // }
     
     // Start playback with latency compensation
     let startTime;
@@ -357,9 +361,8 @@ export default function TracksWidget({
       // Clear gain node references
       originalGainNodeRef.current = null;
       recordingGainNodeRef.current = null;
-
-      setIsPlaying(false);
     }
+    setIsPlaying(false);
   };
 
   const seekToTime = (time) => {
@@ -801,7 +804,7 @@ export default function TracksWidget({
   useEffect(() => {
     if (isPlaying) {
       const updatePlayhead = () => {
-        if (playheadRef.current) {
+        // if (playheadRef.current) {
           const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
           const playheadPos = timeToPos(currentTime, getEffectiveDuration());
           if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
@@ -818,7 +821,7 @@ export default function TracksWidget({
           }
           
           
-        }
+        // }
       };
       
       updatePlayhead();
@@ -980,29 +983,29 @@ export default function TracksWidget({
             //     (newLeftPos + newRightPos) / 2, 
             //     `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
             //   );
+        }
 
-            // Dragging recording region
-            if (isDraggingRecordingRegion && selectedTake) {
-              const deltaX = e.clientX - dragStartX;
-              const deltaPercent = (deltaX / rect.width) * 100;
-              
-              // Calculate new position
-              let newStartPos = recordingStartPosBeforeDrag + deltaPercent;
-              
-              // Ensure the recording stays within bounds
-              if (newStartPos < 0) {
-                newStartPos = 0;
-              }
-              
-              if (newStartPos + recordingWidth > 100) {
-                newStartPos = 100 - recordingWidth;
-              }
-              
-              // Update recording position
-              setRecordingStartPos(newStartPos);
-              recordingStartPosRef.current = newStartPos;
+        // Dragging recording region
+        if (isDraggingRecordingRegion && selectedTake) {
+            const deltaX = e.clientX - dragStartX;
+            const deltaPercent = (deltaX / rect.width) * 100;
+            
+            // Calculate new position
+            let newStartPos = recordingStartPosBeforeDrag + deltaPercent;
+            
+            // Ensure the recording stays within bounds
+            if (newStartPos < 0) {
+            newStartPos = 0;
             }
-          }
+            
+            if (newStartPos + recordingWidth > 100) {
+            newStartPos = 100 - recordingWidth;
+            }
+            
+            // Update recording position
+            setRecordingStartPos(newStartPos);
+            recordingStartPosRef.current = newStartPos;
+        }
         };
         
         const handleMouseUp = (e) => {
@@ -1470,6 +1473,110 @@ export default function TracksWidget({
     (originalBufferRef.current !== null || hasRecordingTrack) : 
     hasRecordingTrack;
 
+  // Handle recording click (to select it)
+  const handleRecordingClick = (e) => {
+    // If we're dragging, don't select
+    if (isDraggingRecordingRegion) return;
+    if (isRecording) return;
+    
+    // If recording is already selected, clicking again deselects it
+    setSelectedForDeletion(prev => !prev);
+    
+    // Hide context menu if open
+    setShowContextMenu(false);
+    
+    // Stop propagation to prevent waveform click handler
+    e.stopPropagation();
+  };
+
+  // Handle right-click on recording for context menu
+  const handleRecordingContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isRecording) return;
+    
+    // Position context menu at mouse position
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+    
+    // Select the recording automatically when right-clicking
+    setSelectedForDeletion(true);
+  };
+
+  // Handle deletion of recording
+  const handleDeleteRecording = () => {
+    // If there are multiple takes, show confirmation dialog
+    if (takes.length > 1) {
+      setShowDeleteConfirmation(true);
+    } else {
+      // Just delete the single recording
+      deleteRecording();
+    }
+    
+    // Hide context menu
+    setShowContextMenu(false);
+  };
+
+  // Delete recording
+  const deleteRecording = () => {
+    // Reset states
+    recordedBufferRef.current = null;
+    setRecordingPlaybackBuffer(null);
+    setSelectedTake(null);
+    setTakes([]);
+    setSelectedForDeletion(false);
+    setShowDeleteConfirmation(false);
+  };
+
+  // Handle click outside context menu to close it
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowContextMenu(false);
+    };
+    
+    if (showContextMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showContextMenu]);
+
+  // Add keyboard event listener for delete/backspace
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only handle if recording is selected for deletion
+      if (!selectedForDeletion) return;
+      
+      // Check for Delete or Backspace key
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        
+        // If there are multiple takes, show confirmation dialog
+        if (takes.length > 1) {
+          setShowDeleteConfirmation(true);
+        } else {
+          // Just delete the single recording
+          deleteRecording();
+        }
+      }
+      
+      // Escape key deselects
+      if (e.key === 'Escape') {
+        setSelectedForDeletion(false);
+        setShowContextMenu(false);
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedForDeletion, takes.length]);
+
   return (
     <div className="daw-container">
         <div className="daw-header">
@@ -1480,12 +1587,13 @@ export default function TracksWidget({
             <div className="timeline" ref={dawHeaderRef}>
                 
                 {/* Playhead */}
-                <div 
-                    className="playhead" 
-                    ref={playheadRef}
-                    style={{ left: `${playheadPos}%`, height: `${24 + 116 + (isCollab ? 116 : 0)}px` }}
-                ></div>
-
+                {hasAudioContent && (
+                    <div 
+                        className="playhead" 
+                        ref={playheadRef}
+                        style={{ left: `${playheadPos}%`, height: `${24 + 116 + (isCollab ? 116 : 0)}px` }}
+                    ></div>
+                )}
                 {/* Timeline */}
                 <div className="track-label"></div>
                 <div className="time-markers">
@@ -1502,7 +1610,7 @@ export default function TracksWidget({
                   <div 
                     className="looper" 
                     ref={looperRef}
-                    style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%` }}
+                    style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%`, cursor: isPlaying || isRecording ? 'not-allowed' : 'grab' }}
                   >
                     <div 
                       className="looper-handle left" 
@@ -1627,14 +1735,15 @@ export default function TracksWidget({
             <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`}>
               {hasRecordingTrack || isRecording ? (
                 <div 
-                  className={`waveform-container ${isDraggingRecordingRegion ? 'dragging' : ''}`}
+                  className={`waveform-container ${isDraggingRecordingRegion ? 'dragging' : ''} ${selectedForDeletion ? 'selected' : ''}`}
                   style={{
-                    left: isCollab ? `${recordingStartPos}%` : '0',
-                    width: isCollab ? `${recordingWidth}%` : '100%',
+                    left: `${recordingStartPos}%`,
+                    width: `${recordingWidth}%`,
                     cursor: isPlaying || isRecording ? 'default' : 'grab'
                   }}
-                  onClick={handleWaveformClick}
+                  onClick={hasRecordingTrack && !isRecording ? handleRecordingClick : handleWaveformClick}
                   onMouseDown={isPlaying || isRecording ? null : (isCollab ? handleRecordingRegionMouseDown : null)}
+                  onContextMenu={hasRecordingTrack && !isRecording ? handleRecordingContextMenu : null}
                   ref={recordingContainerRef}
                 >
                   <div className="waveform">
@@ -1675,9 +1784,104 @@ export default function TracksWidget({
                   </div>
                 </div>
               )}
+
             </div>
           </div>
         </div>
+        {/* Takes List */}
+        {takes.length > 0 && (
+            <div className="takes-container">
+            <h3>Your Takes</h3>
+            <div className="takes-list">
+                {takes.map(take => (
+                <div 
+                    key={take.id} 
+                    className={`take-item ${selectedTake?.id === take.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedTake(take)}
+                >
+                    <span className="take-name">{take.name}</span>
+                    <div className="take-controls">
+                    <button className="take-play" onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTake(take);
+                        setIsPlaying(true);
+                    }}>
+                        <FontAwesomeIcon icon={faPlay} />
+                    </button>
+                    </div>
+                </div>
+                ))}
+            </div>
+            </div>
+        )}
+
+        {/* Context Menu */}
+        {showContextMenu && (
+          <div 
+            className="context-menu" 
+            style={{ 
+              position: 'fixed', 
+              top: `${contextMenuPosition.y}px`, 
+              left: `${contextMenuPosition.x}px`,
+              zIndex: 1000,
+              background: 'white',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+              borderRadius: '4px',
+              padding: '8px 0'
+            }}
+          >
+            <button 
+              onClick={handleDeleteRecording}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '8px 16px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+              onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+            >
+              Delete Recording
+            </button>
+          </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirmation && (
+          <div className="modal-overlay active" onClick={(e) => {
+            if (e.target.className === 'modal-overlay active') {
+              setShowDeleteConfirmation(false);
+            }
+          }}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2 className="modal-title">Confirm Deletion</h2>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to delete all {takes.length} takes?</p>
+                <p>This action cannot be undone.</p>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => setShowDeleteConfirmation(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-danger"
+                  onClick={deleteRecording}
+                >
+                  Delete All Recordings
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 } 
