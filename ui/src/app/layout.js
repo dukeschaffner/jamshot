@@ -7,6 +7,7 @@ import './globals.css';
 import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
 import NotificationDropdown from '../components/NotificationDropdown';
+import MoreDropdown from '../components/MoreDropdown';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
   FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
 import api, { logout } from '../lib/api';
@@ -299,16 +300,15 @@ function AppContent({ children }) {
             <FaHome />
             Home
           </Link>
-          <Link href="/about" className={`nav-link ${pathname === '/about' ? 'active' : ''}`}>
-            <FaInfoCircle />
-            About
-          </Link>
           
           {isLoggedIn && (
-            <div className="nav-link notification-nav-link">
+            <div className="nav-link nav-link-pop-out-btn">
               <NotificationDropdown />
             </div>
           )}
+          <div className="nav-link nav-link-pop-out-btn">
+              <MoreDropdown />
+          </div>
           
           {/* <Link href="/library" className={`nav-link ${pathname === '/library' ? 'active' : ''}`}>
             <FaMusic />

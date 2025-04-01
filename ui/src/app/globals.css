@@ -3107,7 +3107,7 @@ body.dark-mode .follow-request-item .username {
 }
 
 /* Notification styles */
-.notification-nav-link {
+.nav-link-pop-out-btn {
   position: relative;
   padding: 0 !important;
   margin-bottom: 8px;

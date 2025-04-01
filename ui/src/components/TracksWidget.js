@@ -529,8 +529,8 @@ export default function TracksWidget({
         name: `Take ${takeNumber}`,
         buffer: buffer,
         recordedAt: Date.now(),
-        startTime: startTime,
-        endTime: endTime,
+        startTime: startTime, //time relative to time=0 of DAW
+        endTime: endTime, //time relative to time=0 of DAW
         recordingLatency: recordingLatency3,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
@@ -695,7 +695,6 @@ export default function TracksWidget({
       let resultBuffer;
       
       const adjustedStartTime = selectedTake.startTime - userLatencyCompensation / 1000 - selectedTake.recordingLatency;
-        
 
       // Check if we need to pad the buffer (if it's shorter than the original track)
       if (originalBufferRef.current && recordedBuffer.duration < originalBufferRef.current.duration) {
@@ -904,7 +903,7 @@ export default function TracksWidget({
         // Dragging playhead
         // if (isDraggingPlayhead) {
         //   setPlayheadPos(mousePos);
-            
+          
         //   // Update audio position if playing
         //   if (isPlaying && audioContextRef.current) {
         //     pausedAtRef.current = posToTime(mousePos, trackDuration);
@@ -917,8 +916,8 @@ export default function TracksWidget({
         
         // Dragging left looper handle
         if (isDraggingLooperLeft) {
-            const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-            setLooperLeftPos(newLeftPos);
+          const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
+          setLooperLeftPos(newLeftPos);
             
             // If playhead is to the left of the new left position and audio is playing,
             // move the playhead to the new left position
@@ -934,8 +933,8 @@ export default function TracksWidget({
         
         // Dragging right looper handle
         if (isDraggingLooperRight) {
-            const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-            setLooperRightPos(newRightPos);
+          const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
+          setLooperRightPos(newRightPos);
             
             // Show time tooltip
         //   const time = posToTime(newRightPos, trackDuration);
@@ -944,27 +943,27 @@ export default function TracksWidget({
         
         // Dragging entire looper region
         if (isDraggingLooperRegion) {
-            const deltaX = e.clientX - dragStartX;
-            const deltaPercent = (deltaX / rect.width) * 100;
-            
-            // Calculate new positions
-            let newLeftPos = looperStartLeft + deltaPercent;
-            let newRightPos = newLeftPos + looperStartWidth;
-            
-            // Ensure the looper stays within bounds
-            if (newLeftPos < 0) {
+          const deltaX = e.clientX - dragStartX;
+          const deltaPercent = (deltaX / rect.width) * 100;
+          
+          // Calculate new positions
+          let newLeftPos = looperStartLeft + deltaPercent;
+          let newRightPos = newLeftPos + looperStartWidth;
+          
+          // Ensure the looper stays within bounds
+          if (newLeftPos < 0) {
             newLeftPos = 0;
             newRightPos = looperStartWidth;
-            }
-            
-            if (newRightPos > 100) {
+          }
+          
+          if (newRightPos > 100) {
             newRightPos = 100;
             newLeftPos = 100 - looperStartWidth;
-            }
-            
-            // Update looper positions
-            setLooperLeftPos(newLeftPos);
-            setLooperRightPos(newRightPos);
+          }
+          
+          // Update looper positions
+          setLooperLeftPos(newLeftPos);
+          setLooperRightPos(newRightPos);
               
               // If playhead is outside the new looper region and audio is playing,
               // move the playhead to the new left position
@@ -984,29 +983,29 @@ export default function TracksWidget({
             //     `${formatDuration(looperStartTime)} - ${formatDuration(looperEndTime)}`
             //   );
         }
-
+        
         // Dragging recording region
         if (isDraggingRecordingRegion && selectedTake) {
-            const deltaX = e.clientX - dragStartX;
-            const deltaPercent = (deltaX / rect.width) * 100;
-            
-            // Calculate new position
-            let newStartPos = recordingStartPosBeforeDrag + deltaPercent;
-            
-            // Ensure the recording stays within bounds
-            if (newStartPos < 0) {
+          const deltaX = e.clientX - dragStartX;
+          const deltaPercent = (deltaX / rect.width) * 100;
+          
+          // Calculate new position
+          let newStartPos = recordingStartPosBeforeDrag + deltaPercent;
+          
+          // Ensure the recording stays within bounds
+          if (newStartPos < 0) {
             newStartPos = 0;
-            }
-            
-            if (newStartPos + recordingWidth > 100) {
+          }
+          
+          if (newStartPos + recordingWidth > 100) {
             newStartPos = 100 - recordingWidth;
-            }
-            
-            // Update recording position
-            setRecordingStartPos(newStartPos);
-            recordingStartPosRef.current = newStartPos;
+          }
+          
+          // Update recording position
+          setRecordingStartPos(newStartPos);
+          recordingStartPosRef.current = newStartPos;
         }
-        };
+      };
         
         const handleMouseUp = (e) => {
             //stop propagation
@@ -1024,9 +1023,9 @@ export default function TracksWidget({
             
             // Update the selected take with new start and end times
             setSelectedTake(prevTake => ({
-              ...prevTake,
-              startTime: newStartTime,
-              endTime: newEndTime
+                ...prevTake,
+                startTime: newStartTime,
+                endTime: newEndTime
             }));
           }
           
@@ -1735,7 +1734,12 @@ export default function TracksWidget({
             <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`}>
               {hasRecordingTrack || isRecording ? (
                 <div 
-                  className={`waveform-container ${isDraggingRecordingRegion ? 'dragging' : ''} ${selectedForDeletion ? 'selected' : ''}`}
+                  className={`waveform-container 
+                    ${isDraggingRecordingRegion ? 'dragging' : ''} 
+                    ${selectedForDeletion ? 'selected' : ''}
+                    ${isPlaying ? 'playing' : ''}
+                    ${isRecording ? 'recording' : ''}
+                  `}
                   style={{
                     left: `${recordingStartPos}%`,
                     width: `${recordingWidth}%`,
@@ -1751,12 +1755,12 @@ export default function TracksWidget({
                     {isRecording ? (
                       <div className="recording-indicator-visual"/>
                     ) : (
-                      <canvas 
-                        ref={recordingCanvasRef} 
-                        width="1000" 
-                        height="100" 
+                        <canvas 
+                          ref={recordingCanvasRef} 
+                          width="1000" 
+                          height="100" 
                         style={{ width: '100%', height: '100%' }}
-                      />
+                        />
                     )}
                   </div>
                 </div>
