@@ -76,6 +76,8 @@ export default function TracksWidget({
     const [isDraggingLooperRight, setIsDraggingLooperRight] = useState(false);
     const [isDraggingLooperRegion, setIsDraggingLooperRegion] = useState(false);
     const [isDraggingRecordingRegion, setIsDraggingRecordingRegion] = useState(false);
+    const [isDraggingCropStart, setIsDraggingCropStart] = useState(false);
+    const [isDraggingCropEnd, setIsDraggingCropEnd] = useState(false);
     const [dragStartX, setDragStartX] = useState(0);
     const [recordingStartPosBeforeDrag, setRecordingStartPosBeforeDrag] = useState(0);
     const [looperStartWidth, setLooperStartWidth] = useState(0);
@@ -89,7 +91,9 @@ export default function TracksWidget({
     const waveformContainerRef = useRef(null);
     const originalCanvasRef = useRef(null);
     const recordingCanvasRef = useRef(null);
+    const croppedRecordingCanvasRef = useRef(null);
     const recordingContainerRef = useRef(null);
+    const recordingTrackContainerRef = useRef(null);
     const playheadRef = useRef(null);
     const playheadIntervalRef = useRef(null);
     const looperRef = useRef(null);
@@ -100,6 +104,11 @@ export default function TracksWidget({
 
     const recordingStartPosRef = useRef(0);
     
+    const [cropStartPercentage, setCropStartPercentage] = useState(0);
+    const cropStartTimeRef = useRef(0);
+    const [cropEndPercentage, setCropEndPercentage] = useState(0);
+    const cropEndTimeRef = useRef(0);
+    const [showCropHandles, setShowCropHandles] = useState(false);
     //#endregion
 
     // Helper functions
@@ -148,7 +157,24 @@ export default function TracksWidget({
           console.error('Error processing audio chunks:', error);
         }
     };
-  
+    
+    // Handle mouse down on crop start handle
+    const handleCropStartMouseDown = (e) => {
+      e.stopPropagation();
+      if (isPlaying || isRecording) return;
+      
+      setIsDraggingCropStart(true);
+      setDragStartX(e.clientX);
+    };
+
+    // Handle mouse down on crop end handle
+    const handleCropEndMouseDown = (e) => {
+      e.stopPropagation();
+      if (isPlaying || isRecording) return;
+      
+      setIsDraggingCropEnd(true);
+      setDragStartX(e.clientX);
+    };
 
     //#region audio processing
 
@@ -512,7 +538,8 @@ export default function TracksWidget({
     //TODO: cleanup latency methods
     // const recordingLatency1 = absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current;
     // const recordingLatency2 = absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current;
-    const recordingLatency3 = audioContext.outputLatency + (absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current);
+
+    const recordingLatency = !isFile ? audioContext.outputLatency + (absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current) : 0;
 
     console.log('Input latency point 1:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current, 'seconds');
     console.log('Input latency point 2:', absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current, 'seconds');
@@ -529,9 +556,10 @@ export default function TracksWidget({
         name: `Take ${takeNumber}`,
         buffer: buffer,
         recordedAt: Date.now(),
-        startTime: startTime, //time relative to time=0 of DAW
+        startTime: startTime, //time relative to time=0 of DAW. IE the time in the DAW that the audio starts
         endTime: endTime, //time relative to time=0 of DAW
-        recordingLatency: recordingLatency3,
+        timeOffset: 0, //time offset of the recording audio relative to the startTime
+        recordingLatency: recordingLatency,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
         bitDepth: 24 // Store the bit depth for reference
@@ -694,7 +722,9 @@ export default function TracksWidget({
       let recordedBuffer = selectedTake.buffer;
       let resultBuffer;
       
-      const adjustedStartTime = selectedTake.startTime - userLatencyCompensation / 1000 - selectedTake.recordingLatency;
+      const adjustedAbsoluteStartTime = selectedTake.startTime - userLatencyCompensation / 1000 - selectedTake.recordingLatency;
+      const adjustedRelativeStartTime = selectedTake.timeOffset;
+      const adjustedRelativeEndTime = (selectedTake.endTime - selectedTake.startTime) + selectedTake.timeOffset;
 
       // Check if we need to pad the buffer (if it's shorter than the original track)
       if (originalBufferRef.current && recordedBuffer.duration < originalBufferRef.current.duration) {
@@ -707,9 +737,10 @@ export default function TracksWidget({
           recordedBuffer.sampleRate
         );
         
-        // Calculate the start position for the recorded audio
-        // This centers the recording if it started in the middle of the track
-        const startSample = Math.floor(adjustedStartTime * recordedBuffer.sampleRate);
+        
+        const startSample = Math.floor(adjustedAbsoluteStartTime * recordedBuffer.sampleRate); //sample in the resulting buffer that audio begins
+        const recordingStartSample = Math.floor(adjustedRelativeStartTime * recordedBuffer.sampleRate); //sample in the recorded buffer to begin copying to resulting buffer
+        const recordingEndSample = Math.floor(adjustedRelativeEndTime * recordedBuffer.sampleRate); //sample in the recorded buffer to end copying to resulting buffer
         
         // Copy the recorded data into the padded buffer at the correct position
         for (let channel = 0; channel < recordedBuffer.numberOfChannels; channel++) {
@@ -722,20 +753,21 @@ export default function TracksWidget({
           }
           
           // Copy the recorded data
-          for (let i = 0; i < recordedBuffer.length; i++) {
+          for (let i = 0; i < recordingEndSample - recordingStartSample; i++) {
             if (startSample + i < paddedBuffer.length) {
-              paddedData[startSample + i] = recordedData[i];
+              paddedData[startSample + i] = recordedData[recordingStartSample + i];
             }
           }
           
           // Fill with zeros after the recording (if needed)
-          for (let i = startSample + recordedBuffer.length; i < paddedBuffer.length; i++) {
+          for (let i = startSample + (recordingEndSample - recordingStartSample); i < paddedBuffer.length; i++) {
             paddedData[i] = 0;
           }
         }
         
         resultBuffer = paddedBuffer;
       }
+      // This should be prevented by recording rules
       else if(originalBufferRef.current && recordedBuffer.duration > originalBufferRef.current.duration) {
         console.log('Trimming recorded buffer to match original track duration');
         
@@ -746,7 +778,7 @@ export default function TracksWidget({
           recordedBuffer.sampleRate
         );
         
-        const startSample = Math.floor(adjustedStartTime * recordedBuffer.sampleRate);
+        const startSample = Math.floor(adjustedAbsoluteStartTime * recordedBuffer.sampleRate);
         
         // Copy only the portion of the recorded data that fits within the original duration
         for (let channel = 0; channel < recordedBuffer.numberOfChannels; channel++) {
@@ -781,6 +813,7 @@ export default function TracksWidget({
     if(selectedTake) {
       let recordedBuffer = createRecordingPlaybackBuffer(selectedTake);
       setRecordingPlaybackBuffer(recordedBuffer);
+      renderWaveform(recordedBuffer, croppedRecordingCanvasRef, selectedTake.startTime, selectedTake.endTime);
     }
   }, [selectedTake, userLatencyCompensation]);
 
@@ -794,9 +827,9 @@ export default function TracksWidget({
       renderWaveform(originalBufferRef.current, originalCanvasRef);
     }
     
-    if (recordedBufferRef.current && selectedTake) {
-      renderWaveform(recordedBufferRef.current, recordingCanvasRef, selectedTake.startTime, selectedTake.endTime);
-    }
+    // if (recordedBufferRef.current && selectedTake) {
+    //   renderWaveform(recordedBufferRef.current, croppedRecordingCanvasRef, selectedTake.startTime, selectedTake.endTime);
+    // }
   }, [originalBufferRef.current, recordedBufferRef.current]);
 
   // Update playhead position when playback starts
@@ -895,7 +928,7 @@ export default function TracksWidget({
     // Mouse event handlers
     useEffect(() => {
         const handleMouseMove = (e) => {
-          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion) return;
+          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion && !isDraggingCropStart && !isDraggingCropEnd) return;
           
         const rect = dawHeaderRef.current.getBoundingClientRect();
         const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
@@ -1005,6 +1038,40 @@ export default function TracksWidget({
           setRecordingStartPos(newStartPos);
           recordingStartPosRef.current = newStartPos;
         }
+        
+        // Handle crop start dragging
+        if (isDraggingCropStart && selectedTake) {
+          // Calculate crop position within the recording region
+          const recordingRect = recordingContainerRef.current.getBoundingClientRect();
+          const recordingStartX = recordingRect.left;
+          const recordingWidth = recordingRect.width;
+          const relativePos = Math.max(0, Math.min(100, ((e.clientX - recordingStartX) / recordingWidth) * 100));
+          
+          // Update crop start percentage
+          setCropStartPercentage(relativePos);
+
+          const bufferStartTime = selectedTake.startTime - selectedTake.timeOffset;
+          const minStartPos = Math.max(0, timeToPos(bufferStartTime, getEffectiveDuration()));
+          const newStartPos = Math.max(minStartPos, Math.min(100, (e.clientX - rect.left) / rect.width * 100));
+          cropStartTimeRef.current = posToTime(newStartPos, getEffectiveDuration());
+        }
+        
+        // Handle crop end dragging
+        if (isDraggingCropEnd && selectedTake) {
+          // Calculate crop position within the recording region
+          const recordingRect = recordingContainerRef.current.getBoundingClientRect();
+          const recordingStartX = recordingRect.left;
+          const recordingWidth = recordingRect.width;
+          const relativePos = Math.max(0, Math.min(100, ((e.clientX - recordingStartX) / recordingWidth) * 100));
+          
+          // Update crop end percentage
+          setCropEndPercentage(100 - relativePos);
+
+          const bufferEndTime = selectedTake.startTime - selectedTake.timeOffset + selectedTake.buffer.duration;
+          const maxEndPos = Math.min(100, timeToPos(bufferEndTime, getEffectiveDuration()));
+          const newEndPos = Math.max(0, Math.min(maxEndPos, (e.clientX - rect.left) / rect.width * 100));
+          cropEndTimeRef.current = posToTime(newEndPos, getEffectiveDuration());
+        }
       };
         
         const handleMouseUp = (e) => {
@@ -1020,7 +1087,7 @@ export default function TracksWidget({
             const newStartTime = posToTime(recordingStartPosRef.current, getEffectiveDuration());
             const recordingDuration = selectedTake.endTime - selectedTake.startTime;
             const newEndTime = newStartTime + recordingDuration;
-            
+
             // Update the selected take with new start and end times
             setSelectedTake(prevTake => ({
                 ...prevTake,
@@ -1031,6 +1098,28 @@ export default function TracksWidget({
           
           setIsDraggingRecordingRegion(false);
           //hideTimeTooltip();
+          
+          // If we were dragging crop handles, update the recording
+          if (isDraggingCropStart && selectedTake) 
+          {
+            const prevOffset = selectedTake.timeOffset;
+            const newOffset = cropStartTimeRef.current - (selectedTake.startTime - prevOffset);
+
+            setSelectedTake(prevTake => ({
+                ...prevTake,
+                startTime: cropStartTimeRef.current,
+                timeOffset: newOffset
+            }));
+          } 
+          else if (isDraggingCropEnd && selectedTake) {
+
+            setSelectedTake(prevTake => ({
+                ...prevTake,
+                endTime: cropEndTimeRef.current
+            }));
+          }
+          setIsDraggingCropEnd(false);
+          setIsDraggingCropStart(false);
         };
         
         document.addEventListener('mousemove', handleMouseMove);
@@ -1042,9 +1131,10 @@ export default function TracksWidget({
         };
       }, [
         isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion, isDraggingRecordingRegion,
+        isDraggingCropStart, isDraggingCropEnd,
         looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
         isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, selectedTake,
-        isCollab, recordingPlaybackBuffer
+        isCollab, recordingPlaybackBuffer, cropStartPercentage, cropEndPercentage
       ]);
 
       useEffect(() => {
@@ -1576,6 +1666,46 @@ export default function TracksWidget({
     };
   }, [selectedForDeletion, takes.length]);
 
+  // Check if mouse is hovering near edges to show crop handles
+  const handleRecordingMouseMove = (e) => {
+    if (isPlaying || isRecording || !selectedTake || isDraggingRecordingRegion) return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const leftEdgeZone = rect.left + 15; // 15px from left edge
+    const rightEdgeZone = rect.right - 15; // 15px from right edge
+    
+    // If mouse is close to either edge, show the crop handles
+    const isNearEdge = e.clientX < leftEdgeZone || e.clientX > rightEdgeZone;
+    setShowCropHandles(isNearEdge);
+    
+    // Update cursor based on position
+    if (e.clientX < leftEdgeZone) {
+      e.currentTarget.style.cursor = 'col-resize';
+    } else if (e.clientX > rightEdgeZone) {
+      e.currentTarget.style.cursor = 'col-resize';
+    } else {
+      e.currentTarget.style.cursor = isCollab ? 'grab' : 'default';
+    }
+  };
+
+  const handleRecordingMouseLeave = () => {
+    setShowCropHandles(false);
+  };
+
+  // Initialize crop state when a take is selected
+  useEffect(() => {
+    if (selectedTake) {
+      // Reset crop percentages whenever a new take is selected
+      setCropStartPercentage(0);
+      setCropEndPercentage(0);
+      
+      // Render the full recording to the recordingCanvasRef for cropping view
+      if (recordingCanvasRef.current) {
+        renderWaveform(selectedTake.buffer, recordingCanvasRef);
+      }
+    }
+  }, [selectedTake]);
+
   return (
     <div className="daw-container">
         <div className="daw-header">
@@ -1731,7 +1861,7 @@ export default function TracksWidget({
             )}
 
             {/* Recording Track - shown in both modes */}
-            <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`}>
+            <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`} ref={recordingTrackContainerRef}>
               {hasRecordingTrack || isRecording ? (
                 <div 
                   className={`waveform-container 
@@ -1739,14 +1869,19 @@ export default function TracksWidget({
                     ${selectedForDeletion ? 'selected' : ''}
                     ${isPlaying ? 'playing' : ''}
                     ${isRecording ? 'recording' : ''}
+                    ${isDraggingCropStart || isDraggingCropEnd ? 'cropping' : ''}
                   `}
                   style={{
-                    left: `${recordingStartPos}%`,
-                    width: `${recordingWidth}%`,
-                    cursor: isPlaying || isRecording ? 'default' : 'grab'
+                    left: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.startTime - selectedTake.timeOffset, getEffectiveDuration()) : recordingStartPos}%`,
+                    width: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.buffer.duration, getEffectiveDuration()) : recordingWidth}%`,
+                    cursor: isPlaying || isRecording ? 'default' : (
+                      showCropHandles ? 'col-resize' : (isCollab ? 'grab' : 'default')
+                    )
                   }}
                   onClick={hasRecordingTrack && !isRecording ? handleRecordingClick : handleWaveformClick}
                   onMouseDown={isPlaying || isRecording ? null : (isCollab ? handleRecordingRegionMouseDown : null)}
+                  onMouseMove={handleRecordingMouseMove}
+                  onMouseLeave={handleRecordingMouseLeave}
                   onContextMenu={hasRecordingTrack && !isRecording ? handleRecordingContextMenu : null}
                   ref={recordingContainerRef}
                 >
@@ -1755,12 +1890,57 @@ export default function TracksWidget({
                     {isRecording ? (
                       <div className="recording-indicator-visual"/>
                     ) : (
+                    <>
                         <canvas 
-                          ref={recordingCanvasRef} 
-                          width="1000" 
-                          height="100" 
-                        style={{ width: '100%', height: '100%' }}
+                            ref={recordingCanvasRef} 
+                            width="1000" 
+                            height="100" 
+                            style={{ width: '100%', height: '100%', backgroundColor: 'blue', display: isDraggingCropStart || isDraggingCropEnd ? 'block' : 'none' }}
                         />
+                        <canvas 
+                            ref={croppedRecordingCanvasRef} 
+                            width="1000" 
+                            height="100" 
+                            style={{ width: '100%', height: '100%', display: isDraggingCropStart || isDraggingCropEnd ? 'none' : 'block' }}
+                        />
+                        {isDraggingCropStart || isDraggingCropEnd ? (
+                        <>
+                            
+                            {/* Show crop status indicator when cropping */}
+                            {(isDraggingCropStart || isDraggingCropEnd) && (
+                              <div className="crop-status">
+                                Cropping: {isDraggingCropStart ? "Start" : "End"}
+                              </div>
+                            )}
+                            <div 
+                              className="crop-left-overlay"
+                              style={{ width: `${cropStartPercentage}%` }}
+                            />
+                            <div 
+                              className="crop-right-overlay"
+                              style={{ width: `${cropEndPercentage}%` }}
+                            />
+                        </>
+                        ) : (// show cropped recording waveform
+                          <>
+                            
+                            {showCropHandles && !isPlaying && !isRecording && (
+                              <>
+                                <div 
+                                  className="crop-handle crop-handle-left"
+                                  onMouseDown={handleCropStartMouseDown}
+                                  title="Drag to crop start"
+                                />
+                                <div 
+                                  className="crop-handle crop-handle-right"
+                                  onMouseDown={handleCropEndMouseDown}
+                                  title="Drag to crop end"
+                                />
+                              </>
+                            )}
+                          </>
+                        )}
+                    </>
                     )}
                   </div>
                 </div>
