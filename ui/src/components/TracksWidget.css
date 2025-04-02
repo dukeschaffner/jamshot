@@ -779,3 +779,103 @@
 .selectable-text {
   user-select: text;
 }
+
+/* Crop handles styling */
+.crop-handle {
+  position: absolute;
+  width: 8px;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.2);
+  cursor: col-resize;
+  z-index: 10;
+  top: 0;
+}
+
+.crop-handle:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.crop-handle-left {
+  left: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+.crop-handle-right {
+  right: 0;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Crop overlays */
+.crop-left-overlay, .crop-right-overlay {
+  position: absolute;
+  height: 100%;
+  background-color: rgba(220, 53, 69, 0.3);
+  pointer-events: none;
+  z-index: 5;
+  top: 0;
+}
+
+.crop-left-overlay {
+  left: 0;
+  width: 0%; /* Will be set dynamically via JS */
+  border-right: 2px solid rgba(220, 53, 69, 0.6);
+}
+
+.crop-right-overlay {
+  right: 0;
+  width: 0%; /* Will be set dynamically via JS */
+  border-left: 2px solid rgba(220, 53, 69, 0.6);
+}
+
+/* Add transition for smoother UI */
+.waveform-container .crop-left-overlay,
+.waveform-container .crop-right-overlay {
+  transition: width 0.1s ease;
+}
+
+/* No transition when actually dragging */
+.waveform-container.cropping .crop-left-overlay,
+.waveform-container.cropping .crop-right-overlay {
+  transition: none;
+}
+
+/* Add a class to indicate cropping state */
+.waveform-container.cropping {
+  cursor: col-resize;
+}
+
+/* Crop status indicator */
+.crop-status {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 20;
+  white-space: nowrap;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.crop-status::before {
+  content: "";
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #dc3545;
+  animation: pulse 1s infinite;
+}
+
+/* Pulsing animation for the crop indicator */
+@keyframes crop-pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
