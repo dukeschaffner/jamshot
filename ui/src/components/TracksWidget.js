@@ -100,6 +100,8 @@ export default function TracksWidget({
     const looperHandleLeftRef = useRef(null);
     const looperHandleRightRef = useRef(null);
     const looperRegionRef = useRef(null);
+    const cropStartOverlayRef = useRef(null);
+    const cropEndOverlayRef = useRef(null);
     const takesCountRef = useRef(0); // Ref to track the number of takes
 
     const recordingStartPosRef = useRef(0);
@@ -1045,15 +1047,28 @@ export default function TracksWidget({
           const recordingRect = recordingContainerRef.current.getBoundingClientRect();
           const recordingStartX = recordingRect.left;
           const recordingWidth = recordingRect.width;
-          const relativePos = Math.max(0, Math.min(100, ((e.clientX - recordingStartX) / recordingWidth) * 100));
-          
-          // Update crop start percentage
+          const cropEndX = cropEndOverlayRef.current.getBoundingClientRect().left;
+          const trackStartX = rect.left;
+          const buffer = 5 * (rect.width / 100);
+          var newCropX = 0;
+          if(e.clientX < trackStartX) { //Do not allow user to crop beyond track start
+            newCropX = trackStartX;
+          }
+          else if(e.clientX > cropEndX - buffer){ //Do not allow user to crop beyond track end
+            newCropX = cropEndX - buffer;
+          }
+          else{
+            newCropX = e.clientX;
+          }
+
+          if(newCropX < recordingStartX){
+            newCropX = recordingStartX;
+          }
+
+          const relativePos = (newCropX - recordingStartX) / recordingWidth * 100;
           setCropStartPercentage(relativePos);
 
-          const bufferStartTime = selectedTake.startTime - selectedTake.timeOffset;
-          const minStartPos = Math.max(0, timeToPos(bufferStartTime, getEffectiveDuration()));
-          const newStartPos = Math.max(minStartPos, Math.min(100, (e.clientX - rect.left) / rect.width * 100));
-          cropStartTimeRef.current = posToTime(newStartPos, getEffectiveDuration());
+          cropStartTimeRef.current = posToTime((newCropX - trackStartX) / rect.width * 100, getEffectiveDuration());
         }
         
         // Handle crop end dragging
@@ -1061,16 +1076,31 @@ export default function TracksWidget({
           // Calculate crop position within the recording region
           const recordingRect = recordingContainerRef.current.getBoundingClientRect();
           const recordingStartX = recordingRect.left;
+          const recordingEndX = recordingRect.right;
           const recordingWidth = recordingRect.width;
-          const relativePos = Math.max(0, Math.min(100, ((e.clientX - recordingStartX) / recordingWidth) * 100));
-          
-          // Update crop end percentage
-          setCropEndPercentage(100 - relativePos);
+          const cropStartX = cropStartOverlayRef.current.getBoundingClientRect().right;
+          const trackStartX = rect.left;
+          const trackEndX = rect.right;
+          const buffer = 5 * (rect.width / 100);
+          var newCropX = 0;
+          if(e.clientX > trackEndX) { //Do not allow user to crop beyond track end
+            newCropX = trackEndX;
+          }
+          else if(e.clientX < cropStartX + buffer){ //Do not allow user to crop beyond track start
+            newCropX = cropStartX + buffer;
+          }
+          else{
+            newCropX = e.clientX;
+          }
 
-          const bufferEndTime = selectedTake.startTime - selectedTake.timeOffset + selectedTake.buffer.duration;
-          const maxEndPos = Math.min(100, timeToPos(bufferEndTime, getEffectiveDuration()));
-          const newEndPos = Math.max(0, Math.min(maxEndPos, (e.clientX - rect.left) / rect.width * 100));
-          cropEndTimeRef.current = posToTime(newEndPos, getEffectiveDuration());
+          if(newCropX > recordingEndX){
+            newCropX = recordingEndX;
+          }
+
+          const relativePos = (recordingEndX - newCropX) / recordingWidth * 100;
+          setCropEndPercentage(relativePos);
+
+          cropEndTimeRef.current = posToTime((newCropX - trackStartX) / rect.width * 100, getEffectiveDuration());
         }
       };
         
@@ -1094,6 +1124,7 @@ export default function TracksWidget({
                 startTime: newStartTime,
                 endTime: newEndTime
             }));
+            setTakes(prevTakes => prevTakes.map(take => take.id === selectedTake.id ? {...take, startTime: newStartTime, endTime: newEndTime} : take));
           }
           
           setIsDraggingRecordingRegion(false);
@@ -1110,13 +1141,15 @@ export default function TracksWidget({
                 startTime: cropStartTimeRef.current,
                 timeOffset: newOffset
             }));
-          } 
+            setTakes(prevTakes => prevTakes.map(take => take.id === selectedTake.id ? {...take, startTime: cropStartTimeRef.current, timeOffset: newOffset} : take));
+          }
           else if (isDraggingCropEnd && selectedTake) {
 
             setSelectedTake(prevTake => ({
                 ...prevTake,
                 endTime: cropEndTimeRef.current
             }));
+            setTakes(prevTakes => prevTakes.map(take => take.id === selectedTake.id ? {...take, endTime: cropEndTimeRef.current} : take));
           }
           setIsDraggingCropEnd(false);
           setIsDraggingCropStart(false);
@@ -1696,8 +1729,15 @@ export default function TracksWidget({
   useEffect(() => {
     if (selectedTake) {
       // Reset crop percentages whenever a new take is selected
-      setCropStartPercentage(0);
-      setCropEndPercentage(0);
+      //ex
+      // start time = 3
+      //time offset = 1
+      //crop start should be 1
+
+      const cropStartTime = selectedTake.timeOffset;
+      const cropEndTime = cropStartTime + selectedTake.endTime - selectedTake.startTime;
+      setCropStartPercentage(cropStartTime / selectedTake.buffer.duration * 100);
+      setCropEndPercentage((selectedTake.buffer.duration - cropEndTime) / selectedTake.buffer.duration * 100);
       
       // Render the full recording to the recordingCanvasRef for cropping view
       if (recordingCanvasRef.current) {
@@ -1895,7 +1935,7 @@ export default function TracksWidget({
                             ref={recordingCanvasRef} 
                             width="1000" 
                             height="100" 
-                            style={{ width: '100%', height: '100%', backgroundColor: 'blue', display: isDraggingCropStart || isDraggingCropEnd ? 'block' : 'none' }}
+                            style={{ width: '100%', height: '100%', display: isDraggingCropStart || isDraggingCropEnd ? 'block' : 'none' }}
                         />
                         <canvas 
                             ref={croppedRecordingCanvasRef} 
@@ -1914,10 +1954,12 @@ export default function TracksWidget({
                             )}
                             <div 
                               className="crop-left-overlay"
+                              ref={cropStartOverlayRef}
                               style={{ width: `${cropStartPercentage}%` }}
                             />
                             <div 
                               className="crop-right-overlay"
+                              ref={cropEndOverlayRef}
                               style={{ width: `${cropEndPercentage}%` }}
                             />
                         </>

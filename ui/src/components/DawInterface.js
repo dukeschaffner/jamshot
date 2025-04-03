@@ -148,9 +148,9 @@ export default function DawInterface({ track, isCollab = false }) {
       style={{display: showUploadForm ? 'none' : 'block'}}
     >
       {/* Track Header */}
-      <div className="track-header">
+      <div className="daw-interface">
         {/* Track info can be conditionally shown based on isCollab if needed */}
-        <div className="track-controls">
+        <div className="daw-controls">
             {!isRecording && hasAudioContent && (
                 <button 
                 className="control-button play-pause" 

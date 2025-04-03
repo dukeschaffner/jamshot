@@ -463,37 +463,6 @@
 } 
 
 
-/* Track Header */
-.track-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.dark-mode .track-header {
-  border-bottom: 1px solid var(--dark-border-color);
-}
-
-.track-header .track-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--dark);
-  margin-bottom: 8px;
-}
-
-.dark-mode .track-header .track-title {
-  color: var(--dark-text-primary);
-}
-
-.track-header .track-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-
 /* DAW Interface */
 .daw-container {
   display: flex;
