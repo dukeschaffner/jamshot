@@ -16,7 +16,6 @@ export default function UploadForm({
   onCancel = null
 }) {
   const [title, setTitle] = useState('');
-  const [audioFile, setAudioFile] = useState(null);
   const [error, setError] = useState('');
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
@@ -29,63 +28,11 @@ export default function UploadForm({
     setSelectedInstruments(instrumentIds);
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // Check if file is an audio file
-    if (!file.type.startsWith('audio/')) {
-      setError('Please select an audio file');
-      return;
-    }
-    
-    setAudioFile(file);
-    setFileName(file.name);
-    setError('');
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.add('drag-over');
-  };
-  
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-  };
-  
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-    
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    
-    // Check if file is an audio file
-    if (!file.type.startsWith('audio/')) {
-      setError('Please select an audio file');
-      return;
-    }
-    
-    setAudioFile(file);
-    setFileName(file.name);
-    setError('');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // For regular upload, check if audio file is selected
-    if (!isCollab && !audioFile) {
-      setError('Please select an audio file');
-      return;
-    }
-    
     // For collab upload, check if recording buffer exists
-    if (isCollab && !recordingAudioBuffer) {
+    if (!recordingAudioBuffer) {
       setError('No audio recording found');
       return;
     }
@@ -95,7 +42,7 @@ export default function UploadForm({
       formData.append('title', title);
       
       // Add audio file or recording buffer
-      if (isCollab && recordingAudioBuffer) {
+      if (recordingAudioBuffer) {
         try {
           // Convert recording buffer to WAV format
           const numberOfChannels = recordingAudioBuffer.numberOfChannels || 1;
