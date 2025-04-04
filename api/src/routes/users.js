@@ -268,6 +268,7 @@ router.delete('/follow/:userId', authMiddleware, async (req, res) => {
 // Get follow stats
 router.get('/:userId/stats', async (req, res) => {
   const { userId } = req.params;
+  const currentUserId = req.user?.id;
   try {
     const followers = await pool.query(
       'SELECT COUNT(*) as followers FROM follows WHERE following_id = $1',
@@ -283,12 +284,157 @@ router.get('/:userId/stats', async (req, res) => {
           [req.user.id, userId]
         )
       : { rows: [{ is_following: false }] };
+    let hasRequestedToFollow = false;
+    if (!isFollowing.rows[0].is_following) {
+      const requestCheckResult = await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = $1 AND target_id = $2) as has_requested',
+        [currentUserId, userId]
+      );
+      hasRequestedToFollow = requestCheckResult.rows[0].has_requested;
+    }
     res.json({
       followers: parseInt(followers.rows[0].followers, 10),
       following: parseInt(following.rows[0].following, 10),
       isFollowing: isFollowing.rows[0].is_following,
+      hasRequestedToFollow: hasRequestedToFollow
     });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get user's followers with pagination
+router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const currentUserId = req.user?.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
+  
+  try {
+    // Check if the user exists
+    const userResult = await pool.query(
+      'SELECT is_private FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const isPrivate = userResult.rows[0].is_private;
+    
+    // If account is private and current user is not the owner or a follower, return empty array
+    if (isPrivate && currentUserId !== parseInt(userId)) {
+      // Check if the current user is following this user
+      const isFollowing = currentUserId ? await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
+        [currentUserId, userId]
+      ) : { rows: [{ is_following: false }] };
+      
+      if (!isFollowing.rows[0].is_following) {
+        return res.json({ users: [], hasMore: false });
+      }
+    }
+    
+    // Get followers with pagination
+    const followersQuery = `
+      SELECT u.id, u.username, u.profile_pic_url, u.verified,
+             EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) as is_following
+      FROM follows f
+      JOIN users u ON f.follower_id = u.id
+      WHERE f.following_id = $2
+      ORDER BY f.created_at DESC
+      LIMIT $3 OFFSET $4
+    `;
+    
+    const countQuery = `
+      SELECT COUNT(*) FROM follows WHERE following_id = $1
+    `;
+    
+    const [followersResult, countResult] = await Promise.all([
+      pool.query(followersQuery, [currentUserId || null, userId, limit, offset]),
+      pool.query(countQuery, [userId])
+    ]);
+    
+    const totalCount = parseInt(countResult.rows[0].count);
+    const hasMore = totalCount > offset + limit;
+    
+    res.json({
+      users: followersResult.rows,
+      hasMore
+    });
+    
+  } catch (err) {
+    console.error('Get followers error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get users the specified user is following with pagination
+router.get('/:userId/following', optionalAuthMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const currentUserId = req.user?.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
+  
+  try {
+    // Check if the user exists
+    const userResult = await pool.query(
+      'SELECT is_private FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const isPrivate = userResult.rows[0].is_private;
+    
+    // If account is private and current user is not the owner or a follower, return empty array
+    if (isPrivate && currentUserId !== parseInt(userId)) {
+      // Check if the current user is following this user
+      const isFollowing = currentUserId ? await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
+        [currentUserId, userId]
+      ) : { rows: [{ is_following: false }] };
+      
+      if (!isFollowing.rows[0].is_following) {
+        return res.json({ users: [], hasMore: false });
+      }
+    }
+    
+    // Get following with pagination
+    const followingQuery = `
+      SELECT u.id, u.username, u.profile_pic_url, u.verified,
+             EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) as is_following
+      FROM follows f
+      JOIN users u ON f.following_id = u.id
+      WHERE f.follower_id = $2
+      ORDER BY f.created_at DESC
+      LIMIT $3 OFFSET $4
+    `;
+    
+    const countQuery = `
+      SELECT COUNT(*) FROM follows WHERE follower_id = $1
+    `;
+    
+    const [followingResult, countResult] = await Promise.all([
+      pool.query(followingQuery, [currentUserId || null, userId, limit, offset]),
+      pool.query(countQuery, [userId])
+    ]);
+    
+    const totalCount = parseInt(countResult.rows[0].count);
+    const hasMore = totalCount > offset + limit;
+    
+    res.json({
+      users: followingResult.rows,
+      hasMore
+    });
+    
+  } catch (err) {
+    console.error('Get following error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -802,56 +948,6 @@ router.get('/by-username/:username/reposts', async (req, res) => {
   }
 });
 
-// Get user stats by username
-router.get('/by-username/:username/stats', async (req, res) => {
-  const { username } = req.params;
-  const currentUserId = req.user?.id;
-  
-  try {
-    // First get the user ID from username
-    const userResult = await pool.query(
-      'SELECT id FROM users WHERE username = $1',
-      [username]
-    );
-    
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    const userId = userResult.rows[0].id;
-    
-    // Get follower count
-    const followersResult = await pool.query(
-      'SELECT COUNT(*) as followers FROM follows WHERE following_id = $1',
-      [userId]
-    );
-    
-    // Get following count
-    const followingResult = await pool.query(
-      'SELECT COUNT(*) as following FROM follows WHERE follower_id = $1',
-      [userId]
-    );
-    
-    // Check if current user is following this user
-    let isFollowing = false;
-    if (currentUserId) {
-      const followCheckResult = await pool.query(
-        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
-        [currentUserId, userId]
-      );
-      isFollowing = followCheckResult.rows[0].is_following;
-    }
-    
-    res.json({
-      followers: parseInt(followersResult.rows[0].followers),
-      following: parseInt(followingResult.rows[0].following),
-      isFollowing
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Follow a user by username
 router.post('/follow/username/:username', authMiddleware, async (req, res) => {
   const { username } = req.params;
@@ -890,8 +986,8 @@ router.post('/follow/username/:username', authMiddleware, async (req, res) => {
     if (isPrivate) {
       // Check if there's already a pending request
       const existingRequest = await pool.query(
-        'SELECT * FROM follow_requests WHERE requester_id = $1 AND target_id = $2 AND status = $3',
-        [followerId, followingId, 'pending']
+        'SELECT * FROM follow_requests WHERE requester_id = $1 AND target_id = $2',
+        [followerId, followingId]
       );
       
       if (existingRequest.rows.length > 0) {
@@ -900,8 +996,15 @@ router.post('/follow/username/:username', authMiddleware, async (req, res) => {
       
       // Create follow request
       await pool.query(
-        'INSERT INTO follow_requests (requester_id, target_id, status) VALUES ($1, $2, $3)',
-        [followerId, followingId, 'pending']
+        'INSERT INTO follow_requests (requester_id, target_id) VALUES ($1, $2)',
+        [followerId, followingId]
+      );
+      
+      // Create notification for the target user
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, related_user_id) 
+         VALUES ($1, 'follow_request', $2)`,
+        [followingId, followerId]
       );
       
       return res.status(200).json({ message: 'Follow request sent' });
