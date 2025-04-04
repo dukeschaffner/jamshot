@@ -35,7 +35,7 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
     e.stopPropagation();
     
     try {
-      const token = Cookies.get('token');
+      const token = Cookies.get('accessToken');
       if (!token) {
         // Handle unauthenticated user
         console.log('Please log in to like tracks');
@@ -60,7 +60,7 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
     e.stopPropagation();
     
     try {
-      const token = Cookies.get('token');
+      const token = Cookies.get('accessToken');
       if (!token) {
         // Handle unauthenticated user
         console.log('Please log in to repost tracks');

@@ -71,7 +71,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
     setIsLikeInProgress(true);
     
     try {
-      const token = Cookies.get('token');
+      const token = Cookies.get('accessToken');
       if (!token) {
         // Handle unauthenticated user
         console.log('Please log in to like tracks');
@@ -108,7 +108,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
     // Prevent action if already in progress
     if (isRepostInProgress) return;
     
-    const token = Cookies.get('token');
+    const token = Cookies.get('accessToken');
     if (!token) {
       alert('Please log in to repost tracks');
       return;
@@ -241,8 +241,8 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           <button 
             className={`like-btn ${isLiked ? 'active' : ''}`}
             onClick={handleLikeToggle}
-            disabled={!Cookies.get('token') || isLikeInProgress}
-            title={Cookies.get('token') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+            disabled={!Cookies.get('accessToken') || isLikeInProgress}
+            title={Cookies.get('accessToken') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
           >
             {isLiked ? <FaHeart /> : <FaRegHeart />}
           </button>
@@ -250,8 +250,8 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           <button 
             className={`action-btn ${isReposted ? 'active' : ''}`}
             onClick={handleRepostToggle}
-            disabled={!Cookies.get('token') || isRepostInProgress}
-            title={Cookies.get('token') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+            disabled={!Cookies.get('accessToken') || isRepostInProgress}
+            title={Cookies.get('accessToken') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
           >
             <FaRetweet />
           </button>
