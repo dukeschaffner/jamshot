@@ -7,7 +7,7 @@ import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import DawInterface from '@/components/DawInterface';
 import './collaborate.css';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram } from 'react-icons/fa';
 
 export default function CollaboratePage() {
   const { trackId } = useParams();
@@ -16,6 +16,7 @@ export default function CollaboratePage() {
   const [track, setTrack] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('collab');
 
   useEffect(() => {
     async function loadTrack() {
@@ -93,9 +94,32 @@ export default function CollaboratePage() {
              <span className="meta-item"><FaHeart/> {track?.like_count || 0}</span>
              <span className="meta-item"><FaCodeBranch/> {track?.collab_count || 0} collabs</span>
            </div>
+           <div className="custom-tabs">
+            <button 
+              className={`tab ${activeTab === 'collab' ? 'active' : ''}`}
+              onClick={() => setActiveTab('collab')}
+            >
+              Collab
+            </button>
+            <button 
+              className={`tab ${activeTab === 'comments' ? 'active' : ''}`}
+              onClick={() => setActiveTab('comments')}
+            >
+              Comments
+            </button>
+          </div>
+         </div>
+         <div className="track-controls">
+           <Link href={`/tree/${trackId}`} className="explore-button">
+             <FaProjectDiagram className="explore-icon" />
+             <span>Explore</span>
+           </Link>
          </div>
       </div>
-      <DawInterface track={track} isCollab={true} />
+      <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
+        <DawInterface track={track} isCollab={true}/>
+      </div>
+      {activeTab === 'comments' && <div className="comments-coming-soon">Comments coming soon</div>}
     </div>
   );
 } 

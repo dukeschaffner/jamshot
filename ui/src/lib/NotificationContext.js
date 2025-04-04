@@ -33,7 +33,7 @@ export function NotificationProvider({ children }) {
   };
 
   const fetchUnreadCount = async () => {
-    const token = Cookies.get('token');
+    const token = Cookies.get('accessToken');
     if (!token) {
       setUnreadCount(0);
       return;
@@ -88,7 +88,7 @@ export function NotificationProvider({ children }) {
 
   // Initial fetch
   useEffect(() => {
-    if (Cookies.get('token')) {
+    if (Cookies.get('accessToken')) {
       fetchNotifications();
     } else {
       setNotifications([]);
@@ -99,7 +99,7 @@ export function NotificationProvider({ children }) {
 
   // Set up polling for unread count
   useEffect(() => {
-    if (!Cookies.get('token')) return;
+    if (!Cookies.get('accessToken')) return;
     
     const interval = setInterval(fetchUnreadCount, 60000); // Poll every minute
     

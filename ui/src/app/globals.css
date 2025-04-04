@@ -2092,7 +2092,7 @@ textarea.edit-input {
   color: var(--dark);
 }
 
-.profile-tabs {
+.custom-tabs {
   display: flex;
   gap: 1rem;
   margin-bottom: 2rem;

@@ -27,19 +27,6 @@ export default function UserPage() {
   const [pendingFollowRequests, setPendingFollowRequests] = useState([]);
 
   useEffect(() => {
-    const token = Cookies.get('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        // We'll check if this is the user's own profile when we fetch the user data
-        // since we now use username instead of ID
-      } catch (e) {
-        console.error('Failed to parse token:', e);
-      }
-    }
-  }, [username]);
-
-  useEffect(() => {
     const fetchData = async () => {
       try {
         const user = await api.get(`/users/by-username/${username}`);
@@ -50,22 +37,22 @@ export default function UserPage() {
         setUserProfile(user.data);
         setIsPrivate(user.data.is_private);
         setEditForm({
-          username: user.username,
-          bio: user.bio || ''
+          username: user.data.username,
+          bio: user.data.bio || ''
         });
         setTracks(tracks.data);
         setRepostedTracks(reposts.data);
         setStats(stats.data);
         
         // Check if this is the user's own profile
-        const token = Cookies.get('token');
+        const token = Cookies.get('accessToken');
         if (token) {
           try {
             const payload = JSON.parse(atob(token.split('.')[1]));
-            setIsOwnProfile(payload.username === username);
+            setIsOwnProfile(payload.id === userId);
             
             // If this is the user's own profile, fetch pending follow requests
-            if (payload.username === username) {
+            if (payload.id === userId) {
               try {
                 const requestsResponse = await api.get('/users/me/follow-requests');
                 setPendingFollowRequests(requestsResponse.data);
@@ -89,7 +76,7 @@ export default function UserPage() {
   const handleFollow = async () => {
     if (isOwnProfile) return; // Prevent following yourself
     
-    const token = Cookies.get('token');
+    const token = Cookies.get('accessToken');
     if (!token) {
       router.push('/login');
       return;
@@ -290,7 +277,7 @@ export default function UserPage() {
         </div>
       </div>
 
-      <div className="profile-tabs">
+      <div className="custom-tabs">
         <button 
           className={`tab ${activeTab === 'tracks' ? 'active' : ''}`}
           onClick={() => setActiveTab('tracks')}

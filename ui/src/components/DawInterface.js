@@ -11,7 +11,6 @@ import TracksWidget from './TracksWidget';
 import UploadForm from './UploadForm';
 import Cookies from 'js-cookie';
 import './DawInterface.css';
-
 export default function DawInterface({ track, isCollab = false }) {
   // State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -26,7 +25,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [selectedAudioInputDevice, setSelectedAudioInputDevice] = useState(null);
   const [userLatencyCompensation, setUserLatencyCompensation] = useState(0);
-  
+
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
   
