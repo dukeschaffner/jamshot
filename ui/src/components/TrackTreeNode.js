@@ -40,7 +40,7 @@ export default function TrackTreeNode({
   useEffect(() => {
     const checkOwnership = async () => {
       try {
-        const token = Cookies.get('token');
+        const token = Cookies.get('accessToken');
         if (!token) return;
         
         const response = await api.get('/users/me');
@@ -98,7 +98,7 @@ export default function TrackTreeNode({
     setIsLikeInProgress(true);
     
     try {
-      const token = Cookies.get('token');
+      const token = Cookies.get('accessToken');
       if (!token) {
         // Handle unauthenticated user
         console.log('Please log in to like tracks');
@@ -130,7 +130,7 @@ export default function TrackTreeNode({
     // Prevent action if already in progress
     if (isRepostInProgress) return;
     
-    const token = Cookies.get('token');
+    const token = Cookies.get('accessToken');
     if (!token) {
       alert('Please log in to repost tracks');
       return;

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '../../lib/api';
-import Cookies from 'js-cookie';
+import { useUser } from '../../contexts/UserContext';
 
 export default function Register() {
   const [username, setUsername] = useState('');
@@ -14,7 +14,9 @@ export default function Register() {
   const [success, setSuccess] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const router = useRouter();
+  const { refreshUser } = useUser();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,27 +30,17 @@ export default function Register() {
       return;
     }
     
+    setIsRegistering(true);
+    
     try {
       const response = await api.post('/auth/register', { username, email, password });
-      
-      // Store both tokens in cookies
-      const { accessToken, refreshToken } = response.data;
-      
-      // Store access token with short expiry (1 hour)
-      Cookies.set('accessToken', accessToken, { 
-        expires: 1/24, // 1 hour in days
-        sameSite: 'strict'
-      });
-      
-      // Store refresh token with longer expiry (30 days)
-      Cookies.set('refreshToken', refreshToken, { 
-        expires: 30, 
-        sameSite: 'strict'
-      });
       
       // Show success message instead of redirecting
       setSuccess(response.data.message || 'Registration successful! Please check your email to verify your account.');
       setIsRegistered(true);
+      
+      // Refresh user data from the context
+      refreshUser();
       
       // Clear form
       setUsername('');
@@ -58,6 +50,8 @@ export default function Register() {
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
       setShowPasswordRequirements(true);
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -90,6 +84,7 @@ export default function Register() {
               placeholder="Username"
               className="w-full p-2 border rounded"
               required
+              disabled={isRegistering}
             />
           </div>
           <div>
@@ -104,6 +99,7 @@ export default function Register() {
               placeholder="Email"
               className="w-full p-2 border rounded"
               required
+              disabled={isRegistering}
             />
           </div>
           <div>
@@ -118,6 +114,7 @@ export default function Register() {
               placeholder="Password"
               className="w-full p-2 border rounded"
               required
+              disabled={isRegistering}
             />
             {showPasswordRequirements && (
               <div className="mt-1 text-xs text-gray-500">
@@ -144,6 +141,7 @@ export default function Register() {
               placeholder="Confirm Password"
               className="w-full p-2 border rounded"
               required
+              disabled={isRegistering}
             />
           </div>
           
@@ -156,8 +154,9 @@ export default function Register() {
           <button 
             type="submit" 
             className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            disabled={isRegistering}
           >
-            Register
+            {isRegistering ? 'Registering...' : 'Register'}
           </button>
           
           <div className="text-center mt-4">

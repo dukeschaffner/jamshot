@@ -5,7 +5,7 @@ import api from '../lib/api';
 import TagSelector from './TagSelector';
 import { FaInfoCircle } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
+import { faCloudUploadAlt, faLock } from '@fortawesome/free-solid-svg-icons';
 import './UploadForm.css';
 import { audioBufferToWav } from '../lib/utils';
 
@@ -21,6 +21,7 @@ export default function UploadForm({
   const [selectedInstruments, setSelectedInstruments] = useState([]);
   const [metronomeBpm, setMetronomeBpm] = useState('');
   const [fileName, setFileName] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
   const router = useRouter();
 
   const handleTagChange = ({ genreIds, instrumentIds }) => {
@@ -78,6 +79,11 @@ export default function UploadForm({
       // Add metronome BPM if provided
       if (metronomeBpm) {
         formData.append('metronome_bpm', metronomeBpm);
+      }
+      
+      // Add privacy setting (only for non-collab tracks)
+      if (!isCollab) {
+        formData.append('is_private', isPrivate);
       }
 
       const response = await api.post('/tracks/upload', formData, {
@@ -150,6 +156,24 @@ export default function UploadForm({
             maxInstruments={4}
           />
         </div>
+        
+        {/* Privacy option - only show for non-collab tracks */}
+        {!isCollab && (
+          <div className="flex items-center space-x-2 mt-4">
+            <input
+              type="checkbox"
+              id="isPrivate"
+              checked={isPrivate}
+              onChange={(e) => setIsPrivate(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="isPrivate" className="flex items-center text-sm">
+              <FontAwesomeIcon icon={faLock} className="mr-2 text-gray-600" />
+              Make this track private
+              <span className="ml-2 text-xs text-gray-500">(Only you will be able to see it)</span>
+            </label>
+          </div>
+        )}
         
         {error && <p className="text-red-500">{error}</p>}
         

@@ -10,6 +10,13 @@ const api = axios.create({
 let isRefreshing = false;
 // Queue of failed requests to retry after token refresh
 let failedQueue = [];
+// Callback to update user state in the UserContext
+let refreshUserStateCallback = null;
+
+// Function to set the user state refresh callback
+export const setUserStateRefreshCallback = (callback) => {
+  refreshUserStateCallback = callback;
+};
 
 // Process the queue of failed requests
 const processQueue = (error, token = null) => {
@@ -73,6 +80,11 @@ api.interceptors.response.use(
           Cookies.remove('refreshToken');
           sessionStorage.setItem('authError', 'Your session has expired. Please log in again.');
           
+          // Update the UserContext if callback is set
+          if (refreshUserStateCallback) {
+            refreshUserStateCallback();
+          }
+          
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           }
@@ -94,6 +106,11 @@ api.interceptors.response.use(
           sameSite: 'strict'
         });
         
+        // Update the UserContext if callback is set
+        if (refreshUserStateCallback) {
+          refreshUserStateCallback();
+        }
+        
         // Update Authorization header for the original request
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         
@@ -111,6 +128,11 @@ api.interceptors.response.use(
         Cookies.remove('refreshToken');
         sessionStorage.setItem('authError', 'Your session has expired. Please log in again.');
         
+        // Update the UserContext if callback is set
+        if (refreshUserStateCallback) {
+          refreshUserStateCallback();
+        }
+        
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
@@ -126,6 +148,11 @@ api.interceptors.response.use(
       Cookies.remove('accessToken');
       Cookies.remove('refreshToken');
       sessionStorage.setItem('authError', 'Authentication failed. Please log in again.');
+      
+      // Update the UserContext if callback is set
+      if (refreshUserStateCallback) {
+        refreshUserStateCallback();
+      }
       
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
@@ -145,20 +172,5 @@ export const fetchTrack = async (trackId, secret) => {
   return response.data;
 };
 
-// Helper function to handle logout
-export const logout = async () => {
-  try {
-    const refreshToken = Cookies.get('refreshToken');
-    if (refreshToken) {
-      await api.post('/auth/logout', { refreshToken });
-    }
-  } catch (error) {
-    console.error('Logout error:', error);
-  } finally {
-    // Clear cookies regardless of API call success
-    Cookies.remove('accessToken');
-    Cookies.remove('refreshToken');
-  }
-};
 
 export default api;

@@ -6,10 +6,12 @@ import Track from '../../../components/Track';
 import Cookies from 'js-cookie';
 import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
+import { useUser } from '../../../contexts/UserContext';
 
 export default function UserPage() {
   const { username } = useParams();
   const router = useRouter();
+  const { user: currentUser, isAuthenticated } = useUser();
   const [tracks, setTracks] = useState([]);
   const [repostedTracks, setRepostedTracks] = useState([]);
   const [stats, setStats] = useState({ 
@@ -30,7 +32,6 @@ export default function UserPage() {
   const [selectedImage, setSelectedImage] = useState(null);
   const fileInputRef = useRef(null);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [pendingFollowRequests, setPendingFollowRequests] = useState([]);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [followersList, setFollowersList] = useState([]);
@@ -63,26 +64,6 @@ export default function UserPage() {
         setStats(stats.data);
         setUserNotFound(false);
         
-        // Check if this is the user's own profile
-        const token = Cookies.get('accessToken');
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            setIsOwnProfile(payload.id === userId);
-            
-            // If this is the user's own profile, fetch pending follow requests
-            if (payload.id === userId) {
-              try {
-                const requestsResponse = await api.get('/users/me/follow-requests');
-                setPendingFollowRequests(requestsResponse.data);
-              } catch (err) {
-                console.error('Failed to fetch follow requests:', err);
-              }
-            }
-          } catch (e) {
-            console.error('Failed to parse token:', e);
-          }
-        }
       } catch (err) {
         console.error('Failed to fetch user data:', err);
         // Check if the error is because the user doesn't exist
@@ -95,6 +76,10 @@ export default function UserPage() {
     };
     fetchData();
   }, [username]);
+
+  useEffect(() => {
+    setIsOwnProfile(isAuthenticated && currentUser?.id === userProfile?.id);
+  }, [userProfile, currentUser, isAuthenticated]);
 
   const fetchFollowers = async (page = 1, append = false) => {
     if (loadingFollowers) return;
@@ -185,8 +170,7 @@ export default function UserPage() {
   };
 
   const handleFollowUser = async (userId, username, isAlreadyFollowing) => {
-    const token = Cookies.get('accessToken');
-    if (!token) {
+    if (!isAuthenticated) {
       router.push('/login');
       return;
     }
@@ -236,11 +220,11 @@ export default function UserPage() {
   const handleFollow = async () => {
     if (isOwnProfile) return; // Prevent following yourself
     
-    const token = Cookies.get('accessToken');
-    if (!token) {
+    if (!isAuthenticated) {
       router.push('/login');
       return;
     }
+    
     try {
       if (stats.isFollowing) {
         await api.delete(`/users/follow/username/${username}`);
@@ -332,29 +316,6 @@ export default function UserPage() {
     } catch (err) {
       console.error('Failed to update privacy settings:', err);
       alert('Failed to update privacy settings');
-    }
-  };
-
-  const handleAcceptFollowRequest = async (requestId) => {
-    try {
-      await api.post(`/users/follow-requests/${requestId}/accept`);
-      // Remove from pending requests and update follower count
-      setPendingFollowRequests(prev => prev.filter(req => req.id !== requestId));
-      setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
-    } catch (err) {
-      console.error('Failed to accept follow request:', err);
-      alert('Failed to accept follow request');
-    }
-  };
-
-  const handleRejectFollowRequest = async (requestId) => {
-    try {
-      await api.post(`/users/follow-requests/${requestId}/reject`);
-      // Remove from pending requests
-      setPendingFollowRequests(prev => prev.filter(req => req.id !== requestId));
-    } catch (err) {
-      console.error('Failed to reject follow request:', err);
-      alert('Failed to reject follow request');
     }
   };
 
@@ -710,43 +671,6 @@ export default function UserPage() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {isOwnProfile && pendingFollowRequests.length > 0 && (
-        <div className="follow-requests-section">
-          <h3>Pending Follow Requests ({pendingFollowRequests.length})</h3>
-          <div className="follow-requests-list">
-            {pendingFollowRequests.map(request => (
-              <div key={request.id} className="follow-request-item">
-                <div className="user-info">
-                  <img 
-                    src={request.profile_pic_url || '/api/placeholder/50/50'} 
-                    alt={request.username}
-                    className="user-avatar"
-                  />
-                  <span className="username">
-                    {request.username}
-                    {request.verified && <span className="verified-badge">✓</span>}
-                  </span>
-                </div>
-                <div className="request-actions">
-                  <button 
-                    className="accept-btn"
-                    onClick={() => handleAcceptFollowRequest(request.id)}
-                  >
-                    <FaCheck /> Accept
-                  </button>
-                  <button 
-                    className="reject-btn"
-                    onClick={() => handleRejectFollowRequest(request.id)}
-                  >
-                    <FaTimes /> Reject
-                  </button>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}
