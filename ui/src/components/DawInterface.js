@@ -215,7 +215,7 @@ export default function DawInterface({ track, isCollab = false }) {
             <FontAwesomeIcon icon={faCog} />
           </button>
         </div>
-        {recordingPlaybackBuffer && !isRecording && (
+        {recordingPlaybackBuffer && !isRecording && (isCollab ? track?.layer < 4 : true) && (
             <button 
               className="upload-btn"
               onClick={handleUploadRecording}

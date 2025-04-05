@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Image from 'next/image';
 
@@ -149,6 +149,11 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
     router.push(`/user/${track.username}`);
   };
 
+  const navigateToTrack = (e) => {
+    e.stopPropagation();
+    router.push(`/track/${track.id}`);
+  };
+
   return (
     <div className={`track-item ${isExpanded ? 'expanded' : ''}`}>
       {track.is_repost && track.reposted_by_username && (
@@ -164,7 +169,9 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
         
         <div className="track-info">
           <div className="track-title">
-            {track.title}
+            <span className="title-text link-underline" onClick={navigateToTrack}>
+              {track.title}
+            </span>
             <div className="track-tags">
               {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
                 <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
@@ -192,7 +199,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
             </div>
             <div className="artist-name">
               <span 
-                className="username-link" 
+                className="link-underline" 
                 onClick={navigateToUserProfile}
               >
                 {track.username}
@@ -232,7 +239,7 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
               router.push(`/track/${track.id}`);
             }}
           >
-            <FaUsers /> Collab
+            {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
           </button>
           
           <button 
@@ -290,16 +297,6 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .username-link {
-          cursor: pointer;
-          transition: text-decoration 0.2s ease;
-        }
-        .username-link:hover {
-          text-decoration: underline;
-        }
-      `}</style>
     </div>
   );
 }

@@ -84,6 +84,11 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
     router.push(`/user/${track.username}`);
   };
   
+  const navigateToTrack = (e) => {
+    e.stopPropagation();
+    router.push(`/track/${track.id}`);
+  };
+  
   return (
     <div className="related-track">
       <div className="related-play" onClick={handlePlayToggle}>
@@ -91,7 +96,11 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
       </div>
       <div className="related-info">
         <div className="related-title-container">
-          <div className="related-title">{track.title}</div>
+          <div className="related-title">
+            <span className="link-underline" onClick={navigateToTrack}>
+              {track.title}
+            </span>
+          </div>
           {track.metronome_bpm && (
             <div className="metronome-info">
               <FaMusic className="metronome-icon" /> {track.metronome_bpm} BPM
@@ -124,7 +133,7 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
         </div>
         <div className="related-artist">
           <span 
-            className="artist-name"
+            className="link-underline"
             onClick={navigateToUserProfile}
           >
             {track.username || 'Unknown Artist'}
@@ -156,16 +165,6 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
           </button>
         </div>
       </div>
-      
-      <style jsx>{`
-        .artist-name {
-          cursor: pointer;
-          transition: text-decoration 0.2s ease;
-        }
-        .artist-name:hover {
-          text-decoration: underline;
-        }
-      `}</style>
     </div>
   );
 }
