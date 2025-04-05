@@ -27,6 +27,10 @@ router.get('/', async (req, res) => {
           ELSE u_actor.username
         END AS actor_username,
         CASE 
+          WHEN n.type = 'follow_request' THEN u_related.name
+          ELSE u_actor.name
+        END AS actor_name,
+        CASE 
           WHEN n.type = 'follow_request' THEN u_related.verified
           ELSE u_actor.verified
         END AS actor_verified,

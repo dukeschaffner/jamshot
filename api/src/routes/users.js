@@ -35,7 +35,7 @@ router.use(optionalAuthMiddleware);
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, email, verified, email_verified, profile_pic_url, is_private FROM users WHERE id = $1',
+      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -54,7 +54,7 @@ router.get('/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
     const result = await pool.query(
-      'SELECT id, username, bio, verified, profile_pic_url, is_private FROM users WHERE id = $1',
+      'SELECT id, username, name, bio, verified, profile_pic_url, is_private FROM users WHERE id = $1',
       [userId]
     );
     
@@ -339,7 +339,7 @@ router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
     
     // Get followers with pagination
     const followersQuery = `
-      SELECT u.id, u.username, u.profile_pic_url, u.verified,
+      SELECT u.id, u.username, u.name, u.profile_pic_url, u.verified,
              EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) as is_following
       FROM follows f
       JOIN users u ON f.follower_id = u.id
@@ -407,7 +407,7 @@ router.get('/:userId/following', optionalAuthMiddleware, async (req, res) => {
     
     // Get following with pagination
     const followingQuery = `
-      SELECT u.id, u.username, u.profile_pic_url, u.verified,
+      SELECT u.id, u.username, u.name, u.profile_pic_url, u.verified,
              EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) as is_following
       FROM follows f
       JOIN users u ON f.following_id = u.id
@@ -551,7 +551,12 @@ router.get('/:userId/reposts', async (req, res) => {
 // Update user profile
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { username, bio, is_private } = req.body;
+    const { username, name, bio, is_private } = req.body;
+    
+    // Validate name is provided
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Full name is required' });
+    }
     
     // Check if username is taken (if username is being updated)
     if (username) {
@@ -568,11 +573,12 @@ router.put('/me', authMiddleware, async (req, res) => {
     const result = await pool.query(
       `UPDATE users 
        SET username = COALESCE($1, username),
-           bio = COALESCE($2, bio),
-           is_private = COALESCE($3, is_private)
-       WHERE id = $4
-       RETURNING id, username, email, bio, profile_pic_url, verified, email_verified, is_private`,
-      [username, bio, is_private, req.user.id]
+           name = $2,
+           bio = COALESCE($3, bio),
+           is_private = COALESCE($4, is_private)
+       WHERE id = $5
+       RETURNING id, username, name, email, bio, profile_pic_url, verified, email_verified, is_private`,
+      [username, name, bio, is_private, req.user.id]
     );
     
     res.json(result.rows[0]);
@@ -693,7 +699,7 @@ router.get('/me/follow-requests', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT fr.id, fr.created_at, 
-             u.id as user_id, u.username, u.profile_pic_url, u.verified
+             u.id as user_id, u.username, u.name, u.profile_pic_url, u.verified
       FROM follow_requests fr
       JOIN users u ON fr.requester_id = u.id
       WHERE fr.target_id = $1
@@ -803,7 +809,7 @@ router.get('/by-username/:username', async (req, res) => {
   const { username } = req.params;
   try {
     const result = await pool.query(
-      'SELECT id, username, bio, verified, profile_pic_url, is_private FROM users WHERE username = $1',
+      'SELECT id, username, name, bio, verified, profile_pic_url, is_private FROM users WHERE username = $1',
       [username]
     );
     

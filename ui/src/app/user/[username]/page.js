@@ -26,7 +26,11 @@ export default function UserPage() {
   const [activeTab, setActiveTab] = useState('tracks');
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ username: '', bio: '' });
+  const [editForm, setEditForm] = useState({ 
+    username: '', 
+    name: '',
+    bio: '' 
+  });
   const [userProfile, setUserProfile] = useState(null);
   const [showImageCropper, setShowImageCropper] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -57,6 +61,7 @@ export default function UserPage() {
         setIsPrivate(user.data.is_private);
         setEditForm({
           username: user.data.username,
+          name: user.data.name || '',
           bio: user.data.bio || ''
         });
         setTracks(tracks.data);
@@ -251,6 +256,12 @@ export default function UserPage() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Validate name is provided
+      if (!editForm.name || editForm.name.trim() === '') {
+        alert('Full name is required');
+        return;
+      }
+      
       const response = await api.put('/users/me', editForm);
       setUserProfile(response.data);
       setIsEditing(false);
@@ -418,6 +429,10 @@ export default function UserPage() {
             )}
           </div>
           
+          {!isEditing && userProfile?.name && (
+            <h2 className="profile-name">{userProfile.name}</h2>
+          )}
+          
           {isEditing ? (
             <form className="edit-profile-form" onSubmit={handleEditSubmit}>
               <div className="form-group">
@@ -428,6 +443,18 @@ export default function UserPage() {
                   value={editForm.username}
                   onChange={(e) => setEditForm({...editForm, username: e.target.value})}
                   className="form-control"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="name">Full Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                  className="form-control"
+                  placeholder="Your full name"
                   required
                 />
               </div>
@@ -566,6 +593,7 @@ export default function UserPage() {
                           {user.username}
                           {user.verified && <span className="verified-badge">✓</span>}
                         </span>
+                        {user.name && <span className="user-full-name">{user.name}</span>}
                       </div>
                     </div>
                     {user.id !== (userProfile?.id) && (
@@ -640,6 +668,7 @@ export default function UserPage() {
                           {user.username}
                           {user.verified && <span className="verified-badge">✓</span>}
                         </span>
+                        {user.name && <span className="user-full-name">{user.name}</span>}
                       </div>
                     </div>
                     {user.id !== (userProfile?.id) && (
