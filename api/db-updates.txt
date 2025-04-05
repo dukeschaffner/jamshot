@@ -46,3 +46,11 @@ CREATE TABLE payments (
 
 -- Create index for user payments
 CREATE INDEX idx_payments_user_id ON payments(user_id);
+
+ALTER TABLE users ADD COLUMN name VARCHAR(100)
+
+UPDATE users 
+SET name = 'N/A' 
+WHERE name IS NULL;
+
+ALTER TABLE users ALTER COLUMN name SET NOT NULL;

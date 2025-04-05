@@ -74,7 +74,7 @@ const validatePassword = (password) => {
 
 // Register
 router.post('/register', async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, name, email, password } = req.body;
   const deviceInfo = req.headers['user-agent'] || null;
   
   try {
@@ -82,6 +82,11 @@ router.post('/register', async (req, res) => {
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
       return res.status(400).json({ error: passwordValidation.message });
+    }
+    
+    // Validate name is provided
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Name is required' });
     }
     
     // Check if email already exists
@@ -98,8 +103,8 @@ router.post('/register', async (req, res) => {
     
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email',
-      [username, email, hashedPassword]
+      'INSERT INTO users (username, name, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING id, username, email',
+      [username, name, email, hashedPassword]
     );
     
     const user = result.rows[0];

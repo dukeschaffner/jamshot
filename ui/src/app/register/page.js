@@ -7,6 +7,7 @@ import { useUser } from '../../contexts/UserContext';
 
 export default function Register() {
   const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -33,7 +34,7 @@ export default function Register() {
     setIsRegistering(true);
     
     try {
-      const response = await api.post('/auth/register', { username, email, password });
+      const response = await api.post('/auth/register', { username, name, email, password });
       
       // Show success message instead of redirecting
       setSuccess(response.data.message || 'Registration successful! Please check your email to verify your account.');
@@ -44,6 +45,7 @@ export default function Register() {
       
       // Clear form
       setUsername('');
+      setName('');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
@@ -82,6 +84,21 @@ export default function Register() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Username"
+              className="w-full p-2 border rounded"
+              required
+              disabled={isRegistering}
+            />
+          </div>
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              Full Name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your full name"
               className="w-full p-2 border rounded"
               required
               disabled={isRegistering}

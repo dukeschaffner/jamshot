@@ -91,7 +91,7 @@ TODO (after beta testing)
 - content moderation
 - block users
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
-
+- profile banner image
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
@@ -107,6 +107,7 @@ PostgreSQL db structure:
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL, -- Hashed with bcrypt

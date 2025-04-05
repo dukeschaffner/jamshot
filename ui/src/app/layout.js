@@ -277,7 +277,7 @@ function AppContent({ children }) {
                 />
               </div>
               <div className="user-info">
-                <div className="user-name">{user?.username || 'Loading...'}</div>
+                <div className="user-name">{user?.name || user?.username || 'Loading...'}</div>
                 <div className="user-handle">@{user?.username || 'loading'}</div>
               </div>
             </Link>
