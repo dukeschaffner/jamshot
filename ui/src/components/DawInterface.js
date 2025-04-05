@@ -53,32 +53,54 @@ export default function DawInterface({ track, isCollab = false }) {
     fetchOriginalAudio();
   }, [track, isCollab]);
   
+  const getAudioInputDevices = async () => {
+    try {
+      if(showAudioSettingsModal){
+        await navigator.mediaDevices.getUserMedia({ audio: true }); 
+      }
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(device => device.kind === 'audioinput');
+      setAudioInputDevices(audioInputs);
+      return audioInputs;
+    } catch (error) {
+      console.error('Error getting audio input devices:', error);
+    }
+  };
+
   // Fetch available audio input devices
   useEffect(() => {
-    const getAudioInputDevices = async () => {
-      try {
-        if(showAudioSettingsModal){
-          await navigator.mediaDevices.getUserMedia({ audio: true }); 
-        }
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioInputs = devices.filter(device => device.kind === 'audioinput');
-        setAudioInputDevices(audioInputs);
-      } catch (error) {
-        console.error('Error getting audio input devices:', error);
+    configureAudioSettings();
+  }, [showAudioSettingsModal]);
+
+  const configureAudioSettings = async () => {
+    const audioInputs = await getAudioInputDevices();
+    const preferredAudioInputDevice = Cookies.get('preferredAudioInputDevice');
+    let deviceSelected = false;
+    if(audioInputs.length === 1){
+      setSelectedAudioInputDevice(audioInputs[0].deviceId);
+      deviceSelected = true;
+    }
+    else if(preferredAudioInputDevice){
+      const device = audioInputs.find(device => device.deviceId === preferredAudioInputDevice);
+      if(device){
+        setSelectedAudioInputDevice(device.deviceId);
+        deviceSelected = true;
       }
-    };
-    
-    getAudioInputDevices();
-    
-    // Load latency compensation from cookies
+    }
+    else{
+      setShowAudioSettingsModal(true);
+    }
+
     const savedLatencyCompensation = Cookies.get('userLatencyCompensation');
     if (savedLatencyCompensation !== undefined) {
       setUserLatencyCompensation(parseInt(savedLatencyCompensation, 10));
     } else {
-      // Default value of 20ms if not set
-      setUserLatencyCompensation(20);
+      // Default value of 15ms if not set
+      setUserLatencyCompensation(15);
     }
-  }, [showAudioSettingsModal]);
+
+    return deviceSelected;
+  }
   
   // Save latency compensation to cookies when it changes
   useEffect(() => {
@@ -103,6 +125,7 @@ export default function DawInterface({ track, isCollab = false }) {
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
     setSelectedAudioInputDevice(e.target.value);
+    Cookies.set('preferredAudioInputDevice', e.target.value, { expires: 365 });
   };
   
   // Handle latency compensation change
@@ -117,11 +140,14 @@ export default function DawInterface({ track, isCollab = false }) {
   };
   
   // Toggle recording state
-  const toggleRecording = () => {
+  const toggleRecording = async () => {
     // If not recording and no device selected, show audio settings modal
+    let deviceSelected = false;
     if (!isRecording && !selectedAudioInputDevice) {
-      setShowAudioSettingsModal(true);
-      return;
+      deviceSelected = await configureAudioSettings();
+      if(!deviceSelected){
+        return;
+      }
     }
     
     // Toggle recording state
@@ -213,6 +239,7 @@ export default function DawInterface({ track, isCollab = false }) {
         recordingPlaybackBuffer={recordingPlaybackBuffer}
         setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
         isRecording={isRecording}
+        setIsRecording={setIsRecording}
         selectedAudioInputDevice={selectedAudioInputDevice}
         userLatencyCompensation={userLatencyCompensation}
         isCollab={isCollab}

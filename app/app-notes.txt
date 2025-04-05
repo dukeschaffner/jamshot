@@ -58,17 +58,28 @@ Pages
 TODO (MVP)
 - DAW
   - synchronize recording/playback on collaboration
-  - add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
+  - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
   - volume faders
-  - trimming regions
-  - reusing daw for upload action
-- content moderation
-- track images: generate ai image on upload, then allow user to upload custom picture after upload
+  - trimming regions on upload action
+  - space ends recording
+  - make looper work at track end
+
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
-- block users
-- view followers/following if account is public 
 - improve feed logic
 - global player: seeking, pictures, audio level
+- ensure all user names and all track titles navigate to the respective locations when clicked
+- save audio device to cookies, auto choose if there is only one option
+- comments
+- user first name and last name
+- release private track
+- show track timestamps similar to notifications
+- recording meter animation
+
+BUGS
+- following feed not working
+- popular feed loaded track from private acct I wasn't following
+- notifications not displaying correctly
+- dark mode inconsistencies
 
 
 TODO (after beta testing)
@@ -76,6 +87,10 @@ TODO (after beta testing)
 - posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
 - Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
 - advanced DAW editor
+- content moderation
+- block users
+- track images: generate ai image on upload, then allow user to upload custom picture after upload
+
 
 LEGAL
 - option to allow others to 'steal' (use) the track?

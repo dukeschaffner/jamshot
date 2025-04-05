@@ -201,9 +201,6 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
             </div>
           </div>
           
-          {track.layer > 0 && (
-            <div className="track-layer">Layer: {track.layer} (Based on: {track.original_title})</div>
-          )}
           
           <div className="track-meta">
             <div className="meta-item">

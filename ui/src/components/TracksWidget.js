@@ -12,6 +12,7 @@ export default function TracksWidget({
   trackDuration,
   showCollabModal,
   isRecording,
+  setIsRecording,
   originalAudioChunks = null,
   recordingPlaybackBuffer,
   setRecordingPlaybackBuffer,
@@ -674,7 +675,7 @@ export default function TracksWidget({
         
         // If recording, stop recording
         if (isRecordingRef.current) {
-          stopRecording();
+          setIsRecording(false);
         } 
         // Otherwise toggle playback
         else {
