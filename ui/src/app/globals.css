@@ -4066,3 +4066,11 @@ body.dark-mode .user-not-found p {
   color: var(--text-secondary);
   margin-top: -2px;
 }
+
+.link-underline {
+  cursor: pointer;
+  transition: text-decoration 0.2s ease;
+}
+.link-underline:hover {
+  text-decoration: underline;
+}

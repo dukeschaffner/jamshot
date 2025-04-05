@@ -70,7 +70,6 @@ TODO (MVP)
 - global player: seeking, pictures, audio level
 - ensure all user names and all track titles navigate to the respective locations when clicked
 - comments
-- user first name and last name
 - manage track view for track owners
 - show track timestamps similar to notifications
 - duration validation for uploads (collab cannot be longer than parent, global track duration limit)
@@ -92,6 +91,7 @@ TODO (after beta testing)
 - block users
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
 - profile banner image
+- undo redo (DAW)
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
