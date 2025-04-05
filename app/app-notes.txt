@@ -61,23 +61,25 @@ TODO (MVP)
   - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
   - volume faders
   - trimming regions on upload action
-  - space ends recording
   - make looper work at track end
+  - recording meter animation
+  - recording while looping (just stop recording at end of loop for now)
 
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
 - improve feed logic
 - global player: seeking, pictures, audio level
 - ensure all user names and all track titles navigate to the respective locations when clicked
-- save audio device to cookies, auto choose if there is only one option
 - comments
 - user first name and last name
 - release private track
 - show track timestamps similar to notifications
-- recording meter animation
+- duration validation for uploads (collab cannot be longer than parent, global track duration limit)
+- track layer validation, don't show collab button if track is layer 5
+
 
 BUGS
 - following feed not working
-- popular feed loaded track from private acct I wasn't following
+- popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - notifications not displaying correctly
 - dark mode inconsistencies
 
