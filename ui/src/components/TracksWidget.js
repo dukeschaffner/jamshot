@@ -5,7 +5,7 @@ import { formatDuration, renderWaveform } from '@/lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMicrophone, faPlay, faPause, faStepBackward, faStepForward, faTrash, faUpload, faCloudUploadAlt, faHeadphones } from '@fortawesome/free-solid-svg-icons';
 import './TracksWidget.css';
-
+import { useAudio } from '../lib/AudioContext';
 export default function TracksWidget({ 
   isPlaying,
   setIsPlaying,
@@ -113,6 +113,8 @@ export default function TracksWidget({
     const cropEndTimeRef = useRef(0);
     const [showCropHandles, setShowCropHandles] = useState(false);
     //#endregion
+
+    const {isPlaying: isPlayingGlobal, togglePlayPause: togglePlayPauseGlobal } = useAudio();
 
     // Helper functions
     const posToTime = (pos, duration) => {
@@ -256,6 +258,10 @@ export default function TracksWidget({
   const play = () => {
     if ((!originalBufferRef.current && isCollab) || !audioContext) {
       return;
+    }
+
+    if(isPlayingGlobal){
+      togglePlayPauseGlobal();
     }
     
     // Resume context if needed
