@@ -12,7 +12,7 @@ export function NotificationProvider({ children }) {
   const [error, setError] = useState(null);
 
   const fetchNotifications = async () => {
-    const token = Cookies.get('token');
+    const token = Cookies.get('accessToken');
     if (!token) {
       setLoading(false);
       return;

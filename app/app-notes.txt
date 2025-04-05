@@ -71,7 +71,7 @@ TODO (MVP)
 - ensure all user names and all track titles navigate to the respective locations when clicked
 - comments
 - user first name and last name
-- release private track
+- manage track view for track owners
 - show track timestamps similar to notifications
 - duration validation for uploads (collab cannot be longer than parent, global track duration limit)
 - track layer validation, don't show collab button if track is layer 5
@@ -80,7 +80,6 @@ TODO (MVP)
 BUGS
 - following feed not working
 - popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
-- notifications not displaying correctly
 - dark mode inconsistencies
 
 
