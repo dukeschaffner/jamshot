@@ -5,6 +5,7 @@ import { useNotifications } from '../lib/NotificationContext';
 import { FaBell, FaCheck, FaComment, FaHeart, FaMusic, FaRetweet, FaTrash, FaUserPlus, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../lib/api';
+import TimeDisplay from './TimeDisplay';
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -165,7 +166,7 @@ export default function NotificationDropdown() {
                   >
                     <p className="notification-text">{getNotificationText(notification)}</p>
                     <p className="notification-time">
-                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                      <TimeDisplay timestamp={notification.created_at} />
                     </p>
                     
                     {notification.type === 'follow_request' && (

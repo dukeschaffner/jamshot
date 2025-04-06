@@ -73,7 +73,7 @@ TODO (MVP)
 - manage track view for track owners
 - show track timestamps similar to notifications
 - duration validation for uploads (collab cannot be longer than parent, global track duration limit)
-- track layer validation, don't show collab button if track is layer 5
+- fix tree page
 
 
 BUGS

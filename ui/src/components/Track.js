@@ -8,6 +8,7 @@ import { useAudio } from '../lib/AudioContext';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Image from 'next/image';
+import TimeDisplay from './TimeDisplay';
 
 export default function Track({ track, allTracks, setExpandedTrackId, expandedTrackId }) {
   const router = useRouter();
@@ -227,6 +228,9 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
                 <FaMusic /> 
                 <span>{track.metronome_bpm} BPM</span>
               </div>
+            )}
+            {track.created_at && (
+              <TimeDisplay timestamp={track.created_at} />
             )}
           </div>
         </div>
