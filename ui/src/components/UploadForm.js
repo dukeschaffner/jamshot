@@ -38,6 +38,21 @@ export default function UploadForm({
       return;
     }
 
+    // Validate track duration (max 10 minutes = 600 seconds)
+    const trackDuration = recordingAudioBuffer.duration;
+    if (trackDuration > 600) {
+      setError('Track duration exceeds the maximum limit of 10 minutes');
+      return;
+    }
+
+    // For collaborations, validate track isn't longer than parent
+    if (isCollab && parentTrack && parentTrack.duration) {
+      if (trackDuration > parentTrack.duration) {
+        setError('Your collaboration cannot be longer than the original track');
+        return;
+      }
+    }
+
     try {
       const formData = new FormData();
       formData.append('title', title);
