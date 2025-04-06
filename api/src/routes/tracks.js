@@ -101,6 +101,11 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   try {
     const metadata = await mm.parseBuffer(file.buffer, file.mimetype);
     duration = metadata.format.duration;
+    
+    // Validate track duration (max 10 minutes = 600 seconds)
+    if (duration > 600) {
+      return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 10 minutes' });
+    }
   } catch (err) {
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
   }
@@ -125,7 +130,12 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
         return res.status(400).json({ error: 'Parent track not found' });
       }
 
-      duration = parentResult.rows[0].duration;
+      const parentDuration = parentResult.rows[0].duration;
+      // Validate that collaboration isn't longer than parent track
+      if (duration > parentDuration) {
+        return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
+      }
+      
       layer = (parentResult.rows[0].layer ?? 0) + 1;
       if (layer > 4) {
         return res.status(400).json({ error: 'Layer limit reached' });
