@@ -13,13 +13,19 @@ export function AudioProvider({ children }) {
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isShuffleOn, setIsShuffleOn] = useState(false);
   const [isLoopOn, setIsLoopOn] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
   const soundRef = useRef(null);
   const shuffledIndicesRef = useRef([]);
   const currentPositionRef = useRef(0);
+  const loadedTrackIdRef = useRef(null);
+
   // Refs for play counter
   const listeningTimeRef = useRef(0);
   const playRecordedRef = useRef(false);
 
+
+
+  // Used for counting plays
   // Define functions with useCallback to prevent unnecessary re-creation
   const updateListeningTime = useCallback(() => {
     if (isPlaying && soundRef.current && !playRecordedRef.current) {
@@ -81,14 +87,14 @@ export function AudioProvider({ children }) {
     
     try {
       playRecordedRef.current = true;
-      console.log(`Recording play for track: ${currentTrack.title}`);
+      // console.log(`Recording play for track: ${currentTrack.title}`);
       await api.post(`/tracks/${currentTrack.id}/play`);
     } catch (err) {
       console.error('Failed to record play:', err);
     }
   };
 
-  // Now use these callbacks in the useEffect
+  // interval to check for play recording
   useEffect(() => {
     if (!currentTrack) return;
     
@@ -98,7 +104,6 @@ export function AudioProvider({ children }) {
     
     // Set up interval to track listening time and check for play recording
     const interval = setInterval(() => {
-      updateListeningTime();
       checkAndRecordPlay();
     }, 1000);
     
@@ -106,10 +111,17 @@ export function AudioProvider({ children }) {
       if (soundRef.current) soundRef.current.unload();
       clearInterval(interval);
     };
-  }, [currentTrack, updateListeningTime, checkAndRecordPlay]);
+  }, [currentTrack, checkAndRecordPlay]);
 
   useEffect(() => {
-    if (currentTrack) {
+    return () => {
+      if (soundRef.current) soundRef.current.unload();
+    };
+  }, []);
+
+  // useEffect to initialize the audio player for track
+  useEffect(() => {
+    if (currentTrack && currentTrack.id !== loadedTrackIdRef.current) { // only initialize the audio if the track has changed
       if (soundRef.current) {
         // Save current position before unloading
         if (soundRef.current.playing()) {
@@ -122,33 +134,38 @@ export function AudioProvider({ children }) {
         src: [currentTrack.combined_audio_url],
         html5: true,
         onload: () => console.log('Global audio loaded:', currentTrack.title),
-        onplay: () => setIsPlaying(true),
-        onpause: () => setIsPlaying(false),
         onend: () => {
           console.log('Track ended, playing next');
           handleTrackEnd();
         },
         onseek: () => updateProgress(),
       });
-      
+
+      loadedTrackIdRef.current = currentTrack.id;
+
       if (isPlaying) {
         console.log('Starting playback:', currentTrack.title);
         soundRef.current.play();
       }
     }
 
-    const interval = setInterval(() => {
+    const listeningTimeInterval = setInterval(() => {
       if (isPlaying && soundRef.current) {
-        updateProgress();
         updateListeningTime();
       }
     }, 1000);
 
+    const progressInterval = setInterval(() => {
+      if (isPlaying && soundRef.current) {
+        updateProgress();
+      }
+    }, 50);
+
     return () => {
-      if (soundRef.current) soundRef.current.unload();
-      clearInterval(interval);
+      clearInterval(listeningTimeInterval);
+      clearInterval(progressInterval);
     };
-  }, [currentTrack, handleTrackEnd, isPlaying, updateListeningTime]);
+  }, [currentTrack, isPlaying, handleTrackEnd, updateListeningTime]);
 
   // Generate shuffled indices when playlist or shuffle state changes
   useEffect(() => {
@@ -200,11 +217,26 @@ export function AudioProvider({ children }) {
     }
   };
 
-  const seek = (percentage) => {
+  // useEffect to pause the audio when the user starts seeking
+  useEffect(() => {
+    if (isSeeking) {
+      soundRef.current.pause();
+      setIsSeeking(false);
+    }
+  }, [isSeeking]);
+
+  const seek = (position) => {
     if (soundRef.current) {
-      const newPosition = (percentage / 100) * soundRef.current.duration();
-      soundRef.current.seek(newPosition);
-      setProgress(newPosition);
+      // position is now directly in seconds
+      soundRef.current.seek(position);
+      console.log('Seeking to:', position);
+      if (isSeeking) {
+        if (isPlaying) {
+          soundRef.current.play();
+        }
+        setIsSeeking(false);
+      }
+      setProgress(position);
     }
   };
 
@@ -260,6 +292,7 @@ export function AudioProvider({ children }) {
         playTrack, 
         togglePlayPause, 
         seek, 
+        setIsSeeking,
         playNext, 
         playPrevious,
         toggleShuffle,
