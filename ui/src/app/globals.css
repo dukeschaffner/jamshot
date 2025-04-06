@@ -539,24 +539,47 @@ body.dark-mode .time {
 }
 
 .progress-bar {
-  flex: 1;
-  height: 4px;
+  flex-grow: 1;
+  height: 6px;
   background-color: var(--gray);
-  border-radius: 2px;
+  border-radius: 3px;
+  margin: 0 8px;
   position: relative;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: height 0.2s ease;
+}
+
+.progress-bar:hover {
+  height: 8px;
 }
 
 body.dark-mode .progress-bar {
-  background-color: var(--dark-hover-color);
+  background-color: var(--dark-border-color);
 }
 
 .progress {
   height: 100%;
-  background-color: var(--seafoam);
-  border-radius: 2px;
-  transition: background-color 0.3s ease;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  border-radius: 3px;
+  position: relative;
+}
+
+.progress::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background-color: var(--rustic-pink);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.progress-bar:hover .progress::after {
+  opacity: 1;
 }
 
 .volume-container {
@@ -4102,4 +4125,14 @@ body.dark-mode .time-display {
   .time-display {
     font-size: 0.7rem;
   }
+}
+
+.control-button.active {
+  color: var(--seafoam);
+  transform: scale(1.1);
+}
+
+body.dark-mode .control-button.active {
+  color: var(--seafoam);
+  transform: scale(1.1);
 }

@@ -67,11 +67,9 @@ TODO (MVP)
 
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
 - improve feed logic
-- global player: seeking, pictures, audio level
 - ensure all user names and all track titles navigate to the respective locations when clicked
 - comments
 - manage track view for track owners
-- show track timestamps similar to notifications
 - duration validation for uploads (collab cannot be longer than parent, global track duration limit)
 - fix tree page
 
@@ -83,6 +81,7 @@ BUGS
 
 
 TODO (after beta testing)
+- secure track play count recording to prevent abuse of vulnerabilites
 - list/sell samples in track
 - posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
 - Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
@@ -92,6 +91,7 @@ TODO (after beta testing)
 - track images: generate ai image on upload, then allow user to upload custom picture after upload
 - profile banner image
 - undo redo (DAW)
+- global player audio level
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
