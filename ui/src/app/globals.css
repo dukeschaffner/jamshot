@@ -4074,3 +4074,32 @@ body.dark-mode .user-not-found p {
 .link-underline:hover {
   text-decoration: underline;
 }
+
+/* TimeDisplay component styling */
+.time-display {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  gap: 4px;
+}
+
+.time-icon {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.time-text {
+  font-weight: 400;
+}
+
+body.dark-mode .time-display {
+  color: var(--dark-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .time-display {
+    font-size: 0.7rem;
+  }
+}

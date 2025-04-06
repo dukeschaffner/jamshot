@@ -5,6 +5,7 @@ import { FaPlay, FaPause, FaHeart, FaRegHeart, FaRetweet, FaCheckCircle, FaMusic
 import Cookies from 'js-cookie';
 import api from '../lib/api';
 import { useRouter } from 'next/navigation';
+import TimeDisplay from './TimeDisplay';
 
 export default function MiniTrack({ track, relatedTracks = [] }) {
   const router = useRouter();
@@ -139,6 +140,9 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
             {track.username || 'Unknown Artist'}
             {track.verified && <FaCheckCircle className="verified-icon" />}
           </span>
+          {track.created_at && (
+            <TimeDisplay timestamp={track.created_at} />
+          )}
         </div>
       </div>
       <div className="related-actions">
