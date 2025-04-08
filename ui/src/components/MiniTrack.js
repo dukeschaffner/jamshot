@@ -7,7 +7,14 @@ import api from '../lib/api';
 import { useRouter } from 'next/navigation';
 import TimeDisplay from './TimeDisplay';
 
-export default function MiniTrack({ track, relatedTracks = [] }) {
+export default function MiniTrack(
+  { 
+    track, 
+    relatedTracks = [], 
+    isTreeView = false, // Used in tree view
+    trackTreeIds // Used in tree view
+  }
+) {
   const router = useRouter();
   const { currentTrack, isPlaying, togglePlayPause, playTrack } = useAudio();
   const isCurrentTrack = currentTrack?.id === track.id;
@@ -30,6 +37,11 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
       const tracksToAdd = currentIndex >= 0 ? relatedTracks.slice(currentIndex + 1) : [];
       playTrack(track, tracksToAdd);
     }
+  };
+  
+  const handleSelectTrack = (e) => {
+    e.stopPropagation();
+    router.push(`/tree/${track.id}`);
   };
   
   const handleLikeToggle = async (e) => {
@@ -91,7 +103,7 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
   };
   
   return (
-    <div className="related-track">
+    <div className={`related-track ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? 'selected' : ''}`}>
       <div className="related-play" onClick={handlePlayToggle}>
         {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
       </div>
@@ -155,6 +167,15 @@ export default function MiniTrack({ track, relatedTracks = [] }) {
           </div>
         </div>
         <div className="related-buttons">
+          {isTreeView && !(trackTreeIds && trackTreeIds.includes(track.id)) && (
+            <button 
+              className="select-btn"
+              onClick={handleSelectTrack}
+              title="Select track"
+            >
+              Select
+            </button>
+          )}
           <button 
             className={`like-btn ${isLiked ? 'active' : ''}`}
             onClick={handleLikeToggle}
