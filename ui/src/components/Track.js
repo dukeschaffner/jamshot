@@ -10,7 +10,17 @@ import Cookies from 'js-cookie';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 
-export default function Track({ track, allTracks, setExpandedTrackId, expandedTrackId }) {
+export default function Track(
+    { track, 
+      allTracks, 
+      setExpandedTrackId, 
+      expandedTrackId,
+      isTreeView = false, // Used in tree view
+      setSelectedTrack, // Used in tree view
+      trackTreeIds // Used in tree view
+    }
+  ) 
+{
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [relatedTracks, setRelatedTracks] = useState([]);
@@ -277,25 +287,30 @@ export default function Track({ track, allTracks, setExpandedTrackId, expandedTr
               <div className="loading-spinner">Loading related tracks...</div>
             ) : (
               <>
-                {originalTrack && (
+                {originalTrack && !isTreeView && (
                   <>
                     <div className="track-relation">Original</div>
                     <MiniTrack track={originalTrack} relatedTracks={relatedTracks} />
                   </>
                 )}
                 
-                {collabTracks.length > 0 && (
+                {collabTracks.length > 0 ? (
                   <>
                     <div className="track-relation">Based on this</div>
                     {collabTracks.map(collab => (
-                      <MiniTrack key={collab.id} track={collab} relatedTracks={relatedTracks} />
+                      <MiniTrack key={collab.id} track={collab} relatedTracks={relatedTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
                     ))}
+                  </>
+                ) : (
+                  <>
+                    {/* if tree view and no related tracks, show message */}
+                    {(isTreeView || !originalTrack) && collabTracks.length === 0 && (
+                      <div className="no-related">There are no tracks based on this track</div>
+                    )}
                   </>
                 )}
                 
-                {(!originalTrack && collabTracks.length === 0) && (
-                  <div className="no-related">No related tracks found</div>
-                )}
+                
               </>
             )}
           </div>

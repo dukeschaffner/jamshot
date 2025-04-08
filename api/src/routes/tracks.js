@@ -996,6 +996,7 @@ router.get('/:id/tree', async (req, res) => {
         u.username,
         u.verified,
         u.profile_pic_url,
+        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
         (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
         (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
@@ -1021,6 +1022,7 @@ router.get('/:id/tree', async (req, res) => {
           u.username,
           u.verified,
           u.profile_pic_url,
+          (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
           EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
           (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
           (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
@@ -1037,22 +1039,6 @@ router.get('/:id/tree', async (req, res) => {
       ancestors.unshift(parent); // Add to the beginning of the array
       parentId = parent.parent_track_id;
     }
-    
-    // Get direct children of the current track
-    const childrenResult = await pool.query(`
-      SELECT 
-        t.*,
-        u.username,
-        u.verified,
-        u.profile_pic_url,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
-      FROM tracks t
-      LEFT JOIN users u ON t.user_id = u.id
-      WHERE t.parent_track_id = $1
-      ORDER BY t.created_at ASC
-    `, [id, userId || null]);
     
     // Process all tracks to add signed URLs and tags
     const processTrack = async (track) => {
@@ -1104,13 +1090,8 @@ router.get('/:id/tree', async (req, res) => {
     // Process all tracks
     const processedCurrentTrack = await processTrack(currentTrack);
     const processedAncestors = await Promise.all(ancestors.map(processTrack));
-    const processedChildren = await Promise.all(childrenResult.rows.map(processTrack));
     
-    res.json({
-      current: processedCurrentTrack,
-      ancestors: processedAncestors,
-      children: processedChildren
-    });
+    res.json([...processedAncestors, processedCurrentTrack]);
   } catch (err) {
     console.error('Error fetching track tree:', err);
     res.status(500).json({ error: err.message });

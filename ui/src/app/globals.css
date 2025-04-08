@@ -1120,6 +1120,10 @@ body.dark-mode .no-related {
   background-color: var(--gray);
 }
 
+.related-track.selected {
+  background-color: var(--seafoam);
+}
+
 body.dark-mode .related-track:hover {
   background-color: var(--dark-hover-color);
 }
@@ -2529,24 +2533,6 @@ body.dark-mode .modal-footer {
   border-left: 4px solid var(--primary);
 }
 
-/* Track Tree Node Styles */
-.track-tree-node {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-}
-
-.track-tree-node.current {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-}
-
-.track-tree-node.selected {
-  background-color: #f0f9ff;
-}
 
 .track-node-header {
   display: flex;
