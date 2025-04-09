@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '../../lib/api';
 import MiniTrack from '../../components/MiniTrack';
@@ -8,7 +8,8 @@ import Cookies from 'js-cookie';
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function SearchClient() {
+// Component that uses useSearchParams
+function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams?.get('query') || '';
   const [searchResults, setSearchResults] = useState({ tracks: [], users: [] });
@@ -208,5 +209,18 @@ export default function SearchClient() {
         )}
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function SearchClient() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <SearchContent />
+    </Suspense>
   );
 } 

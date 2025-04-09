@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useUser } from '../../contexts/UserContext';
 import api from '../../lib/api';
 
-export default function Login() {
+// Component that uses useSearchParams
+function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -152,12 +153,25 @@ export default function Login() {
         </div>
         
         <div className="text-center mt-2">
-          <span className="text-gray-600">Don't have an account? </span>
+          <span className="text-gray-600">Don&apos;t have an account? </span>
           <Link href="/register" className="text-blue-600 hover:text-blue-800">
             Register
           </Link>
         </div>
       </form>
     </div>
+  );
+}
+
+// Main page component with Suspense
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -336,7 +336,7 @@ export default function UserPage() {
     return (
       <div className="user-not-found">
         <h1>User Not Found</h1>
-        <p>The user "{username}" does not exist.</p>
+        <p>The user &quot;{username}&quot; does not exist.</p>
         <button 
           className="pill-btn"
           onClick={() => router.push('/')}

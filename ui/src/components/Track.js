@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
