@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import DawInterface from '@/components/DawInterface';
+import CommentSection from '@/components/CommentSection';
 import './collaborate.css';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram } from 'react-icons/fa';
 
@@ -119,7 +120,11 @@ export default function CollaboratePage() {
       <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
         <DawInterface track={track} isCollab={true}/>
       </div>
-      {activeTab === 'comments' && <div className="comments-coming-soon">Comments coming soon</div>}
+      {activeTab === 'comments' && (
+        <div className="comments-container">
+          <CommentSection trackId={trackId} />
+        </div>
+      )}
     </div>
   );
 } 

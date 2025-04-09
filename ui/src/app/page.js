@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../lib/api';
 import Track from '../components/Track';
-import { FaSpinner } from 'react-icons/fa';
+import { FaSpinner, FaTimes, FaInfoCircle, FaMicrophone, FaCode, FaMusic } from 'react-icons/fa';
 
 export default function Home() {
   const [tracks, setTracks] = useState([]);
@@ -12,8 +12,23 @@ export default function Home() {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [feedType, setFeedType] = useState('mixed'); // 'mixed', 'following', 'popular'
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const observer = useRef();
   const TRACKS_PER_PAGE = 5;
+
+  // Check if this is the first visit when component mounts
+  useEffect(() => {
+    const hasVisitedBefore = localStorage.getItem('jamshot_visited');
+    if (!hasVisitedBefore) {
+      setShowWelcomeDialog(true);
+      // Set the flag in localStorage so dialog won't show on future visits
+      localStorage.setItem('jamshot_visited', 'true');
+    }
+  }, []);
+
+  const closeWelcomeDialog = () => {
+    setShowWelcomeDialog(false);
+  };
 
   const lastTrackElementRef = useCallback(node => {
     if (loading) return;
@@ -74,6 +89,70 @@ export default function Home() {
 
   return (
     <div className="feed-container">
+      {/* Welcome Dialog for first-time visitors */}
+      {showWelcomeDialog && (
+        <div className="modal-overlay active" onClick={(e) => {
+          if (e.target.className === 'modal-overlay active') {
+            closeWelcomeDialog();
+          }
+        }}>
+          <div className="modal-content">
+            <div className="modal-header">
+              <h2 className="modal-title">Welcome to JamShot!</h2>
+              <button 
+                className="close-btn" 
+                onClick={closeWelcomeDialog}
+                aria-label="Close welcome dialog"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px' }}>
+              <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+                <FaMusic style={{ fontSize: '48px', color: 'var(--primary-color)', marginBottom: '16px' }} />
+                <p style={{ fontSize: '16px', marginBottom: '24px' }}>
+                  JamShot is a social platform where musicians can collaborate with each other!
+                </p>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary, #f0f0f0)' }}>
+                  <FaMicrophone style={{ fontSize: '32px', color: 'var(--primary-color)', marginBottom: '12px' }} />
+                  <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>Create or Collaborate</h3>
+                  <p style={{ fontSize: '14px', textAlign: 'center' }}>
+                    Upload your own music tracks or add your sounds to existing tracks
+                  </p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary, #f0f0f0)' }}>
+                  <FaInfoCircle style={{ fontSize: '32px', color: 'var(--primary-color)', marginBottom: '12px' }} />
+                  <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>How It Works</h3>
+                  <p style={{ fontSize: '14px', textAlign: 'center' }}>
+                    Browse tracks, click on one to expand and see all collaborations
+                  </p>
+                </div>
+              </div>
+              
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <p style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>
+                  Ready to get started?
+                </p>
+                <p style={{ fontSize: '14px' }}>
+                  Browse tracks below or upload your own to join the community!
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="save-btn"
+                onClick={closeWelcomeDialog}
+              >
+                Let's Go!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="feed-header">
         <h1 className="feed-title">Home Feed</h1>
         <p className="feed-subtitle">

@@ -69,8 +69,6 @@ TODO (MVP)
 - improve feed logic
 - comments
 - manage track view for track owners
-- fix tree page
-- how to/welcome page
 - how do collabs work with private tracks?
 
 
@@ -92,6 +90,7 @@ TODO (after beta testing)
 - profile banner image
 - undo redo (DAW)
 - global player audio level
+- how to page with tutorials
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
@@ -150,7 +149,9 @@ CREATE TABLE comments (
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  parent_comment_id INT REFERENCES comments(id) ON DELETE CASCADE
 );
 
 CREATE TABLE featured_tracks (
@@ -307,3 +308,17 @@ CREATE TABLE payments (
 
 -- Create index for user payments
 CREATE INDEX idx_payments_user_id ON payments(user_id);
+
+-- Create trigger to automatically update the updated_at timestamp when a comment is edited
+CREATE OR REPLACE FUNCTION update_comment_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_comment_timestamp
+BEFORE UPDATE ON comments
+FOR EACH ROW
+EXECUTE FUNCTION update_comment_timestamp();

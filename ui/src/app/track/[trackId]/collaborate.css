@@ -722,4 +722,14 @@
     width: 100%;
     justify-content: space-between;
   }
+}
+
+.comments-container {
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 20px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 } 
