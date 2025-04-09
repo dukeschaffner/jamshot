@@ -66,7 +66,7 @@ export default function Register() {
           <p>{success}</p>
           {isRegistered && (
             <p className="mt-2">
-              You can <Link href="/login" className="text-blue-600 hover:text-blue-800 underline">log in</Link> once you've verified your email.
+              You can <Link href="/login" className="text-blue-600 hover:text-blue-800 underline">log in</Link> once you&apos;ve verified your email.
             </p>
           )}
         </div>
@@ -184,7 +184,7 @@ export default function Register() {
           </div>
           
           <div className="mt-4 text-sm text-gray-600">
-            <p>By registering, you'll receive a verification email. You must verify your email before you can log in.</p>
+            <p>By registering, you&apos;ll receive a verification email. You must verify your email before you can log in.</p>
           </div>
         </form>
       )}

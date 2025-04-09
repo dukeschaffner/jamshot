@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
@@ -10,7 +10,8 @@ import CommentSection from '@/components/CommentSection';
 import './collaborate.css';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram } from 'react-icons/fa';
 
-export default function CollaboratePage() {
+// Component that uses useSearchParams, wrapped in Suspense
+function TrackContent() {
   const { trackId } = useParams();
   const searchParams = useSearchParams();
   const secret = searchParams.get('secret');
@@ -126,5 +127,18 @@ export default function CollaboratePage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Main page component
+export default function CollaboratePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <TrackContent />
+    </Suspense>
   );
 } 

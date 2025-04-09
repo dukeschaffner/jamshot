@@ -146,7 +146,7 @@ export default function Home() {
                 className="save-btn"
                 onClick={closeWelcomeDialog}
               >
-                Let's Go!
+                Let&apos;s Go!
               </button>
             </div>
           </div>

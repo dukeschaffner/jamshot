@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { FaHeart, FaPatreon, FaBitcoin, FaGithub, FaTwitter, FaInstagram, FaStripe } from 'react-icons/fa';
 import { loadStripe } from '@stripe/stripe-js';
 import Link from 'next/link';
@@ -9,7 +9,8 @@ import { useSearchParams } from 'next/navigation';
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
-export default function About() {
+// Component that uses useSearchParams
+function AboutContent() {
   const [donationAmount, setDonationAmount] = useState(5);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState(null);
@@ -68,7 +69,7 @@ export default function About() {
       
       {paymentStatus === 'canceled' && (
         <div className="payment-status canceled">
-          <p>Your payment was canceled. If you'd like to try again, please select an amount below.</p>
+          <p>Your payment was canceled. If you&apos;d like to try again, please select an amount below.</p>
         </div>
       )}
       
@@ -259,5 +260,18 @@ export default function About() {
         </section>
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense
+export default function About() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <AboutContent />
+    </Suspense>
   );
 } 

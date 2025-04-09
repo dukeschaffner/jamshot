@@ -55,7 +55,7 @@ export default function ResetPassword({ params }) {
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
           <p>{success}</p>
           <p className="mt-2">
-            Redirecting to login page... If you're not redirected, 
+            Redirecting to login page... If you&apos;re not redirected, 
             <Link href="/login" className="text-blue-600 hover:text-blue-800 underline ml-1">
               click here
             </Link>.
