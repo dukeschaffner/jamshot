@@ -730,10 +730,87 @@ router.delete('/:id/like', authMiddleware, async (req, res) => {
   }
 });
 
+// Get comments for a track with pagination
+router.get('/:id/comments', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { page = 1, limit = 10, parent_id = null } = req.query;
+  
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  
+  try {
+    // First check if track exists and if user has access
+    const trackCheck = await pool.query(
+      'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const track = trackCheck.rows[0];
+    
+    // If track is private, check if user is authorized to view it
+    if (track.is_private) {
+      const isOwner = userId && track.user_id === userId;
+      
+      if (!isOwner) {
+        return res.status(403).json({ error: 'This track is private' });
+      }
+    }
+    
+    // Get comments for this track
+    const commentsQuery = `
+      SELECT 
+        c.*,
+        u.username,
+        u.name,
+        u.verified,
+        u.profile_pic_url,
+        (SELECT COUNT(*) FROM comments WHERE parent_comment_id = c.id) AS reply_count,
+        (c.user_id = $4) AS is_owner
+      FROM comments c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.track_id = $1 AND (c.parent_comment_id IS NULL AND $2::int IS NULL OR c.parent_comment_id = $2)
+      ORDER BY c.created_at DESC
+      LIMIT $3 OFFSET $5
+    `;
+    
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM comments 
+      WHERE track_id = $1 AND (parent_comment_id IS NULL AND $2::int IS NULL OR parent_comment_id = $2)
+    `;
+    
+    const [commentsResult, countResult] = await Promise.all([
+      pool.query(commentsQuery, [id, parent_id, limitNum, userId || null, offset]),
+      pool.query(countQuery, [id, parent_id])
+    ]);
+    
+    const totalCount = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limitNum);
+    
+    res.json({
+      comments: commentsResult.rows,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: limitNum,
+        pages: totalPages
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching comments:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Comment on a Track
 router.post('/:id/comment', authMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { content } = req.body;
+  const { content, parent_comment_id } = req.body;
   const userId = req.user.id;
   try {
     // Check if track exists and get track owner
@@ -745,21 +822,144 @@ router.post('/:id/comment', authMiddleware, async (req, res) => {
     // Don't create notification if commenting on your own track
     const trackOwnerId = trackCheck.rows[0].user_id;
     
+    // Check if this is a reply to another comment
+    let notifyUserId = trackOwnerId;
+    
+    if (parent_comment_id) {
+      // Verify parent comment exists and belongs to this track
+      const parentCommentCheck = await pool.query(
+        'SELECT c.user_id, c.track_id FROM comments c WHERE c.id = $1',
+        [parent_comment_id]
+      );
+      
+      if (parentCommentCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Parent comment not found' });
+      }
+      
+      if (parentCommentCheck.rows[0].track_id !== parseInt(id)) {
+        return res.status(400).json({ error: 'Parent comment does not belong to this track' });
+      }
+      
+      // Set notification recipient to parent comment author (unless it's yourself)
+      const parentCommentUserId = parentCommentCheck.rows[0].user_id;
+      if (parentCommentUserId !== userId) {
+        notifyUserId = parentCommentUserId;
+      }
+    }
+    
+    // Insert the comment
     const result = await pool.query(
-      'INSERT INTO comments (user_id, track_id, content) VALUES ($1, $2, $3) RETURNING *',
-      [userId, id, content]
+      'INSERT INTO comments (user_id, track_id, content, parent_comment_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, id, content, parent_comment_id || null]
     );
     
-    // Create notification for track owner (if not commenting on own track)
-    if (trackOwnerId !== userId) {
+    // Get user info for the response
+    const userInfo = await pool.query(
+      'SELECT username, name, verified, profile_pic_url FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    // Create notification (if not commenting on own track or replying to own comment)
+    if (notifyUserId !== userId) {
       await pool.query(
-        'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-        [trackOwnerId, 'comment', id]
+        'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+        [notifyUserId, 'comment', id, userId]
       );
     }
     
-    res.status(201).json(result.rows[0]);
+    const comment = {
+      ...result.rows[0],
+      ...userInfo.rows[0],
+      reply_count: 0,
+      is_owner: true
+    };
+    
+    res.status(201).json(comment);
   } catch (err) {
+    console.error('Error creating comment:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update a comment
+router.put('/comments/:commentId', authMiddleware, async (req, res) => {
+  const { commentId } = req.params;
+  const { content } = req.body;
+  const userId = req.user.id;
+  
+  try {
+    // Check if comment exists and belongs to the user
+    const commentCheck = await pool.query(
+      'SELECT * FROM comments WHERE id = $1',
+      [commentId]
+    );
+    
+    if (commentCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+    
+    if (commentCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: 'You can only edit your own comments' });
+    }
+    
+    // Update the comment
+    const result = await pool.query(
+      'UPDATE comments SET content = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [content, commentId]
+    );
+    
+    // Get user info for the response
+    const userInfo = await pool.query(
+      'SELECT username, name, verified, profile_pic_url FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    // Get reply count
+    const replyCountResult = await pool.query(
+      'SELECT COUNT(*) FROM comments WHERE parent_comment_id = $1',
+      [commentId]
+    );
+    
+    const comment = {
+      ...result.rows[0],
+      ...userInfo.rows[0],
+      reply_count: parseInt(replyCountResult.rows[0].count),
+      is_owner: true
+    };
+    
+    res.json(comment);
+  } catch (err) {
+    console.error('Error updating comment:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a comment
+router.delete('/comments/:commentId', authMiddleware, async (req, res) => {
+  const { commentId } = req.params;
+  const userId = req.user.id;
+  
+  try {
+    // Check if comment exists and belongs to the user
+    const commentCheck = await pool.query(
+      'SELECT * FROM comments WHERE id = $1',
+      [commentId]
+    );
+    
+    if (commentCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+    
+    if (commentCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: 'You can only delete your own comments' });
+    }
+    
+    // Delete the comment (cascade will handle replies)
+    await pool.query('DELETE FROM comments WHERE id = $1', [commentId]);
+    
+    res.json({ message: 'Comment deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting comment:', err);
     res.status(500).json({ error: err.message });
   }
 });

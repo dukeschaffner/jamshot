@@ -172,5 +172,30 @@ export const fetchTrack = async (trackId, secret) => {
   return response.data;
 };
 
+export const fetchComments = async (trackId, page = 1, limit = 10, parentId = null) => {
+  let url = `/tracks/${trackId}/comments?page=${page}&limit=${limit}`;
+  if (parentId) url += `&parent_id=${parentId}`;
+  
+  const response = await api.get(url);
+  return response.data;
+};
+
+export const addComment = async (trackId, content, parentCommentId = null) => {
+  const response = await api.post(`/tracks/${trackId}/comment`, {
+    content,
+    parent_comment_id: parentCommentId
+  });
+  return response.data;
+};
+
+export const updateComment = async (commentId, content) => {
+  const response = await api.put(`/tracks/comments/${commentId}`, { content });
+  return response.data;
+};
+
+export const deleteComment = async (commentId) => {
+  const response = await api.delete(`/tracks/comments/${commentId}`);
+  return response.data;
+};
 
 export default api;

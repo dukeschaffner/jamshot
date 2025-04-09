@@ -5,10 +5,11 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye } from 'react-icons/fa';
-import Cookies from 'js-cookie';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
+import CommentSection from './CommentSection';
+import { useUser } from '../contexts/UserContext';
 
 export default function Track(
     { track, 
@@ -31,6 +32,9 @@ export default function Track(
   const [isReposted, setIsReposted] = useState(track.is_reposted || false);
   const [isRepostInProgress, setIsRepostInProgress] = useState(false);
   const [loadingRelated, setLoadingRelated] = useState(false);
+  const [activeTab, setActiveTab] = useState('collabs');
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const { user: currentUser, isAuthenticated } = useUser();
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
@@ -82,8 +86,7 @@ export default function Track(
     setIsLikeInProgress(true);
     
     try {
-      const token = Cookies.get('accessToken');
-      if (!token) {
+      if (!isAuthenticated) {
         // Handle unauthenticated user
         console.log('Please log in to like tracks');
         return;
@@ -119,8 +122,7 @@ export default function Track(
     // Prevent action if already in progress
     if (isRepostInProgress) return;
     
-    const token = Cookies.get('accessToken');
-    if (!token) {
+    if (!isAuthenticated) {
       alert('Please log in to repost tracks');
       return;
     }
@@ -150,6 +152,38 @@ export default function Track(
     } finally {
       setIsRepostInProgress(false);
     }
+  };
+
+  const handleCopyLink = async (e) => {
+    e.stopPropagation();
+    
+    const baseUrl = window.location.origin;
+    let trackUrl = `${baseUrl}/track/${track.id}`;
+    
+    // If track is private, get the secret token from the API
+    if (track.is_private && currentUser.id === track.user_id) {
+      try {
+        setIsLinkCopied(true); // Show loading state
+        const response = await api.post(`/tracks/${track.id}/share`);
+        trackUrl += `?secret=${response.data.secretToken}`;
+      } catch (err) {
+        console.error('Failed to generate share link:', err);
+        alert('Failed to generate share link');
+        setIsLinkCopied(false);
+        return;
+      }
+    }
+    
+    navigator.clipboard.writeText(trackUrl)
+      .then(() => {
+        setIsLinkCopied(true);
+        setTimeout(() => setIsLinkCopied(false), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy link:', err);
+        alert('Failed to copy link to clipboard');
+        setIsLinkCopied(false);
+      });
   };
 
   const originalTrack = relatedTracks.find(t => t.id === track.parent_track_id);
@@ -247,7 +281,7 @@ export default function Track(
         
         <div className="track-actions">
           <button 
-            className="collab-btn"
+            className="collab-btn" 
             onClick={(e) => {
               e.stopPropagation();
               router.push(`/track/${track.id}`);
@@ -257,63 +291,91 @@ export default function Track(
           </button>
           
           <button 
-            className={`like-btn ${isLiked ? 'active' : ''}`}
-            onClick={handleLikeToggle}
-            disabled={!Cookies.get('accessToken') || isLikeInProgress}
-            title={Cookies.get('accessToken') ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+            className={`like-btn ${isLiked ? 'active' : ''}`} 
+            onClick={handleLikeToggle} 
+            disabled={!isAuthenticated || isLikeInProgress}
+            title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
           >
             {isLiked ? <FaHeart /> : <FaRegHeart />}
           </button>
           
           <button 
-            className={`action-btn ${isReposted ? 'active' : ''}`}
+            className={`repost-btn ${isReposted ? 'active' : ''}`} 
             onClick={handleRepostToggle}
-            disabled={!Cookies.get('accessToken') || isRepostInProgress}
-            title={Cookies.get('accessToken') ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+            disabled={!isAuthenticated || isRepostInProgress}
+            title={isAuthenticated ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
           >
             <FaRetweet />
           </button>
           
-          <button className="share-btn">
-            <FaShareAlt />
+          <button 
+            className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
+            onClick={handleCopyLink}
+            title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
+          >
+            {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
+            {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
           </button>
         </div>
       </div>
 
       {isExpanded && (
         <div className="track-details">
-          <div className="related-tracks">
-            {loadingRelated ? (
-              <div className="loading-spinner">Loading related tracks...</div>
-            ) : (
-              <>
-                {originalTrack && !isTreeView && (
-                  <>
-                    <div className="track-relation">Original</div>
-                    <MiniTrack track={originalTrack} relatedTracks={relatedTracks} />
-                  </>
-                )}
-                
-                {collabTracks.length > 0 ? (
-                  <>
-                    <div className="track-relation">Based on this</div>
-                    {collabTracks.map(collab => (
-                      <MiniTrack key={collab.id} track={collab} relatedTracks={relatedTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
-                    ))}
-                  </>
+          <div className="track-tabs">
+            <button 
+              className={`track-tab ${activeTab === 'collabs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('collabs')}
+            >
+              <FaCodeBranch /> Collabs
+            </button>
+            <button 
+              className={`track-tab ${activeTab === 'comments' ? 'active' : ''}`}
+              onClick={() => setActiveTab('comments')}
+            >
+              <FaComment /> Comments
+            </button>
+          </div>
+          
+          {activeTab === 'collabs' && (
+            <div className="track-tab-content">
+              <div className="related-tracks">
+                {loadingRelated ? (
+                  <div className="loading-spinner">Loading related tracks...</div>
                 ) : (
                   <>
-                    {/* if tree view and no related tracks, show message */}
-                    {(isTreeView || !originalTrack) && collabTracks.length === 0 && (
-                      <div className="no-related">There are no tracks based on this track</div>
+                    {originalTrack && !isTreeView && (
+                      <>
+                        <div className="track-relation">Original</div>
+                        <MiniTrack track={originalTrack} relatedTracks={relatedTracks} />
+                      </>
+                    )}
+                    
+                    {collabTracks.length > 0 ? (
+                      <>
+                        <div className="track-relation">Based on this</div>
+                        {collabTracks.map(collab => (
+                          <MiniTrack key={collab.id} track={collab} relatedTracks={relatedTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {/* if tree view and no related tracks, show message */}
+                        {(isTreeView || !originalTrack) && collabTracks.length === 0 && (
+                          <div className="no-related">There are no tracks based on this track</div>
+                        )}
+                      </>
                     )}
                   </>
                 )}
-                
-                
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
+          
+          {activeTab === 'comments' && (
+            <div className="track-tab-content">
+              <CommentSection trackId={track.id} />
+            </div>
+          )}
         </div>
       )}
     </div>
