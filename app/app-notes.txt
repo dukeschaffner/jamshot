@@ -61,7 +61,7 @@ TODO (MVP)
   - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
   - volume faders
   - trimming regions on upload action
-  - recording meter animation
+    - recording past 90s on upload?
   - recording while looping (just stop recording at end of loop for now)
   - drag playhead
 
