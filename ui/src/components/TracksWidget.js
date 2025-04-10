@@ -1547,7 +1547,7 @@ export default function TracksWidget({
         }
         
         // Update recording track meter during playback
-        if (recordingAnalyzerRef.current && isPlayingRef.current && !isRecording && !recordingTrackSolo) {
+        if (recordingAnalyzerRef.current && isPlayingRef.current && !isRecordingRef.current && !recordingTrackSolo) {
           const dataArray = new Uint8Array(recordingAnalyzerRef.current.frequencyBinCount);
           recordingAnalyzerRef.current.getByteFrequencyData(dataArray);
           
@@ -1558,7 +1558,7 @@ export default function TracksWidget({
           const rms = Math.sqrt(sum / dataArray.length);
           const db = rms > 0 ? 20 * Math.log10(rms) : -60;
           setRecordingTrackLevel(Math.max(-60, db));
-        } else if (isRecording && inputAnalyzerRef.current) {
+        } else if (isRecordingRef.current && inputAnalyzerRef.current) {
           // Update input level meter during recording
           const dataArray = new Uint8Array(inputAnalyzerRef.current.frequencyBinCount);
           inputAnalyzerRef.current.getByteFrequencyData(dataArray);
