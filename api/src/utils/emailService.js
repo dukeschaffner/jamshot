@@ -27,7 +27,7 @@ const sendVerificationEmail = async (email, userId, username) => {
   );
 
   // Create the verification URL
-  const verificationUrl = `${process.env.API_URL || 'http://localhost:5001'}/api/auth/verify-email/${verificationToken}`;
+  const verificationUrl = `${process.env.API_URL || 'http://localhost:5001/api'}/auth/verify-email/${verificationToken}`;
 
   // Email content
   const mailOptions = {
