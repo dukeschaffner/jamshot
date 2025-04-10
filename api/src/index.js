@@ -22,6 +22,10 @@ app.use(cors({
     if (origin.startsWith('https://jamshot-') && origin.endsWith('-duke-schaffners-projects.vercel.app')) {
       return callback(null, true);
     }
+
+    if (origin === 'https://main.d1uxbz6x3vcvvs.amplifyapp.com') {
+      return callback(null, true);
+    }
     // Deny other origins
     callback(new Error('Not allowed by CORS'));
   },
