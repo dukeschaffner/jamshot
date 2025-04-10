@@ -1,0 +1,3 @@
+Check CORS config on API and on S3 bucket
+check all API config valuues
+ensure FFMPEG installed on app service
