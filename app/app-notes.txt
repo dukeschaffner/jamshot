@@ -61,15 +61,18 @@ TODO (MVP)
   - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
   - volume faders
   - trimming regions on upload action
-  - make looper work at track end
   - recording meter animation
   - recording while looping (just stop recording at end of loop for now)
+  - drag playhead
 
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
 - improve feed logic
 - comments
 - manage track view for track owners
+  - is private
+  - delete track
 - how do collabs work with private tracks?
+- limit posts/day (and total posts?)
 
 
 BUGS
@@ -91,6 +94,7 @@ TODO (after beta testing)
 - undo redo (DAW)
 - global player audio level
 - how to page with tutorials
+- freemium model
 
 LEGAL
 - option to allow others to 'steal' (use) the track?

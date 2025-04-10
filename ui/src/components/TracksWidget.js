@@ -128,14 +128,12 @@ export default function TracksWidget({
     // Calculate the effective duration based on mode and available audio
     const getEffectiveDuration = () => {
         // In collab mode, always use the provided trackDuration
-        if (isCollab) {
-            return trackDuration;
+        if (isCollab && originalBufferRef.current) {
+            return originalBufferRef.current.duration;
         }
         
         // In non-collab mode, check for recorded/uploaded audio
-        if (selectedTake && selectedTake.buffer) {
-            return selectedTake.buffer.duration;
-        } else if (recordingPlaybackBuffer) {
+        if (recordingPlaybackBuffer) {
             return recordingPlaybackBuffer.duration;
         } else {
             // Default to 1:30 (90 seconds) if no audio is available
@@ -364,12 +362,17 @@ export default function TracksWidget({
     // Enable the play button when playback is complete
     if (activeSources.length > 0) {
       activeSources[0].onended = function() {
-        if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) > getEffectiveDuration() - 1){ //Ended naturally, no looping
-          playheadInternalTimeRef.current = 0;
-          setIsPlaying(false);
-          activeSourcesRef.current = [];
-          if(isRecording){
-            stopRecording();
+        if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) >= getEffectiveDuration()){ //Ended naturally, no looping
+          if(isLooping){ //Go to the start of the looper
+            seekToTime(posToTime(looperLeftPos, getEffectiveDuration()));
+          }
+          else{
+            playheadInternalTimeRef.current = 0;
+            setIsPlaying(false);
+            activeSourcesRef.current = [];
+            if(isRecording){
+              stopRecording();
+            }
           }
         }
       };
