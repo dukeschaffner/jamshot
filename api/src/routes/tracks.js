@@ -13,6 +13,17 @@ const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth')
 const crypto = require('crypto');
 require('dotenv').config;
 
+// Configure FFMPEG path based on platform
+if (process.platform === 'linux') {
+  // Use the FFMPEG binary in the bin directory on Linux (Azure)
+  const ffmpegPath = path.join(__dirname, '../../bin/ffmpeg');
+  ffmpeg.setFfmpegPath(ffmpegPath);
+  console.log('Using local FFMPEG binary:', ffmpegPath);
+} else {
+  // On other platforms (macOS/Windows), rely on system installation
+  console.log('Using system-installed FFMPEG');
+}
+
 const router = express.Router();
 
 // Multer setup - Memory storage
@@ -78,6 +89,35 @@ function generateSecureToken(length = 32) {
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
+
+// Add a health check endpoint to verify FFMPEG is working
+router.get('/ffmpeg-check', async (req, res) => {
+  try {
+    ffmpeg.getAvailableFormats((err, formats) => {
+      if (err) {
+        console.error('FFMPEG check failed:', err);
+        return res.status(500).json({ 
+          error: 'FFMPEG check failed', 
+          message: err.message,
+          platform: process.platform
+        });
+      }
+      
+      return res.status(200).json({ 
+        status: 'FFMPEG is available',
+        platform: process.platform,
+        formatsAvailable: Object.keys(formats).length > 0
+      });
+    });
+  } catch (err) {
+    console.error('FFMPEG check exception:', err);
+    return res.status(500).json({ 
+      error: 'FFMPEG check exception', 
+      message: err.message,
+      platform: process.platform
+    });
+  }
+});
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
   const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm } = req.body;
