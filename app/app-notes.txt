@@ -64,6 +64,7 @@ TODO (MVP)
     - recording past 90s on upload?
   - recording while looping (just stop recording at end of loop for now)
   - drag playhead
+  - validate duration for files uploaded to the daw
 
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
 - improve feed logic
@@ -79,6 +80,7 @@ BUGS
 - following feed not working
 - popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - dark mode inconsistencies
+- collab upload with uploaded file failed with "cannot find ffmpeg"
 
 
 TODO (after beta testing)

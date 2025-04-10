@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "prestart": "node src/scripts/check-ffmpeg.js",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js"
   },
