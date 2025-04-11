@@ -127,6 +127,30 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
 
+  // Check if user has reached their daily upload limit (3 uploads per day)
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of the day
+    
+    const uploadCountResult = await pool.query(
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2',
+      [userId, today]
+    );
+    
+    const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
+    
+    if (dailyUploadCount >= 3) {
+      return res.status(429).json({ 
+        error: 'Daily upload limit reached',
+        message: 'You can only upload 3 tracks per day',
+        daily_count: dailyUploadCount
+      });
+    }
+  } catch (err) {
+    console.error('Error checking upload limit:', err);
+    return res.status(500).json({ error: `Failed to check upload limit: ${err.message}` });
+  }
+
   // Parse genre and instrument IDs if they're provided as strings
   const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
   const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];
