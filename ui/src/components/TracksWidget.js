@@ -29,6 +29,7 @@ export default function TracksWidget({
     const [isLooping, setIsLooping] = useState(true);
     const [looperLeftPos, setLooperLeftPos] = useState(0);
     const [looperRightPos, setLooperRightPos] = useState(100);
+    const [effectiveDuration, setEffectiveDuration] = useState(10); // Default to 90 seconds (1:30)
 
     const originalBufferRef = useRef(null);
     const originalGainNodeRef = useRef(null);
@@ -126,20 +127,29 @@ export default function TracksWidget({
     };
 
     // Calculate the effective duration based on mode and available audio
-    const getEffectiveDuration = () => {
-        // In collab mode, always use the provided trackDuration
-        if (isCollab && originalBufferRef.current) {
-            return originalBufferRef.current.duration;
+    // Replace function with useEffect that updates state
+    useEffect(() => {
+      // In collab mode, use the provided trackDuration or original buffer duration
+      if (isCollab && originalBufferRef.current) {
+        setEffectiveDuration(originalBufferRef.current.duration);
+      }
+      // In non-collab mode, check for recorded/uploaded audio
+      else if (recordingPlaybackBuffer) {
+        setEffectiveDuration(recordingPlaybackBuffer.duration);
+      }
+      // Default value is already set in state initialization (90 seconds)
+    }, [isCollab, originalBufferRef.current, recordingPlaybackBuffer]);
+
+    // Handle extending duration when recording exceeds current duration
+    useEffect(() => {
+      if (!isCollab && isRecording && recordedBufferRef.current) {
+        const currentPlaybackTime = playheadInternalTimeRef.current + (audioContext?.currentTime - absolutePlaybackStartTimeRef.current);
+        // If we're approaching the end, extend the duration
+        if (currentPlaybackTime + 5 > effectiveDuration) {  // Add 5 second buffer
+          setEffectiveDuration(prev => prev + 30); // Extend by 30 seconds
         }
-        
-        // In non-collab mode, check for recorded/uploaded audio
-        if (recordingPlaybackBuffer) {
-            return recordingPlaybackBuffer.duration;
-        } else {
-            // Default to 1:30 (90 seconds) if no audio is available
-            return 90;
-        }
-    };
+      }
+    }, [isCollab, isRecording, playheadInternalTimeRef.current, absolutePlaybackStartTimeRef.current]);
 
     const processAudioChunks = async (chunks) => {
         if (!chunks || chunks.length === 0 || !audioContext) return;
@@ -329,14 +339,10 @@ export default function TracksWidget({
     // Store active sources for stopping playback
     activeSourcesRef.current = activeSources;
     
-    // if (activeSources.length === 0) {
-    //   return; // No sources to play
-    // }
-    
     // Start playback with latency compensation
     let startTime;
     if(isLooping){
-        startTime = posToTime(looperLeftPos, getEffectiveDuration());
+        startTime = posToTime(looperLeftPos, effectiveDuration);
         setPlayheadTime(startTime);
         setPlayheadPos(looperLeftPos);
         playheadInternalTimeRef.current = startTime;
@@ -352,7 +358,7 @@ export default function TracksWidget({
     
     if(isRecording){
       relativeRecordingStartTimeRef.current = startTime;
-      setRecordingStartPos(timeToPos(startTime, getEffectiveDuration()));
+      setRecordingStartPos(timeToPos(startTime, effectiveDuration));
       setRecordingWidth(0);
     }
 
@@ -362,9 +368,9 @@ export default function TracksWidget({
     // Enable the play button when playback is complete
     if (activeSources.length > 0) {
       activeSources[0].onended = function() {
-        if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) >= getEffectiveDuration()){ //Ended naturally, no looping
+        if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) >= effectiveDuration){ //Ended naturally, no looping
           if(isLooping){ //Go to the start of the looper
-            seekToTime(posToTime(looperLeftPos, getEffectiveDuration()));
+            seekToTime(posToTime(looperLeftPos, effectiveDuration));
           }
           else{
             playheadInternalTimeRef.current = 0;
@@ -406,7 +412,7 @@ export default function TracksWidget({
   const seekToTime = (time) => {
     // Update the playhead position and time
     setPlayheadTime(time);
-    setPlayheadPos(timeToPos(time, getEffectiveDuration()));
+    setPlayheadPos(timeToPos(time, effectiveDuration));
     
     // Update the internal time reference
     playheadInternalTimeRef.current = time;
@@ -551,15 +557,22 @@ export default function TracksWidget({
     // const recordingLatency1 = absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current;
     // const recordingLatency2 = absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current;
 
-    const recordingLatency = !isFile ? audioContext.outputLatency + (absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current) : 0;
+      const recordingLatency = !isFile ? audioContext.outputLatency + (absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current) : 0;
 
-    console.log('Input latency point 1:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current, 'seconds');
-    console.log('Input latency point 2:', absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current, 'seconds');
-    console.log('Input latency based on buffer:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current, 'seconds');
-    console.log('output latency:', audioContext.outputLatency, 'seconds');
+      console.log('Input latency point 1:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef1.current, 'seconds');
+      console.log('Input latency point 2:', absolutePlaybackStartTimeRef.current - absoluteRecordingStartTimeRef.current, 'seconds');
+      console.log('Input latency based on buffer:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current, 'seconds');
+      console.log('output latency:', audioContext.outputLatency, 'seconds');
       
       const startTime = isFile ? 0 : relativeRecordingStartTimeRef.current;
       const endTime = isFile ? buffer.duration : startTime + buffer.duration;
+
+      // In non-collab mode, if the recording exceeds current duration, extend it
+      if (!isCollab && endTime > effectiveDuration) {
+        // Round up to nearest 30 seconds for a cleaner UI
+        const newDuration = Math.ceil(endTime / 30) * 30;
+        setEffectiveDuration(newDuration);
+      }
 
       // Create a take with the high-quality WAV data
       const takeNumber = takes.length + 1;
@@ -574,7 +587,7 @@ export default function TracksWidget({
         recordingLatency: recordingLatency,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
-        bitDepth: 24 // Store the bit depth for reference
+        bitDepth: 24
       };
       
       // Add the new take to the takes list
@@ -848,24 +861,20 @@ export default function TracksWidget({
   useEffect(() => {
     if (isPlaying) {
       const updatePlayhead = () => {
-        // if (playheadRef.current) {
-          const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
-          const playheadPos = timeToPos(currentTime, getEffectiveDuration());
-          if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
-            seekToTime(posToTime(looperLeftPos, getEffectiveDuration()));
-          }
-          else{
-            setPlayheadPos(playheadPos);
-            
-            // Update recording indicator width when recording
-            if (isRecording) {
-              const indicatorWidth = playheadPos - recordingStartPos;
-              setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
-            }
-          }
+        const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
+        const playheadPos = timeToPos(currentTime, effectiveDuration);
+        if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
+          seekToTime(posToTime(looperLeftPos, effectiveDuration));
+        }
+        else{
+          setPlayheadPos(playheadPos);
           
-          
-        // }
+          // Update recording indicator width when recording
+          if (isRecording) {
+            const indicatorWidth = playheadPos - recordingStartPos;
+            setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
+          }
+        }
       };
       
       updatePlayhead();
@@ -876,7 +885,7 @@ export default function TracksWidget({
         clearInterval(playheadIntervalRef.current);
       };
     }
-  }, [isPlaying]);
+  }, [isPlaying, effectiveDuration]);
 
 
     // Handle waveform click
@@ -886,7 +895,7 @@ export default function TracksWidget({
         const rect = waveformContainerRef.current.getBoundingClientRect();
         const clickPos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
         
-        seekToTime(posToTime(clickPos, getEffectiveDuration()));
+        seekToTime(posToTime(clickPos, effectiveDuration));
     };
 
       // Mouse down handlers for dragging
@@ -930,12 +939,22 @@ export default function TracksWidget({
   useEffect(() => {
     if(selectedTake){
       recordedBufferRef.current = selectedTake.buffer;
-      const startPos = timeToPos(selectedTake.startTime, getEffectiveDuration());
-      setRecordingStartPos(startPos);
-      const width = timeToPos(selectedTake.endTime - selectedTake.startTime, getEffectiveDuration());
-      setRecordingWidth(width);
+      
+      if(isCollab){
+        const startPos = timeToPos(selectedTake.startTime, effectiveDuration);
+        setRecordingStartPos(startPos);
+
+        const width = timeToPos(selectedTake.endTime - selectedTake.startTime, effectiveDuration);
+        setRecordingWidth(width);
+      }
+      else{
+        setRecordingStartPos(0);
+        setRecordingWidth(100);
+      }
+
+      
     }
-  }, [selectedTake]);
+  }, [selectedTake, effectiveDuration]);
 
     // Mouse event handlers
     useEffect(() => {
@@ -1078,7 +1097,7 @@ export default function TracksWidget({
           const relativePos = (newCropX - recordingStartX) / recordingWidth * 100;
           setCropStartPercentage(relativePos);
 
-          cropStartTimeRef.current = posToTime((newCropX - trackStartX) / rect.width * 100, getEffectiveDuration());
+          cropStartTimeRef.current = posToTime((newCropX - trackStartX) / rect.width * 100, effectiveDuration);
         }
         
         // Handle crop end dragging
@@ -1110,7 +1129,7 @@ export default function TracksWidget({
           const relativePos = (recordingEndX - newCropX) / recordingWidth * 100;
           setCropEndPercentage(relativePos);
 
-          cropEndTimeRef.current = posToTime((newCropX - trackStartX) / rect.width * 100, getEffectiveDuration());
+          cropEndTimeRef.current = posToTime((newCropX - trackStartX) / rect.width * 100, effectiveDuration);
         }
       };
         
@@ -1124,7 +1143,7 @@ export default function TracksWidget({
           
           // If we were dragging the recording region, update the selected take's startTime and endTime
           if (isDraggingRecordingRegion && selectedTake) {
-            const newStartTime = posToTime(recordingStartPosRef.current, getEffectiveDuration());
+            const newStartTime = posToTime(recordingStartPosRef.current, effectiveDuration);
             const recordingDuration = selectedTake.endTime - selectedTake.startTime;
             const newEndTime = newStartTime + recordingDuration;
 
@@ -1234,9 +1253,6 @@ export default function TracksWidget({
   const generateTimeMarkers = () => {
     const markers = [];
     
-    // Determine the effective duration to use for markers
-    let effectiveDuration = getEffectiveDuration();
-    
     // Determine appropriate interval based on track duration
     let interval; // in seconds
     let numMarkers;
@@ -1327,13 +1343,13 @@ export default function TracksWidget({
     const gridLines = [];
     
     // Calculate how many measures fit in the track
-    const totalMeasures = Math.ceil(getEffectiveDuration() / secondsPerMeasure);
+    const totalMeasures = Math.ceil(effectiveDuration / secondsPerMeasure);
     
     // Generate measure lines (strong grid lines)
     for (let measure = 0; measure <= totalMeasures; measure++) {
       const measureTime = measure * secondsPerMeasure;
-      if (measureTime <= getEffectiveDuration()) {
-        const position = timeToPos(measureTime, getEffectiveDuration());
+      if (measureTime <= effectiveDuration) {
+        const position = timeToPos(measureTime, effectiveDuration);
         gridLines.push(
           <div 
             key={`measure-${measure}`} 
@@ -1350,8 +1366,8 @@ export default function TracksWidget({
       // Skip beats that fall on measure boundaries (already covered by measure lines)
       if (beat % beatsPerMeasure !== 0) {
         const beatTime = beat * secondsPerBeat;
-        if (beatTime <= getEffectiveDuration()) {
-          const position = timeToPos(beatTime, getEffectiveDuration());
+        if (beatTime <= effectiveDuration) {
+          const position = timeToPos(beatTime, effectiveDuration);
           gridLines.push(
             <div 
               key={`beat-${beat}`} 
@@ -1922,8 +1938,8 @@ export default function TracksWidget({
                     ${isDraggingCropStart || isDraggingCropEnd ? 'cropping' : ''}
                   `}
                   style={{
-                    left: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.startTime - selectedTake.timeOffset, getEffectiveDuration()) : recordingStartPos}%`,
-                    width: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.buffer.duration, getEffectiveDuration()) : recordingWidth}%`,
+                    left: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.startTime - selectedTake.timeOffset, effectiveDuration) : recordingStartPos}%`,
+                    width: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.buffer.duration, effectiveDuration) : recordingWidth}%`,
                     cursor: isPlaying || isRecording ? 'default' : (
                       showCropHandles ? 'col-resize' : (isCollab ? 'grab' : 'default')
                     )
