@@ -1581,4 +1581,82 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
   }
 });
 
+// Refresh signed URL for a track
+router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { secret } = req.query; // Secret token for private tracks
+  
+  try {
+    // First check if the track exists and if it's private
+    const trackCheck = await pool.query(
+      'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const track = trackCheck.rows[0];
+    
+    // If track is private, check if user is authorized to view it
+    if (track.is_private) {
+      // Allow access if user is the owner
+      const isOwner = userId && track.user_id === userId;
+      
+      // Check if a valid secret token is provided
+      const hasValidSecret = secret && track.secret_token && secret === track.secret_token;
+      
+      if (!isOwner && !hasValidSecret) {
+        return res.status(403).json({ error: 'This track is private' });
+      }
+    }
+    
+    // Get the track details
+    const result = await pool.query(
+      `SELECT t.*, u.username as username, u.profile_pic_url as user_profile_pic
+       FROM tracks t
+       JOIN users u ON t.user_id = u.id
+       WHERE t.id = $1`,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const trackData = result.rows[0];
+    let audioUrl = trackData.audio_url;
+    let combinedAudioUrl = trackData.combined_audio_url || trackData.audio_url;
+    
+    // Generate new signed URLs
+    if (audioUrl.startsWith('tracks/')) {
+      audioUrl = s3.getSignedUrl('getObject', {
+        Bucket: process.env.S3_BUCKET,
+        Key: trackData.audio_url,
+        Expires: 3600, // 1 hour expiration
+      });
+    }
+    
+    if (combinedAudioUrl.startsWith('tracks/')) {
+      combinedAudioUrl = s3.getSignedUrl('getObject', {
+        Bucket: process.env.S3_BUCKET,
+        Key: trackData.combined_audio_url || trackData.audio_url,
+        Expires: 3600, // 1 hour expiration
+      });
+    }
+    
+    // Return just the URLs
+    res.json({ 
+      audio_url: audioUrl, 
+      combined_audio_url: combinedAudioUrl,
+      track_id: trackData.id
+    });
+  } catch (err) {
+    console.error('Error refreshing track URL:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
