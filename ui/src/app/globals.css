@@ -4532,3 +4532,166 @@ body.dark-mode .track-tab {
 .track-tab-content {
   margin-top: 16px;
 }
+
+/* Edit Track Container Styles */
+.edit-track-container {
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.edit-track-panel {
+  background-color: var(--white);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px var(--shadow);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body.dark-mode .edit-track-panel {
+  background-color: var(--dark-card-bg);
+  box-shadow: 0 4px 12px var(--dark-shadow);
+}
+
+.edit-track-panel h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--dark);
+  transition: color 0.3s ease;
+}
+
+body.dark-mode .edit-track-panel h3 {
+  color: var(--dark-text-primary);
+}
+
+.edit-track-section {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--gray);
+  transition: border-color 0.3s ease;
+}
+
+body.dark-mode .edit-track-section {
+  border-bottom-color: var(--dark-border-color);
+}
+
+.edit-track-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.edit-track-section h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--dark);
+  transition: color 0.3s ease;
+}
+
+body.dark-mode .edit-track-section h4 {
+  color: var(--dark-text-primary);
+}
+
+.privacy-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.privacy-btn, .edit-track-share-btn, .delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  max-width: fit-content;
+}
+
+.privacy-btn {
+  background-color: var(--seafoam-light);
+  color: var(--dark);
+}
+
+.privacy-btn.private {
+  background-color: var(--rustic-pink-light);
+}
+
+.privacy-btn:hover {
+  opacity: 0.9;
+}
+
+.edit-track-share-btn {
+  background-color: var(--seafoam-light);
+  color: var(--dark);
+}
+
+.edit-track-share-btn:hover {
+  opacity: 0.9;
+}
+
+.share-link-section {
+  margin-top: 1.5rem;
+}
+
+.privacy-description, .share-description, .delete-description {
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-top: 0.5rem;
+  line-height: 1.5;
+  transition: color 0.3s ease;
+}
+
+body.dark-mode .privacy-description,
+body.dark-mode .share-description,
+body.dark-mode .delete-description {
+  color: var(--dark-text-secondary);
+}
+
+.danger-zone {
+  margin-top: 2rem;
+}
+
+.danger-zone h4 {
+  color: #dc2626;
+}
+
+.delete-btn {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.delete-btn:hover {
+  background-color: #fecaca;
+}
+
+.delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .edit-track-container {
+    padding: 1rem;
+  }
+  
+  .edit-track-panel {
+    padding: 1.5rem;
+  }
+  
+  .privacy-btn, .edit-track-share-btn, .delete-btn {
+    width: 100%;
+    max-width: none;
+    justify-content: center;
+  }
+}

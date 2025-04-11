@@ -5,10 +5,12 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
+import api from '@/lib/api';
 import DawInterface from '@/components/DawInterface';
 import CommentSection from '@/components/CommentSection';
 import './collaborate.css';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit } from 'react-icons/fa';
+import { useUser } from '../../../contexts/UserContext';
 
 // Component that uses useSearchParams, wrapped in Suspense
 function TrackContent() {
@@ -19,6 +21,12 @@ function TrackContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('collab');
+  const { user, isAuthenticated } = useUser();
+  const [isTrackOwner, setIsTrackOwner] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
+  const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   useEffect(() => {
     async function loadTrack() {
@@ -32,6 +40,7 @@ function TrackContent() {
           throw new Error('Track not found');
         }
         setTrack(mainTrack);
+        setIsPrivate(mainTrack.is_private || false);
         setLoading(false);
       } catch (err) {
         console.error('Error loading track:', err);
@@ -48,6 +57,119 @@ function TrackContent() {
       loadTrack();
     }
   }, [trackId, secret]);
+
+  // Check if current user is the track owner
+  useEffect(() => {
+    const checkOwnership = async () => {
+      try {
+        if (!isAuthenticated || !user || !track) return;
+        
+        setIsTrackOwner(user.id === track.user_id);
+      } catch (err) {
+        console.error('Error checking track ownership:', err);
+      }
+    };
+    
+    checkOwnership();
+  }, [track, user, isAuthenticated]);
+
+  const handlePrivacyToggle = async () => {
+    if (!isTrackOwner || isPrivacyToggleInProgress) return;
+    
+    setIsPrivacyToggleInProgress(true);
+    
+    try {
+      const response = await api.put(`/tracks/${trackId}/privacy`, {
+        is_private: !isPrivate
+      });
+      
+      setIsPrivate(!isPrivate);
+      
+      // Show a notification
+      const message = !isPrivate 
+        ? 'Track is now private. Only you and people with the private link can view it.' 
+        : 'Track is now public.';
+      alert(message);
+    } catch (err) {
+      console.error('Failed to toggle track privacy:', err);
+      
+      // Check for specific error about collaborations
+      if (err.response && err.response.data && err.response.data.error === 'Cannot make track private because it has collaborations') {
+        alert('Cannot make track private because it has collaborations. Tracks with collaborations must remain public.');
+      } else {
+        alert('Failed to update track privacy settings');
+      }
+    } finally {
+      setIsPrivacyToggleInProgress(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const baseUrl = window.location.origin;
+    let trackUrl = `${baseUrl}/track/${trackId}`;
+    
+    // If track is private, get the secret token from the API
+    if (isPrivate && isTrackOwner) {
+      try {
+        setIsLinkCopied(true); // Show loading state
+        const response = await api.post(`/tracks/${trackId}/share`);
+        trackUrl += `?secret=${response.data.secretToken}`;
+      } catch (err) {
+        console.error('Failed to generate share link:', err);
+        alert('Failed to generate share link');
+        setIsLinkCopied(false);
+        return;
+      }
+    }
+    
+    navigator.clipboard.writeText(trackUrl)
+      .then(() => {
+        setIsLinkCopied(true);
+        setTimeout(() => setIsLinkCopied(false), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy link:', err);
+        alert('Failed to copy link to clipboard');
+        setIsLinkCopied(false);
+      });
+  };
+
+  const handleDeleteTrack = async () => {    
+    if (!isTrackOwner || isDeleteInProgress) return;
+    
+    // Confirm deletion with user
+    const hasChildren = track.child_count > 0;
+    let confirmMessage = 'Are you sure you want to delete this track?';
+    
+    if (hasChildren) {
+      confirmMessage = 'This track has collaborations. Deleting it will remove your ownership, but the track will remain available for others. Continue?';
+    }
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    setIsDeleteInProgress(true);
+    
+    try {
+      const response = await api.delete(`/tracks/${trackId}`);
+      
+      // Show appropriate message based on deletion type
+      if (response.data.soft_delete) {
+        alert('Track has been removed from your profile but remains available for collaborations.');
+      } else {
+        alert('Track has been permanently deleted.');
+      }
+      
+      // Redirect to home page
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Failed to delete track:', err);
+      alert('Failed to delete track. Please try again later.');
+    } finally {
+      setIsDeleteInProgress(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -109,6 +231,14 @@ function TrackContent() {
             >
               Comments
             </button>
+            {isTrackOwner && (
+              <button 
+                className={`tab ${activeTab === 'edit' ? 'active' : ''}`}
+                onClick={() => setActiveTab('edit')}
+              >
+                Edit
+              </button>
+            )}
           </div>
          </div>
          <div className="track-controls">
@@ -124,6 +254,73 @@ function TrackContent() {
       {activeTab === 'comments' && (
         <div className="comments-container">
           <CommentSection trackId={trackId} />
+        </div>
+      )}
+      {activeTab === 'edit' && isTrackOwner && (
+        <div className="edit-track-container">
+          <div className="edit-track-panel">
+            <h3>Track Settings</h3>
+            
+            <div className="edit-track-section">
+              <h4>Privacy Settings</h4>
+              <div className="privacy-toggle">
+                <button 
+                  className={`privacy-btn ${isPrivate ? 'private' : 'public'}`}
+                  onClick={handlePrivacyToggle}
+                  disabled={isPrivacyToggleInProgress}
+                >
+                  {isPrivate ? (
+                    <>
+                      <FaLock className="btn-icon" />
+                      <span>Private</span>
+                    </>
+                  ) : (
+                    <>
+                      <FaLockOpen className="btn-icon" />
+                      <span>Public</span>
+                    </>
+                  )}
+                </button>
+                <p className="privacy-description">
+                  {isPrivate 
+                    ? 'This track is private. Only you and people with the link can view it.' 
+                    : 'This track is public. Anyone can view and collaborate on it.'}
+                </p>
+              </div>
+              
+              {isPrivate && (
+                <div className="share-link-section">
+                  <button 
+                    className="edit-track-share-btn"
+                    onClick={handleCopyLink}
+                  >
+                    <FaShareAlt className="btn-icon" />
+                    <span>{isLinkCopied ? 'Link Copied!' : 'Copy Private Link'}</span>
+                  </button>
+                  <p className="share-description">
+                    Share this link to give others access to your private track.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="edit-track-section danger-zone">
+              <h4>Danger Zone</h4>
+              <button 
+                className="delete-btn"
+                onClick={handleDeleteTrack}
+                disabled={isDeleteInProgress}
+              >
+                <FaTrash className="btn-icon" />
+                <span>{isDeleteInProgress ? 'Deleting...' : 'Delete Track'}</span>
+              </button>
+              <p className="delete-description">
+                {track.child_count > 0 
+                  ? 'This track has collaborations. Deleting it will remove your ownership, but the track will remain available for others.' 
+                  : 'This action cannot be undone. The track will be permanently deleted.'}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
