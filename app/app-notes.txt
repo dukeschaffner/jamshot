@@ -74,6 +74,7 @@ TODO (MVP)
   - delete track
 - how do collabs work with private tracks?
 - limit posts/day (and total posts?)
+- handle expired s3 signed urls
 
 
 BUGS
@@ -81,6 +82,7 @@ BUGS
 - popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - dark mode inconsistencies
 - collab upload with uploaded file failed with "cannot find ffmpeg"
+- daw - sometimes hitting pause during playback start another unpausable instance of the song
 
 
 TODO (after beta testing)
