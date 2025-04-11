@@ -311,7 +311,7 @@ router.get('/feed', async (req, res) => {
         followed_tracks AS (
           SELECT 
             t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at, t.play_count,
+            t.created_at::timestamp with time zone AS created_at, t.play_count,
             u.username, u.verified, u.profile_pic_url,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -320,7 +320,7 @@ router.get('/feed', async (req, res) => {
             EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
             NULL::integer AS reposted_by_id,
             NULL::text AS reposted_by_username,
-            NULL::timestamp AS reposted_at,
+            NULL::timestamp with time zone AS reposted_at,
             FALSE AS is_repost
           FROM tracks t
           LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
@@ -329,8 +329,8 @@ router.get('/feed', async (req, res) => {
         ),
         reposted_tracks AS (
           SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-            r.created_at,
+            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+            r.created_at::timestamp with time zone AS created_at, t.play_count,
             u.username, u.verified, u.profile_pic_url,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -339,7 +339,7 @@ router.get('/feed', async (req, res) => {
             EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
             r.user_id AS reposted_by_id,
             ru.username AS reposted_by_username,
-            r.created_at AS reposted_at,
+            r.created_at::timestamp with time zone AS reposted_at,
             TRUE AS is_repost
           FROM reposts r
           JOIN tracks t ON r.track_id = t.id
@@ -354,7 +354,7 @@ router.get('/feed', async (req, res) => {
           SELECT * FROM reposted_tracks
         ) combined
         ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $2 OFFSET $3;
       `;
       queryParams = [userId, limitNum, offset];
     } else if (feedType === 'popular') {

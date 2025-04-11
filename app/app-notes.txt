@@ -70,7 +70,6 @@ TODO (MVP)
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
 - improve feed logic
 - how do collabs work with private tracks?
-- handle expired s3 signed urls
 - comment edit view
 
 
@@ -96,6 +95,7 @@ TODO (after beta testing)
 - global player audio level
 - how to page with tutorials
 - freemium model
+- invite people to collab on private tracks?
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
