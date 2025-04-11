@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Howl } from 'howler';
-import api from './api';
+import api, { refreshTrackUrl } from './api';
 
 const AudioContext = createContext();
 
@@ -18,12 +18,11 @@ export function AudioProvider({ children }) {
   const shuffledIndicesRef = useRef([]);
   const currentPositionRef = useRef(0);
   const loadedTrackIdRef = useRef(null);
+  const urlRefreshAttemptedRef = useRef(false); // Track if we've tried refreshing the URL
 
   // Refs for play counter
   const listeningTimeRef = useRef(0);
   const playRecordedRef = useRef(false);
-
-
 
   // Used for counting plays
   // Define functions with useCallback to prevent unnecessary re-creation
@@ -119,6 +118,36 @@ export function AudioProvider({ children }) {
     };
   }, []);
 
+  // Function to refresh track URL and replay
+  const handleExpiredUrl = useCallback(async () => {
+    if (!currentTrack || urlRefreshAttemptedRef.current) return;
+    
+    console.log('Track URL might be expired, attempting to refresh URL for:', currentTrack.id);
+    urlRefreshAttemptedRef.current = true;
+    
+    try {
+      // Get a fresh URL, passing along secret token if available
+      const refreshedUrls = await refreshTrackUrl(
+        currentTrack.id, 
+        currentTrack.secret_token || null
+      );
+      
+      // Update the track with the fresh URL
+      const updatedTrack = {
+        ...currentTrack,
+        combined_audio_url: refreshedUrls.combined_audio_url,
+        audio_url: refreshedUrls.audio_url
+      };
+      
+      // Replace the current track with updated URLs
+      setCurrentTrack(updatedTrack);
+      
+      console.log('Successfully refreshed URL, trying playback again');
+    } catch (err) {
+      console.error('Failed to refresh track URL:', err);
+    }
+  }, [currentTrack]);
+
   // useEffect to initialize the audio player for track
   useEffect(() => {
     if (currentTrack && currentTrack.id !== loadedTrackIdRef.current) { // only initialize the audio if the track has changed
@@ -130,10 +159,21 @@ export function AudioProvider({ children }) {
         soundRef.current.unload();
       }
       
+      // Reset URL refresh attempt flag for new track
+      urlRefreshAttemptedRef.current = false;
+      
       soundRef.current = new Howl({
         src: [currentTrack.combined_audio_url],
         html5: true,
         onload: () => console.log('Global audio loaded:', currentTrack.title),
+        onloaderror: (id, error) => {
+          console.error('Error loading audio:', error);
+          handleExpiredUrl();
+        },
+        onplayerror: (id, error) => {
+          console.error('Error playing audio:', error);
+          handleExpiredUrl();
+        },
         onend: () => {
           console.log('Track ended, playing next');
           handleTrackEnd();
@@ -165,7 +205,7 @@ export function AudioProvider({ children }) {
       clearInterval(listeningTimeInterval);
       clearInterval(progressInterval);
     };
-  }, [currentTrack, isPlaying, handleTrackEnd, updateListeningTime]);
+  }, [currentTrack, isPlaying, handleTrackEnd, updateListeningTime, handleExpiredUrl]);
 
   // Generate shuffled indices when playlist or shuffle state changes
   useEffect(() => {
