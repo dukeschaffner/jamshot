@@ -754,13 +754,12 @@ body.dark-mode .empty-feed {
 }
 
 .track-item {
-  padding: 16px 40px;
   border-bottom: 1px solid var(--gray-light);
   transition: background-color 0.2s ease;
 }
 
 body.dark-mode .track-item {
-  border-bottom: 1px solid var(--gray-light);
+  border-bottom: 1px solid var(--dark-border-color);
 }
 
 .track-item:hover {
@@ -781,7 +780,8 @@ body.dark-mode .track-item.expanded {
 
 .repost-banner {
   background-color: var(--gray-light);
-  padding: 8px 16px;
+  padding: 0px 16px;
+  border-radius: 5px;
   font-size: 12px;
   color: var(--text);
   display: flex;
@@ -800,6 +800,7 @@ body.dark-mode .repost-banner {
 }
 
 .track-main {
+  padding: 16px 40px;
   display: grid;
   grid-template-columns: 60px 1fr auto;
   gap: 16px;
@@ -873,9 +874,17 @@ body.dark-mode .track-title {
   text-overflow: ellipsis;
 }
 
+.track-tag.mini {
+  background-color: var(--gray);
+}
+
 body.dark-mode .track-tag {
   background-color: var(--dark-hover-color);
   color: var(--dark-text-secondary);
+}
+
+body.dark-mode .track-tag.mini {
+  background-color: var(--dark-card-bg);
 }
 
 .track-artist {
@@ -1059,6 +1068,7 @@ body.dark-mode .share-btn:hover {
 .track-details {
   background-color: var(--gray-light);
   padding: 16px;
+  padding-top: 0;
   border-top: 1px solid var(--gray-light);
   border-radius: 0 0 12px 12px;
   transition: background-color 0.3s ease, border-color 0.3s ease;
@@ -4173,7 +4183,7 @@ body.dark-mode .control-button.active {
 
 .comment-input {
   width: 100%;
-  background-color: var(--bg-input);
+  background-color: var(--gray);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
@@ -4182,6 +4192,10 @@ body.dark-mode .control-button.active {
   resize: vertical;
   min-height: 80px;
   transition: border-color 0.2s;
+}
+
+body.dark-mode .comment-input {
+  background-color: var(--dark-card-bg);
 }
 
 .comment-input:focus {
@@ -4476,21 +4490,24 @@ body.dark-mode .control-button.active {
 }
 
 /* Tabbed interface styles */
+/* Used by track component */
 .track-tabs {
   display: flex;
-  margin-top: 16px;
   border-bottom: 1px solid var(--border-color);
 }
 
 .track-tab {
   padding: 10px 20px;
   background: none;
-  border: none;
-  color: var(--text-secondary);
+  color: var(--text);
   cursor: pointer;
   font-size: 0.95rem;
   position: relative;
   transition: color 0.2s;
+}
+
+body.dark-mode .track-tab {
+  color: var(--dark-text);
 }
 
 .track-tab:hover {
@@ -4498,8 +4515,8 @@ body.dark-mode .control-button.active {
 }
 
 .track-tab.active {
-  color: var(--primary);
   font-weight: 600;
+  border-bottom: 2px solid var(--text);
 }
 
 .track-tab.active::after {

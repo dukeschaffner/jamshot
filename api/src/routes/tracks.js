@@ -852,6 +852,19 @@ router.post('/:id/comment', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const { content, parent_comment_id } = req.body;
   const userId = req.user.id;
+  
+  // Validate comment content length
+  const MAX_COMMENT_LENGTH = 1000;
+  if (!content || typeof content !== 'string') {
+    return res.status(400).json({ error: 'Comment content is required' });
+  }
+  if (content.trim().length === 0) {
+    return res.status(400).json({ error: 'Comment content cannot be empty' });
+  }
+  if (content.length > MAX_COMMENT_LENGTH) {
+    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+  }
+  
   try {
     // Check if track exists and get track owner
     const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
@@ -926,6 +939,18 @@ router.put('/comments/:commentId', authMiddleware, async (req, res) => {
   const { commentId } = req.params;
   const { content } = req.body;
   const userId = req.user.id;
+  
+  // Validate comment content length
+  const MAX_COMMENT_LENGTH = 1000;
+  if (!content || typeof content !== 'string') {
+    return res.status(400).json({ error: 'Comment content is required' });
+  }
+  if (content.trim().length === 0) {
+    return res.status(400).json({ error: 'Comment content cannot be empty' });
+  }
+  if (content.length > MAX_COMMENT_LENGTH) {
+    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+  }
   
   try {
     // Check if comment exists and belongs to the user
