@@ -899,10 +899,11 @@ export default function TracksWidget({
     };
 
       // Mouse down handlers for dragging
-//   const handlePlayheadMouseDown = (e) => {
-//     e.stopPropagation();
-//     setIsDraggingPlayhead(true);
-//   };
+  const handlePlayheadMouseDown = (e) => {
+    e.stopPropagation();
+    if(isPlaying || isRecording) {return;}
+    setIsDraggingPlayhead(true);
+  };
   
   const handleLooperLeftMouseDown = (e) => {
     e.stopPropagation();
@@ -965,8 +966,9 @@ export default function TracksWidget({
         const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
         
         // Dragging playhead
-        // if (isDraggingPlayhead) {
-        //   setPlayheadPos(mousePos);
+        if (isDraggingPlayhead) {
+          setPlayheadPos(mousePos);
+          playheadInternalTimeRef.current = posToTime(mousePos, effectiveDuration);
           
         //   // Update audio position if playing
         //   if (isPlaying && audioContextRef.current) {
@@ -976,7 +978,7 @@ export default function TracksWidget({
         //   // Show time tooltip
         //   const time = posToTime(mousePos, trackDuration);
         //   showTimeTooltip(playheadRef.current, mousePos, formatDuration(time));
-        // }
+        }
         
         // Dragging left looper handle
         if (isDraggingLooperLeft) {
@@ -1138,8 +1140,12 @@ export default function TracksWidget({
             e.stopPropagation();
           setIsDraggingLooperLeft(false);
           setIsDraggingLooperRight(false);
-          setIsDraggingPlayhead(false);
           setIsDraggingLooperRegion(false);
+
+          if(isDraggingPlayhead){
+            seekToTime(playheadInternalTimeRef.current);
+            setIsDraggingPlayhead(false);
+          }
           
           // If we were dragging the recording region, update the selected take's startTime and endTime
           if (isDraggingRecordingRegion && selectedTake) {
@@ -1786,6 +1792,7 @@ export default function TracksWidget({
                     <div 
                         className="playhead" 
                         ref={playheadRef}
+                        onMouseDown={handlePlayheadMouseDown}
                         style={{ left: `${playheadPos}%`, height: `${24 + 116 + (isCollab ? 116 : 0)}px` }}
                     ></div>
                 )}
