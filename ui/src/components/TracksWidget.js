@@ -864,7 +864,12 @@ export default function TracksWidget({
         const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
         const playheadPos = timeToPos(currentTime, effectiveDuration);
         if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
-          seekToTime(posToTime(looperLeftPos, effectiveDuration));
+          if(isRecording){ //if recording, then stop recording
+            setIsRecording(false);
+          }
+          else{
+            seekToTime(posToTime(looperLeftPos, effectiveDuration));
+          }
         }
         else{
           setPlayheadPos(playheadPos);
@@ -1409,6 +1414,12 @@ export default function TracksWidget({
       
       // Process the file
       const fileBuffer = await processAudioChunks(chunks);
+      
+      // Check if the file duration exceeds the original buffer duration
+      if (originalBufferRef.current && fileBuffer.duration > originalBufferRef.current.duration) {
+        alert('The uploaded file is too long. Please select a file that is shorter than or the same length as the original track.');
+        return;
+      }
       
       // Create a take from the file
       createTakeFromRecordedBuffer(fileBuffer, true);
