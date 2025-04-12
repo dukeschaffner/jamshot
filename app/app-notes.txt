@@ -46,7 +46,8 @@ Pages
 - track/[trackId]
   - has a simple DAW that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
   - user can either record from an audio input, recording several takes and selcting the best one, or upload audio file to attach collaboration
-
+  - edit track
+    - deleting a track is a soft delete if the track has collabs
 - explore/[trackId]
   - allows users to explore entire track tree, showing the track, all of its ancestors up to the original, and all of its immediate children
   - user can select any ancestor or child track to show the track tree for that track
@@ -74,10 +75,8 @@ TODO (MVP)
 
 
 BUGS
-- following feed not working
 - popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - dark mode inconsistencies
-- collab upload with uploaded file failed with "cannot find ffmpeg"
 - daw - sometimes hitting pause during playback start another unpausable instance of the song
 
 
