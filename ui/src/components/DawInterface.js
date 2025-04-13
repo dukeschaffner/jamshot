@@ -25,6 +25,8 @@ export default function DawInterface({ track, isCollab = false }) {
   const [audioInputDevices, setAudioInputDevices] = useState([]);
   const [selectedAudioInputDevice, setSelectedAudioInputDevice] = useState(null);
   const [userLatencyCompensation, setUserLatencyCompensation] = useState(0);
+  const [originalGain, setOriginalGain] = useState(0.8);
+  const [recordingGain, setRecordingGain] = useState(0.8);
 
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -243,6 +245,8 @@ export default function DawInterface({ track, isCollab = false }) {
         selectedAudioInputDevice={selectedAudioInputDevice}
         userLatencyCompensation={userLatencyCompensation}
         isCollab={isCollab}
+        setOriginalGain={setOriginalGain}
+        setRecordingGain={setRecordingGain}
       />
 
       {/* Audio Settings Modal */}
@@ -327,6 +331,8 @@ export default function DawInterface({ track, isCollab = false }) {
           recordingAudioBuffer={recordingPlaybackBuffer}
           parentTrack={isCollab ? track : null}
           onCancel={() => setShowUploadForm(false)}
+          originalGain={originalGain}
+          recordingGain={recordingGain}
         />
       )}
     </>

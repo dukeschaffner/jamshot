@@ -61,13 +61,38 @@ async function downloadS3File(key, localPath) {
   });
 }
 
-async function combineAudioFiles(inputFiles, outputPath) {
+async function combineAudioFiles(inputFiles, outputPath, gainValues = []) {
   return new Promise((resolve, reject) => {
     console.log('Combining files with ffmpeg:', inputFiles);
+    console.log('Using gain values:', gainValues);
+    
     const command = ffmpeg();
-    inputFiles.forEach(file => command.input(file));
+    
+    // Add input files
+    inputFiles.forEach((file) => {
+      command.input(file);
+    });
+    
+    // Create filter string with volume adjustments for each input
+    let filterComplex = inputFiles.map((_, index) => {
+      const gainValue = gainValues[index] !== undefined ? gainValues[index] : 1.0;
+      // Convert gain (0-1 range) to dB for FFmpeg volume filter
+      // 0 dB = no change, -6 dB = half volume, +6 dB = double volume
+      // A simple approximation: 0.5 gain = -6dB, 0.8 gain = -2dB
+      // Formula: dB = 20 * log10(gain)
+      const dB = 20 * Math.log10(gainValue);
+      console.log(`Input ${index}: Gain=${gainValue}, dB=${dB}`);
+      return `[${index}:a]volume=${dB}dB[a${index}]`;
+    }).join(';');
+    
+    // Add the mixer after the volume adjustments
+    const audioInputs = inputFiles.map((_, index) => `[a${index}]`).join('');
+    filterComplex += `;${audioInputs}amix=inputs=${inputFiles.length}:duration=longest[out]`;
+    
+    console.log('FFmpeg filter complex:', filterComplex);
+    
     command
-      .complexFilter(`amix=inputs=${inputFiles.length}`) // e.g., "amix=inputs=2"
+      .complexFilter(filterComplex, 'out')
       .outputOptions('-c:a mp3')
       .output(outputPath)
       .on('end', () => {
@@ -120,12 +145,18 @@ router.get('/ffmpeg-check', async (req, res) => {
 });
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
-  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm } = req.body;
+  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
+  
+  console.log('Upload request received:');
+  console.log('- Title:', title);
+  console.log('- Parent track ID:', parent_track_id || 'None (original track)');
+  console.log('- Original gain:', original_gain || 'Not provided');
+  console.log('- Recording gain:', recording_gain || 'Not provided');
 
   // Check if user has reached their daily upload limit (3 uploads per day)
   try {
@@ -157,6 +188,10 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   
   // Parse metronome_bpm if provided
   const parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
+  
+  // Parse gain values with fallbacks to default values (1.0 = full volume)
+  const parsedOriginalGain = original_gain ? parseFloat(original_gain) : 0.8;
+  const parsedRecordingGain = recording_gain ? parseFloat(recording_gain) : 0.8;
 
   let audioUrl, combinedAudioUrl, duration;
   const tempDir = path.join(__dirname, '../../temp');
@@ -222,7 +257,21 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
       console.log('Local files before combining:', localFiles);
       combinedAudioUrl = `tracks/combined-${Date.now()}-${title}.mp3`;
       const combinedPath = path.join(tempDir, path.basename(combinedAudioUrl));
-      await combineAudioFiles(localFiles, combinedPath);
+      
+      // Prepare gain values
+      // localFiles order is: [uploaded recording, parent track]
+      // First element (index 0) is the new recording, second element (index 1) is the parent
+      const gainValues = [];
+      
+      // Recording gain first - index 0
+      gainValues[0] = parsedRecordingGain;
+      
+      // Original gain second - index 1
+      if (localFiles.length > 1) {
+        gainValues[1] = parsedOriginalGain;
+      }
+      
+      await combineAudioFiles(localFiles, combinedPath, gainValues);
 
       const combinedParams = {
         Bucket: process.env.S3_BUCKET,
