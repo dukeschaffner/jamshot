@@ -19,7 +19,9 @@ export default function TracksWidget({
   fileChunks,
   selectedAudioInputDevice = null,
   userLatencyCompensation = 0,
-  isCollab = false
+  isCollab = false,
+  setOriginalGain = null,
+  setRecordingGain = null
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -1829,23 +1831,33 @@ export default function TracksWidget({
   useEffect(() => {
     originalTrackGainRef.current = originalFaderValue;
     
+    // Update parent component with gain value if provided
+    if (setOriginalGain) {
+      setOriginalGain(originalFaderValue);
+    }
+    
     // If playing, update the gain value in real-time
     if (isPlaying && originalGainNodeRef.current && audioContext) {
       originalGainNodeRef.current.gain.setValueAtTime(originalFaderValue, audioContext.currentTime);
       originalGainNodeRef.current.gain.linearRampToValueAtTime(originalFaderValue, audioContext.currentTime + 0.05);
     }
-  }, [originalFaderValue, isPlaying, audioContext]);
+  }, [originalFaderValue, isPlaying, audioContext, setOriginalGain]);
 
   // Update the recordingTrackGainRef when recordingFaderValue changes
   useEffect(() => {
     recordingTrackGainRef.current = recordingFaderValue;
+    
+    // Update parent component with gain value if provided
+    if (setRecordingGain) {
+      setRecordingGain(recordingFaderValue);
+    }
     
     // If playing, update the gain value in real-time
     if (isPlaying && recordingGainNodeRef.current && audioContext) {
       recordingGainNodeRef.current.gain.setValueAtTime(recordingFaderValue, audioContext.currentTime);
       recordingGainNodeRef.current.gain.linearRampToValueAtTime(recordingFaderValue, audioContext.currentTime + 0.05);
     }
-  }, [recordingFaderValue, isPlaying, audioContext]);
+  }, [recordingFaderValue, isPlaying, audioContext, setRecordingGain]);
 
   // Initialize fader values from refs
   useEffect(() => {
