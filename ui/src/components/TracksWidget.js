@@ -81,6 +81,11 @@ export default function TracksWidget({
     const [isDraggingCropStart, setIsDraggingCropStart] = useState(false);
     const [isDraggingCropEnd, setIsDraggingCropEnd] = useState(false);
     const [dragStartX, setDragStartX] = useState(0);
+    // Add state for fader dragging
+    const [isDraggingOriginalFader, setIsDraggingOriginalFader] = useState(false);
+    const [isDraggingRecordingFader, setIsDraggingRecordingFader] = useState(false);
+    const [originalFaderValue, setOriginalFaderValue] = useState(0.8); // Default to 0.8 (80%)
+    const [recordingFaderValue, setRecordingFaderValue] = useState(0.8); // Default to 0.8 (80%)
     const [recordingStartPosBeforeDrag, setRecordingStartPosBeforeDrag] = useState(0);
     const [looperStartWidth, setLooperStartWidth] = useState(0);
     const [looperStartLeft, setLooperStartLeft] = useState(0);
@@ -104,6 +109,8 @@ export default function TracksWidget({
     const looperRegionRef = useRef(null);
     const cropStartOverlayRef = useRef(null);
     const cropEndOverlayRef = useRef(null);
+    const originalFaderRef = useRef(null);
+    const recordingFaderRef = useRef(null);
     const takesCountRef = useRef(0); // Ref to track the number of takes
 
     const recordingStartPosRef = useRef(0);
@@ -965,7 +972,7 @@ export default function TracksWidget({
     // Mouse event handlers
     useEffect(() => {
         const handleMouseMove = (e) => {
-          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion && !isDraggingCropStart && !isDraggingCropEnd) return;
+          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion && !isDraggingCropStart && !isDraggingCropEnd && !isDraggingOriginalFader && !isDraggingRecordingFader) return;
           
         const rect = dawHeaderRef.current.getBoundingClientRect();
         const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
@@ -1138,6 +1145,30 @@ export default function TracksWidget({
 
           cropEndTimeRef.current = posToTime((newCropX - trackStartX) / rect.width * 100, effectiveDuration);
         }
+
+        // Handle original fader dragging
+        if (isDraggingOriginalFader) {
+          // Calculate the new gain value (0 to 1 range)
+          // Map 0-100 (mousePos) to 0-1 (gain)
+          const faderRect = originalFaderRef.current.getBoundingClientRect();
+          const newMousePos = Math.max(0, Math.min(100, ((e.clientX - faderRect.left) / faderRect.width) * 100));
+          const newGain = Math.min(1, Math.max(0, newMousePos / 100));
+          console.log("newGain", newGain);
+          console.log("newMousePos", newMousePos);
+          console.log("faderRect.left", faderRect.left);
+          console.log("faderRect.right", faderRect.right);
+          console.log("e.clientX", e.clientX);
+          setOriginalFaderValue(newGain);
+        }
+        
+        // Handle recording fader dragging
+        if (isDraggingRecordingFader) {
+          // Calculate the new gain value (0 to 1 range)
+          const faderRect = recordingFaderRef.current.getBoundingClientRect();
+          const newMousePos = Math.max(0, Math.min(100, ((e.clientX - faderRect.left) / faderRect.width) * 100));
+          const newGain = Math.min(1, Math.max(0, newMousePos / 100));
+          setRecordingFaderValue(newGain);
+        }
       };
         
         const handleMouseUp = (e) => {
@@ -1193,6 +1224,9 @@ export default function TracksWidget({
           }
           setIsDraggingCropEnd(false);
           setIsDraggingCropStart(false);
+          // Handle fader dragging end
+          setIsDraggingOriginalFader(false);
+          setIsDraggingRecordingFader(false);
         };
         
         document.addEventListener('mousemove', handleMouseMove);
@@ -1207,7 +1241,9 @@ export default function TracksWidget({
         isDraggingCropStart, isDraggingCropEnd,
         looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
         isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, selectedTake,
-        isCollab, recordingPlaybackBuffer, cropStartPercentage, cropEndPercentage
+        isCollab, recordingPlaybackBuffer, cropStartPercentage, cropEndPercentage,
+        isDraggingOriginalFader, isDraggingRecordingFader,
+        originalFaderValue, recordingFaderValue
       ]);
 
       useEffect(() => {
@@ -1789,6 +1825,49 @@ export default function TracksWidget({
     }
   }, [selectedTake]);
 
+  // Update the originalTrackGainRef when originalFaderValue changes
+  useEffect(() => {
+    originalTrackGainRef.current = originalFaderValue;
+    
+    // If playing, update the gain value in real-time
+    if (isPlaying && originalGainNodeRef.current && audioContext) {
+      originalGainNodeRef.current.gain.setValueAtTime(originalFaderValue, audioContext.currentTime);
+      originalGainNodeRef.current.gain.linearRampToValueAtTime(originalFaderValue, audioContext.currentTime + 0.05);
+    }
+  }, [originalFaderValue, isPlaying, audioContext]);
+
+  // Update the recordingTrackGainRef when recordingFaderValue changes
+  useEffect(() => {
+    recordingTrackGainRef.current = recordingFaderValue;
+    
+    // If playing, update the gain value in real-time
+    if (isPlaying && recordingGainNodeRef.current && audioContext) {
+      recordingGainNodeRef.current.gain.setValueAtTime(recordingFaderValue, audioContext.currentTime);
+      recordingGainNodeRef.current.gain.linearRampToValueAtTime(recordingFaderValue, audioContext.currentTime + 0.05);
+    }
+  }, [recordingFaderValue, isPlaying, audioContext]);
+
+  // Initialize fader values from refs
+  useEffect(() => {
+    setOriginalFaderValue(originalTrackGainRef.current);
+    setRecordingFaderValue(recordingTrackGainRef.current);
+  }, []);
+
+  // Handle original fader mouse down
+  const handleOriginalFaderMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingOriginalFader(true);
+    setDragStartX(e.clientX);
+  };
+
+  // Handle recording fader mouse down
+  const handleRecordingFaderMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingRecordingFader(true);
+    setDragStartX(e.clientX);
+  };
+
+
   return (
     <div className="daw-container">
         <div className="daw-header">
@@ -1867,7 +1946,9 @@ export default function TracksWidget({
                   </button>
               
                   {/* Original Track Meter */}
-                  <div className="audio-meter-container">
+                  <div 
+                  className="audio-meter-container"
+                  ref={originalFaderRef}>
                       <div 
                       className="audio-meter-bar" 
                       style={{ 
@@ -1875,6 +1956,23 @@ export default function TracksWidget({
                           backgroundColor: getMeterColor(originalTrackLevel)
                       }}
                       ></div>
+                      {/* Add fader handle - only shown if not recording */}
+                      {!isRecording && (
+                          <>
+                              <div 
+                                  className={`fader-handle ${isRecording ? 'disabled' : ''}`}
+                                  style={{ 
+                                      left: `${originalFaderValue * 100}%`,
+                                      backgroundColor: isDraggingOriginalFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
+                                  }}
+                                  onMouseDown={handleOriginalFaderMouseDown}
+                                  title={`Volume: ${Math.round(originalFaderValue * 100)}%`}
+                              ></div>
+                              <div className="volume-indicator" style={{ left: `${originalFaderValue * 100}%` }}>
+                                  {Math.round(originalFaderValue * 100)}%
+                              </div>
+                          </>
+                      )}
                   </div>
               </div>
             )}
@@ -1899,7 +1997,9 @@ export default function TracksWidget({
               )}
               
               {/* Recording Track Meter */}
-              <div className="audio-meter-container">
+              <div 
+                className="audio-meter-container" 
+                ref={recordingFaderRef}>
                 <div 
                   className="audio-meter-bar" 
                   style={{ 
@@ -1907,6 +2007,23 @@ export default function TracksWidget({
                     backgroundColor: getMeterColor(isRecording ? inputLevel : recordingTrackLevel)
                   }}
                 ></div>
+                {/* Add fader handle - only shown if not recording and there's a track to control */}
+                {!isRecording && recordingPlaybackBuffer && (
+                  <>
+                      <div 
+                        className={`fader-handle ${isRecording ? 'disabled' : ''}`}
+                        style={{ 
+                            left: `${recordingFaderValue * 100}%`,
+                            backgroundColor: isDraggingRecordingFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
+                        }}
+                        onMouseDown={handleRecordingFaderMouseDown}
+                        title={`Volume: ${Math.round(recordingFaderValue * 100)}%`}
+                      ></div>
+                      <div className="volume-indicator" style={{ left: `${recordingFaderValue * 100}%` }}>
+                          {Math.round(recordingFaderValue * 100)}%
+                      </div>
+                  </>
+                )}
               </div>
             </div>
         </div>
