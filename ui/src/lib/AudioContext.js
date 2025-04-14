@@ -283,6 +283,15 @@ export function AudioProvider({ children }) {
   const playPrevious = () => {
     if (playlist.length === 0 || currentIndex < 0) return;
     
+    // Check if we're more than 2 seconds into the current track
+    if (soundRef.current && soundRef.current.seek() > 2) {
+      // If so, just go back to the beginning of the current track
+      soundRef.current.seek(0);
+      setProgress(0);
+      console.log('Returning to start of current track:', currentTrack.title);
+      return;
+    }
+    
     let prevIndex;
     
     if (isShuffleOn) {

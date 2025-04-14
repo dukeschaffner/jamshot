@@ -67,8 +67,12 @@ TODO (MVP)
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
   - check all track laods, comment loads
 - improve feed logic
-- how do collabs work with private tracks?
+- how do collabs work with private tracks? - private tracks can only be collabed on by granting access to users (maybe by group too?)
 - comment edit view
+- audio ads
+- feed ads
+- how to page with tutorials
+- track upload - allow download option
 
 
 BUGS
@@ -92,9 +96,10 @@ TODO (after beta testing)
 - profile banner image
 - undo redo (DAW)
 - global player audio level
-- how to page with tutorials
 - freemium model
 - invite people to collab on private tracks?
+
+
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
