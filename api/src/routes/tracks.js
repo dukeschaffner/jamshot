@@ -3,14 +3,20 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
-const AWS = require('aws-sdk');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const mm = require('music-metadata');
 const ffmpeg = require('fluent-ffmpeg');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
-const crypto = require('crypto');
+const { 
+  s3, 
+  s3Client, 
+  generateSignedUrl,
+  processTrack,
+  downloadS3File,
+  checkTrackAccess,
+  combineAudioFiles,
+  generateSecureToken
+} = require('../utils/trackUtils');
 require('dotenv').config;
 
 // Configure FFMPEG path based on platform
@@ -31,61 +37,6 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
 });
-
-// AWS S3 setup
-AWS.config.update({ signatureVersion: 'v4' });
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
-});
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
-
-async function downloadS3File(key, localPath) {
-  const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET,
-    Key: key,
-  });
-  const { Body } = await s3Client.send(command);
-  const writer = require('fs').createWriteStream(localPath);
-  Body.pipe(writer);
-  return new Promise((resolve, reject) => {
-    writer.on('finish', resolve);
-    writer.on('error', reject);
-  });
-}
-
-async function combineAudioFiles(inputFiles, outputPath) {
-  return new Promise((resolve, reject) => {
-    console.log('Combining files with ffmpeg:', inputFiles);
-    const command = ffmpeg();
-    inputFiles.forEach(file => command.input(file));
-    command
-      .complexFilter(`amix=inputs=${inputFiles.length}`) // e.g., "amix=inputs=2"
-      .outputOptions('-c:a mp3')
-      .output(outputPath)
-      .on('end', () => {
-        console.log('Combine complete:', outputPath);
-        resolve();
-      })
-      .on('error', (err) => {
-        console.error('FFmpeg error:', err);
-        reject(err);
-      })
-      .run();
-  });
-}
-
-// Generate a secure random token
-function generateSecureToken(length = 32) {
-  return crypto.randomBytes(length).toString('hex');
-}
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
@@ -120,12 +71,42 @@ router.get('/ffmpeg-check', async (req, res) => {
 });
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
-  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm } = req.body;
+  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
+  
+  console.log('Upload request received:');
+  console.log('- Title:', title);
+  console.log('- Parent track ID:', parent_track_id || 'None (original track)');
+  console.log('- Original gain:', original_gain || 'Not provided');
+  console.log('- Recording gain:', recording_gain || 'Not provided');
+
+  // Check if user has reached their daily upload limit (3 uploads per day)
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of the day
+    
+    const uploadCountResult = await pool.query(
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2',
+      [userId, today]
+    );
+    
+    const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
+    
+    if (dailyUploadCount >= 3) {
+      return res.status(429).json({ 
+        error: 'Daily upload limit reached',
+        message: 'You can only upload 3 tracks per day',
+        daily_count: dailyUploadCount
+      });
+    }
+  } catch (err) {
+    console.error('Error checking upload limit:', err);
+    return res.status(500).json({ error: `Failed to check upload limit: ${err.message}` });
+  }
 
   // Parse genre and instrument IDs if they're provided as strings
   const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
@@ -133,6 +114,10 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   
   // Parse metronome_bpm if provided
   const parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
+  
+  // Parse gain values with fallbacks to default values (1.0 = full volume)
+  const parsedOriginalGain = original_gain ? parseFloat(original_gain) : 0.8;
+  const parsedRecordingGain = recording_gain ? parseFloat(recording_gain) : 0.8;
 
   let audioUrl, combinedAudioUrl, duration;
   const tempDir = path.join(__dirname, '../../temp');
@@ -198,7 +183,21 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
       console.log('Local files before combining:', localFiles);
       combinedAudioUrl = `tracks/combined-${Date.now()}-${title}.mp3`;
       const combinedPath = path.join(tempDir, path.basename(combinedAudioUrl));
-      await combineAudioFiles(localFiles, combinedPath);
+      
+      // Prepare gain values
+      // localFiles order is: [uploaded recording, parent track]
+      // First element (index 0) is the new recording, second element (index 1) is the parent
+      const gainValues = [];
+      
+      // Recording gain first - index 0
+      gainValues[0] = parsedRecordingGain;
+      
+      // Original gain second - index 1
+      if (localFiles.length > 1) {
+        gainValues[1] = parsedOriginalGain;
+      }
+      
+      await combineAudioFiles(localFiles, combinedPath, gainValues);
 
       const combinedParams = {
         Bucket: process.env.S3_BUCKET,
@@ -287,7 +286,7 @@ router.get('/feed', async (req, res) => {
         followed_tracks AS (
           SELECT 
             t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at, t.play_count,
+            t.created_at::timestamp with time zone AS created_at, t.play_count,
             u.username, u.verified, u.profile_pic_url,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -296,7 +295,7 @@ router.get('/feed', async (req, res) => {
             EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
             NULL::integer AS reposted_by_id,
             NULL::text AS reposted_by_username,
-            NULL::timestamp AS reposted_at,
+            NULL::timestamp with time zone AS reposted_at,
             FALSE AS is_repost
           FROM tracks t
           LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
@@ -305,8 +304,8 @@ router.get('/feed', async (req, res) => {
         ),
         reposted_tracks AS (
           SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-            r.created_at,
+            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
+            r.created_at::timestamp with time zone AS created_at, t.play_count,
             u.username, u.verified, u.profile_pic_url,
             t2.title AS original_title,
             (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
@@ -315,7 +314,7 @@ router.get('/feed', async (req, res) => {
             EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
             r.user_id AS reposted_by_id,
             ru.username AS reposted_by_username,
-            r.created_at AS reposted_at,
+            r.created_at::timestamp with time zone AS reposted_at,
             TRUE AS is_repost
           FROM reposts r
           JOIN tracks t ON r.track_id = t.id
@@ -330,7 +329,7 @@ router.get('/feed', async (req, res) => {
           SELECT * FROM reposted_tracks
         ) combined
         ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
+        LIMIT $2 OFFSET $3;
       `;
       queryParams = [userId, limitNum, offset];
     } else if (feedType === 'popular') {
@@ -464,41 +463,8 @@ router.get('/feed', async (req, res) => {
     
     const result = await pool.query(query, queryParams);
     
-    const tracks = await Promise.all(result.rows.map(async track => {
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (combinedAudioUrl.startsWith('tracks/')) {
-        combinedAudioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.combined_audio_url || track.audio_url,
-          Expires: 3600,
-        });
-      }
-      
-      // Get genres for this track
-      const genresResult = await pool.query(
-        `SELECT g.* FROM genres g
-         JOIN track_genres tg ON g.id = tg.genre_id
-         WHERE tg.track_id = $1
-         ORDER BY g.name`,
-        [track.id]
-      );
-      
-      // Get instruments for this track
-      const instrumentsResult = await pool.query(
-        `SELECT i.* FROM instruments i
-         JOIN track_instruments ti ON i.id = ti.instrument_id
-         WHERE ti.track_id = $1
-         ORDER BY i.name`,
-        [track.id]
-      );
-      
-      return { 
-        ...track, 
-        combined_audio_url: combinedAudioUrl,
-        genres: genresResult.rows,
-        instruments: instrumentsResult.rows
-      };
-    }));
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
     
     res.json(tracks);
   } catch (err) {
@@ -514,29 +480,10 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
   const { secret } = req.query; // Secret token for private tracks
   
   try {
-    // First check if the track exists and if it's private
-    const trackCheck = await pool.query(
-      'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
-      [id]
-    );
-    
-    if (trackCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Track not found' });
-    }
-    
-    const track = trackCheck.rows[0];
-    
-    // If track is private, check if user is authorized to view it
-    if (track.is_private) {
-      // Allow access if user is the owner
-      const isOwner = userId && track.user_id === userId;
-      
-      // Check if a valid secret token is provided
-      const hasValidSecret = secret && track.secret_token && secret === track.secret_token;
-      
-      if (!isOwner && !hasValidSecret) {
-        return res.status(403).json({ error: 'This track is private' });
-      }
+    // Check if the track exists and if user has access
+    const accessCheck = await checkTrackAccess(id, userId, secret);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
     
     const result = await pool.query(`
@@ -553,51 +500,8 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
       ORDER BY t.created_at ASC
     `, [id, userId || null]);
     
-    const tracks = await Promise.all(result.rows.map(async track => {
-      let audioUrl = track.audio_url;
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url; // Fallback to audio_url if no combined
-      
-      if (audioUrl.startsWith('tracks/')) {
-        audioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.audio_url,
-          Expires: 3600,
-        });
-      }
-      if (combinedAudioUrl.startsWith('tracks/')) {
-        combinedAudioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.combined_audio_url || track.audio_url,
-          Expires: 3600,
-        });
-      }
-      
-      // Get genres for this track
-      const genresResult = await pool.query(
-        `SELECT g.* FROM genres g
-         JOIN track_genres tg ON g.id = tg.genre_id
-         WHERE tg.track_id = $1
-         ORDER BY g.name`,
-        [track.id]
-      );
-      
-      // Get instruments for this track
-      const instrumentsResult = await pool.query(
-        `SELECT i.* FROM instruments i
-         JOIN track_instruments ti ON i.id = ti.instrument_id
-         WHERE ti.track_id = $1
-         ORDER BY i.name`,
-        [track.id]
-      );
-      
-      return { 
-        ...track, 
-        audio_url: audioUrl, 
-        combined_audio_url: combinedAudioUrl,
-        genres: genresResult.rows,
-        instruments: instrumentsResult.rows
-      };
-    }));
+    // Use the processTrack utility function to process all tracks
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
     
     res.json(tracks);
   } catch (err) {
@@ -621,41 +525,8 @@ router.get('/:id/related', async (req, res) => {
       ORDER BY t.created_at ASC
     `, [id, userId || null]);
     
-    const tracks = await Promise.all(result.rows.map(async track => {
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (combinedAudioUrl.startsWith('tracks/')) {
-        combinedAudioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.combined_audio_url || track.audio_url,
-          Expires: 3600,
-        });
-      }
-      
-      // Get genres for this track
-      const genresResult = await pool.query(
-        `SELECT g.* FROM genres g
-         JOIN track_genres tg ON g.id = tg.genre_id
-         WHERE tg.track_id = $1
-         ORDER BY g.name`,
-        [track.id]
-      );
-      
-      // Get instruments for this track
-      const instrumentsResult = await pool.query(
-        `SELECT i.* FROM instruments i
-         JOIN track_instruments ti ON i.id = ti.instrument_id
-         WHERE ti.track_id = $1
-         ORDER BY i.name`,
-        [track.id]
-      );
-      
-      return { 
-        ...track, 
-        combined_audio_url: combinedAudioUrl,
-        genres: genresResult.rows,
-        instruments: instrumentsResult.rows
-      };
-    }));
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
     
     res.json(tracks);
   } catch (err) {
@@ -680,41 +551,8 @@ router.get('/', async (req, res) => {
       ORDER BY t.created_at DESC
     `, [userId || null]);
     
-    const tracks = await Promise.all(result.rows.map(async track => {
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (combinedAudioUrl.startsWith('tracks/')) {
-        combinedAudioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.combined_audio_url || track.audio_url,
-          Expires: 3600,
-        });
-      }
-      
-      // Get genres for this track
-      const genresResult = await pool.query(
-        `SELECT g.* FROM genres g
-         JOIN track_genres tg ON g.id = tg.genre_id
-         WHERE tg.track_id = $1
-         ORDER BY g.name`,
-        [track.id]
-      );
-      
-      // Get instruments for this track
-      const instrumentsResult = await pool.query(
-        `SELECT i.* FROM instruments i
-         JOIN track_instruments ti ON i.id = ti.instrument_id
-         WHERE ti.track_id = $1
-         ORDER BY i.name`,
-        [track.id]
-      );
-      
-      return { 
-        ...track, 
-        combined_audio_url: combinedAudioUrl,
-        genres: genresResult.rows,
-        instruments: instrumentsResult.rows
-      };
-    }));
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
     
     res.json(tracks);
   } catch (err) {
@@ -852,6 +690,19 @@ router.post('/:id/comment', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const { content, parent_comment_id } = req.body;
   const userId = req.user.id;
+  
+  // Validate comment content length
+  const MAX_COMMENT_LENGTH = 1000;
+  if (!content || typeof content !== 'string') {
+    return res.status(400).json({ error: 'Comment content is required' });
+  }
+  if (content.trim().length === 0) {
+    return res.status(400).json({ error: 'Comment content cannot be empty' });
+  }
+  if (content.length > MAX_COMMENT_LENGTH) {
+    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+  }
+  
   try {
     // Check if track exists and get track owner
     const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
@@ -926,6 +777,18 @@ router.put('/comments/:commentId', authMiddleware, async (req, res) => {
   const { commentId } = req.params;
   const { content } = req.body;
   const userId = req.user.id;
+  
+  // Validate comment content length
+  const MAX_COMMENT_LENGTH = 1000;
+  if (!content || typeof content !== 'string') {
+    return res.status(400).json({ error: 'Comment content is required' });
+  }
+  if (content.trim().length === 0) {
+    return res.status(400).json({ error: 'Comment content cannot be empty' });
+  }
+  if (content.length > MAX_COMMENT_LENGTH) {
+    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+  }
   
   try {
     // Check if comment exists and belongs to the user
@@ -1047,41 +910,8 @@ router.get('/search', async (req, res) => {
     
     const result = await pool.query(query, queryParams);
     
-    const tracks = await Promise.all(result.rows.map(async track => {
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      if (combinedAudioUrl.startsWith('tracks/')) {
-        combinedAudioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.combined_audio_url || track.audio_url,
-          Expires: 3600,
-        });
-      }
-      
-      // Get genres for this track
-      const genresResult = await pool.query(
-        `SELECT g.* FROM genres g
-         JOIN track_genres tg ON g.id = tg.genre_id
-         WHERE tg.track_id = $1
-         ORDER BY g.name`,
-        [track.id]
-      );
-      
-      // Get instruments for this track
-      const instrumentsResult = await pool.query(
-        `SELECT i.* FROM instruments i
-         JOIN track_instruments ti ON i.id = ti.instrument_id
-         WHERE ti.track_id = $1
-         ORDER BY i.name`,
-        [track.id]
-      );
-      
-      return { 
-        ...track, 
-        combined_audio_url: combinedAudioUrl,
-        genres: genresResult.rows,
-        instruments: instrumentsResult.rows
-      };
-    }));
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
     
     res.json(tracks);
   } catch (err) {
@@ -1204,29 +1034,10 @@ router.get('/:id/tree', async (req, res) => {
   const { secret } = req.query; // Secret token for private tracks
   
   try {
-    // First check if the track exists and if it's private
-    const trackCheck = await pool.query(
-      'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
-      [id]
-    );
-    
-    if (trackCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Track not found' });
-    }
-    
-    const track = trackCheck.rows[0];
-    
-    // If track is private, check if user is authorized to view it
-    if (track.is_private) {
-      // Allow access if user is the owner
-      const isOwner = userId && track.user_id === userId;
-      
-      // Check if a valid secret token is provided
-      const hasValidSecret = secret && track.secret_token && secret === track.secret_token;
-      
-      if (!isOwner && !hasValidSecret) {
-        return res.status(403).json({ error: 'This track is private' });
-      }
+    // Check if the track exists and if user has access
+    const accessCheck = await checkTrackAccess(id, userId, secret);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
     
     // First, get the current track
@@ -1280,56 +1091,9 @@ router.get('/:id/tree', async (req, res) => {
       parentId = parent.parent_track_id;
     }
     
-    // Process all tracks to add signed URLs and tags
-    const processTrack = async (track) => {
-      let audioUrl = track.audio_url;
-      let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-      
-      if (audioUrl.startsWith('tracks/')) {
-        audioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.audio_url,
-          Expires: 3600,
-        });
-      }
-      if (combinedAudioUrl.startsWith('tracks/')) {
-        combinedAudioUrl = s3.getSignedUrl('getObject', {
-          Bucket: process.env.S3_BUCKET,
-          Key: track.combined_audio_url || track.audio_url,
-          Expires: 3600,
-        });
-      }
-      
-      // Get genres for this track
-      const genresResult = await pool.query(
-        `SELECT g.* FROM genres g
-         JOIN track_genres tg ON g.id = tg.genre_id
-         WHERE tg.track_id = $1
-         ORDER BY g.name`,
-        [track.id]
-      );
-      
-      // Get instruments for this track
-      const instrumentsResult = await pool.query(
-        `SELECT i.* FROM instruments i
-         JOIN track_instruments ti ON i.id = ti.instrument_id
-         WHERE ti.track_id = $1
-         ORDER BY i.name`,
-        [track.id]
-      );
-      
-      return { 
-        ...track, 
-        audio_url: audioUrl, 
-        combined_audio_url: combinedAudioUrl,
-        genres: genresResult.rows,
-        instruments: instrumentsResult.rows
-      };
-    };
-    
-    // Process all tracks
-    const processedCurrentTrack = await processTrack(currentTrack);
-    const processedAncestors = await Promise.all(ancestors.map(processTrack));
+    // Process all tracks using processTrack utility function
+    const processedCurrentTrack = await processTrack(currentTrack, userId);
+    const processedAncestors = await Promise.all(ancestors.map(track => processTrack(track, userId)));
     
     res.json([...processedAncestors, processedCurrentTrack]);
   } catch (err) {
@@ -1529,6 +1293,50 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error generating share link:', error);
     res.status(500).json({ error: 'Failed to generate share link' });
+  }
+});
+
+// Refresh signed URL for a track
+router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { secret } = req.query; // Secret token for private tracks
+  
+  try {
+    // Check if the track exists and if user has access
+    const accessCheck = await checkTrackAccess(id, userId, secret);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
+    }
+    
+    // Get the track details
+    const result = await pool.query(
+      `SELECT t.*, u.username as username, u.profile_pic_url as user_profile_pic
+       FROM tracks t
+       JOIN users u ON t.user_id = u.id
+       WHERE t.id = $1`,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const trackData = result.rows[0];
+    
+    // Generate new signed URLs using our utility function
+    const audioUrl = generateSignedUrl(trackData.audio_url);
+    const combinedAudioUrl = generateSignedUrl(trackData.combined_audio_url || trackData.audio_url);
+    
+    // Return just the URLs
+    res.json({ 
+      audio_url: audioUrl, 
+      combined_audio_url: combinedAudioUrl,
+      track_id: trackData.id
+    });
+  } catch (err) {
+    console.error('Error refreshing track URL:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

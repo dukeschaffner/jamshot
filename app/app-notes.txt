@@ -1,7 +1,7 @@
 Instructions:
 - Use this file for reference about the application. Feel free to update the Features/pages section when major updates are made. 
 - When db changes are required, update the db model in this file, and put the change query in db-updates.txt.
-
+- any new styling should go in global.css. 
 
 About
 This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
@@ -46,7 +46,8 @@ Pages
 - track/[trackId]
   - has a simple DAW that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
   - user can either record from an audio input, recording several takes and selcting the best one, or upload audio file to attach collaboration
-
+  - edit track
+    - deleting a track is a soft delete if the track has collabs
 - explore/[trackId]
   - allows users to explore entire track tree, showing the track, all of its ancestors up to the original, and all of its immediate children
   - user can select any ancestor or child track to show the track tree for that track
@@ -59,31 +60,30 @@ TODO (MVP)
 - DAW
   - synchronize recording/playback on collaboration
   - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
-  - volume faders
-  - trimming regions on upload action
-    - recording past 90s on upload?
-  - recording while looping (just stop recording at end of loop for now)
-  - drag playhead
-  - validate duration for files uploaded to the daw
+  - trimming regions on upload action (decouple upload/collab daws?)
+  - recording past 90s on upload?
+  - zoom
 
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
+  - check all track laods, comment loads
 - improve feed logic
-- comments
-- manage track view for track owners
-  - is private
-  - delete track
-- how do collabs work with private tracks?
-- limit posts/day (and total posts?)
+- how do collabs work with private tracks? - private tracks can only be collabed on by granting access to users (maybe by group too?)
+- comment edit view
+- audio ads
+- feed ads
+- how to page with tutorials
+- track upload - allow download option
 
 
 BUGS
-- following feed not working
 - popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - dark mode inconsistencies
-- collab upload with uploaded file failed with "cannot find ffmpeg"
+- daw - sometimes hitting pause during playback start another unpausable instance of the song
 
 
 TODO (after beta testing)
+- recording while looping should auto create takes after each loop
+- files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
 - secure track play count recording to prevent abuse of vulnerabilites
 - list/sell samples in track
 - posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
@@ -95,15 +95,17 @@ TODO (after beta testing)
 - profile banner image
 - undo redo (DAW)
 - global player audio level
-- how to page with tutorials
 - freemium model
+- invite people to collab on private tracks?
+
+
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
 - splitting royalties if song uploaded
 
 
-
+lets create a new component, AudioCropper. it should accept an audiobuffer, a crop start time, and a crop end time (if none, they should default to the audio's, start and end times, respectively). it should display the buffer's waveform using renderwaveform, similar to the trackswidget. the edges of the waveform should have crop handles similar to the trackswidget, that when dragged, crop the audio.
 
 
 

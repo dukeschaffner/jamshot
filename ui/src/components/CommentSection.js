@@ -5,6 +5,9 @@ import Comment from './Comment';
 import { fetchComments, addComment } from '../lib/api';
 import { FaPaperPlane } from 'react-icons/fa';
 
+// Add a constant for maximum comment length
+const MAX_COMMENT_LENGTH = 1000;
+
 export default function CommentSection({ trackId }) {
   const [comments, setComments] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +20,8 @@ export default function CommentSection({ trackId }) {
   const [parentCommentId, setParentCommentId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [visibleReplies, setVisibleReplies] = useState({});
+  // Add state for character count error
+  const [charCountError, setCharCountError] = useState('');
   const commentsEndRef = useRef(null);
   const textareaRef = useRef(null);
   
@@ -71,6 +76,24 @@ export default function CommentSection({ trackId }) {
     }
   }, [currentPage, totalPages, isLoadingMore]);
   
+  const handleCommentChange = (e) => {
+    const content = e.target.value;
+    if (content.length <= MAX_COMMENT_LENGTH) {
+      setCommentContent(content);
+      setCharCountError('');
+    } else {
+      setCharCountError(`Comment cannot exceed ${MAX_COMMENT_LENGTH} characters`);
+    }
+  };
+  
+  const handleKeyDown = (e) => {
+    // Submit on Enter (not Shift+Enter)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleCommentSubmit(e);
+    }
+  };
+  
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     
@@ -80,6 +103,12 @@ export default function CommentSection({ trackId }) {
     }
     
     if (commentContent.trim() === '') return;
+    
+    // Validate comment length before submitting
+    if (commentContent.length > MAX_COMMENT_LENGTH) {
+      setCharCountError(`Comment cannot exceed ${MAX_COMMENT_LENGTH} characters`);
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -189,7 +218,6 @@ export default function CommentSection({ trackId }) {
   
   return (
     <div className="comments-section">
-      <h3 className="comments-title">Comments</h3>
       
       {isAuthenticated ? (
         <form className="comment-form" onSubmit={handleCommentSubmit}>
@@ -211,15 +239,19 @@ export default function CommentSection({ trackId }) {
               className="comment-input"
               placeholder={replyTo ? `Reply to @${replyingToUsername}...` : "Add a comment..."}
               value={commentContent}
-              onChange={(e) => setCommentContent(e.target.value)}
+              onChange={handleCommentChange}
+              onKeyDown={handleKeyDown}
               rows={3}
+              maxLength={MAX_COMMENT_LENGTH}
+              style={{ resize: "none" }}
             />
+            {charCountError && <div className="char-count-error">{charCountError}</div>}
             <button 
               type="submit" 
               className="comment-submit-btn"
-              disabled={isSubmitting || commentContent.trim() === ''}
+              disabled={isSubmitting || commentContent.trim() === '' || commentContent.length > MAX_COMMENT_LENGTH}
             >
-              {isSubmitting ? 'Posting...' : <FaPaperPlane />}
+              <FaPaperPlane />
             </button>
           </div>
         </form>
@@ -282,4 +314,4 @@ export default function CommentSection({ trackId }) {
       </div>
     </div>
   );
-} 
+}

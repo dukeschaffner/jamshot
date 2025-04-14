@@ -198,4 +198,13 @@ export const deleteComment = async (commentId) => {
   return response.data;
 };
 
+export const refreshTrackUrl = async (trackId, secret = null) => {
+  let url = `/tracks/${trackId}/refresh-url`;
+  if (secret) {
+    url += `?secret=${secret}`;
+  }
+  const response = await api.get(url);
+  return response.data;
+};
+
 export default api;

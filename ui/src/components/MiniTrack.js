@@ -123,21 +123,21 @@ export default function MiniTrack(
             <div className="related-tags">
               {/* Display regular tags */}
               {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
-                <span key={`tag-${index}`} className="track-tag">
+                <span key={`tag-${index}`} className="track-tag mini">
                   {typeof tag === 'string' ? tag : tag.name}
                 </span>
               ))}
               
               {/* Display genres */}
               {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
-                <span key={`genre-${index}`} className="track-tag">
+                <span key={`genre-${index}`} className="track-tag mini">
                   {typeof genre === 'string' ? genre : genre.name}
                 </span>
               ))}
               
               {/* Display instruments */}
               {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
-                <span key={`instrument-${index}`} className="track-tag">
+                <span key={`instrument-${index}`} className="track-tag mini">
                   {typeof instrument === 'string' ? instrument : instrument.name}
                 </span>
               ))}

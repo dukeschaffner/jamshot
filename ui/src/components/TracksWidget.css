@@ -399,11 +399,11 @@
   height: 6px;
   background-color: rgba(0, 0, 0, 0.1);
   border-radius: 3px;
-  overflow: hidden;
-  margin-left: 10px;
+  overflow: visible;
   position: relative;
   width: 100%;
   margin-top: 10px;
+  margin-bottom: 15px;
 }
 
 .audio-meter-bar {
@@ -414,6 +414,56 @@
   min-width: 3px;
 }
 
+/* Fader handle styling */
+.fader-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  transition: background-color 0.2s ease;
+}
+
+.fader-handle:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.fader-handle:active {
+  background-color: var(--seafoam, #34c759);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.fader-handle.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Volume indicator */
+.volume-indicator {
+  position: absolute;
+  bottom: -18px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text-secondary, #666);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+/* Show volume indicator when hovering the meter container or when dragging the fader */
+.audio-meter-container:hover .volume-indicator,
+.fader-handle:active + .volume-indicator {
+  opacity: 1;
+}
 
 /* Solo button adjustments */
 .solo-button {
