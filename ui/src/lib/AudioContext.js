@@ -19,6 +19,7 @@ export function AudioProvider({ children }) {
   const currentPositionRef = useRef(0);
   const loadedTrackIdRef = useRef(null);
   const urlRefreshAttemptedRef = useRef(false); // Track if we've tried refreshing the URL
+  const urlRefreshedRef = useRef(false); // Track if we've refreshed the URL
 
   // Refs for play counter
   const listeningTimeRef = useRef(0);
@@ -141,6 +142,7 @@ export function AudioProvider({ children }) {
       
       // Replace the current track with updated URLs
       setCurrentTrack(updatedTrack);
+      urlRefreshedRef.current = true;
       
       console.log('Successfully refreshed URL, trying playback again');
     } catch (err) {
@@ -150,7 +152,7 @@ export function AudioProvider({ children }) {
 
   // useEffect to initialize the audio player for track
   useEffect(() => {
-    if (currentTrack && currentTrack.id !== loadedTrackIdRef.current) { // only initialize the audio if the track has changed
+    if (currentTrack && ((currentTrack.id !== loadedTrackIdRef.current) || urlRefreshedRef.current)) { // only initialize the audio if the track has changed
       if (soundRef.current) {
         // Save current position before unloading
         if (soundRef.current.playing()) {
@@ -158,7 +160,12 @@ export function AudioProvider({ children }) {
         }
         soundRef.current.unload();
       }
-      
+
+      // If we've refreshed the URL, reset the flag
+      if (urlRefreshedRef.current) {
+        urlRefreshedRef.current = false;
+      }
+
       // Reset URL refresh attempt flag for new track
       urlRefreshAttemptedRef.current = false;
       
