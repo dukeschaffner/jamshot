@@ -84,30 +84,44 @@ function AboutContent() {
           <h2 className="section-title">Our Vision</h2>
           <div className="vision-text">
             <p>
-              JamShot was born from a simple idea: <strong>music is better when created together</strong>. 
+              JamShot was born from a simple idea: <strong>redefine the way we share music</strong>. 
               As a musician myself, I&apos;ve experienced the magic that happens when artists collaborate, 
               bringing different perspectives, skills, and ideas to the creative process.
             </p>
             <p>
+              The music industry has struggled with effective collaboration tools. Traditional online 
+              collaborative DAWs require extensive setup, where you must first find potential collaborators, 
+              create and configure a new project, and then often face the awkwardness of starting with 
+              no initial ideas or natural inspiration. This formal, structured approach removes the spontaneity 
+              and natural flow that makes in-person jam sessions so creative and productive. JamShot eliminates 
+              these barriers by creating a space where collaboration happens organically, driven by the music itself.
+            </p>
+            <p>
               In today&apos;s digital world, musicians are often separated by distance, but that shouldn&apos;t 
               limit our ability to create together. JamShot bridges this gap by providing a platform 
-              where musicians can share their work, find collaborators, and build upon each other&apos;s 
+              where musicians can freely share their work, find collaborators, and build upon each other&apos;s 
               creativity in a seamless, intuitive way.
             </p>
             <p>
-              Our platform is designed to foster a community where artists can:
+              Our mission is to unlock a new era of musical collaboration. We&apos;re making this possible by:
             </p>
             <ul className="vision-list">
-              <li>Share tracks and invite specific collaborations</li>
-              <li>Discover new artists with complementary styles</li>
-              <li>Build upon existing tracks with new layers and ideas</li>
-              <li>Maintain creative control while embracing collaborative input</li>
-              <li>Receive fair recognition and compensation for their contributions</li>
+              <li><strong>Empowering open sharing</strong> — Whether it&apos;s a polished track or just a cool loop you made last night, share it all. Our dynamic feed keeps you connected with what your friends and favorite artists are creating right now.</li>
+              <li><strong>Breaking down collaboration barriers</strong> — Collaborate with ANYONE on the platform, anytime. No more waiting for the perfect opportunity or watching online DAW projects fizzle out after a week.</li>
+              <li><strong>Simplifying music creation</strong> — We&apos;re removing technical barriers so that your only limit is your imagination. Making and sharing music should be intuitive for everyone, from beginners to professionals.</li>
             </ul>
             <p>
-              We believe that the future of music lies in breaking down the barriers between artists 
-              and creating new pathways for collaborative creation. JamShot isn&apos;t just a platform—it&apos;s 
-              a movement toward a more connected, collaborative musical ecosystem.
+              JamShot is pioneering a first-of-its-kind social media platform for music, where instead of sharing text-based
+              posts and comments, you can share your ideas or comments through music,
+              creating a dynamic ecosystem of sound and creativity.
+            </p>
+            <p>
+              We believe the future of music lies in open connection and collaboration. JamShot isn&apos;t just a platform—it&apos;s 
+              a movement toward a more vibrant, inclusive musical community where every artist can find their voice 
+              and their perfect collaborators.
+            </p>
+            <p className="join-cta">
+              Ready to transform the way you create? <strong>Join JamShot today</strong> and become part of the collaborative music revolution.
             </p>
           </div>
         </section>
