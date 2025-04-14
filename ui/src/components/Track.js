@@ -326,13 +326,13 @@ export default function Track(
               className={`track-tab ${activeTab === 'collabs' ? 'active' : ''}`}
               onClick={() => setActiveTab('collabs')}
             >
-              <FaCodeBranch /> Collabs
+              Collabs
             </button>
             <button 
               className={`track-tab ${activeTab === 'comments' ? 'active' : ''}`}
               onClick={() => setActiveTab('comments')}
             >
-              <FaComment /> Comments
+              Comments
             </button>
           </div>
           

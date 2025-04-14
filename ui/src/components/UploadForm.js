@@ -13,7 +13,9 @@ export default function UploadForm({
   isCollab = false, 
   recordingAudioBuffer = null, 
   parentTrack = null,
-  onCancel = null
+  onCancel = null,
+  originalGain = 0.8,
+  recordingGain = 0.8
 }) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
@@ -72,6 +74,12 @@ export default function UploadForm({
           // Add parent track ID for collab
           if (parentTrack && parentTrack.id) {
             formData.append('parent_track_id', parentTrack.id);
+          }
+          
+          // Add gain values for mixing
+          if (isCollab) {
+            formData.append('original_gain', originalGain.toString());
+            formData.append('recording_gain', recordingGain.toString());
           }
         } catch (audioError) {
           console.error('Error processing audio buffer:', audioError);
