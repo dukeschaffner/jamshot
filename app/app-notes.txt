@@ -79,7 +79,6 @@ BUGS
 - popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - dark mode inconsistencies
 - daw - sometimes hitting pause during playback start another unpausable instance of the song
-- test expired url handling
 
 
 TODO (after beta testing)
