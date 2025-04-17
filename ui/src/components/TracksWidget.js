@@ -33,6 +33,10 @@ export default function TracksWidget({
     const [looperRightPos, setLooperRightPos] = useState(100);
     const [effectiveDuration, setEffectiveDuration] = useState(10); // Default to 90 seconds (1:30)
 
+    // Add zoom state
+    const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom, > 1 = zoomed in
+    const zoomMax = 10; // Maximum zoom level
+
     const originalBufferRef = useRef(null);
     const originalGainNodeRef = useRef(null);
     const originalTrackGainRef = useRef(.8);
@@ -114,6 +118,7 @@ export default function TracksWidget({
     const originalFaderRef = useRef(null);
     const recordingFaderRef = useRef(null);
     const takesCountRef = useRef(0); // Ref to track the number of takes
+    const dawTracksContainerRef = useRef(null);
 
     const recordingStartPosRef = useRef(0);
     
@@ -847,7 +852,17 @@ export default function TracksWidget({
     if(selectedTake) {
       let recordedBuffer = createRecordingPlaybackBuffer(selectedTake);
       setRecordingPlaybackBuffer(recordedBuffer);
-      renderWaveform(recordedBuffer, croppedRecordingCanvasRef, selectedTake.startTime, selectedTake.endTime);
+      renderWaveform(
+        recordedBuffer, 
+        croppedRecordingCanvasRef, 
+        selectedTake.startTime, 
+        selectedTake.endTime,
+        zoomLevel
+      );
+
+      if (recordingCanvasRef.current) {
+        renderWaveform(selectedTake.buffer, recordingCanvasRef, null, null, zoomLevel);
+      }
     }
   }, [selectedTake, userLatencyCompensation]);
 
@@ -858,13 +873,9 @@ export default function TracksWidget({
   // Render waveforms when buffers change
   useEffect(() => {
     if (originalBufferRef.current) {
-      renderWaveform(originalBufferRef.current, originalCanvasRef);
+      renderWaveform(originalBufferRef.current, originalCanvasRef, null, null, zoomLevel);
     }
-    
-    // if (recordedBufferRef.current && selectedTake) {
-    //   renderWaveform(recordedBufferRef.current, croppedRecordingCanvasRef, selectedTake.startTime, selectedTake.endTime);
-    // }
-  }, [originalBufferRef.current, recordedBufferRef.current]);
+  }, [originalBufferRef.current, zoomLevel]);
 
   // Update playhead position when playback starts
   useEffect(() => {
@@ -1298,43 +1309,32 @@ export default function TracksWidget({
   // Determine if recording track has content
   const hasRecordingTrack = recordedBufferRef.current !== null || selectedTake !== null;
   
-  // Generate dynamic time markers based on track duration
+  // Generate dynamic time markers based on track duration and zoom level
   const generateTimeMarkers = () => {
+    if(!dawTracksContainerRef.current) return;
     const markers = [];
-    
+      
     // Determine appropriate interval based on track duration
     let interval; // in seconds
     let numMarkers;
-    
-    if (effectiveDuration <= 30) {
-      // For short tracks (≤30s), show markers every 5 seconds
-      interval = 5;
-      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
-    } else if (effectiveDuration <= 60) {
-      // For medium tracks (≤60s), show markers every 10 seconds
-      interval = 10;
-      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
-    } else if (effectiveDuration <= 180) {
-      // For longer tracks (≤3min), show markers every 30 seconds
-      interval = 30;
-      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
-    } else if (effectiveDuration <= 600) {
-      // For very long tracks (≤10min), show markers every minute
-      interval = 60;
-      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
-    } else {
-      // For extremely long tracks (>10min), show markers every 2 minutes
-      interval = 120;
-      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
+
+    const projectWidth = dawTracksContainerRef.current.getBoundingClientRect().width;
+    const minPixelsPerMarker = 50;
+    const secondsPerPixel = effectiveDuration / projectWidth;
+
+    const intervals = [0.1, 0.5, 1, 5, 10, 30, 60, 120];
+
+    for(let i = 0; i < intervals.length; i++){
+      if(secondsPerPixel * minPixelsPerMarker <= intervals[i]){
+        interval = intervals[i];
+        break;
+      }
     }
-    
-    // Limit the number of markers to prevent overcrowding
-    const maxMarkers = 15;
-    if (numMarkers > maxMarkers) {
-      interval = Math.ceil(effectiveDuration / (maxMarkers - 1));
-      numMarkers = Math.ceil(effectiveDuration / interval) + 1;
-    }
-    
+
+    const precision = interval < 1 ? 1 : 0;
+    numMarkers = Math.ceil(effectiveDuration / interval) + 1;
+      
+      
     // Always include start marker
     markers.push(
       <div 
@@ -1342,26 +1342,26 @@ export default function TracksWidget({
         className="time-marker time-marker-start" 
         style={{ left: '0%' }}
       >
-        {formatDuration(0)}
+        {formatDuration(0, precision)}
       </div>
     );
-    
+      
     // Add intermediate markers
     for (let i = 1; i < numMarkers - 1; i++) {
       const time = i * interval;
       if (time < effectiveDuration) { // Only add if within track duration
-        const percentage = timeToPos(time, effectiveDuration);
-        markers.push(
-          <div 
-            key={`marker-${i}`} 
+              const percentage = timeToPos(time, effectiveDuration);
+              markers.push(
+                  <div 
+                      key={`marker-${i}`} 
             className="time-marker time-marker-mid" 
-            style={{ left: `${percentage}%` }}
-          >
-            {formatDuration(time)}
-          </div>
-        );
+                      style={{ left: `${percentage}%` }}
+                  >
+                      {formatDuration(time, precision)}
+                  </div>
+              );
+          }
       }
-    }
     
     // Always include end marker (unless it's very close to the last interval marker)
     const lastIntervalTime = (numMarkers - 1) * interval;
@@ -1372,64 +1372,64 @@ export default function TracksWidget({
           className="time-marker time-marker-end" 
           style={{ left: '100%' }}
         >
-          {formatDuration(effectiveDuration)}
+          {formatDuration(effectiveDuration, 1)}
         </div>
       );
     }
-    
-    return markers;
+      
+      return markers;
   };
   
-  // Generate musical grid lines based on BPM and time signature
+  // Generate musical grid lines based on BPM and time signature, accounting for zoom
   const generateMusicalGrid = () => {
-    const bpm = 115; // Beats per minute
-    const beatsPerMeasure = 4; // 4/4 time signature
-    
-    // Calculate seconds per beat and seconds per measure
-    const secondsPerBeat = 60 / bpm;
-    const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
-    
-    const gridLines = [];
-    
+      const bpm = 115; // Beats per minute
+      const beatsPerMeasure = 4; // 4/4 time signature
+      
+      // Calculate seconds per beat and seconds per measure
+      const secondsPerBeat = 60 / bpm;
+      const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+      
+      const gridLines = [];
+      
     // Calculate how many measures fit in the track
     const totalMeasures = Math.ceil(effectiveDuration / secondsPerMeasure);
-    
-    // Generate measure lines (strong grid lines)
+      
+      // Generate measure lines (strong grid lines)
     for (let measure = 0; measure <= totalMeasures; measure++) {
-      const measureTime = measure * secondsPerMeasure;
+          const measureTime = measure * secondsPerMeasure;
       if (measureTime <= effectiveDuration) {
-        const position = timeToPos(measureTime, effectiveDuration);
-        gridLines.push(
-          <div 
-            key={`measure-${measure}`} 
-            className="grid-line measure-line" 
-            style={{ left: `${position}%` }}
-            title={`Measure ${measure + 1}`}
-          />
-        );
+              const position = timeToPos(measureTime, effectiveDuration);
+              gridLines.push(
+                  <div 
+                      key={`measure-${measure}`} 
+                      className="grid-line measure-line" 
+                      style={{ left: `${position}%` }}
+                      title={`Measure ${measure + 1}`}
+                  />
+              );
+          }
       }
-    }
-    
-    // Generate beat lines (weaker grid lines)
+      
+      // Generate beat lines (weaker grid lines)
     for (let beat = 0; beat <= totalMeasures * beatsPerMeasure; beat++) {
-      // Skip beats that fall on measure boundaries (already covered by measure lines)
-      if (beat % beatsPerMeasure !== 0) {
-        const beatTime = beat * secondsPerBeat;
+              // Skip beats that fall on measure boundaries (already covered by measure lines)
+              if (beat % beatsPerMeasure !== 0) {
+                  const beatTime = beat * secondsPerBeat;
         if (beatTime <= effectiveDuration) {
-          const position = timeToPos(beatTime, effectiveDuration);
-          gridLines.push(
-            <div 
-              key={`beat-${beat}`} 
-              className="grid-line beat-line" 
-              style={{ left: `${position}%` }}
-              title={`Beat ${(beat % beatsPerMeasure) + 1}`}
-            />
-          );
-        }
+                      const position = timeToPos(beatTime, effectiveDuration);
+                      gridLines.push(
+                          <div 
+                              key={`beat-${beat}`} 
+                              className="grid-line beat-line" 
+                              style={{ left: `${position}%` }}
+                              title={`Beat ${(beat % beatsPerMeasure) + 1}`}
+                          />
+                      );
+              }
+          }
       }
-    }
-    
-    return gridLines;
+      
+      return gridLines;
   };
   
   // File handling functions
@@ -1732,6 +1732,11 @@ export default function TracksWidget({
     setShowDeleteConfirmation(false);
   };
 
+  const handleZoomChange = (e) => {
+    const newZoomLevel = parseFloat(e.target.value);
+    setZoomLevel(newZoomLevel);
+  };
+
   // Handle click outside context menu to close it
   useEffect(() => {
     const handleClickOutside = () => {
@@ -1820,10 +1825,6 @@ export default function TracksWidget({
       setCropStartPercentage(cropStartTime / selectedTake.buffer.duration * 100);
       setCropEndPercentage((selectedTake.buffer.duration - cropEndTime) / selectedTake.buffer.duration * 100);
       
-      // Render the full recording to the recordingCanvasRef for cropping view
-      if (recordingCanvasRef.current) {
-        renderWaveform(selectedTake.buffer, recordingCanvasRef);
-      }
     }
   }, [selectedTake]);
 
@@ -1879,16 +1880,123 @@ export default function TracksWidget({
     setDragStartX(e.clientX);
   };
 
-
   return (
     <div className="daw-container">
-        <div className="daw-header">
-            <div className="daw-header-left">
-
+        <div className="daw-body">
+            <div className="daw-tracks-headers">
+                {isCollab && (
+                  <div className="track-label">
+                      <span>Original</span>
+                      <button 
+                          className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
+                          onClick={toggleOriginalSolo}
+                          disabled={isRecording}
+                          title="Solo original track"
+                      >
+                          <FontAwesomeIcon icon={faHeadphones} />
+                          <span>Solo</span>
+                      </button>
+                  
+                      {/* Original Track Meter */}
+                      <div 
+                      className="audio-meter-container"
+                      ref={originalFaderRef}>
+                          <div 
+                          className="audio-meter-bar" 
+                          style={{ 
+                              width: `${dbToPercent(originalTrackLevel)}%`,
+                              backgroundColor: getMeterColor(originalTrackLevel)
+                          }}
+                          ></div>
+                          {/* Add fader handle - only shown if not recording */}
+                          {!isRecording && (
+                              <>
+                                  <div 
+                                      className={`fader-handle ${isRecording ? 'disabled' : ''}`}
+                                      style={{ 
+                                          left: `${originalFaderValue * 100}%`,
+                                          backgroundColor: isDraggingOriginalFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
+                                      }}
+                                      onMouseDown={handleOriginalFaderMouseDown}
+                                      title={`Volume: ${Math.round(originalFaderValue * 100)}%`}
+                                  ></div>
+                                  <div className="volume-indicator" style={{ left: `${originalFaderValue * 100}%` }}>
+                                      {Math.round(originalFaderValue * 100)}%
+                                  </div>
+                              </>
+                          )}
+                      </div>
+                  </div>
+                )}
+                <div className="track-label">
+                  <span>{isCollab ? 'Your Recording' : 'Your Track'}</span>
+                  {isCollab && (
+                    <button 
+                      className={`solo-button ${recordingTrackSolo ? 'active' : ''}`}
+                      onClick={toggleRecordingSolo}
+                      disabled={isRecording || !hasRecordingTrack}
+                      title="Solo your recording"
+                    >
+                      <FontAwesomeIcon icon={faHeadphones} />
+                      <span>Solo</span>
+                    </button>
+                  )}
+                  {isRecording && (
+                    <div className="recording-indicator">
+                      <FontAwesomeIcon icon={faMicrophone} />
+                      <span>Recording</span>
+                    </div>
+                  )}
+                  
+                  {/* Recording Track Meter */}
+                  <div 
+                    className="audio-meter-container" 
+                    ref={recordingFaderRef}>
+                    <div 
+                      className="audio-meter-bar" 
+                      style={{ 
+                        width: `${dbToPercent(isRecording ? inputLevel : recordingTrackLevel)}%`,
+                        backgroundColor: getMeterColor(isRecording ? inputLevel : recordingTrackLevel)
+                      }}
+                    ></div>
+                    {/* Add fader handle - only shown if not recording and there's a track to control */}
+                    {!isRecording && recordingPlaybackBuffer && (
+                      <>
+                          <div 
+                            className={`fader-handle ${isRecording ? 'disabled' : ''}`}
+                            style={{ 
+                                left: `${recordingFaderValue * 100}%`,
+                                backgroundColor: isDraggingRecordingFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
+                            }}
+                            onMouseDown={handleRecordingFaderMouseDown}
+                            title={`Volume: ${Math.round(recordingFaderValue * 100)}%`}
+                          ></div>
+                          <div className="volume-indicator" style={{ left: `${recordingFaderValue * 100}%` }}>
+                              {Math.round(recordingFaderValue * 100)}%
+                          </div>
+                      </>
+                    )}
+                  </div>
+                </div>
             </div>
-            
-            <div className="timeline" ref={dawHeaderRef}>
-                
+
+            <div 
+              className="tracks-scroll-container" 
+            >
+              <div 
+                className="daw-tracks-container"
+                ref={dawTracksContainerRef}
+                style={{ 
+                  width: zoomLevel > 1 ? `${100 * zoomLevel}%` : '100%'
+                }}
+              >
+                <div 
+              className={`timeline ${zoomLevel > 1 ? 'zoomed' : ''}`} 
+              ref={dawHeaderRef}
+              style={{ 
+                width: '100%',
+              }}
+            >
                 {/* Playhead */}
                 {hasAudioContent && (
                     <div 
@@ -1937,350 +2045,271 @@ export default function TracksWidget({
                     ></div>
                   </div>
                 )}
-            </div>
-
-                
-            
-        </div>
-        <div className="daw-body">
-        <div className="daw-tracks-headers">
-            {isCollab && (
-              <div className="track-label">
-                  <span>Original</span>
-                  <button 
-                      className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
-                      onClick={toggleOriginalSolo}
-                      disabled={isRecording}
-                      title="Solo original track"
-                  >
-                      <FontAwesomeIcon icon={faHeadphones} />
-                      <span>Solo</span>
-                  </button>
-              
-                  {/* Original Track Meter */}
-                  <div 
-                  className="audio-meter-container"
-                  ref={originalFaderRef}>
+            </div>   
+                  {/* Original Track - only shown in collab mode */}
+                  {isCollab && (
+                    <div className="track-container parent-track">
                       <div 
-                      className="audio-meter-bar" 
-                      style={{ 
-                          width: `${dbToPercent(originalTrackLevel)}%`,
-                          backgroundColor: getMeterColor(originalTrackLevel)
-                      }}
-                      ></div>
-                      {/* Add fader handle - only shown if not recording */}
-                      {!isRecording && (
-                          <>
-                              <div 
-                                  className={`fader-handle ${isRecording ? 'disabled' : ''}`}
-                                  style={{ 
-                                      left: `${originalFaderValue * 100}%`,
-                                      backgroundColor: isDraggingOriginalFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
-                                  }}
-                                  onMouseDown={handleOriginalFaderMouseDown}
-                                  title={`Volume: ${Math.round(originalFaderValue * 100)}%`}
-                              ></div>
-                              <div className="volume-indicator" style={{ left: `${originalFaderValue * 100}%` }}>
-                                  {Math.round(originalFaderValue * 100)}%
-                              </div>
-                          </>
-                      )}
-                  </div>
-              </div>
-            )}
-            <div className="track-label">
-              <span>{isCollab ? 'Your Recording' : 'Your Track'}</span>
-              {isCollab && (
-                <button 
-                  className={`solo-button ${recordingTrackSolo ? 'active' : ''}`}
-                  onClick={toggleRecordingSolo}
-                  disabled={isRecording || !hasRecordingTrack}
-                  title="Solo your recording"
-                >
-                  <FontAwesomeIcon icon={faHeadphones} />
-                  <span>Solo</span>
-                </button>
-              )}
-              {isRecording && (
-                <div className="recording-indicator">
-                  <FontAwesomeIcon icon={faMicrophone} />
-                  <span>Recording</span>
-                </div>
-              )}
-              
-              {/* Recording Track Meter */}
-              <div 
-                className="audio-meter-container" 
-                ref={recordingFaderRef}>
-                <div 
-                  className="audio-meter-bar" 
-                  style={{ 
-                    width: `${dbToPercent(isRecording ? inputLevel : recordingTrackLevel)}%`,
-                    backgroundColor: getMeterColor(isRecording ? inputLevel : recordingTrackLevel)
-                  }}
-                ></div>
-                {/* Add fader handle - only shown if not recording and there's a track to control */}
-                {!isRecording && recordingPlaybackBuffer && (
-                  <>
-                      <div 
-                        className={`fader-handle ${isRecording ? 'disabled' : ''}`}
-                        style={{ 
-                            left: `${recordingFaderValue * 100}%`,
-                            backgroundColor: isDraggingRecordingFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
-                        }}
-                        onMouseDown={handleRecordingFaderMouseDown}
-                        title={`Volume: ${Math.round(recordingFaderValue * 100)}%`}
-                      ></div>
-                      <div className="volume-indicator" style={{ left: `${recordingFaderValue * 100}%` }}>
-                          {Math.round(recordingFaderValue * 100)}%
+                        className="waveform-container" 
+                        ref={waveformContainerRef} 
+                        onClick={handleWaveformClick}
+                      >
+                        <div className="waveform">
+                          {/* Canvas Waveform */}
+                          {originalBufferRef.current ? (
+                            <canvas 
+                              ref={originalCanvasRef} 
+                              width="1000" 
+                              height="100" 
+                              style={{ width: '100%', height: '100%' }}
+                            />
+                          ) : (
+                            /* SVG Waveform Fallback */
+                            <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                              <path 
+                                d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
+                                fill="none" 
+                                stroke="var(--seafoam)" 
+                                strokeWidth="2"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        
                       </div>
-                  </>
-                )}
-              </div>
-            </div>
-        </div>
-
-
-
-        <div className="daw-tracks-container">
-            {/* Original Track - only shown in collab mode */}
-            {isCollab && (
-              <div className="track-container parent-track">
-                <div className="waveform-container" ref={waveformContainerRef} onClick={handleWaveformClick}>
-                  <div className="waveform">
-                    {/* Canvas Waveform */}
-                    {originalBufferRef.current ? (
-                      <canvas 
-                        ref={originalCanvasRef} 
-                        width="1000" 
-                        height="100" 
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                    ) : (
-                      /* SVG Waveform Fallback */
-                      <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
-                        <path 
-                          d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
-                          fill="none" 
-                          stroke="var(--seafoam)" 
-                          strokeWidth="2"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  
-                </div>
-              </div>
-            )}
-
-            {/* Recording Track - shown in both modes */}
-            <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`} ref={recordingTrackContainerRef}>
-              {hasRecordingTrack || isRecording ? (
-                <div 
-                  className={`waveform-container 
-                    ${isDraggingRecordingRegion ? 'dragging' : ''} 
-                    ${selectedForDeletion ? 'selected' : ''}
-                    ${isPlaying ? 'playing' : ''}
-                    ${isRecording ? 'recording' : ''}
-                    ${isDraggingCropStart || isDraggingCropEnd ? 'cropping' : ''}
-                  `}
-                  style={{
-                    left: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.startTime - selectedTake.timeOffset, effectiveDuration) : recordingStartPos}%`,
-                    width: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.buffer.duration, effectiveDuration) : recordingWidth}%`,
-                    cursor: isPlaying || isRecording ? 'default' : (
-                      showCropHandles ? 'col-resize' : (isCollab ? 'grab' : 'default')
-                    )
-                  }}
-                  onClick={hasRecordingTrack && !isRecording ? handleRecordingClick : handleWaveformClick}
-                  onMouseDown={isPlaying || isRecording ? null : (isCollab ? handleRecordingRegionMouseDown : null)}
-                  onMouseMove={handleRecordingMouseMove}
-                  onMouseLeave={handleRecordingMouseLeave}
-                  onContextMenu={hasRecordingTrack && !isRecording ? handleRecordingContextMenu : null}
-                  ref={recordingContainerRef}
-                >
-                  <div className="waveform">
-                    {/* Recording Indicator */}
-                    {isRecording ? (
-                      <div className="recording-indicator-visual"/>
-                    ) : (
-                    <>
-                        <canvas 
-                            ref={recordingCanvasRef} 
-                            width="1000" 
-                            height="100" 
-                            style={{ width: '100%', height: '100%', display: isDraggingCropStart || isDraggingCropEnd ? 'block' : 'none' }}
-                        />
-                        <canvas 
-                            ref={croppedRecordingCanvasRef} 
-                            width="1000" 
-                            height="100" 
-                            style={{ width: '100%', height: '100%', display: isDraggingCropStart || isDraggingCropEnd ? 'none' : 'block' }}
-                        />
-                        {isDraggingCropStart || isDraggingCropEnd ? (
-                        <>
-                            
-                            {/* Show crop status indicator when cropping */}
-                            {(isDraggingCropStart || isDraggingCropEnd) && (
-                              <div className="crop-status">
-                                Cropping: {isDraggingCropStart ? "Start" : "End"}
-                              </div>
-                            )}
-                            <div 
-                              className="crop-left-overlay"
-                              ref={cropStartOverlayRef}
-                              style={{ width: `${cropStartPercentage}%` }}
-                            />
-                            <div 
-                              className="crop-right-overlay"
-                              ref={cropEndOverlayRef}
-                              style={{ width: `${cropEndPercentage}%` }}
-                            />
-                        </>
-                        ) : (// show cropped recording waveform
-                          <>
-                            
-                            {showCropHandles && !isPlaying && !isRecording && (
-                              <>
-                                <div 
-                                  className="crop-handle crop-handle-left"
-                                  onMouseDown={handleCropStartMouseDown}
-                                  title="Drag to crop start"
-                                />
-                                <div 
-                                  className="crop-handle crop-handle-right"
-                                  onMouseDown={handleCropEndMouseDown}
-                                  title="Drag to crop end"
-                                />
-                              </>
-                            )}
-                          </>
-                        )}
-                    </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  className="waveform-container empty"
-                  onClick={() => {
-                    document.getElementById('audio-file-input').click();
-                  }}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <div className="empty-message">
-                    <FontAwesomeIcon icon={faCloudUploadAlt} />
-                    <span>Drop audio file here or start recording</span>
-                    <input 
-                      type="file" 
-                      id="audio-file-input" 
-                      className="file-upload-input" 
-                      accept="audio/*"
-                      onChange={handleFileChange}
-                      style={{ display: 'none' }}
-                    />
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </div>
-        </div>
-        {/* Takes List */}
-        {takes.length > 0 && (
-            <div className="takes-container">
-            <h3>Your Takes</h3>
-            <div className="takes-list">
-                {takes.map(take => (
-                <div 
-                    key={take.id} 
-                    className={`take-item ${selectedTake?.id === take.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedTake(take)}
-                >
-                    <span className="take-name">{take.name}</span>
-                    <div className="take-controls">
-                    <button className="take-play" onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedTake(take);
-                        setIsPlaying(true);
-                    }}>
-                        <FontAwesomeIcon icon={faPlay} />
-                    </button>
                     </div>
+                  )}
+
+                  {/* Recording Track - shown in both modes */}
+                  <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`} ref={recordingTrackContainerRef}>
+                    {hasRecordingTrack || isRecording ? (
+                      <div 
+                        className={`waveform-container 
+                          ${isDraggingRecordingRegion ? 'dragging' : ''} 
+                          ${selectedForDeletion ? 'selected' : ''}
+                          ${isPlaying ? 'playing' : ''}
+                          ${isRecording ? 'recording' : ''}
+                          ${isDraggingCropStart || isDraggingCropEnd ? 'cropping' : ''}
+                        `}
+                        style={{
+                          left: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.startTime - selectedTake.timeOffset, effectiveDuration) : recordingStartPos}%`,
+                          width: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.buffer.duration, effectiveDuration) : recordingWidth}%`,
+                          cursor: isPlaying || isRecording ? 'default' : (
+                            showCropHandles ? 'col-resize' : (isCollab ? 'grab' : 'default')
+                          )
+                        }}
+                        onClick={hasRecordingTrack && !isRecording ? handleRecordingClick : handleWaveformClick}
+                        onMouseDown={isPlaying || isRecording ? null : (isCollab ? handleRecordingRegionMouseDown : null)}
+                        onMouseMove={handleRecordingMouseMove}
+                        onMouseLeave={handleRecordingMouseLeave}
+                        onContextMenu={hasRecordingTrack && !isRecording ? handleRecordingContextMenu : null}
+                        ref={recordingContainerRef}
+                      >
+                        <div className="waveform">
+                          {/* Recording Indicator */}
+                          {isRecording ? (
+                            <div className="recording-indicator-visual"/>
+                          ) : (
+                          <>
+                              <canvas 
+                                  ref={recordingCanvasRef} 
+                                  width="1000" 
+                                  height="100" 
+                                  style={{ width: '100%', height: '100%', display: isDraggingCropStart || isDraggingCropEnd ? 'block' : 'none' }}
+                              />
+                              <canvas 
+                                  ref={croppedRecordingCanvasRef} 
+                                  width="1000" 
+                                  height="100" 
+                                  style={{ width: '100%', height: '100%', display: isDraggingCropStart || isDraggingCropEnd ? 'none' : 'block' }}
+                              />
+                              {isDraggingCropStart || isDraggingCropEnd ? (
+                              <>
+                                  
+                                  {/* Show crop status indicator when cropping */}
+                                  {(isDraggingCropStart || isDraggingCropEnd) && (
+                                    <div className="crop-status">
+                                      Cropping: {isDraggingCropStart ? "Start" : "End"}
+                                    </div>
+                                  )}
+                                  <div 
+                                    className="crop-left-overlay"
+                                    ref={cropStartOverlayRef}
+                                    style={{ width: `${cropStartPercentage}%` }}
+                                  />
+                                  <div 
+                                    className="crop-right-overlay"
+                                    ref={cropEndOverlayRef}
+                                    style={{ width: `${cropEndPercentage}%` }}
+                                  />
+                              </>
+                              ) : (// show cropped recording waveform
+                                <>
+                                  
+                                  {showCropHandles && !isPlaying && !isRecording && (
+                                    <>
+                                      <div 
+                                        className="crop-handle crop-handle-left"
+                                        onMouseDown={handleCropStartMouseDown}
+                                        title="Drag to crop start"
+                                      />
+                                      <div 
+                                        className="crop-handle crop-handle-right"
+                                        onMouseDown={handleCropEndMouseDown}
+                                        title="Drag to crop end"
+                                      />
+                                    </>
+                                  )}
+                                </>
+                              )}
+                          </>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div 
+                        className="waveform-container empty"
+                        onClick={() => {
+                          document.getElementById('audio-file-input').click();
+                        }}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        <div className="empty-message">
+                          <FontAwesomeIcon icon={faCloudUploadAlt} />
+                          <span>Drop audio file here or start recording</span>
+                          <input 
+                            type="file" 
+                            id="audio-file-input" 
+                            className="file-upload-input" 
+                            accept="audio/*"
+                            onChange={handleFileChange}
+                            style={{ display: 'none' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                ))}
-            </div>
-            </div>
-        )}
+              </div>
+          </div>
 
-        {/* Context Menu */}
-        {showContextMenu && (
-          <div 
-            className="context-menu" 
-            style={{ 
-              position: 'fixed', 
-              top: `${contextMenuPosition.y}px`, 
-              left: `${contextMenuPosition.x}px`,
-              zIndex: 1000,
-              background: 'white',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-              borderRadius: '4px',
-              padding: '8px 0'
-            }}
-          >
-            <button 
-              onClick={handleDeleteRecording}
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
-                padding: '8px 16px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px'
+            {/* Zoom control */}
+            <div className="zoom-control">
+                <span className="zoom-label">Zoom: {zoomLevel.toFixed(1)}x</span>
+                <input 
+                    type="range" 
+                    min="1" 
+                    max={zoomMax} 
+                    step="0.1" 
+                    value={zoomLevel}
+                    onChange={handleZoomChange}
+                    className="zoom-slider"
+                />
+                <button 
+                    className="zoom-reset-btn" 
+                    onClick={() => { setZoomLevel(1);}}
+                    title="Reset zoom"
+                >
+                    1:1
+                </button>
+            </div>
+          
+          {/* Takes List */}
+          {takes.length > 0 && (
+              <div className="takes-container">
+              <h3>Your Takes</h3>
+              <div className="takes-list">
+                  {takes.map(take => (
+                  <div 
+                      key={take.id} 
+                      className={`take-item ${selectedTake?.id === take.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedTake(take)}
+                  >
+                      <span className="take-name">{take.name}</span>
+                      <div className="take-controls">
+                      <button className="take-play" onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTake(take);
+                          setIsPlaying(true);
+                      }}>
+                          <FontAwesomeIcon icon={faPlay} />
+                      </button>
+                      </div>
+                  </div>
+                  ))}
+              </div>
+              </div>
+          )}
+
+          {/* Context Menu */}
+          {showContextMenu && (
+            <div 
+              className="context-menu" 
+              style={{ 
+                position: 'fixed', 
+                top: `${contextMenuPosition.y}px`, 
+                left: `${contextMenuPosition.x}px`,
+                zIndex: 1000,
+                background: 'white',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                borderRadius: '4px',
+                padding: '8px 0'
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#f0f0f0'}
-              onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
             >
-              Delete Recording
-            </button>
-          </div>
-        )}
+              <button 
+                onClick={handleDeleteRecording}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '8px 16px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+                onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                Delete Recording
+              </button>
+            </div>
+          )}
 
-        {/* Delete Confirmation Dialog */}
-        {showDeleteConfirmation && (
-          <div className="modal-overlay active" onClick={(e) => {
-            if (e.target.className === 'modal-overlay active') {
-              setShowDeleteConfirmation(false);
-            }
-          }}>
-            <div className="modal-content">
-              <div className="modal-header">
-                <h2 className="modal-title">Confirm Deletion</h2>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to delete all {takes.length} takes?</p>
-                <p>This action cannot be undone.</p>
-              </div>
-              <div className="modal-footer">
-                <button 
-                  className="btn btn-secondary"
-                  onClick={() => setShowDeleteConfirmation(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="btn btn-danger"
-                  onClick={deleteRecording}
-                >
-                  Delete All Recordings
-                </button>
+          {/* Delete Confirmation Dialog */}
+          {showDeleteConfirmation && (
+            <div className="modal-overlay active" onClick={(e) => {
+              if (e.target.className === 'modal-overlay active') {
+                setShowDeleteConfirmation(false);
+              }
+            }}>
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h2 className="modal-title">Confirm Deletion</h2>
+                </div>
+                <div className="modal-body">
+                  <p>Are you sure you want to delete all {takes.length} takes?</p>
+                  <p>This action cannot be undone.</p>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => setShowDeleteConfirmation(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn btn-danger"
+                    onClick={deleteRecording}
+                  >
+                    Delete All Recordings
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-    </div>
-  );
+          )}
+      </div>
+    );
 } 
