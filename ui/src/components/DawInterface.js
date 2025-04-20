@@ -247,6 +247,8 @@ export default function DawInterface({ track, isCollab = false }) {
         isCollab={isCollab}
         setOriginalGain={setOriginalGain}
         setRecordingGain={setRecordingGain}
+        isMetronomeOn={isMetronomeOn}
+        bpm={track?.metronome_bpm || 120}
       />
 
       {/* Audio Settings Modal */}

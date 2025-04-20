@@ -62,7 +62,6 @@ TODO (MVP)
   - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
   - trimming regions on upload action (decouple upload/collab daws?)
   - recording past 90s on upload?
-  - zoom
 
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
   - check all track laods, comment loads
