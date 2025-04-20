@@ -1057,3 +1057,115 @@
 .zoomed .time-markers {
   width: 100%; /* Ensure time markers container spans full width */
 }
+
+/* Add metronome-related styles */
+
+/* Musical grid active beat indicators */
+.grid-line.measure-line.active {
+  background-color: var(--seafoam);
+  box-shadow: 0 0 8px var(--seafoam);
+  opacity: 0.8;
+  z-index: 5;
+  transition: background-color 0.05s ease-out;
+}
+
+.grid-line.beat-line.active {
+  background-color: rgba(147, 233, 190, 0.6);
+  box-shadow: 0 0 5px rgba(147, 233, 190, 0.6);
+  opacity: 0.8;
+  z-index: 5;
+  transition: background-color 0.05s ease-out;
+}
+
+/* Metronome controls */
+.metronome-controls {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 16px;
+}
+
+.metronome-volume-control {
+  display: flex;
+  align-items: center;
+  background-color: var(--darker-bg);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-right: 10px;
+}
+
+.metronome-volume-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-right: 10px;
+  white-space: nowrap;
+}
+
+.metronome-volume-slider {
+  width: 100px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--gray);
+  outline: none;
+  border-radius: 2px;
+}
+
+.metronome-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--seafoam);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.metronome-volume-slider::-webkit-slider-thumb:hover {
+  background: var(--seafoam-light);
+  transform: scale(1.2);
+}
+
+.metronome-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--seafoam);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.metronome-volume-slider::-moz-range-thumb:hover {
+  background: var(--seafoam-light);
+  transform: scale(1.2);
+}
+
+/* Make the musical grid more visible when metronome is on */
+.musical-grid {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  width: 100%;
+  height: calc(100% - 24px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.grid-line {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.grid-line.measure-line {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.grid-line.beat-line {
+  background-color: rgba(255, 255, 255, 0.1);
+}

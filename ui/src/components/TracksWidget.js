@@ -21,7 +21,9 @@ export default function TracksWidget({
   userLatencyCompensation = 0,
   isCollab = false,
   setOriginalGain = null,
-  setRecordingGain = null
+  setRecordingGain = null,
+  isMetronomeOn = false,  // Add metronome prop
+  bpm = 120            // Add BPM prop with default value
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -32,6 +34,16 @@ export default function TracksWidget({
     const [looperLeftPos, setLooperLeftPos] = useState(0);
     const [looperRightPos, setLooperRightPos] = useState(100);
     const [effectiveDuration, setEffectiveDuration] = useState(10); // Default to 90 seconds (1:30)
+    
+    // Add metronome state
+    const [metronomeBPM, setMetronomeBPM] = useState(bpm);
+    const metronomeHighClickRef = useRef(null);
+    const metronomeLowClickRef = useRef(null);
+    const metronomeSourcesRef = useRef([]);
+    const nextScheduledBeatRef = useRef(0);
+    const metronomeGainNodeRef = useRef(null);
+    const [metronomeVolume, setMetronomeVolume] = useState(0.7);
+    const [currentBeat, setCurrentBeat] = useState(-1); // For visual feedback
 
     // Add zoom state
     const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom, > 1 = zoomed in
@@ -230,6 +242,9 @@ export default function TracksWidget({
           inputAnalyzer.smoothingTimeConstant = 0.8;
           inputAnalyzerRef.current = inputAnalyzer;
 
+          // Create metronome sounds
+          createMetronomeSounds(newAudioContext);
+
           // Start the meter animation loop
           startMeterAnimation();
         } catch (e) {
@@ -379,6 +394,35 @@ export default function TracksWidget({
     absolutePlaybackStartTimeRef.current = audioContext.currentTime;
     console.log('Absolute playback start time set:', absolutePlaybackStartTimeRef.current);
 
+    // Schedule metronome clicks if metronome is on
+    if (isMetronomeOn) {
+      // Calculate the current beat based on playhead position
+      const currentBeat = Math.floor(startTime * metronomeBPM / 60);
+      scheduleMetronomeClicks(audioContext.currentTime, currentBeat);
+      
+      // Set up an interval to schedule more metronome clicks ahead of time
+      const scheduleInterval = setInterval(() => {
+        if (!isPlayingRef.current) {
+          clearInterval(scheduleInterval);
+          return;
+        }
+        
+        const currentPlayTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
+        const currentBeat = Math.floor(currentPlayTime * metronomeBPM / 60);
+        
+        // If we've played past the beats we've scheduled, schedule more
+        if (currentBeat >= nextScheduledBeatRef.current - 2) {
+          scheduleMetronomeClicks(
+            audioContext.currentTime + ((nextScheduledBeatRef.current - currentBeat) * 60 / metronomeBPM),
+            nextScheduledBeatRef.current
+          );
+        }
+        
+        // Update current beat for visual feedback
+        setCurrentBeat(currentBeat % 4);
+      }, 100); // Check every 100ms
+    }
+
     // Enable the play button when playback is complete
     if (activeSources.length > 0) {
       activeSources[0].onended = function() {
@@ -420,7 +464,21 @@ export default function TracksWidget({
       originalGainNodeRef.current = null;
       recordingGainNodeRef.current = null;
     }
+
+    // Stop all metronome sources
+    metronomeSourcesRef.current.forEach(source => {
+      try {
+        source.stop();
+        source.disconnect();
+      } catch (error) {
+        // Source may have already stopped
+      }
+    });
+    metronomeSourcesRef.current = [];
+    
     setIsPlaying(false);
+    // Reset current beat indicator
+    setCurrentBeat(-1);
   };
 
   const seekToTime = (time) => {
@@ -442,6 +500,17 @@ export default function TracksWidget({
           console.error('Error stopping audio source:', error);
         }
       });
+      
+      // Stop all metronome sources
+      metronomeSourcesRef.current.forEach(source => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (error) {
+          // Source may have already stopped
+        }
+      });
+      metronomeSourcesRef.current = [];
       
       // Clear the active sources array
       activeSourcesRef.current = [];
@@ -1382,7 +1451,7 @@ export default function TracksWidget({
   
   // Generate musical grid lines based on BPM and time signature, accounting for zoom
   const generateMusicalGrid = () => {
-      const bpm = 115; // Beats per minute
+      const bpm = metronomeBPM; // Use the metronome BPM
       const beatsPerMeasure = 4; // 4/4 time signature
       
       // Calculate seconds per beat and seconds per measure
@@ -1391,42 +1460,43 @@ export default function TracksWidget({
       
       const gridLines = [];
       
-    // Calculate how many measures fit in the track
-    const totalMeasures = Math.ceil(effectiveDuration / secondsPerMeasure);
+      // Calculate how many measures fit in the track
+      const totalMeasures = Math.ceil(effectiveDuration / secondsPerMeasure);
       
       // Generate measure lines (strong grid lines)
-    for (let measure = 0; measure <= totalMeasures; measure++) {
-          const measureTime = measure * secondsPerMeasure;
-      if (measureTime <= effectiveDuration) {
-              const position = timeToPos(measureTime, effectiveDuration);
-              gridLines.push(
-                  <div 
-                      key={`measure-${measure}`} 
-                      className="grid-line measure-line" 
-                      style={{ left: `${position}%` }}
-                      title={`Measure ${measure + 1}`}
-                  />
-              );
-          }
+      for (let measure = 0; measure <= totalMeasures; measure++) {
+        const measureTime = measure * secondsPerMeasure;
+        if (measureTime <= effectiveDuration) {
+          const position = timeToPos(measureTime, effectiveDuration);
+          gridLines.push(
+            <div 
+              key={`measure-${measure}`} 
+              className={`grid-line measure-line ${isMetronomeOn && currentBeat === 0 && measure === Math.floor(playheadTime / secondsPerMeasure) ? 'active' : ''}`}
+              style={{ left: `${position}%` }}
+              title={`Measure ${measure + 1}`}
+            />
+          );
+        }
       }
       
       // Generate beat lines (weaker grid lines)
-    for (let beat = 0; beat <= totalMeasures * beatsPerMeasure; beat++) {
-              // Skip beats that fall on measure boundaries (already covered by measure lines)
-              if (beat % beatsPerMeasure !== 0) {
-                  const beatTime = beat * secondsPerBeat;
-        if (beatTime <= effectiveDuration) {
-                      const position = timeToPos(beatTime, effectiveDuration);
-                      gridLines.push(
-                          <div 
-                              key={`beat-${beat}`} 
-                              className="grid-line beat-line" 
-                              style={{ left: `${position}%` }}
-                              title={`Beat ${(beat % beatsPerMeasure) + 1}`}
-                          />
-                      );
-              }
+      for (let beat = 0; beat <= totalMeasures * beatsPerMeasure; beat++) {
+        // Skip beats that fall on measure boundaries (already covered by measure lines)
+        if (beat % beatsPerMeasure !== 0) {
+          const beatTime = beat * secondsPerBeat;
+          if (beatTime <= effectiveDuration) {
+            const position = timeToPos(beatTime, effectiveDuration);
+            const currentMeasureBeat = beat % beatsPerMeasure;
+            gridLines.push(
+              <div 
+                key={`beat-${beat}`} 
+                className={`grid-line beat-line ${isMetronomeOn && currentBeat === currentMeasureBeat && Math.floor(beat / beatsPerMeasure) === Math.floor(playheadTime / secondsPerMeasure) ? 'active' : ''}`}
+                style={{ left: `${position}%` }}
+                title={`Beat ${(beat % beatsPerMeasure) + 1}`}
+              />
+            );
           }
+        }
       }
       
       return gridLines;
@@ -1880,6 +1950,113 @@ export default function TracksWidget({
     setDragStartX(e.clientX);
   };
 
+  // Create metronome click sounds when audio context is initialized
+  const createMetronomeSounds = (context) => {
+    // Create high click (downbeat)
+    const highClickBuffer = context.createBuffer(1, context.sampleRate * 0.05, context.sampleRate);
+    const highClickChannel = highClickBuffer.getChannelData(0);
+    
+    // Create sine wave with quick decay for high click (downbeat)
+    for (let i = 0; i < highClickBuffer.length; i++) {
+      // Pitch - higher for first beat (accent)
+      const frequency = 1600; 
+      // Exponential decay
+      const decay = Math.exp(-5 * i / highClickBuffer.length);
+      // Apply sine wave with decay
+      highClickChannel[i] = Math.sin(2 * Math.PI * frequency * i / context.sampleRate) * decay;
+    }
+    
+    // Create low click (other beats)
+    const lowClickBuffer = context.createBuffer(1, context.sampleRate * 0.03, context.sampleRate);
+    const lowClickChannel = lowClickBuffer.getChannelData(0);
+    
+    // Create sine wave with quick decay for low click (other beats)
+    for (let i = 0; i < lowClickBuffer.length; i++) {
+      // Pitch - lower for other beats
+      const frequency = 900; 
+      // Exponential decay
+      const decay = Math.exp(-10 * i / lowClickBuffer.length);
+      // Apply sine wave with decay
+      lowClickChannel[i] = Math.sin(2 * Math.PI * frequency * i / context.sampleRate) * decay;
+    }
+    
+    // Store the click buffers
+    metronomeHighClickRef.current = highClickBuffer;
+    metronomeLowClickRef.current = lowClickBuffer;
+
+    // Create gain node for metronome volume control
+    const gainNode = context.createGain();
+    gainNode.gain.value = metronomeVolume;
+    gainNode.connect(context.destination);
+    metronomeGainNodeRef.current = gainNode;
+  };
+
+  // Schedule metronome clicks for the next few beats
+  const scheduleMetronomeClicks = (startTime, initialBeat = 0) => {
+    if (!isMetronomeOn || !audioContext) return;
+    
+    const beatsPerMeasure = 4; // 4/4 time signature
+    const secondsPerBeat = 60 / metronomeBPM;
+    
+    // Calculate the current beat based on playhead position
+    const currentPlayheadBeat = Math.floor(playheadInternalTimeRef.current * metronomeBPM / 60);
+    const firstBeatToSchedule = initialBeat > 0 ? initialBeat : currentPlayheadBeat;
+    
+    // Cancel any previously scheduled clicks if we're starting fresh
+    if (initialBeat === 0) {
+      metronomeSourcesRef.current.forEach(source => {
+        try {
+          source.stop();
+          source.disconnect();
+        } catch (error) {
+          // Source might have already stopped
+        }
+      });
+      metronomeSourcesRef.current = [];
+    }
+    
+    // Schedule several beats ahead (look-ahead window - 2 measures)
+    const beatsToSchedule = beatsPerMeasure * 2;
+    
+    for (let i = 0; i < beatsToSchedule; i++) {
+      const beatNumber = (firstBeatToSchedule + i) % beatsPerMeasure;
+      const beatTime = startTime + (i * secondsPerBeat);
+      
+      // Use high click for first beat of measure, low click for others
+      const clickBuffer = beatNumber === 0 ? metronomeHighClickRef.current : metronomeLowClickRef.current;
+      
+      if (!clickBuffer) continue; // Skip if buffer not loaded yet
+      
+      // Create source and schedule it
+      const clickSource = audioContext.createBufferSource();
+      clickSource.buffer = clickBuffer;
+      
+      // Connect to gain node for volume control
+      clickSource.connect(metronomeGainNodeRef.current);
+      
+      // Schedule the click
+      clickSource.start(beatTime);
+      
+      // Store reference to stop later if needed
+      metronomeSourcesRef.current.push(clickSource);
+      
+      // Update the next scheduled beat
+      nextScheduledBeatRef.current = firstBeatToSchedule + i + 1;
+    }
+  };
+
+  // Update metronome volume when volume state changes
+  useEffect(() => {
+    if (metronomeGainNodeRef.current) {
+      metronomeGainNodeRef.current.gain.value = metronomeVolume;
+    }
+  }, [metronomeVolume]);
+
+  // Update BPM when prop changes
+  useEffect(() => {
+    setMetronomeBPM(bpm);
+  }, [bpm]);
+
   return (
     <div className="daw-container">
         <div className="daw-body">
@@ -2013,9 +2190,9 @@ export default function TracksWidget({
                 </div>
 
                 {/* Musical Grid */}
-                {/* <div className="musical-grid">
+                <div className="musical-grid">
                     {generateMusicalGrid()}
-                </div> */}
+                </div>
 
                 {/* Looper - Only show if there's audio content */}
                 {hasAudioContent && (
@@ -2194,6 +2371,24 @@ export default function TracksWidget({
                 </div>
               </div>
           </div>
+
+            {/* Metronome volume control - Add near zoom controls */}
+            <div className="metronome-controls">
+              {isMetronomeOn && (
+                <div className="metronome-volume-control">
+                  <span className="metronome-volume-label">Metronome: {Math.round(metronomeVolume * 100)}%</span>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="1" 
+                    step="0.05" 
+                    value={metronomeVolume}
+                    onChange={(e) => setMetronomeVolume(parseFloat(e.target.value))}
+                    className="metronome-volume-slider"
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Zoom control */}
             <div className="zoom-control">
