@@ -17,6 +17,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [metronomeBpm, setMetronomeBpm] = useState(120);
+  const [metronomeVolume, setMetronomeVolume] = useState(0.7);
   const [showModal, setShowModal] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [originalAudioChunks, setOriginalAudioChunks] = useState(null);
@@ -350,6 +351,8 @@ export default function DawInterface({ track, isCollab = false }) {
         setRecordingGain={setRecordingGain}
         isMetronomeOn={isMetronomeOn}
         bpm={metronomeBpm}
+        metronomeVolume={metronomeVolume}
+        setMetronomeVolume={setMetronomeVolume}
       />
 
       {/* Audio Settings Modal */}
@@ -401,6 +404,28 @@ export default function DawInterface({ track, isCollab = false }) {
                 <p className="text-sm text-gray-500 mt-1">
                   Adjust this value if your recording is not in sync with the original track.
                   Negative values play your recording earlier, positive values play it later.
+                </p>
+              </div>
+
+              {/* Metronome Volume Control */}
+              <div className="form-group mt-4">
+                <label htmlFor="metronome-volume">
+                  Metronome Volume: {Math.round(metronomeVolume * 100)}%
+                </label>
+                <div className="slider-container">
+                  <input
+                    type="range"
+                    id="metronome-volume"
+                    className="form-range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={metronomeVolume}
+                    onChange={(e) => setMetronomeVolume(parseFloat(e.target.value))}
+                  />
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  Adjust the volume of the metronome click sound.
                 </p>
               </div>
             </div>
