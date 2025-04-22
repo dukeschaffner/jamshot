@@ -23,7 +23,9 @@ export default function TracksWidget({
   setOriginalGain = null,
   setRecordingGain = null,
   isMetronomeOn = false,  // Add metronome prop
-  bpm = 120            // Add BPM prop with default value
+  bpm = 120,            // Add BPM prop with default value
+  metronomeVolume = 0.7, // Add metronomeVolume prop with default value
+  setMetronomeVolume = null // Add setMetronomeVolume prop
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -42,8 +44,6 @@ export default function TracksWidget({
     const metronomeSourcesRef = useRef([]);
     const lastScheduledBeatRef = useRef(0);
     const metronomeGainNodeRef = useRef(null);
-    const [metronomeVolume, setMetronomeVolume] = useState(0.7);
-    const [currentBeat, setCurrentBeat] = useState(-1); // For visual feedback
 
     // Add zoom state
     const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom, > 1 = zoomed in
@@ -465,8 +465,6 @@ export default function TracksWidget({
     metronomeSourcesRef.current = [];
     
     setIsPlaying(false);
-    // Reset current beat indicator
-    setCurrentBeat(-1);
   };
 
   const seekToTime = (time) => {
@@ -1459,7 +1457,7 @@ export default function TracksWidget({
           gridLines.push(
             <div 
               key={`measure-${measure}`} 
-              className={`grid-line measure-line ${isMetronomeOn && currentBeat === 0 && measure === Math.floor(playheadTime / secondsPerMeasure) ? 'active' : ''}`}
+              className={`grid-line measure-line`}
               style={{ left: `${position}%` }}
               title={`Measure ${measure + 1}`}
             />
@@ -1474,11 +1472,10 @@ export default function TracksWidget({
           const beatTime = beat * secondsPerBeat;
           if (beatTime <= effectiveDuration) {
             const position = timeToPos(beatTime, effectiveDuration);
-            const currentMeasureBeat = beat % beatsPerMeasure;
             gridLines.push(
               <div 
                 key={`beat-${beat}`} 
-                className={`grid-line beat-line ${isMetronomeOn && currentBeat === currentMeasureBeat && Math.floor(beat / beatsPerMeasure) === Math.floor(playheadTime / secondsPerMeasure) ? 'active' : ''}`}
+                className={`grid-line beat-line`}
                 style={{ left: `${position}%` }}
                 title={`Beat ${(beat % beatsPerMeasure) + 1}`}
               />
@@ -2365,20 +2362,6 @@ export default function TracksWidget({
 
             {/* Metronome volume control - Add near zoom controls */}
             <div className="metronome-controls">
-              {isMetronomeOn && (
-                <div className="metronome-volume-control">
-                  <span className="metronome-volume-label">Metronome: {Math.round(metronomeVolume * 100)}%</span>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.05" 
-                    value={metronomeVolume}
-                    onChange={(e) => setMetronomeVolume(parseFloat(e.target.value))}
-                    className="metronome-volume-slider"
-                  />
-                </div>
-              )}
             </div>
 
             {/* Zoom control */}
