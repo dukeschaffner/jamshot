@@ -16,6 +16,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
+  const [metronomeBpm, setMetronomeBpm] = useState(120);
   const [showModal, setShowModal] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [originalAudioChunks, setOriginalAudioChunks] = useState(null);
@@ -27,6 +28,8 @@ export default function DawInterface({ track, isCollab = false }) {
   const [userLatencyCompensation, setUserLatencyCompensation] = useState(0);
   const [originalGain, setOriginalGain] = useState(0.8);
   const [recordingGain, setRecordingGain] = useState(0.8);
+  const [isEditingBpm, setIsEditingBpm] = useState(false);
+  const [bpmInputValue, setBpmInputValue] = useState('120');
 
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -74,6 +77,13 @@ export default function DawInterface({ track, isCollab = false }) {
     configureAudioSettings();
   }, [showAudioSettingsModal]);
 
+  // Update BPM when track changes
+  useEffect(() => {
+    const initialBpm = track?.metronome_bpm || 120;
+    setMetronomeBpm(initialBpm);
+    setBpmInputValue(initialBpm.toString());
+  }, [track]);
+
   const configureAudioSettings = async () => {
     const audioInputs = await getAudioInputDevices();
     const preferredAudioInputDevice = Cookies.get('preferredAudioInputDevice');
@@ -119,10 +129,81 @@ export default function DawInterface({ track, isCollab = false }) {
     setIsMetronomeOn(prev => !prev);
   };
   
+  // Handle BPM input change
+  const handleBpmChange = (e) => {
+    // Only allow numbers
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    setBpmInputValue(value);
+  };
+
+  // Handle BPM input key press events for numeric validation and submit/cancel
+  const handleBpmKeyDown = (e) => {
+    // Handle submit/cancel
+    if (e.key === 'Enter') {
+      setIsEditingBpm(false);
+      updateBpmValue();
+      return;
+    } else if (e.key === 'Escape') {
+      setIsEditingBpm(false);
+      setBpmInputValue(metronomeBpm.toString());
+      return;
+    }
+    
+    // Allow: backspace, delete, tab, escape, enter
+    if ([8, 46, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+        // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+        (e.keyCode >= 65 && e.keyCode <= 90 && e.ctrlKey === true) ||
+        // Allow: home, end, left, right
+        (e.keyCode >= 35 && e.keyCode <= 39)) {
+      // Let it happen
+      return;
+    }
+    
+    // Ensure that it is a number and stop the keypress if it's not
+    if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && 
+        (e.keyCode < 96 || e.keyCode > 105)) {
+      e.preventDefault();
+    }
+  };
+
+  // Handle BPM input blur
+  const handleBpmBlur = () => {
+    // Validate and update BPM when input loses focus
+    setIsEditingBpm(false);
+    updateBpmValue();
+  };
+
+  // Update BPM value with validation
+  const updateBpmValue = () => {
+    // Convert to number and validate range
+    let newBpm = parseInt(bpmInputValue, 10);
+    
+    // If not a valid number, revert to current BPM
+    if (isNaN(newBpm)) {
+      setBpmInputValue(metronomeBpm.toString());
+      return;
+    }
+    
+    // Clamp to reasonable BPM range (40-240)
+    newBpm = Math.max(40, Math.min(240, newBpm));
+    
+    // Only update if the BPM actually changed
+    if (newBpm !== metronomeBpm) {
+      // Update BPM state and input value
+      setMetronomeBpm(newBpm);
+      setBpmInputValue(newBpm.toString());
+    }
+  };
+  
+  // Start editing BPM
+  const startEditingBpm = () => {
+    setBpmInputValue(metronomeBpm.toString());
+    setIsEditingBpm(true);
+  };
+
   const showCollabModal = () => {
     setShowModal(true);
   };
-  
   
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
@@ -201,7 +282,27 @@ export default function DawInterface({ track, isCollab = false }) {
             <FontAwesomeIcon icon={faStepForward} />
           </button> */}
           <div className="bpm-control">
-            <span>{track?.metronome_bpm || 120} BPM</span>
+            {isEditingBpm ? (
+              <input
+                type="text"
+                value={bpmInputValue}
+                onChange={handleBpmChange}
+                onKeyDown={handleBpmKeyDown}
+                onBlur={handleBpmBlur}
+                className="bpm-input"
+                maxLength="3"
+                autoFocus
+                aria-label="Set BPM"
+              />
+            ) : (
+              <span 
+                onClick={startEditingBpm}
+                title="Click to edit BPM"
+                style={{ cursor: 'pointer' }}
+              >
+                {metronomeBpm} BPM
+              </span>
+            )}
             <button 
               className={`metronome-toggle ${isMetronomeOn ? 'active' : ''}`}
               onClick={toggleMetronome}
@@ -248,7 +349,7 @@ export default function DawInterface({ track, isCollab = false }) {
         setOriginalGain={setOriginalGain}
         setRecordingGain={setRecordingGain}
         isMetronomeOn={isMetronomeOn}
-        bpm={track?.metronome_bpm || 120}
+        bpm={metronomeBpm}
       />
 
       {/* Audio Settings Modal */}

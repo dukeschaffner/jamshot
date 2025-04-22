@@ -128,3 +128,58 @@
   align-items: center;
   gap: 16px;
 }
+
+/* BPM Control Styles */
+/* .bpm-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.bpm-control span {
+  font-weight: 500;
+  font-size: 14px;
+  min-width: 70px;
+  text-align: right;
+} */
+
+.bpm-input {
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  width: 50px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.bpm-input:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.2);
+}
+
+.metronome-toggle {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  border-radius: 3px;
+  padding: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.metronome-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.metronome-toggle.active {
+  color: var(--seafoam, #4CD9AC);
+}

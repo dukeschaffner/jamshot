@@ -40,7 +40,7 @@ export default function TracksWidget({
     const metronomeHighClickRef = useRef(null);
     const metronomeLowClickRef = useRef(null);
     const metronomeSourcesRef = useRef([]);
-    const nextScheduledBeatRef = useRef(0);
+    const lastScheduledBeatRef = useRef(0);
     const metronomeGainNodeRef = useRef(null);
     const [metronomeVolume, setMetronomeVolume] = useState(0.7);
     const [currentBeat, setCurrentBeat] = useState(-1); // For visual feedback
@@ -396,9 +396,8 @@ export default function TracksWidget({
 
     // Schedule metronome clicks if metronome is on
     if (isMetronomeOn) {
-      // Calculate the current beat based on playhead position
-      const currentBeat = Math.floor(startTime * metronomeBPM / 60);
-      scheduleMetronomeClicks(audioContext.currentTime, currentBeat);
+      stopAndClearMetronomeClicks();
+      scheduleMetronomeClicks();
       
       // Set up an interval to schedule more metronome clicks ahead of time
       const scheduleInterval = setInterval(() => {
@@ -406,20 +405,8 @@ export default function TracksWidget({
           clearInterval(scheduleInterval);
           return;
         }
-        
-        const currentPlayTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
-        const currentBeat = Math.floor(currentPlayTime * metronomeBPM / 60);
-        
-        // If we've played past the beats we've scheduled, schedule more
-        if (currentBeat >= nextScheduledBeatRef.current - 2) {
-          scheduleMetronomeClicks(
-            audioContext.currentTime + ((nextScheduledBeatRef.current - currentBeat) * 60 / metronomeBPM),
-            nextScheduledBeatRef.current
-          );
-        }
-        
-        // Update current beat for visual feedback
-        setCurrentBeat(currentBeat % 4);
+
+        scheduleMetronomeClicks();
       }, 100); // Check every 100ms
     }
 
@@ -428,6 +415,7 @@ export default function TracksWidget({
       activeSources[0].onended = function() {
         if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) >= effectiveDuration){ //Ended naturally, no looping
           if(isLooping){ //Go to the start of the looper
+            console.log('i think its here');
             seekToTime(posToTime(looperLeftPos, effectiveDuration));
           }
           else{
@@ -1388,7 +1376,7 @@ export default function TracksWidget({
     let numMarkers;
 
     const projectWidth = dawTracksContainerRef.current.getBoundingClientRect().width;
-    const minPixelsPerMarker = 50;
+    const minPixelsPerMarker = 100;
     const secondsPerPixel = effectiveDuration / projectWidth;
 
     const intervals = [0.1, 0.5, 1, 5, 10, 30, 60, 120];
@@ -1992,35 +1980,28 @@ export default function TracksWidget({
   };
 
   // Schedule metronome clicks for the next few beats
-  const scheduleMetronomeClicks = (startTime, initialBeat = 0) => {
+  const scheduleMetronomeClicks = () => {
     if (!isMetronomeOn || !audioContext) return;
     
     const beatsPerMeasure = 4; // 4/4 time signature
     const secondsPerBeat = 60 / metronomeBPM;
     
     // Calculate the current beat based on playhead position
-    const currentPlayheadBeat = Math.floor(playheadInternalTimeRef.current * metronomeBPM / 60);
-    const firstBeatToSchedule = initialBeat > 0 ? initialBeat : currentPlayheadBeat;
-    
-    // Cancel any previously scheduled clicks if we're starting fresh
-    if (initialBeat === 0) {
-      metronomeSourcesRef.current.forEach(source => {
-        try {
-          source.stop();
-          source.disconnect();
-        } catch (error) {
-          // Source might have already stopped
-        }
-      });
-      metronomeSourcesRef.current = [];
-    }
+    const currentPlaybackTime = playheadInternalTimeRef.current + (audioContext?.currentTime - absolutePlaybackStartTimeRef.current);
+    const nextPlayheadBeat = Math.ceil(currentPlaybackTime * metronomeBPM / 60);
+    if(lastScheduledBeatRef.current > nextPlayheadBeat + 2){
+      return; // If the last scheduled beat is more than 2 beats ahead of the next playhead beat, don't schedule any more
+    } 
+
+    const firstBeatToSchedule = nextPlayheadBeat >= lastScheduledBeatRef.current ? nextPlayheadBeat : lastScheduledBeatRef.current + 1;
+    const firstBeatToScheduleTime = audioContext.currentTime + (firstBeatToSchedule * secondsPerBeat - currentPlaybackTime);
     
     // Schedule several beats ahead (look-ahead window - 2 measures)
     const beatsToSchedule = beatsPerMeasure * 2;
     
     for (let i = 0; i < beatsToSchedule; i++) {
       const beatNumber = (firstBeatToSchedule + i) % beatsPerMeasure;
-      const beatTime = startTime + (i * secondsPerBeat);
+      const beatTime = firstBeatToScheduleTime + (i * secondsPerBeat);
       
       // Use high click for first beat of measure, low click for others
       const clickBuffer = beatNumber === 0 ? metronomeHighClickRef.current : metronomeLowClickRef.current;
@@ -2041,8 +2022,18 @@ export default function TracksWidget({
       metronomeSourcesRef.current.push(clickSource);
       
       // Update the next scheduled beat
-      nextScheduledBeatRef.current = firstBeatToSchedule + i + 1;
+      lastScheduledBeatRef.current = firstBeatToSchedule + i;
     }
+    console.log("Scheduled beats: ", beatsToSchedule);
+  };
+
+  const stopAndClearMetronomeClicks = () => {
+    metronomeSourcesRef.current.forEach(source => {
+      source.stop();
+      source.disconnect();
+    });
+    metronomeSourcesRef.current = [];
+    lastScheduledBeatRef.current = 0;
   };
 
   // Update metronome volume when volume state changes
