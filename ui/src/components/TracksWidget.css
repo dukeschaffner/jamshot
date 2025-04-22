@@ -276,14 +276,12 @@
 }
 
 /* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .measure-line {
-    background-color: black;
-  }
+body.dark-mode .measure-line {
+  background-color: black;
+}
   
-  .beat-line {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
+body.dark-mode .beat-line {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Empty state for recording */
@@ -1060,22 +1058,6 @@
 
 /* Add metronome-related styles */
 
-/* Musical grid active beat indicators */
-.grid-line.measure-line.active {
-  background-color: var(--seafoam);
-  box-shadow: 0 0 8px var(--seafoam);
-  opacity: 0.8;
-  z-index: 5;
-  transition: background-color 0.05s ease-out;
-}
-
-.grid-line.beat-line.active {
-  background-color: rgba(147, 233, 190, 0.6);
-  box-shadow: 0 0 5px rgba(147, 233, 190, 0.6);
-  opacity: 0.8;
-  z-index: 5;
-  transition: background-color 0.05s ease-out;
-}
 
 /* Metronome controls */
 .metronome-controls {
@@ -1142,30 +1124,4 @@
   transform: scale(1.2);
 }
 
-/* Make the musical grid more visible when metronome is on */
-.musical-grid {
-  position: absolute;
-  top: 24px;
-  left: 0;
-  width: 100%;
-  height: calc(100% - 24px);
-  pointer-events: none;
-  z-index: 1;
-}
 
-.grid-line {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  width: 1px;
-  background-color: rgba(255, 255, 255, 0.1);
-  pointer-events: none;
-}
-
-.grid-line.measure-line {
-  background-color: rgba(255, 255, 255, 0.25);
-}
-
-.grid-line.beat-line {
-  background-color: rgba(255, 255, 255, 0.1);
-}
