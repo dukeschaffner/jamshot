@@ -59,7 +59,8 @@ Pages
 TODO (MVP)
 - DAW
   - synchronize recording/playback on collaboration
-  - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
+  - metronome count in
+  - toggle metronome during playback
   - trimming regions on upload action (decouple upload/collab daws?)
   - recording past 90s on upload?
 
