@@ -1067,6 +1067,60 @@ body.dark-mode .beat-line {
   padding: 0 16px;
 }
 
-/* Remove metronome volume control styles that were moved to DawInterface.css */
+/* Metronome offset controls */
+.metronome-offset-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 24px;
+  z-index: 10;
+  pointer-events: none;
+}
 
+.metronome-offset-handle {
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  cursor: ew-resize;
+  z-index: 15;
+}
 
+.metronome-offset-handle:hover {
+  transform: translateX(-50%) scale(1.2) !important;
+}
+
+.metronome-offset-handle:active {
+  transform: translateX(-50%) scale(0.9) !important;
+}
+
+/* Add info tooltip for metronome offset */
+.metronome-offset-handle::after {
+  content: attr(title);
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.metronome-offset-handle:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Dark mode support */
+body.dark-mode .metronome-offset-handle {
+  border-top-color: var(--seafoam-dark, #65d6ad) !important;
+}

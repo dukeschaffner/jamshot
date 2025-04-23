@@ -44,6 +44,7 @@ export default function TracksWidget({
     const metronomeSourcesRef = useRef([]);
     const lastScheduledBeatRef = useRef(0);
     const metronomeGainNodeRef = useRef(null);
+    const [metronomeOffset, setMetronomeOffset] = useState(0); // 0-100, percentage of measure to offset the metronome by
 
     // Add zoom state
     const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom, > 1 = zoomed in
@@ -140,6 +141,11 @@ export default function TracksWidget({
     const cropEndTimeRef = useRef(0);
     const [showCropHandles, setShowCropHandles] = useState(false);
     //#endregion
+
+    // Add state for metronome offset drag and position
+    const [isDraggingMetronomeOffset, setIsDraggingMetronomeOffset] = useState(false);
+    const [metronomeOffsetPos, setMetronomeOffsetPos] = useState(0); // Position in %
+    const metronomeOffsetHandleRef = useRef(null);
 
     const {isPlaying: isPlayingGlobal, togglePlayPause: togglePlayPauseGlobal } = useAudio();
 
@@ -1040,7 +1046,7 @@ export default function TracksWidget({
     // Mouse event handlers
     useEffect(() => {
         const handleMouseMove = (e) => {
-          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion && !isDraggingCropStart && !isDraggingCropEnd && !isDraggingOriginalFader && !isDraggingRecordingFader) return;
+          if (!isDraggingLooperLeft && !isDraggingLooperRight && !isDraggingPlayhead && !isDraggingLooperRegion && !isDraggingRecordingRegion && !isDraggingCropStart && !isDraggingCropEnd && !isDraggingOriginalFader && !isDraggingRecordingFader && !isDraggingMetronomeOffset) return;
           
         const rect = dawHeaderRef.current.getBoundingClientRect();
         const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
@@ -1237,6 +1243,24 @@ export default function TracksWidget({
           const newGain = Math.min(1, Math.max(0, newMousePos / 100));
           setRecordingFaderValue(newGain);
         }
+
+        // Handle metronome offset dragging
+        if (isDraggingMetronomeOffset) {
+          // Calculate the position of one measure
+          const bpm = metronomeBPM;
+          const beatsPerMeasure = 4; // 4/4 time signature
+          const secondsPerBeat = 60 / bpm;
+          const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+          const measurePos = timeToPos(secondsPerMeasure, effectiveDuration);
+          
+          // Limit the drag to be within 0% (left edge) and one measure
+          const newOffsetPos = Math.max(0, Math.min(measurePos, mousePos));
+          setMetronomeOffsetPos(newOffsetPos);
+          
+          // Update metronome offset in seconds
+          const offsetTime = posToTime(newOffsetPos, effectiveDuration);
+          setMetronomeOffset(offsetTime);
+        }
       };
         
         const handleMouseUp = (e) => {
@@ -1245,6 +1269,7 @@ export default function TracksWidget({
           setIsDraggingLooperLeft(false);
           setIsDraggingLooperRight(false);
           setIsDraggingLooperRegion(false);
+          setIsDraggingMetronomeOffset(false);
 
           if(isDraggingPlayhead){
             seekToTime(playheadInternalTimeRef.current);
@@ -1305,13 +1330,13 @@ export default function TracksWidget({
           document.removeEventListener('mouseup', handleMouseUp);
         };
       }, [
-        isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion, isDraggingRecordingRegion,
-        isDraggingCropStart, isDraggingCropEnd,
+        isDraggingLooperLeft, isDraggingLooperRight, isDraggingPlayhead, isDraggingLooperRegion, 
+        isDraggingRecordingRegion, isDraggingCropStart, isDraggingCropEnd, isDraggingOriginalFader, 
+        isDraggingRecordingFader, isDraggingMetronomeOffset,
         looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
-        isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, selectedTake,
-        isCollab, recordingPlaybackBuffer, cropStartPercentage, cropEndPercentage,
-        isDraggingOriginalFader, isDraggingRecordingFader,
-        originalFaderValue, recordingFaderValue
+        isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, 
+        selectedTake, isCollab, recordingPlaybackBuffer, cropStartPercentage, cropEndPercentage,
+        originalFaderValue, recordingFaderValue, metronomeBPM, effectiveDuration
       ]);
 
       useEffect(() => {
@@ -1443,15 +1468,16 @@ export default function TracksWidget({
       // Calculate seconds per beat and seconds per measure
       const secondsPerBeat = 60 / bpm;
       const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+      const offsetSeconds = posToTime(metronomeOffsetPos, effectiveDuration);
       
       const gridLines = [];
       
       // Calculate how many measures fit in the track
-      const totalMeasures = Math.ceil(effectiveDuration / secondsPerMeasure);
+      const totalMeasures = Math.ceil((effectiveDuration - offsetSeconds) / secondsPerMeasure);
       
       // Generate measure lines (strong grid lines)
       for (let measure = 0; measure <= totalMeasures; measure++) {
-        const measureTime = measure * secondsPerMeasure;
+        const measureTime = measure * secondsPerMeasure + offsetSeconds;
         if (measureTime <= effectiveDuration) {
           const position = timeToPos(measureTime, effectiveDuration);
           gridLines.push(
@@ -1464,12 +1490,16 @@ export default function TracksWidget({
           );
         }
       }
+
+      const startBeat = beatsPerMeasure - Math.floor(offsetSeconds / secondsPerBeat);
+      const startBeatOffset = offsetSeconds % secondsPerBeat;
+      const endBeat = startBeat + Math.floor((effectiveDuration - startBeatOffset) / secondsPerBeat);
       
       // Generate beat lines (weaker grid lines)
-      for (let beat = 0; beat <= totalMeasures * beatsPerMeasure; beat++) {
+      for (let beat = startBeat; beat <= endBeat; beat++) {
         // Skip beats that fall on measure boundaries (already covered by measure lines)
         if (beat % beatsPerMeasure !== 0) {
-          const beatTime = beat * secondsPerBeat;
+          const beatTime = (beat - startBeat) * secondsPerBeat + startBeatOffset;
           if (beatTime <= effectiveDuration) {
             const position = timeToPos(beatTime, effectiveDuration);
             gridLines.push(
@@ -1982,16 +2012,22 @@ export default function TracksWidget({
     
     const beatsPerMeasure = 4; // 4/4 time signature
     const secondsPerBeat = 60 / metronomeBPM;
+    const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+    const offsetSeconds = posToTime(metronomeOffsetPos, effectiveDuration);
     
-    // Calculate the current beat based on playhead position
+    // Calculate the current beat based on playhead position, adjusting for the offset
     const currentPlaybackTime = playheadInternalTimeRef.current + (audioContext?.currentTime - absolutePlaybackStartTimeRef.current);
-    const nextPlayheadBeat = Math.ceil(currentPlaybackTime * metronomeBPM / 60);
+    // Adjust the beat calculation by the offset time
+    const adjustedTime = currentPlaybackTime + (secondsPerMeasure - offsetSeconds);
+    const nextPlayheadBeat = Math.ceil(adjustedTime * metronomeBPM / 60);
+    
     if(lastScheduledBeatRef.current > nextPlayheadBeat + 2){
       return; // If the last scheduled beat is more than 2 beats ahead of the next playhead beat, don't schedule any more
     } 
 
     const firstBeatToSchedule = nextPlayheadBeat >= lastScheduledBeatRef.current ? nextPlayheadBeat : lastScheduledBeatRef.current + 1;
-    const firstBeatToScheduleTime = audioContext.currentTime + (firstBeatToSchedule * secondsPerBeat - currentPlaybackTime);
+    // Add the offset back when calculating the actual time to schedule
+    const firstBeatToScheduleTime = audioContext.currentTime + (firstBeatToSchedule * secondsPerBeat - adjustedTime);
     
     // Schedule several beats ahead (look-ahead window - 2 measures)
     const beatsToSchedule = beatsPerMeasure * 2;
@@ -2044,6 +2080,13 @@ export default function TracksWidget({
   useEffect(() => {
     setMetronomeBPM(bpm);
   }, [bpm]);
+
+  // Add metronome offset handle mouse down handler
+  const handleMetronomeOffsetMouseDown = (e) => {
+    e.stopPropagation();
+    if (isPlaying) return;
+    setIsDraggingMetronomeOffset(true);
+  };
 
   return (
     <div className="daw-container">
@@ -2156,12 +2199,38 @@ export default function TracksWidget({
                 }}
               >
                 <div 
-              className={`timeline ${zoomLevel > 1 ? 'zoomed' : ''}`} 
-              ref={dawHeaderRef}
-              style={{ 
-                width: '100%',
-              }}
-            >
+                  className={`timeline ${zoomLevel > 1 ? 'zoomed' : ''}`} 
+                  ref={dawHeaderRef}
+                  style={{ 
+                    width: '100%',
+                  }}
+                >
+                  <div className="metronome-offset-controls">
+                    {isMetronomeOn && (
+                      <div 
+                        className="metronome-offset-handle" 
+                        ref={metronomeOffsetHandleRef}
+                        style={{ 
+                          left: `${metronomeOffsetPos}%`,
+                          cursor: isPlaying ? 'not-allowed' : 'ew-resize',
+                          position: 'absolute',
+                          top: '0',
+                          width: '12px',
+                          height: '12px',
+                          transform: 'translateX(-50%)',
+                          borderLeft: '6px solid transparent',
+                          borderRight: '6px solid transparent',
+                          borderTop: '12px solid var(--seafoam)',
+                          zIndex: 15,
+                          opacity: 0.8,
+                          transition: isDraggingMetronomeOffset ? 'none' : 'opacity 0.2s ease'
+                        }}
+                        onMouseDown={handleMetronomeOffsetMouseDown}
+                        onMouseOver={() => metronomeOffsetHandleRef.current.style.opacity = '1'}
+                        onMouseOut={() => metronomeOffsetHandleRef.current.style.opacity = '0.8'}
+                      />
+                    )}
+                  </div>
                 {/* Playhead */}
                 {hasAudioContent && (
                     <div 
@@ -2359,10 +2428,6 @@ export default function TracksWidget({
                 </div>
               </div>
           </div>
-
-            {/* Metronome volume control - Add near zoom controls */}
-            <div className="metronome-controls">
-            </div>
 
             {/* Zoom control */}
             <div className="zoom-control">
