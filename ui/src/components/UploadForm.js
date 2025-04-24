@@ -22,9 +22,15 @@ export default function UploadForm({
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
   const [metronomeBpm, setMetronomeBpm] = useState('');
+  const [timeSignature, setTimeSignature] = useState('4/4');
   const [fileName, setFileName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const router = useRouter();
+
+  // Time signature options
+  const timeSignatureOptions = [
+    '4/4', '3/4', '2/4', '2/2', '6/8', '9/8', '12/8', '5/4', '7/8', '3/8'
+  ];
 
   const handleTagChange = ({ genreIds, instrumentIds }) => {
     setSelectedGenres(genreIds);
@@ -99,9 +105,14 @@ export default function UploadForm({
         formData.append('instrumentIds', JSON.stringify(selectedInstruments));
       }
 
-      // Add metronome BPM if provided
-      if (metronomeBpm) {
+      // Add metronome BPM if provided and this is a collab
+      if (!isCollab && metronomeBpm) {
         formData.append('metronome_bpm', metronomeBpm);
+      }
+      
+      // Add time signature only for collabs
+      if (!isCollab) {
+        formData.append('time_signature', timeSignature);
       }
       
       // Add privacy setting (only for non-collab tracks)
@@ -146,28 +157,54 @@ export default function UploadForm({
           />
         </div>
         
-        <div>
-          <label htmlFor="metronome" className="block text-sm font-medium mb-1">Metronome (BPM)</label>
-          <div className="flex items-center">
-            <input
-              id="metronome"
-              type="number"
-              min="40"
-              max="240"
-              value={metronomeBpm}
-              onChange={(e) => setMetronomeBpm(e.target.value)}
-              placeholder={parentTrack?.metronome_bpm || "e.g., 120"}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
-            <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
-            <p className="text-sm text-gray-700">
-              <strong>Important:</strong> Only specify a metronome BPM if your track actually follows this tempo precisely. 
-              This helps collaborators stay in sync with your track. Leave blank if unsure.
-            </p>
-          </div>
-        </div>
+        {isCollab && (
+          <>
+            <div>
+              <label htmlFor="metronome" className="block text-sm font-medium mb-1">Metronome (BPM)</label>
+              <div className="flex items-center">
+                <input
+                  id="metronome"
+                  type="number"
+                  min="40"
+                  max="240"
+                  value={metronomeBpm}
+                  onChange={(e) => setMetronomeBpm(e.target.value)}
+                  placeholder={parentTrack?.metronome_bpm || "e.g., 120"}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
+                <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
+                <p className="text-sm text-gray-700">
+                  <strong>Important:</strong> Only specify a metronome BPM if your track actually follows this tempo precisely. 
+                  This helps collaborators stay in sync with your track. Leave blank if unsure.
+                </p>
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="timeSignature" className="block text-sm font-medium mb-1">Time Signature</label>
+              <select
+                id="timeSignature"
+                value={timeSignature}
+                onChange={(e) => setTimeSignature(e.target.value)}
+                className="w-full p-2 border rounded"
+              >
+                {timeSignatureOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
+                <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
+                <p className="text-sm text-gray-700">
+                  Select the time signature that matches your track's rhythm. This helps collaborators maintain the correct musical structure.
+                </p>
+              </div>
+            </div>
+          </>
+        )}
         
         <div>
           <label className="block text-sm font-medium mb-2">Tags</label>

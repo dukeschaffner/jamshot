@@ -61,7 +61,6 @@ TODO (MVP)
   - synchronize recording/playback on collaboration
   - metronome count in
   - toggle metronome during playback
-  - time signature
   - trimming regions on upload action (decouple upload/collab daws?)
   - recording past 90s on upload?
 
@@ -141,6 +140,7 @@ CREATE TABLE tracks (
   play_count INT DEFAULT 0,
   is_private BOOLEAN NOT NULL DEFAULT FALSE,
   metronome_bpm INTEGER,
+  time_signature VARCHAR(10) NOT NULL DEFAULT '4/4',
   secret_token VARCHAR(64) -- For secure sharing of private tracks
 );
 
