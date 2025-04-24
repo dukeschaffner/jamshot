@@ -353,6 +353,7 @@ export default function DawInterface({ track, isCollab = false }) {
         bpm={metronomeBpm}
         metronomeVolume={metronomeVolume}
         setMetronomeVolume={setMetronomeVolume}
+        timeSignature={track?.time_signature}
       />
 
       {/* Audio Settings Modal */}
