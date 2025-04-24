@@ -68,7 +68,7 @@ const sendPasswordResetEmail = async (email, userId, username) => {
   );
 
   // Create the reset URL (frontend page)
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/auth/reset-password/${resetToken}`;
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
 
   // Email content
   const mailOptions = {

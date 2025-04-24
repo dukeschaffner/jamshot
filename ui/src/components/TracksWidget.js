@@ -36,7 +36,8 @@ export default function TracksWidget({
     const [looperLeftPos, setLooperLeftPos] = useState(0);
     const [looperRightPos, setLooperRightPos] = useState(100);
     const [effectiveDuration, setEffectiveDuration] = useState(10); // Default to 90 seconds (1:30)
-    
+    const effectiveDurationRef = useRef(effectiveDuration);
+
     // Add metronome state
     const [metronomeBPM, setMetronomeBPM] = useState(bpm);
     const metronomeHighClickRef = useRef(null);
@@ -81,7 +82,7 @@ export default function TracksWidget({
     const relativeRecordingStartTimeRef = useRef(0); // Tracks when the recording starts relative to the original track
     const absolutePlaybackStartTimeRef = useRef(0);
     //const relativePlaybackStartTimeRef = useRef(0);
-    const playheadInternalTimeRef = useRef(0);
+    const playheadInternalTimeRef = useRef(0); // Used to hold the playback start time and pause time for resuming playback
 
 
     const tempRecordingStartTimeRef1 = useRef(0);
@@ -286,6 +287,10 @@ export default function TracksWidget({
       recordingStartPosRef.current = recordingStartPos;
     }, [recordingStartPos]);
 
+    useEffect(() => {
+      effectiveDurationRef.current = effectiveDuration;
+    }, [effectiveDuration]);
+
   // Process audio chunks when they change
   useEffect(() => {
     const processOriginalAudioChunks = async () => {
@@ -419,10 +424,10 @@ export default function TracksWidget({
     // Enable the play button when playback is complete
     if (activeSources.length > 0) {
       activeSources[0].onended = function() {
-        if(playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) >= effectiveDuration){ //Ended naturally, no looping
+        const currentPlaybackTime = isPlayingRef.current ? playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) : playheadInternalTimeRef.current;
+        if(currentPlaybackTime >= effectiveDurationRef.current){ //Ended naturally, no looping
           if(isLooping){ //Go to the start of the looper
-            console.log('i think its here');
-            seekToTime(posToTime(looperLeftPos, effectiveDuration));
+            seekToTime(posToTime(looperLeftPos, effectiveDurationRef.current));
           }
           else{
             playheadInternalTimeRef.current = 0;
@@ -1227,11 +1232,6 @@ export default function TracksWidget({
           const faderRect = originalFaderRef.current.getBoundingClientRect();
           const newMousePos = Math.max(0, Math.min(100, ((e.clientX - faderRect.left) / faderRect.width) * 100));
           const newGain = Math.min(1, Math.max(0, newMousePos / 100));
-          console.log("newGain", newGain);
-          console.log("newMousePos", newMousePos);
-          console.log("faderRect.left", faderRect.left);
-          console.log("faderRect.right", faderRect.right);
-          console.log("e.clientX", e.clientX);
           setOriginalFaderValue(newGain);
         }
         
