@@ -1463,7 +1463,8 @@ export default function TracksWidget({
   // Generate musical grid lines based on BPM and time signature, accounting for zoom
   const generateMusicalGrid = () => {
       const bpm = metronomeBPM; // Use the metronome BPM
-      const beatsPerMeasure = 4; // 4/4 time signature
+      const timeSignature = track.time_signature || '4/4';
+      const beatsPerMeasure = timeSignature.split('/')[0];
       
       // Calculate seconds per beat and seconds per measure
       const secondsPerBeat = 60 / bpm;
@@ -2010,7 +2011,8 @@ export default function TracksWidget({
   const scheduleMetronomeClicks = () => {
     if (!isMetronomeOn || !audioContext) return;
     
-    const beatsPerMeasure = 4; // 4/4 time signature
+    const timeSignature = track.time_signature || '4/4';
+    const beatsPerMeasure = timeSignature.split('/')[0];
     const secondsPerBeat = 60 / metronomeBPM;
     const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
     const offsetSeconds = posToTime(metronomeOffsetPos, effectiveDuration);

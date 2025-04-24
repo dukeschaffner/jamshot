@@ -71,7 +71,7 @@ router.get('/ffmpeg-check', async (req, res) => {
 });
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
-  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain } = req.body;
+  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
@@ -83,6 +83,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   console.log('- Parent track ID:', parent_track_id || 'None (original track)');
   console.log('- Original gain:', original_gain || 'Not provided');
   console.log('- Recording gain:', recording_gain || 'Not provided');
+  console.log('- Time signature:', time_signature || '4/4 (default)');
+  console.log('- Private:', is_private ? 'Yes' : 'No');
 
   // Check if user has reached their daily upload limit (3 uploads per day)
   try {
@@ -118,6 +120,12 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   // Parse gain values with fallbacks to default values (1.0 = full volume)
   const parsedOriginalGain = original_gain ? parseFloat(original_gain) : 0.8;
   const parsedRecordingGain = recording_gain ? parseFloat(recording_gain) : 0.8;
+
+  // Use the provided time signature or default to 4/4
+  const parsedTimeSignature = time_signature || '4/4';
+  
+  // Parse the private flag (convert string 'true'/'false' to boolean if needed)
+  const isPrivate = is_private === 'true' || is_private === true;
 
   let audioUrl, combinedAudioUrl, duration;
   const tempDir = path.join(__dirname, '../../temp');
@@ -214,8 +222,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     }
 
     const result = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer]
+      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate]
     );
     
     const trackId = result.rows[0].id;
