@@ -25,7 +25,8 @@ export default function TracksWidget({
   isMetronomeOn = false,  // Add metronome prop
   bpm = 120,            // Add BPM prop with default value
   metronomeVolume = 0.7, // Add metronomeVolume prop with default value
-  setMetronomeVolume = null // Add setMetronomeVolume prop
+  setMetronomeVolume = null, // Add setMetronomeVolume prop
+  timeSignature = '4/4' // Add timeSignature prop with default value
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -409,16 +410,6 @@ export default function TracksWidget({
     if (isMetronomeOn) {
       stopAndClearMetronomeClicks();
       scheduleMetronomeClicks();
-      
-      // Set up an interval to schedule more metronome clicks ahead of time
-      const scheduleInterval = setInterval(() => {
-        if (!isPlayingRef.current) {
-          clearInterval(scheduleInterval);
-          return;
-        }
-
-        scheduleMetronomeClicks();
-      }, 100); // Check every 100ms
     }
 
     // Enable the play button when playback is complete
@@ -1463,7 +1454,6 @@ export default function TracksWidget({
   // Generate musical grid lines based on BPM and time signature, accounting for zoom
   const generateMusicalGrid = () => {
       const bpm = metronomeBPM; // Use the metronome BPM
-      const timeSignature = track.time_signature || '4/4';
       const beatsPerMeasure = timeSignature.split('/')[0];
       
       // Calculate seconds per beat and seconds per measure
@@ -2006,12 +1996,38 @@ export default function TracksWidget({
     gainNode.connect(context.destination);
     metronomeGainNodeRef.current = gainNode;
   };
+  
+  useEffect(() => {
+    let scheduleInterval;
+    
+    if(isMetronomeOn){
+      // Set up an interval to schedule more metronome clicks ahead of time
+      scheduleInterval = setInterval(() => {
+        if (!isPlayingRef.current) {
+          clearInterval(scheduleInterval);
+          return;
+        }
+    
+        scheduleMetronomeClicks();
+      }, 100); // Check every 100ms
+    }
+    else{
+      stopAndClearMetronomeClicks();
+    }
+    
+    // Clean up function to clear the interval when the component unmounts
+    // or when isMetronomeOn changes to false
+    return () => {
+      if (scheduleInterval) {
+        clearInterval(scheduleInterval);
+      }
+    };
+  }, [isMetronomeOn, isPlayingRef.current]);
 
   // Schedule metronome clicks for the next few beats
   const scheduleMetronomeClicks = () => {
     if (!isMetronomeOn || !audioContext) return;
     
-    const timeSignature = track.time_signature || '4/4';
     const beatsPerMeasure = timeSignature.split('/')[0];
     const secondsPerBeat = 60 / metronomeBPM;
     const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;

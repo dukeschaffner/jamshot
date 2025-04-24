@@ -101,3 +101,5 @@ ideas:
 - polychorus
 - polywave
 - altwave
+- flaver
+- flavor
