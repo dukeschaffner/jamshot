@@ -8,6 +8,7 @@ import {
   faHeart, faComment, faCircle, faStop, faCog
 } from '@fortawesome/free-solid-svg-icons';
 import TracksWidget from './TracksWidget';
+import RecordingWidget from './RecordingWidget';
 import UploadForm from './UploadForm';
 import Cookies from 'js-cookie';
 import './DawInterface.css';
@@ -332,13 +333,13 @@ export default function DawInterface({ track, isCollab = false }) {
       </div>
 
       {/* Tracks Widget */}
-
-      <TracksWidget 
-        isPlaying={isPlaying}
-        setIsPlaying={setIsPlaying}
-        trackDuration={trackDuration}
-        showCollabModal={showCollabModal}
-        originalAudioChunks={originalAudioChunks}
+      {isCollab ? (
+        <TracksWidget 
+          isPlaying={isPlaying}
+          setIsPlaying={setIsPlaying}
+          trackDuration={trackDuration}
+          showCollabModal={showCollabModal}
+          originalAudioChunks={originalAudioChunks}
         fileChunks={fileChunks}
         recordingPlaybackBuffer={recordingPlaybackBuffer}
         setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
@@ -353,8 +354,25 @@ export default function DawInterface({ track, isCollab = false }) {
         bpm={metronomeBpm}
         metronomeVolume={metronomeVolume}
         setMetronomeVolume={setMetronomeVolume}
-        timeSignature={track?.time_signature}
-      />
+          timeSignature={track?.time_signature}
+        />
+      ) : (
+        <RecordingWidget 
+          isPlaying={isPlaying}
+          setIsPlaying={setIsPlaying}
+          isRecording={isRecording}
+          setIsRecording={setIsRecording}
+          recordingPlaybackBuffer={recordingPlaybackBuffer}
+          setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
+          selectedAudioInputDevice={selectedAudioInputDevice}
+          userLatencyCompensation={userLatencyCompensation}
+          setRecordingGain={setRecordingGain}
+          isMetronomeOn={isMetronomeOn}
+          bpm={metronomeBpm}
+          metronomeVolume={metronomeVolume}
+          timeSignature={track?.time_signature}
+        />
+      )}
 
       {/* Audio Settings Modal */}
       {showAudioSettingsModal && (

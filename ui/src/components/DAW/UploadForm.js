@@ -1,13 +1,13 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '../lib/api';
-import TagSelector from './TagSelector';
+import api from '../../lib/api';
+import TagSelector from '../TagSelector';
 import { FaInfoCircle } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faLock } from '@fortawesome/free-solid-svg-icons';
 import './UploadForm.css';
-import { audioBufferToWav } from '../lib/utils';
+import { audioBufferToWav } from '../../lib/utils';
 
 export default function UploadForm({ 
   isCollab = false, 
