@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { formatDuration, renderWaveform } from '@/lib/utils';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMicrophone, faPlay, faPause, faStepBackward, faStepForward, faTrash, faUpload, faCloudUploadAlt, faHeadphones } from '@fortawesome/free-solid-svg-icons';
-import './TracksWidget.css';
-import { useAudio } from '../lib/AudioContext';
+import './DawBody.css';
+import { useAudio } from '../../lib/AudioContext';
 export default function TracksWidget({ 
   isPlaying,
   setIsPlaying,
