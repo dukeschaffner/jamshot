@@ -15,7 +15,11 @@ const {
   downloadS3File,
   checkTrackAccess,
   combineAudioFiles,
-  generateSecureToken
+  generateSecureToken,
+  getBaseTrackSelectQuery,
+  getPopularFeedQuery,
+  getFollowingFeedQuery,
+  getForYouFeedQuery
 } = require('../utils/trackUtils');
 require('dotenv').config;
 
@@ -69,6 +73,51 @@ router.get('/ffmpeg-check', async (req, res) => {
     });
   }
 });
+
+
+
+
+/*
+
+Track Load Configurations
+
+Full Track
+a) Columns from tracks table:
+- id
+- user_id
+- title
+- audio_url
+- combined_audio_url
+- duration
+- parent_track_id
+- is_private
+- created_at
+- play_count
+- layer
+- metronome_bpm
+- time_signature
+
+b) Other properties:
+- artist username
+- artist profile pic url
+- artist verified status
+- parent track title (if it exists)
+- like count
+- collab count
+- comment count
+- repost count
+- is_liked
+- is_reposted
+- track tags (captured by processtrack function)
+
+Endpoints:
+track by id endpoint
+feed endpoints
+user track endpoint
+id/tree endpoint
+*/
+
+
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
   const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private } = req.body;
@@ -275,198 +324,26 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   }
 });
 
-// Get feed tracks (followed artists + popular)
-router.get('/feed', async (req, res) => {
+// Get "For You" feed (mixed content - followed users + popular)
+router.get('/feed/for-you', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5, feedType = 'mixed' } = req.query;
+  const { page = 1, limit = 5 } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
   
   try {
     let query;
-    let queryParams = [];
+    let queryParams;
     
-    if (feedType === 'following' && userId) {
-      query = `
-        WITH followed_users AS (
-          SELECT following_id FROM follows WHERE follower_id = $1
-        ),
-        followed_tracks AS (
-          SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at::timestamp with time zone AS created_at, t.play_count,
-            u.username, u.verified, u.profile_pic_url,
-            t2.title AS original_title,
-            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-            NULL::integer AS reposted_by_id,
-            NULL::text AS reposted_by_username,
-            NULL::timestamp with time zone AS reposted_at,
-            FALSE AS is_repost
-          FROM tracks t
-          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-          LEFT JOIN users u ON t.user_id = u.id
-          WHERE t.user_id IN (SELECT following_id FROM followed_users)
-        ),
-        reposted_tracks AS (
-          SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            r.created_at::timestamp with time zone AS created_at, t.play_count,
-            u.username, u.verified, u.profile_pic_url,
-            t2.title AS original_title,
-            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-            r.user_id AS reposted_by_id,
-            ru.username AS reposted_by_username,
-            r.created_at::timestamp with time zone AS reposted_at,
-            TRUE AS is_repost
-          FROM reposts r
-          JOIN tracks t ON r.track_id = t.id
-          JOIN users ru ON r.user_id = ru.id
-          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-          LEFT JOIN users u ON t.user_id = u.id
-          WHERE r.user_id IN (SELECT following_id FROM followed_users)
-        )
-        SELECT * FROM (
-          SELECT * FROM followed_tracks
-          UNION ALL
-          SELECT * FROM reposted_tracks
-        ) combined
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3;
-      `;
+    // Mixed feed: combination of followed artists, their reposts, and popular tracks
+    if (userId) {
+      // Use the standardized For You feed query function
+      query = getForYouFeedQuery(2, 3);
       queryParams = [userId, limitNum, offset];
-    } else if (feedType === 'popular') {
-      query = `
-        SELECT 
-          t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-          t.created_at, t.play_count,
-          u.username, u.verified, u.profile_pic_url,
-          t2.title AS original_title,
-          (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-          EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-          (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-          EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-          NULL::integer AS reposted_by_id,
-          NULL::text AS reposted_by_username,
-          NULL::timestamp AS reposted_at,
-          FALSE AS is_repost
-        FROM tracks t
-        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-        LEFT JOIN users u ON t.user_id = u.id
-        ORDER BY like_count DESC, t.created_at DESC
-        LIMIT $2 OFFSET $3
-      `;
-      queryParams = [userId || null, limitNum, offset];
     } else {
-      // Mixed feed: combination of followed artists, their reposts, and popular tracks
-      if (userId) {
-        query = `
-          WITH followed_users AS (
-            SELECT following_id FROM follows WHERE follower_id = $1
-          ),
-          followed_tracks AS (
-            SELECT 
-              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              t.created_at, t.play_count,
-              u.username, u.verified, u.profile_pic_url,
-              t2.title AS original_title,
-              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-              NULL::integer AS reposted_by_id,
-              NULL::text AS reposted_by_username,
-              NULL::timestamp AS reposted_at,
-              FALSE AS is_repost,
-              1 AS priority
-            FROM tracks t
-            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.user_id IN (SELECT following_id FROM followed_users)
-          ),
-          reposted_tracks AS (
-            SELECT 
-              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              r.created_at, t.play_count,
-              u.username, u.verified, u.profile_pic_url,
-              t2.title AS original_title,
-              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-              r.user_id AS reposted_by_id,
-              ru.username AS reposted_by_username,
-              r.created_at AS reposted_at,
-              TRUE AS is_repost,
-              1 AS priority
-            FROM reposts r
-            JOIN tracks t ON r.track_id = t.id
-            JOIN users ru ON r.user_id = ru.id
-            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE r.user_id IN (SELECT following_id FROM followed_users)
-          ),
-          popular_tracks AS (
-            SELECT 
-              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              t.created_at, t.play_count,
-              u.username, u.verified, u.profile_pic_url,
-              t2.title AS original_title,
-              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-              NULL::integer AS reposted_by_id,
-              NULL::text AS reposted_by_username,
-              NULL::timestamp AS reposted_at,
-              FALSE AS is_repost,
-              2 AS priority
-            FROM tracks t
-            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.id NOT IN (
-              SELECT id FROM followed_tracks
-              UNION
-              SELECT id FROM reposted_tracks
-            )
-            ORDER BY like_count DESC
-            LIMIT $2
-          )
-          SELECT * FROM (
-            SELECT * FROM followed_tracks
-            UNION ALL
-            SELECT * FROM reposted_tracks
-            UNION ALL
-            SELECT * FROM popular_tracks
-          ) combined
-          ORDER BY priority, created_at DESC
-          LIMIT $2 OFFSET $3
-        `;
-        queryParams = [userId, limitNum, offset];
-      } else {
-        // For non-logged in users, just show popular tracks
-        query = `
-          SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at, t.play_count,
-            u.username, u.verified, u.profile_pic_url,
-            t2.title AS original_title,
-            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
-          FROM tracks t
-          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-          LEFT JOIN users u ON t.user_id = u.id
-          ORDER BY like_count DESC, t.created_at DESC
-          LIMIT $2 OFFSET $3
-        `;
-        queryParams = [null, limitNum, offset];
-      }
+      // For non-logged in users, just show popular tracks
+      query = getPopularFeedQuery(false, 2, 3);
+      queryParams = [null, limitNum, offset];
     }
     
     const result = await pool.query(query, queryParams);
@@ -480,6 +357,59 @@ router.get('/feed', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Get Following feed (just followed artists)
+router.get('/feed/following', async (req, res) => {
+  const userId = req.user?.id;
+  const { page = 1, limit = 5 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  try {
+    // Use the standardized following feed query function
+    const query = getFollowingFeedQuery(2, 3);
+    const queryParams = [userId, limitNum, offset];
+    
+    const result = await pool.query(query, queryParams);
+    
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
+    
+    res.json(tracks);
+  } catch (err) {
+    console.error('Following feed error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Popular feed (globally popular tracks)
+router.get('/feed/popular', async (req, res) => {
+  const userId = req.user?.id;
+  const { page = 1, limit = 5 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  
+  try {
+    // Use the standardized popular feed query function
+    const query = getPopularFeedQuery(!!userId, 2, 3);
+    const queryParams = [userId || null, limitNum, offset];
+    
+    const result = await pool.query(query, queryParams);
+    
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
+    
+    res.json(tracks);
+  } catch (err) {
+    console.error('Popular feed error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Get Track and Versions
 router.get('/:id', optionalAuthMiddleware, async (req, res) => {
@@ -500,7 +430,8 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
         u.username,
         u.verified,
         u.profile_pic_url,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+        ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,' : 'FALSE AS is_liked,'}
+        ${userId ? 'EXISTS(SELECT 1 FROM reposts WHERE user_id = $2 AND track_id = t.id) AS is_reposted,' : 'FALSE AS is_reposted,'}
         (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
       FROM tracks t
       LEFT JOIN users u ON t.user_id = u.id
@@ -532,32 +463,6 @@ router.get('/:id/related', async (req, res) => {
       WHERE t.id = $1 OR t.parent_track_id = $1 OR t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)
       ORDER BY t.created_at ASC
     `, [id, userId || null]);
-    
-    // Use the processTrack utility function
-    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
-    res.json(tracks);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.get('/', async (req, res) => {
-  const userId = req.user?.id;
-  try {
-    const result = await pool.query(`
-      SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-        u.username, u.verified, u.profile_pic_url,
-        t2.title AS original_title,
-        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
-      FROM tracks t
-      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-      LEFT JOIN users u ON t.user_id = u.id
-      ORDER BY t.created_at DESC
-    `, [userId || null]);
     
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
@@ -1056,7 +961,8 @@ router.get('/:id/tree', async (req, res) => {
         u.verified,
         u.profile_pic_url,
         (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
+        ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,' : 'FALSE AS is_liked,'}
+        ${userId ? 'EXISTS(SELECT 1 FROM reposts WHERE user_id = $2 AND track_id = t.id) AS is_reposted,' : 'FALSE AS is_reposted,'}
         (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
         (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
       FROM tracks t
@@ -1077,15 +983,10 @@ router.get('/:id/tree', async (req, res) => {
     while (parentId) {
       const parentResult = await pool.query(`
         SELECT 
-          t.*,
-          u.username,
-          u.verified,
-          u.profile_pic_url,
-          (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-          EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-          (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+          ${getBaseTrackSelectQuery(!!userId)},
           (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
         FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
         LEFT JOIN users u ON t.user_id = u.id
         WHERE t.id = $1
       `, [parentId, userId || null]);

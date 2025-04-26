@@ -11,7 +11,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [feedType, setFeedType] = useState('mixed'); // 'mixed', 'following', 'popular'
+  const [feedType, setFeedType] = useState('for-you'); // Options: 'for-you', 'following', 'popular'
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const observer = useRef();
   const TRACKS_PER_PAGE = 5;
@@ -44,11 +44,14 @@ export default function Home() {
   const fetchTracks = useCallback(async (pageNum, feedTypeValue) => {
     try {
       setLoading(true);
-      const response = await api.get('/tracks/feed', {
+      
+      // Call the appropriate endpoint based on feedType
+      const endpoint = `/tracks/feed/${feedTypeValue}`;
+      
+      const response = await api.get(endpoint, {
         params: {
           page: pageNum,
-          limit: TRACKS_PER_PAGE,
-          feedType: feedTypeValue
+          limit: TRACKS_PER_PAGE
         }
       });
       
@@ -161,8 +164,8 @@ export default function Home() {
         
         <div className="feed-tabs">
           <button
-            onClick={() => handleFeedTypeChange('mixed')}
-            className={`feed-tab ${feedType === 'mixed' ? 'active' : ''}`}
+            onClick={() => handleFeedTypeChange('for-you')}
+            className={`feed-tab ${feedType === 'for-you' ? 'active' : ''}`}
           >
             For You
           </button>
