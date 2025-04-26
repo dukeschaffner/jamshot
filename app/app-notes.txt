@@ -77,6 +77,7 @@ TODO (MVP)
 BUGS
 - popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - dark mode inconsistencies
+- logging in on collab or upload shouldnt lose progress
 
 
 TODO (after beta testing)
