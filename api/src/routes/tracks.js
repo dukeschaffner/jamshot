@@ -342,8 +342,8 @@ router.get('/feed/for-you', async (req, res) => {
       queryParams = [userId, limitNum, offset];
     } else {
       // For non-logged in users, just show popular tracks
-      query = getPopularFeedQuery(false, 2, 3);
-      queryParams = [null, limitNum, offset];
+      query = getPopularFeedQuery(false, null, 1, 2);
+      queryParams = [limitNum, offset];
     }
     
     const result = await pool.query(query, queryParams);
@@ -395,8 +395,15 @@ router.get('/feed/popular', async (req, res) => {
   
   try {
     // Use the standardized popular feed query function
-    const query = getPopularFeedQuery(!!userId, 2, 3);
-    const queryParams = [userId || null, limitNum, offset];
+    let query;
+    let queryParams;
+    if (userId) {
+      query = getPopularFeedQuery(!!userId, 1, 2, 3, true);
+      queryParams = [userId, limitNum, offset];
+    } else {
+      query = getPopularFeedQuery(false, null, 1, 2);
+      queryParams = [limitNum, offset];
+    }
     
     const result = await pool.query(query, queryParams);
     
@@ -423,21 +430,26 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
     if (!accessCheck.hasAccess) {
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
-    
+
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false);
+      queryParams = [id];
+    }
+
     const result = await pool.query(`
       SELECT 
-        t.*,
-        u.username,
-        u.verified,
-        u.profile_pic_url,
-        ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,' : 'FALSE AS is_liked,'}
-        ${userId ? 'EXISTS(SELECT 1 FROM reposts WHERE user_id = $2 AND track_id = t.id) AS is_reposted,' : 'FALSE AS is_reposted,'}
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+        ${baseQuery}
       FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.id = $1 OR t.parent_track_id = $1 
       ORDER BY t.created_at ASC
-    `, [id, userId || null]);
+    `, queryParams);
     
     // Use the processTrack utility function to process all tracks
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
@@ -451,18 +463,26 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
 router.get('/:id/related', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
+
+  let baseQuery;
+  let queryParams;
+  if (userId) {
+    baseQuery = getBaseTrackSelectQuery(true, 2);
+    queryParams = [id, userId];
+  } else {
+    baseQuery = getBaseTrackSelectQuery(false);
+    queryParams = [id];
+  }
   try {
     const result = await pool.query(`
       SELECT 
-        t.id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-        u.username, u.verified, u.profile_pic_url,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+        ${baseQuery}
       FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.id = $1 OR t.parent_track_id = $1 OR t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)
       ORDER BY t.created_at ASC
-    `, [id, userId || null]);
+    `, queryParams);
     
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
@@ -952,23 +972,26 @@ router.get('/:id/tree', async (req, res) => {
     if (!accessCheck.hasAccess) {
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
+
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false);
+      queryParams = [id];
+    }
     
     // First, get the current track
     const currentTrackResult = await pool.query(`
       SELECT 
-        t.*,
-        u.username,
-        u.verified,
-        u.profile_pic_url,
-        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-        ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,' : 'FALSE AS is_liked,'}
-        ${userId ? 'EXISTS(SELECT 1 FROM reposts WHERE user_id = $2 AND track_id = t.id) AS is_reposted,' : 'FALSE AS is_reposted,'}
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
+        ${baseQuery}
       FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.id = $1
-    `, [id, userId || null]);
+    `, queryParams);
     
     if (currentTrackResult.rows.length === 0) {
       return res.status(404).json({ error: 'Track not found' });
@@ -981,15 +1004,20 @@ router.get('/:id/tree', async (req, res) => {
     let parentId = currentTrack.parent_track_id;
     
     while (parentId) {
+      if (userId) {
+        queryParams = [parentId, userId];
+      } else {
+        queryParams = [parentId];
+      }
+      
       const parentResult = await pool.query(`
         SELECT 
-          ${getBaseTrackSelectQuery(!!userId)},
-          (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
+          ${baseQuery}
         FROM tracks t
         LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
         LEFT JOIN users u ON t.user_id = u.id
         WHERE t.id = $1
-      `, [parentId, userId || null]);
+      `, queryParams);
       
       if (parentResult.rows.length === 0) {
         break;
