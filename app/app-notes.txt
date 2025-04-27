@@ -53,6 +53,14 @@ Pages
   - user can select any ancestor or child track to show the track tree for that track
 
 
+PRIVACY RULES
+- if a user is private, their tracks will not load in track lists unless current user is authenticated and following the track owner
+- if a track is private, the track will not load in track lists
+- if a track is private, the track will ONLY load for other users on the track details page, and ONLY if they have the secret or they have been granted access via a group.
+- No restrictions on loading private tracks if the current user is the track owner
+- any collab on a public track MUST be public.
+- the privacy status of a collab on a private track (permitted by granted access) is dependent on the original track. if the original track goes public, so do all of its descendents.
+- as a result, collaborating artists have no control over the privacy status of their track
 
 
 
@@ -95,9 +103,8 @@ TODO (after beta testing)
 - undo redo (DAW)
 - global player audio level
 - freemium model
-- invite people to collab on private tracks?
+- invite people to collab on private tracks (groups)?
 - "add on" option where instead of adding layers, they can add audio before or after
-- groups for privately collabing
 
 
 

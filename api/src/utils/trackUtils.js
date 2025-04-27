@@ -56,22 +56,24 @@ async function getTrackInstruments(trackId) {
 }
 
 // Generate a standardized base query for track selection
-function getBaseTrackSelectQuery(isAuthenticated = true) {
+function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1) {
   const baseQuery = `
     t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, 
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature,
     u.username, u.verified, u.profile_pic_url,
     t2.title AS original_title,
     (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-    (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+    (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+    (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
+    (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count
   `;
   
   // Only include user-specific fields if authenticated
   if (isAuthenticated) {
     return `
       ${baseQuery},
-      EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-      EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted
+      EXISTS(SELECT 1 FROM likes WHERE user_id = $${userIdParamIndex} AND track_id = t.id) AS is_liked,
+      EXISTS(SELECT 1 FROM reposts WHERE user_id = $${userIdParamIndex} AND track_id = t.id) AS is_reposted
     `;
   }
   
@@ -82,6 +84,30 @@ function getBaseTrackSelectQuery(isAuthenticated = true) {
   `;
 }
 
+// Get the privacy clause for a track
+// If the user is authenticated, we need to check if the track is private or if the user is the owner
+// If the user is not authenticated, we only need to check if the track is not private
+// Also check if the track owner account is private
+// If the track owner account is private, we need to check if the user is following the track owner
+function getTrackPrivacyClause(isAuthenticated = true, userIdParamIndex = 1) {
+  if (isAuthenticated) {
+    return `
+      (
+        (t.is_private = FALSE AND u.is_private = FALSE) OR
+        (t.user_id = $${userIdParamIndex}) OR
+        (t.is_private = FALSE AND u.is_private = TRUE AND EXISTS(
+          SELECT 1 FROM follows WHERE follower_id = $${userIdParamIndex} AND following_id = t.user_id
+        ))
+      )
+    `;
+  } else {
+    return `
+      (t.is_private = FALSE AND u.is_private = FALSE)
+    `;
+  }
+
+}
+
 /**
  * Generate a standardized popular feed query
  * @param {boolean} isAuthenticated - Whether the user is authenticated
@@ -90,10 +116,10 @@ function getBaseTrackSelectQuery(isAuthenticated = true) {
  * @param {boolean} includeRepostMetadata - Whether to include repost metadata fields
  * @returns {string} The SQL query string
  */
-function getPopularFeedQuery(isAuthenticated = true, limitParamIndex = 2, offsetParamIndex = 3, includeRepostMetadata = true) {
+function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limitParamIndex = 2, offsetParamIndex = 3, includeRepostMetadata = false) {
   let query = `
     SELECT 
-      ${getBaseTrackSelectQuery(isAuthenticated)}
+      ${getBaseTrackSelectQuery(isAuthenticated, userIdParamIndex)}
   `;
   
   // Add repost metadata if requested
@@ -105,12 +131,14 @@ function getPopularFeedQuery(isAuthenticated = true, limitParamIndex = 2, offset
       FALSE AS is_repost
     `;
   }
+
+  const privacyClause = getTrackPrivacyClause(isAuthenticated, userIdParamIndex);
   
   query += `
     FROM tracks t
     LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
     LEFT JOIN users u ON t.user_id = u.id
-    WHERE t.is_private = FALSE
+    WHERE ${privacyClause}
     ORDER BY like_count DESC, t.created_at DESC
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
   `;
@@ -174,6 +202,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
  * @returns {string} The SQL query string
  */
 function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
+  const privacyClause = getTrackPrivacyClause(true, 1);
   const popularWithExclusions = `
     SELECT 
       ${getBaseTrackSelectQuery(true)},
@@ -190,7 +219,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       UNION
       SELECT id FROM reposted_tracks
     )
-    AND t.is_private = FALSE
+    AND ${privacyClause}
     ORDER BY like_count DESC
     LIMIT $${limitParamIndex}
   `;
