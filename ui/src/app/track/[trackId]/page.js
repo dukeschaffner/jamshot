@@ -267,7 +267,7 @@ function TrackContent() {
                 <button 
                   className={`privacy-btn ${isPrivate ? 'private' : 'public'}`}
                   onClick={handlePrivacyToggle}
-                  disabled={isPrivacyToggleInProgress}
+                  disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
                 >
                   {isPrivate ? (
                     <>

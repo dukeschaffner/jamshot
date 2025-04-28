@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import TagSelector from '../TagSelector';
-import { FaInfoCircle } from 'react-icons/fa';
+import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faLock } from '@fortawesome/free-solid-svg-icons';
 import './UploadForm.css';
@@ -141,8 +141,37 @@ export default function UploadForm({
   return (
     <div className="max-w-2xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">
-        Publish your track
+        {isCollab ? 'Publish your collaboration' : 'Publish your track'}
       </h1>
+      
+      {/* Add privacy warning for collaborations */}
+      {isCollab && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-md">
+          <div className="flex items-start">
+            <FaExclamationTriangle className="text-yellow-500 mt-1 mr-3 flex-shrink-0" size={20} />
+            <div>
+              <h3 className="font-semibold mb-2">Privacy Notice for Collaborations</h3>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+                <li>
+                  {parentTrack?.is_private ? (
+                    <>
+                      <FaLock className="inline mr-1" /> This collaboration will be <strong>private</strong> because the original track is private.
+                    </>
+                  ) : (
+                    <>
+                      <FaLockOpen className="inline mr-1" /> This collaboration will be <strong>public</strong> because the original track is public.
+                    </>
+                  )}
+                </li>
+                <li>If the original track's privacy status changes from private to public, your collaboration will also become public.</li>
+                <li>You will have <strong>no control</strong> over the privacy status of your collaboration.</li>
+                <li>All collaborations on the same track will share the same privacy status and access keys.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="title" className="block text-sm font-medium mb-1">Track Title</label>
@@ -232,6 +261,13 @@ export default function UploadForm({
               Make this track private
               <span className="ml-2 text-xs text-gray-500">(Only you will be able to see it)</span>
             </label>
+            
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
+              <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
+              <p className="text-sm text-gray-700">
+                <strong>Note:</strong> If you make this track public later and it has collaborations, all collaborations will also become public. Once your track has collaborations, you cannot make it private again.
+              </p>
+            </div>
           </div>
         )}
         
