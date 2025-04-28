@@ -19,7 +19,8 @@ const {
   getBaseTrackSelectQuery,
   getPopularFeedQuery,
   getFollowingFeedQuery,
-  getForYouFeedQuery
+  getForYouFeedQuery,
+  findAllDescendantTracks
 } = require('../utils/trackUtils');
 require('dotenv').config;
 
@@ -124,6 +125,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
+  let parentIsPrivate = false;
+  let parentSecretToken = null;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
   
@@ -174,7 +177,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   const parsedTimeSignature = time_signature || '4/4';
   
   // Parse the private flag (convert string 'true'/'false' to boolean if needed)
-  const isPrivate = is_private === 'true' || is_private === true;
+  let isPrivate = is_private === 'true' || is_private === true;
 
   let audioUrl, combinedAudioUrl, duration;
   const tempDir = path.join(__dirname, '../../temp');
@@ -205,25 +208,33 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT combined_audio_url, audio_url, duration FROM tracks WHERE id = $1',
+        'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
         return res.status(400).json({ error: 'Parent track not found' });
       }
 
-      const parentDuration = parentResult.rows[0].duration;
+      const parentTrack = parentResult.rows[0];
+      const parentDuration = parentTrack.duration;
+      
+      // Store parent privacy status and secret token
+      parentIsPrivate = parentTrack.is_private;
+      parentSecretToken = parentTrack.secret_token;
+      
+      isPrivate = parentIsPrivate;
+
       // Validate that collaboration isn't longer than parent track
       if (duration > parentDuration) {
         return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
       }
       
-      layer = (parentResult.rows[0].layer ?? 0) + 1;
+      layer = (parentTrack.layer ?? 0) + 1;
       if (layer > 4) {
         return res.status(400).json({ error: 'Layer limit reached' });
       }
       
-      const parentCombinedKey = parentResult.rows[0].combined_audio_url || parentResult.rows[0].audio_url;
+      const parentCombinedKey = parentTrack.combined_audio_url || parentTrack.audio_url;
       const localFiles = [];
 
       const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
@@ -271,8 +282,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     }
 
     const result = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
-      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate]
+        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken]
     );
     
     const trackId = result.rows[0].id;
@@ -1039,7 +1050,7 @@ router.get('/:id/tree', async (req, res) => {
   }
 });
 
-// Toggle track privacy
+// Toggle track privacy. Only root tracks can control their privacy status.
 router.put('/:id/privacy', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
@@ -1048,7 +1059,7 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
   try {
     // Check if track exists and user is the owner
     const trackCheck = await pool.query(
-      'SELECT user_id FROM tracks WHERE id = $1',
+      'SELECT user_id, is_private, secret_token, parent_track_id FROM tracks WHERE id = $1',
       [id]
     );
     
@@ -1059,6 +1070,13 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
     if (trackCheck.rows[0].user_id !== userId) {
       return res.status(403).json({ error: 'You do not have permission to modify this track' });
     }
+
+    if(trackCheck.rows[0].parent_track_id){
+      return res.status(400).json({ error: 'Cannot modify privacy status of a collaboration' });
+    }
+
+    const currentIsPrivate = trackCheck.rows[0].is_private;
+    const secretToken = trackCheck.rows[0].secret_token || generateSecureToken();
     
     // If trying to make the track private, check if it has collaborations
     if (is_private) {
@@ -1077,10 +1095,24 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
       }
     }
     
+    // If the track is going from private to public, we need to cascade this change to all child tracks
+    if (currentIsPrivate && !is_private) {
+      // First, find all descendant tracks (direct and indirect children)
+      const allDescendants = await findAllDescendantTracks(id);
+      
+      if (allDescendants.length > 0) {
+        // Update all descendants to public
+        await pool.query(
+          'UPDATE tracks SET is_private = FALSE WHERE id = ANY($1::int[])',
+          [allDescendants]
+        );
+      }
+    }
+    
     // Update track privacy
     const result = await pool.query(
-      'UPDATE tracks SET is_private = $1 WHERE id = $2 RETURNING *',
-      [is_private, id]
+      'UPDATE tracks SET is_private = $1, secret_token = $2 WHERE id = $3 RETURNING *',
+      [is_private, is_private ? secretToken : null, id]
     );
     
     res.json(result.rows[0]);
@@ -1202,7 +1234,7 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to share this track' });
     }
     
-    // If a secret token already exists, return it
+    // Track secret token should always be set
     if (track.secret_token) {
       const shareLink = `${process.env.FRONTEND_URL}/track/${id}?secret=${track.secret_token}`;
       return res.json({ 
@@ -1210,23 +1242,10 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
         secretToken: track.secret_token
       });
     }
-    
-    // Generate a secure random token
-    const secretToken = generateSecureToken();
-    
-    // Store the token in the tracks table
-    await pool.query(
-      'UPDATE tracks SET secret_token = $1 WHERE id = $2',
-      [secretToken, id]
-    );
-    
-    // Return the share link
-    const shareLink = `${process.env.FRONTEND_URL}/track/${id}?secret=${secretToken}`;
-    
-    res.json({ 
-      shareLink,
-      secretToken
-    });
+    else{
+      throw new Error('Track secret token not found');
+    }
+
   } catch (error) {
     console.error('Error generating share link:', error);
     res.status(500).json({ error: 'Failed to generate share link' });

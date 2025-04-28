@@ -373,7 +373,11 @@ function generateSecureToken(length = 32) {
 // Check if a user has access to a private track
 async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   const trackCheck = await pool.query(
-    'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
+    `SELECT t.id, t.user_id, t.is_private, t.secret_token, t.parent_track_id, 
+            p.is_private as parent_is_private, p.secret_token as parent_secret_token
+     FROM tracks t
+     LEFT JOIN tracks p ON t.parent_track_id = p.id
+     WHERE t.id = $1`,
     [trackId]
   );
   
@@ -385,7 +389,33 @@ async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   
   if (track.is_private) {
     const isOwner = userId && track.user_id === userId;
-    const hasValidSecret = secretToken && track.secret_token && secretToken === track.secret_token;
+    
+    // Check if the provided secret token matches any in the track lineage
+    let hasValidSecret = secretToken && (
+      (track.secret_token && secretToken === track.secret_token) || 
+      (track.parent_secret_token && secretToken === track.parent_secret_token)
+    );
+    
+    // If secret doesn't match directly, check the entire track ancestry for a matching token
+    if (!hasValidSecret && secretToken && track.parent_track_id) {
+      const ancestryCheck = await pool.query(
+        `WITH RECURSIVE track_ancestry AS (
+          SELECT id, parent_track_id, secret_token
+          FROM tracks
+          WHERE id = $1
+          
+          UNION
+          
+          SELECT t.id, t.parent_track_id, t.secret_token
+          FROM tracks t
+          JOIN track_ancestry ta ON t.id = ta.parent_track_id
+        )
+        SELECT secret_token FROM track_ancestry WHERE secret_token = $2 LIMIT 1`,
+        [trackId, secretToken]
+      );
+      
+      hasValidSecret = ancestryCheck.rows.length > 0;
+    }
     
     if (!isOwner && !hasValidSecret) {
       return { hasAccess: false, error: 'This track is private', status: 403 };
@@ -394,6 +424,29 @@ async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   
   return { hasAccess: true, track };
 }
+
+// Helper function to find all descendant tracks (direct and indirect children)
+async function findAllDescendantTracks(trackId) {
+    const descendants = [];
+    const queue = [trackId];
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      
+      // Find direct children of the current track
+      const childrenResult = await pool.query(
+        'SELECT id FROM tracks WHERE parent_track_id = $1',
+        [currentId]
+      );
+      
+      for (const child of childrenResult.rows) {
+        descendants.push(child.id);
+        queue.push(child.id);
+      }
+    }
+    
+    return descendants;
+  }
 
 module.exports = {
   s3,
@@ -409,5 +462,6 @@ module.exports = {
   getBaseTrackSelectQuery,
   getPopularFeedQuery,
   getFollowingFeedQuery,
-  getForYouFeedQuery
+  getForYouFeedQuery,
+  findAllDescendantTracks
 }; 
