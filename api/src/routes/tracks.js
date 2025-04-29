@@ -208,7 +208,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer FROM tracks WHERE id = $1',
+        'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer, metronome_bpm, time_signature FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -223,6 +223,9 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
       parentSecretToken = parentTrack.secret_token;
       
       isPrivate = parentIsPrivate;
+
+      metronome_bpm = parentTrack.metronome_bpm;
+      time_signature = parentTrack.time_signature;
 
       // Validate that collaboration isn't longer than parent track
       if (duration > parentDuration) {

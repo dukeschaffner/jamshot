@@ -23,7 +23,6 @@ export default function UploadForm({
   const [selectedInstruments, setSelectedInstruments] = useState([]);
   const [metronomeBpm, setMetronomeBpm] = useState('');
   const [timeSignature, setTimeSignature] = useState('4/4');
-  const [fileName, setFileName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const router = useRouter();
 
@@ -174,19 +173,19 @@ export default function UploadForm({
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="title" className="block text-sm font-medium mb-1">Track Title</label>
+          <label htmlFor="title" className="block text-sm font-medium mb-1">Caption</label>
           <input
             id="title"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter a title for your track"
+            placeholder="Enter a caption for your track"
             className="w-full p-2 border rounded"
             required
           />
         </div>
         
-        {isCollab && (
+        {!isCollab && (
           <>
             <div>
               <label htmlFor="metronome" className="block text-sm font-medium mb-1">Metronome (BPM)</label>
