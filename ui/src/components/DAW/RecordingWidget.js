@@ -22,6 +22,8 @@ export default function RecordingWidget({
   metronomeVolume = 0.7, // Add metronomeVolume prop with default value
   timeSignature = '4/4' // Add timeSignature prop with default value
 }) {
+  const defaultEffectiveDuration = 30;
+
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
     const [takes, setTakes] = useState([]);
@@ -30,7 +32,7 @@ export default function RecordingWidget({
     const [isLooping, setIsLooping] = useState(true);
     const [looperLeftPos, setLooperLeftPos] = useState(0);
     const [looperRightPos, setLooperRightPos] = useState(100);
-    const [effectiveDuration, setEffectiveDuration] = useState(10); // Default to 90 seconds (1:30)
+    const [effectiveDuration, setEffectiveDuration] = useState(defaultEffectiveDuration); // Default to 90 seconds (1:30)
     const effectiveDurationRef = useRef(effectiveDuration);
     const playableDuration = selectedTake ? selectedTake.endTime - selectedTake.startTime : effectiveDuration;
 
@@ -138,14 +140,21 @@ export default function RecordingWidget({
 
     // Handle extending duration when recording exceeds current duration
     useEffect(() => {
-      if (isRecording && recordedBufferRef.current) {
-        const currentPlaybackTime = playheadInternalTimeRef.current + (audioContext?.currentTime - absolutePlaybackStartTimeRef.current);
-        // If we're approaching the end, extend the duration
-        if (currentPlaybackTime + 5 > effectiveDuration) {  // Add 5 second buffer
-          setEffectiveDuration(prev => prev + 30); // Extend by 30 seconds
-        }
+      if (isRecording) {
+        // Set up an interval to check once per second
+        const checkDurationInterval = setInterval(() => {
+          const currentPlaybackTime = playheadInternalTimeRef.current + (audioContext?.currentTime - absolutePlaybackStartTimeRef.current);
+          // If we're approaching the end, extend the duration
+          if (currentPlaybackTime + 5 > effectiveDurationRef.current) {  // Add 5 second buffer
+            setEffectiveDuration(prev => prev + 30); // Extend by 30 seconds
+            console.log('effectiveDuration extended:', effectiveDurationRef.current);
+          }
+        }, 1000); // Check every 1000ms (1 second)
+        
+        // Clean up interval on unmount or when recording stops
+        return () => clearInterval(checkDurationInterval);
       }
-    }, [isRecording, playheadInternalTimeRef.current, absolutePlaybackStartTimeRef.current]);
+    }, [isRecording]);
 
     const processAudioChunks = async (chunks) => {
         if (!chunks || chunks.length === 0 || !audioContext) return;
@@ -289,6 +298,12 @@ export default function RecordingWidget({
     let startTime;
     if(isRecording){
       startTime = 0;
+      setPlayheadTime(startTime);
+      setPlayheadPos(0);
+      playheadInternalTimeRef.current = startTime;
+      if(effectiveDurationRef.current !== defaultEffectiveDuration){
+        setEffectiveDuration(defaultEffectiveDuration);
+      }
     }
     else if(isLooping){
         startTime = posToTime(looperLeftPos, effectiveDuration);
@@ -322,9 +337,9 @@ export default function RecordingWidget({
     if (activeSources.length > 0) {
       activeSources[0].onended = function() {
         const currentPlaybackTime = isPlayingRef.current ? playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) : playheadInternalTimeRef.current;
-        if(currentPlaybackTime >= effectiveDurationRef.current){ //Ended naturally, no looping
+        if(!isRecording && currentPlaybackTime >= playableDuration){ //Ended naturally, no looping
           if(isLooping){ //Go to the start of the looper
-            seekToTime(posToTime(looperLeftPos, effectiveDurationRef.current));
+            seekToTime(posToTime(looperLeftPos, playableDuration));
           }
           else{
             playheadInternalTimeRef.current = 0;
@@ -749,23 +764,18 @@ export default function RecordingWidget({
     if (isPlaying) {
       const updatePlayhead = () => {
         const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
-        const playheadPos = timeToPos(currentTime, playableDuration);
-        if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
-          if(isRecording){ //if recording, then stop recording
-            setIsRecording(false);
-          }
-          else{
-            seekToTime(posToTime(looperLeftPos, playableDuration));
-          }
+        let playheadPos = timeToPos(currentTime, playableDuration);
+        if(isLooping && playheadPos >= looperRightPos && !isRecording){ //Go to the start of the looper
+          seekToTime(posToTime(looperLeftPos, playableDuration));
         }
         else{
-          setPlayheadPos(playheadPos);
-          
           // Update recording indicator width when recording
           if (isRecording) {
+            playheadPos = timeToPos(currentTime, effectiveDurationRef.current);
             const indicatorWidth = playheadPos;
             setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
           }
+          setPlayheadPos(playheadPos);
         }
       };
       
@@ -886,7 +896,10 @@ export default function RecordingWidget({
           const recordingRect = recordingContainerRef.current.getBoundingClientRect();
           const recordingStartX = recordingRect.left;
           const recordingWidth = recordingRect.width;
-          const cropEndX = cropEndOverlayRef.current.getBoundingClientRect().left;
+          let cropEndX = cropEndOverlayRef.current.getBoundingClientRect().left;
+          if(!cropEndX){
+            cropEndX = recordingRect.right;
+          }
           const trackStartX = recordingStartX;
           const buffer = 5 * (recordingWidth / 100);
           var newCropX = 0;
@@ -1064,7 +1077,7 @@ export default function RecordingWidget({
     const minPixelsPerMarker = 100;
     const secondsPerPixel = effectiveDuration / projectWidth;
 
-    const playableDuration = selectedTake ? selectedTake.endTime - selectedTake.startTime : effectiveDuration;
+    const playableDuration = (selectedTake && !isRecording) ? selectedTake.endTime - selectedTake.startTime : effectiveDuration;
 
     const intervals = [0.1, 0.5, 1, 5, 10, 30, 60, 120];
 
@@ -1128,22 +1141,24 @@ export default function RecordingWidget({
   const generateMusicalGrid = () => {
       const bpm = metronomeBPM; // Use the metronome BPM
       const beatsPerMeasure = timeSignature.split('/')[0];
+      const duration = (selectedTake && !isRecording) ? playableDuration : effectiveDuration.current;
+
       
       // Calculate seconds per beat and seconds per measure
       const secondsPerBeat = 60 / bpm;
       const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
-      const offsetSeconds = posToTime(metronomeOffsetPos, effectiveDuration);
+      const offsetSeconds = posToTime(metronomeOffsetPos, duration);
       
       const gridLines = [];
       
       // Calculate how many measures fit in the track
-      const totalMeasures = Math.ceil((effectiveDuration - offsetSeconds) / secondsPerMeasure);
+      const totalMeasures = Math.ceil((duration - offsetSeconds) / secondsPerMeasure);
       
       // Generate measure lines (strong grid lines)
       for (let measure = 0; measure <= totalMeasures; measure++) {
         const measureTime = measure * secondsPerMeasure + offsetSeconds;
-        if (measureTime <= effectiveDuration) {
-          const position = timeToPos(measureTime, effectiveDuration);
+        if (measureTime <= duration) {
+          const position = timeToPos(measureTime, duration);
           gridLines.push(
             <div 
               key={`measure-${measure}`} 
@@ -1157,15 +1172,15 @@ export default function RecordingWidget({
 
       const startBeat = beatsPerMeasure - Math.floor(offsetSeconds / secondsPerBeat);
       const startBeatOffset = offsetSeconds % secondsPerBeat;
-      const endBeat = startBeat + Math.floor((effectiveDuration - startBeatOffset) / secondsPerBeat);
+      const endBeat = startBeat + Math.floor((duration - startBeatOffset) / secondsPerBeat);
       
       // Generate beat lines (weaker grid lines)
       for (let beat = startBeat; beat <= endBeat; beat++) {
         // Skip beats that fall on measure boundaries (already covered by measure lines)
         if (beat % beatsPerMeasure !== 0) {
           const beatTime = (beat - startBeat) * secondsPerBeat + startBeatOffset;
-          if (beatTime <= effectiveDuration) {
-            const position = timeToPos(beatTime, effectiveDuration);
+          if (beatTime <= duration) {
+            const position = timeToPos(beatTime, duration);
             gridLines.push(
               <div 
                 key={`beat-${beat}`} 
@@ -1693,8 +1708,8 @@ export default function RecordingWidget({
                   className={`timeline ${zoomLevel > 1 ? 'zoomed' : ''}`} 
                   ref={dawHeaderRef}
                   style={{ 
-                    left: `${selectedTake ? timeToPos(selectedTake.startTime, effectiveDuration) : 0}%`,
-                    width: `${selectedTake ? timeToPos(selectedTake.endTime, effectiveDuration) - timeToPos(selectedTake.startTime, effectiveDuration) : 100}%`,
+                    left: `${selectedTake && !isRecording ? timeToPos(selectedTake.startTime, effectiveDuration) : 0}%`,
+                    width: `${selectedTake && !isRecording ? timeToPos(selectedTake.endTime, effectiveDuration) - timeToPos(selectedTake.startTime, effectiveDuration) : 100}%`,
                   }}
                 >
                   <div className="metronome-offset-controls">
@@ -1744,7 +1759,7 @@ export default function RecordingWidget({
                 </div>
 
                 {/* Looper - Only show if there's audio content */}
-                {hasAudioContent && (
+                {hasAudioContent && !isRecording && (
                   <div 
                     className="looper" 
                     ref={looperRef}
