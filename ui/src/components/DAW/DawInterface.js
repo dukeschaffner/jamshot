@@ -17,6 +17,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
+  const [isCountInEnabled, setIsCountInEnabled] = useState(true);
   const [metronomeBpm, setMetronomeBpm] = useState(120);
   const [metronomeVolume, setMetronomeVolume] = useState(0.7);
   const [showModal, setShowModal] = useState(false);
@@ -129,6 +130,20 @@ export default function DawInterface({ track, isCollab = false }) {
   // Toggle metronome
   const toggleMetronome = () => {
     setIsMetronomeOn(prev => !prev);
+  };
+
+  useEffect(() => {
+    if(isMetronomeOn){
+      setIsCountInEnabled(true);
+    }
+    else{
+      setIsCountInEnabled(false);
+    }
+  }, [isMetronomeOn]);
+  
+  // Toggle count-in
+  const toggleCountIn = () => {
+    setIsCountInEnabled(prev => !prev);
   };
   
   // Handle BPM input change
@@ -308,9 +323,19 @@ export default function DawInterface({ track, isCollab = false }) {
             <button 
               className={`metronome-toggle ${isMetronomeOn ? 'active' : ''}`}
               onClick={toggleMetronome}
+              title="Toggle Metronome"
             >
               <FontAwesomeIcon icon={faDrum} />
             </button>
+            {isMetronomeOn && (
+              <button 
+                className={`count-in-toggle ${isCountInEnabled ? 'active' : ''}`}
+                onClick={toggleCountIn}
+                title="Toggle Count-in before recording"
+              >
+                <span className="count-in-icon">1..4</span>
+              </button>
+            )}
           </div>
           <button 
             className="control-button settings"
@@ -340,21 +365,22 @@ export default function DawInterface({ track, isCollab = false }) {
           trackDuration={trackDuration}
           showCollabModal={showCollabModal}
           originalAudioChunks={originalAudioChunks}
-        fileChunks={fileChunks}
-        recordingPlaybackBuffer={recordingPlaybackBuffer}
-        setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
-        isRecording={isRecording}
-        setIsRecording={setIsRecording}
-        selectedAudioInputDevice={selectedAudioInputDevice}
-        userLatencyCompensation={userLatencyCompensation}
-        isCollab={isCollab}
-        setOriginalGain={setOriginalGain}
-        setRecordingGain={setRecordingGain}
-        isMetronomeOn={isMetronomeOn}
-        bpm={metronomeBpm}
-        metronomeVolume={metronomeVolume}
-        setMetronomeVolume={setMetronomeVolume}
+          fileChunks={fileChunks}
+          recordingPlaybackBuffer={recordingPlaybackBuffer}
+          setRecordingPlaybackBuffer={setRecordingPlaybackBuffer}
+          isRecording={isRecording}
+          setIsRecording={setIsRecording}
+          selectedAudioInputDevice={selectedAudioInputDevice}
+          userLatencyCompensation={userLatencyCompensation}
+          isCollab={isCollab}
+          setOriginalGain={setOriginalGain}
+          setRecordingGain={setRecordingGain}
+          isMetronomeOn={isMetronomeOn}
+          bpm={metronomeBpm}
+          metronomeVolume={metronomeVolume}
+          setMetronomeVolume={setMetronomeVolume}
           timeSignature={track?.time_signature}
+          isCountInEnabled={isCountInEnabled}
         />
       ) : (
         <RecordingWidget 
@@ -371,6 +397,7 @@ export default function DawInterface({ track, isCollab = false }) {
           bpm={metronomeBpm}
           metronomeVolume={metronomeVolume}
           timeSignature={track?.time_signature}
+          isCountInEnabled={isCountInEnabled}
         />
       )}
 
