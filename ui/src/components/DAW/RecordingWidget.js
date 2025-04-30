@@ -20,7 +20,8 @@ export default function RecordingWidget({
   isMetronomeOn = false,  // Add metronome prop
   bpm = 120,            // Add BPM prop with default value
   metronomeVolume = 0.7, // Add metronomeVolume prop with default value
-  timeSignature = '4/4' // Add timeSignature prop with default value
+  timeSignature = '4/4', // Add timeSignature prop with default value
+  isCountInEnabled = false, // Add isCountInEnabled prop with default value
 }) {
   const defaultEffectiveDuration = 30;
 
@@ -128,6 +129,8 @@ export default function RecordingWidget({
     const metronomeOffsetHandleRef = useRef(null);
 
     const {isPlaying: isPlayingGlobal, togglePlayPause: togglePlayPauseGlobal } = useAudio();
+
+    const shouldCountInRef = useRef(false);
 
     // Helper functions
     const posToTime = (pos, duration) => {
@@ -314,17 +317,26 @@ export default function RecordingWidget({
     else{
         startTime = playheadInternalTimeRef.current;
     }
+
+    let scheduledStartTime = audioContext.currentTime;
+     if(shouldCountInRef.current){
+       const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
+       const secondsPerBeat = 60 / metronomeBPM;
+       const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+       scheduledStartTime += secondsPerMeasure;
+       shouldCountInRef.current = false;
+     }
     
     // Start playback for each source
     activeSources.forEach(source => {
-      source.start(0, startTime);
+      source.start(scheduledStartTime, startTime);
     });
     
     if(isRecording){
       setRecordingWidth(0);
     }
 
-    absolutePlaybackStartTimeRef.current = audioContext.currentTime;
+    absolutePlaybackStartTimeRef.current = scheduledStartTime;
     console.log('Absolute playback start time set:', absolutePlaybackStartTimeRef.current);
 
     // Schedule metronome clicks if metronome is on
@@ -428,6 +440,10 @@ export default function RecordingWidget({
   
   const startRecording = async () => {
     if (!isRecording || !audioContext) return;
+
+    if(isCountInEnabled){
+      shouldCountInRef.current = true;
+    }
     
     try {
       // Resume the audio context if it's suspended (important for Chrome)
@@ -543,14 +559,33 @@ export default function RecordingWidget({
       console.log('Input latency based on buffer:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current, 'seconds');
       console.log('output latency:', audioContext.outputLatency, 'seconds');
       
-      const startTime = 0;
-      const endTime = buffer.duration;
-
-      // if the recording exceeds current duration, extend it
-      if (endTime > effectiveDuration) {
-        // Round up to nearest 30 seconds for a cleaner UI
-        const newDuration = Math.ceil(endTime / 30) * 30;
-        setEffectiveDuration(newDuration);
+      // Trim the buffer to account for recording latency
+      if (!isFile && recordingLatency > 0) {
+        // Calculate how many samples to trim from the beginning
+        const samplesToTrim = Math.floor(recordingLatency * buffer.sampleRate);
+        
+        if (samplesToTrim > 0 && samplesToTrim < buffer.length) {
+          // Create a new buffer with the trimmed length
+          const trimmedBuffer = audioContext.createBuffer(
+            buffer.numberOfChannels,
+            buffer.length - samplesToTrim,
+            buffer.sampleRate
+          );
+          
+          // Copy the data from the original buffer, skipping the latency portion
+          for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+            const originalData = buffer.getChannelData(channel);
+            const trimmedData = trimmedBuffer.getChannelData(channel);
+            
+            for (let i = 0; i < trimmedBuffer.length; i++) {
+              trimmedData[i] = originalData[i + samplesToTrim];
+            }
+          }
+          
+          // Replace the original buffer with the trimmed one
+          buffer = trimmedBuffer;
+          console.log(`Trimmed ${samplesToTrim} samples (${recordingLatency.toFixed(3)}s) from recording to compensate for latency`);
+        }
       }
 
       // Create a take with the high-quality WAV data
@@ -560,10 +595,9 @@ export default function RecordingWidget({
         name: `Take ${takeNumber}`,
         buffer: buffer,
         recordedAt: Date.now(),
-        startTime: startTime, //time relative to time=0 of DAW. IE the time in the DAW that the audio starts
-        endTime: endTime, //time relative to time=0 of DAW
+        startTime: 0, //time relative to time=0 of DAW. IE the time in the DAW that the audio starts
+        endTime: buffer.duration, //time relative to time=0 of DAW
         timeOffset: 0, //time offset of the recording audio relative to the startTime
-        recordingLatency: recordingLatency,
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
         bitDepth: 24
@@ -586,6 +620,7 @@ export default function RecordingWidget({
     if (isRecording || !audioContext) return;
     
     isRecordingRef.current = false;
+    shouldCountInRef.current = false;
     
     // Stop the playback
     pause();
@@ -718,7 +753,7 @@ export default function RecordingWidget({
       if(!selectedTake) return;
 
       let recordedBuffer = selectedTake.buffer;
-      const adjustedAbsoluteStartTime = selectedTake.startTime - userLatencyCompensation / 1000 - selectedTake.recordingLatency;
+      const adjustedAbsoluteStartTime = selectedTake.startTime - userLatencyCompensation / 1000;
         
       const startSample = Math.floor(adjustedAbsoluteStartTime * recordedBuffer.sampleRate);
       const endSample = Math.floor(selectedTake.endTime * recordedBuffer.sampleRate); 
@@ -764,18 +799,20 @@ export default function RecordingWidget({
     if (isPlaying) {
       const updatePlayhead = () => {
         const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
-        let playheadPos = timeToPos(currentTime, playableDuration);
-        if(isLooping && playheadPos >= looperRightPos && !isRecording){ //Go to the start of the looper
-          seekToTime(posToTime(looperLeftPos, playableDuration));
-        }
-        else{
-          // Update recording indicator width when recording
-          if (isRecording) {
-            playheadPos = timeToPos(currentTime, effectiveDurationRef.current);
-            const indicatorWidth = playheadPos;
-            setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
+        if(currentTime > 0){ //animate the playhead during playback and if any part of the count in is in t > 0
+          let playheadPos = timeToPos(currentTime, playableDuration);
+          if(isLooping && playheadPos >= looperRightPos && !isRecording){ //Go to the start of the looper
+            seekToTime(posToTime(looperLeftPos, playableDuration));
           }
-          setPlayheadPos(playheadPos);
+          else{
+            // Update recording indicator width when recording
+            if (isRecording) {
+              playheadPos = timeToPos(currentTime, effectiveDurationRef.current);
+              const indicatorWidth = playheadPos;
+              setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
+            }
+            setPlayheadPos(playheadPos);
+          }
         }
       };
       
@@ -1571,7 +1608,7 @@ export default function RecordingWidget({
   const scheduleMetronomeClicks = () => {
     if (!isMetronomeOn || !audioContext) return;
     
-    const beatsPerMeasure = timeSignature.split('/')[0];
+    const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
     const secondsPerBeat = 60 / metronomeBPM;
     const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
     const offsetSeconds = posToTime(metronomeOffsetPos, effectiveDuration);
