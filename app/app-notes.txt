@@ -80,7 +80,6 @@ TODO (MVP)
   - lose progress dialog
   - cache metronome volume VALUE
   - specify time signature in DAW
-  - ensure DAW metronome and time signature are linked to upload form values
   - save metronome offset
   - remove recording button while playing
 
