@@ -82,6 +82,9 @@ TODO (MVP)
   - cache metronome volume VALUE
   - specify time signature in DAW
   - ensure DAW metronome and time signature are linked to upload form values
+  - save metronome offset
+  - remove recording button while playing
+
 
 
 - prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
@@ -97,7 +100,11 @@ TODO (MVP)
 BUGS
 - dark mode inconsistencies
 - logging in on collab or upload shouldnt lose progress
-
+- navigating away from daw should end playback/recording
+- clicking to scrub is off in single DAW (maybe only when trimmed)
+- metronome gets added on loop restart for 8 beats even after turned off during playback
+- handle deleting takes during playback
+- recording get wiped on loop
 
 CHECKLIST
 - confirm all privacy restrictions

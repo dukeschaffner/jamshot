@@ -22,11 +22,11 @@ export default function TracksWidget({
   isCollab = false,
   setOriginalGain = null,
   setRecordingGain = null,
-  isMetronomeOn = false,  // Add metronome prop
-  bpm = 120,            // Add BPM prop with default value
-  metronomeVolume = 0.7, // Add metronomeVolume prop with default value
-  setMetronomeVolume = null, // Add setMetronomeVolume prop
-  timeSignature = '4/4' // Add timeSignature prop with default value
+  isMetronomeOn = false,  
+  bpm = 120,            
+  metronomeVolume = 0.7, 
+  timeSignature = '4/4',
+  isCountInEnabled = true, // Add count-in parameter with default value
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -150,6 +150,10 @@ export default function TracksWidget({
     const metronomeOffsetHandleRef = useRef(null);
 
     const {isPlaying: isPlayingGlobal, togglePlayPause: togglePlayPauseGlobal } = useAudio();
+
+    // Add state to track the count-in process
+    const isInCountInRef = useRef(false);
+    const shouldCountInRef = useRef(false);
 
     // Helper functions
     const posToTime = (pos, duration) => {
@@ -391,10 +395,19 @@ export default function TracksWidget({
     else{
         startTime = playheadInternalTimeRef.current;
     }
+
+    let scheduledStartTime = audioContext.currentTime;
+    if(shouldCountInRef.current){
+      isInCountInRef.current = true;
+      const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
+      const secondsPerBeat = 60 / metronomeBPM;
+      const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+      scheduledStartTime += secondsPerMeasure;
+    }
     
     // Start playback for each source
     activeSources.forEach(source => {
-      source.start(0, startTime);
+      source.start(scheduledStartTime, startTime);
     });
     
     if(isRecording){
@@ -403,7 +416,7 @@ export default function TracksWidget({
       setRecordingWidth(0);
     }
 
-    absolutePlaybackStartTimeRef.current = audioContext.currentTime;
+    absolutePlaybackStartTimeRef.current = scheduledStartTime;
     console.log('Absolute playback start time set:', absolutePlaybackStartTimeRef.current);
 
     // Schedule metronome clicks if metronome is on
@@ -511,6 +524,10 @@ export default function TracksWidget({
   
   const startRecording = async () => {
     if (!isRecording || !audioContext) return;
+
+    if(isCountInEnabled){
+      shouldCountInRef.current = true;
+    }
     
     try {
       // Resume the audio context if it's suspended (important for Chrome)
@@ -635,8 +652,9 @@ export default function TracksWidget({
       console.log('Input latency based on buffer:', absolutePlaybackStartTimeRef.current - tempRecordingStartTimeRef2.current, 'seconds');
       console.log('output latency:', audioContext.outputLatency, 'seconds');
       
+      const timeOffset = recordingLatency;
       const startTime = isFile ? 0 : relativeRecordingStartTimeRef.current;
-      const endTime = isFile ? buffer.duration : startTime + buffer.duration;
+      const endTime = isFile ? buffer.duration : startTime + buffer.duration - timeOffset;
 
       // In non-collab mode, if the recording exceeds current duration, extend it
       if (!isCollab && endTime > effectiveDuration) {
@@ -654,8 +672,7 @@ export default function TracksWidget({
         recordedAt: Date.now(),
         startTime: startTime, //time relative to time=0 of DAW. IE the time in the DAW that the audio starts
         endTime: endTime, //time relative to time=0 of DAW
-        timeOffset: 0, //time offset of the recording audio relative to the startTime
-        recordingLatency: recordingLatency,
+        timeOffset: timeOffset, //time offset of the recording audio relative to the startTime
         mimeType: 'audio/wav',
         sampleRate: recorderRef.current?.sampleRate || audioContext.sampleRate,
         bitDepth: 24
@@ -685,7 +702,9 @@ export default function TracksWidget({
     if (isRecording || !audioContext) return;
     
     isRecordingRef.current = false;
-    
+    shouldCountInRef.current = false;
+    isInCountInRef.current = false;
+
     // Stop the playback
     pause();
     
@@ -818,7 +837,7 @@ export default function TracksWidget({
       let recordedBuffer = selectedTake.buffer;
       let resultBuffer;
       
-      const adjustedAbsoluteStartTime = selectedTake.startTime - userLatencyCompensation / 1000 - selectedTake.recordingLatency;
+      const adjustedAbsoluteStartTime = selectedTake.startTime - userLatencyCompensation / 1000;
       const adjustedRelativeStartTime = selectedTake.timeOffset;
       const adjustedRelativeEndTime = (selectedTake.endTime - selectedTake.startTime) + selectedTake.timeOffset;
 
@@ -939,22 +958,28 @@ export default function TracksWidget({
     if (isPlaying) {
       const updatePlayhead = () => {
         const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
-        const playheadPos = timeToPos(currentTime, effectiveDuration);
-        if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
-          if(isRecording){ //if recording, then stop recording
-            setIsRecording(false);
+        if(currentTime > 0){ //animate the playhead during playback and if any part of the count in is in t > 0
+          if(isInCountInRef.current){
+            isInCountInRef.current = false;
+            shouldCountInRef.current = false;
+          }
+          const playheadPos = timeToPos(currentTime, effectiveDuration);
+          if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
+            if(isRecording){ //if recording, then stop recording
+              setIsRecording(false);
+            }
+            else{
+              seekToTime(posToTime(looperLeftPos, effectiveDuration));
+            }
           }
           else{
-            seekToTime(posToTime(looperLeftPos, effectiveDuration));
-          }
-        }
-        else{
-          setPlayheadPos(playheadPos);
-          
-          // Update recording indicator width when recording
-          if (isRecording) {
-            const indicatorWidth = playheadPos - recordingStartPos;
-            setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
+            setPlayheadPos(playheadPos);
+            
+            // Update recording indicator width when recording
+            if (isRecording) {
+              const indicatorWidth = playheadPos - recordingStartPos;
+              setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
+            }
           }
         }
       };
@@ -2028,7 +2053,7 @@ export default function TracksWidget({
   const scheduleMetronomeClicks = () => {
     if (!isMetronomeOn || !audioContext) return;
     
-    const beatsPerMeasure = timeSignature.split('/')[0];
+    const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
     const secondsPerBeat = 60 / metronomeBPM;
     const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
     const offsetSeconds = posToTime(metronomeOffsetPos, effectiveDuration);
@@ -2068,6 +2093,7 @@ export default function TracksWidget({
       
       // Schedule the click
       clickSource.start(beatTime);
+
       
       // Store reference to stop later if needed
       metronomeSourcesRef.current.push(clickSource);
