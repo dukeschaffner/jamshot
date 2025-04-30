@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import TagSelector from '../TagSelector';
@@ -15,16 +15,29 @@ export default function UploadForm({
   parentTrack = null,
   onCancel = null,
   originalGain = 0.8,
-  recordingGain = 0.8
+  recordingGain = 0.8,
+  metronomeBpm = 120,
+  setMetronomeBpm = null,
+  timeSignature = '4/4',
+  setTimeSignature = null,
 }) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
-  const [metronomeBpm, setMetronomeBpm] = useState('');
-  const [timeSignature, setTimeSignature] = useState('4/4');
+  const [metronomeBpmInput, setMetronomeBpmInput] = useState(metronomeBpm.toString());
+  const [timeSignatureInput, setTimeSignatureInput] = useState(timeSignature);
   const [isPrivate, setIsPrivate] = useState(false);
   const router = useRouter();
+
+  // Sync with parent component when props change
+  useEffect(() => {
+    setMetronomeBpmInput(metronomeBpm.toString());
+  }, [metronomeBpm]);
+
+  useEffect(() => {
+    setTimeSignatureInput(timeSignature);
+  }, [timeSignature]);
 
   // Time signature options
   const timeSignatureOptions = [
@@ -104,18 +117,9 @@ export default function UploadForm({
         formData.append('instrumentIds', JSON.stringify(selectedInstruments));
       }
 
-      // Add metronome BPM if provided and this is a collab
-      if (!isCollab && metronomeBpm) {
+      if (!isCollab) {
         formData.append('metronome_bpm', metronomeBpm);
-      }
-      
-      // Add time signature only for collabs
-      if (!isCollab) {
         formData.append('time_signature', timeSignature);
-      }
-      
-      // Add privacy setting (only for non-collab tracks)
-      if (!isCollab) {
         formData.append('is_private', isPrivate);
       }
 
@@ -195,8 +199,17 @@ export default function UploadForm({
                   type="number"
                   min="40"
                   max="240"
-                  value={metronomeBpm}
-                  onChange={(e) => setMetronomeBpm(e.target.value)}
+                  value={metronomeBpmInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setMetronomeBpmInput(value);
+                    
+                    // Update parent component BPM if valid
+                    const newBpm = parseInt(value, 10);
+                    if (!isNaN(newBpm) && newBpm >= 40 && newBpm <= 240 && setMetronomeBpm) {
+                      setMetronomeBpm(newBpm);
+                    }
+                  }}
                   placeholder={parentTrack?.metronome_bpm || "e.g., 120"}
                   className="w-full p-2 border rounded"
                 />
@@ -214,8 +227,16 @@ export default function UploadForm({
               <label htmlFor="timeSignature" className="block text-sm font-medium mb-1">Time Signature</label>
               <select
                 id="timeSignature"
-                value={timeSignature}
-                onChange={(e) => setTimeSignature(e.target.value)}
+                value={timeSignatureInput}
+                onChange={(e) => {
+                  const newTimeSignature = e.target.value;
+                  setTimeSignatureInput(newTimeSignature);
+                  
+                  // Update parent component time signature if callback exists
+                  if (setTimeSignature) {
+                    setTimeSignature(newTimeSignature);
+                  }
+                }}
                 className="w-full p-2 border rounded"
               >
                 {timeSignatureOptions.map((option) => (

@@ -35,6 +35,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [recordingGain, setRecordingGain] = useState(0.8);
   const [isEditingBpm, setIsEditingBpm] = useState(false);
   const [bpmInputValue, setBpmInputValue] = useState('120');
+  const [timeSignature, setTimeSignature] = useState('4/4');
 
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -87,8 +88,11 @@ export default function DawInterface({ track, isCollab = false }) {
     const initialBpm = track?.metronome_bpm || 120;
     setMetronomeBpm(initialBpm);
     setBpmInputValue(initialBpm.toString());
+    
+    const initialTimeSignature = track?.time_signature || '4/4';
+    setTimeSignature(initialTimeSignature);
   }, [track]);
-
+  
   const configureAudioSettings = async () => {
     const audioInputs = await getAudioInputDevices();
     const preferredAudioInputDevice = Cookies.get('preferredAudioInputDevice');
@@ -118,7 +122,7 @@ export default function DawInterface({ track, isCollab = false }) {
 
     return deviceSelected;
   }
-  
+
   // Save latency compensation to cookies when it changes
   useEffect(() => {
     Cookies.set('userLatencyCompensation', userLatencyCompensation.toString(), { expires: 365 });
@@ -267,7 +271,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const hasAudioContent = isCollab ? 
     (originalAudioChunks !== null || recordingPlaybackBuffer !== null) : 
     recordingPlaybackBuffer !== null;
-  
+
   return (
     <>
     <div 
@@ -381,7 +385,7 @@ export default function DawInterface({ track, isCollab = false }) {
           bpm={metronomeBpm}
           metronomeVolume={metronomeVolume}
           setMetronomeVolume={setMetronomeVolume}
-          timeSignature={track?.time_signature}
+          timeSignature={timeSignature}
           isCountInEnabled={isCountInEnabled}
         />
       ) : (
@@ -398,7 +402,7 @@ export default function DawInterface({ track, isCollab = false }) {
           isMetronomeOn={isMetronomeOn}
           bpm={metronomeBpm}
           metronomeVolume={metronomeVolume}
-          timeSignature={track?.time_signature}
+          timeSignature={timeSignature}
           isCountInEnabled={isCountInEnabled}
         />
       )}
@@ -509,6 +513,13 @@ export default function DawInterface({ track, isCollab = false }) {
           onCancel={() => setShowUploadForm(false)}
           originalGain={originalGain}
           recordingGain={recordingGain}
+          metronomeBpm={metronomeBpm}
+          setMetronomeBpm={setMetronomeBpm}
+          timeSignature={timeSignature}
+          setTimeSignature={(newTimeSignature) => {
+            // Update the time signature in this component
+            setTimeSignature(newTimeSignature);
+          }}
         />
       )}
     </>
