@@ -76,7 +76,6 @@ Collabs:
 
 TODO (MVP)
 - DAW
-  - metronome count in
   - collab daw - upload files longer than original track with trim component
   - lose progress dialog
   - cache metronome volume VALUE

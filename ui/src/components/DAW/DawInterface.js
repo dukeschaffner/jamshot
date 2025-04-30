@@ -10,8 +10,10 @@ import {
 import TracksWidget from './TracksWidget';
 import RecordingWidget from './RecordingWidget';
 import UploadForm from './UploadForm';
+import CountInIcon from './CountInIcon';
 import Cookies from 'js-cookie';
 import './DawInterface.css';
+
 export default function DawInterface({ track, isCollab = false }) {
   // State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -333,7 +335,7 @@ export default function DawInterface({ track, isCollab = false }) {
                 onClick={toggleCountIn}
                 title="Toggle Count-in before recording"
               >
-                <span className="count-in-icon">1..4</span>
+                <CountInIcon isEnabled={isCountInEnabled} />
               </button>
             )}
           </div>
