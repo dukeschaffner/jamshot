@@ -152,7 +152,6 @@ export default function TracksWidget({
     const {isPlaying: isPlayingGlobal, togglePlayPause: togglePlayPauseGlobal } = useAudio();
 
     // Add state to track the count-in process
-    const isInCountInRef = useRef(false);
     const shouldCountInRef = useRef(false);
 
     // Helper functions
@@ -398,12 +397,13 @@ export default function TracksWidget({
 
     let scheduledStartTime = audioContext.currentTime;
     if(shouldCountInRef.current){
-      isInCountInRef.current = true;
       const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
       const secondsPerBeat = 60 / metronomeBPM;
       const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
       scheduledStartTime += secondsPerMeasure;
+      shouldCountInRef.current = false;
     }
+
     
     // Start playback for each source
     activeSources.forEach(source => {
@@ -703,7 +703,6 @@ export default function TracksWidget({
     
     isRecordingRef.current = false;
     shouldCountInRef.current = false;
-    isInCountInRef.current = false;
 
     // Stop the playback
     pause();
@@ -959,10 +958,6 @@ export default function TracksWidget({
       const updatePlayhead = () => {
         const currentTime = playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current);
         if(currentTime > 0){ //animate the playhead during playback and if any part of the count in is in t > 0
-          if(isInCountInRef.current){
-            isInCountInRef.current = false;
-            shouldCountInRef.current = false;
-          }
           const playheadPos = timeToPos(currentTime, effectiveDuration);
           if(isLooping && playheadPos >= looperRightPos){ //Go to the start of the looper
             if(isRecording){ //if recording, then stop recording
