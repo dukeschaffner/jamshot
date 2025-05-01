@@ -45,6 +45,7 @@ export default function RecordingWidget({
     const lastScheduledBeatRef = useRef(0);
     const metronomeGainNodeRef = useRef(null);
     const [metronomeOffset, setMetronomeOffset] = useState(0); // 0-100, percentage of measure to offset the metronome by
+    const isMetronomeOnRef = useRef(isMetronomeOn);
 
     // Add zoom state
     const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom, > 1 = zoomed in
@@ -256,6 +257,10 @@ export default function RecordingWidget({
       effectiveDurationRef.current = effectiveDuration;
     }, [effectiveDuration]);
 
+    useEffect(() => {
+      isMetronomeOnRef.current = isMetronomeOn;
+    }, [isMetronomeOn]);
+
   // Play back the recorded audio synchronized with the original track (if in collab mode)
   const play = () => {
     if (!audioContext) {
@@ -340,7 +345,7 @@ export default function RecordingWidget({
     console.log('Absolute playback start time set:', absolutePlaybackStartTimeRef.current);
 
     // Schedule metronome clicks if metronome is on
-    if (isMetronomeOn) {
+    if (isMetronomeOnRef.current) {
       stopAndClearMetronomeClicks();
       scheduleMetronomeClicks();
     }
@@ -401,7 +406,7 @@ export default function RecordingWidget({
   const seekToTime = (time) => {
     // Update the playhead position and time
     setPlayheadTime(time);
-    setPlayheadPos(timeToPos(time, effectiveDuration));
+    setPlayheadPos(timeToPos(time, playableDuration));
     
     // Update the internal time reference
     playheadInternalTimeRef.current = time;
@@ -831,8 +836,10 @@ export default function RecordingWidget({
   const handleWaveformClick = (e) => {
       if (!recordingContainerRef.current || isRecording) return; //
       
-      const rect = recordingContainerRef.current.getBoundingClientRect();
-      const clickPos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const cropStartX = cropStartOverlayRef.current.getBoundingClientRect().right;
+      const cropEndX = cropEndOverlayRef.current.getBoundingClientRect().left;
+      const clickPos = Math.max(0, Math.min(100, ((e.clientX - cropStartX) / (cropEndX - cropStartX)) * 100));
+
       
       seekToTime(posToTime(clickPos, playableDuration));
   };
@@ -884,7 +891,7 @@ export default function RecordingWidget({
         // Dragging playhead
         if (isDraggingPlayhead) {
           setPlayheadPos(mousePos);
-          playheadInternalTimeRef.current = posToTime(mousePos, effectiveDuration);
+          playheadInternalTimeRef.current = posToTime(mousePos, playableDuration);
         }
         
         // Dragging left looper handle

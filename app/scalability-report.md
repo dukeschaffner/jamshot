@@ -2,8 +2,7 @@
 
 Action Items:
 paginate search results
-paginate related tracks
-paginate notifcations
+paginate notifcations / notification settings (don't swarm popular artists)
 index db columns
 replace notification polling with websockets
 query caching

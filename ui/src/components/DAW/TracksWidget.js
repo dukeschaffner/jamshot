@@ -260,6 +260,20 @@ export default function TracksWidget({
         if (meterAnimationFrameRef.current) {
           cancelAnimationFrame(meterAnimationFrameRef.current);
         }
+        //stop all metronome sources
+        metronomeSourcesRef.current.forEach(source => {
+          source.stop();
+          source.disconnect();
+        });
+        metronomeSourcesRef.current = [];
+
+        //stop all active sources
+        activeSourcesRef.current.forEach(source => {
+          source.stop();
+          source.disconnect();
+        });
+        activeSourcesRef.current = [];
+        
       };
     }, []);
   

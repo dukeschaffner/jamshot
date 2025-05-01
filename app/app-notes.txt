@@ -94,11 +94,10 @@ TODO (MVP)
 BUGS
 - dark mode inconsistencies
 - logging in on collab or upload shouldnt lose progress
-- navigating away from daw should end playback/recording
-- clicking to scrub is weird in single DAW (maybe only when trimmed)
-- metronome gets added on loop restart for 8 beats even after turned off during playback
 - handle deleting takes during playback
 - recording get wiped on loop
+
+
 
 CHECKLIST
 - confirm all privacy restrictions
