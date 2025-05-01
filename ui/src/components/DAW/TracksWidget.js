@@ -6,6 +6,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMicrophone, faPlay, faPause, faStepBackward, faStepForward, faTrash, faUpload, faCloudUploadAlt, faHeadphones } from '@fortawesome/free-solid-svg-icons';
 import './DawBody.css';
 import { useAudio } from '../../lib/AudioContext';
+import { useNavigationGuard } from 'next-navigation-guard';
+
 export default function TracksWidget({ 
   isPlaying,
   setIsPlaying,
@@ -57,6 +59,7 @@ export default function TracksWidget({
     const originalAnalyzerRef = useRef(null);
     const [originalTrackSolo, setOriginalTrackSolo] = useState(false);
     const [originalTrackLevel, setOriginalTrackLevel] = useState(-60); // dB level for original track
+    const originalTrackSoloRef = useRef(false);
 
     const recordedBufferRef = useRef(null);
     const recordingGainNodeRef = useRef(null);
@@ -64,7 +67,7 @@ export default function TracksWidget({
     const recordingAnalyzerRef = useRef(null);
     const [recordingTrackSolo, setRecordingTrackSolo] = useState(false);
     const [recordingTrackLevel, setRecordingTrackLevel] = useState(-60); // dB level for recording track
-
+    const recordingTrackSoloRef = useRef(false);
     
     const micStreamRef = useRef(null);
     const [inputLevel, setInputLevel] = useState(-60); // dB level for microphone input
@@ -152,6 +155,10 @@ export default function TracksWidget({
 
     // Add state to track the count-in process
     const shouldCountInRef = useRef(false);
+
+    // Add navigation guard hook to prevent accidental navigation when recording exists
+    useNavigationGuard({ enabled: !!recordingPlaybackBuffer, confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.") })
+
 
     // Helper functions
     const posToTime = (pos, duration) => {
@@ -296,6 +303,14 @@ export default function TracksWidget({
     useEffect(() => {
       effectiveDurationRef.current = effectiveDuration;
     }, [effectiveDuration]);
+    
+    useEffect(() => {
+      originalTrackSoloRef.current = originalTrackSolo;
+    }, [originalTrackSolo]);
+
+    useEffect(() => {
+      recordingTrackSoloRef.current = recordingTrackSolo;
+    }, [recordingTrackSolo]);
 
   // Process audio chunks when they change
   useEffect(() => {
@@ -335,7 +350,7 @@ export default function TracksWidget({
       const trackGain = audioContext.createGain();
       
       // Apply solo/mute logic for original track
-      if (recordingTrackSolo && !originalTrackSolo) {
+      if (recordingTrackSoloRef.current && !originalTrackSoloRef.current) {
         trackGain.gain.value = 0; // Mute original track if only recording is solo'd
       } else {
         trackGain.gain.value = originalTrackGainRef.current; // Normal volume
@@ -357,7 +372,7 @@ export default function TracksWidget({
       const recordedGain = audioContext.createGain();
       
       // Apply solo/mute logic for recording track in collab mode
-      if (originalTrackSolo && !recordingTrackSolo) {
+      if (originalTrackSoloRef.current && !recordingTrackSoloRef.current) {
         recordedGain.gain.value = 0; // Mute recording track if only original is solo'd
       } else {
         recordedGain.gain.value = recordingTrackGainRef.current; // Normal volume
@@ -427,7 +442,7 @@ export default function TracksWidget({
       activeSources[0].onended = function() {
         const currentPlaybackTime = isPlayingRef.current ? playheadInternalTimeRef.current + (audioContext.currentTime - absolutePlaybackStartTimeRef.current) : playheadInternalTimeRef.current;
         if(currentPlaybackTime >= effectiveDurationRef.current){ //Ended naturally, no looping
-          if(isLooping){ //Go to the start of the looper
+          if(isLooping && !isRecording){ //Go to the start of the looper
             seekToTime(posToTime(looperLeftPos, effectiveDurationRef.current));
           }
           else{
@@ -435,7 +450,7 @@ export default function TracksWidget({
             setIsPlaying(false);
             activeSourcesRef.current = [];
             if(isRecording){
-              stopRecording();
+              setIsRecording(false);
             }
           }
         }
@@ -1882,11 +1897,11 @@ export default function TracksWidget({
     }
     
     // If playing, update the gain value in real-time
-    if (isPlaying && originalGainNodeRef.current && audioContext) {
+    if (isPlaying && originalGainNodeRef.current && !recordingTrackSolo && audioContext) {
       originalGainNodeRef.current.gain.setValueAtTime(originalFaderValue, audioContext.currentTime);
       originalGainNodeRef.current.gain.linearRampToValueAtTime(originalFaderValue, audioContext.currentTime + 0.05);
     }
-  }, [originalFaderValue, isPlaying, audioContext, setOriginalGain]);
+  }, [originalFaderValue, isPlaying, audioContext, setOriginalGain, recordingTrackSolo]);
 
   // Update the recordingTrackGainRef when recordingFaderValue changes
   useEffect(() => {
@@ -1898,7 +1913,7 @@ export default function TracksWidget({
     }
     
     // If playing, update the gain value in real-time
-    if (isPlaying && recordingGainNodeRef.current && audioContext) {
+    if (isPlaying && recordingGainNodeRef.current && !originalTrackSolo && audioContext) {
       recordingGainNodeRef.current.gain.setValueAtTime(recordingFaderValue, audioContext.currentTime);
       recordingGainNodeRef.current.gain.linearRampToValueAtTime(recordingFaderValue, audioContext.currentTime + 0.05);
     }
