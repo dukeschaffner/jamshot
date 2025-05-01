@@ -291,12 +291,14 @@ export default function DawInterface({ track, isCollab = false }) {
                 <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
               </button>
             )}
-          <button 
-            className="control-button record-stop"
-            onClick={toggleRecording}
-          >
-            <FontAwesomeIcon icon={isRecording ? faStop : faCircle}/>
-          </button>
+            {(isRecording || !isPlaying) && (
+              <button 
+                className="control-button record-stop"
+                onClick={toggleRecording}
+              >
+                <FontAwesomeIcon icon={isRecording ? faStop : faCircle}/>
+              </button>
+            )}
           
           {/* <button className="control-button">
             <FontAwesomeIcon icon={faStepBackward} />
@@ -358,7 +360,7 @@ export default function DawInterface({ track, isCollab = false }) {
               title="Upload Recording"
             >
               <FontAwesomeIcon icon={faUpload} />
-              Next: Upload
+              Go To: Upload
             </button>
           )}
       </div>

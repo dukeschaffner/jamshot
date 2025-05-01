@@ -67,3 +67,4 @@ ideas:
 - Opentone
 - Opensong
 - Overtones.io
+- loopish
