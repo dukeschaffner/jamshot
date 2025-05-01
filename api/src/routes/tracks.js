@@ -477,6 +477,10 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
 router.get('/:id/related', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
+  const { page = 1, limit = 5 } = req.query;
+  
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
 
   let baseQuery;
   let queryParams;
@@ -488,20 +492,75 @@ router.get('/:id/related', async (req, res) => {
     queryParams = [id];
   }
   try {
-    const result = await pool.query(`
+    // Only include the parent track and current track on the first page
+    let combinedTracks = [];
+    
+    if (parseInt(page) === 1) {
+      // First, get the parent track if it exists
+      let parentTrackQuery = `
+        SELECT 
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE (t.id = (SELECT parent_track_id FROM tracks WHERE id = $1))
+      `;
+      
+      const [parentTrackResult] = await Promise.all([
+        pool.query(parentTrackQuery, queryParams),
+      ]);
+      
+      // Add parent track if it exists
+      if (parentTrackResult.rows.length > 0) {
+        combinedTracks.push(parentTrackResult.rows[0]);
+      }
+    }
+    
+    // Then get the child tracks with pagination
+    let childTracksQuery = `
       SELECT 
         ${baseQuery}
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
-      WHERE t.id = $1 OR t.parent_track_id = $1 OR t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)
-      ORDER BY t.created_at ASC
-    `, queryParams);
+      WHERE t.parent_track_id = $1
+      ORDER BY t.created_at DESC
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
     
-    // Use the processTrack utility function
-    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
+    // Get the total count for pagination info
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM tracks
+      WHERE parent_track_id = $1
+    `;
     
-    res.json(tracks);
+    // Execute queries for child tracks and count
+    const [childTracksResult, countResult] = await Promise.all([
+      pool.query(childTracksQuery, [...queryParams, limitNum, offset]),
+      pool.query(countQuery, [id])
+    ]);
+    
+    // Add child tracks
+    combinedTracks = [...combinedTracks, ...childTracksResult.rows];
+    
+    // Process tracks
+    const tracks = await Promise.all(combinedTracks.map(track => processTrack(track, userId)));
+    
+    // Get pagination info
+    const totalCount = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limitNum);
+    
+    res.json({
+      tracks,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: limitNum,
+        pages: totalPages,
+        hasMore: parseInt(page) < totalPages
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
