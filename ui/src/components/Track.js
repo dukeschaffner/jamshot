@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaSpinner } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
@@ -24,7 +24,8 @@ export default function Track(
 {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [relatedTracks, setRelatedTracks] = useState([]);
+  const [originalTrack, setOriginalTrack] = useState(null);
+  const [collabTracks, setCollabTracks] = useState([]);
   const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
@@ -35,15 +36,41 @@ export default function Track(
   const [activeTab, setActiveTab] = useState('collabs');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const { user: currentUser, isAuthenticated } = useUser();
+  const [hasMoreTracks, setHasMoreTracks] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalTracks, setTotalTracks] = useState(0);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
     if (expandedTrackId === track.id) {
+      // Reset pagination state when track changes
+      setCurrentPage(1);
+      setCollabTracks([]);
+      setOriginalTrack(null);
+      setHasMoreTracks(false);
+      
       const fetchRelatedTracks = async () => {
         try {
           setLoadingRelated(true);
-          const response = await api.get(`/tracks/${track.id}/related`);
-          setRelatedTracks(response.data);
+          const response = await api.get(`/tracks/${track.id}/related`, {
+            params: { page: 1, limit: 5 }
+          });
+          
+          // Handle new API response format
+          const { tracks, pagination } = response.data;
+          
+          // Set pagination info
+          setHasMoreTracks(pagination?.hasMore || false);
+          setTotalTracks(pagination?.total || 0);
+          setCurrentPage(1);
+          
+          // Process tracks
+          const original = tracks?.find(t => t.id === track.parent_track_id);
+          const collabs = tracks?.filter(t => t.parent_track_id === track.id);
+          
+          setOriginalTrack(original || null);
+          setCollabTracks(collabs || []);
         } catch (err) {
           console.error('Failed to fetch related tracks:', err);
         } finally {
@@ -52,7 +79,34 @@ export default function Track(
       };
       fetchRelatedTracks();
     }
-  }, [expandedTrackId, track.id]);
+  }, [expandedTrackId, track.id, track.parent_track_id]);
+
+  const loadMoreTracks = async () => {
+    if (loadingMore || !hasMoreTracks) return;
+    
+    try {
+      setLoadingMore(true);
+      const nextPage = currentPage + 1;
+      
+      const response = await api.get(`/tracks/${track.id}/related`, {
+        params: { page: nextPage, limit: 5 }
+      });
+      
+      const { tracks, pagination } = response.data;
+      
+      // Filter just the new collab tracks
+      const newCollabs = tracks?.filter(t => t.parent_track_id === track.id) || [];
+      
+      // Update state
+      setCollabTracks(prev => [...prev, ...newCollabs]);
+      setHasMoreTracks(pagination?.hasMore || false);
+      setCurrentPage(nextPage);
+    } catch (err) {
+      console.error('Failed to load more tracks:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     // Update like and repost state when track prop changes
@@ -185,9 +239,6 @@ export default function Track(
         setIsLinkCopied(false);
       });
   };
-
-  const originalTrack = relatedTracks.find(t => t.id === track.parent_track_id);
-  const collabTracks = relatedTracks.filter(t => t.parent_track_id === track.id);
 
   const navigateToUserProfile = (e) => {
     e.stopPropagation();
@@ -346,7 +397,7 @@ export default function Track(
                     {originalTrack && !isTreeView && (
                       <>
                         <div className="track-relation">Original</div>
-                        <MiniTrack track={originalTrack} relatedTracks={relatedTracks} />
+                        <MiniTrack track={originalTrack} relatedTracks={collabTracks} />
                       </>
                     )}
                     
@@ -354,8 +405,26 @@ export default function Track(
                       <>
                         <div className="track-relation">Based on this</div>
                         {collabTracks.map(collab => (
-                          <MiniTrack key={collab.id} track={collab} relatedTracks={relatedTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
+                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
                         ))}
+                        
+                        {hasMoreTracks && (
+                          <div className="load-more-container">
+                            <button 
+                              className="load-more-btn" 
+                              onClick={loadMoreTracks}
+                              disabled={loadingMore}
+                            >
+                              {loadingMore ? (
+                                <>
+                                  <FaSpinner className="loading-spinner-icon" /> Loading...
+                                </>
+                              ) : (
+                                `Load more (${collabTracks.length}/${totalTracks})`
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
