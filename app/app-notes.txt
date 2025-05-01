@@ -76,23 +76,19 @@ Collabs:
 
 TODO (MVP)
 - DAW
-  - collab daw - upload files longer than original track with trim component
   - lose progress dialog
-  - cache metronome volume VALUE
   - specify time signature in DAW
   - save metronome offset
-  - remove recording button while playing
 
-
-
-- prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
-  - check all track laods, comment loads
-
+- scalability report action items
 - comment edit view
+- security/app standards report
+
 - audio ads
 - feed ads
 - how to page with tutorials
-- track upload - allow download option
+
+
 
 
 BUGS

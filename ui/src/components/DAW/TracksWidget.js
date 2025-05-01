@@ -19,7 +19,6 @@ export default function TracksWidget({
   fileChunks,
   selectedAudioInputDevice = null,
   userLatencyCompensation = 0,
-  isCollab = false,
   setOriginalGain = null,
   setRecordingGain = null,
   isMetronomeOn = false,  
@@ -167,7 +166,7 @@ export default function TracksWidget({
     // Replace function with useEffect that updates state
     useEffect(() => {
       // In collab mode, use the provided trackDuration or original buffer duration
-      if (isCollab && originalBufferRef.current) {
+      if (originalBufferRef.current) {
         setEffectiveDuration(originalBufferRef.current.duration);
       }
       // In non-collab mode, check for recorded/uploaded audio
@@ -175,18 +174,7 @@ export default function TracksWidget({
         setEffectiveDuration(recordingPlaybackBuffer.duration);
       }
       // Default value is already set in state initialization (90 seconds)
-    }, [isCollab, originalBufferRef.current, recordingPlaybackBuffer]);
-
-    // Handle extending duration when recording exceeds current duration
-    useEffect(() => {
-      if (!isCollab && isRecording && recordedBufferRef.current) {
-        const currentPlaybackTime = playheadInternalTimeRef.current + (audioContext?.currentTime - absolutePlaybackStartTimeRef.current);
-        // If we're approaching the end, extend the duration
-        if (currentPlaybackTime + 5 > effectiveDuration) {  // Add 5 second buffer
-          setEffectiveDuration(prev => prev + 30); // Extend by 30 seconds
-        }
-      }
-    }, [isCollab, isRecording, playheadInternalTimeRef.current, absolutePlaybackStartTimeRef.current]);
+    }, [originalBufferRef.current, recordingPlaybackBuffer]);
 
     const processAudioChunks = async (chunks) => {
         if (!chunks || chunks.length === 0 || !audioContext) return;
@@ -308,7 +296,7 @@ export default function TracksWidget({
 
   // Play back the recorded audio synchronized with the original track (if in collab mode)
   const play = () => {
-    if ((!originalBufferRef.current && isCollab) || !audioContext) {
+    if (!originalBufferRef.current || !audioContext) {
       return;
     }
 
@@ -326,7 +314,7 @@ export default function TracksWidget({
     let activeSources = [];
 
     // Only setup original track if in collab mode or if it's the selected take
-    if (isCollab && originalBufferRef.current) {
+    if (originalBufferRef.current) {
       // Create source nodes for original track
       const trackSource = audioContext.createBufferSource();
       trackSource.buffer = originalBufferRef.current;
@@ -355,15 +343,10 @@ export default function TracksWidget({
       const recordedGain = audioContext.createGain();
       
       // Apply solo/mute logic for recording track in collab mode
-      if (isCollab) {
-        if (originalTrackSolo && !recordingTrackSolo) {
-          recordedGain.gain.value = 0; // Mute recording track if only original is solo'd
-        } else {
-          recordedGain.gain.value = recordingTrackGainRef.current; // Normal volume
-        }
+      if (originalTrackSolo && !recordingTrackSolo) {
+        recordedGain.gain.value = 0; // Mute recording track if only original is solo'd
       } else {
-        // In non-collab mode, always play at normal volume (no solo logic needed)
-        recordedGain.gain.value = recordingTrackGainRef.current;
+        recordedGain.gain.value = recordingTrackGainRef.current; // Normal volume
       }
       
       const recordedSource = audioContext.createBufferSource();
@@ -654,13 +637,9 @@ export default function TracksWidget({
       
       const timeOffset = recordingLatency;
       const startTime = isFile ? 0 : relativeRecordingStartTimeRef.current;
-      const endTime = isFile ? buffer.duration : startTime + buffer.duration - timeOffset;
-
-      // In non-collab mode, if the recording exceeds current duration, extend it
-      if (!isCollab && endTime > effectiveDuration) {
-        // Round up to nearest 30 seconds for a cleaner UI
-        const newDuration = Math.ceil(endTime / 30) * 30;
-        setEffectiveDuration(newDuration);
+      let endTime = isFile ? buffer.duration : startTime + buffer.duration - timeOffset;
+      if(endTime - startTime > originalBufferRef.current.duration){
+        endTime = originalBufferRef.current.duration;
       }
 
       // Create a take with the high-quality WAV data
@@ -841,7 +820,7 @@ export default function TracksWidget({
       const adjustedRelativeEndTime = (selectedTake.endTime - selectedTake.startTime) + selectedTake.timeOffset;
 
       // Check if we need to pad the buffer (if it's shorter than the original track)
-      if (originalBufferRef.current && recordedBuffer.duration < originalBufferRef.current.duration) {
+      if (originalBufferRef.current && (selectedTake.endTime - selectedTake.startTime < originalBufferRef.current.duration)) {
         console.log('Padding recorded buffer to match original track duration');
 
         // Create a new buffer with the same duration as the original track
@@ -881,42 +860,7 @@ export default function TracksWidget({
         
         resultBuffer = paddedBuffer;
       }
-      // This should be prevented by recording rules
-      else if(originalBufferRef.current && recordedBuffer.duration > originalBufferRef.current.duration) {
-        console.log('Trimming recorded buffer to match original track duration');
-        
-        // Create a new buffer with the same duration as the original track
-        const trimmedBuffer = audioContext.createBuffer(
-          recordedBuffer.numberOfChannels,
-          originalBufferRef.current.length,
-          recordedBuffer.sampleRate
-        );
-        
-        const startSample = Math.floor(adjustedAbsoluteStartTime * recordedBuffer.sampleRate);
-        
-        // Copy only the portion of the recorded data that fits within the original duration
-        for (let channel = 0; channel < recordedBuffer.numberOfChannels; channel++) {
-          const trimmedData = trimmedBuffer.getChannelData(channel);
-          const recordedData = recordedBuffer.getChannelData(channel);
-          
-          // Fill with zeros before the recording (if needed)
-          for (let i = 0; i < startSample && i < trimmedBuffer.length; i++) {
-            trimmedData[i] = 0;
-          }
-          
-          // Copy the recorded data, but only up to the original buffer length
-          for (let i = 0; i < trimmedBuffer.length - startSample; i++) {
-            if (i < recordedBuffer.length) {
-              trimmedData[startSample + i] = recordedData[i];
-            } else {
-              trimmedData[startSample + i] = 0;
-            }
-          }
-        }
-        
-        resultBuffer = trimmedBuffer;
-      } else {
-        // If no original buffer or durations match, just use the recorded buffer as is
+      else{
         resultBuffer = recordedBuffer;
       }
       
@@ -1043,19 +987,11 @@ export default function TracksWidget({
     if(selectedTake){
       recordedBufferRef.current = selectedTake.buffer;
       
-      if(isCollab){
-        const startPos = timeToPos(selectedTake.startTime, effectiveDuration);
-        setRecordingStartPos(startPos);
+      const startPos = timeToPos(selectedTake.startTime, effectiveDuration);
+      setRecordingStartPos(startPos);
 
-        const width = timeToPos(selectedTake.endTime - selectedTake.startTime, effectiveDuration);
-        setRecordingWidth(width);
-      }
-      else{
-        setRecordingStartPos(0);
-        setRecordingWidth(100);
-      }
-
-      
+      const width = timeToPos(selectedTake.endTime - selectedTake.startTime, effectiveDuration);
+      setRecordingWidth(width);
     }
   }, [selectedTake, effectiveDuration]);
 
@@ -1346,7 +1282,7 @@ export default function TracksWidget({
         isDraggingRecordingFader, isDraggingMetronomeOffset,
         looperLeftPos, looperRightPos, dragStartX, looperStartLeft, looperStartWidth,
         isPlaying, playheadPos, isLooping, trackDuration, recordingStartPosBeforeDrag, recordingWidth, 
-        selectedTake, isCollab, recordingPlaybackBuffer, cropStartPercentage, cropEndPercentage,
+        selectedTake, recordingPlaybackBuffer, cropStartPercentage, cropEndPercentage,
         originalFaderValue, recordingFaderValue, metronomeBPM, effectiveDuration
       ]);
 
@@ -1549,9 +1485,9 @@ export default function TracksWidget({
       // Process the file
       const fileBuffer = await processAudioChunks(chunks);
       
-      // Check if the file duration exceeds the original buffer duration
-      if (originalBufferRef.current && fileBuffer.duration > originalBufferRef.current.duration) {
-        alert('The uploaded file is too long. Please select a file that is shorter than or the same length as the original track.');
+      // Check if the file duration is longer than 10 minutes
+      if (fileBuffer.duration > 600) {
+        alert('The uploaded file is too long. Please select a file that is less than 10 minutes long.');
         return;
       }
       
@@ -1768,9 +1704,7 @@ export default function TracksWidget({
   };
 
   // Determine if we have any audio content
-  const hasAudioContent = isCollab ? 
-    (originalBufferRef.current !== null || hasRecordingTrack) : 
-    hasRecordingTrack;
+  const hasAudioContent = originalBufferRef.current !== null || hasRecordingTrack;
 
   // Handle recording click (to select it)
   const handleRecordingClick = (e) => {
@@ -1899,7 +1833,7 @@ export default function TracksWidget({
     } else if (e.clientX > rightEdgeZone) {
       e.currentTarget.style.cursor = 'col-resize';
     } else {
-      e.currentTarget.style.cursor = isCollab ? 'grab' : 'default';
+      e.currentTarget.style.cursor = 'grab';
     }
   };
 
@@ -2131,53 +2065,50 @@ export default function TracksWidget({
     <div className="daw-container">
         <div className="daw-body">
             <div className="daw-tracks-headers">
-                {isCollab && (
-                  <div className="track-label">
-                      <span>Original</span>
-                      <button 
-                          className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
-                          onClick={toggleOriginalSolo}
-                          disabled={isRecording}
-                          title="Solo original track"
-                      >
-                          <FontAwesomeIcon icon={faHeadphones} />
-                          <span>Solo</span>
-                      </button>
-                  
-                      {/* Original Track Meter */}
+              <div className="track-label">
+                  <span>Original</span>
+                  <button 
+                      className={`solo-button ${originalTrackSolo ? 'active' : ''}`}
+                      onClick={toggleOriginalSolo}
+                      disabled={isRecording}
+                      title="Solo original track"
+                  >
+                      <FontAwesomeIcon icon={faHeadphones} />
+                      <span>Solo</span>
+                  </button>
+              
+                  {/* Original Track Meter */}
+                  <div 
+                  className="audio-meter-container"
+                  ref={originalFaderRef}>
                       <div 
-                      className="audio-meter-container"
-                      ref={originalFaderRef}>
-                          <div 
-                          className="audio-meter-bar" 
-                          style={{ 
-                              width: `${dbToPercent(originalTrackLevel)}%`,
-                              backgroundColor: getMeterColor(originalTrackLevel)
-                          }}
-                          ></div>
-                          {/* Add fader handle - only shown if not recording */}
-                          {!isRecording && (
-                              <>
-                                  <div 
-                                      className={`fader-handle ${isRecording ? 'disabled' : ''}`}
-                                      style={{ 
-                                          left: `${originalFaderValue * 100}%`,
-                                          backgroundColor: isDraggingOriginalFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
-                                      }}
-                                      onMouseDown={handleOriginalFaderMouseDown}
-                                      title={`Volume: ${Math.round(originalFaderValue * 100)}%`}
-                                  ></div>
-                                  <div className="volume-indicator" style={{ left: `${originalFaderValue * 100}%` }}>
-                                      {Math.round(originalFaderValue * 100)}%
-                                  </div>
-                              </>
-                          )}
-                      </div>
+                      className="audio-meter-bar" 
+                      style={{ 
+                          width: `${dbToPercent(originalTrackLevel)}%`,
+                          backgroundColor: getMeterColor(originalTrackLevel)
+                      }}
+                      ></div>
+                      {/* Add fader handle - only shown if not recording */}
+                      {!isRecording && (
+                          <>
+                              <div 
+                                  className={`fader-handle ${isRecording ? 'disabled' : ''}`}
+                                  style={{ 
+                                      left: `${originalFaderValue * 100}%`,
+                                      backgroundColor: isDraggingOriginalFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
+                                  }}
+                                  onMouseDown={handleOriginalFaderMouseDown}
+                                  title={`Volume: ${Math.round(originalFaderValue * 100)}%`}
+                              ></div>
+                              <div className="volume-indicator" style={{ left: `${originalFaderValue * 100}%` }}>
+                                  {Math.round(originalFaderValue * 100)}%
+                              </div>
+                          </>
+                      )}
                   </div>
-                )}
+              </div>
                 <div className="track-label">
-                  <span>{isCollab ? 'Your Recording' : 'Your Track'}</span>
-                  {isCollab && (
+                  <span>Your Recording</span>
                     <button 
                       className={`solo-button ${recordingTrackSolo ? 'active' : ''}`}
                       onClick={toggleRecordingSolo}
@@ -2187,7 +2118,6 @@ export default function TracksWidget({
                       <FontAwesomeIcon icon={faHeadphones} />
                       <span>Solo</span>
                     </button>
-                  )}
                   {isRecording && (
                     <div className="recording-indicator">
                       <FontAwesomeIcon icon={faMicrophone} />
@@ -2276,7 +2206,7 @@ export default function TracksWidget({
                         className="playhead" 
                         ref={playheadRef}
                         onMouseDown={handlePlayheadMouseDown}
-                        style={{ left: `${playheadPos}%`, height: `${24 + 116 + (isCollab ? 116 : 0)}px` }}
+                        style={{ left: `${playheadPos}%`, height: `${24 + 116 + 116}px` }}
                     ></div>
                 )}
                 {/* Timeline */}
@@ -2320,41 +2250,38 @@ export default function TracksWidget({
                 )}
             </div>   
                   {/* Original Track - only shown in collab mode */}
-                  {isCollab && (
-                    <div className="track-container parent-track">
-                      <div 
-                        className="waveform-container" 
-                        ref={waveformContainerRef} 
-                        onClick={handleWaveformClick}
-                      >
-                        <div className="waveform">
-                          {/* Canvas Waveform */}
-                          {originalBufferRef.current ? (
-                            <canvas 
-                              ref={originalCanvasRef} 
-                              width="1000" 
-                              height="100" 
-                              style={{ width: '100%', height: '100%' }}
+                  <div className="track-container parent-track">
+                    <div 
+                      className="waveform-container" 
+                      ref={waveformContainerRef} 
+                      onClick={handleWaveformClick}
+                    >
+                      <div className="waveform">
+                        {/* Canvas Waveform */}
+                        {originalBufferRef.current ? (
+                          <canvas 
+                            ref={originalCanvasRef} 
+                            width="1000" 
+                            height="100" 
+                            style={{ width: '100%', height: '100%' }}
+                          />
+                        ) : (
+                          /* SVG Waveform Fallback */
+                          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+                            <path 
+                              d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
+                              fill="none" 
+                              stroke="var(--seafoam)" 
+                              strokeWidth="2"
                             />
-                          ) : (
-                            /* SVG Waveform Fallback */
-                            <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
-                              <path 
-                                d="M0,50 Q10,40 20,50 T40,50 T60,50 T80,30 T100,50 T120,60 T140,50 T160,40 T180,50 T200,70 T220,50 T240,30 T260,50 T280,60 T300,50 T320,40 T340,50 T360,60 T380,50 T400,30 T420,50 T440,70 T460,50 T480,30 T500,50 T520,60 T540,50 T560,40 T580,50 T600,70 T620,50 T640,30 T660,50 T680,60 T700,50 T720,40 T740,50 T760,60 T780,50 T800,30 T820,50 T840,70 T860,50 T880,30 T900,50 T920,60 T940,50 T960,40 T980,50 T1000,50" 
-                                fill="none" 
-                                stroke="var(--seafoam)" 
-                                strokeWidth="2"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                        
+                          </svg>
+                        )}
                       </div>
+                      
                     </div>
-                  )}
-
+                  </div>
                   {/* Recording Track - shown in both modes */}
-                  <div className={`track-container ${isCollab ? 'your-track' : 'parent-track'}`} ref={recordingTrackContainerRef}>
+                  <div className={`track-container your-track`} ref={recordingTrackContainerRef}>
                     {hasRecordingTrack || isRecording ? (
                       <div 
                         className={`waveform-container 
@@ -2368,11 +2295,11 @@ export default function TracksWidget({
                           left: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.startTime - selectedTake.timeOffset, effectiveDuration) : recordingStartPos}%`,
                           width: `${isDraggingCropStart || isDraggingCropEnd ? timeToPos(selectedTake.buffer.duration, effectiveDuration) : recordingWidth}%`,
                           cursor: isPlaying || isRecording ? 'default' : (
-                            showCropHandles ? 'col-resize' : (isCollab ? 'grab' : 'default')
+                            showCropHandles ? 'col-resize' : 'grab'
                           )
                         }}
                         onClick={hasRecordingTrack && !isRecording ? handleRecordingClick : handleWaveformClick}
-                        onMouseDown={isPlaying || isRecording ? null : (isCollab ? handleRecordingRegionMouseDown : null)}
+                        onMouseDown={isPlaying || isRecording ? null : handleRecordingRegionMouseDown}
                         onMouseMove={handleRecordingMouseMove}
                         onMouseLeave={handleRecordingMouseLeave}
                         onContextMenu={hasRecordingTrack && !isRecording ? handleRecordingContextMenu : null}
