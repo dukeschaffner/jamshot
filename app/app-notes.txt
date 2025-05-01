@@ -76,7 +76,6 @@ Collabs:
 
 TODO (MVP)
 - DAW
-  - lose progress dialog
   - specify time signature in DAW
   - save metronome offset
 
