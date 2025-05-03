@@ -7,7 +7,6 @@ import { faMicrophone, faPlay, faPause, faStepBackward, faStepForward, faTrash, 
 import './DawBody.css';
 import './RecordingWidget.css';
 import { useAudio } from '../../lib/AudioContext';
-import { useNavigationGuard } from 'next-navigation-guard';
 export default function RecordingWidget({ 
   isPlaying,
   setIsPlaying,
@@ -134,10 +133,6 @@ export default function RecordingWidget({
     const {isPlaying: isPlayingGlobal, togglePlayPause: togglePlayPauseGlobal } = useAudio();
 
     const shouldCountInRef = useRef(false);
-
-    // Add navigation guard hook to prevent accidental navigation when recording exists
-    useNavigationGuard({ enabled: !!recordingPlaybackBuffer, confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.") })
-
 
     // Helper functions
     const posToTime = (pos, duration) => {
