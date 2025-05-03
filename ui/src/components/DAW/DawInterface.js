@@ -13,6 +13,7 @@ import UploadForm from './UploadForm';
 import CountInIcon from './CountInIcon';
 import Cookies from 'js-cookie';
 import './DawInterface.css';
+import { useNavigationGuard } from 'next-navigation-guard';
 
 export default function DawInterface({ track, isCollab = false }) {
   // State
@@ -37,6 +38,13 @@ export default function DawInterface({ track, isCollab = false }) {
   const [bpmInputValue, setBpmInputValue] = useState(metronomeBpm.toString());
   const [timeSignature, setTimeSignature] = useState(track?.time_signature || '4/4');
   const [metronomeOffset, setMetronomeOffset] = useState(track?.metronome_offset || 0);
+  const [uploadComplete, setUploadComplete] = useState(false);
+
+  // Add navigation guard hook to prevent accidental navigation when recording exists
+  useNavigationGuard({ 
+    enabled: !!recordingPlaybackBuffer && !uploadComplete, 
+    confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.") 
+  });
 
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -517,7 +525,9 @@ export default function DawInterface({ track, isCollab = false }) {
           isCollab={isCollab}
           recordingAudioBuffer={recordingPlaybackBuffer}
           parentTrack={isCollab ? track : null}
-          onCancel={() => setShowUploadForm(false)}
+          onCancel={() => {
+            setShowUploadForm(false);
+          }}
           originalGain={originalGain}
           recordingGain={recordingGain}
           metronomeBpm={metronomeBpm}
@@ -528,6 +538,10 @@ export default function DawInterface({ track, isCollab = false }) {
             setTimeSignature(newTimeSignature);
           }}
           metronomeOffset={metronomeOffset}
+          onUploadComplete={() => {
+            console.log("Upload completed successfully!");
+            setUploadComplete(true);
+          }}
         />
       )}
     </>

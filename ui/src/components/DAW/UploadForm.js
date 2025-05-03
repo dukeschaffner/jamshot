@@ -20,7 +20,8 @@ export default function UploadForm({
   setMetronomeBpm = null,
   timeSignature = '4/4',
   setTimeSignature = null,
-  metronomeOffset = 0
+  metronomeOffset = 0,
+  onUploadComplete = null
 }) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
@@ -129,6 +130,11 @@ export default function UploadForm({
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       
+      // Notify parent component that upload is complete
+      if (onUploadComplete) {
+        onUploadComplete();
+      }
+      
       // If this is a collab and there's a cancel handler, call it
       if (isCollab && onCancel) {
         onCancel();
@@ -136,7 +142,9 @@ export default function UploadForm({
       }
       
       // Otherwise, redirect to home
-      router.push('/');
+      setTimeout(() => {
+        router.push('/');
+      }, 100); // Small timeout to ensure state updates complete before redirect
     } catch (err) {
       console.error('Upload error:', err);
       setError(err.response?.data?.error || 'Upload failed: ' + (err.message || 'Unknown error'));
