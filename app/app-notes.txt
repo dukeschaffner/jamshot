@@ -77,7 +77,6 @@ Collabs:
 TODO (MVP)
 - DAW
   - specify time signature in DAW
-  - save metronome offset
 
 - scalability report action items
 - comment edit view
@@ -88,13 +87,10 @@ TODO (MVP)
 - how to page with tutorials
 
 
-
-
 BUGS
 - dark mode inconsistencies
 - logging in on collab or upload shouldnt lose progress
 - handle deleting takes during playback
-- recording get wiped on loop
 
 
 
@@ -167,6 +163,7 @@ CREATE TABLE tracks (
   play_count INT DEFAULT 0,
   is_private BOOLEAN NOT NULL DEFAULT FALSE,
   metronome_bpm INTEGER,
+  metronome_offset FLOAT DEFAULT 0,
   time_signature VARCHAR(10) NOT NULL DEFAULT '4/4',
   secret_token VARCHAR(64) -- For secure sharing of private tracks
 );

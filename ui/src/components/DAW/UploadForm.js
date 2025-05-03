@@ -20,6 +20,7 @@ export default function UploadForm({
   setMetronomeBpm = null,
   timeSignature = '4/4',
   setTimeSignature = null,
+  metronomeOffset = 0
 }) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
@@ -121,6 +122,7 @@ export default function UploadForm({
         formData.append('metronome_bpm', metronomeBpm);
         formData.append('time_signature', timeSignature);
         formData.append('is_private', isPrivate);
+        formData.append('metronome_offset', metronomeOffset);
       }
 
       const response = await api.post('/tracks/upload', formData, {

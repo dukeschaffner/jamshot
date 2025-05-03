@@ -28,6 +28,8 @@ export default function TracksWidget({
   metronomeVolume = 0.7, 
   timeSignature = '4/4',
   isCountInEnabled = true, // Add count-in parameter with default value
+  metronomeOffset = 0, // Add metronomeOffset prop with default value
+  setMetronomeOffset = null, // Add setMetronomeOffset prop with default value
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -47,7 +49,8 @@ export default function TracksWidget({
     const metronomeSourcesRef = useRef([]);
     const lastScheduledBeatRef = useRef(0);
     const metronomeGainNodeRef = useRef(null);
-    const [metronomeOffset, setMetronomeOffset] = useState(0); // 0-100, percentage of measure to offset the metronome by
+    const [metronomeOffsetPos, setMetronomeOffsetPos] = useState(0); // Position in %
+    const metronomeOffsetHandleRef = useRef(null);
 
     // Add zoom state
     const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom, > 1 = zoomed in
@@ -148,9 +151,7 @@ export default function TracksWidget({
 
     // Add state for metronome offset drag and position
     const [isDraggingMetronomeOffset, setIsDraggingMetronomeOffset] = useState(false);
-    const [metronomeOffsetPos, setMetronomeOffsetPos] = useState(0); // Position in %
-    const metronomeOffsetHandleRef = useRef(null);
-
+    
     const {isPlaying: isPlayingGlobal, togglePlayPause: togglePlayPauseGlobal } = useAudio();
 
     // Add state to track the count-in process
@@ -1224,18 +1225,20 @@ export default function TracksWidget({
         if (isDraggingMetronomeOffset) {
           // Calculate the position of one measure
           const bpm = metronomeBPM;
-          const beatsPerMeasure = 4; // 4/4 time signature
+          const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
           const secondsPerBeat = 60 / bpm;
           const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
           const measurePos = timeToPos(secondsPerMeasure, effectiveDuration);
           
           // Limit the drag to be within 0% (left edge) and one measure
           const newOffsetPos = Math.max(0, Math.min(measurePos, mousePos));
-          setMetronomeOffsetPos(newOffsetPos);
           
           // Update metronome offset in seconds
-          const offsetTime = posToTime(newOffsetPos, effectiveDuration);
-          setMetronomeOffset(offsetTime);
+          const offsetPercent = Math.min(Math.max(parseFloat(newOffsetPos / measurePos), 0), 1);
+
+          if(setMetronomeOffset){
+            setMetronomeOffset(offsetPercent);
+          }
         }
       };
         
@@ -2089,6 +2092,16 @@ export default function TracksWidget({
     if (isPlaying) return;
     setIsDraggingMetronomeOffset(true);
   };
+
+  // When metronomeOffset prop changes, update state
+  useEffect(() => {
+    if (metronomeOffset !== undefined) {
+      const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
+      const secondsPerBeat = 60 / metronomeBPM;
+      const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+      setMetronomeOffsetPos(timeToPos(metronomeOffset * secondsPerMeasure, effectiveDuration));
+    }
+  }, [metronomeOffset, metronomeBPM, effectiveDuration]);
 
   return (
     <div className="daw-container">

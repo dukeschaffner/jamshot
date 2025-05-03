@@ -37,6 +37,51 @@ come up with some creative name ideas for the application.
   - putting the joy back in the process of creating and sharing music
 
 
+PROMPT:
+<Role>
+You are a marketing consultant. your job is to come up with catchy, unique, and memorable website names that will drive interest for the website.
+You are great at thinking outside the box, and providing a wide range of responses.
+</Role>
+
+I made an app that is a music sharing social media site that is going to revolutionize the way that people share music and collaborate on each others projects.
+For the name of the app, I want something that can loosely be translated to two rough meanings: 1) open, many, or layered 2) music
+I've gathered some words and categorized them into the two meanings. Using these words (or any others that you are inspired to use), provide some killer names for the application.
+
+Open/Many/layered
+- Open
+- public
+- Earth
+- World
+- Poly
+- Multi
+- Omni
+- people
+- our
+- stereo
+- chorus
+- overtone
+- link
+- pop
+- net/network
+- tribe
+- cast/broadcast
+- share
+- chain
+
+Music
+- wave
+- track
+- overtone
+- chorus
+- voice/vox
+- loop
+- vibe
+- mic
+
+
+
+
+
 
 
 ideas:
@@ -57,7 +102,7 @@ ideas:
 - prelude
 - Overtone.social
 - Overtone.app
-- Melontrack
+- MelonTrack
 - Melonpop
 - ToneSquare
 - TrackPop
@@ -68,3 +113,7 @@ ideas:
 - Opensong
 - Overtones.io
 - loopish
+- stereostack
+- chorix
+- loopalong
+- stereoloop

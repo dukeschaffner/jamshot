@@ -78,3 +78,6 @@ EXECUTE FUNCTION update_comment_timestamp();
 
 -- 2024-XX-XX: Add time_signature column to tracks table
 ALTER TABLE tracks ADD COLUMN time_signature VARCHAR(10) NOT NULL DEFAULT '4/4';
+
+-- 2024-XX-XX: Add metronome_offset column to tracks table
+ALTER TABLE tracks ADD COLUMN metronome_offset FLOAT DEFAULT 0;
