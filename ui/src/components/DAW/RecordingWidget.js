@@ -23,6 +23,8 @@ export default function RecordingWidget({
   metronomeVolume = 0.7, // Add metronomeVolume prop with default value
   timeSignature = '4/4', // Add timeSignature prop with default value
   isCountInEnabled = false, // Add isCountInEnabled prop with default value
+  metronomeOffset = 0, // Add metronomeOffset prop with default value
+  setMetronomeOffset = null, // Add setMetronomeOffset prop with default value
 }) {
   const defaultEffectiveDuration = 30;
 
@@ -37,7 +39,7 @@ export default function RecordingWidget({
     const [effectiveDuration, setEffectiveDuration] = useState(defaultEffectiveDuration); // Default to 90 seconds (1:30)
     const effectiveDurationRef = useRef(effectiveDuration);
     const playableDuration = selectedTake ? selectedTake.endTime - selectedTake.startTime : effectiveDuration;
-
+    const playableDurationRef = useRef(playableDuration);
     // Add metronome state
     const [metronomeBPM, setMetronomeBPM] = useState(bpm);
     const metronomeHighClickRef = useRef(null);
@@ -45,7 +47,6 @@ export default function RecordingWidget({
     const metronomeSourcesRef = useRef([]);
     const lastScheduledBeatRef = useRef(0);
     const metronomeGainNodeRef = useRef(null);
-    const [metronomeOffset, setMetronomeOffset] = useState(0); // 0-100, percentage of measure to offset the metronome by
     const isMetronomeOnRef = useRef(isMetronomeOn);
 
     // Add zoom state
@@ -265,6 +266,10 @@ export default function RecordingWidget({
     useEffect(() => {
       isMetronomeOnRef.current = isMetronomeOn;
     }, [isMetronomeOn]);
+
+    useEffect(() => {
+      playableDurationRef.current = playableDuration;
+    }, [playableDuration]);
 
   // Play back the recorded audio synchronized with the original track (if in collab mode)
   const play = () => {
@@ -1017,18 +1022,21 @@ export default function RecordingWidget({
         if (isDraggingMetronomeOffset) {
           // Calculate the position of one measure
           const bpm = metronomeBPM;
-          const beatsPerMeasure = 4; // 4/4 time signature
+          const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
           const secondsPerBeat = 60 / bpm;
           const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
-          const measurePos = timeToPos(secondsPerMeasure, effectiveDuration);
+          const measurePos = timeToPos(secondsPerMeasure, playableDurationRef.current);
           
           // Limit the drag to be within 0% (left edge) and one measure
           const newOffsetPos = Math.max(0, Math.min(measurePos, mousePos));
-          setMetronomeOffsetPos(newOffsetPos);
           
-          // Update metronome offset in seconds
-          const offsetTime = posToTime(newOffsetPos, effectiveDuration);
-          setMetronomeOffset(offsetTime);
+          // Update offset in seconds
+          const offsetPercent = Math.min(Math.max(parseFloat(newOffsetPos / measurePos), 0), 1);
+          
+          // Notify parent component if callback provided
+          if (setMetronomeOffset) {
+            setMetronomeOffset(offsetPercent);
+          }
         }
       };
         
@@ -1190,7 +1198,7 @@ export default function RecordingWidget({
   const generateMusicalGrid = () => {
       const bpm = metronomeBPM; // Use the metronome BPM
       const beatsPerMeasure = timeSignature.split('/')[0];
-      const duration = (selectedTake && !isRecording) ? playableDuration : effectiveDuration.current;
+      const duration = (selectedTake && !isRecording) ? playableDurationRef.current : effectiveDurationRef.current;
 
       
       // Calculate seconds per beat and seconds per measure
@@ -1619,11 +1627,13 @@ export default function RecordingWidget({
   // Schedule metronome clicks for the next few beats
   const scheduleMetronomeClicks = () => {
     if (!isMetronomeOn || !audioContext) return;
+
+    const duration = !isRecording ? playableDurationRef.current : effectiveDurationRef.current;
     
     const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
     const secondsPerBeat = 60 / metronomeBPM;
     const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
-    const offsetSeconds = posToTime(metronomeOffsetPos, effectiveDuration);
+    const offsetSeconds = posToTime(metronomeOffsetPos, duration);
     
     // Calculate the current beat based on playhead position, adjusting for the offset
     const currentPlaybackTime = playheadInternalTimeRef.current + (audioContext?.currentTime - absolutePlaybackStartTimeRef.current);
@@ -1697,6 +1707,19 @@ export default function RecordingWidget({
     if (isPlaying) return;
     setIsDraggingMetronomeOffset(true);
   };
+
+  // When metronomeOffset prop changes, update state
+  useEffect(() => {
+    if (metronomeOffset !== undefined) {
+      const beatsPerMeasure = parseInt(timeSignature.split('/')[0], 10);
+      const secondsPerBeat = 60 / metronomeBPM;
+      const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+
+      const duration = !isRecording ? playableDuration : effectiveDuration;
+      const offsetPos = timeToPos(metronomeOffset * secondsPerMeasure, duration);
+      setMetronomeOffsetPos(offsetPos);
+    }
+  }, [metronomeOffset, metronomeBPM, effectiveDuration, isRecording]);
 
   return (
     <div className="daw-container">

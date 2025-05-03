@@ -20,7 +20,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [isCountInEnabled, setIsCountInEnabled] = useState(true);
-  const [metronomeBpm, setMetronomeBpm] = useState(120);
+  const [metronomeBpm, setMetronomeBpm] = useState(track?.metronome_bpm || 120);
   const [metronomeVolume, setMetronomeVolume] = useState(0.7);
   const [showModal, setShowModal] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
@@ -34,8 +34,9 @@ export default function DawInterface({ track, isCollab = false }) {
   const [originalGain, setOriginalGain] = useState(0.8);
   const [recordingGain, setRecordingGain] = useState(0.8);
   const [isEditingBpm, setIsEditingBpm] = useState(false);
-  const [bpmInputValue, setBpmInputValue] = useState('120');
-  const [timeSignature, setTimeSignature] = useState('4/4');
+  const [bpmInputValue, setBpmInputValue] = useState(metronomeBpm.toString());
+  const [timeSignature, setTimeSignature] = useState(track?.time_signature || '4/4');
+  const [metronomeOffset, setMetronomeOffset] = useState(track?.metronome_offset || 0);
 
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
@@ -389,6 +390,8 @@ export default function DawInterface({ track, isCollab = false }) {
           setMetronomeVolume={setMetronomeVolume}
           timeSignature={timeSignature}
           isCountInEnabled={isCountInEnabled}
+          metronomeOffset={metronomeOffset}
+          setMetronomeOffset={setMetronomeOffset}
         />
       ) : (
         <RecordingWidget 
@@ -406,6 +409,8 @@ export default function DawInterface({ track, isCollab = false }) {
           metronomeVolume={metronomeVolume}
           timeSignature={timeSignature}
           isCountInEnabled={isCountInEnabled}
+          metronomeOffset={metronomeOffset}
+          setMetronomeOffset={setMetronomeOffset}
         />
       )}
 
@@ -522,6 +527,7 @@ export default function DawInterface({ track, isCollab = false }) {
             // Update the time signature in this component
             setTimeSignature(newTimeSignature);
           }}
+          metronomeOffset={metronomeOffset}
         />
       )}
     </>

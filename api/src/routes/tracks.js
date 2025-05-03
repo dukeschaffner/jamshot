@@ -121,12 +121,13 @@ id/tree endpoint
 
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
-  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private } = req.body;
+  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
   let parentIsPrivate = false;
   let parentSecretToken = null;
+  let parsedMetronomeOffset = metronome_offset ? Math.min(Math.max(parseFloat(metronome_offset), 0), 1) : 0;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
   
@@ -136,6 +137,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   console.log('- Original gain:', original_gain || 'Not provided');
   console.log('- Recording gain:', recording_gain || 'Not provided');
   console.log('- Time signature:', time_signature || '4/4 (default)');
+  console.log('- Metronome offset:', parsedMetronomeOffset);
   console.log('- Private:', is_private ? 'Yes' : 'No');
 
   // Check if user has reached their daily upload limit (3 uploads per day)
@@ -208,7 +210,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer, metronome_bpm, time_signature FROM tracks WHERE id = $1',
+        'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -226,6 +228,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
       metronome_bpm = parentTrack.metronome_bpm;
       time_signature = parentTrack.time_signature;
+      // Use parent's metronome offset for collaborations
+      parsedMetronomeOffset = parentTrack.metronome_offset || 0;
 
       // Validate that collaboration isn't longer than parent track
       if (duration > parentDuration) {
@@ -285,8 +289,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     }
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken]
+        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset]
     );
     
     const trackId = result.rows[0].id;
@@ -457,7 +461,7 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
 
     const result = await pool.query(`
       SELECT 
-        ${baseQuery}
+        t.metronome_offset, ${baseQuery}
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
