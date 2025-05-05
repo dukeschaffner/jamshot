@@ -103,6 +103,7 @@ CHECKLIST
 
 
 TODO (after beta testing)
+- looper/trim snap
 - recording while looping should auto create takes after each loop
 - files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
 - secure track play count recording to prevent abuse of vulnerabilites

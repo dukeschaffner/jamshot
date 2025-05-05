@@ -39,6 +39,8 @@ export default function DawInterface({ track, isCollab = false }) {
   const [timeSignature, setTimeSignature] = useState(track?.time_signature || '4/4');
   const [metronomeOffset, setMetronomeOffset] = useState(track?.metronome_offset || 0);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [isEditingTimeSignature, setIsEditingTimeSignature] = useState(false);
+  const bpmControlRef = useRef(null);
 
   // Add navigation guard hook to prevent accidental navigation when recording exists
   useNavigationGuard({ 
@@ -48,6 +50,11 @@ export default function DawInterface({ track, isCollab = false }) {
 
   // Track duration in seconds (default to 90 seconds if not available)
   const trackDuration = track?.duration || 90;
+
+  // Time signature options
+  const timeSignatureOptions = [
+    '4/4', '3/4', '2/4', '2/2', '6/8', '9/8', '12/8', '5/4', '7/8', '3/8'
+  ];
   
   // Fetch original audio when track changes and in collab mode
   useEffect(() => {
@@ -233,6 +240,54 @@ export default function DawInterface({ track, isCollab = false }) {
     setIsEditingBpm(true);
   };
 
+  // Start editing time signature
+  const startEditingTimeSignature = () => {
+    setIsEditingTimeSignature(true);
+  };
+
+  // Handle time signature change
+  const handleTimeSignatureChange = (newTimeSignature) => {
+    // Only update if the time signature changed
+    if (newTimeSignature !== timeSignature) {
+      setTimeSignature(newTimeSignature);
+      
+      // This is client-side only and doesn't save the value to the track
+      console.log(`Time signature changed to ${newTimeSignature}`);
+    }
+    
+    // Close the dropdown
+    setIsEditingTimeSignature(false);
+  };
+
+  const handleTimeSignatureBlur = () => {
+    setIsEditingTimeSignature(false);
+    updateTimeSignatureValue();
+  };
+
+
+  // handle click outside bpm control to finish editing bpm or time signature
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (bpmControlRef.current && !bpmControlRef.current.contains(event.target)) {
+        if(isEditingBpm){
+          handleBpmBlur();
+        }
+        else if(isEditingTimeSignature){
+          setIsEditingTimeSignature(false);
+        }
+      }
+    };
+
+    if (isEditingBpm || isEditingTimeSignature) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEditingBpm, isEditingTimeSignature]);
+  
+
   const showCollabModal = () => {
     setShowModal(true);
   };
@@ -315,7 +370,7 @@ export default function DawInterface({ track, isCollab = false }) {
           <button className="control-button">
             <FontAwesomeIcon icon={faStepForward} />
           </button> */}
-          <div className="bpm-control">
+          <div className="bpm-control" ref={bpmControlRef}>
             {isEditingBpm ? (
               <input
                 type="text"
@@ -337,6 +392,27 @@ export default function DawInterface({ track, isCollab = false }) {
                 {metronomeBpm} BPM
               </span>
             )}
+            {isEditingTimeSignature && (
+              <div className="time-signature-dropdown">
+                {timeSignatureOptions.map((option) => (
+                  <div 
+                    key={option} 
+                    className={`time-signature-option ${timeSignature === option ? 'active' : ''}`}
+                    onClick={() => handleTimeSignatureChange(option)}
+                    onBlur={handleTimeSignatureBlur}
+                  >
+                    {option}
+                  </div>
+                ))}
+              </div>
+            )}
+            <span 
+              onClick={startEditingTimeSignature}
+              title="Click to edit Time Signature"
+              style={{ cursor: 'pointer' }}
+            >
+              {timeSignature}
+            </span>
             <button 
               className={`metronome-toggle ${isMetronomeOn ? 'active' : ''}`}
               onClick={toggleMetronome}
