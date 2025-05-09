@@ -56,12 +56,13 @@ async function getTrackInstruments(trackId) {
 }
 
 // Generate a standardized base query for track selection
-function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1) {
+function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, includeDetails = true) {
   const baseQuery = `
     t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, 
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature,
     u.username, u.verified, u.profile_pic_url,
     t2.title AS original_title,
+    ${includeDetails ? 'u2.username AS original_username,' : ''}
     (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
     (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
     (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
@@ -138,6 +139,7 @@ function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limit
     FROM tracks t
     LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
     LEFT JOIN users u ON t.user_id = u.id
+    LEFT JOIN users u2 ON t2.user_id = u2.id
     WHERE ${privacyClause}
     ORDER BY like_count DESC, t.created_at DESC
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
@@ -167,6 +169,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
     ),
@@ -182,6 +185,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       JOIN users ru ON r.user_id = ru.id
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
     )
@@ -214,6 +218,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
     FROM tracks t
     LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
     LEFT JOIN users u ON t.user_id = u.id
+    LEFT JOIN users u2 ON t2.user_id = u2.id
     WHERE t.id NOT IN (
       SELECT id FROM followed_tracks
       UNION
@@ -239,6 +244,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
     ),
@@ -255,6 +261,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       JOIN users ru ON r.user_id = ru.id
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
     ),

@@ -452,10 +452,10 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
     let baseQuery;
     let queryParams;
     if (userId) {
-      baseQuery = getBaseTrackSelectQuery(true, 2);
+      baseQuery = getBaseTrackSelectQuery(true, 2, false);
       queryParams = [id, userId];
     } else {
-      baseQuery = getBaseTrackSelectQuery(false);
+      baseQuery = getBaseTrackSelectQuery(false, 1, false);
       queryParams = [id];
     }
 
@@ -465,6 +465,7 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.id = $1 OR t.parent_track_id = $1 
       ORDER BY t.created_at ASC
     `, queryParams);
@@ -489,10 +490,10 @@ router.get('/:id/related', async (req, res) => {
   let baseQuery;
   let queryParams;
   if (userId) {
-    baseQuery = getBaseTrackSelectQuery(true, 2);
+    baseQuery = getBaseTrackSelectQuery(true, 2, false);
     queryParams = [id, userId];
   } else {
-    baseQuery = getBaseTrackSelectQuery(false);
+    baseQuery = getBaseTrackSelectQuery(false, 1, false);
     queryParams = [id];
   }
   try {
@@ -1053,10 +1054,10 @@ router.get('/:id/tree', async (req, res) => {
     let baseQuery;
     let queryParams;
     if (userId) {
-      baseQuery = getBaseTrackSelectQuery(true, 2);
+      baseQuery = getBaseTrackSelectQuery(true, 2, false);
       queryParams = [id, userId];
     } else {
-      baseQuery = getBaseTrackSelectQuery(false);
+      baseQuery = getBaseTrackSelectQuery(false, 1, false);
       queryParams = [id];
     }
     
@@ -1067,6 +1068,7 @@ router.get('/:id/tree', async (req, res) => {
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.id = $1
     `, queryParams);
     
