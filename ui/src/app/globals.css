@@ -800,7 +800,7 @@ body.dark-mode .repost-banner {
 }
 
 .track-main {
-  padding: 16px 40px;
+  padding: 10px 40px;
   display: grid;
   grid-template-columns: 60px 1fr auto;
   gap: 16px;
@@ -836,6 +836,15 @@ body.dark-mode .repost-banner {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.track-section-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 15px;
+  height: 100%;
+  align-items: end;
 }
 
 .track-title {
@@ -890,7 +899,6 @@ body.dark-mode .track-tag.mini {
 .track-artist {
   display: flex;
   align-items: center;
-  gap: 8px;
   margin-bottom: 6px;
 }
 
@@ -945,7 +953,7 @@ body.dark-mode .track-layer {
 
 .track-meta {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   font-size: 0.85rem;
   color: var(--text);
   transition: color 0.3s ease;
@@ -1041,7 +1049,7 @@ body.dark-mode .collab-btn {
   flex-shrink: 0;
 }
 
-.like-btn, .share-btn {
+.share-btn {
   background: transparent;
   border: none;
   padding: 8px;
@@ -1082,7 +1090,6 @@ body.dark-mode .track-details {
 .related-tracks {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .track-relation {
@@ -1225,6 +1232,7 @@ body.dark-mode .related-title {
 
 .related-actions {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
 }
@@ -1268,7 +1276,6 @@ body.dark-mode .related-title {
   transition: color 0.2s;
   color: var(--text);
   font-size: 0.9rem;
-  padding: 4px;
 }
 
 .like-btn.active {
@@ -2667,6 +2674,12 @@ body.dark-mode .modal-footer {
 }
 
 .artist-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.artist-name-mini {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -4100,7 +4113,7 @@ body.dark-mode .user-not-found p {
   display: flex;
   align-items: center;
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text);
   margin-top: 2px;
   gap: 4px;
 }
@@ -4498,11 +4511,11 @@ body.dark-mode .comment-input {
 }
 
 .track-tab {
-  padding: 10px 20px;
+  padding: 5px 10px;
   background: none;
   color: var(--text);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   position: relative;
   transition: color 0.2s;
 }
@@ -4740,4 +4753,18 @@ body.dark-mode .delete-description {
   to {
     transform: rotate(360deg);
   }
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.track-layer-message {
+  font-size: 0.8rem;
+  color: var(--text);
+  margin-top: 4px;
+}
+
+body.dark-mode .track-layer-message {
+  color: var(--dark-text-secondary);
 }

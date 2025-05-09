@@ -6,6 +6,7 @@ import Cookies from 'js-cookie';
 import api from '../lib/api';
 import { useRouter } from 'next/navigation';
 import TimeDisplay from './TimeDisplay';
+import { useUser } from '../contexts/UserContext';
 
 export default function MiniTrack(
   { 
@@ -20,11 +21,16 @@ export default function MiniTrack(
   const isCurrentTrack = currentTrack?.id === track.id;
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
+  const [isReposted, setIsReposted] = useState(track.is_reposted || false);
+  const [repostCount, setRepostCount] = useState(Number(track.repost_count) || 0);
+  const { user: currentUser, isAuthenticated } = useUser();
   
   useEffect(() => {
     // Update like state when track prop changes
     setIsLiked(track.is_liked || false);
     setLikeCount(Number(track.like_count) || 0);
+    setIsReposted(track.is_reposted || false);
+    setRepostCount(Number(track.repost_count) || 0);
   }, [track]);
   
   const handlePlayToggle = (e) => {
@@ -40,18 +46,19 @@ export default function MiniTrack(
   };
   
   const handleSelectTrack = (e) => {
-    e.stopPropagation();
-    router.push(`/tree/${track.id}`);
+    if(isTreeView) {
+      e.stopPropagation();
+      router.push(`/tree/${track.id}`);
+    }
   };
   
   const handleLikeToggle = async (e) => {
     e.stopPropagation();
     
     try {
-      const token = Cookies.get('accessToken');
-      if (!token) {
+      if (!isAuthenticated) {
         // Handle unauthenticated user
-        console.log('Please log in to like tracks');
+        alert('Please log in to like tracks');
         return;
       }
       
@@ -73,19 +80,20 @@ export default function MiniTrack(
     e.stopPropagation();
     
     try {
-      const token = Cookies.get('accessToken');
-      if (!token) {
+      if (!isAuthenticated) {
         // Handle unauthenticated user
-        console.log('Please log in to repost tracks');
+        console.log('Please log in to like tracks');
         return;
       }
       
       if (track.is_reposted) {
         await api.delete(`/tracks/${track.id}/repost`);
-        track.is_reposted = false;
+        setIsReposted(false);
+        setRepostCount(prevCount => Math.max(0, Number(prevCount) - 1));
       } else {
         await api.post(`/tracks/${track.id}/repost`);
-        track.is_reposted = true;
+        setIsReposted(true);
+        setRepostCount(prevCount => Number(prevCount) + 1);
       }
     } catch (error) {
       console.error('Failed to toggle repost:', error);
@@ -103,7 +111,10 @@ export default function MiniTrack(
   };
   
   return (
-    <div className={`related-track ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? 'selected' : ''}`}>
+    <div 
+      className={`related-track ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? 'selected' : 'cursor-pointer'}`}
+      onClick={handleSelectTrack}
+    >
       <div className="related-play" onClick={handlePlayToggle}>
         {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
       </div>
@@ -114,11 +125,6 @@ export default function MiniTrack(
               {track.title}
             </span>
           </div>
-          {track.metronome_bpm && (
-            <div className="metronome-info">
-              <FaMusic className="metronome-icon" /> {track.metronome_bpm} BPM
-            </div>
-          )}
           {(track.tags?.length > 0 || track.genres?.length > 0 || track.instruments?.length > 0) && (
             <div className="related-tags">
               {/* Display regular tags */}
@@ -146,48 +152,42 @@ export default function MiniTrack(
         </div>
         <div className="related-artist">
           <span 
-            className="link-underline"
+            className="link-underline artist-name-mini"
             onClick={navigateToUserProfile}
           >
             {track.username || 'Unknown Artist'}
             {track.verified && <FaCheckCircle className="verified-icon" />}
           </span>
-          {track.created_at && (
-            <TimeDisplay timestamp={track.created_at} />
-          )}
         </div>
       </div>
       <div className="related-actions">
+        {track.created_at && (
+          <TimeDisplay timestamp={track.created_at} />
+        )}
         <div className="related-meta">
           <div className="meta-item">
             <FaPlay /> <span>{Number(track.play_count || 0).toLocaleString()}</span>
           </div>
           <div className="meta-item">
-            <FaHeart /> <span>{Number(track.like_count || likeCount || 0).toLocaleString()}</span>
-          </div>
-        </div>
-        <div className="related-buttons">
-          {isTreeView && !(trackTreeIds && trackTreeIds.includes(track.id)) && (
             <button 
-              className="select-btn"
-              onClick={handleSelectTrack}
-              title="Select track"
+              className={`like-btn ${isLiked ? 'active' : ''}`}
+              onClick={handleLikeToggle}
+              disabled={!isAuthenticated}
             >
-              Select
+              {isLiked ? <FaHeart /> : <FaRegHeart />}
             </button>
-          )}
-          <button 
-            className={`like-btn ${isLiked ? 'active' : ''}`}
-            onClick={handleLikeToggle}
-          >
-            {isLiked ? <FaHeart /> : <FaRegHeart />}
-          </button>
-          <button 
-            className={`repost-btn ${track.is_reposted ? 'active' : ''}`}
-            onClick={handleRepostToggle}
-          >
-            <FaRetweet />
-          </button>
+            <span>{Number(likeCount || 0).toLocaleString()}</span>
+          </div>
+          <div className="meta-item">
+            <button 
+              className={`repost-btn ${isReposted ? 'active' : ''}`}
+              onClick={handleRepostToggle}
+              disabled={!isAuthenticated}
+            >
+              <FaRetweet />
+            </button>
+            <span>{Number(repostCount || 0).toLocaleString()}</span>
+          </div>
         </div>
       </div>
     </div>
