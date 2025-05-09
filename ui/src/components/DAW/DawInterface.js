@@ -476,6 +476,7 @@ export default function DawInterface({ track, isCollab = false }) {
           isCountInEnabled={isCountInEnabled}
           metronomeOffset={metronomeOffset}
           setMetronomeOffset={setMetronomeOffset}
+          snapToGrid={true}
         />
       ) : (
         <RecordingWidget 

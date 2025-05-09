@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../lib/api';
 import Track from '../components/Track';
 import { FaSpinner, FaTimes, FaInfoCircle, FaMicrophone, FaCode, FaMusic } from 'react-icons/fa';
+import { useUser } from '../contexts/UserContext';
 
 export default function Home() {
   const [tracks, setTracks] = useState([]);
@@ -15,7 +16,7 @@ export default function Home() {
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const observer = useRef();
   const TRACKS_PER_PAGE = 5;
-
+  const { isAuthenticated } = useUser();
   // Check if this is the first visit when component mounts
   useEffect(() => {
     const hasVisitedBefore = localStorage.getItem('jamshot_visited');
@@ -169,12 +170,14 @@ export default function Home() {
           >
             For You
           </button>
-          <button
-            onClick={() => handleFeedTypeChange('following')}
-            className={`feed-tab ${feedType === 'following' ? 'active' : ''}`}
-          >
-            Following
-          </button>
+          {isAuthenticated && (
+            <button
+              onClick={() => handleFeedTypeChange('following')}
+              className={`feed-tab ${feedType === 'following' ? 'active' : ''}`}
+            >
+              Following
+              </button>
+          )}
           <button
             onClick={() => handleFeedTypeChange('popular')}
             className={`feed-tab ${feedType === 'popular' ? 'active' : ''}`}

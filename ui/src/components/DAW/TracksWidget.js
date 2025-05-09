@@ -29,6 +29,7 @@ export default function TracksWidget({
   isCountInEnabled = true, // Add count-in parameter with default value
   metronomeOffset = 0, // Add metronomeOffset prop with default value
   setMetronomeOffset = null, // Add setMetronomeOffset prop with default value
+  snapToGrid = false,
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);

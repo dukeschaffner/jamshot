@@ -84,14 +84,13 @@ export default function TrackTreePage() {
         <button onClick={handleBackClick} className="back-button">
           <FaArrowLeft /> Back
         </button>
-        <h1>Track Details</h1>
+        <h1>Explore all the different versions of this track</h1>
       </div>
 
       <div className="track-tree-container">
         {/* Ancestors (tracks up to the root) */}
         {trackTree.length > 0 && (
           <div className="track-ancestors">
-            <h2>Original Track & Ancestors</h2>
             <div className="ancestors-list">
               {trackTree.map((track, index) => (
                 <div key={track.id} className="ancestor-level">

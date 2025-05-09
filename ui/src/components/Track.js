@@ -29,6 +29,7 @@ export default function Track(
   const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
+  const [repostCount, setRepostCount] = useState(Number(track.repost_count) || 0);
   const [isLikeInProgress, setIsLikeInProgress] = useState(false);
   const [isReposted, setIsReposted] = useState(track.is_reposted || false);
   const [isRepostInProgress, setIsRepostInProgress] = useState(false);
@@ -113,7 +114,8 @@ export default function Track(
     setIsLiked(track.is_liked || false);
     setLikeCount(Number(track.like_count) || 0);
     setIsReposted(track.is_reposted || false);
-  }, [track.is_liked, track.like_count, track.is_reposted]);
+    setRepostCount(Number(track.repost_count) || 0);
+  }, [track.is_liked, track.like_count, track.is_reposted, track.repost_count]);
 
   const toggleExpand = () => {
     setExpandedTrackId(isExpanded ? null : track.id);
@@ -142,7 +144,7 @@ export default function Track(
     try {
       if (!isAuthenticated) {
         // Handle unauthenticated user
-        console.log('Please log in to like tracks');
+        alert('Please log in to like tracks');
         return;
       }
       
@@ -187,9 +189,11 @@ export default function Track(
       if (isReposted) {
         await api.delete(`/tracks/${track.id}/repost`);
         setIsReposted(false);
+        setRepostCount(prevCount => Math.max(0, Number(prevCount) - 1));
       } else {
         await api.post(`/tracks/${track.id}/repost`);
         setIsReposted(true);
+        setRepostCount(prevCount => Number(prevCount) + 1);
       }
       
       // Force re-render
@@ -250,6 +254,8 @@ export default function Track(
     router.push(`/track/${track.id}`);
   };
 
+  const atLeastOneTag = track.tags && track.tags.length > 0 || track.genres && track.genres.length > 0 || track.instruments && track.instruments.length > 0;
+
   return (
     <div className={`track-item ${isExpanded ? 'expanded' : ''}`}>
       {track.is_repost && track.reposted_by_username && (
@@ -264,25 +270,6 @@ export default function Track(
         </div>
         
         <div className="track-info">
-          <div className="track-title">
-            <span className="title-text link-underline" onClick={navigateToTrack}>
-              {track.title}
-            </span>
-            <div className="track-tags">
-              {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
-                <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
-              ))}
-              
-              {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
-                <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
-              ))}
-              
-              {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
-                <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
-              ))}
-            </div>
-          </div>
-          
           <div className="track-artist">
             <div className="artist-avatar" onClick={navigateToUserProfile}>
               <Image 
@@ -303,70 +290,102 @@ export default function Track(
               {track.verified && <FaCheckCircle className="verified-icon" />}
             </div>
           </div>
-          
-          
+
+          <div className="track-title">
+            <span className="title-text link-underline" onClick={navigateToTrack}>
+              {track.title}
+            </span>
+          </div>
+
+          <div className="track-layer-message">
+            {track?.parent_track_id ? 
+            (
+              <>
+                <b>Layer {track.layer}</b> - Based on {track.original_title}
+              </>) 
+            : (<b>Original track</b>)}
+          </div>
+
           <div className="track-meta">
             <div className="meta-item">
               <FaPlay /> 
               <span>{Number(track.play_count || 0).toLocaleString()}</span>
             </div>
             <div className="meta-item">
-              <FaHeart /> 
+              <button 
+                  className={`like-btn ${isLiked ? 'active' : ''}`} 
+                  onClick={handleLikeToggle} 
+                  disabled={!isAuthenticated || isLikeInProgress}
+                  title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+                >
+                {isLiked ? <FaHeart /> : <FaRegHeart />}
+              </button>
               <span>{Number(likeCount).toLocaleString()}</span>
             </div>
             <div className="meta-item">
-              <FaCodeBranch /> 
-              <span>{Number(track.collab_count || 0).toLocaleString()}</span>
+              <button 
+                className={`repost-btn ${isReposted ? 'active' : ''}`} 
+                onClick={handleRepostToggle}
+                disabled={!isAuthenticated || isRepostInProgress}
+                title={isAuthenticated ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+              >
+                <FaRetweet />
+              </button>
+              <span>{Number(repostCount).toLocaleString()}</span>
             </div>
-            {track.metronome_bpm && (
-              <div className="meta-item">
-                <FaMusic /> 
-                <span>{track.metronome_bpm} BPM</span>
-              </div>
-            )}
-            {track.created_at && (
-              <TimeDisplay timestamp={track.created_at} />
-            )}
+            <div className="meta-item">
+              <FaCodeBranch />
+              <span>{Number(track.collab_count).toLocaleString()}</span>
+            </div>
           </div>
         </div>
         
-        <div className="track-actions">
-          <button 
-            className="collab-btn" 
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/track/${track.id}`);
-            }}
-          >
-            {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
-          </button>
-          
-          <button 
-            className={`like-btn ${isLiked ? 'active' : ''}`} 
-            onClick={handleLikeToggle} 
-            disabled={!isAuthenticated || isLikeInProgress}
-            title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
-          >
-            {isLiked ? <FaHeart /> : <FaRegHeart />}
-          </button>
-          
-          <button 
-            className={`repost-btn ${isReposted ? 'active' : ''}`} 
-            onClick={handleRepostToggle}
-            disabled={!isAuthenticated || isRepostInProgress}
-            title={isAuthenticated ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
-          >
-            <FaRetweet />
-          </button>
-          
-          <button 
-            className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
-            onClick={handleCopyLink}
-            title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
-          >
-            {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
-            {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
-          </button>
+        <div className="track-section-right">
+          <div className="track-tags">
+            {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
+              <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
+            ))}
+            
+            {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
+              <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
+            ))}
+            
+            {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
+              <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
+            ))}
+                        
+            {track.metronome_bpm && (
+              <>
+                {atLeastOneTag && <div className="meta-item-separator">|</div>}
+                <div className="meta-item">
+                  <FaMusic /> 
+                  <span>{track.metronome_bpm} BPM</span>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="track-actions">
+            <button 
+              className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
+              onClick={handleCopyLink}
+              title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
+            >
+              {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
+              {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
+            </button>
+            <button 
+              className="collab-btn" 
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/track/${track.id}`);
+              }}
+            >
+              {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
+            </button>
+          </div>
+          {track.created_at && (
+            <TimeDisplay timestamp={track.created_at} />
+          )}
         </div>
       </div>
 

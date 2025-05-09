@@ -94,7 +94,6 @@ ideas:
 - WaveLink
 - WavLink
 - TrackStack
-- PostChorus
 - trackit
 - Tracklet
 - voxpop
@@ -116,4 +115,16 @@ ideas:
 - stereostack
 - chorix
 - loopalong
+
 - stereoloop
+- loopstream
+- loopster
+- trackster
+- loopmore
+- LoopTree
+- LoopLab
+- Loopish
+- PostChorus
+- ChorusFeed
+- DiscoTrack
+- StereoTrack

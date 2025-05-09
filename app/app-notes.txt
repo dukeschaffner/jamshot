@@ -75,8 +75,8 @@ Collabs:
 
 
 TODO (MVP)
-- DAW
-  - specify time signature in DAW
+- Mixing files on collab
+- allow download option
 
 - scalability report action items
 - comment edit view
