@@ -117,6 +117,7 @@ router.get('/:userId/tracks', async (req, res) => {
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id = $1
       ORDER BY t.created_at DESC
     `, queryParams);

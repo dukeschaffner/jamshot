@@ -3620,13 +3620,13 @@ body.dark-mode .notification-time {
 }
 
 .privacy-btn.public {
-  color: var(--text-secondary);
+  color: var(--text);
 }
 
 .share-btn {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text);
   cursor: pointer;
   padding: 8px;
   border-radius: 50%;
