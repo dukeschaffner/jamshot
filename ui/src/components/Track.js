@@ -356,7 +356,7 @@ export default function Track(
                         
             {track.metronome_bpm && (
               <>
-                {atLeastOneTag && <div className="meta-item-separator">|</div>}
+                {atLeastOneTag && <div className="meta-item-separator text-secondary">|</div>}
                 <div className="meta-item">
                   <FaMusic /> 
                   <span>{track.metronome_bpm} BPM</span>

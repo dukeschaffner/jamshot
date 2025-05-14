@@ -88,6 +88,22 @@ body.dark-mode {
   color: var(--s2);
 }
 
+.text-primary{
+  color: black;
+}
+
+.text-secondary{
+  color: var(--text);
+}
+
+body.dark-mode .text-primary{
+  color: white;
+}
+
+body.dark-mode .text-secondary{
+  color: var(--dark-text-secondary);
+}
+
 /* App Container Layout */
 .app-container {
   display: grid;
@@ -282,7 +298,6 @@ body.dark-mode .search-box input:focus {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: var(--rustic-pink-light);
   overflow: hidden;
   margin-right: 12px;
 }
@@ -290,7 +305,7 @@ body.dark-mode .search-box input:focus {
 .user-avatar img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .user-info {
@@ -4545,6 +4560,8 @@ body.dark-mode .track-tab {
 
 .track-tab-content {
   margin-top: 16px;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 /* Edit Track Container Styles */

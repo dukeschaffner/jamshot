@@ -40,6 +40,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [metronomeOffset, setMetronomeOffset] = useState(track?.metronome_offset || 0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [isEditingTimeSignature, setIsEditingTimeSignature] = useState(false);
+  const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
   const bpmControlRef = useRef(null);
 
   // Add navigation guard hook to prevent accidental navigation when recording exists
@@ -136,6 +137,12 @@ export default function DawInterface({ track, isCollab = false }) {
       setUserLatencyCompensation(15);
     }
 
+    // Load snap to grid preference from cookies
+    const savedSnapToGridEnabled = Cookies.get('snapToGridEnabled');
+    if (savedSnapToGridEnabled !== undefined) {
+      setSnapToGridEnabled(savedSnapToGridEnabled === 'true');
+    }
+
     return deviceSelected;
   }
 
@@ -143,6 +150,11 @@ export default function DawInterface({ track, isCollab = false }) {
   useEffect(() => {
     Cookies.set('userLatencyCompensation', userLatencyCompensation.toString(), { expires: 365 });
   }, [userLatencyCompensation]);
+  
+  // Save snap to grid preference to cookies when it changes
+  useEffect(() => {
+    Cookies.set('snapToGridEnabled', snapToGridEnabled.toString(), { expires: 365 });
+  }, [snapToGridEnabled]);
   
   // Toggle play/pause
   const togglePlay = async () => {
@@ -336,6 +348,11 @@ export default function DawInterface({ track, isCollab = false }) {
     (originalAudioChunks !== null || recordingPlaybackBuffer !== null) : 
     recordingPlaybackBuffer !== null;
 
+  // Handle toggle for snap to grid
+  const handleSnapToGridChange = (e) => {
+    setSnapToGridEnabled(e.target.checked);
+  };
+
   return (
     <>
     <div 
@@ -476,7 +493,7 @@ export default function DawInterface({ track, isCollab = false }) {
           isCountInEnabled={isCountInEnabled}
           metronomeOffset={metronomeOffset}
           setMetronomeOffset={setMetronomeOffset}
-          snapToGrid={true}
+          snapToGridEnabled={snapToGridEnabled}
         />
       ) : (
         <RecordingWidget 
@@ -496,6 +513,7 @@ export default function DawInterface({ track, isCollab = false }) {
           isCountInEnabled={isCountInEnabled}
           metronomeOffset={metronomeOffset}
           setMetronomeOffset={setMetronomeOffset}
+          snapToGridEnabled={snapToGridEnabled}
         />
       )}
 
@@ -570,6 +588,26 @@ export default function DawInterface({ track, isCollab = false }) {
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
                   Adjust the volume of the metronome click sound.
+                </p>
+              </div>
+
+              {/* Snap to Grid Toggle */}
+              <div className="form-group mt-4">
+                <div className="toggle-container">
+                  <label htmlFor="snap-to-grid" className="toggle-label">
+                    Snap to Grid
+                    <input
+                      type="checkbox"
+                      id="snap-to-grid"
+                      checked={snapToGridEnabled}
+                      onChange={handleSnapToGridChange}
+                      className="toggle-input ml-2"
+                    />
+                    <span className="toggle-switch"></span>
+                  </label>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">
+                  When enabled, looper will snap to grid lines for more precise looping.
                 </p>
               </div>
             </div>
