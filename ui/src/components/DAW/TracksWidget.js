@@ -29,7 +29,7 @@ export default function TracksWidget({
   isCountInEnabled = true, // Add count-in parameter with default value
   metronomeOffset = 0, // Add metronomeOffset prop with default value
   setMetronomeOffset = null, // Add setMetronomeOffset prop with default value
-  snapToGrid = false,
+  snapToGridEnabled = false,
 }) {
     //#region audio properties
     const [audioContext, setAudioContext] = useState(null);
@@ -139,6 +139,8 @@ export default function TracksWidget({
     const recordingFaderRef = useRef(null);
     const takesCountRef = useRef(0); // Ref to track the number of takes
     const dawTracksContainerRef = useRef(null);
+    const musicGridLinesRef = useRef([]); // Holds the music grid lines positions (%)
+    const gridSnapThreshold = 0.1; // Threshold for grid snapping. Percentage of beat width
 
     const recordingStartPosRef = useRef(0);
     
@@ -1047,7 +1049,8 @@ export default function TracksWidget({
         // Dragging left looper handle
         if (isDraggingLooperLeft) {
           const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-          setLooperLeftPos(newLeftPos);
+          const snappedLeftPos = snapToGrid(newLeftPos);
+          setLooperLeftPos(snappedLeftPos);
             
             // If playhead is to the left of the new left position and audio is playing,
             // move the playhead to the new left position
@@ -1064,7 +1067,8 @@ export default function TracksWidget({
         // Dragging right looper handle
         if (isDraggingLooperRight) {
           const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-          setLooperRightPos(newRightPos);
+          const snappedRightPos = snapToGrid(newRightPos);
+          setLooperRightPos(snappedRightPos);
             
             // Show time tooltip
         //   const time = posToTime(newRightPos, trackDuration);
@@ -1434,9 +1438,45 @@ export default function TracksWidget({
       
       return markers;
   };
+
+  const snapToGrid = (value) => {
+    if(snapToGridEnabled){
+      // If grid lines aren't generated yet, return the original value
+      if (!musicGridLinesRef.current || musicGridLinesRef.current.length === 0) {
+        return value;
+      }
+      
+      // Find the closest grid line
+      let closestGridLine = value;
+      let minDistance = Infinity;
+
+      const secondsPerBeat = 60 / bpm;
+      const beatWidthPos = timeToPos(secondsPerBeat, effectiveDuration);
+      const calculatedGridSnapThreshold = beatWidthPos * gridSnapThreshold;
+      
+      for (const gridLinePos of musicGridLinesRef.current) {
+        const distance = Math.abs(gridLinePos - value);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestGridLine = gridLinePos;
+        }
+      }
+      
+      // Only snap if the distance is less than the threshold
+      if (minDistance <= calculatedGridSnapThreshold) {
+        return closestGridLine;
+      }
+    }
+    
+    // Return original value if not snapping
+    return value;
+  };
   
   // Generate musical grid lines based on BPM and time signature, accounting for zoom
   const generateMusicalGrid = () => {
+      // Clear existing grid lines
+      const gridLinesPositions = [];
+
       const bpm = metronomeBPM; // Use the metronome BPM
       const beatsPerMeasure = timeSignature.split('/')[0];
       
@@ -1455,6 +1495,7 @@ export default function TracksWidget({
         const measureTime = measure * secondsPerMeasure + offsetSeconds;
         if (measureTime <= effectiveDuration) {
           const position = timeToPos(measureTime, effectiveDuration);
+          gridLinesPositions.push(position);
           gridLines.push(
             <div 
               key={`measure-${measure}`} 
@@ -1477,6 +1518,7 @@ export default function TracksWidget({
           const beatTime = (beat - startBeat) * secondsPerBeat + startBeatOffset;
           if (beatTime <= effectiveDuration) {
             const position = timeToPos(beatTime, effectiveDuration);
+            gridLinesPositions.push(position);
             gridLines.push(
               <div 
                 key={`beat-${beat}`} 
@@ -1488,7 +1530,10 @@ export default function TracksWidget({
           }
         }
       }
-      
+
+      // Update the music grid lines positions
+      musicGridLinesRef.current = gridLinesPositions;
+
       return gridLines;
   };
   
