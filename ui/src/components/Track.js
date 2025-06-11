@@ -5,7 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import { useAudio } from '../lib/AudioContext';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaSpinner } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
@@ -24,10 +24,12 @@ export default function Track(
 {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [relatedTracks, setRelatedTracks] = useState([]);
+  const [originalTrack, setOriginalTrack] = useState(null);
+  const [collabTracks, setCollabTracks] = useState([]);
   const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
   const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
+  const [repostCount, setRepostCount] = useState(Number(track.repost_count) || 0);
   const [isLikeInProgress, setIsLikeInProgress] = useState(false);
   const [isReposted, setIsReposted] = useState(track.is_reposted || false);
   const [isRepostInProgress, setIsRepostInProgress] = useState(false);
@@ -35,15 +37,41 @@ export default function Track(
   const [activeTab, setActiveTab] = useState('collabs');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const { user: currentUser, isAuthenticated } = useUser();
+  const [hasMoreTracks, setHasMoreTracks] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalTracks, setTotalTracks] = useState(0);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
     if (expandedTrackId === track.id) {
+      // Reset pagination state when track changes
+      setCurrentPage(1);
+      setCollabTracks([]);
+      setOriginalTrack(null);
+      setHasMoreTracks(false);
+      
       const fetchRelatedTracks = async () => {
         try {
           setLoadingRelated(true);
-          const response = await api.get(`/tracks/${track.id}/related`);
-          setRelatedTracks(response.data);
+          const response = await api.get(`/tracks/${track.id}/related`, {
+            params: { page: 1, limit: 5 }
+          });
+          
+          // Handle new API response format
+          const { tracks, pagination } = response.data;
+          
+          // Set pagination info
+          setHasMoreTracks(pagination?.hasMore || false);
+          setTotalTracks(pagination?.total || 0);
+          setCurrentPage(1);
+          
+          // Process tracks
+          const original = tracks?.find(t => t.id === track.parent_track_id);
+          const collabs = tracks?.filter(t => t.parent_track_id === track.id);
+          
+          setOriginalTrack(original || null);
+          setCollabTracks(collabs || []);
         } catch (err) {
           console.error('Failed to fetch related tracks:', err);
         } finally {
@@ -52,14 +80,42 @@ export default function Track(
       };
       fetchRelatedTracks();
     }
-  }, [expandedTrackId, track.id]);
+  }, [expandedTrackId, track.id, track.parent_track_id]);
+
+  const loadMoreTracks = async () => {
+    if (loadingMore || !hasMoreTracks) return;
+    
+    try {
+      setLoadingMore(true);
+      const nextPage = currentPage + 1;
+      
+      const response = await api.get(`/tracks/${track.id}/related`, {
+        params: { page: nextPage, limit: 5 }
+      });
+      
+      const { tracks, pagination } = response.data;
+      
+      // Filter just the new collab tracks
+      const newCollabs = tracks?.filter(t => t.parent_track_id === track.id) || [];
+      
+      // Update state
+      setCollabTracks(prev => [...prev, ...newCollabs]);
+      setHasMoreTracks(pagination?.hasMore || false);
+      setCurrentPage(nextPage);
+    } catch (err) {
+      console.error('Failed to load more tracks:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     // Update like and repost state when track prop changes
     setIsLiked(track.is_liked || false);
     setLikeCount(Number(track.like_count) || 0);
     setIsReposted(track.is_reposted || false);
-  }, [track.is_liked, track.like_count, track.is_reposted]);
+    setRepostCount(Number(track.repost_count) || 0);
+  }, [track.is_liked, track.like_count, track.is_reposted, track.repost_count]);
 
   const toggleExpand = () => {
     setExpandedTrackId(isExpanded ? null : track.id);
@@ -88,7 +144,7 @@ export default function Track(
     try {
       if (!isAuthenticated) {
         // Handle unauthenticated user
-        console.log('Please log in to like tracks');
+        alert('Please log in to like tracks');
         return;
       }
       
@@ -133,9 +189,11 @@ export default function Track(
       if (isReposted) {
         await api.delete(`/tracks/${track.id}/repost`);
         setIsReposted(false);
+        setRepostCount(prevCount => Math.max(0, Number(prevCount) - 1));
       } else {
         await api.post(`/tracks/${track.id}/repost`);
         setIsReposted(true);
+        setRepostCount(prevCount => Number(prevCount) + 1);
       }
       
       // Force re-render
@@ -186,9 +244,6 @@ export default function Track(
       });
   };
 
-  const originalTrack = relatedTracks.find(t => t.id === track.parent_track_id);
-  const collabTracks = relatedTracks.filter(t => t.parent_track_id === track.id);
-
   const navigateToUserProfile = (e) => {
     e.stopPropagation();
     router.push(`/user/${track.username}`);
@@ -198,6 +253,8 @@ export default function Track(
     e.stopPropagation();
     router.push(`/track/${track.id}`);
   };
+
+  const atLeastOneTag = track.tags && track.tags.length > 0 || track.genres && track.genres.length > 0 || track.instruments && track.instruments.length > 0;
 
   return (
     <div className={`track-item ${isExpanded ? 'expanded' : ''}`}>
@@ -213,25 +270,6 @@ export default function Track(
         </div>
         
         <div className="track-info">
-          <div className="track-title">
-            <span className="title-text link-underline" onClick={navigateToTrack}>
-              {track.title}
-            </span>
-            <div className="track-tags">
-              {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
-                <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
-              ))}
-              
-              {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
-                <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
-              ))}
-              
-              {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
-                <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
-              ))}
-            </div>
-          </div>
-          
           <div className="track-artist">
             <div className="artist-avatar" onClick={navigateToUserProfile}>
               <Image 
@@ -252,70 +290,102 @@ export default function Track(
               {track.verified && <FaCheckCircle className="verified-icon" />}
             </div>
           </div>
-          
-          
+
+          <div className="track-title">
+            <span className="title-text link-underline" onClick={navigateToTrack}>
+              {track.title}
+            </span>
+          </div>
+
+          <div className="track-layer-message">
+            {track?.parent_track_id ? 
+            (
+              <>
+                <b>Layer {track.layer}</b> - Based on "{track.original_title}" by {track.original_username}
+              </>) 
+            : (<b>Original track</b>)}
+          </div>
+
           <div className="track-meta">
             <div className="meta-item">
               <FaPlay /> 
               <span>{Number(track.play_count || 0).toLocaleString()}</span>
             </div>
             <div className="meta-item">
-              <FaHeart /> 
+              <button 
+                  className={`like-btn ${isLiked ? 'active' : ''}`} 
+                  onClick={handleLikeToggle} 
+                  disabled={!isAuthenticated || isLikeInProgress}
+                  title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
+                >
+                {isLiked ? <FaHeart /> : <FaRegHeart />}
+              </button>
               <span>{Number(likeCount).toLocaleString()}</span>
             </div>
             <div className="meta-item">
-              <FaCodeBranch /> 
-              <span>{Number(track.collab_count || 0).toLocaleString()}</span>
+              <button 
+                className={`repost-btn ${isReposted ? 'active' : ''}`} 
+                onClick={handleRepostToggle}
+                disabled={!isAuthenticated || isRepostInProgress}
+                title={isAuthenticated ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+              >
+                <FaRetweet />
+              </button>
+              <span>{Number(repostCount).toLocaleString()}</span>
             </div>
-            {track.metronome_bpm && (
-              <div className="meta-item">
-                <FaMusic /> 
-                <span>{track.metronome_bpm} BPM</span>
-              </div>
-            )}
-            {track.created_at && (
-              <TimeDisplay timestamp={track.created_at} />
-            )}
+            <div className="meta-item">
+              <FaCodeBranch />
+              <span>{Number(track.collab_count).toLocaleString()}</span>
+            </div>
           </div>
         </div>
         
-        <div className="track-actions">
-          <button 
-            className="collab-btn" 
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/track/${track.id}`);
-            }}
-          >
-            {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
-          </button>
-          
-          <button 
-            className={`like-btn ${isLiked ? 'active' : ''}`} 
-            onClick={handleLikeToggle} 
-            disabled={!isAuthenticated || isLikeInProgress}
-            title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
-          >
-            {isLiked ? <FaHeart /> : <FaRegHeart />}
-          </button>
-          
-          <button 
-            className={`repost-btn ${isReposted ? 'active' : ''}`} 
-            onClick={handleRepostToggle}
-            disabled={!isAuthenticated || isRepostInProgress}
-            title={isAuthenticated ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
-          >
-            <FaRetweet />
-          </button>
-          
-          <button 
-            className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
-            onClick={handleCopyLink}
-            title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
-          >
-            {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
-            {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
-          </button>
+        <div className="track-section-right">
+          <div className="track-tags">
+            {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
+              <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
+            ))}
+            
+            {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
+              <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
+            ))}
+            
+            {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
+              <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
+            ))}
+                        
+            {track.metronome_bpm && (
+              <>
+                {atLeastOneTag && <div className="meta-item-separator text-secondary">|</div>}
+                <div className="meta-item">
+                  <FaMusic /> 
+                  <span>{track.metronome_bpm} BPM</span>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="track-actions">
+            <button 
+              className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
+              onClick={handleCopyLink}
+              title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
+            >
+              {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
+              {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
+            </button>
+            <button 
+              className="collab-btn" 
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/track/${track.id}`);
+              }}
+            >
+              {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
+            </button>
+          </div>
+          {track.created_at && (
+            <TimeDisplay timestamp={track.created_at} />
+          )}
         </div>
       </div>
 
@@ -346,7 +416,7 @@ export default function Track(
                     {originalTrack && !isTreeView && (
                       <>
                         <div className="track-relation">Original</div>
-                        <MiniTrack track={originalTrack} relatedTracks={relatedTracks} />
+                        <MiniTrack track={originalTrack} relatedTracks={collabTracks} />
                       </>
                     )}
                     
@@ -354,8 +424,26 @@ export default function Track(
                       <>
                         <div className="track-relation">Based on this</div>
                         {collabTracks.map(collab => (
-                          <MiniTrack key={collab.id} track={collab} relatedTracks={relatedTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
+                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
                         ))}
+                        
+                        {hasMoreTracks && (
+                          <div className="load-more-container">
+                            <button 
+                              className="load-more-btn" 
+                              onClick={loadMoreTracks}
+                              disabled={loadingMore}
+                            >
+                              {loadingMore ? (
+                                <>
+                                  <FaSpinner className="loading-spinner-icon" /> Loading...
+                                </>
+                              ) : (
+                                `Load more (${collabTracks.length}/${totalTracks})`
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>

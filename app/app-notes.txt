@@ -54,34 +54,56 @@ Pages
 
 
 
+PRIVACY RULES
+
+Loading:
+- if a user is private, their tracks will not load in track lists unless 
+    current user is authenticated and following the track owner
+- if a track is private, the track will not load in track lists
+- if a track is private, the track will ONLY load for other users on the track details page, 
+    and ONLY if they have the secret or they have been granted access via a group.
+- No restrictions on loading private tracks if the current user is the track owner
+
+Collabs:
+- any collab on a public track MUST be public.
+- the privacy status of a collab on a private track (permitted by secret key) 
+    is dependent on the original track. if the original track goes public, so do all of its descendents.
+- all collabs on a private track should share the same secret key
+- track CANNOT go from public to private if it has collabs
+- as a result, collaborating artists have no control over the privacy status of their track
+
 
 
 TODO (MVP)
-- DAW
-  - synchronize recording/playback on collaboration
-  - metronome. add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
-  - trimming regions on upload action (decouple upload/collab daws?)
-  - recording past 90s on upload?
-  - zoom
+- Mixing files on collab
+- allow download option
 
-- prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
-  - check all track laods, comment loads
-- improve feed logic
-- how do collabs work with private tracks? - private tracks can only be collabed on by granting access to users (maybe by group too?)
+- scalability report action items
 - comment edit view
+- security/app standards report
+
 - audio ads
 - feed ads
 - how to page with tutorials
-- track upload - allow download option
 
 
 BUGS
-- popular feed loaded track from private acct I wasn't following (make sure it respects private tracks too)
 - dark mode inconsistencies
-- daw - sometimes hitting pause during playback start another unpausable instance of the song
+- logging in on collab or upload shouldnt lose progress
+- handle deleting takes during playback
+
+
+
+CHECKLIST
+- confirm all privacy restrictions
+- Confirm all notifications working properly
+- test recording sync with original track and metronome
+
+
 
 
 TODO (after beta testing)
+- looper/trim snap
 - recording while looping should auto create takes after each loop
 - files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
 - secure track play count recording to prevent abuse of vulnerabilites
@@ -91,12 +113,13 @@ TODO (after beta testing)
 - advanced DAW editor
 - content moderation
 - block users
-- track images: generate ai image on upload, then allow user to upload custom picture after upload
 - profile banner image
 - undo redo (DAW)
 - global player audio level
 - freemium model
-- invite people to collab on private tracks?
+- improve feed logic
+- invite people to collab on private tracks (groups)?
+- "add on" option where instead of adding layers, they can add audio before or after
 
 
 
@@ -141,6 +164,8 @@ CREATE TABLE tracks (
   play_count INT DEFAULT 0,
   is_private BOOLEAN NOT NULL DEFAULT FALSE,
   metronome_bpm INTEGER,
+  metronome_offset FLOAT DEFAULT 0,
+  time_signature VARCHAR(10) NOT NULL DEFAULT '4/4',
   secret_token VARCHAR(64) -- For secure sharing of private tracks
 );
 

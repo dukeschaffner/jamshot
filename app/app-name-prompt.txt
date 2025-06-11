@@ -19,53 +19,6 @@ Features
 - strong interaction between artists/fans or smaller artists, as well as friend groups who want to quickly and easily share ideas. success likely determined by how many medium to large artist adopt and use the platform.
 
 
-Layout
-- Navbar with links to home, user account, upload, and a search bar. 
-- global player with track navigation buttons (previous, play/pause, next, shuffle, loop), track title/artist username, song progress indicator
-
-
-Pages
-- Home
-  - Contains the user's feed, generated from an algorithm
-  - the tracks are shown as an expandable card containing a play button, the user's profile picture, user name, the track title, play count, like count, and a "collaborate" button
-  - When the track is expanded, it shows a list of tracks containing the track that the current track is based on "original" or "based on" and all the tracks based on the current track. There will be fewer details shown on these items. play button, track title - username, like count, play count
-
-- standard login/register pages (email, password, username)
-
-- upload
-  - allows user to upload file, name track, and upload the track
-
--user
-  - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
-
-- track/[trackId]
-  - allows users to explore entire track tree
-  - has a playback gui that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
-  - /collaborate
-    - has two tabs, record and upload.
-      - record allows the user to select input device and record several audio takes, view and playback all the takes, choose/delete takes. There is an input level meter and a recording progress bar. they select a take, name the track, and hit upload.
-      - upload allows the user to upload a prerecorded file, name the track, and upload the track
-      - both tabs should allow user to playback their audio with the parent track with a progress bar
-
-
-TODO (MVP)
-- DAW
-  - synchronize recording/playback on collaboration
-  - add option to count in before the recording at the speed of the metronome. let user edit the metronome client side only when collabing on another track
-  - volume faders
-  - recording indicator
-- content moderation
-- track images: generate ai image on upload, then allow user to upload custom picture after upload
-- prepare code to scale: limit data fetching to prevent long loading times. Make different processes such as audio combination asynchronous so ui does not have to wait
-- block users
-- view followers/following if account is public 
-- improve feed logic
-
-TODO (after beta testing)
-- list/sell samples in track
-- posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
-- Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
-- advanced DAW editor
 
 
 THOUGHTS:
@@ -81,23 +34,97 @@ come up with some creative name ideas for the application.
   - setting music free
   - giving smaller artists a chance to collab with bigger ones/ the idea that anyone can collab with anyone at any time
   - the social media aspect of the application
+  - putting the joy back in the process of creating and sharing music
 
 
-words:
-- tree
+PROMPT:
+<Role>
+You are a marketing consultant. your job is to come up with catchy, unique, and memorable website names that will drive interest for the website.
+You are great at thinking outside the box, and providing a wide range of responses.
+</Role>
+
+I made an app that is a music sharing social media site that is going to revolutionize the way that people share music and collaborate on each others projects.
+For the name of the app, I want something that can loosely be translated to two rough meanings: 1) open, many, or layered 2) music
+I've gathered some words and categorized them into the two meanings. Using these words (or any others that you are inspired to use), provide some killer names for the application.
+
+Open/Many/layered
+- Open
+- public
+- Earth
+- World
+- Poly
+- Multi
+- Omni
+- people
+- our
+- stereo
+- chorus
+- overtone
+- link
+- pop
+- net/network
+- tribe
+- cast/broadcast
+- share
+- chain
+
+Music
 - wave
-- crave
-- sketch
+- track
+- overtone
+- chorus
+- voice/vox
+- loop
+- vibe
+- mic
+
+
+
 
 
 
 
 ideas:
-- postwav/postwave
-- sketchwave
-- altchorus
-- rechorus
-- novochorus
-- polychorus
-- polywave
-- altwave
+- PostWav
+- PostWave
+- AltChorus
+- ReChorus
+- PolyChorus
+- AltWave
+- WaveLink
+- WavLink
+- TrackStack
+- trackit
+- Tracklet
+- voxpop
+- Earthsong
+- prelude
+- Overtone.social
+- Overtone.app
+- MelonTrack
+- Melonpop
+- ToneSquare
+- TrackPop
+- EarthPop
+- omnipop
+- riffpop
+- Opentone
+- Opensong
+- Overtones.io
+- loopish
+- stereostack
+- chorix
+- loopalong
+
+- stereoloop
+- loopstream
+- loopster
+- trackster
+- loopmore
+- LoopTree
+- LoopLab
+- Loopish
+- PostChorus
+- ChorusFeed
+- DiscoTrack
+- StereoTrack

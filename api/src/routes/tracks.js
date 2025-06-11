@@ -15,7 +15,12 @@ const {
   downloadS3File,
   checkTrackAccess,
   combineAudioFiles,
-  generateSecureToken
+  generateSecureToken,
+  getBaseTrackSelectQuery,
+  getPopularFeedQuery,
+  getFollowingFeedQuery,
+  getForYouFeedQuery,
+  findAllDescendantTracks
 } = require('../utils/trackUtils');
 require('dotenv').config;
 
@@ -70,11 +75,59 @@ router.get('/ffmpeg-check', async (req, res) => {
   }
 });
 
+
+
+
+/*
+
+Track Load Configurations
+
+Full Track
+a) Columns from tracks table:
+- id
+- user_id
+- title
+- audio_url
+- combined_audio_url
+- duration
+- parent_track_id
+- is_private
+- created_at
+- play_count
+- layer
+- metronome_bpm
+- time_signature
+
+b) Other properties:
+- artist username
+- artist profile pic url
+- artist verified status
+- parent track title (if it exists)
+- like count
+- collab count
+- comment count
+- repost count
+- is_liked
+- is_reposted
+- track tags (captured by processtrack function)
+
+Endpoints:
+track by id endpoint
+feed endpoints
+user track endpoint
+id/tree endpoint
+*/
+
+
+
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
-  const { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain } = req.body;
+  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
+  let parentIsPrivate = false;
+  let parentSecretToken = null;
+  let parsedMetronomeOffset = metronome_offset ? Math.min(Math.max(parseFloat(metronome_offset), 0), 1) : 0;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
   
@@ -83,6 +136,9 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   console.log('- Parent track ID:', parent_track_id || 'None (original track)');
   console.log('- Original gain:', original_gain || 'Not provided');
   console.log('- Recording gain:', recording_gain || 'Not provided');
+  console.log('- Time signature:', time_signature || '4/4 (default)');
+  console.log('- Metronome offset:', parsedMetronomeOffset);
+  console.log('- Private:', is_private ? 'Yes' : 'No');
 
   // Check if user has reached their daily upload limit (3 uploads per day)
   try {
@@ -119,6 +175,12 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   const parsedOriginalGain = original_gain ? parseFloat(original_gain) : 0.8;
   const parsedRecordingGain = recording_gain ? parseFloat(recording_gain) : 0.8;
 
+  // Use the provided time signature or default to 4/4
+  const parsedTimeSignature = time_signature || '4/4';
+  
+  // Parse the private flag (convert string 'true'/'false' to boolean if needed)
+  let isPrivate = is_private === 'true' || is_private === true;
+
   let audioUrl, combinedAudioUrl, duration;
   const tempDir = path.join(__dirname, '../../temp');
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -148,25 +210,38 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
 
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT combined_audio_url, audio_url, duration FROM tracks WHERE id = $1',
+        'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
         return res.status(400).json({ error: 'Parent track not found' });
       }
 
-      const parentDuration = parentResult.rows[0].duration;
+      const parentTrack = parentResult.rows[0];
+      const parentDuration = parentTrack.duration;
+      
+      // Store parent privacy status and secret token
+      parentIsPrivate = parentTrack.is_private;
+      parentSecretToken = parentTrack.secret_token;
+      
+      isPrivate = parentIsPrivate;
+
+      metronome_bpm = parentTrack.metronome_bpm;
+      time_signature = parentTrack.time_signature;
+      // Use parent's metronome offset for collaborations
+      parsedMetronomeOffset = parentTrack.metronome_offset || 0;
+
       // Validate that collaboration isn't longer than parent track
       if (duration > parentDuration) {
         return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
       }
       
-      layer = (parentResult.rows[0].layer ?? 0) + 1;
+      layer = (parentTrack.layer ?? 0) + 1;
       if (layer > 4) {
         return res.status(400).json({ error: 'Layer limit reached' });
       }
       
-      const parentCombinedKey = parentResult.rows[0].combined_audio_url || parentResult.rows[0].audio_url;
+      const parentCombinedKey = parentTrack.combined_audio_url || parentTrack.audio_url;
       const localFiles = [];
 
       const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
@@ -214,8 +289,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     }
 
     const result = await pool.query(
-      'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer]
+        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset]
     );
     
     const trackId = result.rows[0].id;
@@ -267,198 +342,26 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   }
 });
 
-// Get feed tracks (followed artists + popular)
-router.get('/feed', async (req, res) => {
+// Get "For You" feed (mixed content - followed users + popular)
+router.get('/feed/for-you', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5, feedType = 'mixed' } = req.query;
+  const { page = 1, limit = 5 } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
   
   try {
     let query;
-    let queryParams = [];
+    let queryParams;
     
-    if (feedType === 'following' && userId) {
-      query = `
-        WITH followed_users AS (
-          SELECT following_id FROM follows WHERE follower_id = $1
-        ),
-        followed_tracks AS (
-          SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at::timestamp with time zone AS created_at, t.play_count,
-            u.username, u.verified, u.profile_pic_url,
-            t2.title AS original_title,
-            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-            NULL::integer AS reposted_by_id,
-            NULL::text AS reposted_by_username,
-            NULL::timestamp with time zone AS reposted_at,
-            FALSE AS is_repost
-          FROM tracks t
-          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-          LEFT JOIN users u ON t.user_id = u.id
-          WHERE t.user_id IN (SELECT following_id FROM followed_users)
-        ),
-        reposted_tracks AS (
-          SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            r.created_at::timestamp with time zone AS created_at, t.play_count,
-            u.username, u.verified, u.profile_pic_url,
-            t2.title AS original_title,
-            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-            EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-            r.user_id AS reposted_by_id,
-            ru.username AS reposted_by_username,
-            r.created_at::timestamp with time zone AS reposted_at,
-            TRUE AS is_repost
-          FROM reposts r
-          JOIN tracks t ON r.track_id = t.id
-          JOIN users ru ON r.user_id = ru.id
-          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-          LEFT JOIN users u ON t.user_id = u.id
-          WHERE r.user_id IN (SELECT following_id FROM followed_users)
-        )
-        SELECT * FROM (
-          SELECT * FROM followed_tracks
-          UNION ALL
-          SELECT * FROM reposted_tracks
-        ) combined
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3;
-      `;
+    // Mixed feed: combination of followed artists, their reposts, and popular tracks
+    if (userId) {
+      // Use the standardized For You feed query function
+      query = getForYouFeedQuery(2, 3);
       queryParams = [userId, limitNum, offset];
-    } else if (feedType === 'popular') {
-      query = `
-        SELECT 
-          t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-          t.created_at, t.play_count,
-          u.username, u.verified, u.profile_pic_url,
-          t2.title AS original_title,
-          (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-          EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-          (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-          EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-          NULL::integer AS reposted_by_id,
-          NULL::text AS reposted_by_username,
-          NULL::timestamp AS reposted_at,
-          FALSE AS is_repost
-        FROM tracks t
-        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-        LEFT JOIN users u ON t.user_id = u.id
-        ORDER BY like_count DESC, t.created_at DESC
-        LIMIT $2 OFFSET $3
-      `;
-      queryParams = [userId || null, limitNum, offset];
     } else {
-      // Mixed feed: combination of followed artists, their reposts, and popular tracks
-      if (userId) {
-        query = `
-          WITH followed_users AS (
-            SELECT following_id FROM follows WHERE follower_id = $1
-          ),
-          followed_tracks AS (
-            SELECT 
-              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              t.created_at, t.play_count,
-              u.username, u.verified, u.profile_pic_url,
-              t2.title AS original_title,
-              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-              NULL::integer AS reposted_by_id,
-              NULL::text AS reposted_by_username,
-              NULL::timestamp AS reposted_at,
-              FALSE AS is_repost,
-              1 AS priority
-            FROM tracks t
-            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.user_id IN (SELECT following_id FROM followed_users)
-          ),
-          reposted_tracks AS (
-            SELECT 
-              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              r.created_at, t.play_count,
-              u.username, u.verified, u.profile_pic_url,
-              t2.title AS original_title,
-              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-              r.user_id AS reposted_by_id,
-              ru.username AS reposted_by_username,
-              r.created_at AS reposted_at,
-              TRUE AS is_repost,
-              1 AS priority
-            FROM reposts r
-            JOIN tracks t ON r.track_id = t.id
-            JOIN users ru ON r.user_id = ru.id
-            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE r.user_id IN (SELECT following_id FROM followed_users)
-          ),
-          popular_tracks AS (
-            SELECT 
-              t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-              t.created_at, t.play_count,
-              u.username, u.verified, u.profile_pic_url,
-              t2.title AS original_title,
-              (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-              EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-              (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-              EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
-              NULL::integer AS reposted_by_id,
-              NULL::text AS reposted_by_username,
-              NULL::timestamp AS reposted_at,
-              FALSE AS is_repost,
-              2 AS priority
-            FROM tracks t
-            LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.id NOT IN (
-              SELECT id FROM followed_tracks
-              UNION
-              SELECT id FROM reposted_tracks
-            )
-            ORDER BY like_count DESC
-            LIMIT $2
-          )
-          SELECT * FROM (
-            SELECT * FROM followed_tracks
-            UNION ALL
-            SELECT * FROM reposted_tracks
-            UNION ALL
-            SELECT * FROM popular_tracks
-          ) combined
-          ORDER BY priority, created_at DESC
-          LIMIT $2 OFFSET $3
-        `;
-        queryParams = [userId, limitNum, offset];
-      } else {
-        // For non-logged in users, just show popular tracks
-        query = `
-          SELECT 
-            t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id,
-            t.created_at, t.play_count,
-            u.username, u.verified, u.profile_pic_url,
-            t2.title AS original_title,
-            (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-            EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-            (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
-          FROM tracks t
-          LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
-          LEFT JOIN users u ON t.user_id = u.id
-          ORDER BY like_count DESC, t.created_at DESC
-          LIMIT $2 OFFSET $3
-        `;
-        queryParams = [null, limitNum, offset];
-      }
+      // For non-logged in users, just show popular tracks
+      query = getPopularFeedQuery(false, null, 1, 2);
+      queryParams = [limitNum, offset];
     }
     
     const result = await pool.query(query, queryParams);
@@ -473,6 +376,66 @@ router.get('/feed', async (req, res) => {
   }
 });
 
+// Get Following feed (just followed artists)
+router.get('/feed/following', async (req, res) => {
+  const userId = req.user?.id;
+  const { page = 1, limit = 5 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  try {
+    // Use the standardized following feed query function
+    const query = getFollowingFeedQuery(2, 3);
+    const queryParams = [userId, limitNum, offset];
+    
+    const result = await pool.query(query, queryParams);
+    
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
+    
+    res.json(tracks);
+  } catch (err) {
+    console.error('Following feed error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Popular feed (globally popular tracks)
+router.get('/feed/popular', async (req, res) => {
+  const userId = req.user?.id;
+  const { page = 1, limit = 5 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  
+  try {
+    // Use the standardized popular feed query function
+    let query;
+    let queryParams;
+    if (userId) {
+      query = getPopularFeedQuery(!!userId, 1, 2, 3, true);
+      queryParams = [userId, limitNum, offset];
+    } else {
+      query = getPopularFeedQuery(false, null, 1, 2);
+      queryParams = [limitNum, offset];
+    }
+    
+    const result = await pool.query(query, queryParams);
+    
+    // Use the processTrack utility function
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
+    
+    res.json(tracks);
+  } catch (err) {
+    console.error('Popular feed error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Get Track and Versions
 router.get('/:id', optionalAuthMiddleware, async (req, res) => {
   const { id } = req.params;
@@ -485,20 +448,27 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
     if (!accessCheck.hasAccess) {
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
-    
+
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false);
+      queryParams = [id];
+    }
+
     const result = await pool.query(`
       SELECT 
-        t.*,
-        u.username,
-        u.verified,
-        u.profile_pic_url,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+        t.metronome_offset, ${baseQuery}
       FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.id = $1 OR t.parent_track_id = $1 
       ORDER BY t.created_at ASC
-    `, [id, userId || null]);
+    `, queryParams);
     
     // Use the processTrack utility function to process all tracks
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
@@ -512,49 +482,90 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
 router.get('/:id/related', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
-  try {
-    const result = await pool.query(`
-      SELECT 
-        t.id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-        u.username, u.verified, u.profile_pic_url,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
-      FROM tracks t
-      LEFT JOIN users u ON t.user_id = u.id
-      WHERE t.id = $1 OR t.parent_track_id = $1 OR t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)
-      ORDER BY t.created_at ASC
-    `, [id, userId || null]);
-    
-    // Use the processTrack utility function
-    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
-    res.json(tracks);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  const { page = 1, limit = 5 } = req.query;
+  
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
 
-router.get('/', async (req, res) => {
-  const userId = req.user?.id;
+  let baseQuery;
+  let queryParams;
+  if (userId) {
+    baseQuery = getBaseTrackSelectQuery(true, 2, false);
+    queryParams = [id, userId];
+  } else {
+    baseQuery = getBaseTrackSelectQuery(false, 1, false);
+    queryParams = [id];
+  }
   try {
-    const result = await pool.query(`
+    // Only include the parent track and current track on the first page
+    let combinedTracks = [];
+    
+    if (parseInt(page) === 1) {
+      // First, get the parent track if it exists
+      let parentTrackQuery = `
+        SELECT 
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE (t.id = (SELECT parent_track_id FROM tracks WHERE id = $1))
+      `;
+      
+      const [parentTrackResult] = await Promise.all([
+        pool.query(parentTrackQuery, queryParams),
+      ]);
+      
+      // Add parent track if it exists
+      if (parentTrackResult.rows.length > 0) {
+        combinedTracks.push(parentTrackResult.rows[0]);
+      }
+    }
+    
+    // Then get the child tracks with pagination
+    let childTracksQuery = `
       SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
-        u.username, u.verified, u.profile_pic_url,
-        t2.title AS original_title,
-        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+        ${baseQuery}
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.parent_track_id = $1
       ORDER BY t.created_at DESC
-    `, [userId || null]);
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
     
-    // Use the processTrack utility function
-    const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
+    // Get the total count for pagination info
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM tracks
+      WHERE parent_track_id = $1
+    `;
     
-    res.json(tracks);
+    // Execute queries for child tracks and count
+    const [childTracksResult, countResult] = await Promise.all([
+      pool.query(childTracksQuery, [...queryParams, limitNum, offset]),
+      pool.query(countQuery, [id])
+    ]);
+    
+    // Add child tracks
+    combinedTracks = [...combinedTracks, ...childTracksResult.rows];
+    
+    // Process tracks
+    const tracks = await Promise.all(combinedTracks.map(track => processTrack(track, userId)));
+    
+    // Get pagination info
+    const totalCount = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limitNum);
+    
+    res.json({
+      tracks,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: limitNum,
+        pages: totalPages,
+        hasMore: parseInt(page) < totalPages
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1039,22 +1050,27 @@ router.get('/:id/tree', async (req, res) => {
     if (!accessCheck.hasAccess) {
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
+
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false);
+      queryParams = [id];
+    }
     
     // First, get the current track
     const currentTrackResult = await pool.query(`
       SELECT 
-        t.*,
-        u.username,
-        u.verified,
-        u.profile_pic_url,
-        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
+        ${baseQuery}
       FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.id = $1
-    `, [id, userId || null]);
+    `, queryParams);
     
     if (currentTrackResult.rows.length === 0) {
       return res.status(404).json({ error: 'Track not found' });
@@ -1067,20 +1083,20 @@ router.get('/:id/tree', async (req, res) => {
     let parentId = currentTrack.parent_track_id;
     
     while (parentId) {
+      if (userId) {
+        queryParams = [parentId, userId];
+      } else {
+        queryParams = [parentId];
+      }
+      
       const parentResult = await pool.query(`
         SELECT 
-          t.*,
-          u.username,
-          u.verified,
-          u.profile_pic_url,
-          (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-          EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,
-          (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-          (SELECT COUNT(*) FROM tracks WHERE parent_track_id = t.id) AS child_count
+          ${baseQuery}
         FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
         LEFT JOIN users u ON t.user_id = u.id
         WHERE t.id = $1
-      `, [parentId, userId || null]);
+      `, queryParams);
       
       if (parentResult.rows.length === 0) {
         break;
@@ -1102,7 +1118,7 @@ router.get('/:id/tree', async (req, res) => {
   }
 });
 
-// Toggle track privacy
+// Toggle track privacy. Only root tracks can control their privacy status.
 router.put('/:id/privacy', authMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
@@ -1111,7 +1127,7 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
   try {
     // Check if track exists and user is the owner
     const trackCheck = await pool.query(
-      'SELECT user_id FROM tracks WHERE id = $1',
+      'SELECT user_id, is_private, secret_token, parent_track_id FROM tracks WHERE id = $1',
       [id]
     );
     
@@ -1122,6 +1138,13 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
     if (trackCheck.rows[0].user_id !== userId) {
       return res.status(403).json({ error: 'You do not have permission to modify this track' });
     }
+
+    if(trackCheck.rows[0].parent_track_id){
+      return res.status(400).json({ error: 'Cannot modify privacy status of a collaboration' });
+    }
+
+    const currentIsPrivate = trackCheck.rows[0].is_private;
+    const secretToken = trackCheck.rows[0].secret_token || generateSecureToken();
     
     // If trying to make the track private, check if it has collaborations
     if (is_private) {
@@ -1140,10 +1163,24 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
       }
     }
     
+    // If the track is going from private to public, we need to cascade this change to all child tracks
+    if (currentIsPrivate && !is_private) {
+      // First, find all descendant tracks (direct and indirect children)
+      const allDescendants = await findAllDescendantTracks(id);
+      
+      if (allDescendants.length > 0) {
+        // Update all descendants to public
+        await pool.query(
+          'UPDATE tracks SET is_private = FALSE WHERE id = ANY($1::int[])',
+          [allDescendants]
+        );
+      }
+    }
+    
     // Update track privacy
     const result = await pool.query(
-      'UPDATE tracks SET is_private = $1 WHERE id = $2 RETURNING *',
-      [is_private, id]
+      'UPDATE tracks SET is_private = $1, secret_token = $2 WHERE id = $3 RETURNING *',
+      [is_private, is_private ? secretToken : null, id]
     );
     
     res.json(result.rows[0]);
@@ -1265,7 +1302,7 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to share this track' });
     }
     
-    // If a secret token already exists, return it
+    // Track secret token should always be set
     if (track.secret_token) {
       const shareLink = `${process.env.FRONTEND_URL}/track/${id}?secret=${track.secret_token}`;
       return res.json({ 
@@ -1273,23 +1310,10 @@ router.post('/:id/share', authMiddleware, async (req, res) => {
         secretToken: track.secret_token
       });
     }
-    
-    // Generate a secure random token
-    const secretToken = generateSecureToken();
-    
-    // Store the token in the tracks table
-    await pool.query(
-      'UPDATE tracks SET secret_token = $1 WHERE id = $2',
-      [secretToken, id]
-    );
-    
-    // Return the share link
-    const shareLink = `${process.env.FRONTEND_URL}/track/${id}?secret=${secretToken}`;
-    
-    res.json({ 
-      shareLink,
-      secretToken
-    });
+    else{
+      throw new Error('Track secret token not found');
+    }
+
   } catch (error) {
     console.error('Error generating share link:', error);
     res.status(500).json({ error: 'Failed to generate share link' });

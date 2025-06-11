@@ -55,6 +55,231 @@ async function getTrackInstruments(trackId) {
   );
 }
 
+// Generate a standardized base query for track selection
+function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, includeDetails = true) {
+  const baseQuery = `
+    t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, 
+    t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature,
+    u.username, u.verified, u.profile_pic_url,
+    t2.title AS original_title,
+    ${includeDetails ? 'u2.username AS original_username,' : ''}
+    (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+    (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+    (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
+    (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count
+  `;
+  
+  // Only include user-specific fields if authenticated
+  if (isAuthenticated) {
+    return `
+      ${baseQuery},
+      EXISTS(SELECT 1 FROM likes WHERE user_id = $${userIdParamIndex} AND track_id = t.id) AS is_liked,
+      EXISTS(SELECT 1 FROM reposts WHERE user_id = $${userIdParamIndex} AND track_id = t.id) AS is_reposted
+    `;
+  }
+  
+  return `
+    ${baseQuery},
+    FALSE AS is_liked,
+    FALSE AS is_reposted
+  `;
+}
+
+// Get the privacy clause for a track
+// If the user is authenticated, we need to check if the track is private or if the user is the owner
+// If the user is not authenticated, we only need to check if the track is not private
+// Also check if the track owner account is private
+// If the track owner account is private, we need to check if the user is following the track owner
+function getTrackPrivacyClause(isAuthenticated = true, userIdParamIndex = 1) {
+  if (isAuthenticated) {
+    return `
+      (
+        (t.is_private = FALSE AND u.is_private = FALSE) OR
+        (t.user_id = $${userIdParamIndex}) OR
+        (t.is_private = FALSE AND u.is_private = TRUE AND EXISTS(
+          SELECT 1 FROM follows WHERE follower_id = $${userIdParamIndex} AND following_id = t.user_id
+        ))
+      )
+    `;
+  } else {
+    return `
+      (t.is_private = FALSE AND u.is_private = FALSE)
+    `;
+  }
+
+}
+
+/**
+ * Generate a standardized popular feed query
+ * @param {boolean} isAuthenticated - Whether the user is authenticated
+ * @param {number} limitParamIndex - The parameter index for the limit value in the query
+ * @param {number} offsetParamIndex - The parameter index for the offset value in the query
+ * @param {boolean} includeRepostMetadata - Whether to include repost metadata fields
+ * @returns {string} The SQL query string
+ */
+function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limitParamIndex = 2, offsetParamIndex = 3, includeRepostMetadata = false) {
+  let query = `
+    SELECT 
+      ${getBaseTrackSelectQuery(isAuthenticated, userIdParamIndex)}
+  `;
+  
+  // Add repost metadata if requested
+  if (includeRepostMetadata) {
+    query += `,
+      NULL::integer AS reposted_by_id,
+      NULL::text AS reposted_by_username,
+      NULL::timestamp AS reposted_at,
+      FALSE AS is_repost
+    `;
+  }
+
+  const privacyClause = getTrackPrivacyClause(isAuthenticated, userIdParamIndex);
+  
+  query += `
+    FROM tracks t
+    LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+    LEFT JOIN users u ON t.user_id = u.id
+    LEFT JOIN users u2 ON t2.user_id = u2.id
+    WHERE ${privacyClause}
+    ORDER BY like_count DESC, t.created_at DESC
+    LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+  `;
+  
+  return query;
+}
+
+/**
+ * Generate a standardized following feed query
+ * @param {number} limitParamIndex - The parameter index for the limit value in the query
+ * @param {number} offsetParamIndex - The parameter index for the offset value in the query
+ * @returns {string} The SQL query string
+ */
+function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
+  return `
+    WITH followed_users AS (
+      SELECT following_id FROM follows WHERE follower_id = $1
+    ),
+    followed_tracks AS (
+      SELECT 
+        ${getBaseTrackSelectQuery(true)},
+        NULL::integer AS reposted_by_id,
+        NULL::text AS reposted_by_username,
+        NULL::timestamp AS reposted_at,
+        FALSE AS is_repost
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
+      WHERE t.user_id IN (SELECT following_id FROM followed_users)
+      AND (t.is_private = FALSE OR t.user_id = $1)
+    ),
+    reposted_tracks AS (
+      SELECT 
+        ${getBaseTrackSelectQuery(true)},
+        r.user_id AS reposted_by_id,
+        ru.username AS reposted_by_username,
+        r.created_at AS reposted_at,
+        TRUE AS is_repost
+      FROM reposts r
+      JOIN tracks t ON r.track_id = t.id
+      JOIN users ru ON r.user_id = ru.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
+      WHERE r.user_id IN (SELECT following_id FROM followed_users)
+      AND (t.is_private = FALSE OR t.user_id = $1)
+    )
+    SELECT * FROM (
+      SELECT * FROM followed_tracks
+      UNION ALL
+      SELECT * FROM reposted_tracks
+    ) combined
+    ORDER BY created_at DESC
+    LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+  `;
+}
+
+/**
+ * Generate a standardized query for the "For You" feed that combines followed content and popular tracks
+ * @param {number} limitParamIndex - The parameter index for the limit value in the query
+ * @param {number} offsetParamIndex - The parameter index for the offset value in the query
+ * @returns {string} The SQL query string
+ */
+function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
+  const privacyClause = getTrackPrivacyClause(true, 1);
+  const popularWithExclusions = `
+    SELECT 
+      ${getBaseTrackSelectQuery(true)},
+      NULL::integer AS reposted_by_id,
+      NULL::text AS reposted_by_username,
+      NULL::timestamp AS reposted_at,
+      FALSE AS is_repost,
+      2 AS priority
+    FROM tracks t
+    LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+    LEFT JOIN users u ON t.user_id = u.id
+    LEFT JOIN users u2 ON t2.user_id = u2.id
+    WHERE t.id NOT IN (
+      SELECT id FROM followed_tracks
+      UNION
+      SELECT id FROM reposted_tracks
+    )
+    AND ${privacyClause}
+    ORDER BY like_count DESC
+    LIMIT $${limitParamIndex}
+  `;
+
+  return `
+    WITH followed_users AS (
+      SELECT following_id FROM follows WHERE follower_id = $1
+    ),
+    followed_tracks AS (
+      SELECT 
+        ${getBaseTrackSelectQuery(true)},
+        NULL::integer AS reposted_by_id,
+        NULL::text AS reposted_by_username,
+        NULL::timestamp AS reposted_at,
+        FALSE AS is_repost,
+        1 AS priority
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
+      WHERE t.user_id IN (SELECT following_id FROM followed_users)
+      AND (t.is_private = FALSE OR t.user_id = $1)
+    ),
+    reposted_tracks AS (
+      SELECT 
+        ${getBaseTrackSelectQuery(true)},
+        r.user_id AS reposted_by_id,
+        ru.username AS reposted_by_username,
+        r.created_at AS reposted_at,
+        TRUE AS is_repost,
+        1 AS priority
+      FROM reposts r
+      JOIN tracks t ON r.track_id = t.id
+      JOIN users ru ON r.user_id = ru.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
+      WHERE r.user_id IN (SELECT following_id FROM followed_users)
+      AND (t.is_private = FALSE OR t.user_id = $1)
+    ),
+    popular_tracks AS (
+      ${popularWithExclusions}
+    )
+    SELECT * FROM (
+      SELECT * FROM followed_tracks
+      UNION ALL
+      SELECT * FROM reposted_tracks
+      UNION ALL
+      SELECT * FROM popular_tracks
+    ) combined
+    ORDER BY priority, created_at DESC
+    LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+  `;
+}
+
 // Process a single track (add signed URLs, fetch genres and instruments)
 async function processTrack(track, userId = null) {
   // Convert S3 URLs to signed URLs
@@ -155,7 +380,11 @@ function generateSecureToken(length = 32) {
 // Check if a user has access to a private track
 async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   const trackCheck = await pool.query(
-    'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
+    `SELECT t.id, t.user_id, t.is_private, t.secret_token, t.parent_track_id, 
+            p.is_private as parent_is_private, p.secret_token as parent_secret_token
+     FROM tracks t
+     LEFT JOIN tracks p ON t.parent_track_id = p.id
+     WHERE t.id = $1`,
     [trackId]
   );
   
@@ -167,7 +396,33 @@ async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   
   if (track.is_private) {
     const isOwner = userId && track.user_id === userId;
-    const hasValidSecret = secretToken && track.secret_token && secretToken === track.secret_token;
+    
+    // Check if the provided secret token matches any in the track lineage
+    let hasValidSecret = secretToken && (
+      (track.secret_token && secretToken === track.secret_token) || 
+      (track.parent_secret_token && secretToken === track.parent_secret_token)
+    );
+    
+    // If secret doesn't match directly, check the entire track ancestry for a matching token
+    if (!hasValidSecret && secretToken && track.parent_track_id) {
+      const ancestryCheck = await pool.query(
+        `WITH RECURSIVE track_ancestry AS (
+          SELECT id, parent_track_id, secret_token
+          FROM tracks
+          WHERE id = $1
+          
+          UNION
+          
+          SELECT t.id, t.parent_track_id, t.secret_token
+          FROM tracks t
+          JOIN track_ancestry ta ON t.id = ta.parent_track_id
+        )
+        SELECT secret_token FROM track_ancestry WHERE secret_token = $2 LIMIT 1`,
+        [trackId, secretToken]
+      );
+      
+      hasValidSecret = ancestryCheck.rows.length > 0;
+    }
     
     if (!isOwner && !hasValidSecret) {
       return { hasAccess: false, error: 'This track is private', status: 403 };
@@ -176,6 +431,29 @@ async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   
   return { hasAccess: true, track };
 }
+
+// Helper function to find all descendant tracks (direct and indirect children)
+async function findAllDescendantTracks(trackId) {
+    const descendants = [];
+    const queue = [trackId];
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      
+      // Find direct children of the current track
+      const childrenResult = await pool.query(
+        'SELECT id FROM tracks WHERE parent_track_id = $1',
+        [currentId]
+      );
+      
+      for (const child of childrenResult.rows) {
+        descendants.push(child.id);
+        queue.push(child.id);
+      }
+    }
+    
+    return descendants;
+  }
 
 module.exports = {
   s3,
@@ -187,5 +465,10 @@ module.exports = {
   downloadS3File,
   checkTrackAccess,
   combineAudioFiles,
-  generateSecureToken
+  generateSecureToken,
+  getBaseTrackSelectQuery,
+  getPopularFeedQuery,
+  getFollowingFeedQuery,
+  getForYouFeedQuery,
+  findAllDescendantTracks
 }; 

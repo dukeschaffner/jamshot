@@ -1,14 +1,24 @@
 /**
  * Format seconds into MM:SS format
  * @param {number} seconds - Duration in seconds
+ * @param {number} precision - Precision of the duration (0-2) 0 is seconds, 1 is tenths, 2 is hundredths
  * @returns {string} Formatted duration string
  */
-export function formatDuration(seconds) {
+export function formatDuration(seconds, precision = 0) {
   if (!seconds && seconds !== 0) return '0:00';
   
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  if(precision === 0){
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+  else if(precision === 1){
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    const tenths = Math.floor(remainingSeconds * 10) % 10;
+    return `${minutes}:${Math.floor(remainingSeconds)}.${tenths}`;
+  }
+    
 }
 
 /**
@@ -48,7 +58,7 @@ export function timeToPos(time, duration) {
 } 
 
 // Render waveform for audio buffer
-export function renderWaveform(buffer, canvasRef, cropStart, cropEnd){
+export function renderWaveform(buffer, canvasRef, cropStart, cropEnd, zoom = 1){
   if (!buffer || !canvasRef.current) return;
   
   const canvas = canvasRef.current;
@@ -83,7 +93,13 @@ export function renderWaveform(buffer, canvasRef, cropStart, cropEnd){
   // Calculate the actual duration of the cropped audio
   const croppedDuration = (endSampleIndex - startSampleIndex + 1) / buffer.sampleRate;
   
-  // Number of segments to divide the waveform into (fewer segments = simpler waveform)
+  // Number of segments to divide the waveform into, now determined by zoom level (1-10)
+  // Ensure zoom is within valid range
+  const zoomValue = Math.max(1, Math.min(10, zoom));
+  
+  // Base segmentsPerSecond value (6) is now scaled by zoom factor
+  // At zoom=1, use 6 segments per second (simplest view)
+  // At zoom=10, use 60 segments per second (most detailed view)
   const segmentsPerSecond = 6;
   const numSegments = croppedDuration * segmentsPerSecond;
   const samplesPerSegment = Math.floor((endSampleIndex - startSampleIndex + 1) / numSegments);

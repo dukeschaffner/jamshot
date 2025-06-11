@@ -43,8 +43,8 @@ export default function MoreDropdown() {
           <div className="notification-header">
           </div>
           <div className="notification-body">
-            <Link className="nav-link" href="/about"><FaInfoCircle />About</Link>
-            <Link className="nav-link" href="/faq"><FaQuestionCircle />FAQ</Link>
+            <Link className="nav-link" href="/about" onClick={() => setIsOpen(false)}><FaInfoCircle />About</Link>
+            <Link className="nav-link" href="/faq" onClick={() => setIsOpen(false)}><FaQuestionCircle />FAQ</Link>
           </div>
         </div>
       )}

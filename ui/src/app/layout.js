@@ -7,6 +7,7 @@ import './globals.css';
 import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
 import { UserProvider, useUser } from '../contexts/UserContext';
+import { NavigationGuardProvider } from 'next-navigation-guard';
 import NotificationDropdown from '../components/NotificationDropdown';
 import MoreDropdown from '../components/MoreDropdown';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
@@ -425,9 +426,11 @@ export default function RootLayout({ children }) {
         <UserProvider>
           <AudioProvider>
             <NotificationProvider>
-              <AppContent>
-                {children}
-              </AppContent>
+              <NavigationGuardProvider>
+                <AppContent>
+                  {children}
+                </AppContent>
+              </NavigationGuardProvider>
             </NotificationProvider>
           </AudioProvider>
         </UserProvider>

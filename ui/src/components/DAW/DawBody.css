@@ -276,14 +276,12 @@
 }
 
 /* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .measure-line {
-    background-color: black;
-  }
+body.dark-mode .measure-line {
+  background-color: black;
+}
   
-  .beat-line {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
+body.dark-mode .beat-line {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Empty state for recording */
@@ -301,7 +299,7 @@
 .waveform-container.empty:hover,
 .waveform-container.empty.drag-over {
   border-color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.05);
+  /* background-color: rgba(59, 130, 246, 0.05); */
 }
 
 /* .empty-message {
@@ -535,6 +533,7 @@
 }
 
 .daw-tracks-headers {
+  margin-top: 35px;
   display: flex;
   flex-direction: column;
   width:15%;
@@ -560,7 +559,7 @@
 
 /* Timeline */
 .timeline {
-  height: 100%;
+  height: 35px;
   position: relative;
   display: grid;
   grid-template-columns: 0px 1fr;
@@ -897,4 +896,231 @@
   0% { opacity: 0.7; }
   50% { opacity: 1; }
   100% { opacity: 0.7; }
+}
+
+/* Zoom control styles */
+.zoom-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.zoom-label {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  min-width: 75px;
+}
+
+.zoom-slider {
+  width: 150px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #d3d3d3;
+  outline: none;
+}
+
+.zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--seafoam, #93e9be);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.zoom-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--seafoam, #93e9be);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.zoom-reset-btn {
+  background-color: var(--light-gray, #e0e0e0);
+  color: var(--text-primary, #333);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.zoom-reset-btn:hover {
+  background-color: var(--gray, #c0c0c0);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .zoom-control {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .zoom-label {
+    color: var(--text-secondary-dark, #bbb);
+  }
+
+  .zoom-slider {
+    background: #555;
+  }
+
+  .zoom-reset-btn {
+    background-color: #444;
+    color: #ddd;
+  }
+
+  .zoom-reset-btn:hover {
+    background-color: #555;
+  }
+}
+
+/* Add scrolling container styles */
+.tracks-scroll-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  margin-bottom: 10px;
+  /* Enable smooth scrolling */
+  scroll-behavior: smooth;
+  /* Hide scrollbar in most browsers but keep functionality */
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray) transparent;
+}
+
+/* Customize scrollbar for Webkit browsers */
+.tracks-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tracks-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tracks-scroll-container::-webkit-scrollbar-thumb {
+  background-color: var(--gray);
+  border-radius: 3px;
+}
+
+.tracks-scroll-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-secondary);
+}
+
+/* Timeline styling for zoom */
+.timeline.zoomed {
+  position: relative;
+  transition: none; /* Disable transitions when zoomed for smoother scrolling */
+}
+
+/* When zoomed, make sure track rendering spans full width */
+.zoomed .waveform canvas {
+  width: 100% !important; /* Ensure canvas uses full width */
+}
+
+/* Ensure the waveform container's position is maintained when scrolling */
+.zoomed .waveform-container {
+  position: relative;
+}
+
+/* Adjust the daw-tracks-container when zoomed */
+.daw-tracks-container {
+  transition: width 0.3s ease;
+}
+
+/* Make the playhead maintain its relative position when zoomed */
+.zoomed .playhead {
+  transition: none; /* Disable transitions for smoother updates */
+}
+
+/* Ensure positioned elements stay relative to their container */
+.zoomed .looper,
+.zoomed .grid-line,
+.zoomed .time-marker {
+  transition: none; /* Disable transitions for smoother updates */
+}
+
+/* Ensure time markers are positioned correctly when zoomed */
+.zoomed .time-markers {
+  width: 100%; /* Ensure time markers container spans full width */
+}
+
+/* Add metronome-related styles */
+
+
+/* Metronome controls */
+.metronome-controls {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 16px;
+}
+
+/* Metronome offset controls */
+.metronome-offset-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 24px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.metronome-offset-handle {
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  cursor: ew-resize;
+  z-index: 15;
+}
+
+.metronome-offset-handle:hover {
+  transform: translateX(-50%) scale(1.2) !important;
+}
+
+.metronome-offset-handle:active {
+  transform: translateX(-50%) scale(0.9) !important;
+}
+
+/* Add info tooltip for metronome offset */
+.metronome-offset-handle::after {
+  content: attr(title);
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.metronome-offset-handle:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Dark mode support */
+body.dark-mode .metronome-offset-handle {
+  border-top-color: var(--seafoam-dark, #65d6ad) !important;
 }
