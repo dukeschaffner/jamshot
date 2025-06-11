@@ -18,7 +18,7 @@ function SearchContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   useEffect(() => {
-    const token = Cookies.get('token');
+    const token = Cookies.get('refresh_token');
     setIsLoggedIn(!!token);
     
     const fetchSearchResults = async () => {

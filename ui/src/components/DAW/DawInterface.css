@@ -1,0 +1,293 @@
+.slider-container {
+  width: 100%;
+  padding: 10px 0;
+}
+
+.form-range {
+  width: 100%;
+  height: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #e0e0e0;
+  outline: none;
+  border-radius: 4px;
+}
+
+.form-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #007aff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.form-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #007aff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.text-sm {
+  font-size: 12px;
+}
+
+.text-gray-500 {
+  color: #6b7280;
+}
+
+.mt-1 {
+  margin-top: 4px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.control-button.settings {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.control-button.settings:hover {
+  background-color: #e0e0e0;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #007aff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0062cc;
+}
+
+.btn-primary:disabled {
+  background-color: #99c5ff;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background-color: #e0e0e0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 15px;
+  border-top: 1px solid #e0e0e0;
+} 
+
+/* Track Header */
+.daw-interface {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+}
+
+.daw-interface .daw-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* BPM Control Styles */
+/* .bpm-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.bpm-control span {
+  font-weight: 500;
+  font-size: 14px;
+  min-width: 70px;
+  text-align: right;
+} */
+
+.bpm-input {
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  width: 50px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.bpm-input:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.2);
+}
+
+.metronome-toggle {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  border-radius: 3px;
+  padding: 4px;
+  transition: background-color 0.2s, color 0.2s;
+  margin-left: 8px;
+}
+
+.metronome-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.metronome-toggle.active {
+  color: var(--seafoam, #4CD9AC);
+}
+
+/* Metronome Volume Control Styles (moved from TracksWidget.css) */
+.metronome-volume-control {
+  display: flex;
+  align-items: center;
+  background-color: var(--darker-bg);
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-right: 10px;
+}
+
+.metronome-volume-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-right: 10px;
+  white-space: nowrap;
+}
+
+.metronome-volume-slider {
+  width: 100px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--gray);
+  outline: none;
+  border-radius: 2px;
+}
+
+.metronome-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--seafoam);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.metronome-volume-slider::-webkit-slider-thumb:hover {
+  background: var(--seafoam-light);
+  transform: scale(1.2);
+}
+
+.metronome-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--seafoam);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.metronome-volume-slider::-moz-range-thumb:hover {
+  background: var(--seafoam-light);
+  transform: scale(1.2);
+}
+
+/* Add CSS for the count-in toggle button */
+.count-in-toggle {
+  border: none;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.count-in-toggle.active {
+  color: var(--seafoam);
+}
+
+.count-in-icon {
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.time-signature-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+  width: 100px;
+}
+
+.time-signature-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  font-size: 14px;
+}
+
+.time-signature-option:hover {
+  background-color: #f0f0f0;
+}
+
+.time-signature-option.active {
+  background-color: var(--seafoam-light);
+  color: #fff;
+}

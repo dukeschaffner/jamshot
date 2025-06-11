@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../lib/api';
 import Track from '../components/Track';
 import { FaSpinner, FaTimes, FaInfoCircle, FaMicrophone, FaCode, FaMusic } from 'react-icons/fa';
+import { useUser } from '../contexts/UserContext';
 
 export default function Home() {
   const [tracks, setTracks] = useState([]);
@@ -11,11 +12,11 @@ export default function Home() {
   const [error, setError] = useState('');
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [feedType, setFeedType] = useState('mixed'); // 'mixed', 'following', 'popular'
+  const [feedType, setFeedType] = useState('for-you'); // Options: 'for-you', 'following', 'popular'
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const observer = useRef();
   const TRACKS_PER_PAGE = 5;
-
+  const { isAuthenticated } = useUser();
   // Check if this is the first visit when component mounts
   useEffect(() => {
     const hasVisitedBefore = localStorage.getItem('jamshot_visited');
@@ -44,11 +45,14 @@ export default function Home() {
   const fetchTracks = useCallback(async (pageNum, feedTypeValue) => {
     try {
       setLoading(true);
-      const response = await api.get('/tracks/feed', {
+      
+      // Call the appropriate endpoint based on feedType
+      const endpoint = `/tracks/feed/${feedTypeValue}`;
+      
+      const response = await api.get(endpoint, {
         params: {
           page: pageNum,
-          limit: TRACKS_PER_PAGE,
-          feedType: feedTypeValue
+          limit: TRACKS_PER_PAGE
         }
       });
       
@@ -161,17 +165,19 @@ export default function Home() {
         
         <div className="feed-tabs">
           <button
-            onClick={() => handleFeedTypeChange('mixed')}
-            className={`feed-tab ${feedType === 'mixed' ? 'active' : ''}`}
+            onClick={() => handleFeedTypeChange('for-you')}
+            className={`feed-tab ${feedType === 'for-you' ? 'active' : ''}`}
           >
             For You
           </button>
-          <button
-            onClick={() => handleFeedTypeChange('following')}
-            className={`feed-tab ${feedType === 'following' ? 'active' : ''}`}
-          >
-            Following
-          </button>
+          {isAuthenticated && (
+            <button
+              onClick={() => handleFeedTypeChange('following')}
+              className={`feed-tab ${feedType === 'following' ? 'active' : ''}`}
+            >
+              Following
+              </button>
+          )}
           <button
             onClick={() => handleFeedTypeChange('popular')}
             className={`feed-tab ${feedType === 'popular' ? 'active' : ''}`}

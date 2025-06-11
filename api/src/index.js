@@ -23,7 +23,11 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (origin === 'https://main.d1uxbz6x3vcvvs.amplifyapp.com') {
+    if (origin === 'https://main.d3cx888lrkmdbn.amplifyapp.com') {
+      return callback(null, true);
+    }
+
+    if (origin === 'https://sterio.fm') {
       return callback(null, true);
     }
     // Deny other origins

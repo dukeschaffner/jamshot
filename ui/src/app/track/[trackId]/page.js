@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
 import api from '@/lib/api';
-import DawInterface from '@/components/DawInterface';
+import DawInterface from '@/components/DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
 import './collaborate.css';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit } from 'react-icons/fa';
@@ -267,7 +267,7 @@ function TrackContent() {
                 <button 
                   className={`privacy-btn ${isPrivate ? 'private' : 'public'}`}
                   onClick={handlePrivacyToggle}
-                  disabled={isPrivacyToggleInProgress}
+                  disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
                 >
                   {isPrivate ? (
                     <>
