@@ -56,14 +56,14 @@ function AboutContent() {
   return (
     <div className="about-container">
       <div className="about-header">
-        <h1 className="about-title">About JamShot</h1>
+        <h1 className="about-title">About Sterio</h1>
         <p className="about-subtitle">Empowering musicians to collaborate and create together</p>
       </div>
       
       {paymentStatus === 'success' && (
         <div className="payment-status success">
           <h3>Thank you for your support!</h3>
-          <p>Your donation helps us continue to build and improve JamShot for musicians everywhere.</p>
+          <p>Your donation helps us continue to build and improve Sterio for musicians everywhere.</p>
         </div>
       )}
       
@@ -84,7 +84,7 @@ function AboutContent() {
           <h2 className="section-title">Our Vision</h2>
           <div className="vision-text">
             <p>
-              JamShot was born from a simple idea: <strong>redefine the way we share music</strong>. 
+              Sterio was born from a simple idea: <strong>redefine the way we share music</strong>. 
               As a musician myself, I&apos;ve experienced the magic that happens when artists collaborate, 
               bringing different perspectives, skills, and ideas to the creative process.
             </p>
@@ -93,12 +93,12 @@ function AboutContent() {
               collaborative DAWs require extensive setup, where you must first find potential collaborators, 
               create and configure a new project, and then often face the awkwardness of starting with 
               no initial ideas or natural inspiration. This formal, structured approach removes the spontaneity 
-              and natural flow that makes in-person jam sessions so creative and productive. JamShot eliminates 
+              and natural flow that makes in-person jam sessions so creative and productive. Sterio eliminates 
               these barriers by creating a space where collaboration happens organically, driven by the music itself.
             </p>
             <p>
               In today&apos;s digital world, musicians are often separated by distance, but that shouldn&apos;t 
-              limit our ability to create together. JamShot bridges this gap by providing a platform 
+              limit our ability to create together. Sterio bridges this gap by providing a platform 
               where musicians can freely share their work, find collaborators, and build upon each other&apos;s 
               creativity in a seamless, intuitive way.
             </p>
@@ -111,17 +111,17 @@ function AboutContent() {
               <li><strong>Simplifying music creation</strong> — We&apos;re removing technical barriers so that your only limit is your imagination. Making and sharing music should be intuitive for everyone, from beginners to professionals.</li>
             </ul>
             <p>
-              JamShot is pioneering a first-of-its-kind social media platform for music, where instead of sharing text-based
+              Sterio is pioneering a first-of-its-kind social media platform for music, where instead of sharing text-based
               posts and comments, you can share your ideas or comments through music,
               creating a dynamic ecosystem of sound and creativity.
             </p>
             <p>
-              We believe the future of music lies in open connection and collaboration. JamShot isn&apos;t just a platform—it&apos;s 
+              We believe the future of music lies in open connection and collaboration. Sterio isn&apos;t just a platform—it&apos;s 
               a movement toward a more vibrant, inclusive musical community where every artist can find their voice 
               and their perfect collaborators.
             </p>
             <p className="join-cta">
-              Ready to transform the way you create? <strong>Join JamShot today</strong> and become part of the collaborative music revolution.
+              Ready to transform the way you create? <strong>Join Sterio today</strong> and become part of the collaborative music revolution.
             </p>
           </div>
         </section>
@@ -153,9 +153,9 @@ function AboutContent() {
         </section>
         
         <section className="support-section">
-          <h2 className="section-title">Support JamShot</h2>
+          <h2 className="section-title">Support Sterio</h2>
           <p className="support-text">
-            JamShot is a passion project created to support independent musicians. Your donations 
+            Sterio is a passion project created to support independent musicians. Your donations 
             help us maintain the platform, develop new features, and keep the service accessible 
             to artists everywhere.
           </p>
@@ -251,7 +251,7 @@ function AboutContent() {
               <p className="creator-title">Founder & Developer</p>
               <p className="creator-bio">
                 Musician, developer, and passionate advocate for collaborative creation. 
-                I built JamShot to solve problems I faced as an independent artist looking 
+                I built Sterio to solve problems I faced as an independent artist looking 
                 to collaborate with others.
               </p>
               <div className="creator-social">
