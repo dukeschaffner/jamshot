@@ -324,7 +324,7 @@ function AppContent({ children }) {
       <nav className="navbar">
         <div className="logo">
           <Link href="/">
-            <span>JamShot</span>
+            <span>sterio</span>
           </Link>
         </div>
         
@@ -420,7 +420,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <head>
         <link rel="icon" type="image/svg+xml" href="/next.svg" />
-        <title>JamShot</title>
+        <title>sterio</title>
       </head>
       <body>
         <UserProvider>

@@ -33,10 +33,10 @@ const sendVerificationEmail = async (email, userId, username) => {
   const mailOptions = {
     from: process.env.EMAIL,
     to: email,
-    subject: 'Verify your JamShot account',
+    subject: 'Verify your Sterio account',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Welcome to JamShot, ${username}!</h2>
+        <h2 style="color: #333;">Welcome to Sterio, ${username}!</h2>
         <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify Email</a>
@@ -44,7 +44,7 @@ const sendVerificationEmail = async (email, userId, username) => {
         <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
         <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
         <p>This link will expire in 24 hours.</p>
-        <p>If you didn't create an account on JamShot, you can safely ignore this email.</p>
+        <p>If you didn't create an account on Sterio, you can safely ignore this email.</p>
       </div>
     `
   };
@@ -74,7 +74,7 @@ const sendPasswordResetEmail = async (email, userId, username) => {
   const mailOptions = {
     from: process.env.EMAIL,
     to: email,
-    subject: 'Reset your JamShot password',
+    subject: 'Reset your Sterio password',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">Password Reset Request</h2>
