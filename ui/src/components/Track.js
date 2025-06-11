@@ -301,7 +301,7 @@ export default function Track(
             {track?.parent_track_id ? 
             (
               <>
-                <b>Layer {track.layer}</b> - Based on "{track.original_title}" by {track.original_username}
+                <b>Layer {track.layer}</b> - Based on &quot;{track.original_title}&quot; by {track.original_username}
               </>) 
             : (<b>Original track</b>)}
           </div>
