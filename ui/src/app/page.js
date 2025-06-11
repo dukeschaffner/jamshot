@@ -19,11 +19,11 @@ export default function Home() {
   const { isAuthenticated } = useUser();
   // Check if this is the first visit when component mounts
   useEffect(() => {
-    const hasVisitedBefore = localStorage.getItem('jamshot_visited');
+    const hasVisitedBefore = localStorage.getItem('sterio_visited');
     if (!hasVisitedBefore) {
       setShowWelcomeDialog(true);
       // Set the flag in localStorage so dialog won't show on future visits
-      localStorage.setItem('jamshot_visited', 'true');
+      localStorage.setItem('sterio_visited', 'true');
     }
   }, []);
 
@@ -102,7 +102,7 @@ export default function Home() {
         }}>
           <div className="modal-content">
             <div className="modal-header">
-              <h2 className="modal-title">Welcome to JamShot!</h2>
+              <h2 className="modal-title">Welcome to sterio!</h2>
               <button 
                 className="close-btn" 
                 onClick={closeWelcomeDialog}
@@ -115,7 +115,7 @@ export default function Home() {
               <div style={{ marginBottom: '24px', textAlign: 'center' }}>
                 <FaMusic style={{ fontSize: '48px', color: 'var(--primary-color)', marginBottom: '16px' }} />
                 <p style={{ fontSize: '16px', marginBottom: '24px' }}>
-                  JamShot is a social platform where musicians can collaborate with each other!
+                  sterio is a social platform where musicians can collaborate with each other!
                 </p>
               </div>
               
