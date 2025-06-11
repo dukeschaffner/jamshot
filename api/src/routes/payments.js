@@ -23,8 +23,8 @@ router.post('/create-checkout-session', authMiddleware, async (req, res) => {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'JamShot Supporter Donation',
-              description: 'Thank you for supporting JamShot!',
+              name: 'Sterio Supporter Donation',
+              description: 'Thank you for supporting Sterio!',
             },
             unit_amount: amountInCents,
           },
