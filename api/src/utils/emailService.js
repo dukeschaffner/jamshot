@@ -2,9 +2,11 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-// Create a transporter using Gmail credentials
+// Create a transporter using custom SMTP credentials
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.SMTP_HOST, // e.g., 'smtp.zoho.com' or your provider's SMTP host
+  port: parseInt(process.env.SMTP_PORT, 10), // e.g., 465 or 587
+  secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
   auth: {
     user: process.env.EMAIL,
     pass: process.env.EMAIL_PASSWORD
