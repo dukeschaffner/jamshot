@@ -176,7 +176,7 @@ export default function UploadForm({
                     </>
                   )}
                 </li>
-                <li>If the original track's privacy status changes from private to public, your collaboration will also become public.</li>
+                <li>If the original track&apos;s privacy status changes from private to public, your collaboration will also become public.</li>
                 <li>You will have <strong>no control</strong> over the privacy status of your collaboration.</li>
                 <li>All collaborations on the same track will share the same privacy status and access keys.</li>
               </ul>
@@ -258,7 +258,7 @@ export default function UploadForm({
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
                 <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
                 <p className="text-sm text-gray-700">
-                  Select the time signature that matches your track's rhythm. This helps collaborators maintain the correct musical structure.
+                  Select the time signature that matches your track&apos;s rhythm. This helps collaborators maintain the correct musical structure.
                 </p>
               </div>
             </div>
