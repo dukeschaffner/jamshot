@@ -245,7 +245,12 @@ function AboutContent() {
         <section className="team-section">
           <h2 className="section-title">Meet the Creator</h2>
           <div className="creator-profile">
-            <div className="creator-image"></div>
+            <img
+              className="creator-image"
+              src={`https://s3.us-east-2.amazonaws.com/${process.env.NEXT_PUBLIC_S3_BUCKET}/images/static/about_bio_pic.jpg`}
+              alt="Duke Schaffner bio photo"
+              style={{ objectFit: 'cover' }}
+            />
             <div className="creator-info">
               <h3>Duke Schaffner</h3>
               <p className="creator-title">Founder & Developer</p>

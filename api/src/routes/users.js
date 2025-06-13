@@ -447,6 +447,7 @@ router.get('/:userId/reposts', async (req, res) => {
       JOIN tracks t ON r.track_id = t.id
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id = $1
       ORDER BY r.created_at DESC
     `, queryParams);
