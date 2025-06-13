@@ -32,22 +32,7 @@
 }
 
 
-.bpm-control {
-  display: flex;
-  position: relative;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background-color: var(--gray-light);
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
 
-.dark-mode .bpm-control {
-  background-color: var(--dark-hover-color);
-  color: var(--dark-text-primary);
-}
 
 .metronome-toggle {
   background: transparent;
@@ -65,24 +50,6 @@
   color: var(--seafoam-light);
 }
 
-
-.empty-message {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: var(--text);
-  font-size: 0.9rem;
-}
-
-.dark-mode .empty-message {
-  color: var(--dark-text-secondary);
-}
-
-.empty-message svg {
-  font-size: 1.5rem;
-  color: var(--rustic-pink);
-}
 
 .start-collab-btn {
   padding: 8px 16px;

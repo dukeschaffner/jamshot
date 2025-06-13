@@ -85,7 +85,6 @@ TODO (MVP)
 - audio ads
 - feed ads
 - how to page with tutorials
-- dont allow spaces in username
 
 
 BUGS

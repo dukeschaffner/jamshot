@@ -97,7 +97,34 @@ const sendPasswordResetEmail = async (email, userId, username) => {
   return transporter.sendMail(mailOptions);
 };
 
+/**
+ * Send a contact form email
+ * @param {Object} param0
+ * @param {string} param0.name - Sender's name
+ * @param {string} param0.email - Sender's email
+ * @param {string} param0.message - Message content
+ * @returns {Promise} - Resolves when email is sent
+ */
+const sendContactEmail = async ({ name, email, message }) => {
+  const mailOptions = {
+    from: process.env.EMAIL,
+    to: 'hello@sterio.fm',
+    subject: `Contact Form Submission from ${name}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">New Contact Form Submission</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong></p>
+        <div style="background: #f9f9f9; padding: 16px; border-radius: 6px;">${message.replace(/\n/g, '<br>')}</div>
+      </div>
+    `
+  };
+  return transporter.sendMail(mailOptions);
+};
+
 module.exports = {
   sendVerificationEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendContactEmail
 }; 

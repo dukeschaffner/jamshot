@@ -40,7 +40,7 @@ export default function MoreDropdown() {
 
       {isOpen && (
         <div className="notification-panel">
-          <div className="notification-header">
+          <div className="more-dropdown-header">
           </div>
           <div className="notification-body">
             <Link className="nav-link" href="/about" onClick={() => setIsOpen(false)}><FaInfoCircle />About</Link>

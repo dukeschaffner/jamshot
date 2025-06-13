@@ -259,11 +259,11 @@ function AboutContent() {
                 I built Sterio to solve problems I faced as an independent artist looking 
                 to collaborate with others.
               </p>
-              <div className="creator-social">
+              {/* <div className="creator-social">
                 <a href="#" className="social-link"><FaGithub /></a>
                 <a href="#" className="social-link"><FaTwitter /></a>
                 <a href="#" className="social-link"><FaInstagram /></a>
-              </div>
+              </div> */}
             </div>
           </div>
         </section>

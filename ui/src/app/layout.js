@@ -289,8 +289,8 @@ function AppContent({ children }) {
   // Theme setup
   useEffect(() => {
     // Check for saved theme preference or use preferred color scheme
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedTheme = 'light';//localStorage.getItem('theme');
+    const prefersDark = false;//window.matchMedia('(prefers-color-scheme: dark)').matches;
     
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
       document.body.classList.add('dark-mode');
@@ -301,7 +301,8 @@ function AppContent({ children }) {
   const toggleTheme = (e) => {
     e.preventDefault();
     document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
+    const isDark = false;//document.body.classList.contains('dark-mode');
+    
     setDarkMode(isDark);
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
   };
@@ -358,10 +359,10 @@ function AppContent({ children }) {
           
           {/* Navigation links remain unchanged */}
           
-          <a href="#" className="nav-link theme-toggle" onClick={toggleTheme}>
+          {/* <a href="#" className="nav-link theme-toggle" onClick={toggleTheme}>
             {darkMode ? <FaMoon /> : <FaSun />}
             <span>{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
-          </a>
+          </a> */}
         </div>
         
         {isAuthenticated ? (

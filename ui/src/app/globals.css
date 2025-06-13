@@ -3454,6 +3454,14 @@ body.dark-mode .notification-panel {
   border-bottom: 1px solid var(--border);
 }
 
+.more-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
 body.dark-mode .notification-header {
   border-bottom-color: var(--dark-border);
 }
@@ -4784,4 +4792,64 @@ body.dark-mode .delete-description {
 
 body.dark-mode .track-layer-message {
   color: var(--dark-text-secondary);
+}
+
+/* DAW INTERFACE */
+
+.daw-interface {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+}
+
+.daw-interface .daw-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.control-button.settings {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.control-button.settings:hover {
+  background-color: #e0e0e0;
+}
+
+.bpm-control {
+  display: flex;
+  position: relative;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: var(--gray-light);
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.dark-mode .bpm-control {
+  background-color: var(--dark-hover-color);
+  color: var(--dark-text-primary);
+}
+
+
+.empty-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.dark-mode .empty-message {
+  color: var(--dark-text-secondary);
+}
+
+.empty-message svg {
+  font-size: 1.5rem;
+  color: var(--rustic-pink);
 }
