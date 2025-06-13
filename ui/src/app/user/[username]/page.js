@@ -48,6 +48,7 @@ export default function UserPage() {
   const [loadingFollowing, setLoadingFollowing] = useState(false);
   const followersListRef = useRef(null);
   const followingListRef = useRef(null);
+  const [usernameError, setUsernameError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -255,17 +256,21 @@ export default function UserPage() {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    setUsernameError('');
+    // Validate username
+    if (!/^\w+$/.test(editForm.username)) {
+      setUsernameError('Username can only contain letters, numbers, and underscores.');
+      return;
+    }
+    // Validate name is provided
+    if (!editForm.name || editForm.name.trim() === '') {
+      alert('Full name is required');
+      return;
+    }
     try {
-      // Validate name is provided
-      if (!editForm.name || editForm.name.trim() === '') {
-        alert('Full name is required');
-        return;
-      }
-      
       const response = await api.put('/users/me', editForm);
       setUserProfile(response.data);
       setIsEditing(false);
-      
       // If the username was changed, refresh the page
       if (response.data.username !== username) {
         router.refresh();
@@ -441,10 +446,18 @@ export default function UserPage() {
                   type="text"
                   id="username"
                   value={editForm.username}
-                  onChange={(e) => setEditForm({...editForm, username: e.target.value})}
+                  onChange={(e) => {
+                    setEditForm({...editForm, username: e.target.value});
+                    if (!/^\w*$/.test(e.target.value)) {
+                      setUsernameError('Username can only contain letters, numbers, and underscores.');
+                    } else {
+                      setUsernameError('');
+                    }
+                  }}
                   className="form-control"
                   required
                 />
+                {usernameError && <div className="input-error">{usernameError}</div>}
               </div>
               <div className="form-group">
                 <label htmlFor="name">Full Name</label>

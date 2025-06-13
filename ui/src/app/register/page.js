@@ -16,6 +16,7 @@ export default function Register() {
   const [isRegistered, setIsRegistered] = useState(false);
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
   const router = useRouter();
   const { refreshUser } = useUser();
 
@@ -23,14 +24,18 @@ export default function Register() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    
+    setUsernameError('');
+    // Validate username
+    if (!/^\w+$/.test(username)) {
+      setUsernameError('Username can only contain letters, numbers, and underscores.');
+      return;
+    }
     // Check if passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       setShowPasswordRequirements(true);
       return;
     }
-    
     setIsRegistering(true);
     
     try {
@@ -82,12 +87,20 @@ export default function Register() {
               id="username"
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (!/^\w*$/.test(e.target.value)) {
+                  setUsernameError('Username can only contain letters, numbers, and underscores.');
+                } else {
+                  setUsernameError('');
+                }
+              }}
               placeholder="Username"
               className="w-full p-2 border rounded"
               required
               disabled={isRegistering}
             />
+            {usernameError && <div className="input-error text-red-600 text-sm mt-1">{usernameError}</div>}
           </div>
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">

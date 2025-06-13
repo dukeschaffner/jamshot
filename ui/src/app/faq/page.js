@@ -19,7 +19,7 @@ export default function FAQPage() {
     {
       id: 'daw',
       question: 'How can I use my own DAW to record audio?',
-      answer: 'You can use any Digital Audio Workstation (DAW) of your choice to record and produce your tracks. Once you\'ve finished your track, export it as a high-quality MP3 or WAV file, then upload it to Sterio using our upload feature. We accept most common audio formats including MP3, WAV, AIFF, and FLAC.'
+      answer: 'To use your DAW with Sterio, install a virtual audio output plugin and place it on your DAW’s master output. Then, set that virtual output as the input source in Sterio. Muse provides a free virtual audio output plugin compatible with both Windows and Mac.'      
     },
     {
       id: 'algorithm',
@@ -34,7 +34,7 @@ export default function FAQPage() {
     {
       id: 'verified',
       question: 'How do I get verified?',
-      answer: 'To get verified on Sterio, you need to meet certain eligibility criteria: have an active account with regular uploads, build a substantial following, and have a complete profile. Once eligible, you can apply for verification through your account settings. Our team will review your application and verify your identity. Verification provides a blue checkmark on your profile and access to additional features.'
+      answer: 'To get verified on Sterio, you need to meet certain eligibility criteria: have an active account with regular uploads, build a substantial following, and have a complete profile. Once eligible, you can apply for verification by sending us an email. Our team will review your application and verify your identity. Verification provides a blue checkmark on your profile.'
     }
   ];
 

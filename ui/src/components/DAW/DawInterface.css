@@ -66,14 +66,7 @@
   margin-top: 16px;
 }
 
-.control-button.settings {
-  background-color: #f0f0f0;
-  color: #333;
-}
 
-.control-button.settings:hover {
-  background-color: #e0e0e0;
-}
 
 .btn {
   padding: 8px 16px;
@@ -116,18 +109,7 @@
 } 
 
 /* Track Header */
-.daw-interface {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 20px;
-}
 
-.daw-interface .daw-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
 
 /* BPM Control Styles */
 /* .bpm-control {

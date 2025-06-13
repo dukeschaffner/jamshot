@@ -77,6 +77,11 @@ router.post('/register', async (req, res) => {
   const { username, name, email, password } = req.body;
   const deviceInfo = req.headers['user-agent'] || null;
   
+  // Username validation: only allow letters, numbers, and underscores
+  if (!/^\w+$/.test(username)) {
+    return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores.' });
+  }
+  
   try {
     // Validate password
     const passwordValidation = validatePassword(password);

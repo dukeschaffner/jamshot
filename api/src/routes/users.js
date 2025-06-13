@@ -472,6 +472,11 @@ router.put('/me', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Full name is required' });
     }
     
+    // Username validation: only allow letters, numbers, and underscores
+    if (username && !/^\w+$/.test(username)) {
+      return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores.' });
+    }
+    
     // Check if username is taken (if username is being updated)
     if (username) {
       const existingUser = await pool.query(
