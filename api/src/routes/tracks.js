@@ -169,14 +169,14 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];
   
   // Parse metronome_bpm if provided
-  const parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
+  let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
   
   // Parse gain values with fallbacks to default values (1.0 = full volume)
   const parsedOriginalGain = original_gain ? parseFloat(original_gain) : 0.8;
   const parsedRecordingGain = recording_gain ? parseFloat(recording_gain) : 0.8;
 
   // Use the provided time signature or default to 4/4
-  const parsedTimeSignature = time_signature || '4/4';
+  let parsedTimeSignature = time_signature || '4/4';
   
   // Parse the private flag (convert string 'true'/'false' to boolean if needed)
   let isPrivate = is_private === 'true' || is_private === true;
@@ -226,8 +226,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
       
       isPrivate = parentIsPrivate;
 
-      metronome_bpm = parentTrack.metronome_bpm;
-      time_signature = parentTrack.time_signature;
+      parsedMetronomeBpm = parentTrack.metronome_bpm;
+      parsedTimeSignature = parentTrack.time_signature;
       // Use parent's metronome offset for collaborations
       parsedMetronomeOffset = parentTrack.metronome_offset || 0;
 

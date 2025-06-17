@@ -11,7 +11,7 @@ Goals/VALUE
 - music collaboration as a social media
 - Democratize music creation
 - allow musicians to make a meaningful/valuable piece of work without having to complete the process of recording a song from start to finish
-- tracks will be capped at 1:30 to make it simple, fun, and pair well with short form video content like Tik Tok.
+- tracks around 30-90s will be prioritized in the algorithm to make it simple, fun, and pair well with short form video content like Tik Tok.
 - The equivalent of going from books/publications to posts on social media. New content is released daily and from more sources, and just as social media posts allow you to comment your textual thoughts/ideas on someone else's textual posts, with this app, you can comment your musical thoughts/ideas on someone else's musical posts
 - the simple DAW makes it easy to get into music recording
 
@@ -85,12 +85,18 @@ TODO (MVP)
 - audio ads
 - feed ads
 - how to page with tutorials
+- collab upload - redirect to home or refresh track page on submit
+- make usernames lowercase
+- waveforms being weird with longer tracks
+- country/state/DOB
 
 
 BUGS
 - dark mode inconsistencies
 - logging in on collab or upload shouldnt lose progress
 - handle deleting takes during playback
+- make sure updating profile refreshes data in navbar and url route if on user page and username changed
+- users should not have option to follow themselves
 
 
 
@@ -121,6 +127,25 @@ TODO (after beta testing)
 - invite people to collab on private tracks (groups)?
 - "add on" option where instead of adding layers, they can add audio before or after
 
+
+MONETIZATION
+- ads
+- premium subscription
+- selling samples
+- streaming revenue from published collabs
+- pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
+- sponsored competitions from audio companies (best Sketch Cassette track)
+
+PREMIUM
+- no ads
+- 5 free samples/month
+- analytics
+- advanced DAW
+- private tracks?
+- selling samples?
+- unlimited uploads/daily
+- unlimited total uploads
+- longer recording limit (5 minutes for free, 10 minutes for premium)
 
 
 LEGAL
