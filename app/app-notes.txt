@@ -86,8 +86,8 @@ TODO (MVP)
 - feed ads
 - how to page with tutorials
 - collab upload - redirect to home or refresh track page on submit
-- make usernames lowercase
 - waveforms being weird with longer tracks
+- weird trimming behavior
 - country/state/DOB
 
 
