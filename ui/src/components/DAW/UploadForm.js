@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import TagSelector from '../TagSelector';
-import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle } from 'react-icons/fa';
+import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faLock } from '@fortawesome/free-solid-svg-icons';
 import './UploadForm.css';
@@ -30,6 +30,7 @@ export default function UploadForm({
   const [metronomeBpmInput, setMetronomeBpmInput] = useState(metronomeBpm.toString());
   const [timeSignatureInput, setTimeSignatureInput] = useState(timeSignature);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [allowDownload, setAllowDownload] = useState(true);
   const router = useRouter();
 
   // Sync with parent component when props change
@@ -125,6 +126,9 @@ export default function UploadForm({
         formData.append('is_private', isPrivate);
         formData.append('metronome_offset', metronomeOffset);
       }
+      
+      // Add download permission for both regular tracks and collaborations
+      formData.append('allow_download', allowDownload);
 
       const response = await api.post('/tracks/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -270,19 +274,21 @@ export default function UploadForm({
         
         {/* Privacy option - only show for non-collab tracks */}
         {!isCollab && (
-          <div className="flex items-center space-x-2 mt-4">
-            <input
-              type="checkbox"
-              id="isPrivate"
-              checked={isPrivate}
-              onChange={(e) => setIsPrivate(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <label htmlFor="isPrivate" className="flex items-center text-sm">
-              <FontAwesomeIcon icon={faLock} className="mr-2 text-gray-600" />
-              Make this track private
-              <span className="ml-2 text-xs text-gray-500">(Only you will be able to see it)</span>
-            </label>
+          <>
+            <div className="flex items-center space-x-2 mt-4">
+              <input
+                type="checkbox"
+                id="isPrivate"
+                checked={isPrivate}
+                onChange={(e) => setIsPrivate(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <label htmlFor="isPrivate" className="flex items-center text-sm">
+                <FontAwesomeIcon icon={faLock} className="mr-2 text-gray-600" />
+                Make this track private
+                <span className="ml-2 text-xs text-gray-500">(Only you will be able to see it)</span>
+              </label>
+            </div>
             
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
               <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
@@ -290,8 +296,31 @@ export default function UploadForm({
                 <strong>Note:</strong> If you make this track public later and it has collaborations, all collaborations will also become public. Once your track has collaborations, you cannot make it private again.
               </p>
             </div>
-          </div>
+          </>
         )}
+
+        {/* Download permission - show for both regular tracks and collaborations */}
+        <div className="flex items-center space-x-2 mt-4">
+          <input
+            type="checkbox"
+            id="allowDownload"
+            checked={allowDownload}
+            onChange={(e) => setAllowDownload(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <label htmlFor="allowDownload" className="flex items-center text-sm">
+            <FaDownload className="mr-2 text-gray-600" />
+            Allow users to download this audio file
+            <span className="ml-2 text-xs text-gray-500">(Recommended for sharing)</span>
+          </label>
+        </div>
+        
+        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded flex items-start">
+          <FaInfoCircle className="text-green-500 mt-1 mr-2 flex-shrink-0" />
+          <p className="text-sm text-gray-700">
+            <strong>Tip:</strong> Allowing downloads helps other musicians collaborate with your track and gives you more exposure in the community.
+          </p>
+        </div>
         
         {error && <p className="text-red-500">{error}</p>}
         

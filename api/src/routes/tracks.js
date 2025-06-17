@@ -121,7 +121,7 @@ id/tree endpoint
 
 
 router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
-  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset } = req.body;
+  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset, allow_download } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
@@ -139,6 +139,7 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   console.log('- Time signature:', time_signature || '4/4 (default)');
   console.log('- Metronome offset:', parsedMetronomeOffset);
   console.log('- Private:', is_private ? 'Yes' : 'No');
+  console.log('- Allow download:', allow_download !== 'false' ? 'Yes' : 'No');
 
   // Check if user has reached their daily upload limit (3 uploads per day)
   try {
@@ -180,6 +181,9 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
   
   // Parse the private flag (convert string 'true'/'false' to boolean if needed)
   let isPrivate = is_private === 'true' || is_private === true;
+  
+  // Parse the allow_download flag (default to true if not provided)
+  let allowDownload = allow_download !== 'false' && allow_download !== false;
 
   let audioUrl, combinedAudioUrl, duration;
   const tempDir = path.join(__dirname, '../../temp');
@@ -289,8 +293,8 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     }
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset]
+        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *',
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload]
     );
     
     const trackId = result.rows[0].id;
@@ -1360,6 +1364,58 @@ router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error('Error refreshing track URL:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Download a track
+router.get('/:id/download', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { secret } = req.query; // Secret token for private tracks
+  
+  try {
+    // Check if the track exists and if user has access
+    const accessCheck = await checkTrackAccess(id, userId, secret);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
+    }
+    
+    // Get the track details
+    const result = await pool.query(
+      `SELECT t.*, u.username as username
+       FROM tracks t
+       JOIN users u ON t.user_id = u.id
+       WHERE t.id = $1`,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const trackData = result.rows[0];
+    
+    // Check if downloads are allowed for this track
+    if (!trackData.allow_download) {
+      return res.status(403).json({ error: 'Downloads are not allowed for this track' });
+    }
+    
+    // Generate signed URL for download (use combined_audio_url for full track)
+    const audioKey = trackData.combined_audio_url || trackData.audio_url;
+    const downloadUrl = generateSignedUrl(audioKey, 300); // 5 minute expiry for downloads
+    
+    // Set appropriate headers for download
+    const filename = `${trackData.title} - ${trackData.username}.mp3`;
+    
+    // Return the download URL with proper headers
+    res.json({
+      download_url: downloadUrl,
+      filename: filename,
+      track_id: trackData.id
+    });
+  } catch (err) {
+    console.error('Error generating download URL:', err);
     res.status(500).json({ error: err.message });
   }
 });

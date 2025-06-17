@@ -9,7 +9,7 @@ import api from '@/lib/api';
 import DawInterface from '@/components/DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
 import './collaborate.css';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit } from 'react-icons/fa';
+import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit, FaDownload } from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
 
 // Component that uses useSearchParams, wrapped in Suspense
@@ -171,6 +171,36 @@ function TrackContent() {
     }
   };
 
+  const handleDownload = async () => {
+    if (!track.allow_download) {
+      return;
+    }
+    
+    try {
+      // Use the API endpoint to get the download URL
+      const response = await api.get(`/tracks/${trackId}/download`);
+      const { download_url, filename } = response.data;
+      
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement('a');
+      link.href = download_url;
+      link.download = filename;
+      link.target = '_blank';
+      
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Failed to download track:', err);
+      if (err.response?.status === 403) {
+        alert('Downloads are not allowed for this track');
+      } else {
+        alert('Failed to download track. Please try again later.');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -217,6 +247,17 @@ function TrackContent() {
              <span className="meta-item"><FaPlay/> {track?.play_count || 0}</span>
              <span className="meta-item"><FaHeart/> {track?.like_count || 0}</span>
              <span className="meta-item"><FaCodeBranch/> {track?.collab_count || 0} collabs</span>
+             {track?.allow_download && (
+               <span className="meta-item">
+                 <button 
+                   className="download-btn" 
+                   onClick={handleDownload}
+                   title="Download audio file"
+                 >
+                   <FaDownload />
+                 </button>
+               </span>
+             )}
            </div>
            <div className="custom-tabs">
             <button 
