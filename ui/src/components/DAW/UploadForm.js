@@ -158,7 +158,7 @@ export default function UploadForm({
       </h1>
       
       {/* Add privacy warning for collaborations */}
-      {isCollab && (
+      {isCollab && parentTrack?.is_private && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-md">
           <div className="flex items-start">
             <FaExclamationTriangle className="text-yellow-500 mt-1 mr-3 flex-shrink-0" size={20} />
@@ -166,15 +166,7 @@ export default function UploadForm({
               <h3 className="font-semibold mb-2">Privacy Notice for Collaborations</h3>
               <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
                 <li>
-                  {parentTrack?.is_private ? (
-                    <>
-                      <FaLock className="inline mr-1" /> This collaboration will be <strong>private</strong> because the original track is private.
-                    </>
-                  ) : (
-                    <>
-                      <FaLockOpen className="inline mr-1" /> This collaboration will be <strong>public</strong> because the original track is public.
-                    </>
-                  )}
+                  <FaLock className="inline mr-1" /> This collaboration will be <strong>private</strong> because the original track is private.
                 </li>
                 <li>If the original track&apos;s privacy status changes from private to public, your collaboration will also become public.</li>
                 <li>You will have <strong>no control</strong> over the privacy status of your collaboration.</li>
