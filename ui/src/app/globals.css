@@ -4853,3 +4853,33 @@ body.dark-mode .track-layer-message {
   font-size: 1.5rem;
   color: var(--rustic-pink);
 }
+
+/* Download button styling */
+.download-btn {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+}
+
+body.dark-mode .download-btn {
+  color: var(--dark-text-secondary);
+}
+
+.download-btn:hover {
+  color: var(--seafoam);
+}
+
+body.dark-mode .download-btn:hover {
+  color: var(--seafoam-light);
+}
+
+.download-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -81,7 +81,7 @@ TODO (MVP)
 - scalability report action items
 - comment edit view
 - security/app standards report
-
+- disable upload button while uploading + show spinner in button
 - audio ads
 - feed ads
 - how to page with tutorials
@@ -89,6 +89,7 @@ TODO (MVP)
 - waveforms being weird with longer tracks
 - weird trimming behavior
 - country/state/DOB
+
 
 
 BUGS
@@ -191,7 +192,8 @@ CREATE TABLE tracks (
   metronome_bpm INTEGER,
   metronome_offset FLOAT DEFAULT 0,
   time_signature VARCHAR(10) NOT NULL DEFAULT '4/4',
-  secret_token VARCHAR(64) -- For secure sharing of private tracks
+  secret_token VARCHAR(64), -- For secure sharing of private tracks
+  allow_download BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE likes (
