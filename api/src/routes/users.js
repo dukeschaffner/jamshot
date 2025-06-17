@@ -465,7 +465,7 @@ router.get('/:userId/reposts', async (req, res) => {
 // Update user profile
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { username, name, bio, is_private } = req.body;
+    let { username, name, bio, is_private } = req.body;
     
     // Validate name is provided
     if (!name || name.trim() === '') {
@@ -475,6 +475,11 @@ router.put('/me', authMiddleware, async (req, res) => {
     // Username validation: only allow letters, numbers, and underscores
     if (username && !/^\w+$/.test(username)) {
       return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores.' });
+    }
+
+    //username to lowercase
+    if (username) {
+      username = username.toLowerCase();
     }
     
     // Check if username is taken (if username is being updated)
