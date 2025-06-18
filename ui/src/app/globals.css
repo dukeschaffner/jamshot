@@ -4812,6 +4812,14 @@ body.dark-mode .track-layer-message {
 .control-button.settings {
   background-color: #f0f0f0;
   color: #333;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    border-radius: 50%;
+    transition: background-color 0.3s;
 }
 
 .control-button.settings:hover {

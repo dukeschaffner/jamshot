@@ -7,6 +7,7 @@ import { FaCheckCircle, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useUser } from '../../contexts/UserContext';
 
 // Component that uses useSearchParams
 function SearchContent() {
@@ -16,6 +17,7 @@ function SearchContent() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user: currentUser, isAuthenticated } = useUser();
   
   useEffect(() => {
     const token = Cookies.get('refresh_token');
@@ -44,6 +46,11 @@ function SearchContent() {
   const handleFollowToggle = async (userId, isFollowing) => {
     if (!isLoggedIn) {
       // Handle unauthenticated user
+      return;
+    }
+    
+    // Prevent following yourself
+    if (currentUser && userId === currentUser.id) {
       return;
     }
     
@@ -90,21 +97,17 @@ function SearchContent() {
         {searchResults.users.map(user => (
           <div key={user.id} className="user-card">
             <div className="user-avatar">
-              {user.profile_pic_url ? (
-                <Image 
-                  src={user.profile_pic_url} 
-                  alt={user.username} 
-                  width={50} 
-                  height={50}
-                  style={{ borderRadius: '50%', objectFit: 'cover' }}
-                />
-              ) : (
-                <div className="avatar-placeholder"></div>
-              )}
+              <Image 
+                src={user?.profile_pic_url || '/avatar.svg'} 
+                alt={user.username} 
+                width={50} 
+                height={50}
+                style={{ borderRadius: '50%', objectFit: 'cover' }}
+              />
             </div>
             <div className="user-info">
               <div className="user-name">
-                <Link href={`/user/${user.id}`}>
+                <Link href={`/user/${user.username}`}>
                   {user.username}
                 </Link>
                 {user.is_verified && (
@@ -113,26 +116,29 @@ function SearchContent() {
               </div>
               <div className="user-stats">
                 <span>{user.track_count || 0} tracks</span>
-                <span>{user.follower_count || 0} followers</span>
+                <span style={{ marginLeft: '10px' }}>{user.follower_count || 0} followers</span>
               </div>
             </div>
             <div className="user-actions">
-              <button 
-                className={`follow-btn ${user.is_following ? 'following' : ''}`}
-                onClick={() => handleFollowToggle(user.id, user.is_following)}
-              >
-                {user.is_following ? (
-                  <>
-                    <FaUserCheck />
-                    <span>Following</span>
-                  </>
-                ) : (
-                  <>
-                    <FaUserPlus />
-                    <span>Follow</span>
-                  </>
-                )}
-              </button>
+              {/* Only show follow button if user is not the current user */}
+              {currentUser && user.id !== currentUser.id && (
+                <button 
+                  className={`follow-btn ${user.is_following ? 'following' : ''}`}
+                  onClick={() => handleFollowToggle(user.id, user.is_following)}
+                >
+                  {user.is_following ? (
+                    <>
+                      <FaUserCheck />
+                      <span>Following</span>
+                    </>
+                  ) : (
+                    <>
+                      <FaUserPlus />
+                      <span>Follow</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         ))}
