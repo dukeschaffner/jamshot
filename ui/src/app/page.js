@@ -2,7 +2,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../lib/api';
 import Track from '../components/Track';
-import { FaSpinner, FaTimes, FaInfoCircle, FaMicrophone, FaCode, FaMusic } from 'react-icons/fa';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 
 export default function Home() {
@@ -217,9 +218,7 @@ export default function Home() {
         )}
         
         {loading && (
-          <div className="loading-spinner">
-            <FaSpinner className="spinner-icon" />
-          </div>
+          <LoadingSpinner />
         )}
       </div>
     </div>
