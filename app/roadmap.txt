@@ -1,8 +1,0 @@
-Roadmap
-- list/sell samples in track
-- Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
-- advanced DAW editor
-- analytics
-- AI audio analysis for measuring bpm, time signature loop segment times for more seamless ideation/recording
-- publishing collab of the week
-- video?
