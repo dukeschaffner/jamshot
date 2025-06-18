@@ -1,7 +1,5 @@
-Instructions:
-- Use this file for reference about the application. Feel free to update the Features/pages section when major updates are made. 
-- When db changes are required, update the db model in this file, and put the change query in db-updates.txt.
-- any new styling should go in global.css. 
+
+
 
 About
 This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
@@ -94,7 +92,7 @@ BUGS
 - logging in on collab or upload shouldnt lose progress
 - handle deleting takes during playback
 - make sure updating profile refreshes data in navbar and url route if on user page and username changed
-
+- solo DAW - playhead not working when region not trimmed at all
 
 
 CHECKLIST

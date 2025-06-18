@@ -16,13 +16,9 @@ function SearchContent() {
   const [searchResults, setSearchResults] = useState({ tracks: [], users: [] });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { user: currentUser, isAuthenticated } = useUser();
   
-  useEffect(() => {
-    const token = Cookies.get('refresh_token');
-    setIsLoggedIn(!!token);
-    
+  useEffect(() => {    
     const fetchSearchResults = async () => {
       if (!query) {
         setLoading(false);
@@ -44,7 +40,7 @@ function SearchContent() {
   }, [query]);
   
   const handleFollowToggle = async (userId, isFollowing) => {
-    if (!isLoggedIn) {
+    if (!isAuthenticated) {
       // Handle unauthenticated user
       return;
     }
@@ -56,9 +52,9 @@ function SearchContent() {
     
     try {
       if (isFollowing) {
-        await api.delete(`/users/${userId}/follow`);
+        await api.delete(`/users/follow/${userId}`);
       } else {
-        await api.post(`/users/${userId}/follow`);
+        await api.post(`/users/follow/${userId}`);
       }
       
       // Update the user in the search results

@@ -5,7 +5,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-:root {
+body {
   --background: #ffffff;
   --foreground: #171717;
   --p1: #e4a794;
@@ -35,12 +35,17 @@
   --dark-shadow: rgba(0, 0, 0, 0.2);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body.dark-mode {
+  --background: #121212;
+  --dark-card-bg: #1e1e1e;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --dark-border-color: #2e2e2e;
+  --dark-hover-color: #2a2a2a;
+  --shadow: rgba(0, 0, 0, 0.2);
 }
+
+
 
 body {
   background: var(--background);
@@ -52,8 +57,7 @@ body {
 }
 
 body.dark-mode {
-  background-color: var(--dark-bg);
-  color: var(--dark-text-primary);
+  color: var(--text-primary);
 }
 
 .bg-p1{
