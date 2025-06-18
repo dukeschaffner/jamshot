@@ -101,6 +101,7 @@ router.get('/', async (req, res) => {
         SELECT 
           u.id, u.username, u.profile_pic_url, u.verified, u.bio,
           (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS follower_count,
+          (SELECT COUNT(*) FROM tracks WHERE user_id = u.id) AS track_count,
           EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) AS is_following,
           CASE WHEN u.username ILIKE $3 THEN 0 ELSE 1 END AS username_match_order
         FROM users u
