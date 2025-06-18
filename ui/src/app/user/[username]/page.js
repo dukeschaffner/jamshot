@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import Track from '../../../components/Track';
+import CustomTabs from '../../../components/CustomTabs';
 import Cookies from 'js-cookie';
 import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
@@ -343,6 +344,13 @@ export default function UserPage() {
     }
   };
 
+  // Create tabs configuration
+  const tabs = [
+    { key: 'tracks', label: 'Tracks' },
+    { key: 'reposts', label: 'Reposts' },
+    { key: 'liked', label: 'Liked' }
+  ];
+
   if (loading) return <p>Loading...</p>;
   
   if (userNotFound) {
@@ -513,26 +521,11 @@ export default function UserPage() {
         </div>
       </div>
 
-      <div className="custom-tabs">
-        <button 
-          className={`tab ${activeTab === 'tracks' ? 'active' : ''}`}
-          onClick={() => setActiveTab('tracks')}
-        >
-          Tracks
-        </button>
-        <button 
-          className={`tab ${activeTab === 'reposts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('reposts')}
-        >
-          Reposts
-        </button>
-        <button 
-          className={`tab ${activeTab === 'liked' ? 'active' : ''}`}
-          onClick={() => setActiveTab('liked')}
-        >
-          Liked
-        </button>
-      </div>
+      <CustomTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
 
       {/* Show tracks only if not a private account or if authorized */}
       {(!isPrivate || isOwnProfile || stats.isFollowing) ? (

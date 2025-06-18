@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '../../lib/api';
 import MiniTrack from '../../components/MiniTrack';
+import CustomTabs from '../../components/CustomTabs';
 import { FaCheckCircle, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
@@ -175,32 +176,24 @@ function SearchContent() {
     }
   };
   
+  // Create tabs configuration
+  const tabs = [
+    { key: 'all', label: 'All' },
+    { key: 'tracks', label: 'Tracks' },
+    { key: 'users', label: 'Users' }
+  ];
+
   return (
     <div className="search-page">
       <div className="search-header">
         <h1 className="search-title">
           Search results for &quot;{decodeURIComponent(query)}&quot;
         </h1>
-        <div className="search-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
-            onClick={() => setActiveTab('all')}
-          >
-            All
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'tracks' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tracks')}
-          >
-            Tracks
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            Users
-          </button>
-        </div>
+        <CustomTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
       </div>
       
       <div className="search-results">

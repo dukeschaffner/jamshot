@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../lib/api';
 import Track from '../components/Track';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CustomTabs from '../components/CustomTabs';
 import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 
@@ -92,6 +93,13 @@ export default function Home() {
     }
   };
 
+  // Create tabs configuration
+  const tabs = [
+    { key: 'for-you', label: 'For You' },
+    ...(isAuthenticated ? [{ key: 'following', label: 'Following' }] : []),
+    { key: 'popular', label: 'Popular' }
+  ];
+
   return (
     <div className="feed-container">
       {/* Welcome Dialog for first-time visitors */}
@@ -164,28 +172,12 @@ export default function Home() {
           Check out the latest tracks from artists you follow and trending collaborations
         </p>
         
-        <div className="feed-tabs">
-          <button
-            onClick={() => handleFeedTypeChange('for-you')}
-            className={`feed-tab ${feedType === 'for-you' ? 'active' : ''}`}
-          >
-            For You
-          </button>
-          {isAuthenticated && (
-            <button
-              onClick={() => handleFeedTypeChange('following')}
-              className={`feed-tab ${feedType === 'following' ? 'active' : ''}`}
-            >
-              Following
-              </button>
-          )}
-          <button
-            onClick={() => handleFeedTypeChange('popular')}
-            className={`feed-tab ${feedType === 'popular' ? 'active' : ''}`}
-          >
-            Popular
-          </button>
-        </div>
+        <CustomTabs
+          tabs={tabs}
+          activeTab={feedType}
+          onTabChange={handleFeedTypeChange}
+          variant="feed"
+        />
       </div>
 
       {error && <p className="error-message">{error}</p>}

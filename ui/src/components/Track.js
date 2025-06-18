@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
+import CustomTabs from './CustomTabs';
 import { useAudio } from '../lib/AudioContext';
 import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaSpinner } from 'react-icons/fa';
 import Image from 'next/image';
@@ -256,6 +257,12 @@ export default function Track(
 
   const atLeastOneTag = track.tags && track.tags.length > 0 || track.genres && track.genres.length > 0 || track.instruments && track.instruments.length > 0;
 
+  // Create tabs configuration
+  const tabs = [
+    { key: 'collabs', label: 'Collabs' },
+    { key: 'comments', label: 'Comments' }
+  ];
+
   return (
     <div className={`track-item ${isExpanded ? 'expanded' : ''}`}>
       {track.is_repost && track.reposted_by_username && (
@@ -391,20 +398,12 @@ export default function Track(
 
       {isExpanded && (
         <div className="track-details">
-          <div className="track-tabs">
-            <button 
-              className={`track-tab ${activeTab === 'collabs' ? 'active' : ''}`}
-              onClick={() => setActiveTab('collabs')}
-            >
-              Collabs
-            </button>
-            <button 
-              className={`track-tab ${activeTab === 'comments' ? 'active' : ''}`}
-              onClick={() => setActiveTab('comments')}
-            >
-              Comments
-            </button>
-          </div>
+          <CustomTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            variant="track"
+          />
           
           {activeTab === 'collabs' && (
             <div className="track-tab-content">
