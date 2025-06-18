@@ -165,6 +165,27 @@ router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) 
     return res.status(500).json({ error: `Failed to check upload limit: ${err.message}` });
   }
 
+  // Check if user has reached their total track limit (50 tracks maximum)
+  try {
+    const totalTrackCountResult = await pool.query(
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1',
+      [userId]
+    );
+    
+    const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
+    
+    if (totalTrackCount >= 50) {
+      return res.status(429).json({ 
+        error: 'Total track limit reached',
+        message: 'You can only have 50 tracks maximum',
+        total_count: totalTrackCount
+      });
+    }
+  } catch (err) {
+    console.error('Error checking total track limit:', err);
+    return res.status(500).json({ error: `Failed to check total track limit: ${err.message}` });
+  }
+
   // Parse genre and instrument IDs if they're provided as strings
   const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
   const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];

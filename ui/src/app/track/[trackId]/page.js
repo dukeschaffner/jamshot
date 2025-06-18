@@ -8,6 +8,7 @@ import { formatDuration } from '@/lib/utils';
 import api from '@/lib/api';
 import DawInterface from '@/components/DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
+import CustomTabs from '@/components/CustomTabs';
 import './collaborate.css';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit, FaDownload } from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
@@ -201,6 +202,13 @@ function TrackContent() {
     }
   };
 
+  // Create tabs configuration
+  const tabs = [
+    { key: 'collab', label: 'Collab' },
+    { key: 'comments', label: 'Comments' },
+    ...(isTrackOwner ? [{ key: 'edit', label: 'Edit' }] : [])
+  ];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -259,28 +267,12 @@ function TrackContent() {
                </span>
              )}
            </div>
-           <div className="custom-tabs">
-            <button 
-              className={`tab ${activeTab === 'collab' ? 'active' : ''}`}
-              onClick={() => setActiveTab('collab')}
-            >
-              Collab
-            </button>
-            <button 
-              className={`tab ${activeTab === 'comments' ? 'active' : ''}`}
-              onClick={() => setActiveTab('comments')}
-            >
-              Comments
-            </button>
-            {isTrackOwner && (
-              <button 
-                className={`tab ${activeTab === 'edit' ? 'active' : ''}`}
-                onClick={() => setActiveTab('edit')}
-              >
-                Edit
-              </button>
-            )}
-          </div>
+           <CustomTabs
+             tabs={tabs}
+             activeTab={activeTab}
+             onTabChange={setActiveTab}
+             variant="default"
+           />
          </div>
          <div className="track-controls">
            <Link href={`/tree/${trackId}`} className="explore-button">
