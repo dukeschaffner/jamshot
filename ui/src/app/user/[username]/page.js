@@ -14,6 +14,7 @@ export default function UserPage() {
   const { user: currentUser, isAuthenticated } = useUser();
   const [tracks, setTracks] = useState([]);
   const [repostedTracks, setRepostedTracks] = useState([]);
+  const [likedTracks, setLikedTracks] = useState([]);
   const [stats, setStats] = useState({ 
     followers: 0, 
     following: 0, 
@@ -57,6 +58,7 @@ export default function UserPage() {
         const userId = user.data.id;
         const tracks = await api.get(`/users/${userId}/tracks`);
         const reposts = await api.get(`/users/${userId}/reposts`);
+        const liked = await api.get(`/users/${username}/liked`);
         const stats = await api.get(`/users/${userId}/stats`);
         setUserProfile(user.data);
         setIsPrivate(user.data.is_private);
@@ -67,6 +69,7 @@ export default function UserPage() {
         });
         setTracks(tracks.data);
         setRepostedTracks(reposts.data);
+        setLikedTracks(liked.data);
         setStats(stats.data);
         setUserNotFound(false);
         
@@ -178,6 +181,11 @@ export default function UserPage() {
   const handleFollowUser = async (userId, username, isAlreadyFollowing) => {
     if (!isAuthenticated) {
       router.push('/login');
+      return;
+    }
+    
+    // Prevent following yourself
+    if (currentUser && userId === currentUser.id) {
       return;
     }
     
@@ -518,6 +526,12 @@ export default function UserPage() {
         >
           Reposts
         </button>
+        <button 
+          className={`tab ${activeTab === 'liked' ? 'active' : ''}`}
+          onClick={() => setActiveTab('liked')}
+        >
+          Liked
+        </button>
       </div>
 
       {/* Show tracks only if not a private account or if authorized */}
@@ -533,12 +547,22 @@ export default function UserPage() {
                 expandedTrackId={expandedTrackId}
               />
             ))
-          ) : (
+          ) : activeTab === 'reposts' ? (
             repostedTracks.map(track => (
               <Track
                 key={track.id}
                 track={track}
                 allTracks={repostedTracks}
+                setExpandedTrackId={setExpandedTrackId}
+                expandedTrackId={expandedTrackId}
+              />
+            ))
+          ) : (
+            likedTracks.map(track => (
+              <Track
+                key={track.id}
+                track={track}
+                allTracks={likedTracks}
                 setExpandedTrackId={setExpandedTrackId}
                 expandedTrackId={expandedTrackId}
               />

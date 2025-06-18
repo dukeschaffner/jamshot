@@ -988,4 +988,70 @@ router.delete('/follow/username/:username', authMiddleware, async (req, res) => 
   }
 });
 
+// Get user's liked tracks by username
+router.get('/:username/liked', async (req, res) => {
+  const { username } = req.params;
+  const currentUserId = req.user?.id;
+  
+  try {
+    // First get the user ID from username
+    const userResult = await pool.query(
+      'SELECT id, is_private FROM users WHERE username = $1',
+      [username]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    const isPrivate = userResult.rows[0].is_private;
+    
+    // If account is private, check if the current user is following them
+    if (isPrivate && currentUserId !== userId) {
+      // Check if the current user is following this user
+      const isFollowing = currentUserId ? await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
+        [currentUserId, userId]
+      ) : { rows: [{ is_following: false }] };
+      
+      // If not following, return empty array
+      if (!isFollowing.rows[0].is_following) {
+        return res.json([]);
+      }
+    }
+    
+    let baseQuery;
+    let queryParams;
+    if (currentUserId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2);
+      queryParams = [userId, currentUserId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false);
+      queryParams = [userId];
+    }
+
+    const result = await pool.query(`
+      SELECT 
+        ${baseQuery},
+        l.created_at as liked_at,
+        TRUE AS is_liked_by_user
+      FROM likes l
+      JOIN tracks t ON l.track_id = t.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
+      WHERE l.user_id = $1
+      ORDER BY l.created_at DESC
+    `, queryParams);
+
+    // Use the processTrack utility function to process all tracks
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, currentUserId)));
+
+    res.json(tracks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

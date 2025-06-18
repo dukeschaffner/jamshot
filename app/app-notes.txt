@@ -127,6 +127,7 @@ TODO (after beta testing)
 - improve feed logic
 - invite people to collab on private tracks (groups)?
 - "add on" option where instead of adding layers, they can add audio before or after
+- paginate track, reposts, likes on user page
 
 
 MONETIZATION
