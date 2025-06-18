@@ -9,7 +9,7 @@ TODO (MVP)
 - feed ads
 - how to page with tutorials
 - waveforms being weird with longer tracks
-- weird trimming behavior
+- weird trimming behavior (COULDN"T REPRO)
 - country/state/DOB
 - check notifications functionality
 
@@ -20,7 +20,6 @@ BUGS
 - logging in on collab or upload shouldnt lose progress
 - handle deleting takes during playback
 - make sure updating profile refreshes data in navbar and url route if on user page and username changed
-- solo DAW - playhead not working when region not trimmed at all
 
 
 CHECKLIST

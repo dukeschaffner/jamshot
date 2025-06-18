@@ -165,9 +165,7 @@ export default function NotificationDropdown() {
                     onClick={() => handleNotificationClick(notification)}
                   >
                     <p className="notification-text">{getNotificationText(notification)}</p>
-                    <p className="notification-time">
-                      <TimeDisplay timestamp={notification.created_at} />
-                    </p>
+                    <TimeDisplay timestamp={notification.created_at} />
                     
                     {notification.type === 'follow_request' && (
                       <div className="notification-actions">

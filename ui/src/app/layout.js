@@ -253,13 +253,31 @@ function AppContent({ children }) {
   const [darkMode, setDarkMode] = useState(false);
   const searchInputRef = useRef(null);
   const { currentTrack, isPlaying, togglePlayPause } = useAudio();
-  const playerVisible = !!currentTrack;
+  
+  // Check if we're on pages where player should be hidden
   const pathname = usePathname();
+  const isUploadPage = pathname === '/upload';
+  const isTrackPage = pathname.startsWith('/track/');
+  const shouldHidePlayer = isUploadPage || isTrackPage;
+  
+  const playerVisible = !!currentTrack && !shouldHidePlayer;
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
-  // Handle keyboard shortcuts
+  // Pause audio when navigating to upload or track pages
   useEffect(() => {
+    if (shouldHidePlayer && isPlaying) {
+      togglePlayPause();
+    }
+  }, [shouldHidePlayer, isPlaying, togglePlayPause]);
+
+  // Handle keyboard shortcuts - only mount when player should be visible
+  useEffect(() => {
+    // Don't add keypress listeners on pages where player is hidden
+    if (shouldHidePlayer) {
+      return;
+    }
+
     const handleKeyPress = (e) => {
       // Check if there's a current track and the pressed key is space
       if (currentTrack && e.code === 'Space') {
@@ -285,7 +303,7 @@ function AppContent({ children }) {
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [currentTrack, togglePlayPause]);
+  }, [currentTrack, togglePlayPause, shouldHidePlayer]);
 
   // Theme setup
   useEffect(() => {
@@ -413,8 +431,8 @@ function AppContent({ children }) {
         {children}
       </main>
       
-      {/* Global Player */}
-      <GlobalPlayer />
+      {/* Global Player - only render when not on upload or track pages */}
+      {!shouldHidePlayer && <GlobalPlayer />}
     </div>
   );
 }
