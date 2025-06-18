@@ -10,6 +10,7 @@ import { UserProvider, useUser } from '../contexts/UserContext';
 import { NavigationGuardProvider } from 'next-navigation-guard';
 import NotificationDropdown from '../components/NotificationDropdown';
 import MoreDropdown from '../components/MoreDropdown';
+import MobileWarning from '../components/MobileWarning';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
   FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
 import api from '../lib/api';
@@ -321,6 +322,8 @@ function AppContent({ children }) {
 
   return (
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>
+      <MobileWarning />
+      
       {/* Vertical Navbar */}
       <nav className="navbar">
         <div className="logo">
@@ -420,6 +423,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <link rel="icon" type="image/svg+xml" href="/next.svg" />
         <title>sterio</title>
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1172686264367392"
