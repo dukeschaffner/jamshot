@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import TagSelector from '../TagSelector';
+import LoadingSpinner from '../LoadingSpinner';
 import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faLock } from '@fortawesome/free-solid-svg-icons';
@@ -25,6 +26,7 @@ export default function UploadForm({
 }) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
   const [metronomeBpmInput, setMetronomeBpmInput] = useState(metronomeBpm.toString());
@@ -76,6 +78,9 @@ export default function UploadForm({
       }
     }
 
+    setIsUploading(true);
+    setError('');
+
     try {
       const formData = new FormData();
       formData.append('title', title);
@@ -105,6 +110,7 @@ export default function UploadForm({
         } catch (audioError) {
           console.error('Error processing audio buffer:', audioError);
           setError('Error processing audio: ' + audioError.message);
+          setIsUploading(false);
           return;
         }
       } else {
@@ -134,24 +140,29 @@ export default function UploadForm({
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       
+      // Get the uploaded track data from the response
+      const uploadedTrack = response.data;
+      
       // Notify parent component that upload is complete
       if (onUploadComplete) {
         onUploadComplete();
       }
       
-      // If this is a collab and there's a cancel handler, call it
-      if (isCollab && onCancel) {
-        onCancel();
-        return;
-      }
+
       
-      // Otherwise, redirect to home
-      setTimeout(() => {
-        router.push('/');
+      setTimeout(() => {// For new tracks, redirect to the uploaded track page
+        if (uploadedTrack && uploadedTrack.id) {
+          router.push(`/track/${uploadedTrack.id}`);
+        } else {
+          // Fallback to home if track ID is not available
+          router.push('/');
+        }
       }, 100); // Small timeout to ensure state updates complete before redirect
     } catch (err) {
       console.error('Upload error:', err);
       setError(err.response?.data?.error || 'Upload failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -329,16 +340,25 @@ export default function UploadForm({
             <button 
               type="button" 
               onClick={onCancel}
-              className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded transition"
+              disabled={isUploading}
+              className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
           )}
           <button 
             type="submit" 
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition"
+            disabled={isUploading}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            Upload
+            {isUploading ? (
+              <>
+                <LoadingSpinner size="small" style={{padding: 0}} />
+                Uploading...
+              </>
+            ) : (
+              'Upload'
+            )}
           </button>
         </div>
       </form>
