@@ -24,6 +24,7 @@ body {
   --dark: #333333;
   --text: #555555;
   --shadow: rgba(0, 0, 0, 0.05);
+  --red: #fc3232;
   
   /* Dark mode variables */
   --dark-bg: #121212;
@@ -3428,7 +3429,7 @@ body.dark-mode .notification-button:hover {
   font-size: 0.75rem;
   font-weight: bold;
   border-radius: 9999px;
-  margin-left: auto;
+  margin-left: 5px;
 }
 
 .notification-panel {
@@ -3564,16 +3565,6 @@ body.dark-mode .notification-item.unread {
 
 body.dark-mode .notification-text {
   color: var(--dark-text-primary);
-}
-
-.notification-time {
-  font-size: 0.75rem;
-  color: var(--text);
-  margin-bottom: 0.5rem;
-}
-
-body.dark-mode .notification-time {
-  color: var(--dark-text-secondary);
 }
 
 .notification-actions {
@@ -4139,28 +4130,34 @@ body.dark-mode .user-not-found p {
 .time-display {
   display: flex;
   align-items: center;
-  font-size: 0.75rem;
+  gap: 6px;
+  font-size: 12px;
   color: var(--text);
-  margin-top: 2px;
-  gap: 4px;
+  margin-top: 4px;
 }
 
 .time-icon {
-  font-size: 0.75rem;
-  opacity: 0.8;
+  font-size: 12px !important;
+  margin-right: 0 !important;
 }
 
 .time-text {
-  font-weight: 400;
+  font-size: 12px;
 }
 
 body.dark-mode .time-display {
   color: var(--dark-text-secondary);
 }
 
+/* Override nav-link SVG styles for time-icon specifically */
+.nav-link .time-icon {
+  margin-right: 0 !important;
+  font-size: 12px !important;
+}
+
 @media (max-width: 768px) {
   .time-display {
-    font-size: 0.7rem;
+    font-size: 11px;
   }
 }
 
