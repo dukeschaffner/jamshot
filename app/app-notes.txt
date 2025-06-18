@@ -76,16 +76,13 @@ Collabs:
 
 TODO (MVP)
 - Mixing files on collab
-- allow download option
 
 - scalability report action items
 - comment edit view
 - security/app standards report
-- disable upload button while uploading + show spinner in button
 - audio ads
 - feed ads
 - how to page with tutorials
-- collab upload - redirect to home or refresh track page on submit
 - waveforms being weird with longer tracks
 - weird trimming behavior
 - country/state/DOB
@@ -97,7 +94,6 @@ BUGS
 - logging in on collab or upload shouldnt lose progress
 - handle deleting takes during playback
 - make sure updating profile refreshes data in navbar and url route if on user page and username changed
-- users should not have option to follow themselves
 
 
 
