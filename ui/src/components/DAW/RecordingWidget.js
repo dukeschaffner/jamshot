@@ -842,12 +842,19 @@ export default function RecordingWidget({
 
   // Handle waveform click
   const handleWaveformClick = (e) => {
-      if (!recordingContainerRef.current || isRecording) return; //
+      if (!recordingContainerRef.current || isRecording) return;
       
-      const cropStartX = cropStartOverlayRef.current.getBoundingClientRect().right;
-      const cropEndX = cropEndOverlayRef.current.getBoundingClientRect().left;
+      // Calculate click position based on recording container and crop percentages
+      const recordingRect = recordingContainerRef.current.getBoundingClientRect();
+      const recordingStartX = recordingRect.left;
+      const recordingWidth = recordingRect.width;
+      
+      // Calculate the visible area boundaries based on crop percentages
+      const cropStartX = recordingStartX + (cropStartPercentage / 100) * recordingWidth;
+      const cropEndX = recordingRect.right - (cropEndPercentage / 100) * recordingWidth;
+      
+      // Calculate click position within the visible area
       const clickPos = Math.max(0, Math.min(100, ((e.clientX - cropStartX) / (cropEndX - cropStartX)) * 100));
-
       
       seekToTime(posToTime(clickPos, playableDuration));
   };
@@ -948,17 +955,17 @@ export default function RecordingWidget({
           const recordingRect = recordingContainerRef.current.getBoundingClientRect();
           const recordingStartX = recordingRect.left;
           const recordingWidth = recordingRect.width;
-          let cropEndX = cropEndOverlayRef.current.getBoundingClientRect().left;
-          if(!cropEndX){
-            cropEndX = recordingRect.right;
-          }
+          
+          // Calculate crop end position based on crop percentage instead of getBoundingClientRect
+          const cropEndX = recordingRect.right - (cropEndPercentage / 100) * recordingWidth;
+          
           const trackStartX = recordingStartX;
           const buffer = 5 * (recordingWidth / 100);
           var newCropX = 0;
           if(e.clientX < trackStartX) { //Do not allow user to crop beyond track start
             newCropX = trackStartX;
           }
-          else if(e.clientX > cropEndX - buffer){ //Do not allow user to crop beyond track end
+          else if(e.clientX > cropEndX - buffer){ //Do not allow user to crop beyond crop end
             newCropX = cropEndX - buffer;
           }
           else{
@@ -982,7 +989,10 @@ export default function RecordingWidget({
           const recordingStartX = recordingRect.left;
           const recordingEndX = recordingRect.right;
           const recordingWidth = recordingRect.width;
-          const cropStartX = cropStartOverlayRef.current.getBoundingClientRect().right;
+          
+          // Calculate crop start position based on crop percentage instead of getBoundingClientRect
+          const cropStartX = recordingStartX + (cropStartPercentage / 100) * recordingWidth;
+          
           const trackStartX = recordingStartX;
           const trackEndX = recordingEndX;
           const buffer = 5 * (recordingWidth / 100);
@@ -990,7 +1000,7 @@ export default function RecordingWidget({
           if(e.clientX > trackEndX) { //Do not allow user to crop beyond track end
             newCropX = trackEndX;
           }
-          else if(e.clientX < cropStartX + buffer){ //Do not allow user to crop beyond track start
+          else if(e.clientX < cropStartX + buffer){ //Do not allow user to crop beyond crop start
             newCropX = cropStartX + buffer;
           }
           else{

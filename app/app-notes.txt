@@ -1,4 +1,80 @@
 
+TODO (MVP)
+- Mixing files on collab
+
+- scalability report action items
+- comment edit view
+- security/app standards report
+- audio ads
+- feed ads
+- how to page with tutorials
+- waveforms being weird with longer tracks
+- weird trimming behavior
+- country/state/DOB
+- check notifications functionality
+
+
+
+BUGS
+- dark mode inconsistencies
+- logging in on collab or upload shouldnt lose progress
+- handle deleting takes during playback
+- make sure updating profile refreshes data in navbar and url route if on user page and username changed
+- solo DAW - playhead not working when region not trimmed at all
+
+
+CHECKLIST
+- confirm all privacy restrictions
+- Confirm all notifications working properly
+- test recording sync with original track and metronome
+
+
+
+
+TODO (after beta testing)
+- looper/trim snap
+- recording while looping should auto create takes after each loop
+- files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
+- secure track play count recording to prevent abuse of vulnerabilites
+- list/sell samples in track
+- posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
+- Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
+- advanced DAW editor
+- content moderation
+- block users
+- profile banner image
+- undo redo (DAW)
+- global player audio level
+- freemium model
+- improve feed logic
+- invite people to collab on private tracks (groups)?
+- "add on" option where instead of adding layers, they can add audio before or after
+- paginate track, reposts, likes on user page
+
+
+MONETIZATION
+- ads
+- premium subscription
+- selling samples
+- streaming revenue from published collabs
+- pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
+- sponsored competitions from audio companies (best Sketch Cassette track)
+
+PREMIUM
+- no ads
+- 5 free samples/month
+- analytics
+- advanced DAW
+- private tracks?
+- selling samples?
+- unlimited uploads/daily
+- unlimited total uploads
+- longer recording limit (5 minutes for free, 10 minutes for premium)
+
+
+LEGAL
+- option to allow others to 'steal' (use) the track?
+- splitting royalties if song uploaded
 
 
 About
@@ -70,86 +146,6 @@ Collabs:
 - track CANNOT go from public to private if it has collabs
 - as a result, collaborating artists have no control over the privacy status of their track
 
-
-
-TODO (MVP)
-- Mixing files on collab
-
-- scalability report action items
-- comment edit view
-- security/app standards report
-- audio ads
-- feed ads
-- how to page with tutorials
-- waveforms being weird with longer tracks
-- weird trimming behavior
-- country/state/DOB
-
-
-
-BUGS
-- dark mode inconsistencies
-- logging in on collab or upload shouldnt lose progress
-- handle deleting takes during playback
-- make sure updating profile refreshes data in navbar and url route if on user page and username changed
-- solo DAW - playhead not working when region not trimmed at all
-
-
-CHECKLIST
-- confirm all privacy restrictions
-- Confirm all notifications working properly
-- test recording sync with original track and metronome
-
-
-
-
-TODO (after beta testing)
-- looper/trim snap
-- recording while looping should auto create takes after each loop
-- files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
-- secure track play count recording to prevent abuse of vulnerabilites
-- list/sell samples in track
-- posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
-- Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
-- advanced DAW editor
-- content moderation
-- block users
-- profile banner image
-- undo redo (DAW)
-- global player audio level
-- freemium model
-- improve feed logic
-- invite people to collab on private tracks (groups)?
-- "add on" option where instead of adding layers, they can add audio before or after
-- paginate track, reposts, likes on user page
-
-
-MONETIZATION
-- ads
-- premium subscription
-- selling samples
-- streaming revenue from published collabs
-- pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
-- sponsored competitions from audio companies (best Sketch Cassette track)
-
-PREMIUM
-- no ads
-- 5 free samples/month
-- analytics
-- advanced DAW
-- private tracks?
-- selling samples?
-- unlimited uploads/daily
-- unlimited total uploads
-- longer recording limit (5 minutes for free, 10 minutes for premium)
-
-
-LEGAL
-- option to allow others to 'steal' (use) the track?
-- splitting royalties if song uploaded
-
-
-lets create a new component, AudioCropper. it should accept an audiobuffer, a crop start time, and a crop end time (if none, they should default to the audio's, start and end times, respectively). it should display the buffer's waveform using renderwaveform, similar to the trackswidget. the edges of the waveform should have crop handles similar to the trackswidget, that when dragged, crop the audio.
 
 
 
