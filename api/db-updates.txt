@@ -1,4 +1,0 @@
--- Add allow_download column to tracks table
--- This column controls whether users can download the audio file
--- Default is TRUE to maintain backward compatibility and encourage sharing
-ALTER TABLE tracks ADD COLUMN allow_download BOOLEAN NOT NULL DEFAULT TRUE;

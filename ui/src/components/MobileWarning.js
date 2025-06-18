@@ -61,7 +61,7 @@ export default function MobileWarning() {
           
           <div className="mobile-warning-future">
             <p>
-              📱 <strong>Mobile support is coming soon!</strong> We're working hard to bring 
+              📱 <strong>Mobile support is coming soon!</strong> We&apos;re working hard to bring 
               Sterio to mobile devices. Check back later for updates.
             </p>
           </div>
