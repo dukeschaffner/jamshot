@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from './api';
-import Cookies from 'js-cookie';
+import { useUser } from '../contexts/UserContext';
 
 const NotificationContext = createContext();
 
@@ -10,10 +10,12 @@ export function NotificationProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isAuthenticated, isLoading: userLoading } = useUser();
 
   const fetchNotifications = async () => {
-    const token = Cookies.get('accessToken');
-    if (!token) {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setUnreadCount(0);
       setLoading(false);
       return;
     }
@@ -33,8 +35,7 @@ export function NotificationProvider({ children }) {
   };
 
   const fetchUnreadCount = async () => {
-    const token = Cookies.get('accessToken');
-    if (!token) {
+    if (!isAuthenticated) {
       setUnreadCount(0);
       return;
     }
@@ -48,6 +49,8 @@ export function NotificationProvider({ children }) {
   };
 
   const markAsRead = async (notificationId) => {
+    if (!isAuthenticated) return;
+    
     try {
       await api.put(`/notifications/${notificationId}/read`);
       setNotifications(prev => 
@@ -62,6 +65,8 @@ export function NotificationProvider({ children }) {
   };
 
   const markAllAsRead = async () => {
+    if (!isAuthenticated) return;
+    
     try {
       await api.put('/notifications/read-all');
       setNotifications(prev => 
@@ -74,6 +79,8 @@ export function NotificationProvider({ children }) {
   };
 
   const deleteNotification = async (notificationId) => {
+    if (!isAuthenticated) return;
+    
     try {
       await api.delete(`/notifications/${notificationId}`);
       const deleted = notifications.find(n => n.id === notificationId);
@@ -86,25 +93,28 @@ export function NotificationProvider({ children }) {
     }
   };
 
-  // Initial fetch
+  // Fetch notifications when authentication state changes
   useEffect(() => {
-    if (Cookies.get('accessToken')) {
+    // Wait for user loading to complete before making decisions
+    if (userLoading) return;
+    
+    if (isAuthenticated) {
       fetchNotifications();
     } else {
       setNotifications([]);
       setUnreadCount(0);
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, userLoading]);
 
-  // Set up polling for unread count
+  // Set up polling for unread count when authenticated
   useEffect(() => {
-    if (!Cookies.get('accessToken')) return;
+    if (!isAuthenticated || userLoading) return;
     
     const interval = setInterval(fetchUnreadCount, 60000); // Poll every minute
     
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated, userLoading]);
 
   return (
     <NotificationContext.Provider
