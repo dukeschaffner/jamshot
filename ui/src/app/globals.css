@@ -6,43 +6,52 @@
 }
 
 body {
-  --background: #ffffff;
-  --foreground: #171717;
+
+
+
   --p1: #e4a794;
   --p2: #f59771;
   --s1: #86a699;
   --s2: #036745;
-  
-  /* Theme colors from home-v1.html */
-  --white: #ffffff;
   --seafoam: #93E9BE;
   --seafoam-light: #C1F4D9;
   --rustic-pink: #E9A9A1;
   --rustic-pink-light: #F4C9C4;
-  --gray-light: #f5f5f5;
-  --gray: #e0e0e0;
-  --dark: #333333;
-  --text: #555555;
-  --shadow: rgba(0, 0, 0, 0.05);
   --red: #fc3232;
+  --white: #ffffff;
   
-  /* Dark mode variables */
-  --dark-bg: #121212;
-  --dark-card-bg: #1e1e1e;
+  /* Phase out these variables */
   --dark-text-primary: #ffffff;
   --dark-text-secondary: #a1a1aa;
   --dark-border-color: #2e2e2e;
   --dark-hover-color: #2a2a2a;
   --dark-shadow: rgba(0, 0, 0, 0.2);
+  --dark-card-bg: #1e1e1e;
+  --gray-light: #f5f5f5;
+  --gray: #e0e0e0;
+  --dark: #333333;
+
+  /* Standardized Greyscale - responds to dark mode */
+  --background: #ffffff;
+  --grey-1: #f5f5f5;
+  --grey-2: #e0e0e0;
+  --grey-3: #555555;
+  --grey-4: #333333;
+  --text-secondary: #555555;
+  --text-primary: #171717;
+
+  --shadow: rgba(0, 0, 0, 0.05);
 }
 
 body.dark-mode {
   --background: #121212;
-  --dark-card-bg: #1e1e1e;
-  --text-primary: #ffffff;
+  --grey-1: #1e1e1e;
+  --grey-2: #2a2a2a;
+  --grey-3: #2e2e2e;
+  --grey-4: #333333;
   --text-secondary: #a1a1aa;
-  --dark-border-color: #2e2e2e;
-  --dark-hover-color: #2a2a2a;
+  --text-primary: #ffffff;
+ 
   --shadow: rgba(0, 0, 0, 0.2);
 }
 
@@ -50,15 +59,12 @@ body.dark-mode {
 
 body {
   background: var(--background);
+  color: var(--text-primary);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-body.dark-mode {
-  color: var(--text-primary);
 }
 
 .bg-p1{
@@ -94,19 +100,11 @@ body.dark-mode {
 }
 
 .text-primary{
-  color: black;
+  color: var(--text-primary);
 }
 
 .text-secondary{
-  color: var(--text);
-}
-
-body.dark-mode .text-primary{
-  color: white;
-}
-
-body.dark-mode .text-secondary{
-  color: var(--dark-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* App Container Layout */
@@ -129,7 +127,7 @@ body.dark-mode .text-secondary{
 .navbar {
   grid-area: sidebar;
   width: 240px;
-  background-color: var(--white);
+  background-color: var(--background);
   border-right: 1px solid var(--gray);
   display: flex;
   flex-direction: column;
@@ -157,16 +155,11 @@ body.dark-mode .navbar {
   padding: 0 24px;
   font-size: 28px;
   font-weight: 700;
-  color: var(--dark);
   text-align: left;
   margin-bottom: 12px;
   display: flex;
   align-items: center;
   transition: color 0.3s ease;
-}
-
-body.dark-mode .logo {
-  color: var(--dark-text-primary);
 }
 
 .logo span {
@@ -186,7 +179,7 @@ body.dark-mode .logo {
   align-items: center;
   padding: 12px 24px;
   text-decoration: none;
-  color: var(--text);
+  color: var(--text-secondary);
   font-weight: 500;
   transition: all 0.2s ease;
   margin-bottom: 8px;
@@ -252,12 +245,12 @@ body.dark-mode .search-box input {
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .search-box input:focus {
   border-color: var(--seafoam);
-  background-color: var(--white);
+  background-color: var(--background);
 }
 
 body.dark-mode .search-box input:focus {
@@ -329,7 +322,7 @@ body.dark-mode .user-name {
 
 .user-handle {
   font-size: 12px;
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 body.dark-mode .user-handle {
@@ -384,11 +377,7 @@ body.dark-mode .login-btn {
   padding: 20px 20px;
   height: 100vh;
   transition: height 0.3s ease, padding-bottom 0.3s ease;
-  background-color: var(--white);
-}
-
-body.dark-mode .main-content {
-  background-color: var(--dark-bg);
+  background-color: var(--background);
 }
 
 /* When player is visible, adjust main content height and padding */
@@ -459,7 +448,7 @@ body.dark-mode .now-playing-title {
 
 .now-playing-artist {
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
 }
 
@@ -484,7 +473,7 @@ body.dark-mode .now-playing-artist {
 .control-button {
   background: transparent;
   border: none;
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 1rem;
   transition: color 0.2s;
@@ -549,7 +538,7 @@ body.dark-mode .control-button.active {
 
 .time {
   font-size: 0.7rem;
-  color: var(--text);
+  color: var(--text-secondary);
   min-width: 35px;
   transition: color 0.3s ease;
 }
@@ -611,7 +600,7 @@ body.dark-mode .progress-bar {
 }
 
 .volume-icon {
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: color 0.3s ease;
 }
@@ -674,7 +663,7 @@ body.dark-mode .feed-title {
 
 .feed-subtitle {
   font-size: 14px;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-bottom: 16px;
   transition: color 0.3s ease;
 }
@@ -738,7 +727,7 @@ body.dark-mode .feed-tab:hover {
   padding: 24px;
   border-radius: 12px;
   text-align: center;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -803,7 +792,7 @@ body.dark-mode .track-item.expanded {
   padding: 0px 16px;
   border-radius: 5px;
   font-size: 12px;
-  color: var(--text);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -893,7 +882,7 @@ body.dark-mode .track-title {
 .track-tag {
   font-size: 0.7rem;
   background-color: var(--gray-light);
-  color: var(--text);
+  color: var(--text-secondary);
   padding: 2px 8px;
   border-radius: 10px;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -949,7 +938,7 @@ body.dark-mode .avatar-placeholder {
 .artist-name {
   font-weight: 600;
   font-size: 0.9rem;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
   display: flex;
   align-items: center;
@@ -962,7 +951,7 @@ body.dark-mode .artist-name {
 
 .track-layer {
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-bottom: 4px;
   transition: color 0.3s ease;
 }
@@ -975,7 +964,7 @@ body.dark-mode .track-layer {
   display: flex;
   gap: 12px;
   font-size: 0.85rem;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
   margin-top: 8px;
 }
@@ -989,7 +978,7 @@ body.dark-mode .track-meta {
   align-items: center;
   gap: 6px;
   min-width: auto;
-  color: var(--text);
+  color: var(--text-secondary);
   opacity: 0.9;
 }
 
@@ -1016,7 +1005,7 @@ body.dark-mode .meta-item {
 .action-btn {
   background: transparent;
   border: none;
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 1.1rem;
   transition: color 0.2s, background-color 0.3s ease;
@@ -1115,7 +1104,7 @@ body.dark-mode .track-details {
 .track-relation {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-bottom: 8px;
   margin-top: 12px;
   transition: color 0.3s ease;
@@ -1130,7 +1119,7 @@ body.dark-mode .track-relation {
 }
 
 .no-related {
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   text-align: center;
   padding: 12px;
@@ -1261,7 +1250,7 @@ body.dark-mode .related-title {
   display: flex;
   gap: 12px;
   font-size: 0.75rem;
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .related-meta .meta-item {
@@ -1294,7 +1283,7 @@ body.dark-mode .related-title {
   align-items: center;
   justify-content: center;
   transition: color 0.2s;
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -1454,7 +1443,7 @@ body.dark-mode .about-header {
 
 .about-subtitle {
   font-size: 1.2rem;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
 }
 
@@ -1500,7 +1489,7 @@ body.dark-mode .section-title {
 .vision-text {
   font-size: 1.1rem;
   line-height: 1.6;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
 }
 
@@ -1640,7 +1629,7 @@ body.dark-mode .feature-card h3 {
 
 .feature-card p {
   font-size: 0.95rem;
-  color: var(--text);
+  color: var(--text-secondary);
   line-height: 1.5;
   transition: color 0.3s ease;
 }
@@ -1653,7 +1642,7 @@ body.dark-mode .feature-card p {
   font-size: 1.1rem;
   line-height: 1.6;
   margin-bottom: 30px;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
 }
 
@@ -1729,7 +1718,7 @@ body.dark-mode .amount-btn:hover {
   display: block;
   margin-bottom: 10px;
   font-size: 0.9rem;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
 }
 
@@ -1845,7 +1834,7 @@ body.dark-mode .supporter-benefits {
 .supporter-benefits li {
   padding: 10px 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease, border-color 0.3s ease;
 }
 
@@ -1909,7 +1898,7 @@ body.dark-mode .creator-info h3 {
   font-size: 1rem;
   line-height: 1.6;
   margin-bottom: 20px;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
 }
 
@@ -1954,7 +1943,7 @@ body.dark-mode .social-link {
 .contact-section p {
   font-size: 1.1rem;
   margin-bottom: 20px;
-  color: var(--text);
+  color: var(--text-secondary);
   transition: color 0.3s ease;
 }
 
@@ -2146,7 +2135,7 @@ body.dark-mode .profile-username {
 
 
 .bio {
-  color: var(--text);
+  color: var(--text-secondary);
   margin-bottom: 1.5rem;
   font-size: 1.1rem;
   line-height: 1.5;
@@ -2385,13 +2374,10 @@ textarea.edit-input {
   resize: vertical;
 }
 
-/* Don't modify the .custom-tabs, .tab, and .tab.active styles */
 .custom-tabs {
   display: flex;
   gap: 1rem;
-  /* margin-bottom: 2rem;
-  border-bottom: 1px solid var(--gray); */
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--grey-2);
 }
 
 .tab {
@@ -2979,7 +2965,7 @@ body.dark-mode .search-tabs {
   border: none;
   font-size: 1rem;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   position: relative;
   transition: all 0.2s ease;
@@ -3098,7 +3084,7 @@ body.dark-mode .user-card .user-name {
 
 .user-card .user-stats {
   font-size: 0.9rem;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
 }
 
@@ -3108,7 +3094,7 @@ body.dark-mode .user-card .user-stats {
 
 .user-card .user-bio {
   font-size: 0.9rem;
-  color: var(--text);
+  color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -3144,7 +3130,7 @@ body.dark-mode .user-card .user-bio {
 
 .user-card .follow-btn.following {
   background-color: var(--gray);
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 body.dark-mode .user-card .follow-btn.following {
@@ -3164,7 +3150,7 @@ body.dark-mode .user-card .follow-btn.following {
   background-color: transparent;
   border: 1px solid var(--gray);
   border-radius: 4px;
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -3177,7 +3163,7 @@ body.dark-mode .view-all-btn {
 
 .view-all-btn:hover {
   background-color: var(--gray-light);
-  border-color: var(--text);
+  border-color: var(--text-secondary);
   color: var(--foreground);
 }
 
@@ -3187,7 +3173,7 @@ body.dark-mode .view-all-btn {
   align-items: center;
   min-height: 200px;
   font-size: 1.1rem;
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 body.dark-mode .loading, 
@@ -3256,7 +3242,7 @@ body.dark-mode .no-results {
 
 .privacy-btn.public {
   background-color: var(--gray);
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .privacy-btn:hover {
@@ -3371,7 +3357,7 @@ body.dark-mode .follow-request-item .username {
 
 .follow-request-item .reject-btn {
   background-color: var(--gray);
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .follow-request-item .accept-btn:hover {
@@ -3392,7 +3378,7 @@ body.dark-mode .follow-request-item .username {
 .notification-button {
   display: flex;
   align-items: center;
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -3495,7 +3481,7 @@ body.dark-mode .notification-header h3 {
 .notification-empty {
   padding: 1rem;
   text-align: center;
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -3594,7 +3580,7 @@ body.dark-mode .notification-text {
 
 .notification-actions .reject-btn {
   background-color: var(--gray);
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .notification-actions .reject-btn:hover {
@@ -3603,7 +3589,7 @@ body.dark-mode .notification-text {
 }
 
 .delete-btn {
-  color: var(--text);
+  color: var(--text-secondary);
   opacity: 0.5;
   transition: all 0.2s ease;
   padding: 0.25rem;
@@ -3637,13 +3623,13 @@ body.dark-mode .notification-text {
 }
 
 .privacy-btn.public {
-  color: var(--text);
+  color: var(--text-secondary);
 }
 
 .share-btn {
   background: transparent;
   border: none;
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 8px;
   border-radius: 50%;
@@ -3867,7 +3853,7 @@ body.dark-mode .privacy-notice h3 {
 }
 
 .privacy-notice p {
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 1.1rem;
   max-width: 500px;
   line-height: 1.5;
@@ -4131,7 +4117,7 @@ body.dark-mode .user-not-found p {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-top: 4px;
 }
 
@@ -4536,7 +4522,7 @@ body.dark-mode .comment-input {
 .track-tab {
   padding: 5px 10px;
   background: none;
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.8rem;
   position: relative;
@@ -4553,7 +4539,7 @@ body.dark-mode .track-tab {
 
 .track-tab.active {
   font-weight: 600;
-  border-bottom: 2px solid var(--text);
+  border-bottom: 2px solid var(--text-secondary);
 }
 
 .track-tab.active::after {
@@ -4681,7 +4667,7 @@ body.dark-mode .edit-track-section h4 {
 
 .privacy-description, .share-description, .delete-description {
   font-size: 0.9rem;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-top: 0.5rem;
   line-height: 1.5;
   transition: color 0.3s ease;
@@ -4786,7 +4772,7 @@ body.dark-mode .delete-description {
 
 .track-layer-message {
   font-size: 0.8rem;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-top: 4px;
 }
 
@@ -4810,20 +4796,20 @@ body.dark-mode .track-layer-message {
 }
 
 .control-button.settings {
-  background-color: #f0f0f0;
-  color: #333;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    border-radius: 50%;
-    transition: background-color 0.3s;
+  background-color: var(--grey-1);
+  color: var(--text-primary);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  border-radius: 50%;
+  transition: background-color 0.3s;
 }
 
 .control-button.settings:hover {
-  background-color: #e0e0e0;
+  background-color: var(--grey-2);
 }
 
 .bpm-control {
@@ -4849,7 +4835,7 @@ body.dark-mode .track-layer-message {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -4866,7 +4852,7 @@ body.dark-mode .track-layer-message {
 .download-btn {
   background: transparent;
   border: none;
-  color: var(--text);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 1rem;
   transition: color 0.2s ease;
@@ -4968,7 +4954,7 @@ body.dark-mode .mobile-warning-header h2 {
 .mobile-warning-header .close-button {
   background: none;
   border: none;
-  color: var(--text);
+  color: var(--text-secondary);
   font-size: 18px;
   cursor: pointer;
   padding: 8px;
@@ -4997,7 +4983,7 @@ body.dark-mode .mobile-warning-header .close-button:hover {
 .mobile-warning-content p {
   font-size: 1rem;
   line-height: 1.6;
-  color: var(--text);
+  color: var(--text-secondary);
   margin-bottom: 20px;
 }
 
@@ -5044,7 +5030,7 @@ body.dark-mode .mobile-warning-features h3 {
 
 .mobile-warning-features li {
   padding: 6px 0;
-  color: var(--text);
+  color: var(--text-secondary);
   position: relative;
   padding-left: 20px;
 }
@@ -5087,7 +5073,7 @@ body.dark-mode .mobile-warning-actions {
 
 .continue-anyway-btn {
   background-color: var(--gray-light);
-  color: var(--text);
+  color: var(--text-secondary);
   border: none;
   border-radius: 8px;
   padding: 12px 24px;
