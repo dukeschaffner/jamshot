@@ -9,7 +9,7 @@ Add a compressor to the FFmpeg filter chain to reduce the dynamic range and brin
 - **Peak Normalization**: Scale the audio so the highest peak reaches just below 0 dBFS (like -0.1 dB)
 - **RMS/LUFS Normalization**: Normalize based on perceived loudness rather than peak levels, which often sounds louder
 
-## 3. **Limiting**
+## 3. **Limiting** max -2 db
 Apply a limiter after mixing to catch any peaks and prevent clipping while maximizing the overall level. This is like a very aggressive compressor with a very high ratio.
 
 ## 4. **Automatic Gain Control (AGC)**
