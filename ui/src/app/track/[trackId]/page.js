@@ -9,6 +9,7 @@ import api from '@/lib/api';
 import DawInterface from '@/components/DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
 import CustomTabs from '@/components/CustomTabs';
+import UserListModal from '@/components/UserListModal';
 import './collaborate.css';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit, FaDownload } from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
@@ -28,6 +29,7 @@ function TrackContent() {
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
   const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
 
   useEffect(() => {
     async function loadTrack() {
@@ -193,12 +195,14 @@ function TrackContent() {
       link.click();
       document.body.removeChild(link);
     } catch (err) {
-      console.error('Failed to download track:', err);
-      if (err.response?.status === 403) {
-        alert('Downloads are not allowed for this track');
-      } else {
-        alert('Failed to download track. Please try again later.');
-      }
+      console.error('Download error:', err);
+      alert('Failed to download track');
+    }
+  };
+
+  const handleLikeCountClick = () => {
+    if (track?.like_count > 0) {
+      setShowLikesModal(true);
     }
   };
 
@@ -253,7 +257,16 @@ function TrackContent() {
            </div>
            <div className="track-meta">
              <span className="meta-item"><FaPlay/> {track?.play_count || 0}</span>
-             <span className="meta-item"><FaHeart/> {track?.like_count || 0}</span>
+             <span className="meta-item">
+               <FaHeart/> 
+               <span 
+                 className={`like-count ${track?.like_count > 0 ? 'link-underline' : ''}`}
+                 onClick={handleLikeCountClick}
+                 title={track?.like_count > 0 ? 'View likes' : ''}
+               >
+                 {track?.like_count || 0} likes
+               </span>
+             </span>
              <span className="meta-item"><FaCodeBranch/> {track?.collab_count || 0} collabs</span>
              {track?.allow_download && (
                <span className="meta-item">
@@ -356,6 +369,14 @@ function TrackContent() {
           </div>
         </div>
       )}
+
+      <UserListModal
+        isOpen={showLikesModal}
+        onClose={() => setShowLikesModal(false)}
+        title="Likes"
+        type="likes"
+        trackId={trackId}
+      />
     </div>
   );
 }

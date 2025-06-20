@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import Track from '../../../components/Track';
 import CustomTabs from '../../../components/CustomTabs';
+import UserListModal from '../../../components/UserListModal';
 import Cookies from 'js-cookie';
 import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
@@ -40,16 +41,6 @@ export default function UserPage() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
-  const [followersList, setFollowersList] = useState([]);
-  const [followingList, setFollowingList] = useState([]);
-  const [followerPage, setFollowerPage] = useState(1);
-  const [followingPage, setFollowingPage] = useState(1);
-  const [hasMoreFollowers, setHasMoreFollowers] = useState(false);
-  const [hasMoreFollowing, setHasMoreFollowing] = useState(false);
-  const [loadingFollowers, setLoadingFollowers] = useState(false);
-  const [loadingFollowing, setLoadingFollowing] = useState(false);
-  const followersListRef = useRef(null);
-  const followingListRef = useRef(null);
   const [usernameError, setUsernameError] = useState('');
 
   useEffect(() => {
@@ -91,62 +82,13 @@ export default function UserPage() {
     setIsOwnProfile(isAuthenticated && currentUser?.id === userProfile?.id);
   }, [userProfile, currentUser, isAuthenticated]);
 
-  const fetchFollowers = async (page = 1, append = false) => {
-    if (loadingFollowers) return;
-    
-    try {
-      setLoadingFollowers(true);
-      const userId = userProfile.id;
-      const response = await api.get(`/users/${userId}/followers?page=${page}&limit=20`);
-      
-      if (append) {
-        setFollowersList(prev => [...prev, ...response.data.users]);
-      } else {
-        setFollowersList(response.data.users);
-      }
-      
-      setHasMoreFollowers(response.data.hasMore);
-      setFollowerPage(page);
-    } catch (err) {
-      console.error('Failed to fetch followers:', err);
-    } finally {
-      setLoadingFollowers(false);
-    }
-  };
-
-  const fetchFollowing = async (page = 1, append = false) => {
-    if (loadingFollowing) return;
-    
-    try {
-      setLoadingFollowing(true);
-      const userId = userProfile.id;
-      const response = await api.get(`/users/${userId}/following?page=${page}&limit=20`);
-      
-      if (append) {
-        setFollowingList(prev => [...prev, ...response.data.users]);
-      } else {
-        setFollowingList(response.data.users);
-      }
-      
-      setHasMoreFollowing(response.data.hasMore);
-      setFollowingPage(page);
-    } catch (err) {
-      console.error('Failed to fetch following:', err);
-    } finally {
-      setLoadingFollowing(false);
-    }
-  };
-
   const handleOpenFollowersModal = () => {
     // Don't open modal if user is private, not current user, and current user is not following
     if (isPrivate && !isOwnProfile && !stats.isFollowing) {
       return;
     }
     
-    setFollowersList([]);
-    setFollowerPage(1);
     setShowFollowersModal(true);
-    fetchFollowers(1, false);
   };
 
   const handleOpenFollowingModal = () => {
@@ -155,81 +97,7 @@ export default function UserPage() {
       return;
     }
     
-    setFollowingList([]);
-    setFollowingPage(1);
     setShowFollowingModal(true);
-    fetchFollowing(1, false);
-  };
-
-  const handleFollowersScroll = () => {
-    if (!followersListRef.current || loadingFollowers || !hasMoreFollowers) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = followersListRef.current;
-    if (scrollHeight - scrollTop <= clientHeight * 1.5) {
-      fetchFollowers(followerPage + 1, true);
-    }
-  };
-
-  const handleFollowingScroll = () => {
-    if (!followingListRef.current || loadingFollowing || !hasMoreFollowing) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = followingListRef.current;
-    if (scrollHeight - scrollTop <= clientHeight * 1.5) {
-      fetchFollowing(followingPage + 1, true);
-    }
-  };
-
-  const handleFollowUser = async (userId, username, isAlreadyFollowing) => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
-    
-    // Prevent following yourself
-    if (currentUser && userId === currentUser.id) {
-      return;
-    }
-    
-    try {
-      if (isAlreadyFollowing) {
-        await api.delete(`/users/follow/${userId}`);
-        
-        // Update the follower and following lists
-        setFollowersList(prev => 
-          prev.map(user => 
-            user.id === userId ? { ...user, is_following: false } : user
-          )
-        );
-        
-        setFollowingList(prev => 
-          prev.map(user => 
-            user.id === userId ? { ...user, is_following: false } : user
-          )
-        );
-      } else {
-        const response = await api.post(`/users/follow/${userId}`);
-        
-        // If the account is private, don't update is_following yet
-        if (response.data.message === 'Follow request sent') {
-          alert('Follow request sent. Waiting for approval.');
-        } else {
-          setFollowersList(prev => 
-            prev.map(user => 
-              user.id === userId ? { ...user, is_following: true } : user
-            )
-          );
-          
-          setFollowingList(prev => 
-            prev.map(user => 
-              user.id === userId ? { ...user, is_following: true } : user
-            )
-          );
-        }
-      }
-    } catch (err) {
-      console.error('Follow/unfollow error:', err);
-      alert('Failed to update follow status');
-    }
   };
 
   const handleFollow = async () => {
@@ -584,155 +452,21 @@ export default function UserPage() {
         />
       )}
 
-      {/* Followers Modal */}
-      {showFollowersModal && (
-        <div 
-          className="modal-overlay active"
-          onClick={(e) => {
-            if (e.target.className === 'modal-overlay active') {
-              setShowFollowersModal(false);
-            }
-          }}
-        >
-          <div className="modal-content user-list-modal">
-            <div className="modal-header">
-              <h2 className="modal-title">Followers</h2>
-              <button 
-                className="close-btn"
-                onClick={() => setShowFollowersModal(false)}
-              >
-                <FaTimes />
-              </button>
-            </div>
-            <div 
-              className="user-list-container"
-              ref={followersListRef}
-              onScroll={handleFollowersScroll}
-            >
-              {followersList.length > 0 ? (
-                followersList.map(user => (
-                  <div key={user.id} className="user-list-item">
-                    <div className="user-list-info" onClick={() => router.push(`/user/${user.username}`)}>
-                      <img 
-                        src={user.profile_pic_url || '/avatar.svg'} 
-                        alt={user.username}
-                        className="user-avatar"
-                      />
-                      <div className="user-details">
-                        <span className="username">
-                          {user.username}
-                          {user.verified && <span className="verified-badge">✓</span>}
-                        </span>
-                        {user.name && <span className="user-full-name">{user.name}</span>}
-                      </div>
-                    </div>
-                    {user.id !== (userProfile?.id) && (
-                      <button 
-                        className={`follow-btn sm ${user.is_following ? 'following' : ''}`}
-                        onClick={() => handleFollowUser(user.id, user.username, user.is_following)}
-                      >
-                        {user.is_following ? (
-                          <>
-                            <FaUserCheck /> Following
-                          </>
-                        ) : (
-                          <>
-                            <FaUserPlus /> Follow
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="no-users-message">
-                  {loadingFollowers ? 'Loading...' : 'No followers yet'}
-                </div>
-              )}
-              {loadingFollowers && followersList.length > 0 && (
-                <div className="loading-more">
-                  Loading more...
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <UserListModal
+        isOpen={showFollowersModal}
+        onClose={() => setShowFollowersModal(false)}
+        title="Followers"
+        type="followers"
+        userId={userProfile?.id}
+      />
 
-      {/* Following Modal */}
-      {showFollowingModal && (
-        <div 
-          className="modal-overlay active"
-          onClick={(e) => {
-            if (e.target.className === 'modal-overlay active') {
-              setShowFollowingModal(false);
-            }
-          }}
-        >
-          <div className="modal-content user-list-modal">
-            <div className="modal-header">
-              <h2 className="modal-title">Following</h2>
-              <button 
-                className="close-btn"
-                onClick={() => setShowFollowingModal(false)}
-              >
-                <FaTimes />
-              </button>
-            </div>
-            <div 
-              className="user-list-container"
-              ref={followingListRef}
-              onScroll={handleFollowingScroll}
-            >
-              {followingList.length > 0 ? (
-                followingList.map(user => (
-                  <div key={user.id} className="user-list-item">
-                    <div className="user-list-info" onClick={() => router.push(`/user/${user.username}`)}>
-                      <img 
-                        src={user.profile_pic_url || '/avatar.svg'} 
-                        alt={user.username}
-                        className="user-avatar"
-                      />
-                      <div className="user-details">
-                        <span className="username">
-                          {user.username}
-                          {user.verified && <span className="verified-badge">✓</span>}
-                        </span>
-                        {user.name && <span className="user-full-name">{user.name}</span>}
-                      </div>
-                    </div>
-                    {user.id !== (userProfile?.id) && (
-                      <button 
-                        className={`follow-btn sm ${user.is_following ? 'following' : ''}`}
-                        onClick={() => handleFollowUser(user.id, user.username, user.is_following)}
-                      >
-                        {user.is_following ? (
-                          <>
-                            <FaUserCheck /> Following
-                          </>
-                        ) : (
-                          <>
-                            <FaUserPlus /> Follow
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="no-users-message">
-                  {loadingFollowing ? 'Loading...' : 'Not following anyone yet'}
-                </div>
-              )}
-              {loadingFollowing && followingList.length > 0 && (
-                <div className="loading-more">
-                  Loading more...
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <UserListModal
+        isOpen={showFollowingModal}
+        onClose={() => setShowFollowingModal(false)}
+        title="Following"
+        type="following"
+        userId={userProfile?.id}
+      />
     </div>
   );
 }

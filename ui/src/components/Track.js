@@ -5,6 +5,7 @@ import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import CustomTabs from './CustomTabs';
+import UserListModal from './UserListModal';
 import { useAudio } from '../lib/AudioContext';
 import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaSpinner } from 'react-icons/fa';
 import Image from 'next/image';
@@ -42,6 +43,7 @@ export default function Track(
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTracks, setTotalTracks] = useState(0);
+  const [showLikesModal, setShowLikesModal] = useState(false);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
@@ -170,6 +172,13 @@ export default function Track(
       }
     } finally {
       setIsLikeInProgress(false);
+    }
+  };
+
+  const handleLikeCountClick = (e) => {
+    e.stopPropagation();
+    if (likeCount > 0) {
+      setShowLikesModal(true);
     }
   };
 
@@ -327,7 +336,13 @@ export default function Track(
                 >
                 {isLiked ? <FaHeart /> : <FaRegHeart />}
               </button>
-              <span>{Number(likeCount).toLocaleString()}</span>
+              <span 
+                className={`like-count ${likeCount > 0 ? 'link-underline' : ''}`}
+                onClick={handleLikeCountClick}
+                title={likeCount > 0 ? 'View likes' : ''}
+              >
+                {Number(likeCount).toLocaleString()} likes
+              </span>
             </div>
             <div className="meta-item">
               <button 
@@ -465,6 +480,14 @@ export default function Track(
           )}
         </div>
       )}
+
+      <UserListModal
+        isOpen={showLikesModal}
+        onClose={() => setShowLikesModal(false)}
+        title="Likes"
+        type="likes"
+        trackId={track.id}
+      />
     </div>
   );
 }
