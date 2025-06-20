@@ -644,6 +644,86 @@ router.delete('/:id/like', authMiddleware, async (req, res) => {
   }
 });
 
+// Get users who liked a track
+router.get('/:id/likes', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { page = 1, limit = 20 } = req.query;
+  
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  
+  try {
+    // First check if track exists and if user has access
+    const trackCheck = await pool.query(
+      'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
+      [id]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const track = trackCheck.rows[0];
+    
+    // If track is private, check if user is authorized to view it
+    if (track.is_private) {
+      const isOwner = userId && track.user_id === userId;
+      
+      if (!isOwner) {
+        return res.status(403).json({ error: 'This track is private' });
+      }
+    }
+    
+    // Get users who liked this track
+    const likesQuery = `
+      SELECT 
+        u.id,
+        u.username,
+        u.name,
+        u.verified,
+        u.profile_pic_url,
+        l.created_at as liked_at,
+        CASE WHEN f.follower_id IS NOT NULL THEN true ELSE false END as is_following
+      FROM likes l
+      JOIN users u ON l.user_id = u.id
+      LEFT JOIN follows f ON f.following_id = u.id AND f.follower_id = $3
+      WHERE l.track_id = $1
+      ORDER BY l.created_at DESC
+      LIMIT $2 OFFSET $4
+    `;
+    
+    const countQuery = `
+      SELECT COUNT(*) 
+      FROM likes 
+      WHERE track_id = $1
+    `;
+    
+    const [likesResult, countResult] = await Promise.all([
+      pool.query(likesQuery, [id, limitNum, userId || null, offset]),
+      pool.query(countQuery, [id])
+    ]);
+    
+    const totalCount = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasMore = parseInt(page) < totalPages;
+    
+    res.json({
+      users: likesResult.rows,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: limitNum,
+        pages: totalPages,
+        hasMore
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching track likes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get comments for a track with pagination
 router.get('/:id/comments', optionalAuthMiddleware, async (req, res) => {
   const { id } = req.params;

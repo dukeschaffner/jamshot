@@ -12,6 +12,9 @@ TODO (MVP)
 - weird trimming behavior (COULDN"T REPRO)
 - country/state/DOB
 - check notifications functionality
+- stop recording when track duration limit reached
+- only show measure lines when zoomed out enough
+- handle notification spamming
 
 
 

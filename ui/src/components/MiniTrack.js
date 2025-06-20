@@ -6,6 +6,7 @@ import Cookies from 'js-cookie';
 import api from '../lib/api';
 import { useRouter } from 'next/navigation';
 import TimeDisplay from './TimeDisplay';
+import UserListModal from './UserListModal';
 import { useUser } from '../contexts/UserContext';
 
 export default function MiniTrack(
@@ -24,6 +25,7 @@ export default function MiniTrack(
   const [isReposted, setIsReposted] = useState(track.is_reposted || false);
   const [repostCount, setRepostCount] = useState(Number(track.repost_count) || 0);
   const { user: currentUser, isAuthenticated } = useUser();
+  const [showLikesModal, setShowLikesModal] = useState(false);
   
   useEffect(() => {
     // Update like state when track prop changes
@@ -73,6 +75,13 @@ export default function MiniTrack(
       }
     } catch (error) {
       console.error('Failed to toggle like:', error);
+    }
+  };
+  
+  const handleLikeCountClick = (e) => {
+    e.stopPropagation();
+    if (likeCount > 0) {
+      setShowLikesModal(true);
     }
   };
   
@@ -176,7 +185,13 @@ export default function MiniTrack(
             >
               {isLiked ? <FaHeart /> : <FaRegHeart />}
             </button>
-            <span>{Number(likeCount || 0).toLocaleString()}</span>
+            <span 
+              className={`like-count ${likeCount > 0 ? 'link-underline' : ''}`}
+              onClick={handleLikeCountClick}
+              title={likeCount > 0 ? 'View likes' : ''}
+            >
+              {Number(likeCount || 0).toLocaleString()} likes
+            </span>
           </div>
           <div className="meta-item">
             <button 
@@ -190,6 +205,14 @@ export default function MiniTrack(
           </div>
         </div>
       </div>
+
+      <UserListModal
+        isOpen={showLikesModal}
+        onClose={() => setShowLikesModal(false)}
+        title="Likes"
+        type="likes"
+        trackId={track.id}
+      />
     </div>
   );
 }
