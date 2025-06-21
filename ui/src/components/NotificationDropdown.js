@@ -26,6 +26,10 @@ export default function NotificationDropdown() {
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        // Mark all unread notifications as read before closing
+        if (isOpen && unreadCount > 0) {
+          markAllAsRead();
+        }
         setIsOpen(false);
       }
     }
@@ -34,7 +38,7 @@ export default function NotificationDropdown() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [isOpen, unreadCount, markAllAsRead]);
 
   const handleNotificationClick = (notification) => {
     // Mark as read
@@ -120,20 +124,20 @@ export default function NotificationDropdown() {
         className="notification-button"
         title="Notifications"
       >
-        <FaBell size={20} />
+        <div className="notification-icon-wrapper">
+          <FaBell size={20} />
+          {unreadCount > 0 && (
+            <span className="notification-dot"></span>
+          )}
+        </div>
         Notifications
-        {unreadCount > 0 && (
-          <span className="notification-badge">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
       </button>
 
       {isOpen && (
         <div className="notification-panel">
           <div className="notification-header">
             <h3>Notifications</h3>
-            {notifications.length > 0 && (
+            {/* {notifications.length > 0 && (
               <button
                 onClick={markAllAsRead}
                 className="mark-all-read"
@@ -141,7 +145,7 @@ export default function NotificationDropdown() {
               >
                 <FaCheck className="inline mr-1" /> Mark all read
               </button>
-            )}
+            )} */}
           </div>
 
           {loading ? (
@@ -190,7 +194,7 @@ export default function NotificationDropdown() {
                       </div>
                     )}
                   </div>
-                  <button
+                  {/* <button
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteNotification(notification.id);
@@ -199,7 +203,7 @@ export default function NotificationDropdown() {
                     title="Delete notification"
                   >
                     <FaTrash />
-                  </button>
+                  </button> */}
                 </li>
               ))}
             </ul>
