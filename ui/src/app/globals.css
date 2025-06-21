@@ -2386,6 +2386,7 @@ textarea.edit-input {
   color: var(--gray-dark);
   border-bottom: 2px solid transparent;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .tab.active {
@@ -3371,6 +3372,29 @@ body.dark-mode .follow-request-item .username {
   margin-bottom: 8px;
 }
 
+.notification-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+
+.notification-dot {
+  position: absolute;
+  top: 2px;
+  right: 10px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--red);
+  border-radius: 50%;
+  border: 2px solid var(--background);
+}
+
+body.dark-mode .notification-dot {
+  border: 2px solid var(--grey-1);
+}
+
 .notification-dropdown {
   width: 100%;
 }
@@ -4159,10 +4183,8 @@ body.dark-mode .control-button.active {
 /* Comment styles */
 .comments-section {
   width: 100%;
-  background-color: var(--bg-secondary);
   border-radius: 8px;
   padding: 16px;
-  margin-top: 16px;
 }
 
 .comments-title {

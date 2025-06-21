@@ -166,10 +166,10 @@ export default function Comment({
             )}
             {comment.is_owner && (
               <>
-                <button className="comment-action-btn comment-edit-btn" onClick={handleEdit} title="Edit">
+                {/* <button className="comment-action-btn comment-edit-btn" onClick={handleEdit} title="Edit">
                   <FaEdit />
                   <span className="comment-action-text">Edit</span>
-                </button>
+                </button> */}
                 <button className="comment-action-btn comment-delete-btn" onClick={handleDelete} title="Delete">
                   <FaTrash />
                   <span className="comment-action-text">Delete</span>
