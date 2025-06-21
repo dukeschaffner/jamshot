@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import TimeDisplay from './TimeDisplay';
 import UserListModal from './UserListModal';
 import { useUser } from '../contexts/UserContext';
-
+import { getLikeCountString } from '../lib/utils';
 export default function MiniTrack(
   { 
     track, 
@@ -190,7 +190,7 @@ export default function MiniTrack(
               onClick={handleLikeCountClick}
               title={likeCount > 0 ? 'View likes' : ''}
             >
-              {Number(likeCount || 0).toLocaleString()} likes
+              {getLikeCountString(likeCount)}
             </span>
           </div>
           <div className="meta-item">

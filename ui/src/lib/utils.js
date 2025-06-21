@@ -152,6 +152,12 @@ export function writeString(view, offset, string) {
   }
 };
 
+export function getLikeCountString(likeCount) {
+  if(likeCount === 0) return '0 likes';
+  if(likeCount === 1) return '1 like';
+  return `${Number(likeCount).toLocaleString()} likes`;
+}
+
 export function audioBufferToWav(buffer, sampleRate) {
   // Use the provided sample rate or default to the buffer's sample rate
   const useSampleRate = sampleRate || buffer.sampleRate;
