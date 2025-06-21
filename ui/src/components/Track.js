@@ -12,7 +12,7 @@ import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
 import { useUser } from '../contexts/UserContext';
-
+import { getLikeCountString } from '../lib/utils';
 export default function Track(
     { track, 
       allTracks, 
@@ -341,7 +341,7 @@ export default function Track(
                 onClick={handleLikeCountClick}
                 title={likeCount > 0 ? 'View likes' : ''}
               >
-                {Number(likeCount).toLocaleString()} likes
+                {getLikeCountString(likeCount)}
               </span>
             </div>
             <div className="meta-item">

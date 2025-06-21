@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
 import { formatDuration } from '@/lib/utils';
+import { getLikeCountString } from '@/lib/utils';
 import api from '@/lib/api';
 import DawInterface from '@/components/DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
@@ -264,7 +265,7 @@ function TrackContent() {
                  onClick={handleLikeCountClick}
                  title={track?.like_count > 0 ? 'View likes' : ''}
                >
-                 {track?.like_count || 0} likes
+                 {getLikeCountString(track?.like_count)}
                </span>
              </span>
              <span className="meta-item"><FaCodeBranch/> {track?.collab_count || 0} collabs</span>
