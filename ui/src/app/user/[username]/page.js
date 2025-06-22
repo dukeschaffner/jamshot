@@ -13,7 +13,7 @@ import { useUser } from '../../../contexts/UserContext';
 export default function UserPage() {
   const { username } = useParams();
   const router = useRouter();
-  const { user: currentUser, isAuthenticated } = useUser();
+  const { user: currentUser, isAuthenticated, refreshUser } = useUser();
   const [tracks, setTracks] = useState([]);
   const [repostedTracks, setRepostedTracks] = useState([]);
   const [likedTracks, setLikedTracks] = useState([]);
@@ -148,9 +148,13 @@ export default function UserPage() {
       const response = await api.put('/users/me', editForm);
       setUserProfile(response.data);
       setIsEditing(false);
-      // If the username was changed, refresh the page
+      
+      // Refresh global user context to update navbar
+      refreshUser();
+      
+      // If the username was changed, navigate to new URL
       if (response.data.username !== username) {
-        router.refresh();
+        router.push(`/user/${response.data.username}`);
       }
     } catch (err) {
       console.error('Failed to update profile:', err);
@@ -195,6 +199,9 @@ export default function UserPage() {
       setUserProfile(uploadResponse.data);
       setShowImageCropper(false);
       setSelectedImage(null);
+      
+      // Refresh global user context to update navbar profile picture
+      refreshUser();
     } catch (err) {
       console.error('Failed to upload image:', err);
       alert('Failed to upload profile image');
@@ -206,6 +213,9 @@ export default function UserPage() {
       const response = await api.put('/users/me/privacy', { is_private: !isPrivate });
       setIsPrivate(response.data.is_private);
       alert(`Your account is now ${response.data.is_private ? 'private' : 'public'}`);
+      
+      // Refresh global user context to update navbar
+      refreshUser();
     } catch (err) {
       console.error('Failed to update privacy settings:', err);
       alert('Failed to update privacy settings');

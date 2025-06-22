@@ -14,8 +14,12 @@ import CountInIcon from './CountInIcon';
 import Cookies from 'js-cookie';
 import './DawInterface.css';
 import { useNavigationGuard } from 'next-navigation-guard';
+import { useUser } from '../../contexts/UserContext';
 
 export default function DawInterface({ track, isCollab = false }) {
+  // Get authentication status
+  const { isAuthenticated } = useUser();
+
   // State
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -323,6 +327,12 @@ export default function DawInterface({ track, isCollab = false }) {
   
   // Toggle recording state
   const toggleRecording = async () => {
+    // Check if user is authenticated before allowing recording
+    if (!isAuthenticated) {
+      alert('You need to be logged in to record. Please log in and try again.');
+      return;
+    }
+    
     // If not recording and no device selected, show audio settings modal
     let deviceSelected = false;
     if (!isRecording && !selectedAudioInputDevice) {
