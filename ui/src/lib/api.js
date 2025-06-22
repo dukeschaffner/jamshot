@@ -76,6 +76,7 @@ api.interceptors.response.use(
         
         if (!refreshToken) {
           // No refresh token, clear auth and redirect to login
+          console.log('No refresh token, clearing auth and redirecting to login');
           Cookies.remove('accessToken');
           Cookies.remove('refreshToken');
           sessionStorage.setItem('authError', 'Your session has expired. Please log in again.');
@@ -124,6 +125,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         
         // Clear auth and redirect to login
+        console.log('Error refreshing token, clearing auth and redirecting to login');
         Cookies.remove('accessToken');
         Cookies.remove('refreshToken');
         sessionStorage.setItem('authError', 'Your session has expired. Please log in again.');
@@ -145,6 +147,7 @@ api.interceptors.response.use(
     
     // For other 401 errors, clear auth and redirect
     if (error.response?.status === 401) {
+      console.log('401 error, clearing auth and redirecting to login');
       Cookies.remove('accessToken');
       Cookies.remove('refreshToken');
       sessionStorage.setItem('authError', 'Authentication failed. Please log in again.');
