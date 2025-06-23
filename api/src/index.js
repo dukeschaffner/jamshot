@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { csrfProtection } = require('./middleware/csrf');
+const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting');
 const authRoutes = require('./routes/auth');
 const trackRoutes = require('./routes/tracks');
 const userRoutes = require('./routes/users');
@@ -14,6 +15,10 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+// Apply global rate limiting first (before CORS and other middleware)
+app.use(globalLimiter);
+app.use(speedLimiter);
 
 app.use(cors({
   origin: (origin, callback) => {
