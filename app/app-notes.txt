@@ -3,7 +3,7 @@ TODO (MVP)
 - Mixing files on collab
 
 - scalability report action items
-- comment edit view
+
 - security/app standards report
 - audio ads
 - feed ads
@@ -15,14 +15,18 @@ TODO (MVP)
 - stop recording when track duration limit reached
 - only show measure lines when zoomed out enough
 - handle notification spamming
+- improve search algorithm - prioritize popular results
+- improve feed algorithms - track user preferences
 
 
 
 BUGS
 - dark mode inconsistencies
-- logging in on collab or upload shouldnt lose progress
 - handle deleting takes during playback
-- make sure updating profile refreshes data in navbar and url route if on user page and username changed
+- refresj tokens not working correclty - still getting logged out after a couple hours
+  - Authentication failed. Please log in again.
+  - response error: no token provided
+  - cookies has refresh token but not accesstoken
 
 
 CHECKLIST
@@ -52,6 +56,7 @@ TODO (after beta testing)
 - invite people to collab on private tracks (groups)?
 - "add on" option where instead of adding layers, they can add audio before or after
 - paginate track, reposts, likes on user page
+- comment edit view
 
 
 MONETIZATION
