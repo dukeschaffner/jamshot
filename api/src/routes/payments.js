@@ -3,9 +3,10 @@ const router = express.Router();
 const stripe = require('../config/stripe');
 const db = require('../config/db');
 const {authMiddleware} = require('../middleware/auth');
+const { contentCreationLimiter } = require('../middleware/rateLimiting');
 
 // Create a checkout session
-router.post('/create-checkout-session', authMiddleware, async (req, res) => {
+router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res) => {
   try {
     const { amount } = req.body;
     

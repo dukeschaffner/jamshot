@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const { optionalAuthMiddleware } = require('../middleware/auth');
+const { searchLimiter } = require('../middleware/rateLimiting');
 const AWS = require('aws-sdk');
 
 AWS.config.update({ signatureVersion: 'v4' });
@@ -13,6 +14,9 @@ const s3 = new AWS.S3({
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
+
+// Apply search rate limiting to all search routes
+router.use(searchLimiter);
 
 // Search for tracks and users
 router.get('/', async (req, res) => {

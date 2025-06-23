@@ -3,6 +3,11 @@ const router = express.Router();
 const AWS = require('aws-sdk');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const { 
+  interactionLimiter, 
+  uploadLimiter, 
+  contentCreationLimiter 
+} = require('../middleware/rateLimiting');
 const multer = require('multer');
 const sharp = require('sharp');
 const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
@@ -132,7 +137,7 @@ router.get('/:userId/tracks', async (req, res) => {
 });
 
 // Follow a user
-router.post('/follow/:userId', authMiddleware, async (req, res) => {
+router.post('/follow/:userId', interactionLimiter, authMiddleware, async (req, res) => {
   const { userId } = req.params;
   const followerId = req.user.id;
   
@@ -512,7 +517,7 @@ router.put('/me', authMiddleware, async (req, res) => {
 });
 
 // Upload and update profile image
-router.post('/me/profile-image', authMiddleware, upload.single('image'), async (req, res) => {
+router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -637,7 +642,7 @@ router.get('/me/follow-requests', authMiddleware, async (req, res) => {
 });
 
 // Accept a follow request
-router.post('/follow-requests/:requestId/accept', authMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/accept', interactionLimiter, authMiddleware, async (req, res) => {
   const { requestId } = req.params;
   
   try {
@@ -686,7 +691,7 @@ router.post('/follow-requests/:requestId/accept', authMiddleware, async (req, re
 });
 
 // Reject a follow request
-router.post('/follow-requests/:requestId/reject', authMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/reject', interactionLimiter, authMiddleware, async (req, res) => {
   const { requestId } = req.params;
   
   try {
@@ -879,7 +884,7 @@ router.get('/by-username/:username/reposts', async (req, res) => {
 });
 
 // Follow a user by username
-router.post('/follow/username/:username', authMiddleware, async (req, res) => {
+router.post('/follow/username/:username', interactionLimiter, authMiddleware, async (req, res) => {
   const { username } = req.params;
   const followerId = req.user.id;
   

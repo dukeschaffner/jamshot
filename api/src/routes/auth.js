@@ -6,6 +6,12 @@ const pool = require('../config/db');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 const { authMiddleware } = require('../middleware/auth');
 const { setCSRFToken } = require('../middleware/csrf');
+const { 
+  authLimiter, 
+  strictAuthLimiter, 
+  passwordResetLimiter, 
+  emailVerificationLimiter 
+} = require('../middleware/rateLimiting');
 require('dotenv').config();
 
 const router = express.Router();
@@ -74,7 +80,7 @@ const validatePassword = (password) => {
 };
 
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   let { username, name, email, password } = req.body;
   const deviceInfo = req.headers['user-agent'] || null;
   
@@ -142,7 +148,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', strictAuthLimiter, async (req, res) => {
   const { email, password } = req.body;
   const deviceInfo = req.headers['user-agent'] || null;
   
@@ -180,7 +186,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Refresh token endpoint
-router.post('/refresh-token', async (req, res) => {
+router.post('/refresh-token', authLimiter, async (req, res) => {
   const { refreshToken } = req.body;
   
   if (!refreshToken) {
@@ -267,7 +273,7 @@ router.get('/verify-email/:token', async (req, res) => {
 });
 
 // Resend verification email
-router.post('/resend-verification', async (req, res) => {
+router.post('/resend-verification', emailVerificationLimiter, async (req, res) => {
   const { email } = req.body;
   
   try {
@@ -297,7 +303,7 @@ router.post('/resend-verification', async (req, res) => {
 });
 
 // Request password reset
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
   const { email } = req.body;
   
   try {

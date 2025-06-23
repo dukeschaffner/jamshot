@@ -8,6 +8,12 @@ const ffmpeg = require('fluent-ffmpeg');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const { 
+  uploadLimiter, 
+  contentCreationLimiter, 
+  interactionLimiter, 
+  apiEndpointLimiter 
+} = require('../middleware/rateLimiting');
+const { 
   s3, 
   s3Client, 
   generateSignedUrl,
@@ -120,7 +126,7 @@ id/tree endpoint
 
 
 
-router.post('/upload', authMiddleware, upload.single('audio'), async (req, res) => {
+router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), async (req, res) => {
   let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset, allow_download } = req.body;
   const userId = req.user.id;
   const file = req.file;
@@ -597,7 +603,7 @@ router.get('/:id/related', async (req, res) => {
 });
 
 // Like a Track
-router.post('/:id/like', authMiddleware, async (req, res) => {
+router.post('/:id/like', interactionLimiter, authMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -802,7 +808,7 @@ router.get('/:id/comments', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Comment on a Track
-router.post('/:id/comment', authMiddleware, async (req, res) => {
+router.post('/:id/comment', contentCreationLimiter, authMiddleware, async (req, res) => {
   const { id } = req.params;
   const { content, parent_comment_id } = req.body;
   const userId = req.user.id;
@@ -1037,7 +1043,7 @@ router.get('/search', async (req, res) => {
 });
 
 // Repost a Track
-router.post('/:id/repost', authMiddleware, async (req, res) => {
+router.post('/:id/repost', interactionLimiter, authMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1096,7 +1102,7 @@ router.delete('/:id/repost', authMiddleware, async (req, res) => {
 // This endpoint is called when a user listens to:
 // - At least 30 seconds of a track that's 30+ seconds long
 // - At least 90% of a track that's less than 30 seconds long
-router.post('/:id/play', async (req, res) => {
+router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id; // Optional - can be null for anonymous plays
   
@@ -1385,7 +1391,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 // Generate a share link with a secret token for a private track
-router.post('/:id/share', authMiddleware, async (req, res) => {
+router.post('/:id/share', interactionLimiter, authMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   
