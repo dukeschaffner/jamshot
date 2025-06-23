@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const { csrfProtection } = require('./middleware/csrf');
 const authRoutes = require('./routes/auth');
 const trackRoutes = require('./routes/tracks');
 const userRoutes = require('./routes/users');
@@ -35,14 +37,21 @@ app.use(cors({
     callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  credentials: true // Allow cookies to be sent
 }));
+
+// Cookie parser middleware (must come before CSRF)
+app.use(cookieParser());
 
 // Special handling for Stripe webhook
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Regular JSON parsing for all other routes
-app.use(express.json()); // Parse JSON bodies
+app.use(express.json());
+
+// Apply CSRF protection globally (after auth middleware in routes)
+app.use(csrfProtection);
 
 // Routes
 app.use('/api/auth', authRoutes);

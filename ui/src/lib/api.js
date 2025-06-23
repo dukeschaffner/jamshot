@@ -4,6 +4,7 @@ import Cookies from 'js-cookie';
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // Enable cookies for CSRF
 });
 
 // Flag to prevent multiple refresh requests
@@ -31,20 +32,57 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// Add JWT token to requests
+// Add JWT token and CSRF token to requests
 api.interceptors.request.use((config) => {
   const token = Cookies.get('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Add CSRF token for state-changing requests
+  if (['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase())) {
+    const csrfToken = Cookies.get('csrfToken');
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+  
   return config;
 });
 
 // Handle token expiration and other response errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Store CSRF token from response headers if present
+    const csrfToken = response.headers['x-csrf-token'];
+    if (csrfToken) {
+      Cookies.set('csrfToken', csrfToken, { 
+        expires: 1/24, // 1 hour in days
+        sameSite: 'strict',
+        secure: process.env.NODE_ENV === 'production'
+      });
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
+    
+    // Handle CSRF token errors
+    if (error.response?.status === 403 && 
+        (error.response?.data?.code === 'CSRF_TOKEN_MISSING' || 
+         error.response?.data?.code === 'CSRF_TOKEN_MISMATCH')) {
+      
+      // Clear CSRF token and retry the request
+      Cookies.remove('csrfToken');
+      
+      // Don't retry if already retried
+      if (!originalRequest._csrfRetry) {
+        originalRequest._csrfRetry = true;
+        return api(originalRequest);
+      }
+      
+      return Promise.reject(error);
+    }
     
     // If the error is not 401 or the request has already been retried, reject
     if (error.response?.status !== 401 || originalRequest._retry) {

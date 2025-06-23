@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const pool = require('../config/db');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 const { authMiddleware } = require('../middleware/auth');
+const { setCSRFToken } = require('../middleware/csrf');
 require('dotenv').config();
 
 const router = express.Router();
@@ -163,9 +164,15 @@ router.post('/login', async (req, res) => {
     // Generate tokens
     const { accessToken, refreshToken } = await generateTokens(user.id, deviceInfo);
     
-    res.json({ 
-      accessToken,
-      refreshToken
+    // Set user context for CSRF token generation
+    req.user = { id: user.id };
+    
+    // Generate and set CSRF token
+    setCSRFToken(req, res, () => {
+      res.json({ 
+        accessToken,
+        refreshToken
+      });
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -197,11 +204,13 @@ router.post('/refresh-token', async (req, res) => {
     // Generate a new access token
     const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
     
-    // Optionally, you can implement a rotation strategy for refresh tokens
-    // This would involve revoking the old token and issuing a new one
-    // For simplicity, we'll just return a new access token
+    // Set user context for CSRF token generation
+    req.user = { id: userId };
     
-    res.json({ accessToken });
+    // Generate and set CSRF token
+    setCSRFToken(req, res, () => {
+      res.json({ accessToken });
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
