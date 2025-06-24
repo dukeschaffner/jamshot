@@ -221,8 +221,8 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     duration = metadata.format.duration;
     
     // Validate track duration (max 10 minutes = 600 seconds)
-    if (duration > 600) {
-      return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 10 minutes' });
+    if (duration > 5 * 60) {
+      return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 5 minutes' });
     }
   } catch (err) {
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });

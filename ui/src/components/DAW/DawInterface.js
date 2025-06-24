@@ -524,6 +524,7 @@ export default function DawInterface({ track, isCollab = false }) {
           metronomeOffset={metronomeOffset}
           setMetronomeOffset={setMetronomeOffset}
           snapToGridEnabled={snapToGridEnabled}
+          recordingLimit={5 * 60}
         />
       )}
 
