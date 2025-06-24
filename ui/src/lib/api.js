@@ -142,6 +142,8 @@ api.interceptors.response.use(
         expires: 1/24, // 1 hour in days
         sameSite: 'strict'
       });
+
+      console.log('Access token refreshed');
       
       // Update the UserContext if callback is set
       if (refreshUserStateCallback) {

@@ -15,6 +15,7 @@ TODO (MVP)
 - stop recording when track duration limit reached
 - only show measure lines when zoomed out enough
 - handle notification spamming
+
 - improve search algorithm - prioritize popular results
 - improve feed algorithms - track user preferences
 
@@ -23,10 +24,6 @@ TODO (MVP)
 BUGS
 - dark mode inconsistencies
 - handle deleting takes during playback
-- refresj tokens not working correclty - still getting logged out after a couple hours
-  - Authentication failed. Please log in again.
-  - response error: no token provided
-  - cookies has refresh token but not accesstoken
 
 
 CHECKLIST
@@ -52,7 +49,6 @@ TODO (after beta testing)
 - undo redo (DAW)
 - global player audio level
 - freemium model
-- improve feed logic
 - invite people to collab on private tracks (groups)?
 - "add on" option where instead of adding layers, they can add audio before or after
 - paginate track, reposts, likes on user page

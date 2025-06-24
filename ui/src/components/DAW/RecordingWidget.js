@@ -25,6 +25,7 @@ export default function RecordingWidget({
   metronomeOffset = 0, // Add metronomeOffset prop with default value
   setMetronomeOffset = null, // Add setMetronomeOffset prop with default value
   snapToGridEnabled = false,
+  recordingLimit = 60 * 5,
 }) {
   const defaultEffectiveDuration = 30;
 
@@ -156,6 +157,10 @@ export default function RecordingWidget({
           if (currentPlaybackTime + 5 > effectiveDurationRef.current) {  // Add 5 second buffer
             setEffectiveDuration(prev => prev + 30); // Extend by 30 seconds
             console.log('effectiveDuration extended:', effectiveDurationRef.current);
+          }
+          if(currentPlaybackTime > recordingLimit - 1){
+            setIsRecording(false);
+            alert('Recording limit reached');
           }
         }, 1000); // Check every 1000ms (1 second)
         
@@ -1322,6 +1327,12 @@ export default function RecordingWidget({
       
       // Process the file
       const fileBuffer = await processAudioChunks(chunks);
+
+      if(fileBuffer.duration > recordingLimit){
+        const formattedRecordingLimit = formatDuration(recordingLimit);
+        alert(`File duration exceeds the maximum recording limit of ${formattedRecordingLimit}.`);
+        return;
+      }
       
       // Create a take from the file
       createTakeFromRecordedBuffer(fileBuffer, true);
@@ -1365,6 +1376,12 @@ export default function RecordingWidget({
       
       // Process the file
       const fileBuffer = await processAudioChunks(chunks);
+
+      if(fileBuffer.duration > recordingLimit){
+        const formattedRecordingLimit = formatDuration(recordingLimit);
+        alert(`File duration exceeds the maximum recording limit of ${formattedRecordingLimit}.`);
+        return;
+      }
       
       // Create a take from the file
       createTakeFromRecordedBuffer(fileBuffer, true);
