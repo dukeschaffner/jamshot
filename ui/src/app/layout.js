@@ -8,6 +8,7 @@ import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
 import { UserProvider, useUser } from '../contexts/UserContext';
 import { NavigationGuardProvider } from 'next-navigation-guard';
+import { initGA, trackPageView, trackSearch } from '../lib/analytics';
 import NotificationDropdown from '../components/NotificationDropdown';
 import MoreDropdown from '../components/MoreDropdown';
 import MobileWarning from '../components/MobileWarning';
@@ -264,6 +265,18 @@ function AppContent({ children }) {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
+  // Initialize Google Analytics on mount
+  useEffect(() => {
+    initGA();
+  }, []);
+
+  // Track page views on route changes
+  useEffect(() => {
+    if (pathname) {
+      trackPageView(window.location.href, document.title);
+    }
+  }, [pathname]);
+
   // Pause audio when navigating to upload or track pages
   useEffect(() => {
     if (shouldHidePlayer && isPlaying) {
@@ -305,22 +318,26 @@ function AppContent({ children }) {
     };
   }, [currentTrack, togglePlayPause, shouldHidePlayer]);
 
+  const allowDarkMode = false;
+
   // Theme setup
   useEffect(() => {
     // Check for saved theme preference or use preferred color scheme
-    const savedTheme = 'light';//localStorage.getItem('theme');
-    const prefersDark = false;//window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-      document.body.classList.add('dark-mode');
-      setDarkMode(true);
+    if (allowDarkMode) {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.body.classList.add('dark-mode');
+        setDarkMode(true);
+      }
     }
   }, []);
 
   const toggleTheme = (e) => {
     e.preventDefault();
     document.body.classList.toggle('dark-mode');
-    const isDark = false;//document.body.classList.contains('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
     
     setDarkMode(isDark);
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -333,6 +350,7 @@ function AppContent({ children }) {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      trackSearch(searchQuery.trim());
       router.push(`/search?query=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
     }
@@ -380,10 +398,12 @@ function AppContent({ children }) {
           
           {/* Navigation links remain unchanged */}
           
-          {/* <a href="#" className="nav-link theme-toggle" onClick={toggleTheme}>
-            {darkMode ? <FaMoon /> : <FaSun />}
-            <span>{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
-          </a> */}
+          {allowDarkMode && (
+            <a href="#" className="nav-link theme-toggle" onClick={toggleTheme}>
+              {darkMode ? <FaMoon /> : <FaSun />}
+              <span>{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
+            </a>
+          )}
         </div>
         
         {isAuthenticated ? (
@@ -408,7 +428,7 @@ function AppContent({ children }) {
             
             <button 
               onClick={handleLogout} 
-              className="ml-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="ml-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 link-underline"
               title="Logout"
             >
               Logout

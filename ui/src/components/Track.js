@@ -7,6 +7,7 @@ import TrackTags from './TrackTags';
 import CustomTabs from './CustomTabs';
 import UserListModal from './UserListModal';
 import { useAudio } from '../lib/AudioContext';
+import { trackTrackPlay, trackTrackPause, trackLike, trackUnlike, trackShare } from '../lib/analytics';
 import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaSpinner } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
@@ -128,11 +129,17 @@ export default function Track(
     e.stopPropagation();
     if (currentTrack?.id === track.id) {
       console.log('Toggling play/pause for:', track.title);
+      if (isPlaying) {
+        trackTrackPause(track.id, track.title, track.username);
+      } else {
+        trackTrackPlay(track.id, track.title, track.username);
+      }
       togglePlayPause();
     } else {
       const currentIndex = allTracks.findIndex(t => t.id === track.id);
       const tracksToAdd = allTracks.slice(currentIndex + 1); // Exclude current track
       console.log('Playing with subsequent tracks:', tracksToAdd.map(t => t.title));
+      trackTrackPlay(track.id, track.title, track.username);
       playTrack(track, tracksToAdd);
     }
   };
@@ -155,10 +162,12 @@ export default function Track(
         await api.delete(`/tracks/${track.id}/like`);
         setIsLiked(false);
         setLikeCount(prevCount => Math.max(0, Number(prevCount) - 1));
+        trackUnlike(track.id, track.title, track.username);
       } else {
         await api.post(`/tracks/${track.id}/like`);
         setIsLiked(true);
         setLikeCount(prevCount => Number(prevCount) + 1);
+        trackLike(track.id, track.title, track.username);
       }
       
       // Force re-render
@@ -245,6 +254,7 @@ export default function Track(
     navigator.clipboard.writeText(trackUrl)
       .then(() => {
         setIsLinkCopied(true);
+        trackShare(track.id, track.title, track.username);
         setTimeout(() => setIsLinkCopied(false), 2000);
       })
       .catch(err => {

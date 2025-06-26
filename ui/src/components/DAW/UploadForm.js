@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import TagSelector from '../TagSelector';
 import LoadingSpinner from '../LoadingSpinner';
+import { trackTrackUpload, trackCollaboration } from '../../lib/analytics';
 import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faLock } from '@fortawesome/free-solid-svg-icons';
@@ -143,12 +144,17 @@ export default function UploadForm({
       // Get the uploaded track data from the response
       const uploadedTrack = response.data;
       
+      // Track analytics event
+      if (isCollab) {
+        trackCollaboration(uploadedTrack.id, uploadedTrack.title);
+      } else {
+        trackTrackUpload(uploadedTrack.title);
+      }
+      
       // Notify parent component that upload is complete
       if (onUploadComplete) {
         onUploadComplete();
       }
-      
-
       
       setTimeout(() => {// For new tracks, redirect to the uploaded track page
         if (uploadedTrack && uploadedTrack.id) {
