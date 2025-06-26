@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import api from '../../lib/api';
 import MiniTrack from '../../components/MiniTrack';
 import CustomTabs from '../../components/CustomTabs';
+import { trackUserFollow, trackUserUnfollow } from '../../lib/analytics';
 import { FaCheckCircle, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
@@ -52,10 +53,14 @@ function SearchContent() {
     }
     
     try {
+      const user = searchResults.users.find(u => u.id === userId);
+      
       if (isFollowing) {
         await api.delete(`/users/follow/${userId}`);
+        if (user) trackUserUnfollow(user.username);
       } else {
         await api.post(`/users/follow/${userId}`);
+        if (user) trackUserFollow(user.username);
       }
       
       // Update the user in the search results

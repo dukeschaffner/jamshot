@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import CustomTabs from '../components/CustomTabs';
 import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
+import { trackWelcomeDialogClose, trackFeedChange, trackTrackExpand } from '../lib/analytics';
 
 export default function Home() {
   const [tracks, setTracks] = useState([]);
@@ -31,6 +32,7 @@ export default function Home() {
 
   const closeWelcomeDialog = () => {
     setShowWelcomeDialog(false);
+    trackWelcomeDialogClose();
   };
 
   const lastTrackElementRef = useCallback(node => {
@@ -90,7 +92,19 @@ export default function Home() {
     if (newFeedType !== feedType) {
       setFeedType(newFeedType);
       setExpandedTrackId(null);
+      trackFeedChange(newFeedType);
     }
+  };
+
+  // Enhanced track expansion handler with analytics
+  const handleTrackExpansion = (trackId) => {
+    if (expandedTrackId !== trackId) {
+      const track = tracks.find(t => t.id === trackId);
+      if (track) {
+        trackTrackExpand(trackId, track.title, track.username);
+      }
+    }
+    setExpandedTrackId(expandedTrackId === trackId ? null : trackId);
   };
 
   // Create tabs configuration
@@ -202,7 +216,7 @@ export default function Home() {
                   track={track}
                   allTracks={tracks}
                   expandedTrackId={expandedTrackId}
-                  setExpandedTrackId={setExpandedTrackId}
+                  setExpandedTrackId={handleTrackExpansion}
                 />
               </div>
             ))}
