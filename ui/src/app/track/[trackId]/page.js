@@ -289,7 +289,7 @@ function TrackContent() {
            />
          </div>
          <div className="track-controls">
-           <Link href={`/tree/${trackId}`} className="explore-button">
+           <Link href={`/tree/${trackId}`} className="pill-btn">
              <FaProjectDiagram className="explore-icon" />
              <span>Explore</span>
            </Link>

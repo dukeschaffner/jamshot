@@ -273,7 +273,7 @@ function AboutContent() {
           <p>
             Have questions, suggestions, or just want to say hello? We&apos;d love to hear from you!
           </p>
-          <Link href="/contact" className="contact-btn">
+          <Link href="/contact" className="pill-btn gradient-btn mx-5 mb-3 w-fit justify-self-center">
             Contact Us
           </Link>
         </section>

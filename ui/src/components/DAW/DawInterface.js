@@ -467,7 +467,7 @@ export default function DawInterface({ track, isCollab = false }) {
         </div>
         {recordingPlaybackBuffer && !isRecording && (isCollab ? track?.layer < 4 : true) && (
             <button 
-              className="upload-btn"
+              className="pill-btn gradient-btn"
               onClick={handleUploadRecording}
               title="Upload Recording"
             >
