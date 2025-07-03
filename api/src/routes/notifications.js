@@ -9,7 +9,22 @@ router.use(authMiddleware);
 // Get user's notifications
 router.get('/', async (req, res) => {
   const userId = req.user.id;
+  
+  // Add pagination parameters
+  const page = parseInt(req.query.page) || 1;
+  const limit = Math.min(parseInt(req.query.limit) || 20, 50); // Max 50 items per page
+  const offset = (page - 1) * limit;
+  
   try {
+    // Get total count for pagination metadata
+    const countResult = await pool.query(
+      'SELECT COUNT(*) FROM notifications WHERE user_id = $1',
+      [userId]
+    );
+    const totalCount = parseInt(countResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    // Get paginated notifications
     const result = await pool.query(`
       SELECT 
         n.id, 
@@ -76,10 +91,21 @@ router.get('/', async (req, res) => {
       ) = u_actor.id
       WHERE n.user_id = $1
       ORDER BY n.created_at DESC
-      LIMIT 50
-    `, [userId]);
+      LIMIT $2 OFFSET $3
+    `, [userId, limit, offset]);
     
-    res.json(result.rows);
+    // Return paginated response format
+    res.json({
+      notifications: result.rows,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      }
+    });
   } catch (err) {
     console.error('Error fetching notifications:', err);
     res.status(500).json({ error: err.message });

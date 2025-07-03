@@ -27,7 +27,6 @@ The current notification system has several critical issues affecting performanc
 - Missing database indexes
 
 ### 2. **Scalability Problems** 🔴 HIGH PRIORITY  
-- No rate limiting for notification spam
 - No notification aggregation (mentioned in app-notes.txt)
 - No cleanup strategy for old notifications
 - Single table approach won't scale
@@ -53,31 +52,15 @@ The current notification system has several critical issues affecting performanc
 
 ### Phase 1: Critical Performance Fixes (Week 1)
 
-#### Task 1.1: Add Database Indexes
-**File**: `db-updates.txt`
-```sql
--- Add these indexes for immediate performance improvement
-CREATE INDEX idx_notifications_user_id_created_at ON notifications(user_id, created_at DESC);
-CREATE INDEX idx_notifications_user_id_is_read ON notifications(user_id, is_read);
-CREATE INDEX idx_notifications_type ON notifications(type);
-```
+#### Task 1.1: Add Database Indexes -- DONE
 
-#### Task 1.2: Implement Pagination in Backend
+
+#### Task 1.2: Implement Pagination in Backend -- DONE
 **File**: `api/src/routes/notifications.js`
 - Modify main GET endpoint to accept `page` and `limit` query params
 - Add total count query for pagination metadata
 - Return paginated response format
 
-**Changes needed**:
-```javascript
-// Add to line 10 after userId declaration
-const page = parseInt(req.query.page) || 1;
-const limit = Math.min(parseInt(req.query.limit) || 20, 50);
-const offset = (page - 1) * limit;
-
-// Add LIMIT and OFFSET to main query
-// Return: { notifications: [...], pagination: {...} }
-```
 
 #### Task 1.3: Optimize Main Query
 **File**: `api/src/routes/notifications.js`

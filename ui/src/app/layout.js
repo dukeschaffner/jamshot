@@ -408,7 +408,7 @@ function AppContent({ children }) {
         
         {isAuthenticated ? (
           <>
-            <Link href="/upload" className="upload-btn">
+            <Link href="/upload" className="pill-btn gradient-btn mx-5 mb-3">
               <FaUpload />
               Upload Track
             </Link>

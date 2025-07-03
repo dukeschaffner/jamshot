@@ -5,10 +5,8 @@ TODO (MVP)
 - scalability report action items
 
 - security/app standards report
-- audio ads
-- feed ads
+
 - how to page with tutorials
-- waveforms being weird with longer tracks
 - weird trimming behavior (COULDN"T REPRO)
 - country/state/DOB
 - check notifications functionality
@@ -52,6 +50,10 @@ TODO (after beta testing)
 - "add on" option where instead of adding layers, they can add audio before or after
 - paginate track, reposts, likes on user page
 - comment edit view
+- improve waveform rendering with peaks.js
+- audio ads
+- feed ads
+- mention users in post
 
 
 MONETIZATION
@@ -234,6 +236,10 @@ CREATE TABLE notifications (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   related_user_id INT REFERENCES users(id) ON DELETE CASCADE
 ); 
+
+CREATE INDEX idx_notifications_user_id_created_at ON notifications(user_id, created_at DESC);
+CREATE INDEX idx_notifications_user_id_is_read ON notifications(user_id, is_read);
+CREATE INDEX idx_notifications_type ON notifications(type);
 
 -- New tables for genre and instrument tagging system
 
