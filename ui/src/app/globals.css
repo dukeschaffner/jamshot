@@ -82,38 +82,6 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.bg-p1{
-  background-color: var(--p1);
-}
-
-.bg-p2{
-  background-color: var(--p2);
-}
-
-.bg-s1{
-  background-color: var(--s1);
-}
-
-.bg-s2{
-  background-color: var(--s2);
-}
-
-.c-p1{
-  color: var(--p1);
-}
-
-.c-p2{
-  color: var(--p2);
-}
-
-.c-s1{
-  color: var(--s1);
-}
-
-.c-s2{
-  color: var(--s2);
-}
-
 .text-primary{
   color: var(--text-primary);
 }
@@ -399,10 +367,15 @@ body.dark-mode .login-btn {
 .main-content {
   grid-area: main;
   overflow-y: auto;
-  padding: 20px 20px;
-  height: 100vh;
-  transition: height 0.3s ease, padding-bottom 0.3s ease;
+  padding: 20px;
+  transition: all 0.3s ease;
   background-color: var(--background);
+}
+
+/* When player is visible, adjust main content height and padding */
+.app-container.player-visible .main-content {
+  height: calc(100vh - 80px);
+  padding-bottom: 20px;
 }
 
 /* #endregion */
@@ -411,19 +384,9 @@ body.dark-mode .login-btn {
 
 /* #region global player styles */
 
-/* When player is visible, adjust main content height and padding */
-.app-container.player-visible .main-content {
-  height: calc(100vh - 80px);
-  padding-bottom: 20px;
-}
-
 /* Global Player Styles */
 .global-player {
   grid-area: player;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   background-color: var(--white);
   border-top: 1px solid var(--gray);
   display: flex;
@@ -1340,19 +1303,44 @@ body.dark-mode .related-title {
 
 /* #region Responsive adjustments */
 @media (max-width: 768px) {
+  
   .app-container {
     grid-template-columns: 1fr;
     grid-template-areas:
         "main"
-        "player";
+        "mobile-nav";
+    grid-template-rows: 1fr 70px;
+    height: 100vh;
+  }
+  
+  .app-container.player-visible {
+    grid-template-areas:
+        "main"
+        "player"
+        "mobile-nav";
+    grid-template-rows: 1fr 80px 70px;
   }
   
   .navbar {
     display: none;
   }
   
+  .mobile-navbar {
+    display: flex;
+  }
+  
+  .main-content {
+    padding: 20px;
+    height: unset !important;
+    overflow-y: auto;
+  }
+  
   .global-player {
     padding: 0 12px;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
   }
 
   .now-playing-img {
@@ -1364,9 +1352,6 @@ body.dark-mode .related-title {
     display: none;
   }
   
-  .main-content {
-    padding: 16px;
-  }
   
   .feed-container {
     max-width: 100%;
@@ -1396,6 +1381,76 @@ body.dark-mode .related-title {
   
   .collab-btn svg {
     font-size: 0.8rem;
+  }
+}
+
+/* Mobile Navbar Styles */
+.mobile-navbar {
+    grid-area: mobile-nav;
+    background-color: var(--background);
+    border-top: 1px solid var(--grey-2);
+    padding: 8px 0;
+    z-index: 100;
+    box-shadow: 0 -2px 10px var(--shadow);
+    justify-content: space-around;
+    align-items: center;
+    height: 70px;
+    width: 100%;
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  min-width: 60px;
+}
+
+.mobile-nav-item svg {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.mobile-nav-item.active {
+  color: var(--seafoam);
+}
+
+.mobile-nav-item:hover {
+  color: var(--dark);
+}
+
+.mobile-nav-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.mobile-nav-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Desktop navbar visible by default */
+@media (min-width: 769px) {
+  .mobile-navbar {
+    display: none;
+  }
+  
+  .navbar {
+    display: flex;
   }
 }
 
@@ -2894,11 +2949,6 @@ body.dark-mode .modal-footer {
 
 .spinner {
   animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 .track-tags {
@@ -4574,19 +4624,6 @@ body.dark-mode .delete-description {
 
 .loading-spinner-icon {
   animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.cursor-pointer {
-  cursor: pointer;
 }
 
 .track-layer-message {

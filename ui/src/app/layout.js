@@ -12,6 +12,8 @@ import { initGA, trackPageView, trackSearch } from '../lib/analytics';
 import NotificationDropdown from '../components/NotificationDropdown';
 import MoreDropdown from '../components/MoreDropdown';
 import MobileWarning from '../components/MobileWarning';
+import Navbar from '../components/Navbar';
+import MobileNavbar from '../components/MobileNavbar';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
   FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
 import api from '../lib/api';
@@ -252,7 +254,6 @@ function formatTime(seconds) {
 function AppContent({ children }) {
   const { user, isLoading, isAuthenticated, logout } = useUser();
   const [darkMode, setDarkMode] = useState(false);
-  const searchInputRef = useRef(null);
   const { currentTrack, isPlaying, togglePlayPause } = useAudio();
   
   // Check if we're on pages where player should be hidden
@@ -262,8 +263,6 @@ function AppContent({ children }) {
   const shouldHidePlayer = isUploadPage || isTrackPage;
   
   const playerVisible = !!currentTrack && !shouldHidePlayer;
-  const [searchQuery, setSearchQuery] = useState('');
-  const router = useRouter();
 
   // Initialize Google Analytics on mount
   useEffect(() => {
@@ -360,91 +359,11 @@ function AppContent({ children }) {
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>
       <MobileWarning />
       
-      {/* Vertical Navbar */}
-      <nav className="navbar">
-        <div className="logo">
-          <Link href="/">
-            <span>sterio</span>
-          </Link>
-        </div>
-        
-        <div className="search-box">
-          <form onSubmit={handleSearch}>
-            <FaSearch className="search-icon" />
-            <input 
-              ref={searchInputRef}
-              type="text" 
-              placeholder="Search for artists, tracks..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </form>
-        </div>
-        
-        <div className="nav-links">
-          <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
-            <FaHome />
-            Home
-          </Link>
-          
-          {isAuthenticated && (
-            <div className="nav-link nav-link-pop-out-btn">
-              <NotificationDropdown />
-            </div>
-          )}
-          <div className="nav-link nav-link-pop-out-btn">
-              <MoreDropdown />
-          </div>
-          
-          {/* Navigation links remain unchanged */}
-          
-          {allowDarkMode && (
-            <a href="#" className="nav-link theme-toggle" onClick={toggleTheme}>
-              {darkMode ? <FaMoon /> : <FaSun />}
-              <span>{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
-            </a>
-          )}
-        </div>
-        
-        {isAuthenticated ? (
-          <>
-            <Link href="/upload" className="pill-btn gradient-btn mx-5 mb-3">
-              <FaUpload />
-              Upload Track
-            </Link>
-            
-            <Link href={`/user/${user?.username}`} className="user-profile">
-              <div className="user-avatar">
-                <img 
-                  src={user?.profile_pic_url || '/avatar.svg'} 
-                  alt={`${user?.username || 'User'}'s avatar`} 
-                />
-              </div>
-              <div className="user-info">
-                <div className="user-name">{user?.name || user?.username || 'Loading...'}</div>
-                <div className="user-handle">@{user?.username || 'loading'}</div>
-              </div>
-            </Link>
-            
-            <button 
-              onClick={handleLogout} 
-              className="ml-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 link-underline"
-              title="Logout"
-            >
-              Logout
-            </button>
-          </>
-        ) : (
-          <div className="auth-buttons">
-            <Link href="/login" className="login-btn">
-              Login
-            </Link>
-            <Link href="/register" className="register-btn">
-              Register
-            </Link>
-          </div>
-        )}
-      </nav>
+      {/* Desktop Navbar */}
+      <Navbar />
+      
+      {/* Mobile Bottom Navbar */}
+      <MobileNavbar />
 
       {/* Main Content */}
       <main className="main-content">
