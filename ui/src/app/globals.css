@@ -748,6 +748,8 @@ body.dark-mode .empty-feed {
   display: flex;
   justify-content: center;
   padding: 24px 0;
+  align-items: center;
+  gap: 8px;
 }
 
 .spinner-icon {
@@ -2939,17 +2941,7 @@ body.dark-mode .modal-footer {
   border-color: var(--primary);
 }
 
-.loading-spinner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-secondary);
-  padding: 12px 0;
-}
 
-.spinner {
-  animation: spin 1s linear infinite;
-}
 
 .track-tags {
   display: flex;
@@ -4622,9 +4614,7 @@ body.dark-mode .delete-description {
   cursor: not-allowed;
 }
 
-.loading-spinner-icon {
-  animation: spin 1s linear infinite;
-}
+
 
 .track-layer-message {
   font-size: 0.8rem;

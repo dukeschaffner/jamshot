@@ -5,7 +5,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import api from '../../../lib/api';
 import Track from '../../../components/Track';
 import MiniTrack from '../../../components/MiniTrack';
-import { FaArrowLeft, FaSpinner } from 'react-icons/fa';
+import LoadingSpinner from '../../../components/LoadingSpinner';
+import { FaArrowLeft } from 'react-icons/fa';
 import { useAudio } from '../../../lib/AudioContext';
 
 export default function TrackTreePage() {
@@ -57,7 +58,7 @@ export default function TrackTreePage() {
   if (loading) {
     return (
       <div className="track-detail-page loading">
-        <FaSpinner className="spinner" />
+        <LoadingSpinner size="medium" />
         <p>Loading track details...</p>
       </div>
     );

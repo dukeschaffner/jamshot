@@ -11,6 +11,7 @@ import DawInterface from '@/components/DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
 import CustomTabs from '@/components/CustomTabs';
 import UserListModal from '@/components/UserListModal';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import './collaborate.css';
 import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit, FaDownload } from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
@@ -217,7 +218,7 @@ function TrackContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <LoadingSpinner size="large" />
       </div>
     );
   }
@@ -387,7 +388,7 @@ export default function CollaboratePage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <LoadingSpinner size="large" />
       </div>
     }>
       <TrackContent />

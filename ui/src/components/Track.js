@@ -6,9 +6,10 @@ import MiniTrack from './MiniTrack';
 import TrackTags from './TrackTags';
 import CustomTabs from './CustomTabs';
 import UserListModal from './UserListModal';
+import LoadingSpinner from './LoadingSpinner';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackLike, trackUnlike, trackShare } from '../lib/analytics';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaSpinner } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
@@ -434,7 +435,10 @@ export default function Track(
             <div className="track-tab-content">
               <div className="related-tracks">
                 {loadingRelated ? (
-                  <div className="loading-spinner">Loading related tracks...</div>
+                  <div className="loading-container">
+                    <LoadingSpinner size="medium" />
+                    <span>Loading related tracks...</span>
+                  </div>
                 ) : (
                   <>
                     {originalTrack && !isTreeView && (
@@ -460,7 +464,7 @@ export default function Track(
                             >
                               {loadingMore ? (
                                 <>
-                                  <FaSpinner className="loading-spinner-icon" /> Loading...
+                                  <LoadingSpinner size="small" /> Loading...
                                 </>
                               ) : (
                                 `Load more (${collabTracks.length}/${totalTracks})`
