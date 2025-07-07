@@ -11,6 +11,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
@@ -34,6 +35,11 @@ export default function Register() {
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       setShowPasswordRequirements(true);
+      return;
+    }
+    // Check if terms are accepted
+    if (!acceptTerms) {
+      setError('You must accept the Terms of Service and Privacy Policy to register.');
       return;
     }
     setIsRegistering(true);
@@ -173,6 +179,28 @@ export default function Register() {
               required
               disabled={isRegistering}
             />
+          </div>
+          
+          <div className="flex items-start space-x-2">
+            <input
+              id="acceptTerms"
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              className="mt-1"
+              required
+              disabled={isRegistering}
+            />
+            <label htmlFor="acceptTerms" className="text-sm text-gray-700">
+              I agree to the{' '}
+              <Link href="/terms" className="text-seafoam hover:underline" target="_blank">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="text-seafoam hover:underline" target="_blank">
+                Privacy Policy
+              </Link>
+            </label>
           </div>
           
           {error && (

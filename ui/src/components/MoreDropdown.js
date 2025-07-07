@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope } from 'react-icons/fa';
+import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel } from 'react-icons/fa';
 
 export default function MoreDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,6 +46,8 @@ export default function MoreDropdown() {
             <Link className="nav-link" href="/about" onClick={() => setIsOpen(false)}><FaInfoCircle />About</Link>
             <Link className="nav-link" href="/faq" onClick={() => setIsOpen(false)}><FaQuestionCircle />FAQ</Link>
             <Link className="nav-link" href="/contact" onClick={() => setIsOpen(false)}><FaEnvelope />Contact</Link>
+            <Link className="nav-link" href="/privacy" onClick={() => setIsOpen(false)}><FaShieldAlt />Privacy Policy</Link>
+            <Link className="nav-link" href="/terms" onClick={() => setIsOpen(false)}><FaGavel />Terms of Service</Link>
           </div>
         </div>
       )}

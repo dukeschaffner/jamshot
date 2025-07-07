@@ -1,0 +1,64 @@
+/* Privacy Policy and Terms of Service Pages */
+.privacyPolicyPage, .termsOfServicePage {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    color: var(--text-primary);
+  }
+  
+  .privacySection {
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+  }
+  
+  .privacySection .sectionContent {
+    margin-top: 1rem;
+  }
+  
+  .privacySection h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 1.5rem 0 0.75rem 0;
+  }
+  
+  .privacySection p {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+  
+  .privacySection ul, .privacySection ol {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+  }
+  
+  .privacySection li {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+  
+  .privacySection a {
+    color: var(--seafoam);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  
+  .privacySection a:hover {
+    text-decoration: underline;
+  }
+  
+  @media (max-width: 768px) {
+    .privacyPolicyPage, .termsOfServicePage {
+      padding: 1rem;
+    }
+    
+    .privacySection {
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+  }

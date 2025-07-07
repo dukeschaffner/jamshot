@@ -134,7 +134,7 @@ body.dark-mode .pill-btn {
   grid-template-areas:
       "sidebar main"
       "player player";
-  min-height: 100vh;
+  height: 100vh;
   overflow: hidden;
 }
 
