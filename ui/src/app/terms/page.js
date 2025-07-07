@@ -23,9 +23,9 @@ export default function TermsOfServicePage() {
         <section className={styles.privacySection}>
           <h2 className="section-title">Acceptance of Terms</h2>
           <div className={styles.sectionContent}>
-            <p>By accessing and using Sterio ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
+            <p>By accessing and using Sterio (&quot;the Service&quot;), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
             
-            <p>These Terms of Service ("Terms") govern your access to and use of Sterio, including any content, functionality, and services offered on or through the platform.</p>
+            <p>These Terms of Service (&quot;Terms&quot;) govern your access to and use of Sterio, including any content, functionality, and services offered on or through the platform.</p>
             
             <p>We reserve the right to update and change these Terms at any time without notice. Your continued use of the Service following any changes indicates your acceptance of the new Terms.</p>
           </div>
@@ -43,7 +43,7 @@ export default function TermsOfServicePage() {
               <li>Interact with content through likes, comments, and reposts</li>
             </ul>
             
-            <p>The Service is provided "as is" and we reserve the right to modify, suspend, or discontinue any part of the Service at any time.</p>
+            <p>The Service is provided &quot;as is&quot; and we reserve the right to modify, suspend, or discontinue any part of the Service at any time.</p>
           </div>
         </section>
 
@@ -88,7 +88,7 @@ export default function TermsOfServicePage() {
             <p>When you collaborate on tracks:</p>
             <ul>
               <li>You grant other collaborators the right to use your contributions</li>
-              <li>You receive rights to use other collaborators' contributions</li>
+              <li>You receive rights to use other collaborators&apos; contributions</li>
               <li>All collaborators share attribution rights</li>
               <li>The original creator maintains primary ownership</li>
             </ul>
@@ -97,7 +97,7 @@ export default function TermsOfServicePage() {
             <p>All content must:</p>
             <ul>
               <li>Be original or properly licensed</li>
-              <li>Not infringe on others' intellectual property rights</li>
+              <li>Not infringe on others&apos; intellectual property rights</li>
               <li>Not contain illegal or harmful material</li>
               <li>Comply with our Community Guidelines</li>
             </ul>
@@ -113,7 +113,7 @@ export default function TermsOfServicePage() {
             <h3>Acceptable Use</h3>
             <p>You agree to use Sterio only for lawful purposes and in accordance with these Terms. You agree not to:</p>
             <ul>
-              <li>Upload content that infringes on others' rights</li>
+              <li>Upload content that infringes on others&apos; rights</li>
               <li>Harass, abuse, or harm other users</li>
               <li>Spam or send unsolicited messages</li>
               <li>Attempt to gain unauthorized access to the Service</li>
@@ -189,7 +189,7 @@ export default function TermsOfServicePage() {
           <div className={styles.sectionContent}>
             <h3>Service Availability</h3>
             <ul>
-              <li>The Service is provided "as is" without warranties</li>
+              <li>The Service is provided &quot;as is&quot; without warranties</li>
               <li>We do not guarantee uninterrupted or error-free service</li>
               <li>We may suspend or terminate the Service at any time</li>
               <li>We are not responsible for content uploaded by users</li>
@@ -209,7 +209,7 @@ export default function TermsOfServicePage() {
             <ul>
               <li>Your use of the Service</li>
               <li>Your violation of these Terms</li>
-              <li>Your infringement of others' rights</li>
+              <li>Your infringement of others&apos; rights</li>
               <li>Content you upload or share</li>
             </ul>
           </div>
@@ -272,7 +272,7 @@ export default function TermsOfServicePage() {
           <h2 className="section-title">Governing Law</h2>
           <div className={styles.sectionContent}>
             <h3>Governing Law</h3>
-            <p>These Terms are governed by the laws of the United States and the State of [Your State], without regard to conflict of law principles.</p>
+            <p>These Terms are governed by the laws of the United States, without regard to conflict of law principles.</p>
           </div>
         </section>
 

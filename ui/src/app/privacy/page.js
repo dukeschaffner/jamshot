@@ -101,7 +101,7 @@ export default function PrivacyPolicyPage() {
             <ul>
               <li><strong>With your consent:</strong> When you explicitly authorize sharing</li>
               <li><strong>Service providers:</strong> Third-party services that help us operate the platform (under strict confidentiality agreements)</li>
-              <li><strong>Legal requirements:</strong> When required by law or to protect our rights and users' safety</li>
+              <li><strong>Legal requirements:</strong> When required by law or to protect our rights and users&apos; safety</li>
               <li><strong>Business transfers:</strong> In the event of a merger, acquisition, or sale of assets</li>
             </ul>
             
@@ -220,7 +220,7 @@ export default function PrivacyPolicyPage() {
         </section>
 
         <section className={styles.privacySection}>
-          <h2 className="section-title">Children's Privacy</h2>
+          <h2 className="section-title">Children&apos;s Privacy</h2>
           <div className={styles.sectionContent}>
             <p>Sterio is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If you believe we have collected information from a child under 13, please contact us immediately.</p>
           </div>
@@ -232,7 +232,7 @@ export default function PrivacyPolicyPage() {
             <p>We may update this privacy policy from time to time. We will notify you of any changes by:</p>
             <ul>
               <li>Posting the new policy on this page</li>
-              <li>Updating the "Last updated" date</li>
+              <li>Updating the &quot;Last updated&quot; date</li>
               <li>Sending you an email notification for significant changes</li>
             </ul>
             <p>Your continued use of Sterio after any changes indicates your acceptance of the updated policy.</p>
