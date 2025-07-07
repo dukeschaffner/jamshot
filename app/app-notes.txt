@@ -169,7 +169,12 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_private BOOLEAN NOT NULL DEFAULT FALSE,
-  is_supporter BOOLEAN NOT NULL DEFAULT FALSE
+  is_supporter BOOLEAN NOT NULL DEFAULT FALSE,
+  terms_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+  privacy_policy_accepted BOOLEAN NOT NULL DEFAULT FALSE,
+  policy_accepted_at TIMESTAMP,
+  policy_accepted_ip VARCHAR(45),
+  policy_version VARCHAR(10) DEFAULT '1.0'
 );
 
 CREATE TABLE tracks (

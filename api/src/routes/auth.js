@@ -81,7 +81,7 @@ const validatePassword = (password) => {
 
 // Register
 router.post('/register', authLimiter, async (req, res) => {
-  let { username, name, email, password } = req.body;
+  let { username, name, email, password, acceptTerms } = req.body;
   const deviceInfo = req.headers['user-agent'] || null;
   
   // Username validation: only allow letters, numbers, and underscores
@@ -106,6 +106,11 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Name is required' });
     }
     
+    // Validate policy acceptance
+    if (!acceptTerms) {
+      return res.status(400).json({ error: 'You must accept the Terms of Service and Privacy Policy to register.' });
+    }
+    
     // Check if email already exists
     const emailCheck = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (emailCheck.rows.length > 0) {
@@ -118,10 +123,22 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Username is already taken' });
     }
     
+    // Get client IP address for policy acceptance tracking
+    const clientIp = req.headers['x-forwarded-for'] || 
+                    req.headers['x-real-ip'] || 
+                    req.connection.remoteAddress || 
+                    req.socket.remoteAddress ||
+                    (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    
     const hashedPassword = await bcrypt.hash(password, 10);
+    const currentTimestamp = new Date();
+    
     const result = await pool.query(
-      'INSERT INTO users (username, name, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING id, username, email',
-      [username, name, email, hashedPassword]
+      `INSERT INTO users (username, name, email, password_hash, terms_accepted, privacy_policy_accepted, 
+       policy_accepted_at, policy_accepted_ip, policy_version) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+       RETURNING id, username, email`,
+      [username, name, email, hashedPassword, true, true, currentTimestamp, clientIp, '1.0']
     );
     
     const user = result.rows[0];

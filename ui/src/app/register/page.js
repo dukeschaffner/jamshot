@@ -45,7 +45,13 @@ export default function Register() {
     setIsRegistering(true);
     
     try {
-      const response = await api.post('/auth/register', { username, name, email, password });
+      const response = await api.post('/auth/register', { 
+        username, 
+        name, 
+        email, 
+        password, 
+        acceptTerms 
+      });
       
       // Show success message instead of redirecting
       setSuccess(response.data.message || 'Registration successful! Please check your email to verify your account.');
@@ -60,6 +66,7 @@ export default function Register() {
       setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setAcceptTerms(false);
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed');
       setShowPasswordRequirements(true);
