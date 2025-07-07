@@ -307,12 +307,14 @@ export default function UploadForm({
               </label>
             </div>
             
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
-              <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
-              <p className="text-sm text-gray-700">
-                <strong>Note:</strong> If you make this track public later and it has collaborations, all collaborations will also become public. Once your track has collaborations, you cannot make it private again.
-              </p>
-            </div>
+            {isPrivate && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
+                <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
+                <p className="text-sm text-gray-700">
+                  <strong>Note:</strong> If you make this track public later and it has collaborations, all collaborations will also become public. Once your track has collaborations, you cannot make it private again.
+                </p>
+              </div>
+            )}
           </>
         )}
 
@@ -332,12 +334,22 @@ export default function UploadForm({
           </label>
         </div>
         
-        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded flex items-start">
-          <FaInfoCircle className="text-green-500 mt-1 mr-2 flex-shrink-0" />
+        {!allowDownload && (
+          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded flex items-start">
+            <FaInfoCircle className="text-green-500 mt-1 mr-2 flex-shrink-0" />
+            <p className="text-sm text-gray-700">
+              <strong>Tip:</strong> Allowing downloads helps other musicians collaborate with your track and gives you more exposure in the community.
+            </p>
+          </div>
+        )}
+
+        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
+          <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
           <p className="text-sm text-gray-700">
-            <strong>Tip:</strong> Allowing downloads helps other musicians collaborate with your track and gives you more exposure in the community.
+            <strong>Note:</strong> By uploading, you confirm you own this content and grant others the right to remix and collaborate per our <a href="/terms" className="terms-link">Terms of Service</a>.
           </p>
         </div>
+      
         
         {error && <p className="text-red-500">{error}</p>}
         
