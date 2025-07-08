@@ -10,21 +10,35 @@ export function NotificationProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState(null);
   const { isAuthenticated, isLoading: userLoading } = useUser();
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (page = 1, limit = 20) => {
     if (!isAuthenticated) {
       setNotifications([]);
       setUnreadCount(0);
+      setPagination(null);
       setLoading(false);
       return;
     }
     
     try {
       setLoading(true);
-      const response = await api.get('/notifications');
-      setNotifications(response.data);
-      setUnreadCount(response.data.filter(n => !n.is_read).length);
+      const response = await api.get(`/notifications?page=${page}&limit=${limit}`);
+      
+      // Handle both old and new response formats
+      if (response.data.notifications) {
+        // New paginated format
+        setNotifications(response.data.notifications);
+        setPagination(response.data.pagination);
+        setUnreadCount(response.data.notifications.filter(n => !n.is_read).length);
+      } else {
+        // Old format (fallback)
+        setNotifications(response.data);
+        setPagination(null);
+        setUnreadCount(response.data.filter(n => !n.is_read).length);
+      }
+      
       setError(null);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
@@ -93,6 +107,28 @@ export function NotificationProvider({ children }) {
     }
   };
 
+  const loadMoreNotifications = async () => {
+    if (!isAuthenticated || !pagination || !pagination.hasNextPage || loading) return;
+    
+    try {
+      setLoading(true);
+      const response = await api.get(`/notifications?page=${pagination.page + 1}&limit=${pagination.limit}`);
+      
+      if (response.data.notifications) {
+        // Append new notifications to existing ones
+        setNotifications(prev => [...prev, ...response.data.notifications]);
+        setPagination(response.data.pagination);
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load more notifications:', err);
+      setError('Failed to load more notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch notifications when authentication state changes
   useEffect(() => {
     // Wait for user loading to complete before making decisions
@@ -103,6 +139,7 @@ export function NotificationProvider({ children }) {
     } else {
       setNotifications([]);
       setUnreadCount(0);
+      setPagination(null);
       setLoading(false);
     }
   }, [isAuthenticated, userLoading]);
@@ -123,7 +160,9 @@ export function NotificationProvider({ children }) {
         unreadCount,
         loading,
         error,
+        pagination,
         fetchNotifications,
+        loadMoreNotifications,
         markAsRead,
         markAllAsRead,
         deleteNotification
