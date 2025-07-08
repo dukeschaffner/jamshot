@@ -7,7 +7,7 @@ import { useUser } from '../contexts/UserContext';
 import { trackSearch } from '../lib/analytics';
 import NotificationDropdown from './NotificationDropdown';
 import MoreDropdown from './MoreDropdown';
-
+import Image from 'next/image';
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useUser();
   const [darkMode, setDarkMode] = useState(false);
@@ -91,12 +91,13 @@ export default function Navbar() {
           </Link>
           
           <Link href={`/user/${user?.username}`} className="user-profile">
-            <div className="user-avatar">
-              <img 
+            <Image
+                className="avatar mr-1"
                 src={user?.profile_pic_url || '/avatar.svg'} 
-                alt={`${user?.username || 'User'}'s avatar`} 
-              />
-            </div>
+                alt={user.username}
+                width={40}
+                height={40}
+            />
             <div className="user-info">
               <div className="user-name">{user?.name || user?.username || 'Loading...'}</div>
               <div className="user-handle">@{user?.username || 'loading'}</div>

@@ -298,15 +298,14 @@ export default function Track(
         
         <div className="track-info">
           <div className="track-artist">
-            <div className="artist-avatar" onClick={navigateToUserProfile}>
-              <Image 
-                src={track?.profile_pic_url || '/avatar.svg'} 
-                alt={track.username} 
-                width={40} 
-                height={40}
-                style={{ borderRadius: '50%', objectFit: 'cover', cursor: 'pointer' }}
-              />
-            </div>
+            <Image 
+              src={track?.profile_pic_url || '/avatar.svg'} 
+              alt={track.username}
+              width={24}
+              height={24} 
+              className="avatar hover:pointer mr-1" 
+              onClick={navigateToUserProfile}
+            />
             <div className="artist-name">
               <span 
                 className="link-underline" 

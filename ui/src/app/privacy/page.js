@@ -245,11 +245,7 @@ export default function PrivacyPolicyPage() {
             Contact Us
           </h2>
           <div className={styles.sectionContent}>
-            <p>If you have any questions about this Privacy Policy or our privacy practices, please contact us:</p>
-            <ul>
-              <li><strong>Email:</strong> privacy@sterio.com</li>
-              <li><strong>Contact Form:</strong> <a href="/contact" className="text-seafoam hover:underline">Contact Page</a></li>
-            </ul>
+            <p>If you have any questions about this Privacy Policy or our privacy practices, please <a href="/contact" className="text-seafoam hover:underline">contact us</a></p>
             <p>We will respond to your inquiry within 30 days.</p>
           </div>
         </section>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { FaTimes, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import api from '../lib/api';
 import { useUser } from '../contexts/UserContext';
+import Image from 'next/image';
 
 export default function UserListModal({ 
   isOpen, 
@@ -149,10 +150,12 @@ export default function UserListModal({
             users.map(user => (
               <div key={user.id} className="user-list-item">
                 <div className="user-list-info" onClick={() => handleUserClick(user.username)}>
-                  <img 
-                    src={user.profile_pic_url || '/avatar.svg'} 
+                  <Image 
+                    className="avatar"
+                    src={user?.profile_pic_url || '/avatar.svg'} 
                     alt={user.username}
-                    className="user-avatar"
+                    width={40}
+                    height={40} 
                   />
                   <div className="user-details">
                     <span className="username">

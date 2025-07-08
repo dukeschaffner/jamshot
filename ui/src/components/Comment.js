@@ -96,15 +96,15 @@ export default function Comment({
       onMouseEnter={() => setIsActionsVisible(true)}
       onMouseLeave={() => setIsActionsVisible(false)}
     >
-      <div className="comment-avatar" onClick={navigateToUserProfile}>
-        <Image 
-          src={comment.profile_pic_url || '/avatar.svg'} 
-          alt={comment.username} 
-          width={isReply ? 30 : 40} 
-          height={isReply ? 30 : 40}
-          className="comment-avatar-image"
-        />
-      </div>
+      <Image 
+        src={comment.profile_pic_url || '/avatar.svg'} 
+        alt={comment.username} 
+        width={isReply ? 30 : 40} 
+        height={isReply ? 30 : 40}
+        style={{ height: isReply ? '30px' : '40px' }}
+        className="avatar mr-1"
+        onClick={navigateToUserProfile}
+      />
       <div className="comment-content">
         <div className="comment-header">
           <div className="comment-user">

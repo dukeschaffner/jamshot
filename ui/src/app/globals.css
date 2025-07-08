@@ -285,20 +285,6 @@ body.dark-mode .search-box input:focus {
   cursor: pointer;
 }
 
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  margin-right: 12px;
-}
-
-.user-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
 .user-info {
   flex-grow: 1;
 }
@@ -740,9 +726,6 @@ body.dark-mode .empty-feed {
   flex-direction: column;
 }
 
-.track-item {
-  width: 100%;
-}
 
 .loading-spinner {
   display: flex;
@@ -764,6 +747,7 @@ body.dark-mode .empty-feed {
 }
 
 .track-item {
+  width: 100%;
   border-bottom: 1px solid var(--gray-light);
   transition: background-color 0.2s ease;
 }
@@ -782,6 +766,7 @@ body.dark-mode .track-item:hover {
 
 .track-item.expanded {
   background-color: var(--white);
+  padding-bottom: 10px;
 }
 
 body.dark-mode .track-item.expanded {
@@ -912,28 +897,11 @@ body.dark-mode .track-tag.mini {
   margin-bottom: 6px;
 }
 
-.artist-avatar {
-  width: 24px;
-  height: 24px;
+/* Standard Avatar Styles */
+.avatar {
   border-radius: 50%;
   overflow: hidden;
-  background-color: var(--gray);
-}
-
-.artist-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  background-color: var(--gray);
-}
-
-body.dark-mode .avatar-placeholder {
-  background-color: var(--dark-hover-color);
+  background-color: var(--gray-light);
 }
 
 .artist-name {
@@ -1301,6 +1269,18 @@ body.dark-mode .related-title {
   cursor: not-allowed;
 }
 
+@media (max-width: 768px) {
+  .track-main{
+    padding: 10px 0px;
+    gap: 5px;
+  }
+
+  .track-details{
+    padding: 7px;
+    padding-top: 0px;
+  }
+}
+
 /* #endregion */
 
 /* #region Responsive adjustments */
@@ -1332,7 +1312,7 @@ body.dark-mode .related-title {
   }
   
   .main-content {
-    padding: 20px;
+    padding: 10px;
     height: unset !important;
     overflow-y: auto;
   }
@@ -1431,20 +1411,6 @@ body.dark-mode .related-title {
   color: var(--dark);
 }
 
-.mobile-nav-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-
-.mobile-nav-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 /* Desktop navbar visible by default */
 @media (min-width: 769px) {
   .mobile-navbar {
@@ -1466,8 +1432,8 @@ body.dark-mode .related-title {
 @media (max-width: 768px) {
   .related-track {
     grid-template-columns: 36px 1fr auto;
-    gap: 8px;
-    padding: 6px;
+    gap: 5px;
+    padding: 0px;
   }
   
   .related-play {
@@ -2875,27 +2841,6 @@ body.dark-mode .modal-footer {
   font-size: 14px;
 }
 
-.artist-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  overflow: hidden;
-  background-color: var(--gray-light);
-  margin-right: 8px;
-}
-
-.artist-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  background-color: var(--gray);
-}
-
 .artist-name {
   display: flex;
   align-items: center;
@@ -3100,20 +3045,6 @@ body.dark-mode .user-card {
   box-shadow: 0 4px 12px var(--shadow);
 }
 
-.user-card .user-avatar {
-  width: 60px;
-  height: 60px;
-  margin-right: 1rem;
-  flex-shrink: 0;
-}
-
-.user-card .avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
 .user-card .user-info {
   flex: 1;
 }
@@ -3255,11 +3186,6 @@ body.dark-mode .no-results {
     align-items: flex-start;
   }
   
-  .user-card .user-avatar {
-    margin-right: 0;
-    margin-bottom: 1rem;
-  }
-  
   .user-card .user-actions {
     margin-left: 0;
     margin-top: 1rem;
@@ -3371,13 +3297,6 @@ body.dark-mode .follow-request-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-.follow-request-item .user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
 }
 
 .follow-request-item .username {
@@ -3852,13 +3771,6 @@ body.dark-mode .user-list-item:hover {
   flex: 1;
 }
 
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
 .user-details {
   display: flex;
   flex-direction: column;
@@ -4179,17 +4091,6 @@ body.dark-mode .comment-input {
   margin-top: 8px;
   background-color: var(--bg-secondary);
   border-left: 2px solid var(--primary);
-}
-
-.comment-avatar {
-  flex-shrink: 0;
-  margin-right: 12px;
-  cursor: pointer;
-}
-
-.comment-avatar-image {
-  border-radius: 50%;
-  object-fit: cover;
 }
 
 .comment-content {

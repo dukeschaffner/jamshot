@@ -98,15 +98,13 @@ function SearchContent() {
       <div className="users-list">
         {searchResults.users.map(user => (
           <div key={user.id} className="user-card">
-            <div className="user-avatar">
-              <Image 
-                src={user?.profile_pic_url || '/avatar.svg'} 
-                alt={user.username} 
-                width={50} 
-                height={50}
-                style={{ borderRadius: '50%', objectFit: 'cover' }}
-              />
-            </div>
+            <Image
+              className="avatar mr-1"
+              src={user?.profile_pic_url || '/avatar.svg'} 
+              alt={user.username} 
+              width={60} 
+              height={60}
+            />
             <div className="user-info">
               <div className="user-name">
                 <Link href={`/user/${user.username}`}>
