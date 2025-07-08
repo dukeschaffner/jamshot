@@ -16,7 +16,9 @@ export default function NotificationDropdown() {
     unreadCount, 
     loading, 
     error, 
+    pagination,
     fetchNotifications, 
+    loadMoreNotifications,
     markAsRead, 
     markAllAsRead, 
     deleteNotification 
@@ -112,6 +114,12 @@ export default function NotificationDropdown() {
     }
   };
 
+  const handleLoadMore = () => {
+    if (pagination && pagination.hasNextPage && !loading) {
+      loadMoreNotifications();
+    }
+  };
+
   return (
     <div className="relative notification-dropdown" ref={dropdownRef}>
       <button
@@ -148,65 +156,87 @@ export default function NotificationDropdown() {
             )} */}
           </div>
 
-          {loading ? (
+          {loading && notifications.length === 0 ? (
             <div className="notification-loading">Loading...</div>
           ) : error ? (
             <div className="notification-error">{error}</div>
           ) : notifications.length === 0 ? (
             <div className="notification-empty">No notifications</div>
           ) : (
-            <ul className="notification-list">
-              {notifications.map(notification => (
-                <li
-                  key={notification.id}
-                  className={`notification-item ${
-                    !notification.is_read ? 'unread' : ''
-                  }`}
-                >
-                  <div className="notification-icon-container">{getNotificationIcon(notification.type)}</div>
-                  <div 
-                    className="notification-content"
-                    onClick={() => handleNotificationClick(notification)}
+            <>
+              <ul className="notification-list">
+                {notifications.map(notification => (
+                  <li
+                    key={notification.id}
+                    className={`notification-item ${
+                      !notification.is_read ? 'unread' : ''
+                    }`}
                   >
-                    <p className="notification-text">{getNotificationText(notification)}</p>
-                    <TimeDisplay timestamp={notification.created_at} />
-                    
-                    {notification.type === 'follow_request' && (
-                      <div className="notification-actions">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAcceptFollowRequest(notification);
-                          }}
-                          className="accept-btn"
-                        >
-                          <FaCheckCircle className="mr-1" /> Accept
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRejectFollowRequest(notification);
-                          }}
-                          className="reject-btn"
-                        >
-                          <FaTimesCircle className="mr-1" /> Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {/* <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteNotification(notification.id);
-                    }}
-                    className="delete-btn"
-                    title="Delete notification"
+                    <div className="notification-icon-container">{getNotificationIcon(notification.type)}</div>
+                    <div 
+                      className="notification-content"
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <p className="notification-text">{getNotificationText(notification)}</p>
+                      <TimeDisplay timestamp={notification.created_at} />
+                      
+                      {notification.type === 'follow_request' && (
+                        <div className="notification-actions">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAcceptFollowRequest(notification);
+                            }}
+                            className="accept-btn"
+                          >
+                            <FaCheckCircle className="mr-1" /> Accept
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRejectFollowRequest(notification);
+                            }}
+                            className="reject-btn"
+                          >
+                            <FaTimesCircle className="mr-1" /> Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {/* <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notification.id);
+                      }}
+                      className="delete-btn"
+                      title="Delete notification"
+                    >
+                      <FaTrash />
+                    </button> */}
+                  </li>
+                ))}
+              </ul>
+              
+              {/* Load More Button */}
+              {pagination && pagination.hasNextPage && (
+                <div className="load-more-container">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={loading}
+                    className="load-more-btn"
                   >
-                    <FaTrash />
-                  </button> */}
-                </li>
-              ))}
-            </ul>
+                    {loading ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
+              
+              {/* Pagination Info */}
+              {pagination && (
+                <div className="notification-loading">
+                  Showing {notifications.length} of {pagination.totalCount} notifications
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
