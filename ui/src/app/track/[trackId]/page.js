@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
-import { formatDuration } from '@/lib/utils';
+import Image from 'next/image';
 import { getLikeCountString } from '@/lib/utils';
 import api from '@/lib/api';
 import DawInterface from '@/components/DAW/DawInterface';
@@ -251,9 +251,13 @@ function TrackContent() {
          <div className="track-info">
            <h1 className="track-title">{track?.title || 'Untitled Track'}</h1>
            <div className="track-artist">
-             <div className="artist-avatar">
-               <img src={track?.profile_pic_url || '/avatar.svg'} alt="Artist Avatar" />
-             </div>
+              <Image 
+                className="avatar"
+                src={track?.profile_pic_url || '/avatar.svg'} 
+                alt={track.username}
+                width={40}
+                height={40} 
+              />
              <span className="artist-name">{track?.username || 'Unknown Artist'}</span>
              {track?.verified && <FaCheckCircle className="verified-icon" />}
            </div>

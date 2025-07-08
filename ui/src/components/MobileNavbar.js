@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaSearch, FaUser } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
-
+import Image from 'next/image';
 export default function MobileNavbar() {
   const { user, isAuthenticated } = useUser();
   const pathname = usePathname();
@@ -33,12 +33,13 @@ export default function MobileNavbar() {
           href={`/user/${user.username}`} 
           className={`mobile-nav-item ${pathname.startsWith('/user/') ? 'active' : ''}`}
         >
-          <div className="mobile-nav-avatar">
-            <img 
-              src={user.profile_pic_url || '/avatar.svg'} 
-              alt={`${user.username}'s avatar`} 
-            />
-          </div>
+        <Image
+            className="avatar"
+            src={user?.profile_pic_url || '/avatar.svg'} 
+            alt={user.username} 
+            width={24} 
+            height={24}
+        />
           <span>Profile</span>
         </Link>
       ) : (
