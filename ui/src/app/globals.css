@@ -105,6 +105,12 @@ body {
   text-decoration: none;
 }
 
+.pill-btn.sm {
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 20px;
+}
+
 body.dark-mode .pill-btn {
   background-color: var(--grey-2);
 }
@@ -897,12 +903,7 @@ body.dark-mode .track-tag.mini {
   margin-bottom: 6px;
 }
 
-/* Standard Avatar Styles */
-.avatar {
-  border-radius: 50%;
-  overflow: hidden;
-  background-color: var(--gray-light);
-}
+
 
 .artist-name {
   font-weight: 600;
@@ -2541,6 +2542,42 @@ body.dark-mode .privacy-notice h3 {
 
 body.dark-mode .privacy-notice p {
   color: var(--dark-text-secondary);
+}
+
+/* Empty State */
+.empty-state {
+  margin-top: 2rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, rgba(249, 249, 249, 0.8), rgba(249, 249, 249, 0.4));
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+body.dark-mode .empty-state {
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.8), rgba(20, 20, 20, 0.4));
+  border: 1px solid rgba(60, 60, 60, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.empty-state h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  max-width: 500px;
+  line-height: 1.5;
 }
 
 /* Edit Profile Form Styles */
@@ -4623,6 +4660,13 @@ body.dark-mode .download-btn:hover {
 .download-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Standard Avatar Styles */
+.avatar {
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: var(--gray-light);
 }
 
 /* #region Mobile Warning Styles */

@@ -304,11 +304,11 @@ export default function UserPage() {
                   </div>
                 ) : (
                   <>
-                    <button className="pill-btn" onClick={() => setIsEditing(true)}>
+                    <button className="pill-btn sm" onClick={() => setIsEditing(true)}>
                       Edit Profile
                     </button>
                     <button 
-                      className={`pill-btn ${isPrivate ? 'private' : 'public'}`}
+                      className={`pill-btn sm ${isPrivate ? 'private' : 'public'}`}
                       onClick={handlePrivacyToggle}
                       title={isPrivate ? 'Make account public' : 'Make account private'}
                     >
@@ -409,35 +409,71 @@ export default function UserPage() {
       {(!isPrivate || isOwnProfile || stats.isFollowing) ? (
         <div className="tracks-container">
           {activeTab === 'tracks' ? (
-            tracks.map(track => (
-              <Track
-                key={track.id}
-                track={track}
-                allTracks={tracks}
-                setExpandedTrackId={setExpandedTrackId}
-                expandedTrackId={expandedTrackId}
-              />
-            ))
+            tracks.length > 0 ? (
+              tracks.map(track => (
+                <Track
+                  key={track.id}
+                  track={track}
+                  allTracks={tracks}
+                  setExpandedTrackId={setExpandedTrackId}
+                  expandedTrackId={expandedTrackId}
+                />
+              ))
+            ) : (
+              <div className="empty-state">
+                <h3>No tracks yet</h3>
+                <p>
+                  {isOwnProfile 
+                    ? "You haven't uploaded any tracks yet. Start creating to share your music with the world!"
+                    : `${userProfile?.username} hasn't uploaded any tracks yet.`
+                  }
+                </p>
+              </div>
+            )
           ) : activeTab === 'reposts' ? (
-            repostedTracks.map(track => (
-              <Track
-                key={track.id}
-                track={track}
-                allTracks={repostedTracks}
-                setExpandedTrackId={setExpandedTrackId}
-                expandedTrackId={expandedTrackId}
-              />
-            ))
+            repostedTracks.length > 0 ? (
+              repostedTracks.map(track => (
+                <Track
+                  key={track.id}
+                  track={track}
+                  allTracks={repostedTracks}
+                  setExpandedTrackId={setExpandedTrackId}
+                  expandedTrackId={expandedTrackId}
+                />
+              ))
+            ) : (
+              <div className="empty-state">
+                <h3>No reposts yet</h3>
+                <p>
+                  {isOwnProfile 
+                    ? "You haven't reposted any tracks yet. Discover and share tracks you love!"
+                    : `${userProfile?.username} hasn't reposted any tracks yet.`
+                  }
+                </p>
+              </div>
+            )
           ) : (
-            likedTracks.map(track => (
-              <Track
-                key={track.id}
-                track={track}
-                allTracks={likedTracks}
-                setExpandedTrackId={setExpandedTrackId}
-                expandedTrackId={expandedTrackId}
-              />
-            ))
+            likedTracks.length > 0 ? (
+              likedTracks.map(track => (
+                <Track
+                  key={track.id}
+                  track={track}
+                  allTracks={likedTracks}
+                  setExpandedTrackId={setExpandedTrackId}
+                  expandedTrackId={expandedTrackId}
+                />
+              ))
+            ) : (
+              <div className="empty-state">
+                <h3>No liked tracks yet</h3>
+                <p>
+                  {isOwnProfile 
+                    ? "You haven't liked any tracks yet. Explore and like tracks you enjoy!"
+                    : `${userProfile?.username} hasn't liked any tracks yet.`
+                  }
+                </p>
+              </div>
+            )
           )}
         </div>
       ) : null}
