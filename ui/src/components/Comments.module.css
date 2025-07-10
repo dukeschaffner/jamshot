@@ -1,0 +1,320 @@
+.commentsSection {
+    width: 100%;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  
+  .commentsTitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+  }
+  
+  .commentForm {
+    margin-bottom: 20px;
+  }
+  
+  .replyingTo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+  
+  .cancelReplyBtn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+  
+  .cancelReplyBtn:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .commentInputContainer {
+    position: relative;
+    display: flex;
+  }
+  
+  .commentInput {
+    width: 100%;
+    background-color: var(--gray);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s;
+  }
+  
+  body.dark-mode .commentInput {
+    background-color: var(--dark-card-bg);
+  }
+  
+  .commentInput:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  
+  .commentSubmitBtn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: var(--primary);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    transition: background-color 0.2s;
+  }
+  
+  .commentSubmitBtn:hover {
+    background-color: var(--primary-dark);
+  }
+  
+  .commentSubmitBtn:disabled {
+    background-color: var(--gray);
+    cursor: not-allowed;
+  }
+  
+  .loginPrompt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background-color: var(--bg-input);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+  
+  .commentsList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+  
+  .commentsLoading, .noComments, .loadingMore {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-secondary);
+  }
+  
+  .commentThread {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .comment {
+    display: flex;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: var(--bg-card);
+    transition: background-color 0.2s;
+  }
+  
+  .comment:hover {
+    background-color: var(--bg-hover);
+  }
+  
+  .commentReply {
+    margin-left: 40px;
+    margin-top: 8px;
+    background-color: var(--bg-secondary);
+    border-left: 2px solid var(--primary);
+  }
+  
+  .commentContent {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .commentHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  
+  .commentUser {
+    display: flex;
+    align-items: center;
+    margin-right: auto;
+  }
+  
+  .commentUserName {
+    font-weight: 600;
+    margin-right: 6px;
+    cursor: pointer;
+  }
+  
+  .commentUserHandle {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  
+  .commentVerifiedIcon {
+    color: var(--primary);
+    margin-left: 4px;
+    font-size: 0.8rem;
+  }
+  
+  .commentTime {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+  }
+  
+  .commentEditedIndicator {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-left: 6px;
+  }
+  
+  .commentText {
+    margin-top: 4px;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  
+  .commentActions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  
+  .commentActionBtn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: color 0.2s, background-color 0.2s;
+  }
+  
+  .commentActionBtn:hover {
+    color: var(--text-primary);
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .commentReplyBtn:hover {
+    color: var(--primary);
+  }
+  
+  .commentEditBtn:hover {
+    color: var(--info);
+  }
+  
+  .commentDeleteBtn:hover {
+    color: var(--error);
+  }
+  
+  .commentActionText {
+    display: none;
+  }
+  
+  @media (min-width: 768px) {
+    .commentActionText {
+      display: inline;
+    }
+  }
+  
+  .commentViewRepliesBtn {
+    background: none;
+    border: none;
+    color: var(--primary);
+    padding: 4px 0;
+    margin-top: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: left;
+  }
+  
+  .commentViewRepliesBtn:hover {
+    text-decoration: underline;
+  }
+  
+  .commentRepliesContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .commentEdit {
+    margin-top: 8px;
+  }
+  
+  .commentEditTextarea {
+    width: 100%;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    resize: vertical;
+    min-height: 60px;
+  }
+  
+  .commentEditTextarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+  
+  .commentEditActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .commentCancelBtn, .commentSaveBtn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  
+  .commentCancelBtn {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+  }
+  
+  .commentSaveBtn {
+    background-color: var(--primary);
+    border: none;
+    color: white;
+  }
+  
+  .commentSaveBtn:disabled {
+    background-color: var(--gray);
+    cursor: not-allowed;
+  }

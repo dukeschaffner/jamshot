@@ -6,6 +6,7 @@ import { FaReply, FaEdit, FaTrash, FaCheckCircle } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import TimeDisplay from './TimeDisplay';
 import { updateComment, deleteComment } from '../lib/api';
+import styles from './Comments.module.css';
 
 export default function Comment({ 
   comment, 
@@ -92,7 +93,7 @@ export default function Comment({
 
   return (
     <div 
-      className={`comment ${isReply ? 'comment-reply' : ''}`}
+      className={`${styles.comment} ${isReply ? styles.commentReply : ''}`}
       onMouseEnter={() => setIsActionsVisible(true)}
       onMouseLeave={() => setIsActionsVisible(false)}
     >
@@ -105,40 +106,40 @@ export default function Comment({
         className="avatar mr-1"
         onClick={navigateToUserProfile}
       />
-      <div className="comment-content">
-        <div className="comment-header">
-          <div className="comment-user">
-            <span className="comment-user-name" onClick={navigateToUserProfile}>
+      <div className={styles.commentContent}>
+        <div className={styles.commentHeader}>
+          <div className={styles.commentUser}>
+            <span className={styles.commentUserName} onClick={navigateToUserProfile}>
               {comment.name || comment.username}
             </span>
-            <span className="comment-user-handle" onClick={navigateToUserProfile}>
+            <span className={styles.commentUserHandle} onClick={navigateToUserProfile}>
               @{comment.username}
-              {comment.verified && <FaCheckCircle className="comment-verified-icon" />}
+              {comment.verified && <FaCheckCircle className={styles.commentVerifiedIcon} />}
             </span>
           </div>
-          <TimeDisplay timestamp={comment.created_at} className="comment-time" />
-          {isEdited && <span className="comment-edited-indicator">(edited)</span>}
+          <TimeDisplay timestamp={comment.created_at} className={styles.commentTime} />
+          {isEdited && <span className={styles.commentEditedIndicator}>(edited)</span>}
         </div>
         
         {isEditing ? (
-          <div className="comment-edit">
+          <div className={styles.commentEdit}>
             <textarea 
               ref={textareaRef}
-              className="comment-edit-textarea"
+              className={styles.commentEditTextarea}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               rows={3}
             />
-            <div className="comment-edit-actions">
+            <div className={styles.commentEditActions}>
               <button 
-                className="comment-cancel-btn" 
+                className={styles.commentCancelBtn} 
                 onClick={cancelEdit}
                 disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button 
-                className="comment-save-btn" 
+                className={styles.commentSaveBtn} 
                 onClick={saveEdit}
                 disabled={isSubmitting || editContent.trim() === ''}
               >
@@ -147,32 +148,32 @@ export default function Comment({
             </div>
           </div>
         ) : (
-          <div className="comment-text">{comment.content}</div>
+          <div className={styles.commentText}>{comment.content}</div>
         )}
         
         {!isEditing && !isReply && comment.reply_count > 0 && (
-          <button className="comment-view-replies-btn" onClick={handleReply}>
+          <button className={styles.commentViewRepliesBtn} onClick={handleReply}>
             View {comment.reply_count} {comment.reply_count === 1 ? 'reply' : 'replies'}
           </button>
         )}
         
         {(isActionsVisible || isReply) && !isEditing && (
-          <div className="comment-actions">
+          <div className={styles.commentActions}>
             {isAuthenticated && (
-              <button className="comment-action-btn comment-reply-btn" onClick={handleReply} title="Reply">
+              <button className={`${styles.commentActionBtn} ${styles.commentReplyBtn}`} onClick={handleReply} title="Reply">
                 <FaReply />
-                <span className="comment-action-text">Reply</span>
+                <span className={styles.commentActionText}>Reply</span>
               </button>
             )}
             {comment.is_owner && (
               <>
-                {/* <button className="comment-action-btn comment-edit-btn" onClick={handleEdit} title="Edit">
+                {/* <button className={`${styles.commentActionBtn} ${styles.commentEditBtn}`} onClick={handleEdit} title="Edit">
                   <FaEdit />
-                  <span className="comment-action-text">Edit</span>
+                  <span className={styles.commentActionText}>Edit</span>
                 </button> */}
-                <button className="comment-action-btn comment-delete-btn" onClick={handleDelete} title="Delete">
+                <button className={`${styles.commentActionBtn} ${styles.commentDeleteBtn}`} onClick={handleDelete} title="Delete">
                   <FaTrash />
-                  <span className="comment-action-text">Delete</span>
+                  <span className={styles.commentActionText}>Delete</span>
                 </button>
               </>
             )}

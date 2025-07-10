@@ -5,6 +5,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import Link from 'next/link';
 import api from '../../lib/api';
 import { useSearchParams } from 'next/navigation';
+import styles from './About.module.css';
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
@@ -54,10 +55,10 @@ function AboutContent() {
   };
   
   return (
-    <div className="about-container">
-      <div className="about-header">
-        <h1 className="about-title">About Sterio</h1>
-        <p className="about-subtitle">Empowering musicians to collaborate and create together</p>
+    <div className={styles.aboutContainer}>
+      <div className={styles.aboutHeader}>
+        <h1 className={styles.aboutTitle}>About Sterio</h1>
+        <p className={styles.aboutSubtitle}>Empowering musicians to collaborate and create together</p>
       </div>
       
       {paymentStatus === 'success' && (
@@ -79,10 +80,10 @@ function AboutContent() {
         </div>
       )}
       
-      <div className="about-content">
+      <div className={styles.aboutContent}>
         <section className="vision-section">
-          <h2 className="section-title">Our Vision</h2>
-          <div className="vision-text">
+          <h2 className={styles.sectionTitle}>Our Vision</h2>
+          <div className={styles.visionText}>
             <p>
               Sterio was born from a simple idea: <strong>redefine the way we share music</strong>. 
               As a musician myself, I&apos;ve experienced the magic that happens when artists collaborate, 
@@ -105,7 +106,7 @@ function AboutContent() {
             <p>
               Our mission is to unlock a new era of musical collaboration. We&apos;re making this possible by:
             </p>
-            <ul className="vision-list">
+            <ul className={styles.visionList}>
               <li><strong>Empowering open sharing</strong> — Whether it&apos;s a polished track or just a cool loop you made last night, share it all. Our dynamic feed keeps you connected with what your friends and favorite artists are creating right now.</li>
               <li><strong>Breaking down collaboration barriers</strong> — Collaborate with ANYONE on the platform, anytime. No more waiting for the perfect opportunity or watching online DAW projects fizzle out after a week.</li>
               <li><strong>Simplifying music creation</strong> — We&apos;re removing technical barriers so that your only limit is your imagination. Making and sharing music should be intuitive for everyone, from beginners to professionals.</li>
@@ -127,25 +128,25 @@ function AboutContent() {
         </section>
         
         <section className="features-section">
-          <h2 className="section-title">Key Features</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon collab-icon"></div>
+          <h2 className={styles.sectionTitle}>Key Features</h2>
+          <div className={styles.featuresGrid}>
+            <div className={styles.featureCard}>
+              <div className={`${styles.featureIcon} ${styles.collabIcon}`}></div>
               <h3>Track Collaboration</h3>
               <p>Build upon existing tracks by adding new instruments, vocals, or production elements</p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon discover-icon"></div>
+            <div className={styles.featureCard}>
+              <div className={`${styles.featureIcon} ${styles.discoverIcon}`}></div>
               <h3>Artist Discovery</h3>
               <p>Find musicians with complementary skills and styles to enhance your creative projects</p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon rights-icon"></div>
+            <div className={styles.featureCard}>
+              <div className={`${styles.featureIcon} ${styles.rightsIcon}`}></div>
               <h3>Rights Management</h3>
               <p>Clear attribution and rights management for all collaborators on a track</p>
             </div>
-            <div className="feature-card">
-              <div className="feature-icon community-icon"></div>
+            <div className={styles.featureCard}>
+              <div className={`${styles.featureIcon} ${styles.communityIcon}`}></div>
               <h3>Supportive Community</h3>
               <p>Connect with like-minded artists who share your passion for musical innovation</p>
             </div>
@@ -153,51 +154,51 @@ function AboutContent() {
         </section>
         
         <section className="support-section">
-          <h2 className="section-title">Support Sterio</h2>
-          <p className="support-text">
+          <h2 className={styles.sectionTitle}>Support Sterio</h2>
+          <p className={styles.supportText}>
             Sterio is a passion project created to support independent musicians. Your donations 
             help us maintain the platform, develop new features, and keep the service accessible 
             to artists everywhere.
           </p>
           
-          <div className="donation-container">
-            <div className="donation-options">
+          <div className={styles.donationContainer}>
+            <div className={styles.donationOptions}>
               <h3>Choose an amount</h3>
-              <div className="amount-buttons">
+              <div className={styles.amountButtons}>
                 <button 
-                  className={`amount-btn ${donationAmount === 5 ? 'active' : ''}`}
+                  className={`${styles.amountBtn} ${donationAmount === 5 ? `${styles.active}` : ''}`}
                   onClick={() => setDonationAmount(5)}
                 >
                   $5
                 </button>
                 <button 
-                  className={`amount-btn ${donationAmount === 10 ? 'active' : ''}`}
+                  className={`${styles.amountBtn} ${donationAmount === 10 ? `${styles.active}` : ''}`}
                   onClick={() => setDonationAmount(10)}
                 >
                   $10
                 </button>
                 <button 
-                  className={`amount-btn ${donationAmount === 25 ? 'active' : ''}`}
+                  className={`${styles.amountBtn} ${donationAmount === 25 ? `${styles.active}` : ''}`}
                   onClick={() => setDonationAmount(25)}
                 >
                   $25
                 </button>
                 <button 
-                  className={`amount-btn ${donationAmount === 50 ? 'active' : ''}`}
+                  className={`${styles.amountBtn} ${donationAmount === 50 ? `${styles.active}` : ''}`}
                   onClick={() => setDonationAmount(50)}
                 >
                   $50
                 </button>
                 <button 
-                  className={`amount-btn ${donationAmount === 100 ? 'active' : ''}`}
+                  className={`${styles.amountBtn} ${donationAmount === 100 ? `${styles.active}` : ''}`}
                   onClick={() => setDonationAmount(100)}
                 >
                   $100
                 </button>
               </div>
-              <div className="custom-amount">
+              <div className={styles.customAmount}>
                 <label htmlFor="custom-amount">Or enter a custom amount:</label>
-                <div className="custom-input">
+                <div className={styles.customInput}>
                   <span>$</span>
                   <input 
                     type="number" 
@@ -210,11 +211,11 @@ function AboutContent() {
               </div>
             </div>
             
-            <div className="payment-methods">
+            <div className={styles.paymentMethods}>
               <h3>Payment methods</h3>
-              <div className="payment-buttons">
+              <div className={styles.paymentButtons}>
                 <button 
-                  className="payment-btn stripe-btn"
+                  className={`${styles.paymentBtn} stripe-btn`}
                   onClick={handleStripeCheckout}
                   disabled={isProcessing}
                 >
@@ -230,7 +231,7 @@ function AboutContent() {
             </div>
           </div>
           
-          <div className="supporter-benefits">
+          <div className={styles.supporterBenefits}>
             <h3><FaHeart /> Supporter Benefits</h3>
             <ul>
               <li>Early access to new features</li>
@@ -242,34 +243,34 @@ function AboutContent() {
           </div>
         </section>
         
-        <section className="team-section">
-          <h2 className="section-title">Meet the Creator</h2>
-          <div className="creator-profile">
+        <section className={styles.teamSection}>
+          <h2 className={styles.sectionTitle}>Meet the Creator</h2>
+          <div className={styles.creatorProfile}>
             <img
-              className="creator-image"
+              className={styles.creatorImage}
               src={`https://s3.us-east-2.amazonaws.com/${process.env.NEXT_PUBLIC_S3_BUCKET}/images/static/about_bio_pic.jpg`}
               alt="Duke Schaffner bio photo"
               style={{ objectFit: 'cover' }}
             />
-            <div className="creator-info">
+            <div className={styles.creatorInfo}>
               <h3>Duke Schaffner</h3>
-              <p className="creator-title">Founder & Developer</p>
-              <p className="creator-bio">
+              <p className={styles.creatorTitle}>Founder & Developer</p>
+              <p className={styles.creatorBio}>
                 Musician, developer, and passionate advocate for collaborative creation. 
                 I built Sterio to solve problems I faced as an independent artist looking 
                 to collaborate with others.
               </p>
-              {/* <div className="creator-social">
-                <a href="#" className="social-link"><FaGithub /></a>
-                <a href="#" className="social-link"><FaTwitter /></a>
-                <a href="#" className="social-link"><FaInstagram /></a>
+              {/* <div className={styles.creatorSocial}>
+                <a href="#" className={styles.socialLink}><FaGithub /></a>
+                <a href="#" className={styles.socialLink}><FaTwitter /></a>
+                <a href="#" className={styles.socialLink}><FaInstagram /></a>
               </div> */}
             </div>
           </div>
         </section>
         
-        <section className="contact-section">
-          <h2 className="section-title">Get in Touch</h2>
+        <section className={styles.contactSection}>
+          <h2 className={styles.sectionTitle}>Get in Touch</h2>
           <p>
             Have questions, suggestions, or just want to say hello? We&apos;d love to hear from you!
           </p>
