@@ -261,7 +261,7 @@ function TrackContent() {
              <span className="artist-name">{track?.username || 'Unknown Artist'}</span>
              {track?.verified && <FaCheckCircle className="verified-icon" />}
            </div>
-           <div className="track-meta">
+           <div className="track-meta-social">
              <span className="meta-item"><FaPlay/> {track?.play_count || 0}</span>
              <span className="meta-item">
                <FaHeart/> 

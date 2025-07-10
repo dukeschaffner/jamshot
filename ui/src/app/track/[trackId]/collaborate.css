@@ -46,23 +46,6 @@
   color: var(--seafoam-light);
 }
 
-
-.start-collab-btn {
-  padding: 8px 16px;
-  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
-  color: white;
-  border: none;
-  border-radius: 20px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.start-collab-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
 /* Recording Controls */
 .recording-controls {
   display: grid;
@@ -587,17 +570,6 @@
 
 .dark-mode .track-header {
   border-bottom: 1px solid var(--dark-border-color);
-}
-
-.track-header .track-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--dark);
-  margin-bottom: 8px;
-}
-
-.dark-mode .track-header .track-title {
-  color: var(--dark-text-primary);
 }
 
 .track-header .track-controls {
