@@ -6,6 +6,7 @@ import { FaBell, FaCheck, FaComment, FaHeart, FaMusic, FaRetweet, FaTrash, FaUse
 import { formatDistanceToNow } from 'date-fns';
 import api from '../lib/api';
 import TimeDisplay from './TimeDisplay';
+import styles from './Notifications.module.css';
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -135,7 +136,7 @@ export default function NotificationDropdown() {
         <div className="notification-icon-wrapper">
           <FaBell size={20} />
           {unreadCount > 0 && (
-            <span className="notification-dot"></span>
+            <span className={styles.notificationDot}></span>
           )}
         </div>
         Notifications
@@ -143,12 +144,12 @@ export default function NotificationDropdown() {
 
       {isOpen && (
         <div className="notification-panel">
-          <div className="notification-header">
+          <div className={styles.notificationHeader}>
             <h3>Notifications</h3>
             {/* {notifications.length > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="mark-all-read"
+                className={styles.markAllRead}
                 title="Mark all as read"
               >
                 <FaCheck className="inline mr-1" /> Mark all read
@@ -157,37 +158,37 @@ export default function NotificationDropdown() {
           </div>
 
           {loading && notifications.length === 0 ? (
-            <div className="notification-loading">Loading...</div>
+            <div className={styles.notificationLoading}>Loading...</div>
           ) : error ? (
-            <div className="notification-error">{error}</div>
+            <div className={styles.notificationError}>{error}</div>
           ) : notifications.length === 0 ? (
-            <div className="notification-empty">No notifications</div>
+            <div className={styles.notificationEmpty}>No notifications</div>
           ) : (
             <>
-              <ul className="notification-list">
+              <ul className={styles.notificationList}>
                 {notifications.map(notification => (
                   <li
                     key={notification.id}
-                    className={`notification-item ${
+                    className={`${styles.notificationItem} ${
                       !notification.is_read ? 'unread' : ''
                     }`}
                   >
-                    <div className="notification-icon-container">{getNotificationIcon(notification.type)}</div>
+                    <div className={styles.notificationIconContainer}>{getNotificationIcon(notification.type)}</div>
                     <div 
-                      className="notification-content"
+                      className={styles.notificationContent}
                       onClick={() => handleNotificationClick(notification)}
                     >
-                      <p className="notification-text">{getNotificationText(notification)}</p>
+                      <p className={styles.notificationText}>{getNotificationText(notification)}</p>
                       <TimeDisplay timestamp={notification.created_at} />
                       
                       {notification.type === 'follow_request' && (
-                        <div className="notification-actions">
+                        <div className={styles.notificationActions}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAcceptFollowRequest(notification);
                             }}
-                            className="accept-btn"
+                            className={styles.acceptBtn}
                           >
                             <FaCheckCircle className="mr-1" /> Accept
                           </button>
@@ -196,7 +197,7 @@ export default function NotificationDropdown() {
                               e.stopPropagation();
                               handleRejectFollowRequest(notification);
                             }}
-                            className="reject-btn"
+                            className={styles.rejectBtn}
                           >
                             <FaTimesCircle className="mr-1" /> Reject
                           </button>
@@ -208,7 +209,7 @@ export default function NotificationDropdown() {
                         e.stopPropagation();
                         deleteNotification(notification.id);
                       }}
-                      className="delete-btn"
+                      className={styles.deleteBtn}
                       title="Delete notification"
                     >
                       <FaTrash />
@@ -232,7 +233,7 @@ export default function NotificationDropdown() {
               
               {/* Pagination Info */}
               {pagination && (
-                <div className="notification-loading">
+                <div className={styles.notificationLoading}>
                   Showing {notifications.length} of {pagination.totalCount} notifications
                 </div>
               )}

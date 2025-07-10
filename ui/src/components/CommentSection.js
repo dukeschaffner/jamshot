@@ -4,6 +4,7 @@ import Cookies from 'js-cookie';
 import Comment from './Comment';
 import { fetchComments, addComment } from '../lib/api';
 import { FaPaperPlane } from 'react-icons/fa';
+import styles from './Comments.module.css';
 
 // Add a constant for maximum comment length
 const MAX_COMMENT_LENGTH = 1000;
@@ -217,26 +218,26 @@ export default function CommentSection({ trackId }) {
   };
   
   return (
-    <div className="comments-section">
+    <div className={styles.commentsSection}>
       
       {isAuthenticated ? (
-        <form className="comment-form" onSubmit={handleCommentSubmit}>
+        <form className={styles.commentForm} onSubmit={handleCommentSubmit}>
           {replyTo && (
-            <div className="replying-to">
+            <div className={styles.replyingTo}>
               <span>Replying to @{replyingToUsername}</span>
               <button 
                 type="button" 
-                className="cancel-reply-btn"
+                className={styles.cancelReplyBtn}
                 onClick={handleCancelReply}
               >
                 Cancel
               </button>
             </div>
           )}
-          <div className="comment-input-container">
+          <div className={styles.commentInputContainer}>
             <textarea
               ref={textareaRef}
-              className="comment-input"
+              className={styles.commentInput}
               placeholder={replyTo ? `Reply to @${replyingToUsername}...` : "Add a comment..."}
               value={commentContent}
               onChange={handleCommentChange}
@@ -248,7 +249,7 @@ export default function CommentSection({ trackId }) {
             {charCountError && <div className="char-count-error">{charCountError}</div>}
             <button 
               type="submit" 
-              className="comment-submit-btn"
+              className={styles.commentSubmitBtn}
               disabled={isSubmitting || commentContent.trim() === '' || commentContent.length > MAX_COMMENT_LENGTH}
             >
               <FaPaperPlane />
@@ -256,20 +257,20 @@ export default function CommentSection({ trackId }) {
           </div>
         </form>
       ) : (
-        <div className="login-prompt">
+        <div className={styles.loginPrompt}>
           <p>Please log in to comment</p>
         </div>
       )}
       
-      <div className="comments-list" onScroll={handleScroll}>
+      <div className={styles.commentsList} onScroll={handleScroll}>
         {isLoading && comments.length === 0 ? (
-          <div className="comments-loading">Loading comments...</div>
+          <div className={styles.commentsLoading}>Loading comments...</div>
         ) : comments.length === 0 ? (
-          <div className="no-comments">No comments yet. Be the first to comment!</div>
+          <div className={styles.noComments}>No comments yet. Be the first to comment!</div>
         ) : (
           <>
             {comments.map(comment => (
-              <div key={comment.id} className="comment-thread">
+              <div key={comment.id} className={styles.commentThread}>
                 <Comment 
                   comment={comment} 
                   onReply={handleReply}
@@ -278,7 +279,7 @@ export default function CommentSection({ trackId }) {
                 />
                 
                 {visibleReplies[comment.id] && visibleReplies[comment.id].length > 0 && (
-                  <div className="comment-replies-container">
+                  <div className={styles.commentRepliesContainer}>
                     {visibleReplies[comment.id].map(reply => (
                       <Comment 
                         key={reply.id}
@@ -295,7 +296,7 @@ export default function CommentSection({ trackId }) {
             ))}
             
             {isLoadingMore && (
-              <div className="loading-more">Loading more comments...</div>
+              <div className={styles.loadingMore}>Loading more comments...</div>
             )}
             
             {!isLoadingMore && currentPage < totalPages && (

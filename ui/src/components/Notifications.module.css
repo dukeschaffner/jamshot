@@ -1,0 +1,287 @@
+
+/* #region Notifications */
+.followRequestsSection {
+    background-color: var(--white);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px var(--shadow);
+    padding: 1rem;
+    margin-bottom: 2rem;
+  }
+  
+  body.dark-mode .followRequestsSection {
+    background-color: var(--dark-card-bg);
+    box-shadow: 0 2px 8px var(--dark-shadow);
+  }
+  
+  .followRequestsSection h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--foreground);
+  }
+  
+  body.dark-mode .followRequestsSection h3 {
+    color: var(--dark-text-primary);
+  }
+  
+  .followRequestsList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .followRequestItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background-color: var(--bg);
+    border-radius: 6px;
+  }
+  
+  body.dark-mode .followRequestItem {
+    background-color: var(--dark-bg);
+  }
+  
+  .followRequestItem .userInfo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .followRequestItem .username {
+    font-weight: 500;
+    color: var(--foreground);
+  }
+  
+  body.dark-mode .followRequestItem .username {
+    color: var(--dark-text-primary);
+  }
+  
+  .followRequestItem .requestActions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .followRequestItem .acceptBtn,
+  .followRequestItem .rejectBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .followRequestItem .acceptBtn {
+    background-color: var(--p2);
+    color: white;
+  }
+  
+  .followRequestItem .rejectBtn {
+    background-color: var(--gray);
+    color: var(--text-secondary);
+  }
+  
+  .followRequestItem .acceptBtn:hover {
+    background-color: var(--p1);
+  }
+  
+  /* Notification styles */
+
+  
+  .notificationIconWrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  
+  
+  .notificationDot {
+    position: absolute;
+    top: 2px;
+    right: 10px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--red);
+    border-radius: 50%;
+    border: 2px solid var(--background);
+  }
+  
+  body.dark-mode .notificationDot {
+    border: 2px solid var(--grey-1);
+  }
+  
+  .notificationBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    background-color: var(--red);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-radius: 9999px;
+    margin-left: 5px;
+  }
+  
+  .notificationHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  body.dark-mode .notificationHeader {
+    border-bottom-color: var(--dark-border);
+  }
+  
+  .notificationHeader h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+  
+  body.dark-mode .notificationHeader h3 {
+    color: var(--dark-text-primary);
+  }
+  
+  .markAllRead {
+    font-size: 0.8rem;
+    color: var(--p2);
+    transition: color 0.2s ease;
+  }
+  
+  .markAllRead:hover {
+    color: var(--p1);
+  }
+  
+  .notificationLoading,
+  .notificationError,
+  .notificationEmpty {
+    padding: 1rem;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+  
+  body.dark-mode .notificationLoading,
+  body.dark-mode .notificationEmpty {
+    color: var(--dark-text-secondary);
+  }
+  
+  body.dark-mode .notificationError {
+    color: var(--red);
+  }
+  
+  .notificationList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .notificationItem {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.2s ease;
+  }
+  
+  body.dark-mode .notificationItem {
+    border-bottom-color: var(--dark-border);
+  }
+  
+  .notificationItem:hover {
+    background-color: var(--bg);
+  }
+  
+  body.dark-mode .notificationItem:hover {
+    background-color: var(--dark-bg);
+  }
+  
+  .notificationItem.unread {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  body.dark-mode .notificationItem.unread {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+  
+  .notificationIconContainer {
+    margin-right: 0.75rem;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .notificationContent {
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+  
+  .notificationText {
+    font-size: 0.875rem;
+    color: var(--foreground);
+    margin-bottom: 0.25rem;
+  }
+  
+  body.dark-mode .notificationText {
+    color: var(--dark-text-primary);
+  }
+  
+  .notificationActions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  
+  .notificationActions .acceptBtn,
+  .notificationActions .rejectBtn {
+    display: flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  
+  .notificationActions .acceptBtn {
+    background-color: var(--p2);
+    color: white;
+  }
+  
+  .notificationActions .acceptBtn:hover {
+    background-color: var(--p1);
+  }
+  
+  .notificationActions .rejectBtn {
+    background-color: var(--gray);
+    color: var(--text-secondary);
+  }
+  
+  .notificationActions .rejectBtn:hover {
+    background-color: var(--red);
+    color: white;
+  }
+  
+  .deleteBtn {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    transition: all 0.2s ease;
+    padding: 0.25rem;
+  }
+  
+  .deleteBtn:hover {
+    color: var(--red);
+    opacity: 1;
+  }
