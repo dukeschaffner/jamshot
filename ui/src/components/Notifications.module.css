@@ -91,14 +91,6 @@
   }
   
   /* Notification styles */
-
-  
-  .notificationIconWrapper {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-  }
-  
   
   .notificationDot {
     position: absolute;
