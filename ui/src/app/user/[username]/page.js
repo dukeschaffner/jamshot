@@ -9,6 +9,7 @@ import Cookies from 'js-cookie';
 import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
 import { useUser } from '../../../contexts/UserContext';
+import styles from './UserPage.module.css';
 
 export default function UserPage() {
   const { username } = useParams();
@@ -233,7 +234,7 @@ export default function UserPage() {
   
   if (userNotFound) {
     return (
-      <div className="user-not-found">
+      <div className={styles.userNotFound}>
         <h1>User Not Found</h1>
         <p>The user &quot;{username}&quot; does not exist.</p>
         <button 
@@ -247,19 +248,19 @@ export default function UserPage() {
   }
 
   return (
-    <div className="user-profile-page">
-      <div className="profile-header">
+    <div className={styles.userProfilePage}>
+      <div className={styles.profileHeader}>
         <div 
-          className={`profile-image-container ${isOwnProfile ? 'editable' : ''}`}
+          className={`${styles.profileImageContainer} ${isOwnProfile ? styles.editable : ''}`}
           onClick={handleImageClick}
         >
           <img 
             src={userProfile?.profile_pic_url || '/avatar.svg'} 
             alt={`${userProfile?.username}'s profile`}
-            className="profile-image"
+            className={styles.profileImage}
           />
           {isOwnProfile && (
-            <div className="image-overlay">
+            <div className={styles.imageOverlay}>
               <FaCamera />
               <span>Update Photo</span>
             </div>
@@ -273,9 +274,9 @@ export default function UserPage() {
           />
         </div>
 
-        <div className="profile-info">
-          <div className="profile-header-top">
-            <h1 className="profile-username">
+        <div className={styles.profileInfo}>
+          <div className={styles.profileHeaderTop}>
+            <h1 className={styles.profileUsername}>
               {!isEditing && (
                 <>
                   {userProfile?.username}
@@ -292,9 +293,9 @@ export default function UserPage() {
             </h1>
             
             {isOwnProfile ? (
-              <div className="profile-actions">
+              <div className={styles.profileActions}>
                 {isEditing ? (
-                  <div className="edit-actions">
+                  <div className={styles.editActions}>
                     <button className="cancel-btn" onClick={() => setIsEditing(false)}>
                       <FaTimes /> Cancel
                     </button>
@@ -333,8 +334,8 @@ export default function UserPage() {
           )}
           
           {isEditing ? (
-            <form className="edit-profile-form" onSubmit={handleEditSubmit}>
-              <div className="form-group">
+            <form className={styles.editProfileForm} onSubmit={handleEditSubmit}>
+              <div className={styles.formGroup}>
                 <label htmlFor="username">Username</label>
                 <input
                   type="text"
@@ -348,52 +349,52 @@ export default function UserPage() {
                       setUsernameError('');
                     }
                   }}
-                  className="form-control"
+                  className={styles.formControl}
                   required
                 />
                 {usernameError && <div className="input-error">{usernameError}</div>}
               </div>
-              <div className="form-group">
+              <div className={styles.formGroup}>
                 <label htmlFor="name">Full Name</label>
                 <input
                   type="text"
                   id="name"
                   value={editForm.name}
                   onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                  className="form-control"
+                  className={styles.formControl}
                   placeholder="Your full name"
                   required
                 />
               </div>
-              <div className="form-group">
+              <div className={styles.formGroup}>
                 <label htmlFor="bio">Bio</label>
                 <textarea
                   id="bio"
                   value={editForm.bio}
                   onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                  className="form-control"
+                  className={styles.formControl}
                   rows="3"
                   maxLength="160"
                   placeholder="Tell people about yourself..."
                 />
-                <div className="char-count">{editForm.bio.length}/160</div>
+                <div className={styles.charCount}>{editForm.bio.length}/160</div>
               </div>
             </form>
           ) : (
-            <p className="bio">{userProfile?.bio || 'No bio yet'}</p>
+            <p className={styles.bio}>{userProfile?.bio || 'No bio yet'}</p>
           )}
-          <div className="stats">
+          <div className={styles.stats}>
             <span 
-              className={`stat-item ${isPrivate && !isOwnProfile && !stats.isFollowing ? 'disabled' : ''}`} 
+              className={`${styles.statItem} ${isPrivate && !isOwnProfile && !stats.isFollowing ? styles.disabled : ''}`} 
               onClick={handleOpenFollowersModal}
             >
-              <span className="stat-count">{stats.followers}</span> followers
+              <span className={styles.statCount}>{stats.followers}</span> followers
             </span>
             <span 
-              className={`stat-item ${isPrivate && !isOwnProfile && !stats.isFollowing ? 'disabled' : ''}`} 
+              className={`${styles.statItem} ${isPrivate && !isOwnProfile && !stats.isFollowing ? styles.disabled : ''}`} 
               onClick={handleOpenFollowingModal}
             >
-              <span className="stat-count">{stats.following}</span> following
+              <span className={styles.statCount}>{stats.following}</span> following
             </span>
           </div>
         </div>
@@ -407,7 +408,7 @@ export default function UserPage() {
 
       {/* Show tracks only if not a private account or if authorized */}
       {(!isPrivate || isOwnProfile || stats.isFollowing) ? (
-        <div className="tracks-container">
+        <div className={styles.tracksContainer}>
           {activeTab === 'tracks' ? (
             tracks.length > 0 ? (
               tracks.map(track => (
@@ -420,7 +421,7 @@ export default function UserPage() {
                 />
               ))
             ) : (
-              <div className="empty-state">
+              <div className={styles.emptyState}>
                 <h3>No tracks yet</h3>
                 <p>
                   {isOwnProfile 
@@ -442,7 +443,7 @@ export default function UserPage() {
                 />
               ))
             ) : (
-              <div className="empty-state">
+              <div className={styles.emptyState}>
                 <h3>No reposts yet</h3>
                 <p>
                   {isOwnProfile 
@@ -464,7 +465,7 @@ export default function UserPage() {
                 />
               ))
             ) : (
-              <div className="empty-state">
+              <div className={styles.emptyState}>
                 <h3>No liked tracks yet</h3>
                 <p>
                   {isOwnProfile 
@@ -480,7 +481,7 @@ export default function UserPage() {
 
       {/* Privacy notice for private accounts */}
       {isPrivate && !isOwnProfile && !stats.isFollowing && (
-        <div className="privacy-notice">
+        <div className={styles.privacyNotice}>
           <FaLock className="privacy-notice-icon" />
           <h3>This Account is Private</h3>
           <p>Follow this account to see their tracks, followers, and following list.</p>
