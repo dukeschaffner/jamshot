@@ -291,13 +291,12 @@ export default function Track(
         </div>
       )}
       
-      <div className="track-main" onClick={toggleExpand}>
+      <div className="track-main track-layout" onClick={toggleExpand}>
         <div className="track-play" onClick={handlePlayToggle}>
           {currentTrack?.id === track.id && isPlaying ? <FaPause /> : <FaPlay />}
         </div>
         
-        <div className="track-info">
-          <div className="track-artist">
+        <div className="track-artist">
             <Image 
               src={track?.profile_pic_url || '/avatar.svg'} 
               alt={track.username}
@@ -317,12 +316,10 @@ export default function Track(
             </div>
           </div>
 
-          <div className="track-title">
-            <span className="title-text link-underline" onClick={navigateToTrack}>
-              {track.title}
-            </span>
-          </div>
-
+        <div className="track-title">
+          <span className="title-text link-underline" onClick={navigateToTrack}>
+            {track.title}
+          </span>
           <div className="track-layer-message">
             {track?.parent_track_id ? 
             (
@@ -331,11 +328,14 @@ export default function Track(
               </>) 
             : (<b>Original track</b>)}
           </div>
+        </div>
 
-          <div className="track-meta">
-            <div className="meta-item">
-              <FaPlay /> 
-              <span>{Number(track.play_count || 0).toLocaleString()}</span>
+
+
+        <div className="track-meta-social">
+          <div className="meta-item">
+            <FaPlay /> 
+            <span>{Number(track.play_count || 0).toLocaleString()}</span>
             </div>
             <div className="meta-item">
               <button 
@@ -369,52 +369,52 @@ export default function Track(
               <FaCodeBranch />
               <span>{Number(track.collab_count).toLocaleString()}</span>
             </div>
-          </div>
         </div>
         
-        <div className="track-section-right">
-          <div className="track-tags">
-            {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
-              <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
-            ))}
-            
-            {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
-              <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
-            ))}
-            
-            {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
-              <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
-            ))}
-                        
-            {track.metronome_bpm && (
-              <>
-                {atLeastOneTag && <div className="meta-item-separator text-secondary">|</div>}
-                <div className="meta-item">
-                  <FaMusic /> 
-                  <span>{track.metronome_bpm} BPM</span>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="track-actions">
-            <button 
-              className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
-              onClick={handleCopyLink}
-              title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
-            >
-              {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
-              {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
-            </button>
-            <button 
-              className="collab-btn" 
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/track/${track.id}`);
-              }}
-            >
-              {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
-            </button>
-          </div>
+        <div className="track-meta-audio">
+          {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
+            <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
+          ))}
+          
+          {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
+            <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
+          ))}
+          
+          {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
+            <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
+          ))}
+                      
+          {track.metronome_bpm && (
+            <>
+              {atLeastOneTag && <div className="meta-item-separator text-secondary">|</div>}
+              <div className="meta-item">
+                <FaMusic /> 
+                <span>{track.metronome_bpm} BPM</span>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="track-actions">
+          <button 
+            className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
+            onClick={handleCopyLink}
+            title={isLinkCopied ? 'Link copied!' : 'Copy link to track'}
+          >
+            {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
+            {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
+          </button>
+          <button 
+            className="pill-btn pink-btn sm" 
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/track/${track.id}`);
+            }}
+          >
+            {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
+          </button>
+        </div>
+
+        <div className="track-timestamp">
           {track.created_at && (
             <TimeDisplay timestamp={track.created_at} />
           )}

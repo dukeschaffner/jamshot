@@ -111,6 +111,11 @@ body {
   border-radius: 20px;
 }
 
+.pill-btn.sm svg {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
 body.dark-mode .pill-btn {
   background-color: var(--grey-2);
 }
@@ -130,6 +135,21 @@ body.dark-mode .pill-btn {
   margin-right: 8px;
 }
 
+.pink-btn {
+  background-color: var(--rustic-pink-light);
+  color: var(--dark);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.dark-mode .pink-btn {
+  background-color: var(--rustic-pink);
+  color: var(--dark-text-primary);
+}
+
+.pink-btn:hover {
+  background-color: var(--rustic-pink);
+  color: white;
+}
 /* #endregion */
 
 /* #region App Layout */
@@ -732,25 +752,107 @@ body.dark-mode .empty-feed {
   flex-direction: column;
 }
 
+.track-layout {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  grid-template-rows: 30px 1fr 30px;
+  grid-template-areas: 
+    "user user meta-audio"
+    "play-btn title actions"
+    "meta-social meta-social timestamp";
+  gap: 1rem;
+}
 
-.loading-spinner {
+.track-artist {
+  grid-area: user;
   display: flex;
-  justify-content: center;
-  padding: 24px 0;
   align-items: center;
-  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
-.spinner-icon {
-  animation: spin 1s linear infinite;
-  color: var(--seafoam);
-  font-size: 24px;
+.track-play {
+  grid-area: play-btn;
+  width: 60px;
+  height: 60px;
+  background-color: var(--seafoam);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s, background-color 0.2s;
+  position: relative;
+  z-index: 2;
+  color: var(--white);
+  font-size: 1.3rem;
+  margin: 10px 0px;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.track-meta-social {
+  grid-area: meta-social;
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+  margin-top: 8px;
 }
+
+.track-title {
+  grid-area: title;
+  font-size: 16px;
+  font-weight: bold;
+  align-self: center;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  transition: color 0.3s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-meta-audio {
+  grid-area: meta-audio;
+  display: inline-flex;
+  flex-wrap: wrap;
+  margin-left: 8px;
+  gap: 4px;
+  align-items: center;
+  justify-content: end;
+}
+
+.track-actions {
+  grid-area: actions; 
+  justify-content: end;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.track-timestamp {
+  grid-area: timestamp;
+  display: flex;
+  justify-content: end;
+}
+
+
+
+@media (max-width: 768px) {
+
+  .track-layout {
+    grid-template-areas: 
+      "user user meta-audio"
+      "play-btn title title"
+      "meta-social meta-social timestamp";
+  }
+
+  .track-actions{
+    display: none;
+  }
+}
+
 
 .track-item {
   width: 100%;
@@ -804,28 +906,10 @@ body.dark-mode .repost-banner {
   padding: 10px 40px;
   display: grid;
   grid-template-columns: 60px 1fr auto;
-  gap: 16px;
+  gap: 3px 15px;
   align-items: center;
   position: relative;
   cursor: pointer;
-}
-
-
-.track-play {
-  width: 60px;
-  height: 60px;
-  background-color: var(--seafoam);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform 0.2s, background-color 0.2s;
-  position: relative;
-  z-index: 2;
-  color: var(--white);
-  font-size: 1.3rem;
 }
 
 .track-play:hover {
@@ -837,38 +921,8 @@ body.dark-mode .repost-banner {
   display: flex;
   flex-direction: column;
   gap: 6px;
-}
-
-.track-section-right {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 15px;
-  height: 100%;
-  align-items: end;
-}
-
-.track-title {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--dark);
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: color 0.3s ease;
-}
-
-body.dark-mode .track-title {
-  color: var(--dark-text-primary);
-}
-
-.track-tags {
-  display: inline-flex;
-  flex-wrap: wrap;
-  margin-left: 8px;
-  gap: 4px;
-  align-items: center;
+  flex-grow: 1;
+  min-width: 0;
 }
 
 .track-tag {
@@ -897,13 +951,10 @@ body.dark-mode .track-tag.mini {
   background-color: var(--dark-card-bg);
 }
 
-.track-artist {
-  display: flex;
-  align-items: center;
-  margin-bottom: 6px;
+.track-layer-message {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
-
-
 
 .artist-name {
   font-weight: 600;
@@ -924,23 +975,6 @@ body.dark-mode .artist-name {
   color: var(--text-secondary);
   margin-bottom: 4px;
   transition: color 0.3s ease;
-}
-
-body.dark-mode .track-layer {
-  color: var(--dark-text-secondary);
-}
-
-.track-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  transition: color 0.3s ease;
-  margin-top: 8px;
-}
-
-body.dark-mode .track-meta {
-  color: var(--dark-text-secondary);
 }
 
 .meta-item {
@@ -964,12 +998,6 @@ body.dark-mode .track-meta {
 
 body.dark-mode .meta-item {
   color: var(--dark-text-secondary);
-}
-
-.track-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
 }
 
 .action-btn {
@@ -997,36 +1025,7 @@ body.dark-mode .action-btn:hover {
   color: var(--dark-text-primary);
 }
 
-.collab-btn {
-  background-color: var(--rustic-pink-light);
-  color: var(--dark);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  line-height: 1;
-}
 
-body.dark-mode .collab-btn {
-  background-color: var(--rustic-pink);
-  color: var(--dark-text-primary);
-}
-
-.collab-btn:hover {
-  background-color: var(--rustic-pink);
-  color: white;
-}
-
-.collab-btn svg {
-  font-size: 0.9rem;
-  flex-shrink: 0;
-}
 
 .share-btn {
   background: transparent;
@@ -1345,25 +1344,6 @@ body.dark-mode .related-title {
     width: 50px;
     height: 50px;
     font-size: 1rem;
-  }
-  
-  .track-title {
-    font-size: 1rem;
-  }
-  
-  .track-actions {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .collab-btn {
-    padding: 6px 12px;
-    font-size: 0.8rem;
-    white-space: nowrap;
-  }
-  
-  .collab-btn svg {
-    font-size: 0.8rem;
   }
 }
 
@@ -2810,29 +2790,6 @@ body.dark-mode .modal-footer {
   border-left: 4px solid var(--primary);
 }
 
-
-.track-node-header {
-  display: flex;
-  padding: 12px;
-  cursor: pointer;
-  align-items: center;
-}
-
-.track-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.track-title {
-  font-weight: 600;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .private-icon {
   color: #6b7280;
   font-size: 14px;
@@ -2858,25 +2815,11 @@ body.dark-mode .modal-footer {
   margin-left: 4px;
 }
 
-.track-info {
-  flex-grow: 1;
-  min-width: 0;
-}
 
-.track-title {
-  font-weight: bold;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-.track-artist {
-  display: flex;
-  align-items: center;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
+
+
+
 
 .artist-name {
   display: flex;
@@ -2893,12 +2836,6 @@ body.dark-mode .modal-footer {
 .verified-icon {
   color: var(--seafoam);
   font-size: 12px;
-}
-
-.track-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .action-btn {
@@ -2922,8 +2859,6 @@ body.dark-mode .modal-footer {
   color: var(--primary);
   border-color: var(--primary);
 }
-
-
 
 .track-tags {
   display: flex;
@@ -4553,17 +4488,6 @@ body.dark-mode .delete-description {
 }
 
 
-
-.track-layer-message {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-
-body.dark-mode .track-layer-message {
-  color: var(--dark-text-secondary);
-}
-
 /* DAW INTERFACE */
 
 .daw-interface {
@@ -4667,6 +4591,25 @@ body.dark-mode .download-btn:hover {
   border-radius: 50%;
   overflow: hidden;
   background-color: var(--gray-light);
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner-icon {
+  animation: spin 1s linear infinite;
+  color: var(--seafoam);
+  font-size: 24px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* #region Mobile Warning Styles */
