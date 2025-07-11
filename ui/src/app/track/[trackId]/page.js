@@ -317,7 +317,7 @@ function TrackContent() {
               <h4>Privacy Settings</h4>
               <div className="privacy-toggle">
                 <button 
-                  className={`privacy-btn ${isPrivate ? 'private' : 'public'}`}
+                  className={`pill-btn w-min`}
                   onClick={handlePrivacyToggle}
                   disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
                 >

@@ -15,6 +15,8 @@ import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
 import { useUser } from '../contexts/UserContext';
 import { getLikeCountString } from '../lib/utils';
+import styles from './Track.module.css';
+
 export default function Track(
     { track, 
       allTracks, 
@@ -284,19 +286,19 @@ export default function Track(
   ];
 
   return (
-    <div className={`track-item ${isExpanded ? 'expanded' : ''}`}>
+    <div className={`${styles.trackItem} ${isExpanded ? styles.expanded : ''}`}>
       {track.is_repost && track.reposted_by_username && (
-        <div className="repost-banner">
-          <FaRetweet className="repost-icon" /> Reposted by {track.reposted_by_username}
+        <div className={styles.repostBanner}>
+          <FaRetweet className={styles.repostIcon} /> Reposted by {track.reposted_by_username}
         </div>
       )}
       
-      <div className="track-main track-layout" onClick={toggleExpand}>
-        <div className="track-play" onClick={handlePlayToggle}>
+      <div className={`${styles.trackMain}`} onClick={toggleExpand}>
+        <div className={styles.trackPlay} onClick={handlePlayToggle}>
           {currentTrack?.id === track.id && isPlaying ? <FaPause /> : <FaPlay />}
         </div>
         
-        <div className="track-artist">
+        <div className={styles.trackArtist}>
             <Image 
               src={track?.profile_pic_url || '/avatar.svg'} 
               alt={track.username}
@@ -305,7 +307,7 @@ export default function Track(
               className="avatar hover:pointer mr-1" 
               onClick={navigateToUserProfile}
             />
-            <div className="artist-name">
+            <div className={styles.artistName}>
               <span 
                 className="link-underline" 
                 onClick={navigateToUserProfile}
@@ -316,11 +318,11 @@ export default function Track(
             </div>
           </div>
 
-        <div className="track-title">
+        <div className={styles.trackTitle}>
           <span className="title-text link-underline" onClick={navigateToTrack}>
             {track.title}
           </span>
-          <div className="track-layer-message">
+          <div className={styles.trackLayerMessage}>
             {track?.parent_track_id ? 
             (
               <>
@@ -332,7 +334,7 @@ export default function Track(
 
 
 
-        <div className="track-meta-social">
+        <div className={styles.trackMetaSocial}>
           <div className="meta-item">
             <FaPlay /> 
             <span>{Number(track.play_count || 0).toLocaleString()}</span>
@@ -371,7 +373,7 @@ export default function Track(
             </div>
         </div>
         
-        <div className="track-meta-audio">
+        <div className={styles.trackMetaAudio}>
           {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
             <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
           ))}
@@ -394,7 +396,7 @@ export default function Track(
             </>
           )}
         </div>
-        <div className="track-actions">
+        <div className={styles.trackActions}>
           <button 
             className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
             onClick={handleCopyLink}
@@ -414,7 +416,7 @@ export default function Track(
           </button>
         </div>
 
-        <div className="track-timestamp">
+        <div className={styles.trackTimestamp}>
           {track.created_at && (
             <TimeDisplay timestamp={track.created_at} />
           )}
@@ -422,7 +424,7 @@ export default function Track(
       </div>
 
       {isExpanded && (
-        <div className="track-details">
+        <div className={styles.trackDetails}>
           <CustomTabs
             tabs={tabs}
             activeTab={activeTab}
@@ -432,7 +434,7 @@ export default function Track(
           
           {activeTab === 'collabs' && (
             <div className="track-tab-content">
-              <div className="related-tracks">
+              <div className={styles.relatedTracks}>
                 {loadingRelated ? (
                   <div className="loading-container">
                     <LoadingSpinner size="medium" />
@@ -442,14 +444,14 @@ export default function Track(
                   <>
                     {originalTrack && !isTreeView && (
                       <>
-                        <div className="track-relation">Original</div>
+                        <div className={styles.trackRelation}>Original</div>
                         <MiniTrack track={originalTrack} relatedTracks={collabTracks} />
                       </>
                     )}
                     
                     {collabTracks.length > 0 ? (
                       <>
-                        <div className="track-relation">Based on this</div>
+                        <div className={styles.trackRelation}>Based on this</div>
                         {collabTracks.map(collab => (
                           <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
                         ))}
@@ -476,7 +478,7 @@ export default function Track(
                       <>
                         {/* if tree view and no related tracks, show message */}
                         {(isTreeView || !originalTrack) && collabTracks.length === 0 && (
-                          <div className="no-related">There are no tracks based on this track</div>
+                          <div className={styles.noRelated}>There are no tracks based on this track</div>
                         )}
                       </>
                     )}

@@ -9,6 +9,8 @@ import TimeDisplay from './TimeDisplay';
 import UserListModal from './UserListModal';
 import { useUser } from '../contexts/UserContext';
 import { getLikeCountString } from '../lib/utils';
+import styles from './MiniTrack.module.css';
+
 export default function MiniTrack(
   { 
     track, 
@@ -121,21 +123,21 @@ export default function MiniTrack(
   
   return (
     <div 
-      className={`related-track ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? 'selected' : 'cursor-pointer'}`}
+      className={`${styles.relatedTrack} ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? styles.selected : 'cursor-pointer'}`}
       onClick={handleSelectTrack}
     >
-      <div className="related-play" onClick={handlePlayToggle}>
+      <div className={styles.relatedPlay} onClick={handlePlayToggle}>
         {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
       </div>
-      <div className="related-info">
-        <div className="related-title-container">
-          <div className="related-title">
+      <div className={styles.relatedInfo}>
+        <div className={styles.relatedTitleContainer}>
+          <div className={styles.relatedTitle}>
             <span className="link-underline" onClick={navigateToTrack}>
               {track.title}
             </span>
           </div>
           {(track.tags?.length > 0 || track.genres?.length > 0 || track.instruments?.length > 0) && (
-            <div className="related-tags">
+            <div className={styles.relatedTags}>
               {/* Display regular tags */}
               {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
                 <span key={`tag-${index}`} className="track-tag mini">
@@ -159,9 +161,9 @@ export default function MiniTrack(
             </div>
           )}
         </div>
-        <div className="related-artist">
+        <div className={styles.relatedArtist}>
           <span 
-            className="link-underline artist-name-mini"
+            className="link-underline artist-name"
             onClick={navigateToUserProfile}
           >
             {track.username || 'Unknown Artist'}
@@ -169,11 +171,11 @@ export default function MiniTrack(
           </span>
         </div>
       </div>
-      <div className="related-actions">
+      <div className={styles.relatedActions}>
         {track.created_at && (
           <TimeDisplay timestamp={track.created_at} />
         )}
-        <div className="related-meta">
+        <div className={styles.relatedMeta}>
           <div className="meta-item">
             <FaPlay /> <span>{Number(track.play_count || 0).toLocaleString()}</span>
           </div>
