@@ -1,0 +1,180 @@
+
+/* MiniTrack Styles */
+.relatedTrack {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    padding: 8px;
+    gap: 12px;
+    align-items: center;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+    margin-bottom: 4px;
+  }
+  
+  .relatedTrack:hover {
+    background-color: var(--gray);
+  }
+  
+  .relatedTrack.selected {
+    background-color: var(--seafoam);
+  }
+  
+  body.dark-mode .relatedTrack:hover {
+    background-color: var(--dark-hover-color);
+  }
+  
+  .relatedPlay {
+    width: 40px;
+    height: 40px;
+    background-color: var(--seafoam-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+    color: var(--dark);
+    font-size: 0.9rem;
+  }
+  
+  .relatedPlay:hover {
+    background-color: var(--seafoam);
+  }
+  
+  .relatedInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0; /* Allow content to shrink */
+  }
+  
+  .relatedTitleContainer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0; /* Allow content to shrink */
+  }
+  
+  .relatedTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 0;
+    transition: color 0.3s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  body.dark-mode .relatedTitle {
+    color: var(--dark-text-primary);
+  }
+  
+  .relatedArtist {
+    display: flex;
+    align-items: center;
+    margin-top: 4px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+  
+  .relatedArtist .artist-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+  
+  .relatedArtist .verified-icon {
+    color: var(--seafoam);
+    font-size: 0.8rem;
+  }
+  
+  .relatedTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+    max-width: 100%;
+    flex-shrink: 1;
+    overflow: hidden;
+  }
+  
+  .relatedTags .track-tag {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    max-width: 80px;
+  }
+  
+  .relatedActions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .relatedMeta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+  
+  .relatedMeta .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: auto;
+    opacity: 0.8;
+  }
+  
+  .relatedMeta .meta-item svg {
+    font-size: 0.8rem;
+  }
+  
+  .relatedMeta .meta-item span {
+    font-size: 0.75rem;
+  }
+
+  /* Responsive adjustments for MiniTrack */
+@media (max-width: 768px) {
+    .relatedTrack {
+      grid-template-columns: 36px 1fr auto;
+      gap: 5px;
+      padding: 0px;
+    }
+    
+    .relatedPlay {
+      width: 36px;
+      height: 36px;
+      font-size: 0.8rem;
+    }
+    
+    .relatedTitle {
+      font-size: 0.8rem;
+    }
+    
+    .relatedArtist {
+      font-size: 0.7rem;
+    }
+    
+    .relatedTags .track-tag {
+      font-size: 0.6rem;
+      padding: 1px 4px;
+      max-width: 60px;
+    }
+    
+    .relatedActions {
+      gap: 8px;
+    }
+    
+    .relatedMeta {
+      gap: 8px;
+    }
+    
+    .relatedMeta .meta-item {
+      font-size: 0.7rem;
+    }
+  }

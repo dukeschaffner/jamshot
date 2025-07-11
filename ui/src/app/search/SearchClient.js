@@ -10,6 +10,7 @@ import Cookies from 'js-cookie';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useUser } from '../../contexts/UserContext';
+import styles from './SearchPage.module.css';
 
 // Component that uses useSearchParams
 function SearchContent() {
@@ -77,7 +78,7 @@ function SearchContent() {
   
   const renderTracks = () => {
     if (searchResults.tracks.length === 0) {
-      return <div className="no-results">No tracks found</div>;
+      return <div className={styles.noResults}>No tracks found</div>;
     }
     
     return (
@@ -91,13 +92,13 @@ function SearchContent() {
   
   const renderUsers = () => {
     if (searchResults.users.length === 0) {
-      return <div className="no-results">No users found</div>;
+      return <div className={styles.noResults}>No users found</div>;
     }
     
     return (
       <div className="users-list">
         {searchResults.users.map(user => (
-          <div key={user.id} className="user-card">
+          <div key={user.id} className={styles.userCard}>
             <Image
               className="avatar mr-1"
               src={user?.profile_pic_url || '/avatar.svg'} 
@@ -170,7 +171,7 @@ function SearchContent() {
             )}
             
             {searchResults.tracks.length === 0 && searchResults.users.length === 0 && !loading && (
-              <div className="no-results">
+              <div className={styles.noResults}>
                 No results found for &quot;{decodeURIComponent(query)}&quot;
               </div>
             )}
@@ -187,9 +188,9 @@ function SearchContent() {
   ];
 
   return (
-    <div className="search-page">
-      <div className="search-header">
-        <h1 className="search-title">
+    <div className={styles.searchPage}>
+      <div className={styles.searchHeader}>
+        <h1 className={styles.searchTitle}>
           Search results for &quot;{decodeURIComponent(query)}&quot;
         </h1>
         <CustomTabs
@@ -199,9 +200,9 @@ function SearchContent() {
         />
       </div>
       
-      <div className="search-results">
+      <div className={styles.searchResults}>
         {loading ? (
-          <div className="loading">Loading...</div>
+          <div className={styles.loading}>Loading...</div>
         ) : (
           renderContent()
         )}
