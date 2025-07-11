@@ -17,6 +17,7 @@ import MobileNavbar from '../components/MobileNavbar';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
   FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
 import api from '../lib/api';
+import styles from '../styles/GlobalPlayer.module.css';
 
 function GlobalPlayer() {
   const { 
@@ -98,7 +99,7 @@ function GlobalPlayer() {
     const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     
     // Update visual position only (actual seeking happens on mouse up)
-    const progressBar = progressBarRef.current.querySelector('.progress');
+    const progressBar = progressBarRef.current.querySelector(`.${styles.progress}`);
     if (progressBar) {
       progressBar.style.width = `${position * 100}%`;
     }
@@ -137,24 +138,24 @@ function GlobalPlayer() {
   if (!currentTrack) return null;
 
   return (
-    <div className="global-player">
-      <div className="now-playing">
+    <div className={styles.globalPlayer}>
+      <div className={styles.nowPlaying}>
         {currentTrack.profile_pic_url ? (
-          <img src={currentTrack.profile_pic_url} alt="Album Art" className="now-playing-img" />
+          <img src={currentTrack.profile_pic_url} alt="Album Art" className={styles.nowPlayingImg} />
         ) : (
-          <div className="now-playing-img bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
+          <div className={`${styles.nowPlayingImg} bg-gray-300 dark:bg-gray-700 flex items-center justify-center`}>
             <FaMusic className="text-gray-500 dark:text-gray-400" size={20} />
           </div>
         )}
-        <div className="now-playing-info">
+        <div className={styles.nowPlayingInfo}>
           <div 
-            className="now-playing-title link-underline" 
+            className={`${styles.nowPlayingTitle} link-underline`}
             onClick={navigateToTrack}
           >
             {currentTrack.title}
           </div>
           <div 
-            className="now-playing-artist link-underline"
+            className={`${styles.nowPlayingArtist} link-underline`}
             onClick={navigateToUserProfile}
           >
             {currentTrack.username}
@@ -162,10 +163,10 @@ function GlobalPlayer() {
         </div>
       </div>
       
-      <div className="player-controls">
-        <div className="control-buttons">
+      <div className={styles.playerControls}>
+        <div className={styles.controlButtons}>
           <button 
-            className={`control-button ${isShuffleOn ? 'active' : ''}`}
+            className={`${styles.controlButton} ${isShuffleOn ? styles.active : ''}`}
             onClick={toggleShuffle}
             title={isShuffleOn ? "Shuffle On" : "Shuffle Off"}
           >
@@ -173,7 +174,7 @@ function GlobalPlayer() {
           </button>
           
           <button
-            className="control-button"
+            className={styles.controlButton}
             onClick={playPrevious}
             title="Previous"
           >
@@ -182,14 +183,14 @@ function GlobalPlayer() {
           
           <button
             onClick={togglePlayPause}
-            className="control-button play-pause"
+            className={`${styles.controlButton} ${styles.playPause}`}
             title={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? <FaPause /> : <FaPlay />}
           </button>
           
           <button
-            className="control-button"
+            className={styles.controlButton}
             onClick={playNext}
             title="Next"
           >
@@ -197,7 +198,7 @@ function GlobalPlayer() {
           </button>
           
           <button
-            className={`control-button ${isLoopOn ? 'active' : ''}`}
+            className={`${styles.controlButton} ${isLoopOn ? styles.active : ''}`}
             onClick={toggleLoop}
             title={isLoopOn ? "Loop On" : "Loop Off"}
           >
@@ -205,29 +206,29 @@ function GlobalPlayer() {
           </button>
         </div>
         
-        <div className="progress-container">
-          <div className="time">{formatTime(progress)}</div>
+        <div className={styles.progressContainer}>
+          <div className={styles.time}>{formatTime(progress)}</div>
           <div 
             ref={progressBarRef}
-            className="progress-bar"
+            className={styles.progressBar}
             onClick={handleProgressBarClick}
             onMouseDown={handleMouseDown}
           >
             <div 
-              className="progress"
+              className={styles.progress}
               style={{ width: `${(progress / currentTrack.duration) * 100}%` }}
             ></div>
           </div>
-          <div className="time">{formatTime(currentTrack.duration)}</div>
+          <div className={styles.time}>{formatTime(currentTrack.duration)}</div>
         </div>
       </div>
       
-      <div className="volume-container">
-        {/* <div className="volume-icon" onClick={toggleMute}>
+      <div className={styles.volumeContainer}>
+        {/* <div className={styles.volumeIcon} onClick={toggleMute}>
           {isMuted ? <FaVolumeMute /> : <FaVolumeUp />}
         </div>
         <div 
-          className="volume-slider"
+          className={styles.volumeSlider}
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const percent = (e.clientX - rect.left) / rect.width;
@@ -235,7 +236,7 @@ function GlobalPlayer() {
           }}
         >
           <div 
-            className="volume-level"
+            className={styles.volumeLevel}
             style={{ width: isMuted ? '0%' : `${volumeLevel}%` }}
           ></div>
         </div> */}

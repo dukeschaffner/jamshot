@@ -1,0 +1,222 @@
+
+.globalPlayer {
+    grid-area: player;
+    background-color: var(--white);
+    border-top: 1px solid var(--gray);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    height: 80px;
+    box-shadow: 0 -2px 10px var(--shadow);
+    z-index: 99;
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  /* Hide player when not in use */
+  .app-container:not(.player-visible) .globalPlayer {
+    display: none;
+  }
+  
+  body.dark-mode .globalPlayer {
+    background-color: var(--dark-card-bg);
+    border-top: 1px solid var(--dark-border-color);
+    box-shadow: 0 -2px 10px var(--dark-shadow);
+  }
+  
+  .nowPlaying {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .nowPlayingImg {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    object-fit: cover;
+  }
+  
+  .nowPlayingInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .nowPlayingTitle {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--dark);
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .nowPlayingTitle {
+    color: var(--dark-text-primary);
+  }
+  
+  .nowPlayingArtist {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .nowPlayingArtist {
+    color: var(--dark-text-secondary);
+  }
+  
+  .playerControls {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .controlButtons {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  
+  .controlButton {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: color 0.2s;
+  }
+  
+  body.dark-mode .controlButton {
+    color: var(--dark-text-secondary);
+  }
+  
+  .controlButton:hover, .controlButton.active {
+    color: var(--dark);
+  }
+  
+  body.dark-mode .controlButton:hover, 
+  body.dark-mode .controlButton.active {
+    color: var(--dark-text-primary);
+  }
+  
+  .controlButton.playPause {
+    width: 36px;
+    height: 36px;
+    background-color: var(--seafoam);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+  }
+  
+  .controlButton.playPause:hover {
+    background-color: var(--rustic-pink);
+    color: white;
+  }
+  
+  .progressContainer {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .time {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    min-width: 35px;
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .time {
+    color: var(--dark-text-secondary);
+  }
+  
+  .progressBar {
+    flex-grow: 1;
+    height: 6px;
+    background-color: var(--gray);
+    border-radius: 3px;
+    margin: 0 8px;
+    position: relative;
+    cursor: pointer;
+    transition: height 0.2s ease;
+  }
+  
+  .progressBar:hover {
+    height: 8px;
+  }
+  
+  body.dark-mode .progressBar {
+    background-color: var(--dark-border-color);
+  }
+  
+  .progress {
+    height: 100%;
+    background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+    border-radius: 3px;
+    position: relative;
+  }
+  
+  .progress::after {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    background-color: var(--rustic-pink);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .progressBar:hover .progress::after {
+    opacity: 1;
+  }
+  
+  .volumeContainer {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  
+  .volumeIcon {
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .volumeIcon {
+    color: var(--dark-text-secondary);
+  }
+  
+  .volumeSlider {
+    width: 80px;
+    height: 4px;
+    background-color: var(--gray);
+    border-radius: 2px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  body.dark-mode .volumeSlider {
+    background-color: var(--dark-hover-color);
+  }
+  
+  .volumeLevel {
+    height: 100%;
+    background-color: var(--seafoam);
+    border-radius: 2px;
+    width: 70%;
+    transition: background-color 0.3s ease;
+  }
+  
