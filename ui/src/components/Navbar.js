@@ -114,10 +114,10 @@ export default function Navbar() {
         </>
       ) : (
         <div className="auth-buttons">
-          <Link href="/login" className="login-btn">
+          <Link href="/login" className="pill-btn border-solid">
             Login
           </Link>
-          <Link href="/register" className="register-btn">
+          <Link href="/register" className="pill-btn gradient-btn">
             Register
           </Link>
         </div>

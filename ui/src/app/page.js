@@ -7,6 +7,7 @@ import CustomTabs from '../components/CustomTabs';
 import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 import { trackWelcomeDialogClose, trackFeedChange, trackTrackExpand } from '../lib/analytics';
+import styles from './Home.module.css';
 
 export default function Home() {
   const [tracks, setTracks] = useState([]);
@@ -115,7 +116,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="feed-container">
+    <div className={styles.feedContainer}>
       {/* Welcome Dialog for first-time visitors */}
       {showWelcomeDialog && (
         <div className="modal-overlay active" onClick={(e) => {
@@ -180,9 +181,9 @@ export default function Home() {
         </div>
       )}
       
-      <div className="feed-header">
-        <h1 className="feed-title">Home Feed</h1>
-        <p className="feed-subtitle">
+      <div className={styles.feedHeader}>
+        <h1 className={styles.feedTitle}>Home Feed</h1>
+        <p className={styles.feedSubtitle}>
           Check out the latest tracks from artists you follow and trending collaborations
         </p>
         
@@ -194,11 +195,11 @@ export default function Home() {
         />
       </div>
 
-      {error && <p className="error-message">{error}</p>}
+      {error && <p className={styles.errorMessage}>{error}</p>}
       
-      <div className="feed">
+      <div className={styles.feed}>
         {tracks.length === 0 && !loading ? (
-          <div className="empty-feed">
+          <div className={styles.emptyFeed}>
             <p>
               {feedType === 'following' 
                 ? "You're not following any artists yet. Follow some artists to see their tracks here!"
@@ -206,7 +207,7 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <div className="track-list">
+          <div className={styles.trackList}>
             {tracks.map((track, index) => (
               <div 
                 key={track.id} 

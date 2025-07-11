@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import styles from '../app/Home.module.css';
 
 export default function CustomTabs({ 
   tabs, 
@@ -13,7 +14,7 @@ export default function CustomTabs({
   const getContainerClass = () => {
     switch (variant) {
       case 'feed':
-        return 'feed-tabs';
+        return styles.feedTabs;
       case 'track':
         return 'track-tabs';
       default:
@@ -24,7 +25,7 @@ export default function CustomTabs({
   const getTabClass = (isActive) => {
     switch (variant) {
       case 'feed':
-        return `feed-tab ${isActive ? 'active' : ''}`;
+        return `${styles.feedTab} ${isActive ? `${styles.active}` : ''}`;
       case 'track':
         return `track-tab ${isActive ? 'active' : ''}`;
       default:
