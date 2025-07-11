@@ -1,0 +1,109 @@
+.feedContainer {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .feedHeader {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--gray);
+    margin-bottom: 24px;
+    transition: border-color 0.3s ease;
+  }
+  
+  body.dark-mode .feedHeader {
+    border-bottom: 1px solid var(--dark-border-color);
+  }
+  
+  .feedTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 8px;
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .feedTitle {
+    color: var(--dark-text-primary);
+  }
+  
+  .feedSubtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .feedSubtitle {
+    color: var(--dark-text-secondary);
+  }
+
+
+  .feedTabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .feedTab {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    background-color: var(--gray-light);
+    color: var(--dark);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  body.dark-mode .feedTab {
+    background-color: var(--dark-hover-color);
+    color: var(--dark-text-secondary);
+  }
+  
+  .feedTab:hover {
+    background-color: var(--gray);
+  }
+  
+  body.dark-mode .feedTab:hover {
+    background-color: var(--dark-border-color);
+  }
+  
+  .feedTab.active {
+    background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+    color: white;
+  }
+  
+  .errorMessage {
+    color: var(--rustic-pink);
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: rgba(233, 169, 161, 0.1);
+  }
+  
+  .feed {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  
+  .emptyFeed {
+    background-color: var(--gray-light);
+    padding: 24px;
+    border-radius: 12px;
+    text-align: center;
+    color: var(--text-secondary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  body.dark-mode .emptyFeed {
+    background-color: var(--dark-card-bg);
+    color: var(--dark-text-secondary);
+  }
+  
+  .trackList {
+    display: flex;
+    flex-direction: column;
+  }

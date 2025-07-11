@@ -1,6 +1,6 @@
 
 /* MiniTrack Styles */
-.relatedTrack {
+.miniTrackTrack {
     display: grid;
     grid-template-columns: 40px 1fr auto;
     padding: 8px;
@@ -11,19 +11,19 @@
     margin-bottom: 4px;
   }
   
-  .relatedTrack:hover {
+  .miniTrackTrack:hover {
     background-color: var(--gray);
   }
   
-  .relatedTrack.selected {
+  .miniTrackTrack.selected {
     background-color: var(--seafoam);
   }
   
-  body.dark-mode .relatedTrack:hover {
+  body.dark-mode .miniTrackTrack:hover {
     background-color: var(--dark-hover-color);
   }
   
-  .relatedPlay {
+  .miniTrackPlay {
     width: 40px;
     height: 40px;
     background-color: var(--seafoam-light);
@@ -38,25 +38,25 @@
     font-size: 0.9rem;
   }
   
-  .relatedPlay:hover {
+  .miniTrackPlay:hover {
     background-color: var(--seafoam);
   }
   
-  .relatedInfo {
+  .miniTrackInfo {
     display: flex;
     flex-direction: column;
     gap: 4px;
     min-width: 0; /* Allow content to shrink */
   }
   
-  .relatedTitleContainer {
+  .miniTrackTitleContainer {
     display: flex;
     align-items: center;
     gap: 6px;
     min-width: 0; /* Allow content to shrink */
   }
   
-  .relatedTitle {
+  .miniTrackTitle {
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--dark);
@@ -67,11 +67,11 @@
     text-overflow: ellipsis;
   }
   
-  body.dark-mode .relatedTitle {
+  body.dark-mode .miniTrackTitle {
     color: var(--dark-text-primary);
   }
   
-  .relatedArtist {
+  .miniTrackArtist {
     display: flex;
     align-items: center;
     margin-top: 4px;
@@ -79,7 +79,7 @@
     color: var(--text-secondary);
   }
   
-  .relatedArtist .artist-name {
+  .miniTrackArtist .artist-name {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -87,12 +87,12 @@
     font-size: 0.9rem;
   }
   
-  .relatedArtist .verified-icon {
+  .miniTrackArtist .verified-icon {
     color: var(--seafoam);
     font-size: 0.8rem;
   }
   
-  .relatedTags {
+  .miniTrackTags {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
@@ -102,27 +102,27 @@
     overflow: hidden;
   }
   
-  .relatedTags .track-tag {
+  .miniTrackTags .track-tag {
     font-size: 0.65rem;
     padding: 1px 6px;
     max-width: 80px;
   }
   
-  .relatedActions {
+  .miniTrackActions {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: end;
     gap: 12px;
   }
   
-  .relatedMeta {
+  .miniTrackMeta {
     display: flex;
     gap: 12px;
     font-size: 0.75rem;
     color: var(--text-secondary);
   }
   
-  .relatedMeta .meta-item {
+  .miniTrackMeta .meta-item {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -130,51 +130,51 @@
     opacity: 0.8;
   }
   
-  .relatedMeta .meta-item svg {
+  .miniTrackMeta .meta-item svg {
     font-size: 0.8rem;
   }
   
-  .relatedMeta .meta-item span {
+  .miniTrackMeta .meta-item span {
     font-size: 0.75rem;
   }
 
   /* Responsive adjustments for MiniTrack */
 @media (max-width: 768px) {
-    .relatedTrack {
+    .miniTrackTrack {
       grid-template-columns: 36px 1fr auto;
       gap: 5px;
       padding: 0px;
     }
     
-    .relatedPlay {
+    .miniTrackPlay {
       width: 36px;
       height: 36px;
       font-size: 0.8rem;
     }
     
-    .relatedTitle {
+    .miniTrackTitle {
       font-size: 0.8rem;
     }
     
-    .relatedArtist {
+    .miniTrackArtist {
       font-size: 0.7rem;
     }
     
-    .relatedTags .track-tag {
+    .miniTrackTags .track-tag {
       font-size: 0.6rem;
       padding: 1px 4px;
       max-width: 60px;
     }
     
-    .relatedActions {
+    .miniTrackActions {
       gap: 8px;
     }
     
-    .relatedMeta {
+    .miniTrackMeta {
       gap: 8px;
     }
     
-    .relatedMeta .meta-item {
+    .miniTrackMeta .meta-item {
       font-size: 0.7rem;
     }
   }

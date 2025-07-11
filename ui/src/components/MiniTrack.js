@@ -123,21 +123,21 @@ export default function MiniTrack(
   
   return (
     <div 
-      className={`${styles.relatedTrack} ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? styles.selected : 'cursor-pointer'}`}
+      className={`${styles.miniTrackTrack} ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? styles.selected : 'cursor-pointer'}`}
       onClick={handleSelectTrack}
     >
-      <div className={styles.relatedPlay} onClick={handlePlayToggle}>
+      <div className={styles.miniTrackPlay} onClick={handlePlayToggle}>
         {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
       </div>
-      <div className={styles.relatedInfo}>
-        <div className={styles.relatedTitleContainer}>
-          <div className={styles.relatedTitle}>
+      <div className={styles.miniTrackInfo}>
+        <div className={styles.miniTrackTitleContainer}>
+          <div className={styles.miniTrackTitle}>
             <span className="link-underline" onClick={navigateToTrack}>
               {track.title}
             </span>
           </div>
           {(track.tags?.length > 0 || track.genres?.length > 0 || track.instruments?.length > 0) && (
-            <div className={styles.relatedTags}>
+            <div className={styles.miniTrackTags}>
               {/* Display regular tags */}
               {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
                 <span key={`tag-${index}`} className="track-tag mini">
@@ -161,7 +161,7 @@ export default function MiniTrack(
             </div>
           )}
         </div>
-        <div className={styles.relatedArtist}>
+        <div className={styles.miniTrackArtist}>
           <span 
             className="link-underline artist-name"
             onClick={navigateToUserProfile}
@@ -171,11 +171,11 @@ export default function MiniTrack(
           </span>
         </div>
       </div>
-      <div className={styles.relatedActions}>
+      <div className={styles.miniTrackActions}>
         {track.created_at && (
           <TimeDisplay timestamp={track.created_at} />
         )}
-        <div className={styles.relatedMeta}>
+        <div className={styles.miniTrackMeta}>
           <div className="meta-item">
             <FaPlay /> <span>{Number(track.play_count || 0).toLocaleString()}</span>
           </div>
