@@ -7,6 +7,7 @@ import api from '../lib/api';
 import { useRouter } from 'next/navigation';
 import TimeDisplay from './TimeDisplay';
 import UserListModal from './UserListModal';
+import TrackMeta from './TrackMeta';
 import { useUser } from '../contexts/UserContext';
 import { getLikeCountString } from '../lib/utils';
 import styles from './MiniTrack.module.css';
@@ -22,20 +23,7 @@ export default function MiniTrack(
   const router = useRouter();
   const { currentTrack, isPlaying, togglePlayPause, playTrack } = useAudio();
   const isCurrentTrack = currentTrack?.id === track.id;
-  const [isLiked, setIsLiked] = useState(track.is_liked || false);
-  const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
-  const [isReposted, setIsReposted] = useState(track.is_reposted || false);
-  const [repostCount, setRepostCount] = useState(Number(track.repost_count) || 0);
   const { user: currentUser, isAuthenticated } = useUser();
-  const [showLikesModal, setShowLikesModal] = useState(false);
-  
-  useEffect(() => {
-    // Update like state when track prop changes
-    setIsLiked(track.is_liked || false);
-    setLikeCount(Number(track.like_count) || 0);
-    setIsReposted(track.is_reposted || false);
-    setRepostCount(Number(track.repost_count) || 0);
-  }, [track]);
   
   const handlePlayToggle = (e) => {
     e.stopPropagation();
@@ -53,61 +41,6 @@ export default function MiniTrack(
     if(isTreeView) {
       e.stopPropagation();
       router.push(`/tree/${track.id}`);
-    }
-  };
-  
-  const handleLikeToggle = async (e) => {
-    e.stopPropagation();
-    
-    try {
-      if (!isAuthenticated) {
-        // Handle unauthenticated user
-        alert('Please log in to like tracks');
-        return;
-      }
-      
-      if (isLiked) {
-        await api.delete(`/tracks/${track.id}/like`);
-        setIsLiked(false);
-        setLikeCount(prevCount => Math.max(0, Number(prevCount) - 1));
-      } else {
-        await api.post(`/tracks/${track.id}/like`);
-        setIsLiked(true);
-        setLikeCount(prevCount => Number(prevCount) + 1);
-      }
-    } catch (error) {
-      console.error('Failed to toggle like:', error);
-    }
-  };
-  
-  const handleLikeCountClick = (e) => {
-    e.stopPropagation();
-    if (likeCount > 0) {
-      setShowLikesModal(true);
-    }
-  };
-  
-  const handleRepostToggle = async (e) => {
-    e.stopPropagation();
-    
-    try {
-      if (!isAuthenticated) {
-        // Handle unauthenticated user
-        console.log('Please log in to like tracks');
-        return;
-      }
-      
-      if (track.is_reposted) {
-        await api.delete(`/tracks/${track.id}/repost`);
-        setIsReposted(false);
-        setRepostCount(prevCount => Math.max(0, Number(prevCount) - 1));
-      } else {
-        await api.post(`/tracks/${track.id}/repost`);
-        setIsReposted(true);
-        setRepostCount(prevCount => Number(prevCount) + 1);
-      }
-    } catch (error) {
-      console.error('Failed to toggle repost:', error);
     }
   };
   
@@ -175,46 +108,11 @@ export default function MiniTrack(
         {track.created_at && (
           <TimeDisplay timestamp={track.created_at} />
         )}
-        <div className={styles.miniTrackMeta}>
-          <div className="meta-item">
-            <FaPlay /> <span>{Number(track.play_count || 0).toLocaleString()}</span>
-          </div>
-          <div className="meta-item">
-            <button 
-              className={`like-btn ${isLiked ? 'active' : ''}`}
-              onClick={handleLikeToggle}
-              disabled={!isAuthenticated}
-            >
-              {isLiked ? <FaHeart /> : <FaRegHeart />}
-            </button>
-            <span 
-              className={`like-count ${likeCount > 0 ? 'link-underline' : ''}`}
-              onClick={handleLikeCountClick}
-              title={likeCount > 0 ? 'View likes' : ''}
-            >
-              {getLikeCountString(likeCount)}
-            </span>
-          </div>
-          <div className="meta-item">
-            <button 
-              className={`repost-btn ${isReposted ? 'active' : ''}`}
-              onClick={handleRepostToggle}
-              disabled={!isAuthenticated}
-            >
-              <FaRetweet />
-            </button>
-            <span>{Number(repostCount || 0).toLocaleString()}</span>
-          </div>
-        </div>
+        <TrackMeta 
+          track={track}
+          variant='mini'
+        />
       </div>
-
-      <UserListModal
-        isOpen={showLikesModal}
-        onClose={() => setShowLikesModal(false)}
-        title="Likes"
-        type="likes"
-        trackId={track.id}
-      />
     </div>
   );
 }

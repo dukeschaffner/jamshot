@@ -42,13 +42,6 @@
   
   .trackMetaSocial {
     grid-area: meta-social;
-    display: flex;
-    gap: 12px;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    transition: color 0.3s ease;
-    margin-top: 8px;
-    width: max-content;
   }
   
   .trackTitle {

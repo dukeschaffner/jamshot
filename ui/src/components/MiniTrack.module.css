@@ -59,17 +59,14 @@
   .miniTrackTitle {
     font-size: 0.9rem;
     font-weight: 600;
-    color: var(--dark);
+    color: var(--text-primary);
     margin-bottom: 0;
     transition: color 0.3s ease;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  
-  body.dark-mode .miniTrackTitle {
-    color: var(--dark-text-primary);
-  }
+
   
   .miniTrackArtist {
     display: flex;
@@ -114,29 +111,6 @@
     align-items: end;
     gap: 12px;
   }
-  
-  .miniTrackMeta {
-    display: flex;
-    gap: 12px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-  
-  .miniTrackMeta .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-width: auto;
-    opacity: 0.8;
-  }
-  
-  .miniTrackMeta .meta-item svg {
-    font-size: 0.8rem;
-  }
-  
-  .miniTrackMeta .meta-item span {
-    font-size: 0.75rem;
-  }
 
   /* Responsive adjustments for MiniTrack */
 @media (max-width: 768px) {
@@ -168,13 +142,5 @@
     
     .miniTrackActions {
       gap: 8px;
-    }
-    
-    .miniTrackMeta {
-      gap: 8px;
-    }
-    
-    .miniTrackMeta .meta-item {
-      font-size: 0.7rem;
     }
   }

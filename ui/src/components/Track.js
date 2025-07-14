@@ -3,18 +3,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
-import TrackTags from './TrackTags';
 import CustomTabs from './CustomTabs';
-import UserListModal from './UserListModal';
 import LoadingSpinner from './LoadingSpinner';
+import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
-import { trackTrackPlay, trackTrackPause, trackLike, trackUnlike, trackShare } from '../lib/analytics';
+import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
 import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
 import { useUser } from '../contexts/UserContext';
-import { getLikeCountString } from '../lib/utils';
 import styles from './Track.module.css';
 
 export default function Track(
@@ -33,12 +31,6 @@ export default function Track(
   const [originalTrack, setOriginalTrack] = useState(null);
   const [collabTracks, setCollabTracks] = useState([]);
   const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
-  const [isLiked, setIsLiked] = useState(track.is_liked || false);
-  const [likeCount, setLikeCount] = useState(Number(track.like_count) || 0);
-  const [repostCount, setRepostCount] = useState(Number(track.repost_count) || 0);
-  const [isLikeInProgress, setIsLikeInProgress] = useState(false);
-  const [isReposted, setIsReposted] = useState(track.is_reposted || false);
-  const [isRepostInProgress, setIsRepostInProgress] = useState(false);
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [activeTab, setActiveTab] = useState('collabs');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
@@ -47,7 +39,6 @@ export default function Track(
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTracks, setTotalTracks] = useState(0);
-  const [showLikesModal, setShowLikesModal] = useState(false);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
@@ -116,14 +107,6 @@ export default function Track(
     }
   };
 
-  useEffect(() => {
-    // Update like and repost state when track prop changes
-    setIsLiked(track.is_liked || false);
-    setLikeCount(Number(track.like_count) || 0);
-    setIsReposted(track.is_reposted || false);
-    setRepostCount(Number(track.repost_count) || 0);
-  }, [track.is_liked, track.like_count, track.is_reposted, track.repost_count]);
-
   const toggleExpand = () => {
     setExpandedTrackId(isExpanded ? null : track.id);
   };
@@ -144,93 +127,6 @@ export default function Track(
       console.log('Playing with subsequent tracks:', tracksToAdd.map(t => t.title));
       trackTrackPlay(track.id, track.title, track.username);
       playTrack(track, tracksToAdd);
-    }
-  };
-
-  const handleLikeToggle = async (e) => {
-    e.stopPropagation();
-    
-    // Prevent action if already in progress
-    if (isLikeInProgress) return;
-    setIsLikeInProgress(true);
-    
-    try {
-      if (!isAuthenticated) {
-        // Handle unauthenticated user
-        alert('Please log in to like tracks');
-        return;
-      }
-      
-      if (isLiked) {
-        await api.delete(`/tracks/${track.id}/like`);
-        setIsLiked(false);
-        setLikeCount(prevCount => Math.max(0, Number(prevCount) - 1));
-        trackUnlike(track.id, track.title, track.username);
-      } else {
-        await api.post(`/tracks/${track.id}/like`);
-        setIsLiked(true);
-        setLikeCount(prevCount => Number(prevCount) + 1);
-        trackLike(track.id, track.title, track.username);
-      }
-      
-      // Force re-render
-      setExpandedTrackId(expandedTrackId);
-    } catch (err) {
-      console.error('Failed to toggle like:', err);
-      // If there's an error, revert the UI state
-      if (err.response && err.response.status === 401) {
-        // User is not authenticated
-        alert('Please log in to like tracks');
-      }
-    } finally {
-      setIsLikeInProgress(false);
-    }
-  };
-
-  const handleLikeCountClick = (e) => {
-    e.stopPropagation();
-    if (likeCount > 0) {
-      setShowLikesModal(true);
-    }
-  };
-
-  const handleRepostToggle = async (e) => {
-    e.stopPropagation();
-    
-    // Prevent action if already in progress
-    if (isRepostInProgress) return;
-    
-    if (!isAuthenticated) {
-      alert('Please log in to repost tracks');
-      return;
-    }
-    
-    setIsRepostInProgress(true);
-    
-    try {
-      if (isReposted) {
-        await api.delete(`/tracks/${track.id}/repost`);
-        setIsReposted(false);
-        setRepostCount(prevCount => Math.max(0, Number(prevCount) - 1));
-      } else {
-        await api.post(`/tracks/${track.id}/repost`);
-        setIsReposted(true);
-        setRepostCount(prevCount => Number(prevCount) + 1);
-      }
-      
-      // Force re-render
-      setExpandedTrackId(expandedTrackId);
-    } catch (err) {
-      console.error('Failed to toggle repost:', err);
-      if (err.response && err.response.status === 400) {
-        alert(err.response.data.error || 'Cannot repost this track');
-      } else if (err.response && err.response.status === 401) {
-        alert('Please log in to repost tracks');
-      } else {
-        alert('Failed to repost track');
-      }
-    } finally {
-      setIsRepostInProgress(false);
     }
   };
 
@@ -332,46 +228,11 @@ export default function Track(
           </div>
         </div>
 
-
-
-        <div className={styles.trackMetaSocial}>
-          <div className="meta-item">
-            <FaPlay /> 
-            <span>{Number(track.play_count || 0).toLocaleString()}</span>
-            </div>
-            <div className="meta-item">
-              <button 
-                  className={`like-btn ${isLiked ? 'active' : ''}`} 
-                  onClick={handleLikeToggle} 
-                  disabled={!isAuthenticated || isLikeInProgress}
-                  title={isAuthenticated ? (isLiked ? 'Unlike' : 'Like') : 'Log in to like tracks'}
-                >
-                {isLiked ? <FaHeart /> : <FaRegHeart />}
-              </button>
-              <span 
-                className={`like-count ${likeCount > 0 ? 'link-underline' : ''}`}
-                onClick={handleLikeCountClick}
-                title={likeCount > 0 ? 'View likes' : ''}
-              >
-                {getLikeCountString(likeCount)}
-              </span>
-            </div>
-            <div className="meta-item">
-              <button 
-                className={`repost-btn ${isReposted ? 'active' : ''}`} 
-                onClick={handleRepostToggle}
-                disabled={!isAuthenticated || isRepostInProgress}
-                title={isAuthenticated ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
-              >
-                <FaRetweet />
-              </button>
-              <span>{Number(repostCount).toLocaleString()}</span>
-            </div>
-            <div className="meta-item">
-              <FaCodeBranch />
-              <span>{Number(track.collab_count).toLocaleString()}</span>
-            </div>
-        </div>
+        <TrackMeta 
+          track={track}
+          variant="default"
+          className={styles.trackMetaSocial}
+        />
         
         <div className={styles.trackMetaAudio}>
           {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
@@ -495,14 +356,6 @@ export default function Track(
           )}
         </div>
       )}
-
-      <UserListModal
-        isOpen={showLikesModal}
-        onClose={() => setShowLikesModal(false)}
-        title="Likes"
-        type="likes"
-        trackId={track.id}
-      />
     </div>
   );
 }
