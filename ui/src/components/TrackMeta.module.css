@@ -1,0 +1,66 @@
+.trackMetaSocial {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+    margin-top: 8px;
+    width: max-content;
+}
+  
+.miniTrackMeta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+}
+  
+.miniTrackMeta .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: auto;
+    opacity: 0.8;
+}
+  
+.miniTrackMeta .meta-item svg {
+    font-size: 0.8rem;
+}
+  
+.miniTrackMeta .meta-item span {
+    font-size: 0.75rem;
+}
+  
+.likeCount {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+  
+.likeCount:hover {
+    color: var(--primary);
+}
+  
+  body.dark-mode .likeCount:hover {
+    color: var(--primary-light);
+  }
+
+  @media (max-width: 768px) {
+    .trackMetaSocial {
+      gap: 12px;
+    }
+    
+    .miniTrackMeta {
+      gap: 8px;
+    }
+
+    .miniTrackMeta {
+        gap: 8px;
+      }
+      
+      .miniTrackMeta .meta-item {
+        font-size: 0.7rem;
+      }
+  }

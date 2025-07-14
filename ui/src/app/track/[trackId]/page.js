@@ -5,15 +5,15 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { fetchTrack } from '@/lib/api';
 import Image from 'next/image';
-import { getLikeCountString } from '@/lib/utils';
 import api from '@/lib/api';
 import DawInterface from '@/components/DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
 import CustomTabs from '@/components/CustomTabs';
-import UserListModal from '@/components/UserListModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import TrackMeta from '@/components/TrackMeta';
 import './collaborate.css';
-import { FaCheckCircle, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaEdit, FaDownload } from 'react-icons/fa';
+import styles from '@/components/Track.module.css';
+import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash} from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
 
 // Component that uses useSearchParams, wrapped in Suspense
@@ -31,7 +31,6 @@ function TrackContent() {
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
   const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
-  const [showLikesModal, setShowLikesModal] = useState(false);
 
   useEffect(() => {
     async function loadTrack() {
@@ -176,37 +175,7 @@ function TrackContent() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!track.allow_download) {
-      return;
-    }
-    
-    try {
-      // Use the API endpoint to get the download URL
-      const response = await api.get(`/tracks/${trackId}/download`);
-      const { download_url, filename } = response.data;
-      
-      // Create a temporary anchor element to trigger download
-      const link = document.createElement('a');
-      link.href = download_url;
-      link.download = filename;
-      link.target = '_blank';
-      
-      // Append to body, click, and remove
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      console.error('Download error:', err);
-      alert('Failed to download track');
-    }
-  };
 
-  const handleLikeCountClick = () => {
-    if (track?.like_count > 0) {
-      setShowLikesModal(true);
-    }
-  };
 
   // Create tabs configuration
   const tabs = [
@@ -249,8 +218,7 @@ function TrackContent() {
     <div className="w-full">
         <div className="track-header">
          <div className="track-info">
-           <h1 className="track-title">{track?.title || 'Untitled Track'}</h1>
-           <div className="track-artist">
+          <div className="track-artist">
               <Image 
                 className="avatar"
                 src={track?.profile_pic_url || '/avatar.svg'} 
@@ -261,36 +229,26 @@ function TrackContent() {
              <span className="artist-name">{track?.username || 'Unknown Artist'}</span>
              {track?.verified && <FaCheckCircle className="verified-icon" />}
            </div>
-           <div className="track-meta-social">
-             <span className="meta-item"><FaPlay/> {track?.play_count || 0}</span>
-             <span className="meta-item">
-               <FaHeart/> 
-               <span 
-                 className={`like-count ${track?.like_count > 0 ? 'link-underline' : ''}`}
-                 onClick={handleLikeCountClick}
-                 title={track?.like_count > 0 ? 'View likes' : ''}
-               >
-                 {getLikeCountString(track?.like_count)}
-               </span>
-             </span>
-             <span className="meta-item"><FaCodeBranch/> {track?.collab_count || 0} collabs</span>
-             {track?.allow_download && (
-               <span className="meta-item">
-                 <button 
-                   className="download-btn" 
-                   onClick={handleDownload}
-                   title="Download audio file"
-                 >
-                   <FaDownload />
-                 </button>
-               </span>
-             )}
+           <div>
+            <div className={styles.trackTitle}>
+                <span className="title-text link-underline">
+                  {track.title}
+                </span>
+                <div className={styles.trackLayerMessage}>
+                  {track?.parent_track_id ? 
+                  (
+                    <>
+                      <b>Layer {track.layer}</b> - Based on &quot;{track.original_title}&quot; by {track.original_username}
+                    </>) 
+                  : (<b>Original track</b>)}
+                </div>
+              </div>
            </div>
-           <CustomTabs
-             tabs={tabs}
-             activeTab={activeTab}
-             onTabChange={setActiveTab}
-             variant="default"
+
+           
+           <TrackMeta 
+             track={track}
+             showDownload={true}
            />
          </div>
          <div className="track-controls">
@@ -300,6 +258,12 @@ function TrackContent() {
            </Link>
          </div>
       </div>
+      <CustomTabs
+             tabs={tabs}
+             activeTab={activeTab}
+             onTabChange={setActiveTab}
+             variant="default"
+           />
       <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
         <DawInterface track={track} isCollab={true}/>
       </div>
@@ -375,14 +339,6 @@ function TrackContent() {
           </div>
         </div>
       )}
-
-      <UserListModal
-        isOpen={showLikesModal}
-        onClose={() => setShowLikesModal(false)}
-        title="Likes"
-        type="likes"
-        trackId={trackId}
-      />
     </div>
   );
 }

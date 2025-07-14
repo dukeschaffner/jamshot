@@ -487,7 +487,7 @@ body.dark-mode .search-box input:focus {
   grid-area: title;
   font-size: 16px;
   font-weight: bold;
-  align-self: center;
+  align-self: start;
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
@@ -544,24 +544,6 @@ body.dark-mode .track-tag.mini {
   background-color: var(--dark-card-bg);
 }
 
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: auto;
-  color: var(--text-secondary);
-  opacity: 0.9;
-}
-
-.meta-item svg {
-  font-size: 0.9rem;
-  color: inherit;
-}
-
-.meta-item span {
-  font-size: 0.8rem;
-  font-weight: 500;
-}
 
 .share-btn {
   background: transparent;
@@ -741,6 +723,26 @@ body.dark-mode .share-btn:hover {
 /* #endregion */
 
 /* #region Misc */
+
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: auto;
+  color: var(--text-secondary);
+  opacity: 0.9;
+}
+
+.meta-item svg {
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+.meta-item span {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
 
 .time {
   font-size: 0.7rem;
