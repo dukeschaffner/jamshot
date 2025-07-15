@@ -1,38 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FaDesktop, FaTimes } from 'react-icons/fa';
+import { useMobile } from '../contexts/MobileContext';
 
 export default function MobileWarning() {
-  const [isMobile, setIsMobile] = useState(false);
+  const { isMobile } = useMobile();
   const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      // Check for mobile devices using multiple methods
-      const userAgent = navigator.userAgent.toLowerCase();
-      const mobileKeywords = ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'blackberry', 'windows phone'];
-      const isMobileUserAgent = mobileKeywords.some(keyword => userAgent.includes(keyword));
-      
-      // Check screen size (tablets and phones)
-      const isSmallScreen = window.innerWidth <= 768;
-      
-      // Check for touch capability
-      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      
-      // Consider it mobile if any of these conditions are true
-      const mobile = isMobileUserAgent || (isSmallScreen && isTouchDevice) || isSmallScreen;
-      
-      setIsMobile(mobile);
-    };
-
-    // Check on mount
-    checkMobile();
-
-    // Check on resize
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Don't render if not mobile or if dismissed
   if (!isMobile || !isVisible) return null;
