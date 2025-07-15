@@ -64,8 +64,7 @@ export default function MiniTrack(
       <div className={styles.miniTrackPlay} onClick={handlePlayToggle}>
         {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
       </div>
-      <div className={styles.miniTrackInfo}>
-        <div className={styles.miniTrackTitleContainer}>
+      <div className={styles.miniTrackTitleContainer}>
           <div className={styles.miniTrackTitle}>
             <span className="link-underline" onClick={navigateToTrack}>
               {track.title}
@@ -125,26 +124,24 @@ export default function MiniTrack(
               )}
             </div>
           )}
-        </div>
-        <div className={styles.miniTrackArtist}>
-          <span 
-            className="link-underline artist-name"
-            onClick={navigateToUserProfile}
-          >
-            {track.username || 'Unknown Artist'}
-            {track.verified && <FaCheckCircle className="verified-icon" />}
-          </span>
-        </div>
       </div>
-      <div className={styles.miniTrackActions}>
-        {track.created_at && (
-          <TimeDisplay timestamp={track.created_at} />
-        )}
-        <TrackMeta 
-          track={track}
-          variant='mini'
-        />
+      <div className={styles.miniTrackArtist}>
+        <span 
+          className="link-underline artist-name"
+          onClick={navigateToUserProfile}
+        >
+          {track.username || 'Unknown Artist'}
+          {track.verified && <FaCheckCircle className="verified-icon" />}
+        </span>
       </div>
+      {track.created_at && (
+        <TimeDisplay className={styles.miniTrackTime} timestamp={track.created_at} />
+      )}
+      <TrackMeta 
+        className={styles.miniTrackMeta}
+        track={track}
+        variant='mini'
+      />
     </div>
   );
 }
