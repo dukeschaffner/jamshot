@@ -1,255 +1,18 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
+import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import './globals.css';
 import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
 import { UserProvider, useUser } from '../contexts/UserContext';
+import { MobileProvider } from '../contexts/MobileContext';
 import { NavigationGuardProvider } from 'next-navigation-guard';
 import { initGA, trackPageView, trackSearch } from '../lib/analytics';
-import NotificationDropdown from '../components/NotificationDropdown';
-import MoreDropdown from '../components/MoreDropdown';
 import MobileWarning from '../components/MobileWarning';
 import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';
-import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaUser, FaHome, FaMusic, 
-  FaUserFriends, FaCompass, FaBookmark, FaCog, FaSun, FaMoon, FaUpload, FaSearch, FaVolumeUp, FaVolumeMute, FaInfoCircle } from 'react-icons/fa';
+import GlobalPlayer from '../components/GlobalPlayer';
 import api from '../lib/api';
-import styles from '../styles/GlobalPlayer.module.css';
-
-function GlobalPlayer() {
-  const { 
-    currentTrack, 
-    isPlaying, 
-    progress, 
-    togglePlayPause, 
-    seek, 
-    setIsSeeking,
-    playNext, 
-    playPrevious,
-    isShuffleOn,
-    isLoopOn,
-    toggleShuffle,
-    toggleLoop
-  } = useAudio();
-  
-  // Volume UI state (non-functional)
-  const [volumeLevel, setVolumeLevel] = useState(70);
-  const [isMuted, setIsMuted] = useState(false);
-  
-  // Track if user is currently dragging the progress bar
-  const [isDragging, setIsDragging] = useState(false);
-  
-  // Add router for navigation
-  const router = useRouter();
-  
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
-
-  // Navigation functions
-  const navigateToTrack = (e) => {
-    e.stopPropagation();
-    if (currentTrack && currentTrack.id) {
-      router.push(`/track/${currentTrack.id}`);
-    }
-  };
-
-  const navigateToUserProfile = (e) => {
-    e.stopPropagation();
-    if (currentTrack && currentTrack.username) {
-      router.push(`/user/${currentTrack.username}`);
-    }
-  };
-
-  // Reference to the progress bar element
-  const progressBarRef = useRef(null);
-
-  // Handle progress bar click for seeking
-  const handleProgressBarClick = (e) => {
-    if (!progressBarRef.current || !currentTrack) return;
-    
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const clickPosition = (e.clientX - rect.left) / rect.width;
-    const seekPosition = clickPosition * currentTrack.duration;
-    
-    // Seek to the calculated position in seconds
-    seek(seekPosition);
-  };
-
-  // Handle mouse down to start dragging
-  const handleMouseDown = (e) => {
-    if (!progressBarRef.current || !currentTrack) return;
-    
-    setIsDragging(true);
-    // Notify AudioContext that seeking has started
-    setIsSeeking(true);
-    
-    // Prevent default behavior to avoid text selection while dragging
-    e.preventDefault();
-  };
-
-  // Handle mouse move while dragging
-  const handleMouseMove = (e) => {
-    if (!isDragging || !progressBarRef.current || !currentTrack) return;
-    
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    
-    // Update visual position only (actual seeking happens on mouse up)
-    const progressBar = progressBarRef.current.querySelector(`.${styles.progress}`);
-    if (progressBar) {
-      progressBar.style.width = `${position * 100}%`;
-    }
-  };
-
-  // Handle mouse up to complete seeking
-  const handleMouseUp = (e) => {
-    if (isDragging && progressBarRef.current && currentTrack) {
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const seekPosition = position * currentTrack.duration;
-      
-      // Perform the actual seek
-      seek(seekPosition);
-    }
-    
-    setIsDragging(false);
-  };
-
-  // Add and remove event listeners for dragging
-  useEffect(() => {
-    const handleGlobalMouseMove = (e) => handleMouseMove(e);
-    const handleGlobalMouseUp = (e) => handleMouseUp(e);
-    
-    if (isDragging) {
-      window.addEventListener('mousemove', handleGlobalMouseMove);
-      window.addEventListener('mouseup', handleGlobalMouseUp);
-    }
-    
-    return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [isDragging, currentTrack]);
-
-  if (!currentTrack) return null;
-
-  return (
-    <div className={styles.globalPlayer}>
-      <div className={styles.nowPlaying}>
-        {currentTrack.profile_pic_url ? (
-          <img src={currentTrack.profile_pic_url} alt="Album Art" className={styles.nowPlayingImg} />
-        ) : (
-          <div className={`${styles.nowPlayingImg} bg-gray-300 dark:bg-gray-700 flex items-center justify-center`}>
-            <FaMusic className="text-gray-500 dark:text-gray-400" size={20} />
-          </div>
-        )}
-        <div className={styles.nowPlayingInfo}>
-          <div 
-            className={`${styles.nowPlayingTitle} link-underline`}
-            onClick={navigateToTrack}
-          >
-            {currentTrack.title}
-          </div>
-          <div 
-            className={`${styles.nowPlayingArtist} link-underline`}
-            onClick={navigateToUserProfile}
-          >
-            {currentTrack.username}
-          </div>
-        </div>
-      </div>
-      
-      <div className={styles.playerControls}>
-        <div className={styles.controlButtons}>
-          <button 
-            className={`${styles.controlButton} ${isShuffleOn ? styles.active : ''}`}
-            onClick={toggleShuffle}
-            title={isShuffleOn ? "Shuffle On" : "Shuffle Off"}
-          >
-            <FaRandom />
-          </button>
-          
-          <button
-            className={styles.controlButton}
-            onClick={playPrevious}
-            title="Previous"
-          >
-            <FaStepBackward />
-          </button>
-          
-          <button
-            onClick={togglePlayPause}
-            className={`${styles.controlButton} ${styles.playPause}`}
-            title={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? <FaPause /> : <FaPlay />}
-          </button>
-          
-          <button
-            className={styles.controlButton}
-            onClick={playNext}
-            title="Next"
-          >
-            <FaStepForward />
-          </button>
-          
-          <button
-            className={`${styles.controlButton} ${isLoopOn ? styles.active : ''}`}
-            onClick={toggleLoop}
-            title={isLoopOn ? "Loop On" : "Loop Off"}
-          >
-            <FaRedo />
-          </button>
-        </div>
-        
-        <div className={styles.progressContainer}>
-          <div className={styles.time}>{formatTime(progress)}</div>
-          <div 
-            ref={progressBarRef}
-            className={styles.progressBar}
-            onClick={handleProgressBarClick}
-            onMouseDown={handleMouseDown}
-          >
-            <div 
-              className={styles.progress}
-              style={{ width: `${(progress / currentTrack.duration) * 100}%` }}
-            ></div>
-          </div>
-          <div className={styles.time}>{formatTime(currentTrack.duration)}</div>
-        </div>
-      </div>
-      
-      <div className={styles.volumeContainer}>
-        {/* <div className={styles.volumeIcon} onClick={toggleMute}>
-          {isMuted ? <FaVolumeMute /> : <FaVolumeUp />}
-        </div>
-        <div 
-          className={styles.volumeSlider}
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            setVolumeLevel(Math.round(percent * 100));
-          }}
-        >
-          <div 
-            className={styles.volumeLevel}
-            style={{ width: isMuted ? '0%' : `${volumeLevel}%` }}
-          ></div>
-        </div> */}
-      </div>
-    </div>
-  );
-}
-
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-}
 
 // This component will be rendered after providers are initialized
 function AppContent({ children }) {
@@ -334,27 +97,6 @@ function AppContent({ children }) {
     }
   }, []);
 
-  const toggleTheme = (e) => {
-    e.preventDefault();
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
-    
-    setDarkMode(isDark);
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  };
-
-  const handleLogout = async () => {
-    await logout();
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      trackSearch(searchQuery.trim());
-      router.push(`/search?query=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
-    }
-  };
 
   return (
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>
@@ -389,15 +131,17 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <UserProvider>
-          <AudioProvider>
-            <NotificationProvider>
-              <NavigationGuardProvider>
-                <AppContent>
-                  {children}
-                </AppContent>
-              </NavigationGuardProvider>
-            </NotificationProvider>
-          </AudioProvider>
+          <MobileProvider>
+            <AudioProvider>
+              <NotificationProvider>
+                <NavigationGuardProvider>
+                  <AppContent>
+                    {children}
+                  </AppContent>
+                </NavigationGuardProvider>
+              </NotificationProvider>
+            </AudioProvider>
+          </MobileProvider>
         </UserProvider>
       </body>
     </html>

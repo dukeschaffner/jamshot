@@ -4,12 +4,15 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaUpload, FaSearch, FaSun, FaMoon } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
+import { useMobile } from '../contexts/MobileContext';
 import { trackSearch } from '../lib/analytics';
 import NotificationDropdown from './NotificationDropdown';
 import MoreDropdown from './MoreDropdown';
 import Image from 'next/image';
+
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useUser();
+  const { isMobile } = useMobile();
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
@@ -47,18 +50,21 @@ export default function Navbar() {
         </Link>
       </div>
       
-      <div className="search-box">
-        <form onSubmit={handleSearch}>
-          <FaSearch className="search-icon" />
-          <input 
-            ref={searchInputRef}
-            type="text" 
-            placeholder="Search for artists, tracks..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </form>
-      </div>
+      {/* Only show search box on desktop */}
+      {!isMobile && (
+        <div className="search-box">
+          <form onSubmit={handleSearch}>
+            <FaSearch className="search-icon" />
+            <input 
+              ref={searchInputRef}
+              type="text" 
+              placeholder="Search for artists, tracks..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </form>
+        </div>
+      )}
       
       <div className="nav-links">
         <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>

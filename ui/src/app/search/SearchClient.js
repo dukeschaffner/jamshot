@@ -1,25 +1,29 @@
 'use client';
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import MiniTrack from '../../components/MiniTrack';
 import CustomTabs from '../../components/CustomTabs';
-import { trackUserFollow, trackUserUnfollow } from '../../lib/analytics';
-import { FaCheckCircle, FaUserPlus, FaUserCheck } from 'react-icons/fa';
+import { trackUserFollow, trackUserUnfollow, trackSearch } from '../../lib/analytics';
+import { FaCheckCircle, FaUserPlus, FaUserCheck, FaSearch } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useUser } from '../../contexts/UserContext';
+import { useMobile } from '../../contexts/MobileContext';
 import styles from './SearchPage.module.css';
 
 // Component that uses useSearchParams
 function SearchContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const query = searchParams?.get('query') || '';
   const [searchResults, setSearchResults] = useState({ tracks: [], users: [] });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const { user: currentUser, isAuthenticated } = useUser();
+  const { isMobile } = useMobile();
   
   useEffect(() => {    
     const fetchSearchResults = async () => {
@@ -41,6 +45,14 @@ function SearchContent() {
     
     fetchSearchResults();
   }, [query]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      trackSearch(searchQuery.trim());
+      router.push(`/search?query=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
   
   const handleFollowToggle = async (userId, isFollowing) => {
     if (!isAuthenticated) {
@@ -179,6 +191,29 @@ function SearchContent() {
         );
     }
   };
+
+  // Show search input on mobile when there's no query
+  if (isMobile && !query) {
+    return (
+      <div className={styles.searchPage}>
+        <div className={styles.searchHeader}>
+          <h1 className={styles.searchTitle}>Search</h1>
+          <div className="search-box">
+            <form onSubmit={handleSearch}>
+              <FaSearch className="search-icon" />
+              <input 
+                type="text" 
+                placeholder="Search for artists, tracks..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+              />
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Create tabs configuration
   const tabs = [
