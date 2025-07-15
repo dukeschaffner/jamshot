@@ -1,6 +1,6 @@
   .trackMain {
     display: grid;
-    grid-template-columns: 60px 1fr auto;
+    grid-template-columns: 60px 1fr 135px;
     grid-template-rows: 30px 1fr 30px;
     grid-template-areas: 
       "user user meta-audio"
@@ -59,12 +59,12 @@
   
   .trackMetaAudio {
     grid-area: meta-audio;
-    display: inline-flex;
-    flex-wrap: wrap;
+    display: block;
     margin-left: 8px;
     gap: 4px;
     align-items: center;
     justify-content: end;
+    direction: rtl;
   }
   
   .trackActions {
@@ -97,6 +97,10 @@
     .trackMain{
         padding: 10px 0px;
         gap: 5px;
+        grid-template-areas: 
+          "user user meta-audio"
+          "play-btn title title"
+          "meta-social meta-social timestamp";
       }
     
       .trackDetails{
@@ -216,4 +220,3 @@
     padding: 12px;
     transition: color 0.3s ease;
   }
-  
