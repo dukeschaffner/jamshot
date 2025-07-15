@@ -1,11 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FaHome, FaSearch, FaUser } from 'react-icons/fa';
+import { FaHome, FaSearch, FaUser, FaBell } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
+import { useNotifications } from '../lib/NotificationContext';
 import Image from 'next/image';
+import styles from './Notifications.module.css';
+
 export default function MobileNavbar() {
   const { user, isAuthenticated } = useUser();
+  const { unreadCount } = useNotifications();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -27,6 +31,22 @@ export default function MobileNavbar() {
         <FaSearch />
         <span>Search</span>
       </button>
+      
+      {/* Notifications - only show for authenticated users */}
+      {isAuthenticated && (
+        <Link 
+          href="/notifications" 
+          className={`mobile-nav-item ${pathname === '/notifications' ? 'active' : ''}`}
+        >
+          <div className="notification-icon-wrapper">
+            <FaBell />
+            {unreadCount > 0 && (
+              <span className={styles.notificationDot}></span>
+            )}
+          </div>
+          <span>Alerts</span>
+        </Link>
+      )}
       
       {isAuthenticated && user ? (
         <Link 

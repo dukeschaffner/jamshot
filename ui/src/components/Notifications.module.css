@@ -222,12 +222,8 @@
   
   .notificationText {
     font-size: 0.875rem;
-    color: var(--foreground);
+    color: var(--text-primary);
     margin-bottom: 0.25rem;
-  }
-  
-  body.dark-mode .notificationText {
-    color: var(--dark-text-primary);
   }
   
   .notificationActions {
@@ -277,3 +273,40 @@
     color: var(--red);
     opacity: 1;
   }
+
+/* Mobile Notifications Page */
+.mobileNotificationsPage {
+  background-color: var(--background);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobileNotificationsHeader {
+  background-color: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+body.dark-mode .mobileNotificationsHeader {
+  background-color: var(--dark-card-bg);
+  border-bottom-color: var(--dark-border);
+}
+
+.mobileNotificationsHeader h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mobileNotificationsContent {
+  background-color: var(--white);
+}
+
+body.dark-mode .mobileNotificationsContent {
+  background-color: var(--dark-card-bg);
+}
