@@ -1,14 +1,17 @@
 
 /* MiniTrack Styles */
 .miniTrackTrack {
-    display: grid;
-    grid-template-columns: 40px 1fr auto;
     padding: 8px;
-    gap: 12px;
+    gap: 0px 12px;
     align-items: center;
     border-radius: 8px;
     transition: background-color 0.2s;
     margin-bottom: 4px;
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    grid-template-areas: 
+      "play title time"
+      "play artist meta";
   }
   
   .miniTrackTrack:hover {
@@ -24,6 +27,7 @@
   }
   
   .miniTrackPlay {
+    grid-area: play;
     width: 40px;
     height: 40px;
     background-color: var(--seafoam-light);
@@ -42,14 +46,8 @@
     background-color: var(--seafoam);
   }
   
-  .miniTrackInfo {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0; /* Allow content to shrink */
-  }
-  
   .miniTrackTitleContainer {
+    grid-area: title;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -69,6 +67,7 @@
 
   
   .miniTrackArtist {
+    grid-area: artist;
     display: flex;
     align-items: center;
     margin-top: 4px;
@@ -112,12 +111,30 @@
     gap: 12px;
   }
 
+  .miniTrackMeta {
+    grid-area: meta;
+    justify-content: end;
+    justify-self: end;
+  }
+
+  .miniTrackTime {
+    grid-area: time;
+    justify-content: end;
+  }
+
   /* Responsive adjustments for MiniTrack */
 @media (max-width: 768px) {
     .miniTrackTrack {
-      grid-template-columns: 36px 1fr auto;
       gap: 5px;
       padding: 0px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--grey-2);
+      grid-template-columns: 36px auto;
+      grid-template-areas: 
+      "play time"
+      "play title"
+      "play artist"
+      "play meta";
     }
     
     .miniTrackPlay {
