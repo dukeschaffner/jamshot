@@ -14,7 +14,7 @@ import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
 import { useUser } from '../contexts/UserContext';
 import styles from './Track.module.css';
-
+import { useMobile } from '../contexts/MobileContext';
 export default function Track(
     { track, 
       allTracks, 
@@ -27,6 +27,7 @@ export default function Track(
   ) 
 {
   const router = useRouter();
+  const { isMobile } = useMobile();
   const [isExpanded, setIsExpanded] = useState(false);
   const [originalTrack, setOriginalTrack] = useState(null);
   const [collabTracks, setCollabTracks] = useState([]);
@@ -173,8 +174,6 @@ export default function Track(
     router.push(`/track/${track.id}`);
   };
 
-  const atLeastOneTag = track.tags && track.tags.length > 0 || track.genres && track.genres.length > 0 || track.instruments && track.instruments.length > 0;
-
   // Create tabs configuration
   const tabs = [
     { key: 'collabs', label: 'Collabs' },
@@ -235,22 +234,57 @@ export default function Track(
         />
         
         <div className={styles.trackMetaAudio}>
-          {track.tags && Array.isArray(track.tags) && track.tags.map((tag, index) => (
-            <span key={`tag-${index}`} className="track-tag">{typeof tag === 'string' ? tag : tag.name}</span>
-          ))}
+
           
-          {track.genres && Array.isArray(track.genres) && track.genres.map((genre, index) => (
-            <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
-          ))}
+          {/* Display genres */}
+          {track.genres && Array.isArray(track.genres) && track.genres.length > 0 && (
+            <>
+              {isMobile ? (
+                // Mobile: show max 1 genre
+                <>
+                  {track.genres.length > 1 ? (
+                    <span className="track-tag">
+                      {typeof track.genres[0] === 'string' ? track.genres[0] : track.genres[0].name}+{track.genres.length - 1}
+                    </span>
+                  ) : (
+                    <span className="track-tag">{typeof track.genres[0] === 'string' ? track.genres[0] : track.genres[0].name}</span>
+                  )}
+                </>
+              ) : (
+                // Desktop: show all genres
+                track.genres.map((genre, index) => (
+                  <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
+                ))
+              )}
+            </>
+          )}
           
-          {track.instruments && Array.isArray(track.instruments) && track.instruments.map((instrument, index) => (
-            <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
-          ))}
+          {/* Display instruments */}
+          {track.instruments && Array.isArray(track.instruments) && track.instruments.length > 0 && (
+            <>
+              {isMobile ? (
+                // Mobile: show max 1 instrument
+                <>
+                  {track.instruments.length > 1 ? (
+                    <span className="track-tag">
+                      {typeof track.instruments[0] === 'string' ? track.instruments[0] : track.instruments[0].name}+{track.instruments.length - 1}
+                    </span>
+                  ) : (
+                    <span className="track-tag">{typeof track.instruments[0] === 'string' ? track.instruments[0] : track.instruments[0].name}</span>
+                  )}
+                </>
+              ) : (
+                // Desktop: show all instruments
+                track.instruments.map((instrument, index) => (
+                  <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
+                ))
+              )}
+            </>
+          )}
                       
           {track.metronome_bpm && (
             <>
-              {atLeastOneTag && <div className="meta-item-separator text-secondary">|</div>}
-              <div className="meta-item">
+              <div className={`meta-item ${styles.metronome}`}>
                 <FaMusic /> 
                 <span>{track.metronome_bpm} BPM</span>
               </div>
