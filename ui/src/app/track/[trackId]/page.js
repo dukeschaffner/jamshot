@@ -13,8 +13,9 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import TrackMeta from '@/components/TrackMeta';
 import './collaborate.css';
 import styles from '@/components/Track.module.css';
-import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash} from 'react-icons/fa';
+import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop} from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
+import { useMobile } from '../../../contexts/MobileContext';
 
 // Component that uses useSearchParams, wrapped in Suspense
 function TrackContent() {
@@ -26,6 +27,7 @@ function TrackContent() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('collab');
   const { user, isAuthenticated } = useUser();
+  const { isMobile } = useMobile();
   const [isTrackOwner, setIsTrackOwner] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
@@ -265,7 +267,15 @@ function TrackContent() {
              variant="default"
            />
       <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
-        <DawInterface track={track} isCollab={true}/>
+        {isMobile ? (
+          <div className="mobile-collab-message">
+            <FaDesktop className="mobile-collab-icon" />
+            <h3>Desktop Required</h3>
+            <p>Use Desktop version to record or upload file to collaborate</p>
+          </div>
+        ) : (
+          <DawInterface track={track} isCollab={true}/>
+        )}
       </div>
       {activeTab === 'comments' && (
         <div className="comments-container">
