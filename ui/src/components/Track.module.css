@@ -95,7 +95,7 @@
     }
 
     .trackMain{
-        padding: 10px 0px;
+        padding: 15px 0px;
         gap: 5px;
         grid-template-areas: 
           "user user meta-audio"
@@ -184,6 +184,8 @@
     border-top: 1px solid var(--gray-light);
     border-radius: 0 0 12px 12px;
     transition: background-color 0.3s ease, border-color 0.3s ease;
+    max-height: 500px;
+    overflow-y: auto;
   }
   
   body.dark-mode .trackDetails {

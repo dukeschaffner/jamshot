@@ -22,7 +22,6 @@ export default function MobileNavbar() {
     <nav className="mobile-navbar">
       <Link href="/" className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`}>
         <FaHome />
-        <span>Home</span>
       </Link>
       
       <button 
@@ -30,7 +29,6 @@ export default function MobileNavbar() {
         className={`mobile-nav-item ${pathname.startsWith('/search') ? 'active' : ''}`}
       >
         <FaSearch />
-        <span>Search</span>
       </button>
       
       {/* Notifications - only show for authenticated users */}
@@ -45,7 +43,6 @@ export default function MobileNavbar() {
               <span className={styles.notificationDot}></span>
             )}
           </div>
-          <span>Alerts</span>
         </Link>
       )}
       
@@ -58,10 +55,9 @@ export default function MobileNavbar() {
             className="avatar"
             src={user?.profile_pic_url || '/avatar.svg'} 
             alt={user.username} 
-            width={24} 
-            height={24}
+            width={30} 
+            height={30}
         />
-          <span>Profile</span>
         </Link>
       ) : (
         <Link 
@@ -69,7 +65,6 @@ export default function MobileNavbar() {
           className={`mobile-nav-item ${pathname === '/login' ? 'active' : ''}`}
         >
           <FaUser />
-          <span>Login</span>
         </Link>
       )}
 
