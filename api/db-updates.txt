@@ -1,0 +1,5 @@
+-- Update username field length from 50 to 20 characters
+ALTER TABLE users ALTER COLUMN username TYPE VARCHAR(20);
+
+-- Update name field length from 100 to 40 characters  
+ALTER TABLE users ALTER COLUMN name TYPE VARCHAR(40); 

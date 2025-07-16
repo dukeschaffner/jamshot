@@ -31,6 +31,16 @@ export default function Register() {
       setUsernameError('Username can only contain letters, numbers, and underscores.');
       return;
     }
+    // Validate username length
+    if (username.length > 20) {
+      setUsernameError('Username must be 20 characters or less.');
+      return;
+    }
+    // Validate name length
+    if (name.length > 40) {
+      setError('Name must be 40 characters or less.');
+      return;
+    }
     // Check if passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -104,6 +114,8 @@ export default function Register() {
                 setUsername(e.target.value);
                 if (!/^\w*$/.test(e.target.value)) {
                   setUsernameError('Username can only contain letters, numbers, and underscores.');
+                } else if (e.target.value.length > 20) {
+                  setUsernameError('Username must be 20 characters or less.');
                 } else {
                   setUsernameError('');
                 }
@@ -112,6 +124,7 @@ export default function Register() {
               className="w-full p-2 border rounded"
               required
               disabled={isRegistering}
+              maxLength={20}
             />
             {usernameError && <div className="input-error text-red-600 text-sm mt-1">{usernameError}</div>}
           </div>
@@ -128,6 +141,7 @@ export default function Register() {
               className="w-full p-2 border rounded"
               required
               disabled={isRegistering}
+              maxLength={40}
             />
           </div>
           <div>
