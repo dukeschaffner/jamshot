@@ -2,13 +2,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel } from 'react-icons/fa';
+import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt } from 'react-icons/fa';
+import { useMobile } from '../contexts/MobileContext';
+import { useUser } from '../contexts/UserContext';
 
 export default function MoreDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const router = useRouter();
-
+  const { isMobile } = useMobile();
+  const { isAuthenticated, logout } = useUser();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -25,14 +28,96 @@ export default function MoreDropdown() {
   }, []);
 
 
+  // Prevent body scroll when mobile modal is open
+  useEffect(() => {
+    if (isMobile && isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isMobile, isOpen]);
+
+  const handleLinkClick = () => {
+    setIsOpen(false);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setIsOpen(false);
+  };
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+  };
+
+  if (isMobile) {
+    return (
+      <>
+        <button
+          onClick={handleToggle}
+          className="mobile-more-button"
+          title="More"
+        >
+          <FaBars size={20} />
+          <span>More</span>
+        </button>
+
+        {isOpen && (
+          <div className="mobile-more-modal-overlay" onClick={() => setIsOpen(false)}>
+            <div className="mobile-more-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="mobile-more-modal-header">
+                <h3>More Options</h3>
+                <button 
+                  onClick={() => setIsOpen(false)}
+                  className="mobile-more-modal-close"
+                  title="Close"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+              <div className="mobile-more-modal-body">
+                <Link className="mobile-more-link" href="/about" onClick={handleLinkClick}>
+                  <FaInfoCircle />
+                  <span>About</span>
+                </Link>
+                <Link className="mobile-more-link" href="/faq" onClick={handleLinkClick}>
+                  <FaQuestionCircle />
+                  <span>FAQ</span>
+                </Link>
+                <Link className="mobile-more-link" href="/contact" onClick={handleLinkClick}>
+                  <FaEnvelope />
+                  <span>Contact</span>
+                </Link>
+                <Link className="mobile-more-link" href="/privacy" onClick={handleLinkClick}>
+                  <FaShieldAlt />
+                  <span>Privacy Policy</span>
+                </Link>
+                <Link className="mobile-more-link" href="/terms" onClick={handleLinkClick}>
+                  <FaGavel />
+                  <span>Terms of Service</span>
+                </Link>
+                {isAuthenticated && (
+                  <button className="mobile-more-link" onClick={handleLogout}>
+                    <FaSignOutAlt />
+                    <span>Logout</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // Desktop dropdown (original behavior)
   return (
     <div className="relative notification-dropdown" ref={dropdownRef}>
       <button
-        onClick={() => {
-          setIsOpen(!isOpen);
-        }}
+        onClick={handleToggle}
         className="notification-button"
-        title="Notifications"
+        title="More"
       >
         <FaBars size={20} />
         More
@@ -43,11 +128,11 @@ export default function MoreDropdown() {
           <div className="more-dropdown-header">
           </div>
           <div className="notification-body">
-            <Link className="nav-link" href="/about" onClick={() => setIsOpen(false)}><FaInfoCircle />About</Link>
-            <Link className="nav-link" href="/faq" onClick={() => setIsOpen(false)}><FaQuestionCircle />FAQ</Link>
-            <Link className="nav-link" href="/contact" onClick={() => setIsOpen(false)}><FaEnvelope />Contact</Link>
-            <Link className="nav-link" href="/privacy" onClick={() => setIsOpen(false)}><FaShieldAlt />Privacy Policy</Link>
-            <Link className="nav-link" href="/terms" onClick={() => setIsOpen(false)}><FaGavel />Terms of Service</Link>
+            <Link className="nav-link" href="/about" onClick={handleLinkClick}><FaInfoCircle />About</Link>
+            <Link className="nav-link" href="/faq" onClick={handleLinkClick}><FaQuestionCircle />FAQ</Link>
+            <Link className="nav-link" href="/contact" onClick={handleLinkClick}><FaEnvelope />Contact</Link>
+            <Link className="nav-link" href="/privacy" onClick={handleLinkClick}><FaShieldAlt />Privacy Policy</Link>
+            <Link className="nav-link" href="/terms" onClick={handleLinkClick}><FaGavel />Terms of Service</Link>
           </div>
         </div>
       )}

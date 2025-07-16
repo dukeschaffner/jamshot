@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaSearch, FaUser, FaBell } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 import { useNotifications } from '../lib/NotificationContext';
+import MoreDropdown from './MoreDropdown';
 import Image from 'next/image';
 import styles from './Notifications.module.css';
 
@@ -71,6 +72,11 @@ export default function MobileNavbar() {
           <span>Login</span>
         </Link>
       )}
+
+      {/* More dropdown - always visible */}
+      <div className="mobile-nav-item">
+        <MoreDropdown />
+      </div>
     </nav>
   );
 } 
