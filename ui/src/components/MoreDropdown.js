@@ -60,7 +60,6 @@ export default function MoreDropdown() {
           title="More"
         >
           <FaBars size={20} />
-          <span>More</span>
         </button>
 
         {isOpen && (

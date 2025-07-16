@@ -285,8 +285,8 @@ export default function Track(
           {track.metronome_bpm && (
             <>
               <div className={`meta-item ${styles.metronome}`}>
+              <span>{track.metronome_bpm} BPM</span>
                 <FaMusic /> 
-                <span>{track.metronome_bpm} BPM</span>
               </div>
             </>
           )}
