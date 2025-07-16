@@ -12,10 +12,8 @@ TODO (MVP)
 - check notifications functionality
 - only show measure lines when zoomed out enough
 - handle notification spamming
-
-- improve search algorithm - prioritize popular results
-- improve feed algorithms - track user preferences
 - @mentions
+- premium model
 
 
 
@@ -54,7 +52,8 @@ TODO (after beta testing)
 - improve waveform rendering with peaks.js
 - audio ads
 - feed ads
-- mention users in post
+- improve search algorithm - prioritize popular results
+- improve feed algorithms - track user preferences
 
 
 MONETIZATION
