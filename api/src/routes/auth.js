@@ -89,6 +89,16 @@ router.post('/register', authLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores.' });
   }
 
+  // Username length validation: max 20 characters
+  if (username.length > 20) {
+    return res.status(400).json({ error: 'Username must be 20 characters or less.' });
+  }
+
+  // Name length validation: max 40 characters
+  if (name.length > 40) {
+    return res.status(400).json({ error: 'Name must be 40 characters or less.' });
+  }
+
   //username to lowercase
   if (username) {
     username = username.toLowerCase();

@@ -140,9 +140,19 @@ export default function UserPage() {
       setUsernameError('Username can only contain letters, numbers, and underscores.');
       return;
     }
+    // Validate username length
+    if (editForm.username.length > 20) {
+      setUsernameError('Username must be 20 characters or less.');
+      return;
+    }
     // Validate name is provided
     if (!editForm.name || editForm.name.trim() === '') {
       alert('Full name is required');
+      return;
+    }
+    // Validate name length
+    if (editForm.name.length > 40) {
+      alert('Name must be 40 characters or less.');
       return;
     }
     try {
@@ -308,14 +318,6 @@ export default function UserPage() {
                     <button className="pill-btn sm" onClick={() => setIsEditing(true)}>
                       Edit Profile
                     </button>
-                    <button 
-                      className={`pill-btn sm ${isPrivate ? 'private' : 'public'}`}
-                      onClick={handlePrivacyToggle}
-                      title={isPrivate ? 'Make account public' : 'Make account private'}
-                    >
-                      {isPrivate ? <FaLock /> : <FaLockOpen />}
-                      {isPrivate ? 'Private' : 'Public'}
-                    </button>
                   </>
                 )}
               </div>
@@ -334,58 +336,73 @@ export default function UserPage() {
           )}
           
           {isEditing ? (
-            <form className={styles.editProfileForm} onSubmit={handleEditSubmit}>
-              <div className={styles.formGroup}>
-                <label htmlFor="username">Username</label>
-                <input
-                  type="text"
-                  id="username"
-                  value={editForm.username}
-                  onChange={(e) => {
-                    setEditForm({...editForm, username: e.target.value});
-                    if (!/^\w*$/.test(e.target.value)) {
-                      setUsernameError('Username can only contain letters, numbers, and underscores.');
-                    } else {
-                      setUsernameError('');
-                    }
-                  }}
-                  className={styles.formControl}
-                  required
-                />
-                {usernameError && <div className="input-error">{usernameError}</div>}
-              </div>
-              <div className={styles.formGroup}>
-                <label htmlFor="name">Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                  className={styles.formControl}
-                  placeholder="Your full name"
-                  required
-                />
-              </div>
-              <div className={styles.formGroup}>
-                <label htmlFor="bio">Bio</label>
-                <textarea
-                  id="bio"
-                  value={editForm.bio}
-                  onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                  className={styles.formControl}
-                  rows="3"
-                  maxLength="160"
-                  placeholder="Tell people about yourself..."
-                />
-                <div className={styles.charCount}>{editForm.bio.length}/160</div>
-              </div>
-            </form>
+            <>
+            <button 
+              className={`pill-btn sm ${isPrivate ? 'private' : 'public'} w-min justify-self-start mb-2`}
+              onClick={handlePrivacyToggle}
+              title={isPrivate ? 'Make account public' : 'Make account private'}
+            >
+              {isPrivate ? <FaLock /> : <FaLockOpen />}
+              {isPrivate ? 'Private' : 'Public'}
+            </button>
+              <form className={styles.editProfileForm} onSubmit={handleEditSubmit}>
+                <div className={styles.formGroup}>
+                  <label htmlFor="username">Username</label>
+                  <input
+                    type="text"
+                    id="username"
+                    value={editForm.username}
+                    onChange={(e) => {
+                      setEditForm({...editForm, username: e.target.value});
+                      if (!/^\w*$/.test(e.target.value)) {
+                        setUsernameError('Username can only contain letters, numbers, and underscores.');
+                      } else if (e.target.value.length > 20) {
+                        setUsernameError('Username must be 20 characters or less.');
+                      } else {
+                        setUsernameError('');
+                      }
+                    }}
+                    className={styles.formControl}
+                    required
+                    maxLength={20}
+                  />
+                  {usernameError && <div className="input-error">{usernameError}</div>}
+                </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="name">Full Name</label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                    className={styles.formControl}
+                    placeholder="Your full name"
+                    required
+                    maxLength={40}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="bio">Bio</label>
+                  <textarea
+                    id="bio"
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                    className={styles.formControl}
+                    rows="3"
+                    maxLength="160"
+                    placeholder="Tell people about yourself..."
+                  />
+                  <div className={styles.charCount}>{editForm.bio.length}/160</div>
+                </div>
+              </form>
+          </>
           ) : (
             <p className={styles.bio}>{userProfile?.bio || 'No bio yet'}</p>
           )}
-          <div className={styles.stats}>
-            <span 
-              className={`${styles.statItem} ${isPrivate && !isOwnProfile && !stats.isFollowing ? styles.disabled : ''}`} 
+          {!isEditing && (
+            <div className={styles.stats}>
+              <span 
+                className={`${styles.statItem} ${isPrivate && !isOwnProfile && !stats.isFollowing ? styles.disabled : ''}`} 
               onClick={handleOpenFollowersModal}
             >
               <span className={styles.statCount}>{stats.followers}</span> followers
@@ -395,8 +412,9 @@ export default function UserPage() {
               onClick={handleOpenFollowingModal}
             >
               <span className={styles.statCount}>{stats.following}</span> following
-            </span>
-          </div>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

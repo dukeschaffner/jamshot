@@ -184,7 +184,6 @@
     transition: color 0.3s ease;
   }
   
-  
   .profileActions {
     display: flex;
     gap: 0.75rem;
@@ -372,6 +371,113 @@
   }
   
   @media (max-width: 768px) {
+    .userProfilePage {
+      padding: 1rem 0.75rem;
+    }
+
+    .profileHeader {
+      flex-direction: column;
+      gap: 1.5rem;
+      padding: 1.25rem;
+      text-align: center;
+    }
+
+    .profileImageContainer {
+      width: 120px;
+      height: 120px;
+      align-self: center;
+      border: 3px solid var(--white);
+    }
+
+    body.dark-mode .profileImageContainer {
+      border: 3px solid var(--dark-card-bg);
+    }
+
+    .profileInfo {
+      align-items: center;
+      text-align: center;
+    }
+
+    .profileHeaderTop {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      width: 100%;
+    }
+
+    .profileUsername {
+      font-size: 1.25rem;
+      margin-bottom: 0.25rem;
+      justify-content: center;
+    }
+
+    .bio {
+      max-width: 100%;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    .stats {
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .statItem {
+      font-size: 1rem;
+      padding: 0.5rem 0.75rem;
+      min-width: 80px;
+      justify-content: center;
+    }
+
+    .profileActions,
+    .editActions {
+      flex-direction: row;
+      gap: 0.5rem;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .profileActions button,
+    .editActions button {
+      flex: 1;
+      min-width: 0;
+      max-width: 140px;
+      font-size: 0.9rem;
+      padding: 10px 16px;
+      /* Ensure good touch targets */
+      min-height: 44px;
+    }
+
+    .editActions button {
+      max-width: 100px;
+    }
+
+    /* Follow button specific mobile styling */
+    .profileHeader .follow-btn {
+      min-width: 120px;
+      max-width: 140px;
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      /* Ensure good touch target */
+      min-height: 44px;
+    }
+
+    .editProfileForm {
+      text-align: left;
+      margin-top: 1rem;
+    }
+
+    .editProfileForm .formControl {
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    .imageOverlay span {
+      font-size: 0.8rem;
+    }
+
     .userNotFound {
       padding: 3rem 1rem;
     }
@@ -382,6 +488,56 @@
     
     .userNotFound p {
       font-size: 1rem;
+    }
+  }
+  
+  /* Additional mobile-specific improvements */
+  @media (max-width: 480px) {
+    .userProfilePage {
+      padding: 0.75rem 0.5rem;
+    }
+
+    .profileHeader {
+      padding: 1rem;
+      gap: 1rem;
+    }
+
+    .profileImageContainer {
+      width: 100px;
+      height: 100px;
+    }
+
+    .profileUsername {
+      font-size: 1.1rem;
+    }
+
+    .bio {
+      font-size: 0.95rem;
+    }
+
+    .stats {
+      gap: 0.75rem;
+    }
+
+    .statItem {
+      font-size: 0.9rem;
+      padding: 0.4rem 0.6rem;
+      min-width: 70px;
+    }
+
+    .profileActions button,
+    .editActions button {
+      font-size: 0.85rem;
+      padding: 8px 12px;
+      min-height: 40px;
+    }
+
+    /* Follow button for very small screens */
+    .profileHeader .follow-btn {
+      min-width: 100px;
+      max-width: 120px;
+      padding: 10px 16px;
+      font-size: 0.9rem;
     }
   }
   

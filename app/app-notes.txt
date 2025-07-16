@@ -159,8 +159,8 @@ PostgreSQL db structure:
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  username VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(40) NOT NULL,
+  username VARCHAR(20) UNIQUE NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL, -- Hashed with bcrypt
   profile_pic_url VARCHAR(255), -- S3 URL for profile pic

@@ -477,9 +477,19 @@ router.put('/me', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Full name is required' });
     }
     
+    // Name length validation: max 40 characters
+    if (name.length > 40) {
+      return res.status(400).json({ error: 'Name must be 40 characters or less.' });
+    }
+    
     // Username validation: only allow letters, numbers, and underscores
     if (username && !/^\w+$/.test(username)) {
       return res.status(400).json({ error: 'Username can only contain letters, numbers, and underscores.' });
+    }
+
+    // Username length validation: max 20 characters
+    if (username && username.length > 20) {
+      return res.status(400).json({ error: 'Username must be 20 characters or less.' });
     }
 
     //username to lowercase
