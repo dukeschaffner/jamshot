@@ -6,7 +6,7 @@ const {
   SUBSCRIPTION_PLANS_BASE,
   createSubscriptionPlans,
   isValidTier
-} = require('../../../shared/subscriptionConfig');
+} = require('./subscriptionConfig');
 
 // API-specific extensions (Stripe price IDs)
 const API_PLAN_EXTENSIONS = {
