@@ -1,0 +1,40 @@
+{
+  "name": "@jamshot/subscription-config",
+  "version": "1.0.0",
+  "description": "Shared subscription configuration and utilities for Jamshot API and UI",
+  "main": "./dist/index.js",
+  "module": "./dist/index.esm.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.esm.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+    "build:cjs": "node scripts/build-cjs.js",
+    "build:esm": "node scripts/build-esm.js", 
+    "build:types": "node scripts/build-types.js",
+    "test": "node test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "subscription",
+    "plans",
+    "pricing",
+    "jamshot"
+  ],
+  "author": "Jamshot Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jamshot/jamshot.git",
+    "directory": "packages/subscription-config"
+  }
+} 

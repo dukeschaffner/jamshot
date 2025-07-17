@@ -1,15 +1,12 @@
-// Shared Subscription Configuration
-// Single source of truth for subscription plans used by both UI and API
-
 // Subscription Tier Constants
-const SUBSCRIPTION_TIERS = {
+export const SUBSCRIPTION_TIERS = {
   FREE: 'free',
   BASIC: 'basic', 
   PREMIUM: 'premium'
 };
 
 // Base Subscription Plan Definitions (without environment-specific data)
-const SUBSCRIPTION_PLANS_BASE = {
+export const SUBSCRIPTION_PLANS_BASE = {
   [SUBSCRIPTION_TIERS.FREE]: {
     id: 'free',
     name: 'Free',
@@ -34,7 +31,6 @@ const SUBSCRIPTION_PLANS_BASE = {
     highlights: [
       '1 upload per day',
       '25 total uploads',
-    //   '5 minute recording limit',
       'Community features'
     ]
   },
@@ -63,9 +59,7 @@ const SUBSCRIPTION_PLANS_BASE = {
     highlights: [
       '5 uploads per day',
       '60 total uploads',
-      'Private tracks',
-    //   'Analytics dashboard',
-    //   'No ads'
+      'Private tracks'
     ]
   },
   
@@ -93,18 +87,13 @@ const SUBSCRIPTION_PLANS_BASE = {
     highlights: [
       '25 uploads per day',
       'Unlimited total uploads',
-    //   '10 minute recording limit',
-      'Private tracks',
-    //   'Advanced DAW',
-    //   '5 free samples per month',
-    //   'Analytics dashboard',
-    //   'No ads'
+      'Private tracks'
     ]
   }
 };
 
 // Helper function to extend plans with environment-specific data
-const createSubscriptionPlans = (extensions = {}) => {
+export const createSubscriptionPlans = (extensions = {}) => {
   const plans = {};
   
   for (const [tier, basePlan] of Object.entries(SUBSCRIPTION_PLANS_BASE)) {
@@ -118,12 +107,12 @@ const createSubscriptionPlans = (extensions = {}) => {
 };
 
 // Core utility functions that work with any plan structure
-const isValidTier = (tier) => {
+export const isValidTier = (tier) => {
   return Object.values(SUBSCRIPTION_TIERS).includes(tier);
 };
 
 // Compare tiers - returns negative if tier1 < tier2, positive if tier1 > tier2, 0 if equal
-const compareTiers = (tier1, tier2) => {
+export const compareTiers = (tier1, tier2) => {
   const tierOrder = [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.BASIC, SUBSCRIPTION_TIERS.PREMIUM];
   const index1 = tierOrder.indexOf(tier1);
   const index2 = tierOrder.indexOf(tier2);
@@ -136,7 +125,7 @@ const compareTiers = (tier1, tier2) => {
 };
 
 // Get tier rank (0 = lowest, higher number = higher tier)
-const getTierRank = (tier) => {
+export const getTierRank = (tier) => {
   const tierOrder = [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.BASIC, SUBSCRIPTION_TIERS.PREMIUM];
   const rank = tierOrder.indexOf(tier);
   if (rank === -1) {
@@ -146,45 +135,44 @@ const getTierRank = (tier) => {
 };
 
 // Check if tier1 is an upgrade from tier2
-const isUpgrade = (fromTier, toTier) => {
+export const isUpgrade = (fromTier, toTier) => {
   return compareTiers(toTier, fromTier) > 0;
 };
 
 // Check if tier1 is a downgrade from tier2
-const isDowngrade = (fromTier, toTier) => {
+export const isDowngrade = (fromTier, toTier) => {
   return compareTiers(toTier, fromTier) < 0;
 };
 
-// For Node.js environments
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    SUBSCRIPTION_TIERS,
-    SUBSCRIPTION_PLANS_BASE,
-    createSubscriptionPlans,
-    isValidTier,
-    compareTiers,
-    getTierRank,
-    isUpgrade,
-    isDowngrade
-  };
-}
+// Get ordered list of tiers
+export const getTierOrder = () => {
+  return [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.BASIC, SUBSCRIPTION_TIERS.PREMIUM];
+};
 
-// For ES modules/browser environments
-if (typeof window !== 'undefined' || typeof self !== 'undefined') {
-  window.SubscriptionConfig = {
-    SUBSCRIPTION_TIERS,
-    SUBSCRIPTION_PLANS_BASE,
-    createSubscriptionPlans,
-    isValidTier,
-    compareTiers,
-    getTierRank,
-    isUpgrade,
-    isDowngrade
-  };
-}
+// Utility function to get plan by tier
+export const getPlanByTier = (tier, plans = SUBSCRIPTION_PLANS_BASE) => {
+  return plans[tier] || null;
+};
 
-// For ES modules
-export {
+// Utility function to validate subscription limits
+export const validateSubscriptionLimits = (tier, action, count) => {
+  const plan = getPlanByTier(tier);
+  if (!plan) return false;
+  
+  switch (action) {
+    case 'daily_uploads':
+      return count < plan.limits.daily_uploads;
+    case 'total_uploads':
+      return plan.limits.max_total_uploads === -1 || count < plan.limits.max_total_uploads;
+    case 'recording_duration':
+      return count <= plan.limits.max_recording_duration;
+    default:
+      return false;
+  }
+};
+
+// Default export for convenience
+export default {
   SUBSCRIPTION_TIERS,
   SUBSCRIPTION_PLANS_BASE,
   createSubscriptionPlans,
@@ -192,5 +180,8 @@ export {
   compareTiers,
   getTierRank,
   isUpgrade,
-  isDowngrade
+  isDowngrade,
+  getTierOrder,
+  getPlanByTier,
+  validateSubscriptionLimits
 }; 

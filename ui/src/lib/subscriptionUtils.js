@@ -10,7 +10,7 @@ import {
   getTierRank,
   isUpgrade,
   isDowngrade
-} from '../../../shared/subscriptionConfig.js';
+} from '@jamshot/subscription-config';
 
 // UI doesn't need additional extensions, so we use the base plans directly
 export const SUBSCRIPTION_PLANS = createSubscriptionPlans();
