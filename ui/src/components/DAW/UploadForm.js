@@ -27,6 +27,8 @@ export default function UploadForm({
 }) {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
+  const [upgradeLink, setUpgradeLink] = useState('');
+  const [limitType, setLimitType] = useState(''); // Track which limit was hit
   const [isUploading, setIsUploading] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
@@ -36,6 +38,36 @@ export default function UploadForm({
   const [allowDownload, setAllowDownload] = useState(true);
   const router = useRouter();
 
+  // Generate appropriate upgrade message based on limit type
+  const getUpgradeMessage = () => {
+    switch (limitType) {
+      case 'daily':
+        return {
+          title: "Reached your daily upload limit?",
+          description: "Upgrade your subscription to upload more tracks per day and keep your creative momentum going.",
+          buttonText: "Upgrade for More Daily Uploads"
+        };
+      case 'total':
+        return {
+          title: "Need more storage for your tracks?",
+          description: "Upgrade your subscription to increase your total track limit and keep building your music library.",
+          buttonText: "Upgrade for More Storage"
+        };
+      case 'private':
+        return {
+          title: "Want to keep your tracks private?",
+          description: "Upgrade your subscription to unlock private tracks and control who can listen to your music.",
+          buttonText: "Upgrade for Private Tracks"
+        };
+      default:
+        return {
+          title: "Want to upload more tracks?",
+          description: "Upgrade your subscription to get higher upload limits and unlock more features.",
+          buttonText: "View Subscription Plans"
+        };
+    }
+  };
+
   // Sync with parent component when props change
   useEffect(() => {
     setMetronomeBpmInput(metronomeBpm.toString());
@@ -44,6 +76,15 @@ export default function UploadForm({
   useEffect(() => {
     setTimeSignatureInput(timeSignature);
   }, [timeSignature]);
+
+  // Clear error and upgrade link when user starts typing
+  useEffect(() => {
+    if (error || upgradeLink) {
+      setError('');
+      setUpgradeLink('');
+      setLimitType('');
+    }
+  }, [title]);
 
   // Time signature options
   const timeSignatureOptions = [
@@ -166,7 +207,28 @@ export default function UploadForm({
       }, 100); // Small timeout to ensure state updates complete before redirect
     } catch (err) {
       console.error('Upload error:', err);
-      setError(err.response?.data?.error || 'Upload failed: ' + (err.message || 'Unknown error'));
+      
+      // Check if the error response contains an upgrade link
+      const errorData = err.response?.data;
+      if (errorData?.upgrade_link) {
+        setUpgradeLink(errorData.upgrade_link);
+        
+        // Determine the type of limit based on the error message
+        if (errorData.error?.includes('Daily upload limit reached')) {
+          setLimitType('daily');
+        } else if (errorData.error?.includes('Total track limit reached')) {
+          setLimitType('total');
+        } else if (errorData.error?.includes('Private tracks are not allowed')) {
+          setLimitType('private');
+        } else {
+          setLimitType('general');
+        }
+      } else {
+        setUpgradeLink('');
+        setLimitType('');
+      }
+      
+      setError(errorData?.error || 'Upload failed: ' + (err.message || 'Unknown error'));
     } finally {
       setIsUploading(false);
     }
@@ -351,7 +413,28 @@ export default function UploadForm({
         </div>
       
         
-        {error && <p className="text-red-500">{error}</p>}
+        {error && (
+          <div className="text-red-500">
+            <p>{error}</p>
+            {upgradeLink && (
+              <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-800 font-medium mb-2">
+                  {getUpgradeMessage().title}
+                </p>
+                <p className="text-blue-700 text-sm mb-3">
+                  {getUpgradeMessage().description}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.open(upgradeLink, '_blank')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200"
+                >
+                  {getUpgradeMessage().buttonText}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="flex space-x-4">
           {onCancel && (

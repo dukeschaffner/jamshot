@@ -12,6 +12,7 @@ TODO (MVP)
 - @mentions
 - premium model
 - delete account
+- display uploads left in nav?
 
 
 BUGS

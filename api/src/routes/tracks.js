@@ -28,6 +28,7 @@ const {
   getForYouFeedQuery,
   findAllDescendantTracks
 } = require('../utils/trackUtils');
+const { getUserPlan } = require('../utils/subscriptionUtils');
 require('dotenv').config;
 
 // Configure FFMPEG path based on platform
@@ -147,10 +148,23 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
   console.log('- Private:', is_private ? 'Yes' : 'No');
   console.log('- Allow download:', allow_download !== 'false' ? 'Yes' : 'No');
 
+  let subscription = null;
   // Check if user has reached their daily upload limit (3 uploads per day)
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of the day
+
+    const userResult = await pool.query(
+      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+    subscription = getUserPlan(user);
     
     const uploadCountResult = await pool.query(
       'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2',
@@ -159,11 +173,12 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     
     const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
     
-    if (dailyUploadCount >= 3) {
+    if (subscription.limits.daily_uploads !== -1 && dailyUploadCount >= subscription.limits.daily_uploads) {
       return res.status(429).json({ 
         error: 'Daily upload limit reached',
-        message: 'You can only upload 3 tracks per day',
-        daily_count: dailyUploadCount
+        message: `You can only upload ${subscription.limits.daily_uploads} tracks per day. Upgrade your plan to increase your upload limit.`,
+        daily_count: dailyUploadCount,
+        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
       });
     }
   } catch (err) {
@@ -180,11 +195,12 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     
     const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
     
-    if (totalTrackCount >= 50) {
+    if (subscription.limits.max_total_uploads !== -1 && totalTrackCount >= subscription.limits.max_total_uploads) {
       return res.status(429).json({ 
         error: 'Total track limit reached',
-        message: 'You can only have 50 tracks maximum',
-        total_count: totalTrackCount
+        message: `You can only have ${subscription.limits.max_total_uploads} tracks maximum. Upgrade your plan to increase your track limit.`,
+        total_count: totalTrackCount,
+        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
       });
     }
   } catch (err) {
@@ -316,6 +332,13 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(err => console.error('Cleanup error:', err))));
       await fsPromises.unlink(combinedPath).catch(err => console.error('Cleanup error:', err));
     } else {
+      // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, return an error
+      if (isPrivate && !subscription.features.private_tracks) {
+        return res.status(400).json({ 
+          error: 'Private tracks are not allowed for your subscription tier. Upgrade your plan to enable private tracks.',
+          upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
+        });
+      }
       combinedAudioUrl = audioUrl;
     }
 
