@@ -19,8 +19,8 @@ const SUBSCRIPTION_PLANS_BASE = {
     features: {
       uploads_per_day: 1,
       total_uploads: 25,
-      recording_limit_minutes: 5,
       private_tracks: false,
+      recording_limit_minutes: 5,
       analytics: false,
       ads: true,
       free_samples_per_month: 0,
@@ -34,7 +34,7 @@ const SUBSCRIPTION_PLANS_BASE = {
     highlights: [
       '1 upload per day',
       '25 total uploads',
-      '5 minute recording limit',
+    //   '5 minute recording limit',
       'Community features'
     ]
   },
@@ -64,8 +64,8 @@ const SUBSCRIPTION_PLANS_BASE = {
       '5 uploads per day',
       '60 total uploads',
       'Private tracks',
-      'Analytics dashboard',
-      'No ads'
+    //   'Analytics dashboard',
+    //   'No ads'
     ]
   },
   
@@ -93,12 +93,12 @@ const SUBSCRIPTION_PLANS_BASE = {
     highlights: [
       '25 uploads per day',
       'Unlimited total uploads',
-      '10 minute recording limit',
+    //   '10 minute recording limit',
       'Private tracks',
-      'Advanced DAW',
-      '5 free samples per month',
-      'Analytics dashboard',
-      'No ads'
+    //   'Advanced DAW',
+    //   '5 free samples per month',
+    //   'Analytics dashboard',
+    //   'No ads'
     ]
   }
 };
