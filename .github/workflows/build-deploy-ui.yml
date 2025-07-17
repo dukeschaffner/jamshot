@@ -1,11 +1,6 @@
-name: Deploy API to Azure
+name: Deploy UI to Azure
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'api/**'
   workflow_dispatch:
     inputs:
       reason:
@@ -18,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./api/
+        working-directory: ./ui/
     
     steps:
     - name: Checkout code
@@ -29,23 +24,18 @@ jobs:
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './api/package-lock.json'
+        cache-dependency-path: './ui/package-lock.json'
         
-    - name: Install dependencies
+    - name: npm install, build, and test
       run: |
-        npm ci
-        
-    - name: Build
-      run: |
-        npm run build --if-present
-        
-    - name: Make FFMPEG binary executable
-      run: |
-        chmod +x ./bin/ffmpeg
+        npm install
+        npm run build
+        mv ./build/static ./build/standalone/build
+        mv ./public ./build/standalone
         
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
-        app-name: 'jamshot-api'
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
-        package: './api'
+        app-name: 'jamshot'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: './ui/build/standalone'

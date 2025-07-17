@@ -166,9 +166,6 @@ CREATE TABLE users (
   stripe_subscription_id VARCHAR(255)
 );
 
-CREATE INDEX idx_users_subscription_tier ON users(subscription_tier);
-CREATE INDEX idx_users_subscription_expires_at ON users(subscription_expires_at); 
-
 CREATE TABLE tracks (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE, -- Who uploaded it

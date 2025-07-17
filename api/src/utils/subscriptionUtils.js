@@ -6,7 +6,7 @@ const {
   SUBSCRIPTION_PLANS_BASE,
   createSubscriptionPlans,
   isValidTier
-} = require('@jamshot/subscription-config');
+} = require('../../../shared/subscriptionConfig');
 
 // API-specific extensions (Stripe price IDs)
 const API_PLAN_EXTENSIONS = {
