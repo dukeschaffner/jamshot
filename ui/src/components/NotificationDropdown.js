@@ -14,7 +14,6 @@ export default function NotificationDropdown() {
     loading, 
     error, 
     pagination,
-    fetchNotifications, 
     loadMoreNotifications,
     markAsRead, 
     markAllAsRead, 
@@ -44,9 +43,6 @@ export default function NotificationDropdown() {
       <button
         onClick={() => {
           setIsOpen(!isOpen);
-          if (!isOpen) {
-            fetchNotifications();
-          }
         }}
         className="notification-button"
         title="Notifications"

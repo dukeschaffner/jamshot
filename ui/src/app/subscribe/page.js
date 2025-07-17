@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@/lib/subscriptionUtils';
 import api from '@/lib/api';
@@ -12,7 +12,7 @@ import styles from './Subscribe.module.css';
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
-export default function Subscribe() {
+function SubscribeContent() {
   const { user, userPlan, refreshUser } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -216,7 +216,7 @@ export default function Subscribe() {
       <div className={styles.header}>
         <h1 className={styles.title}>Choose Your Plan</h1>
         <p className={styles.subtitle}>
-          Unlock more features and support the development of Jamshot
+          Unlock more features and support the development of Sterio
         </p>
       </div>
 
@@ -328,5 +328,13 @@ export default function Subscribe() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Subscribe() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SubscribeContent />
+    </Suspense>
   );
 } 
