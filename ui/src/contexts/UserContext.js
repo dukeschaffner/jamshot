@@ -19,7 +19,7 @@ export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [userPlan, setUserPlan] = useState({});
+  const [userPlan, setUserPlan] = useState(getUserPlan(null)); // Initialize with free plan
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -33,7 +33,7 @@ export const UserProvider = ({ children }) => {
       const token = Cookies.get('accessToken');
       if (!token) {
         setUser(null);
-        setUserPlan(null);
+        setUserPlan(getUserPlan(null)); // Set to free plan instead of null
         setIsLoading(false);
         return;
       }
@@ -44,7 +44,7 @@ export const UserProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       setUser(null);
-      setUserPlan(null);
+      setUserPlan(getUserPlan(null)); // Set to free plan instead of null
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +100,7 @@ export const UserProvider = ({ children }) => {
       Cookies.remove('accessToken');
       Cookies.remove('refreshToken');
       setUser(null);
-      setUserPlan(null);
+      setUserPlan(getUserPlan(null)); // Set to free plan instead of null
       router.push('/login');
     }
   };
