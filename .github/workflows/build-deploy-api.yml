@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'api/**'
+      - 'packages/subscription-config/**'  # Trigger on package changes too
   workflow_dispatch:
     inputs:
       reason:
@@ -16,9 +17,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./api/
     
     steps:
     - name: Checkout code
@@ -31,15 +29,23 @@ jobs:
         cache: 'npm'
         cache-dependency-path: './api/package-lock.json'
         
-    - name: Install dependencies
+    - name: Build subscription-config package
+      working-directory: ./packages/subscription-config
+      run: |
+        npm run build
+        
+    - name: Install API dependencies
+      working-directory: ./api
       run: |
         npm ci
         
-    - name: Build
+    - name: Build API
+      working-directory: ./api
       run: |
         npm run build --if-present
         
     - name: Make FFMPEG binary executable
+      working-directory: ./api
       run: |
         chmod +x ./bin/ffmpeg
         
@@ -49,3 +55,5 @@ jobs:
         app-name: 'jamshot-api'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
         package: './api'
+        # Note: Azure deployment now includes the packages/ directory
+        # because npm ci copies the local dependency into node_modules
