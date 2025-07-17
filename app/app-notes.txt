@@ -1,11 +1,8 @@
 
 TODO (MVP)
 - Mixing files on collab
-
 - scalability report action items
-
 - security/app standards report
-
 - how to page with tutorials
 - weird trimming behavior (COULDN"T REPRO)
 - country/state/DOB
@@ -14,7 +11,7 @@ TODO (MVP)
 - handle notification spamming
 - @mentions
 - premium model
-
+- delete account
 
 
 BUGS
@@ -64,16 +61,31 @@ MONETIZATION
 - pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
 - sponsored competitions from audio companies (best Sketch Cassette track)
 
-PREMIUM
-- no ads
-- 5 free samples/month
-- analytics
-- advanced DAW
-- private tracks?
-- selling samples?
-- unlimited uploads/daily
+FREE
+- 1 Upload/day
+- 25 total uploads
+- ads (post MVP)
+
+BASIC - 4.99/month
+- 5 Uploads/day
+- 60 total uploads
+- private tracks
+- analytics (post MVP)
+- no ads (post MVP)
+
+PREMIUM - 19.99/month
+- 25 uploads/day
 - unlimited total uploads
+- private tracks
+- no ads (post MVP)
+- 5 free samples/month (post MVP)
+- analytics (post MVP)
+- advanced DAW (post MVP)
+
+eventually:
+- selling samples
 - longer recording limit (5 minutes for free, 10 minutes for premium)
+
 
 
 LEGAL
@@ -101,34 +113,6 @@ Features
   - tracks will have genre and instrument tags to help accommodate this
 - strong interaction between artists/fans or smaller artists, as well as friend groups who want to quickly and easily share ideas. success likely determined by how many medium to large artist adopt and use the platform.
 
-
-Layout
-- Navbar with links to home, user account, upload, and a search bar. 
-- global player with track navigation buttons (previous, play/pause, next, shuffle, loop), track title/artist username, song progress indicator
-
-
-Pages
-- Home
-  - Contains the user's feed, generated from an algorithm
-  - the tracks are shown as an expandable card containing a play button, the user's profile picture, user name, the track title, play count, like count, and a "collaborate" button
-  - When the track is expanded, it shows a list of tracks containing the track that the current track is based on "original" or "based on" and all the tracks based on the current track. There will be fewer details shown on these items. play button, track title - username, like count, play count
-
-- standard login/register pages (email, password, username)
-
-- upload
-  - allows user to upload file, name track, and upload the track
-
--user
-  - shows user name, follower/following count, follow button, liked tracks, and all uploaded tracks (the same expandable view as the tracks in the home page)
-
-- track/[trackId]
-  - has a simple DAW that allows the user to turn on metronome/looper and drag the track and the looper range so it's all aligned. This will allow users to quickly and easily brainstorm/get inspired from a track.
-  - user can either record from an audio input, recording several takes and selcting the best one, or upload audio file to attach collaboration
-  - edit track
-    - deleting a track is a soft delete if the track has collabs
-- explore/[trackId]
-  - allows users to explore entire track tree, showing the track, all of its ancestors up to the original, and all of its immediate children
-  - user can select any ancestor or child track to show the track tree for that track
 
 
 
@@ -174,7 +158,11 @@ CREATE TABLE users (
   privacy_policy_accepted BOOLEAN NOT NULL DEFAULT FALSE,
   policy_accepted_at TIMESTAMP,
   policy_accepted_ip VARCHAR(45),
-  policy_version VARCHAR(10) DEFAULT '1.0'
+  policy_version VARCHAR(10) DEFAULT '1.0',
+  subscription_tier VARCHAR(20) NOT NULL DEFAULT 'free',
+  subscription_expires_at TIMESTAMP,
+  stripe_customer_id VARCHAR(255),
+  stripe_subscription_id VARCHAR(255)
 );
 
 CREATE TABLE tracks (
