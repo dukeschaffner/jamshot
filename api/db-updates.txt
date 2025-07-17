@@ -2,4 +2,14 @@
 ALTER TABLE users ALTER COLUMN username TYPE VARCHAR(20);
 
 -- Update name field length from 100 to 40 characters  
-ALTER TABLE users ALTER COLUMN name TYPE VARCHAR(40); 
+ALTER TABLE users ALTER COLUMN name TYPE VARCHAR(40);
+
+-- Add subscription tier support to users table
+ALTER TABLE users ADD COLUMN subscription_tier VARCHAR(20) NOT NULL DEFAULT 'free';
+ALTER TABLE users ADD COLUMN subscription_expires_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255);
+ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255);
+
+-- Create index for subscription queries
+CREATE INDEX idx_users_subscription_tier ON users(subscription_tier);
+CREATE INDEX idx_users_subscription_expires_at ON users(subscription_expires_at); 

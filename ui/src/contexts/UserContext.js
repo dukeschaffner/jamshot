@@ -2,6 +2,7 @@ import { createContext, useState, useContext, useEffect } from 'react';
 import Cookies from 'js-cookie';
 import api, { setUserStateRefreshCallback } from '../lib/api';
 import { useRouter } from 'next/navigation';
+import { getUserPlan } from '../lib/subscriptionUtils';
 
 // Create the context with default values
 const UserContext = createContext({
@@ -18,6 +19,7 @@ export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userPlan, setUserPlan] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -31,15 +33,18 @@ export const UserProvider = ({ children }) => {
       const token = Cookies.get('accessToken');
       if (!token) {
         setUser(null);
+        setUserPlan(null);
         setIsLoading(false);
         return;
       }
 
       const response = await api.get('/users/me');
       setUser(response.data);
+      setUserPlan(getUserPlan(response.data));
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       setUser(null);
+      setUserPlan(null);
     } finally {
       setIsLoading(false);
     }
@@ -95,6 +100,7 @@ export const UserProvider = ({ children }) => {
       Cookies.remove('accessToken');
       Cookies.remove('refreshToken');
       setUser(null);
+      setUserPlan(null);
       router.push('/login');
     }
   };
@@ -124,6 +130,7 @@ export const UserProvider = ({ children }) => {
     user,
     isLoading,
     isAuthenticated,
+    userPlan,
     login,
     logout,
     refreshUser
