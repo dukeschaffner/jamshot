@@ -1,21 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <defs>
-    <linearGradient id="bodyGradient" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#E9A9A1"/>
-      <stop offset="100%" stop-color="#93E9BE"/>
-    </linearGradient>
-  </defs>
-  <!-- Main stereo body -->
-  <rect x="4" y="12" width="24" height="16" rx="2" ry="2" fill="url(#bodyGradient)"/>
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- left facing soundwave -->
+  <g id="left-soundwave" transform="translate(15, -5)">
+    <circle cx="100" cy="75" r="8" fill="#93E9BE"/>
+    <path d="M 85 60 A 21 21 0 0 0 85 90" stroke="#93E9BE" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M 70 45 A 42 42 0 0 0 70 105" stroke="#93E9BE" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M 55 30 A 63 63 0 0 0 55 120" stroke="#93E9BE" stroke-width="12" fill="none" stroke-linecap="round"/>
+  </g>
   
-  <!-- Handle -->
-  <rect x="10" y="9" width="12" height="3" rx="1.5" ry="1.5" fill="url(#bodyGradient)"/>
-  
-  <!-- Left speaker -->
-  <circle cx="11" cy="20" r="4" fill="#fff"/>
-  <circle cx="11" cy="20" r="2.5" fill="#fff"/>
-  
-  <!-- Right speaker -->
-  <circle cx="21" cy="20" r="4" fill="#fff"/>
-  <circle cx="21" cy="20" r="2.5" fill="#fff"/>
+  <!-- right facing soundwave -->
+  <g id="right-soundwave" transform="translate(-15, 5)">
+    <circle cx="100" cy="125" r="8" fill="#E9A9A1"/>
+    <path d="M 115 110 A 21 21 0 0 1 115 140" stroke="#E9A9A1" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M 130 95 A 42 42 0 0 1 130 155" stroke="#E9A9A1" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M 145 80 A 63 63 0 0 1 145 170" stroke="#E9A9A1" stroke-width="12" fill="none" stroke-linecap="round"/>
+  </g>
+
 </svg>
