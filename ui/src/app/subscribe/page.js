@@ -67,13 +67,10 @@ function SubscribeContent() {
     setLoading({ ...loading, [planTier]: true });
     setMessage(null);
 
-    try {
-      // Determine if user has existing subscription
-      const hasExistingSubscription = user.stripe_subscription_id && subscriptionStatus?.is_active && !subscriptionStatus?.cancel_at_period_end;
-      
+    try {      
       let response;
-      if (hasExistingSubscription || planTier === SUBSCRIPTION_TIERS.FREE) {
-        // Use modify endpoint for tier changes or downgrades to free
+      if (subscriptionStatus?.tier != SUBSCRIPTION_TIERS.FREE) {
+        // Use modify endpoint for tier changes, reactivation, or downgrades to free
         response = await api.post('/payments/modify-subscription', { tier: planTier });
       } else {
         // Use create endpoint for new subscriptions
@@ -174,6 +171,10 @@ function SubscribeContent() {
       if (currentTier === SUBSCRIPTION_TIERS.FREE) {
         return 'Free Forever';
       }
+      // Show appropriate message when subscription is already canceled
+      if (subscriptionStatus?.cancel_at_period_end) {
+        return 'Already Canceled';
+      }
       return 'Downgrade to Free';
     }
     
@@ -202,9 +203,9 @@ function SubscribeContent() {
       return true;
     }
     
-    // Free tier button is never disabled for authenticated users
-    if (plan.id === SUBSCRIPTION_TIERS.FREE) {
-      return false;
+    // Free tier button is disabled if user has already canceled their subscription
+    if (plan.id === SUBSCRIPTION_TIERS.FREE && subscriptionStatus?.cancel_at_period_end) {
+      return true;
     }
     
     // All other cases allow interaction
