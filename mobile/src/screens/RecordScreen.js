@@ -5,6 +5,8 @@ import RecordingInterface from '../components/RecordingInterface';
 import { theme } from '../styles/theme';
 
 const RecordScreen = () => {
+  // TODO: This is a temporary solution to get the parent track id
+  // DONT MAKE ANY EDITS TO THIS FILE
   const params = useLocalSearchParams();
   const router = useRouter();
   const parentTrack = params.parentTrack ? JSON.parse(params.parentTrack) : null;

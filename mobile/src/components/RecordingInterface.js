@@ -3,13 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudio } from '../contexts/AudioContext';
 
+import { theme } from '../styles/theme';
+
 // Temporary constants until shared package is resolved
 const AUDIO_CONSTANTS = {
   MAX_RECORDING_DURATION: 90,
   DEFAULT_BPM: 120,
 };
-
-import { theme } from '../styles/theme';
 
 const RecordingInterface = ({ parentTrack = null, onRecordingComplete }) => {
   const [isRecording, setIsRecording] = useState(false);

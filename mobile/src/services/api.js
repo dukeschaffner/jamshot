@@ -1,35 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Temporary API client until shared package is resolved
-const createApiClient = (config) => {
-  // Simple axios instance for now
-  const axios = require('axios');
-  return axios.create({
-    baseURL: config.baseURL,
-    headers: { 'Content-Type': 'application/json' },
-  });
-};
-
-const createApiMethods = (api) => {
-  return {
-    trackApi: {
-      getFeed: (type, page) => api.get(`/tracks/feed/${type}?page=${page}&limit=10`),
-      getTrack: (id, secret) => api.get(secret ? `/tracks/${id}?secret=${secret}` : `/tracks/${id}`),
-      likeTrack: (id) => api.post(`/tracks/${id}/like`),
-      unlikeTrack: (id) => api.delete(`/tracks/${id}/like`),
-    },
-    userApi: {
-      getCurrentUser: () => api.get('/users/me'),
-    },
-    authApi: {
-      login: (email, password) => api.post('/auth/login', { email, password }),
-      register: (userData) => api.post('/auth/register', userData),
-      logout: () => api.post('/auth/logout'),
-    },
-    searchApi: {},
-    notificationApi: {},
-  };
-};
+import { createApiClient, createApiMethods } from '../../shared/api';
 
 // Create mobile-specific API client
 const api = createApiClient({
