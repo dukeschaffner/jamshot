@@ -2,31 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useUser } from '../contexts/UserContext';
 import { useRouter } from 'expo-router';
-
-// Temporary validation functions until shared package is resolved
-const validateEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-const validatePassword = (password) => {
-  if (password.length < 8) {
-    return { valid: false, error: 'Password must be at least 8 characters long' };
-  }
-  if (!/[A-Z]/.test(password)) {
-    return { valid: false, error: 'Password must contain at least one uppercase letter' };
-  }
-  if (!/[a-z]/.test(password)) {
-    return { valid: false, error: 'Password must contain at least one lowercase letter' };
-  }
-  if (!/\d/.test(password)) {
-    return { valid: false, error: 'Password must contain at least one number' };
-  }
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-    return { valid: false, error: 'Password must contain at least one special character' };
-  }
-  return { valid: true };
-};
+import { validateEmail, validatePassword } from '../../shared/utils/validation';
 
 import Input from '../components/Input';
 import Button from '../components/Button';
@@ -44,8 +20,7 @@ const LoginScreen = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    const emailValidation = validateEmail(email);
-    if (!emailValidation) {
+    if (!validateEmail(email)) {
       newErrors.email = 'Please enter a valid email address';
     }
     
@@ -72,7 +47,7 @@ const LoginScreen = () => {
       if (!result.success) {
         Alert.alert('Login Failed', result.error);
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Login Error', 'An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -139,7 +114,7 @@ const LoginScreen = () => {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Text style={styles.linkText} onPress={handleRegister}>
               Sign up
             </Text>

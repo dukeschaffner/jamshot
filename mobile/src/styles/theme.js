@@ -1,45 +1,52 @@
 // Theme configuration matching web app styling
 export const theme = {
   colors: {
-    // Primary colors
-    primary: '#3B82F6',
-    primaryDark: '#2563EB',
-    primaryLight: '#60A5FA',
+    // Primary colors - matching web app
+    primary: '#93E9BE', // seafoam
+    primaryDark: '#65d6ad',
+    primaryLight: '#C1F4D9',
     
     // Secondary colors
-    secondary: '#6B7280',
-    secondaryDark: '#4B5563',
-    secondaryLight: '#9CA3AF',
+    secondary: '#86a699', // s1
+    secondaryDark: '#036745', // s2
+    secondaryLight: '#a1a1aa',
     
     // Background colors
     background: '#FFFFFF',
-    backgroundSecondary: '#F9FAFB',
-    backgroundTertiary: '#F3F4F6',
+    backgroundSecondary: '#f5f5f5', // grey-1
+    backgroundTertiary: '#e0e0e0', // grey-2
     
     // Text colors
-    textPrimary: '#111827',
-    textSecondary: '#6B7280',
+    textPrimary: '#171717', // text-primary
+    textSecondary: '#555555', // text-secondary
     textTertiary: '#9CA3AF',
     textInverse: '#FFFFFF',
     
     // Status colors
     success: '#10B981',
     warning: '#F59E0B',
-    error: '#EF4444',
+    error: '#E9A9A1', // rustic-pink
     info: '#3B82F6',
     
     // Border colors
-    border: '#E5E7EB',
-    borderLight: '#F3F4F6',
-    borderDark: '#D1D5DB',
+    border: '#e0e0e0', // grey-2
+    borderLight: '#f5f5f5', // grey-1
+    borderDark: '#555555', // grey-3
     
     // Shadow colors
-    shadow: 'rgba(0, 0, 0, 0.1)',
+    shadow: 'rgba(0, 0, 0, 0.05)',
     shadowDark: 'rgba(0, 0, 0, 0.2)',
     
     // Like/Heart colors
-    like: '#EF4444',
+    like: '#E9A9A1', // rustic-pink
     likeInactive: '#9CA3AF',
+    
+    // Additional web app colors
+    rusticPink: '#E9A9A1',
+    rusticPinkLight: '#F4C9C4',
+    seafoam: '#93E9BE',
+    seafoamLight: '#C1F4D9',
+    seafoamDark: '#65d6ad',
   },
   
   spacing: {

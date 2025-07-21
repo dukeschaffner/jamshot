@@ -1,8 +1,7 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs , Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../../src/contexts/UserContext';
-import { Redirect } from 'expo-router';
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useUser();

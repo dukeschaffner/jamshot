@@ -1,31 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-// Temporary formatting functions until shared package is resolved
-const formatDuration = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
-
-const formatPlayCount = (count) => {
-  if (count < 1000) return count.toString();
-  if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
-  return `${(count / 1000000).toFixed(1)}M`;
-};
-
-const formatTimeAgo = (date) => {
-  const now = new Date();
-  const diffInSeconds = Math.floor((now - new Date(date)) / 1000);
-  
-  if (diffInSeconds < 60) return 'just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  
-  return new Date(date).toLocaleDateString();
-};
+import { formatDuration, formatPlayCount, formatTimeAgo } from '../../shared/utils/formatting';
 
 import { theme } from '../styles/theme';
 
@@ -38,6 +14,7 @@ const TrackCard = ({
   isPlaying = false,
   currentTime = 0,
 }) => {
+
   const handleLike = () => {
     if (onLike) {
       onLike(track.id, !track.liked);
@@ -68,52 +45,67 @@ const TrackCard = ({
       <View style={styles.header}>
         <Image 
           source={{ 
-            uri: track.user?.profile_pic_url || 'https://via.placeholder.com/40' 
+            uri: track.profile_pic_url || track.user?.profile_pic_url || 'https://via.placeholder.com/40' 
           }} 
           style={styles.avatar}
+          defaultSource={{ uri: 'https://via.placeholder.com/40' }}
         />
         <View style={styles.userInfo}>
-          <Text style={styles.username}>{track.user?.username}</Text>
-          <Text style={styles.timeAgo}>{formatTimeAgo(track.created_at)}</Text>
+          <Text style={styles.username}>
+            {track.username || track.user?.username || 'Unknown User'}
+          </Text>
+          <Text style={styles.timeAgo}>
+            {track.created_at ? formatTimeAgo(track.created_at) : 'Recently'}
+          </Text>
         </View>
-        {track.user?.verified && (
+        {track.verified && (
           <Ionicons name="checkmark-circle" size={16} color={theme.colors.primary} />
         )}
       </View>
       
       {/* Track title */}
-      <Text style={styles.title}>{track.title}</Text>
+      <Text style={styles.title}>
+        {track.title || track.name || 'Untitled Track'}
+      </Text>
       
       {/* Audio player section */}
       <View style={styles.audioContainer}>
         <TouchableOpacity 
           style={[styles.playButton, isPlaying && styles.playButtonActive]} 
           onPress={handlePlay}
+          activeOpacity={0.8}
         >
           <Ionicons 
             name={isPlaying ? "pause" : "play"} 
-            size={24} 
+            size={28} 
             color={theme.colors.textInverse} 
+            style={{ marginLeft: isPlaying ? 0 : 2 }}
           />
         </TouchableOpacity>
         
         <View style={styles.waveformContainer}>
-          {/* Simple waveform visualization */}
+          {/* Enhanced waveform visualization */}
           <View style={styles.waveform}>
-            {Array.from({ length: 20 }).map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.waveformBar,
-                  {
-                    height: Math.random() * 30 + 10,
-                    backgroundColor: isPlaying && index < (currentTime / track.duration) * 20 
-                      ? theme.colors.primary 
-                      : theme.colors.border
-                  }
-                ]}
-              />
-            ))}
+            {Array.from({ length: 24 }).map((_, index) => {
+              const baseHeight = 8;
+              const maxHeight = 32;
+              const height = baseHeight + (Math.sin(index * 0.3) * 0.5 + 0.5) * (maxHeight - baseHeight);
+              const isActive = isPlaying && index < (currentTime / track.duration) * 24;
+              
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.waveformBar,
+                    {
+                      height: height,
+                      backgroundColor: isActive ? theme.colors.primary : theme.colors.border,
+                      opacity: isActive ? 1 : 0.6,
+                    }
+                  ]}
+                />
+              );
+            })}
           </View>
           <Text style={styles.duration}>{formatDuration(track.duration)}</Text>
         </View>
@@ -121,10 +113,14 @@ const TrackCard = ({
       
       {/* Action buttons */}
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={handleLike}
+          activeOpacity={0.7}
+        >
           <Ionicons 
             name={track.liked ? "heart" : "heart-outline"} 
-            size={20} 
+            size={22} 
             color={track.liked ? theme.colors.like : theme.colors.likeInactive} 
           />
           <Text style={[styles.actionText, track.liked && styles.actionTextActive]}>
@@ -132,13 +128,21 @@ const TrackCard = ({
           </Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.actionButton} onPress={handleExpand}>
-          <Ionicons name="chatbubble-outline" size={20} color={theme.colors.textSecondary} />
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={handleExpand}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chatbubble-outline" size={22} color={theme.colors.textSecondary} />
           <Text style={styles.actionText}>{track.comment_count || 0}</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.actionButton} onPress={handleCollaborate}>
-          <Ionicons name="add-circle-outline" size={20} color={theme.colors.textSecondary} />
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={handleCollaborate}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add-circle-outline" size={22} color={theme.colors.textSecondary} />
           <Text style={styles.actionText}>Collab</Text>
         </TouchableOpacity>
         
@@ -151,102 +155,129 @@ const TrackCard = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.background,
-    marginHorizontal: theme.spacing.md,
+    marginHorizontal: theme.spacing.lg,
     marginVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    ...theme.shadows.md,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.lg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     marginRight: theme.spacing.md,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
   },
   userInfo: {
     flex: 1,
   },
   username: {
     fontSize: theme.typography.fontSizes.md,
-    fontWeight: theme.typography.fontWeights.semibold,
+    fontWeight: theme.typography.fontWeights.bold,
     color: theme.colors.textPrimary,
+    marginBottom: 2,
   },
   timeAgo: {
     fontSize: theme.typography.fontSizes.sm,
     color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeights.medium,
   },
   title: {
-    fontSize: theme.typography.fontSizes.lg,
+    fontSize: theme.typography.fontSizes.xl,
     fontWeight: theme.typography.fontWeights.bold,
     color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    lineHeight: theme.typography.lineHeights.tight,
   },
   audioContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
   },
   playButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
+    ...theme.shadows.md,
+    elevation: 4,
   },
   playButtonActive: {
     backgroundColor: theme.colors.primaryDark,
+    transform: [{ scale: 1.05 }],
+    elevation: 6,
   },
   waveformContainer: {
     flex: 1,
-    height: 48,
-    backgroundColor: theme.colors.backgroundTertiary,
+    height: 56,
+    backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.md,
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   waveform: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: 30,
-    marginBottom: 4,
+    height: 32,
+    marginBottom: 6,
   },
   waveformBar: {
-    width: 2,
-    borderRadius: 1,
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: theme.colors.border,
   },
   duration: {
     fontSize: theme.typography.fontSizes.sm,
     color: theme.colors.textSecondary,
     textAlign: 'center',
+    fontWeight: theme.typography.fontWeights.medium,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
   },
   actionText: {
     fontSize: theme.typography.fontSizes.sm,
     color: theme.colors.textSecondary,
-    marginLeft: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
+    fontWeight: theme.typography.fontWeights.medium,
   },
   actionTextActive: {
     color: theme.colors.like,
+    fontWeight: theme.typography.fontWeights.semibold,
   },
   playCount: {
     fontSize: theme.typography.fontSizes.sm,
     color: theme.colors.textSecondary,
+    fontWeight: theme.typography.fontWeights.medium,
   },
 });
 
