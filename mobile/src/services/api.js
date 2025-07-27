@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createApiClient, createApiMethods } from '../../../shared/api';
 
 // Create mobile-specific API client
-const api = createApiClient({
+const apiClient = createApiClient({
   baseURL: process.env.EXPO_PUBLIC_API_URL || 'https://jamshot-api.azurewebsites.net',
   getToken: () => AsyncStorage.getItem('accessToken'),
   setToken: (token) => AsyncStorage.setItem('accessToken', token),
@@ -34,7 +34,9 @@ const {
   authApi,
   searchApi,
   notificationApi,
-} = createApiMethods(api);
+  setRefreshUserState,
+  getRefreshUserState,
+} = createApiMethods(apiClient);
 
 export {
   trackApi,
@@ -42,6 +44,9 @@ export {
   authApi,
   searchApi,
   notificationApi,
+  setRefreshUserState,
+  getRefreshUserState,
 };
 
-export default api; 
+// Export the axios instance as default for backward compatibility
+export default apiClient.api; 

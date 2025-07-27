@@ -1,8 +1,8 @@
 import Cookies from 'js-cookie';
-import { createApiClient, createApiMethods } from '@jamshot/shared';
+import { createApiClient, createApiMethods } from '../../shared/index.js';
 
 // Create web-specific API client
-const api = createApiClient({
+const apiClient = createApiClient({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   getToken: () => Cookies.get('accessToken'),
   setToken: (token) => Cookies.set('accessToken', token, { 
@@ -50,7 +50,9 @@ const {
   authApi,
   searchApi,
   notificationApi,
-} = createApiMethods(api);
+  setRefreshUserState,
+  getRefreshUserState,
+} = createApiMethods(apiClient);
 
 // Legacy exports for backward compatibility
 export const fetchTrack = trackApi.getTrack;
@@ -67,6 +69,9 @@ export {
   authApi,
   searchApi,
   notificationApi,
+  setRefreshUserState,
+  getRefreshUserState,
 };
 
-export default api;
+// Export the axios instance as default for backward compatibility
+export default apiClient.api;
