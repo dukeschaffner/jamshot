@@ -8,21 +8,23 @@ TODO (MVP)
   5. True peak limit at, e.g., -1 dBTP to avoid digital distortion on playback devices.
 
 - analytics
-  - record where the listened and how they found the track (home feed, user page, track page, search, direct link/share)
-  - record how many times they shared the track
-  - record how many times they liked the track
-  - record how many times they commented on the track
-  - record how many times they reposted the track
-  - add extra page/step when registering asking for DOB and city/state/country for analytics purposes, allow users to opt out
+  - record where they listened and how they found the track (home feed, user page, track page, search, direct link/share)
+  - record how many times users shared the track
+  - record how many times users liked the track
+  - record how many times users commented on the track
+  - record how many times users reposted the track
+  - analytics for track
+  - analytics for user
+  - add extra page/step when registering asking for DOB and city/state/country for analytics purposes, allow users to skip this step
   - update terms and privacy policy
 
+- yearly billing for subscriptions
 - how to page with tutorials
 - weird trimming behavior (COULDN"T REPRO)
 - check notifications functionality
 - only show measure lines when zoomed out enough
 - handle notification spamming
 - @mentions
-- premium model
 - delete account 
 - display uploads left in nav?
 - on delete track, delete analytics for that track too

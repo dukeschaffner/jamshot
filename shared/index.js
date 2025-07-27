@@ -1,7 +1,7 @@
 /**
  * Shared utilities for Jamshot
  * Exports all shared functionality for web and mobile platforms
- * * Gets manually copied/synced between the web and mobile apps
+ * * Gets manually copied/synced between the web and mobile apps by a python script
  */
 
 // API utilities
