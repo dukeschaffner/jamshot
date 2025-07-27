@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { formatDuration, formatPlayCount, formatTimeAgo } from '../../shared/utils/formatting';
+import { formatDuration, formatPlayCount, formatTimeAgo } from '../../../shared/utils/formatting';
 
 import { theme } from '../styles/theme';
 
@@ -65,7 +65,7 @@ const TrackCard = ({
       
       {/* Track title */}
       <Text style={styles.title}>
-        {track.title || track.name || 'Untitled Track'}
+        {track.title || 'Untitled Track'}
       </Text>
       
       {/* Audio player section */}
