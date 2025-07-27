@@ -8,15 +8,7 @@ TODO (MVP)
   5. True peak limit at, e.g., -1 dBTP to avoid digital distortion on playback devices.
 
 - analytics
-  - record where they listened and how they found the track (home feed, user page, track page, search, direct link/share)
-  - record how many times users shared the track
-  - record how many times users liked the track
-  - record how many times users commented on the track
-  - record how many times users reposted the track
-  - analytics for track
-  - analytics for user
-  - add extra page/step when registering asking for DOB and city/state/country for analytics purposes, allow users to skip this step
-  - update terms and privacy policy
+
 
 - yearly billing for subscriptions
 - how to page with tutorials
@@ -25,9 +17,15 @@ TODO (MVP)
 - only show measure lines when zoomed out enough
 - handle notification spamming
 - @mentions
+  - (prompt) add an @mentions system where users can tag other users in the track title, creating a notification for the user. start by searching the existing codebase, designing the business logic/rules around the system including edge cases (ie what happens when a user that is tagged in a post changes their username). be concise and dont write any code yet
 - delete account 
 - display uploads left in nav?
 - on delete track, delete analytics for that track too
+- ensure collab count accounts for ALL descendants of the track
+- upgrade suggestions
+  - Profile (analytics + track count)
+  - Track (analytics)
+  - Upload form (private tracks + track count)
 
 
 BUGS
@@ -236,7 +234,7 @@ CREATE TABLE follows (
   UNIQUE (follower_id, following_id) -- No duplicate follows
 );
 
-CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost','follow_request');
+CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost','follow_request', 'mention');
 
 -- Recreate the notifications table with the proper type
 CREATE TABLE notifications (
@@ -393,3 +391,35 @@ CREATE TRIGGER update_comment_timestamp
 BEFORE UPDATE ON comments
 FOR EACH ROW
 EXECUTE FUNCTION update_comment_timestamp();
+
+-- Create table for tracking mentions
+CREATE TABLE track_mentions (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  mentioned_user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  mentioned_by_user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, mentioned_user_id) -- Prevent duplicate mentions
+);
+
+-- Add indexes for performance
+CREATE INDEX idx_track_mentions_track_id ON track_mentions(track_id);
+CREATE INDEX idx_track_mentions_mentioned_user_id ON track_mentions(mentioned_user_id);
+CREATE INDEX idx_track_mentions_mentioned_by_user_id ON track_mentions(mentioned_by_user_id);
+
+-- Add function to extract mentions from text
+CREATE OR REPLACE FUNCTION extract_mentions(text_content TEXT)
+RETURNS TEXT[] AS $$
+DECLARE
+  mentions TEXT[] := '{}';
+  match TEXT;
+BEGIN
+  -- Find all @username patterns in the text
+  FOR match IN SELECT regexp_matches(text_content, '@([a-zA-Z0-9_]+)', 'g')
+  LOOP
+    mentions := array_append(mentions, match);
+  END LOOP;
+  
+  RETURN mentions;
+END;
+$$ LANGUAGE plpgsql;
