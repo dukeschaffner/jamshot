@@ -21,6 +21,7 @@ def copy_shared_folder():
     shared_source = project_root / "shared"
     mobile_dest = project_root / "mobile" / "shared"
     ui_dest = project_root / "ui" / "shared"
+    api_dest = project_root / "api" / "shared"
     
     # Check if shared folder exists
     if not shared_source.exists():
@@ -30,6 +31,7 @@ def copy_shared_folder():
     print(f"📁 Source shared folder: {shared_source}")
     print(f"📱 Mobile destination: {mobile_dest}")
     print(f"🖥️  UI destination: {ui_dest}")
+    print(f"🖥️  API destination: {api_dest}")
     print()
     
     # Copy to mobile
@@ -57,9 +59,22 @@ def copy_shared_folder():
     except Exception as e:
         print(f"❌ Error copying to ui: {e}")
         return False
-    
+
+    # Copy to api
+    try:
+        if api_dest.exists():
+            print(f"🗑️  Removing existing shared folder in api...")
+            shutil.rmtree(api_dest)
+            
+        print(f"📋 Copying shared folder to api...")
+        shutil.copytree(shared_source, api_dest)
+        print(f"✅ Successfully copied shared folder to api")
+    except Exception as e:
+        print(f"❌ Error copying to api: {e}")
+        return False
+
     print()
-    print("🎉 All done! Shared folder has been copied to both mobile and ui directories.")
+    print("🎉 All done! Shared folder has been copied to both mobile, ui, and api directories.")
     return True
 
 

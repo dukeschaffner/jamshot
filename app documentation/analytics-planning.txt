@@ -1,0 +1,59 @@
+Analytics Planning
+
+thoughts/ideas:
+- record where they listened and how they found the track (home feed, user page, track page, search, direct link/share)
+- add extra page/step when registering asking for DOB and city/state/country for analytics purposes, allow users to skip this step
+    - or grab geo data from ip address
+- update terms and privacy policy
+- Don't track analytics for users who don't have a subscription?
+
+
+FREE ANALYTICS
+- Track analytics
+    - Current play count
+    - Current listener count
+    - Current engagement metrics (likes, comments, reposts, shares, collabs)
+    - maybe 7 day breakdown of engagement metrics
+
+BASIC ANALYTICS
+- Track analytics (By day, week, month, year)
+    - Play count
+    - Listener count
+    - engagement metrics (likes, comments, reposts, shares, collabs)
+    - geographic data
+    - age range
+    - Page views
+
+- User analytics (By day, week, month, year)
+    - Play count
+    - Listener count
+    - Listener geographic data
+    - Listener age range
+    - Followers count
+    - Page views
+
+
+ADVANCED ANALYTICS
+- Track analytics (By day, week, month, year)
+    - listen duration
+    - Listener retention (How long do users listen to tracks?)
+    - Skip rate (when do users skip tracks?)
+    - discovery method
+- User analytics (By day, week, month, year)
+    - listen duration
+    - discovery method (how users found tracks AND how they found the user)
+    - Listener retention (How long do users listen to tracks?)
+
+
+
+
+
+
+Future considerations:
+Collaboration Network: Who you collaborate with most, collaboration success rates
+Time-based Analytics: Peak listening hours, day-of-week patterns
+Collaboration Impact: How collabs affect track performance
+Genre Performance: Which genres get most engagement
+Instrument Analysis: Which instruments attract most listeners
+Track Duration Optimization: Ideal track length for engagement
+Weekly/Monthly Reports: Email summaries of key metrics

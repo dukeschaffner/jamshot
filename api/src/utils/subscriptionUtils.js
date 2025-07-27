@@ -3,7 +3,7 @@
 
 const { 
   SUBSCRIPTION_TIERS, 
-  SUBSCRIPTION_PLANS_BASE,
+  SUBSCRIPTION_PLANS,
   createSubscriptionPlans,
   isValidTier
 } = require('./subscriptionConfig');

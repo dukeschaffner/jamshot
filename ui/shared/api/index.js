@@ -15,9 +15,9 @@ import axios from 'axios';
  * @param {Function} config.removeCsrfToken - Function to remove CSRF token
  * @param {Function} config.setAuthError - Function to set auth error message
  * @param {Function} config.redirectToLogin - Function to redirect to login
- * @param {Function} config.refreshUserState - Function to refresh user state
+ * @param {Function} config.refreshUserState - Function to refresh user state (can be updated later)
  * @param {boolean} config.withCredentials - Whether to send cookies with requests
- * @returns {Object} Configured axios instance
+ * @returns {Object} API client object with axios instance and callback management methods
  */
 const createApiClient = (config = {}) => {
   const api = axios.create({
@@ -214,9 +214,17 @@ const createApiClient = (config = {}) => {
   // Create an object that includes the API instance and methods to manage callbacks
   const apiClient = {
     api,
+    /**
+     * Set the refresh user state callback function
+     * @param {Function|null} callback - Function to call when user state should be refreshed, or null to remove
+     */
     setRefreshUserState: (callback) => {
       refreshUserState = callback;
     },
+    /**
+     * Get the current refresh user state callback function
+     * @returns {Function|null} Current callback function or null if not set
+     */
     getRefreshUserState: () => refreshUserState,
   };
 
