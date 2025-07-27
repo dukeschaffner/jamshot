@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import Cookies from 'js-cookie';
-import api, { setUserStateRefreshCallback } from '../lib/api';
+import api, { setRefreshUserState } from '../lib/api';
 import { useRouter } from 'next/navigation';
 import { getUserPlan } from '../lib/subscriptionUtils';
 
@@ -112,11 +112,11 @@ export const UserProvider = ({ children }) => {
 
   // Register the callback with the API service
   useEffect(() => {
-    setUserStateRefreshCallback(refreshUser);
+    setRefreshUserState(refreshUser);
     
     // Clean up when component unmounts
     return () => {
-      setUserStateRefreshCallback(null);
+      setRefreshUserState(null);
     };
   }, []);
 

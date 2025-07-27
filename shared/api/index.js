@@ -15,9 +15,9 @@ import axios from 'axios';
  * @param {Function} config.removeCsrfToken - Function to remove CSRF token
  * @param {Function} config.setAuthError - Function to set auth error message
  * @param {Function} config.redirectToLogin - Function to redirect to login
- * @param {Function} config.refreshUserState - Function to refresh user state
+ * @param {Function} config.refreshUserState - Function to refresh user state (can be updated later)
  * @param {boolean} config.withCredentials - Whether to send cookies with requests
- * @returns {Object} Configured axios instance
+ * @returns {Object} API client object with axios instance and callback management methods
  */
 const createApiClient = (config = {}) => {
   const api = axios.create({
@@ -38,7 +38,9 @@ const createApiClient = (config = {}) => {
   const removeCsrfToken = config.removeCsrfToken;
   const setAuthError = config.setAuthError;
   const redirectToLogin = config.redirectToLogin;
-  const refreshUserState = config.refreshUserState;
+  
+  // Mutable refreshUserState callback that can be updated after creation
+  let refreshUserState = config.refreshUserState;
 
   // Flag to prevent multiple refresh requests
   let isRefreshing = false;
@@ -209,15 +211,34 @@ const createApiClient = (config = {}) => {
     }
   );
 
-  return api;
+  // Create an object that includes the API instance and methods to manage callbacks
+  const apiClient = {
+    api,
+    /**
+     * Set the refresh user state callback function
+     * @param {Function|null} callback - Function to call when user state should be refreshed, or null to remove
+     */
+    setRefreshUserState: (callback) => {
+      refreshUserState = callback;
+    },
+    /**
+     * Get the current refresh user state callback function
+     * @returns {Function|null} Current callback function or null if not set
+     */
+    getRefreshUserState: () => refreshUserState,
+  };
+
+  return apiClient;
 };
 
 /**
  * Create API methods that work with any configured API client
- * @param {Object} api - Configured axios instance from createApiClient
+ * @param {Object} apiClient - API client object from createApiClient
  * @returns {Object} API methods object
  */
-const createApiMethods = (api) => {
+const createApiMethods = (apiClient) => {
+  // Extract the axios instance from the API client
+  const api = apiClient.api;
   // Track API methods
   const trackApi = {
     getFeed: (type = 'for-you', page = 1) => 
@@ -328,6 +349,9 @@ const createApiMethods = (api) => {
     searchApi,
     notificationApi,
     api, // Raw axios instance for custom requests
+    // Callback management methods
+    setRefreshUserState: apiClient.setRefreshUserState,
+    getRefreshUserState: apiClient.getRefreshUserState,
   };
 };
 

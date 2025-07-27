@@ -38,7 +38,9 @@ const createApiClient = (config = {}) => {
   const removeCsrfToken = config.removeCsrfToken;
   const setAuthError = config.setAuthError;
   const redirectToLogin = config.redirectToLogin;
-  const refreshUserState = config.refreshUserState;
+  
+  // Mutable refreshUserState callback that can be updated after creation
+  let refreshUserState = config.refreshUserState;
 
   // Flag to prevent multiple refresh requests
   let isRefreshing = false;
@@ -209,15 +211,26 @@ const createApiClient = (config = {}) => {
     }
   );
 
-  return api;
+  // Create an object that includes the API instance and methods to manage callbacks
+  const apiClient = {
+    api,
+    setRefreshUserState: (callback) => {
+      refreshUserState = callback;
+    },
+    getRefreshUserState: () => refreshUserState,
+  };
+
+  return apiClient;
 };
 
 /**
  * Create API methods that work with any configured API client
- * @param {Object} api - Configured axios instance from createApiClient
+ * @param {Object} apiClient - API client object from createApiClient
  * @returns {Object} API methods object
  */
-const createApiMethods = (api) => {
+const createApiMethods = (apiClient) => {
+  // Extract the axios instance from the API client
+  const api = apiClient.api;
   // Track API methods
   const trackApi = {
     getFeed: (type = 'for-you', page = 1) => 
@@ -328,6 +341,9 @@ const createApiMethods = (api) => {
     searchApi,
     notificationApi,
     api, // Raw axios instance for custom requests
+    // Callback management methods
+    setRefreshUserState: apiClient.setRefreshUserState,
+    getRefreshUserState: apiClient.getRefreshUserState,
   };
 };
 
