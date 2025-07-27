@@ -23,7 +23,7 @@ app.use(speedLimiter);
 app.use(cors({
   origin: (origin, callback) => {
     // Allow local development
-    if (!origin || origin === 'http://localhost:3000') {
+    if (!origin || origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'test') {
       return callback(null, true);
     }
     // Allow any Vercel deployment under your project

@@ -1,18 +1,31 @@
 
 TODO (MVP)
 - Mixing files on collab
-- scalability report action items
-- security/app standards report
+  1. Apply user gains.
+  2. Mix tracks.
+  3. Measure Integrated LUFS of mix.
+  4. Normalize to target LUFS, say -16 LUFS.
+  5. True peak limit at, e.g., -1 dBTP to avoid digital distortion on playback devices.
+
+- analytics
+  - record where the listened and how they found the track (home feed, user page, track page, search, direct link/share)
+  - record how many times they shared the track
+  - record how many times they liked the track
+  - record how many times they commented on the track
+  - record how many times they reposted the track
+  - add extra page/step when registering asking for DOB and city/state/country for analytics purposes, allow users to opt out
+  - update terms and privacy policy
+
 - how to page with tutorials
 - weird trimming behavior (COULDN"T REPRO)
-- country/state/DOB
 - check notifications functionality
 - only show measure lines when zoomed out enough
 - handle notification spamming
 - @mentions
 - premium model
-- delete account
+- delete account 
 - display uploads left in nav?
+- on delete track, delete analytics for that track too
 
 
 BUGS
