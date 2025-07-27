@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useUser } from '../contexts/UserContext';
 import { useRouter } from 'expo-router';
-import { validateEmail, validatePassword } from '../../shared/utils/validation';
+import { validateEmail, validatePassword } from '../../../shared/utils/validation';
 
 import Input from '../components/Input';
 import Button from '../components/Button';

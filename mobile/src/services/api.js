@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createApiClient, createApiMethods } from '../../shared/api';
+import { createApiClient, createApiMethods } from '../../../shared/api';
 
 // Create mobile-specific API client
 const api = createApiClient({
