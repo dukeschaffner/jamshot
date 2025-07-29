@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Howl } from 'howler';
-import api, { refreshTrackUrl } from './api';
+import api, { trackApi } from './api';
 
 const AudioContext = createContext();
 
@@ -128,10 +128,11 @@ export function AudioProvider({ children }) {
     
     try {
       // Get a fresh URL, passing along secret token if available
-      const refreshedUrls = await refreshTrackUrl(
+      const response = await trackApi.refreshTrackUrl(
         currentTrack.id, 
         currentTrack.secret_token || null
       );
+      const refreshedUrls = response.data;
       
       // Update the track with the fresh URL
       const updatedTrack = {

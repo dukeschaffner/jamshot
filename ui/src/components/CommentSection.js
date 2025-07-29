@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Cookies from 'js-cookie';
 import Comment from './Comment';
-import { fetchComments, addComment } from '../lib/api';
+import { trackApi } from '../lib/api';
 import { FaPaperPlane } from 'react-icons/fa';
 import styles from './Comments.module.css';
 
@@ -32,7 +32,8 @@ export default function CommentSection({ trackId }) {
   const loadComments = useCallback(async (page = 1, parentId = null) => {
     setIsLoading(true);
     try {
-      const data = await fetchComments(trackId, page, 10, parentId);
+      const response = await trackApi.getComments(trackId, page, 10, parentId);
+      const data = response.data;
       if (parentId) {
         // Loading replies for a specific comment
         setVisibleReplies({
@@ -113,7 +114,8 @@ export default function CommentSection({ trackId }) {
     
     setIsSubmitting(true);
     try {
-      const newComment = await addComment(trackId, commentContent, replyTo);
+      const response = await trackApi.addComment(trackId, commentContent, replyTo);
+      const newComment = response.data;
       
       if (replyTo) {
         // Add the reply to the visible replies

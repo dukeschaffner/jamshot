@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FaReply, FaEdit, FaTrash, FaCheckCircle } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import TimeDisplay from './TimeDisplay';
-import { updateComment, deleteComment } from '../lib/api';
+import { trackApi } from '../lib/api';
 import styles from './Comments.module.css';
 
 export default function Comment({ 
@@ -59,7 +59,8 @@ export default function Comment({
     
     setIsSubmitting(true);
     try {
-      const updatedComment = await updateComment(comment.id, editContent);
+      const response = await trackApi.updateComment(comment.id, editContent);
+      const updatedComment = response.data;
       setIsEditing(false);
       onUpdate(updatedComment);
     } catch (err) {
@@ -75,7 +76,7 @@ export default function Comment({
     
     setIsSubmitting(true);
     try {
-      await deleteComment(comment.id);
+      await trackApi.deleteComment(comment.id);
       onDelete(comment.id);
     } catch (err) {
       console.error('Failed to delete comment:', err);

@@ -339,7 +339,29 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
           upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
         });
       }
-      combinedAudioUrl = audioUrl;
+      
+      // Apply normalization to regular uploads for consistent audio quality
+      const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
+      await fsPromises.writeFile(uploadedLocalPath, file.buffer);
+      
+      combinedAudioUrl = `tracks/normalized-${Date.now()}-${title}.mp3`;
+      const normalizedPath = path.join(tempDir, path.basename(combinedAudioUrl));
+      
+      // Use default normalization settings for regular uploads
+      // Target LUFS: -16 (good for general use), True Peak: -1 dB (prevents clipping)
+      await combineAudioFiles([uploadedLocalPath], normalizedPath, [1.0], -16, -1);
+      
+      const normalizedParams = {
+        Bucket: process.env.S3_BUCKET,
+        Key: combinedAudioUrl,
+        Body: fs.createReadStream(normalizedPath),
+        ContentType: 'audio/mpeg',
+      };
+      await s3.upload(normalizedParams).promise();
+      
+      // Clean up local files
+      await fsPromises.unlink(uploadedLocalPath).catch(err => console.error('Cleanup error:', err));
+      await fsPromises.unlink(normalizedPath).catch(err => console.error('Cleanup error:', err));
     }
 
     const result = await pool.query(
