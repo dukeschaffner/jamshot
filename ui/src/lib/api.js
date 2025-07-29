@@ -54,13 +54,7 @@ const {
   getRefreshUserState,
 } = createApiMethods(apiClient);
 
-// Legacy exports for backward compatibility
-export const fetchTrack = trackApi.getTrack;
-export const fetchComments = trackApi.getComments;
-export const addComment = trackApi.addComment;
-export const updateComment = trackApi.updateComment;
-export const deleteComment = trackApi.deleteComment;
-export const refreshTrackUrl = trackApi.refreshTrackUrl;
+
 
 // Export API methods
 export {

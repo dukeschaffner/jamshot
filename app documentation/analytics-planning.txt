@@ -2,10 +2,12 @@ Analytics Planning
 
 thoughts/ideas:
 - record where they listened and how they found the track (home feed, user page, track page, search, direct link/share)
-- add extra page/step when registering asking for DOB and city/state/country for analytics purposes, allow users to skip this step
-    - or grab geo data from ip address
+- add extra page/step when registering asking for DOB for analytics purposes, allow users to skip this step
+    - grab geo data from ip address
 - update terms and privacy policy
 - Don't track analytics for users who don't have a subscription?
+    - Need to at least temporarily track plays for use in the play tracking logic
+- cache geo data for ip address
 
 
 FREE ANALYTICS

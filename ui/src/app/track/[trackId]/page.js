@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { fetchTrack } from '@/lib/api';
+import { trackApi } from '@/lib/api';
 import Image from 'next/image';
 import api from '@/lib/api';
 import DawInterface from '@/components/DAW/DawInterface';
@@ -38,9 +38,10 @@ function TrackContent() {
     async function loadTrack() {
       try {
         setLoading(true);
-        const data = await fetchTrack(trackId, secret);
+        const response = await trackApi.getTrack(trackId, secret);
+        const data = response.data;
         console.log('Track data loaded:', data);
-        // Since fetchTrack returns an array, we take the first track
+        // Since trackApi.getTrack returns an array, we take the first track
         const mainTrack = Array.isArray(data) && data.length > 0 ? data[0] : null;
         if (!mainTrack) {
           throw new Error('Track not found');

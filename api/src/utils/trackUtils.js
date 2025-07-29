@@ -325,11 +325,12 @@ async function downloadS3File(key, localPath) {
   });
 }
 
-// Combine audio files using ffmpeg
-async function combineAudioFiles(inputFiles, outputPath, gainValues = []) {
+// Combine audio files using ffmpeg with normalization
+async function combineAudioFiles(inputFiles, outputPath, gainValues = [], targetLUFS = -16, truePeakLimit = -1) {
   return new Promise((resolve, reject) => {
     console.log('Combining files with ffmpeg:', inputFiles);
     console.log('Using gain values:', gainValues);
+    console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
     
     const command = ffmpeg();
     
@@ -338,30 +339,33 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = []) {
       command.input(file);
     });
     
-    // Create filter string with volume adjustments for each input
+    // Step 1: Apply user gains to each input
     let filterComplex = inputFiles.map((_, index) => {
       const gainValue = gainValues[index] !== undefined ? gainValues[index] : 1.0;
       // Convert gain (0-1 range) to dB for FFmpeg volume filter
       // 0 dB = no change, -6 dB = half volume, +6 dB = double volume
-      // A simple approximation: 0.5 gain = -6dB, 0.8 gain = -2dB
       // Formula: dB = 20 * log10(gain)
       const dB = 20 * Math.log10(gainValue);
       console.log(`Input ${index}: Gain=${gainValue}, dB=${dB}`);
       return `[${index}:a]volume=${dB}dB[a${index}]`;
     }).join(';');
     
-    // Add the mixer after the volume adjustments
+    // Step 2: Mix tracks together
     const audioInputs = inputFiles.map((_, index) => `[a${index}]`).join('');
-    filterComplex += `;${audioInputs}amix=inputs=${inputFiles.length}:duration=longest[out]`;
+    filterComplex += `;${audioInputs}amix=inputs=${inputFiles.length}:duration=longest[mixed]`;
+    
+    // Step 3: Measure Integrated LUFS and normalize to target LUFS
+    // Step 4: Apply true peak limiting to prevent digital distortion
+    filterComplex += `;[mixed]loudnorm=I=${targetLUFS}:TP=${truePeakLimit}:LRA=11:measured_I=-16:measured_LRA=11:measured_TP=-1:measured_thresh=-25:offset=0:linear=true:print_format=json[normalized]`;
     
     console.log('FFmpeg filter complex:', filterComplex);
     
     command
-      .complexFilter(filterComplex, 'out')
+      .complexFilter(filterComplex, 'normalized')
       .outputOptions('-c:a mp3')
       .output(outputPath)
       .on('end', () => {
-        console.log('Combine complete:', outputPath);
+        console.log('Combine and normalize complete:', outputPath);
         resolve();
       })
       .on('error', (err) => {
