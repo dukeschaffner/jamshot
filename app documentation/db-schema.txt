@@ -22,11 +22,17 @@ CREATE TABLE users (
   subscription_tier VARCHAR(20) NOT NULL DEFAULT 'free',
   subscription_expires_at TIMESTAMP,
   stripe_customer_id VARCHAR(255),
-  stripe_subscription_id VARCHAR(255)
+  stripe_subscription_id VARCHAR(255),
+  date_of_birth DATE,
+  analytics_consent BOOLEAN NOT NULL DEFAULT FALSE,
+  analytics_consent_at TIMESTAMP,
+  analytics_consent_ip VARCHAR(45)
 );
 
 CREATE INDEX idx_users_subscription_tier ON users(subscription_tier);
 CREATE INDEX idx_users_subscription_expires_at ON users(subscription_expires_at); 
+
+
 
 CREATE TABLE tracks (
   id SERIAL PRIMARY KEY,
@@ -47,6 +53,8 @@ CREATE TABLE tracks (
   allow_download BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+
+
 CREATE TABLE likes (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -54,6 +62,8 @@ CREATE TABLE likes (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, track_id) -- Prevent duplicate likes
 );
+
+
 
 CREATE TABLE comments (
   id SERIAL PRIMARY KEY,
@@ -65,12 +75,16 @@ CREATE TABLE comments (
   parent_comment_id INT REFERENCES comments(id) ON DELETE CASCADE
 );
 
+
+
 CREATE TABLE featured_tracks (
   id SERIAL PRIMARY KEY,
   track_id INT UNIQUE REFERENCES tracks(id) ON DELETE CASCADE,
   featured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   expires_at TIMESTAMP -- When it drops off the featured page
 );
+
+
 
 CREATE TABLE follows (
   id SERIAL PRIMARY KEY,
@@ -80,9 +94,11 @@ CREATE TABLE follows (
   UNIQUE (follower_id, following_id) -- No duplicate follows
 );
 
+
+
 CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost','follow_request', 'mention');
 
--- Recreate the notifications table with the proper type
+
 CREATE TABLE notifications (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -97,7 +113,9 @@ CREATE INDEX idx_notifications_user_id_created_at ON notifications(user_id, crea
 CREATE INDEX idx_notifications_user_id_is_read ON notifications(user_id, is_read);
 CREATE INDEX idx_notifications_type ON notifications(type);
 
--- New tables for genre and instrument tagging system
+
+
+
 
 CREATE TABLE genres (
   id SERIAL PRIMARY KEY,
@@ -105,11 +123,15 @@ CREATE TABLE genres (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
+
 CREATE TABLE instruments (
   id SERIAL PRIMARY KEY,
   name VARCHAR(50) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
 
 CREATE TABLE track_genres (
   id SERIAL PRIMARY KEY,
@@ -119,6 +141,8 @@ CREATE TABLE track_genres (
   UNIQUE (track_id, genre_id) -- Prevent duplicate genre tags for a track
 );
 
+
+
 CREATE TABLE track_instruments (
   id SERIAL PRIMARY KEY,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
@@ -127,7 +151,7 @@ CREATE TABLE track_instruments (
   UNIQUE (track_id, instrument_id) -- Prevent duplicate instrument tags for a track
 );
 
--- Insert some initial genres
+
 INSERT INTO genres (name) VALUES
 ('Rock'),
 ('Pop'),
@@ -140,7 +164,7 @@ INSERT INTO genres (name) VALUES
 ('Folk'),
 ('Metal');
 
--- Insert some initial instruments
+
 INSERT INTO instruments (name) VALUES
 ('Guitar'),
 ('Piano'),
@@ -153,6 +177,8 @@ INSERT INTO instruments (name) VALUES
 ('Trumpet'),
 ('DJ/Turntables');
 
+
+
 CREATE TABLE reposts (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -161,30 +187,34 @@ CREATE TABLE reposts (
   UNIQUE (user_id, track_id) -- Prevent duplicate reposts
 );
 
--- Table for tracking plays
+
+
+
 CREATE TABLE track_plays (
   id SERIAL PRIMARY KEY,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
-  user_id INT REFERENCES users(id) ON DELETE SET NULL, -- Can be NULL for anonymous plays
+  user_id INT REFERENCES users(id) ON DELETE SET NULL, -- Can be NULL for anonymous plays,
+  listen_duration FLOAT, -- Seconds listened,
+  discovery_method discovery_method DEFAULT 'unknown',
+  ip_address VARCHAR(45),
+  country_code VARCHAR(2),
+  region VARCHAR(100),
+  city VARCHAR(100),
+  referrer_url TEXT,
+  is_complete_play BOOLEAN DEFAULT FALSE,
+  skip_time FLOAT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create function to update play_count on tracks
-CREATE OR REPLACE FUNCTION update_track_play_count()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE tracks
-  SET play_count = (SELECT COUNT(*) FROM track_plays WHERE track_id = NEW.track_id)
-  WHERE id = NEW.track_id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- Create indexes for analytics queries
+CREATE INDEX IF NOT EXISTS idx_track_plays_discovery_method ON track_plays(discovery_method);
+CREATE INDEX IF NOT EXISTS idx_track_plays_listen_duration ON track_plays(listen_duration);
+CREATE INDEX IF NOT EXISTS idx_track_plays_country_code ON track_plays(country_code);
+CREATE INDEX IF NOT EXISTS idx_track_plays_created_at ON track_plays(created_at);
+CREATE INDEX IF NOT EXISTS idx_track_plays_track_id_created_at ON track_plays(track_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_track_plays_user_id_created_at ON track_plays(user_id, created_at);
 
--- Create trigger to update play_count when a new play is recorded
-CREATE TRIGGER track_play_count_update
-AFTER INSERT ON track_plays
-FOR EACH ROW
-EXECUTE FUNCTION update_track_play_count();
+
 
 CREATE TABLE follow_requests (
   id SERIAL PRIMARY KEY,
@@ -193,6 +223,8 @@ CREATE TABLE follow_requests (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (requester_id, target_id) -- Prevent duplicate requests
 );
+
+
 
 CREATE TABLE refresh_tokens (
   id SERIAL PRIMARY KEY,
@@ -204,11 +236,11 @@ CREATE TABLE refresh_tokens (
   device_info TEXT -- Optional: Store device/browser info for token management
 );
 
--- Create index for faster token lookups
-CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 
--- Create index for user's tokens
+CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+
+
 
 CREATE TABLE payments (
   id SERIAL PRIMARY KEY,
@@ -221,7 +253,7 @@ CREATE TABLE payments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create index for user payments
+
 CREATE INDEX idx_payments_user_id ON payments(user_id);
 
 -- Create trigger to automatically update the updated_at timestamp when a comment is edited
@@ -238,7 +270,7 @@ BEFORE UPDATE ON comments
 FOR EACH ROW
 EXECUTE FUNCTION update_comment_timestamp();
 
--- Create table for tracking mentions
+
 CREATE TABLE track_mentions (
   id SERIAL PRIMARY KEY,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
@@ -248,7 +280,6 @@ CREATE TABLE track_mentions (
   UNIQUE (track_id, mentioned_user_id) -- Prevent duplicate mentions
 );
 
--- Add indexes for performance
 CREATE INDEX idx_track_mentions_track_id ON track_mentions(track_id);
 CREATE INDEX idx_track_mentions_mentioned_user_id ON track_mentions(mentioned_user_id);
 CREATE INDEX idx_track_mentions_mentioned_by_user_id ON track_mentions(mentioned_by_user_id);
@@ -269,3 +300,248 @@ BEGIN
   RETURN mentions;
 END;
 $$ LANGUAGE plpgsql;
+
+
+
+-- ANALYTICS DATABASE STRUCTURE
+-- =============================
+
+-- Create enum for discovery methods
+CREATE TYPE discovery_method AS ENUM (
+  'home_feed',
+  'user_page', 
+  'track_page',
+  'search',
+  'direct_link',
+  'share',
+  'explore_page',
+  'featured_page',
+  'notification',
+  'collaboration',
+  'repost',
+  'unknown'
+);
+
+-- Create enum for engagement types
+CREATE TYPE engagement_type AS ENUM (
+  'play',
+  'like',
+  'comment',
+  'repost',
+  'share',
+  'collaboration',
+  'follow',
+  'page_view'
+);
+
+-- Create enum for time periods
+CREATE TYPE time_period AS ENUM (
+  'day',
+  'week', 
+  'month',
+  'year'
+);
+
+
+-- Table for tracking user engagement events
+CREATE TABLE user_engagement (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  engagement_type engagement_type NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+);
+
+CREATE INDEX idx_user_engagement_user_id ON user_engagement(user_id);
+CREATE INDEX idx_user_engagement_track_id ON user_engagement(track_id);
+CREATE INDEX idx_user_engagement_type ON user_engagement(engagement_type);
+CREATE INDEX idx_user_engagement_created_at ON user_engagement(created_at);
+
+-- Table for caching geo data
+CREATE TABLE geo_cache (
+  id SERIAL PRIMARY KEY,
+  ip_address VARCHAR(45) UNIQUE NOT NULL,
+  country_code VARCHAR(2),
+  region VARCHAR(100),
+  city VARCHAR(100),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_geo_cache_ip_address ON geo_cache(ip_address);
+
+-- Table for analytics aggregation (for performance)
+CREATE TABLE analytics_aggregates (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  period_type time_period NOT NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  play_count INT DEFAULT 0,
+  listener_count INT DEFAULT 0,
+  total_listen_duration FLOAT DEFAULT 0,
+  avg_listen_duration FLOAT DEFAULT 0,
+  like_count INT DEFAULT 0,
+  comment_count INT DEFAULT 0,
+  repost_count INT DEFAULT 0,
+  share_count INT DEFAULT 0,
+  collaboration_count INT DEFAULT 0,
+  page_view_count INT DEFAULT 0,
+  discovery_methods JSONB, -- Counts by discovery method
+  geographic_data JSONB, -- Counts by country/region
+  age_ranges JSONB, -- Counts by age range
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, user_id, period_type, period_start)
+);
+
+CREATE INDEX idx_analytics_aggregates_track_id ON analytics_aggregates(track_id);
+CREATE INDEX idx_analytics_aggregates_user_id ON analytics_aggregates(user_id);
+CREATE INDEX idx_analytics_aggregates_period ON analytics_aggregates(period_type, period_start);
+
+-- Table for user analytics aggregates
+CREATE TABLE user_analytics_aggregates (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  period_type time_period NOT NULL,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  total_plays_received INT DEFAULT 0,
+  total_listeners_received INT DEFAULT 0,
+  total_listen_duration_received FLOAT DEFAULT 0,
+  avg_listen_duration_received FLOAT DEFAULT 0,
+  total_likes_received INT DEFAULT 0,
+  total_comments_received INT DEFAULT 0,
+  total_reposts_received INT DEFAULT 0,
+  total_shares_received INT DEFAULT 0,
+  total_collaborations_received INT DEFAULT 0,
+  total_page_views_received INT DEFAULT 0,
+  follower_count INT DEFAULT 0,
+  tracks_uploaded INT DEFAULT 0,
+  listener_geographic_data JSONB, -- Counts by country/region
+  listener_age_ranges JSONB, -- Counts by age range
+  discovery_methods JSONB, -- How users found this user's tracks
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, period_type, period_start)
+);
+
+CREATE INDEX idx_user_analytics_aggregates_user_id ON user_analytics_aggregates(user_id);
+CREATE INDEX idx_user_analytics_aggregates_period ON user_analytics_aggregates(period_type, period_start);
+
+
+
+
+-- Functions for analytics calculations
+
+-- Function to calculate age from date of birth
+CREATE OR REPLACE FUNCTION calculate_age(birth_date DATE)
+RETURNS INT AS $$
+BEGIN
+  RETURN EXTRACT(YEAR FROM AGE(birth_date));
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get age range from age
+CREATE OR REPLACE FUNCTION get_age_range(age INT)
+RETURNS VARCHAR(20) AS $$
+BEGIN
+  CASE 
+    WHEN age < 13 THEN RETURN 'under_13';
+    WHEN age BETWEEN 13 AND 17 THEN RETURN '13_17';
+    WHEN age BETWEEN 18 AND 24 THEN RETURN '18_24';
+    WHEN age BETWEEN 25 AND 34 THEN RETURN '25_34';
+    WHEN age BETWEEN 35 AND 44 THEN RETURN '35_44';
+    WHEN age BETWEEN 45 AND 54 THEN RETURN '45_54';
+    WHEN age >= 55 THEN RETURN '55_plus';
+    ELSE RETURN 'unknown';
+  END CASE;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to update analytics aggregates
+CREATE OR REPLACE FUNCTION update_analytics_aggregates()
+RETURNS TRIGGER AS $$
+DECLARE
+  period_start DATE;
+  period_end DATE;
+  current_period_type time_period;
+BEGIN
+  -- Calculate period dates based on current date
+  period_start := DATE_TRUNC('day', CURRENT_DATE);
+  period_end := period_start + INTERVAL '1 day' - INTERVAL '1 second';
+  
+  -- Update daily aggregates
+  INSERT INTO analytics_aggregates (
+    track_id, user_id, period_type, period_start, period_end,
+    play_count, listener_count, total_listen_duration, avg_listen_duration
+  )
+  VALUES (
+    NEW.track_id, 
+    (SELECT user_id FROM tracks WHERE id = NEW.track_id),
+    'day', 
+    period_start, 
+    period_end,
+    1,
+    CASE WHEN NEW.user_id IS NOT NULL THEN 1 ELSE 0 END,
+    COALESCE(NEW.listen_duration, 0),
+    COALESCE(NEW.listen_duration, 0)
+  )
+  ON CONFLICT (track_id, user_id, period_type, period_start)
+  DO UPDATE SET
+    play_count = analytics_aggregates.play_count + 1,
+    listener_count = analytics_aggregates.listener_count + 
+      CASE WHEN NEW.user_id IS NOT NULL AND NEW.user_id != analytics_aggregates.user_id THEN 1 ELSE 0 END,
+    total_listen_duration = analytics_aggregates.total_listen_duration + COALESCE(NEW.listen_duration, 0),
+    avg_listen_duration = (analytics_aggregates.total_listen_duration + COALESCE(NEW.listen_duration, 0)) / 
+                         (analytics_aggregates.play_count + 1),
+    updated_at = CURRENT_TIMESTAMP;
+    
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+-- Views for common analytics queries
+
+-- View for track performance summary
+CREATE VIEW track_performance_summary AS
+SELECT 
+  t.id as track_id,
+  t.title,
+  t.user_id,
+  u.username as artist_username,
+  COUNT(tp.id) as total_plays,
+  COUNT(DISTINCT tp.user_id) as unique_listeners,
+  AVG(tp.listen_duration) as avg_listen_duration,
+  COUNT(CASE WHEN tp.is_complete_play THEN 1 END) as complete_plays,
+  COUNT(l.id) as total_likes,
+  COUNT(c.id) as total_comments,
+  COUNT(r.id) as total_reposts
+FROM tracks t
+LEFT JOIN users u ON t.user_id = u.id
+LEFT JOIN track_plays tp ON t.id = tp.track_id
+LEFT JOIN likes l ON t.id = l.track_id
+LEFT JOIN comments c ON t.id = c.track_id
+LEFT JOIN reposts r ON t.id = r.track_id
+GROUP BY t.id, t.title, t.user_id, u.username;
+
+-- View for user analytics summary
+CREATE VIEW user_analytics_summary AS
+SELECT 
+  u.id as user_id,
+  u.username,
+  COUNT(DISTINCT t.id) as total_tracks,
+  COUNT(tp.id) as total_plays_received,
+  COUNT(DISTINCT tp.user_id) as total_listeners,
+  AVG(tp.listen_duration) as avg_listen_duration,
+  COUNT(f.follower_id) as total_followers,
+  COUNT(f2.following_id) as total_following
+FROM users u
+LEFT JOIN tracks t ON u.id = t.user_id
+LEFT JOIN track_plays tp ON t.id = tp.track_id
+LEFT JOIN follows f ON u.id = f.following_id
+LEFT JOIN follows f2 ON u.id = f2.follower_id
+GROUP BY u.id, u.username;

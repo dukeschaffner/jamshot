@@ -1172,22 +1172,41 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       }
     }
     
-    // Record the play
-    await pool.query(
-      'INSERT INTO track_plays (track_id, user_id) VALUES ($1, $2)',
-      [id, userId]
-    );
-    
-    // Get updated play count
-    const playCountResult = await pool.query(
-      'SELECT play_count FROM tracks WHERE id = $1',
-      [id]
-    );
-    
-    res.status(200).json({ 
-      message: 'Play recorded successfully',
-      play_count: playCountResult.rows[0].play_count
-    });
+    // Record the play and increment play count in a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Record the play
+      await client.query(
+        'INSERT INTO track_plays (track_id, user_id) VALUES ($1, $2)',
+        [id, userId]
+      );
+      
+      // Increment play count directly
+      await client.query(
+        'UPDATE tracks SET play_count = play_count + 1 WHERE id = $1',
+        [id]
+      );
+      
+      // Get updated play count
+      const playCountResult = await client.query(
+        'SELECT play_count FROM tracks WHERE id = $1',
+        [id]
+      );
+      
+      await client.query('COMMIT');
+      
+      res.status(200).json({ 
+        message: 'Play recorded successfully',
+        play_count: playCountResult.rows[0].play_count
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error('Error recording play:', err);
     res.status(500).json({ error: err.message });

@@ -8,14 +8,10 @@ thoughts/ideas:
 - Don't track analytics for users who don't have a subscription?
     - Need to at least temporarily track plays for use in the play tracking logic
 - cache geo data for ip address
+- need to implement recording track plays on the track page (I'm thinking right when they click play since they have already intentionally navigated to the track page)
+- how to handle submitting listen completion stats? For example, the track play is logged as soon as it meets the criteria, but we need to update that play with the listen duration and skip time when they finish listening to the track
 
 
-FREE ANALYTICS
-- Track analytics
-    - Current play count
-    - Current listener count
-    - Current engagement metrics (likes, comments, reposts, shares, collabs)
-    - maybe 7 day breakdown of engagement metrics
 
 BASIC ANALYTICS
 - Track analytics (By day, week, month, year)
@@ -24,7 +20,6 @@ BASIC ANALYTICS
     - engagement metrics (likes, comments, reposts, shares, collabs)
     - geographic data
     - age range
-    - Page views
 
 - User analytics (By day, week, month, year)
     - Play count
@@ -32,14 +27,14 @@ BASIC ANALYTICS
     - Listener geographic data
     - Listener age range
     - Followers count
-    - Page views
 
 
 ADVANCED ANALYTICS
 - Track analytics (By day, week, month, year)
     - listen duration
     - Listener retention (How long do users listen to tracks?)
-    - Skip rate (when do users skip tracks?)
+    - Skip rate (how often do users skip tracks?)
+    - Skip time (when do users skip tracks?)
     - discovery method
 - User analytics (By day, week, month, year)
     - listen duration
@@ -51,7 +46,7 @@ ADVANCED ANALYTICS
 
 
 
-Future considerations:
+Future considerations (IGNORE FOR NOW):
 Collaboration Network: Who you collaborate with most, collaboration success rates
 Time-based Analytics: Peak listening hours, day-of-week patterns
 Collaboration Impact: How collabs affect track performance
@@ -59,3 +54,4 @@ Genre Performance: Which genres get most engagement
 Instrument Analysis: Which instruments attract most listeners
 Track Duration Optimization: Ideal track length for engagement
 Weekly/Monthly Reports: Email summaries of key metrics
+track and user page views
