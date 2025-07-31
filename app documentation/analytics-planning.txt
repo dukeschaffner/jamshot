@@ -55,3 +55,137 @@ Instrument Analysis: Which instruments attract most listeners
 Track Duration Optimization: Ideal track length for engagement
 Weekly/Monthly Reports: Email summaries of key metrics
 track and user page views
+
+
+================================================================================
+PHASE 1 IMPLEMENTATION PLAN: DATA GATHERING
+================================================================================
+
+CURRENT STATE ANALYSIS
+- ✅ Basic track play recording exists (`/tracks/:id/play` endpoint)
+- ✅ Database schema is ready with `track_plays`, `analytics_aggregates`, `user_analytics_aggregates` tables
+- ✅ Google Analytics tracking is implemented for basic events
+- ✅ Basic play count tracking in `AudioContext.js`
+
+IMPLEMENTATION COMPONENTS
+
+1. ENHANCED TRACK PLAY RECORDING
+Files to modify:
+- `api/src/routes/tracks.js` - Enhance the existing `/tracks/:id/play` endpoint
+- `ui/src/lib/AudioContext.js` - Improve play tracking logic
+- `ui/src/components/Track.js` - Add discovery method tracking
+
+Key enhancements:
+- Capture `listen_duration` when track ends
+- Record `discovery_method` (home_feed, user_page, track_page, search, etc.)
+- Add IP geolocation data
+- Track `skip_time` and `is_complete_play`
+- Update existing play record with completion data
+
+2. PAGE VIEW TRACKING
+Files to create/modify:
+- `ui/src/lib/analytics.js` - Add page view tracking functions
+- `ui/src/app/layout.js` - Add page view tracking middleware
+- `ui/src/app/track/[trackId]/page.js` - Track track page views
+- `ui/src/app/user/[username]/page.js` - Track user page views
+
+Implementation:
+- Track page views with referrer information
+- Record discovery method for track/user pages
+- Store page view data in `user_engagement` table
+
+3. ENHANCED ENGAGEMENT TRACKING
+Files to modify:
+- `ui/src/components/Track.js` - Add like/comment tracking
+- `ui/src/components/CommentSection.js` - Track comment events
+- `ui/src/app/search/page.js` - Track search events
+- `ui/src/components/Navbar.js` - Track navigation events
+
+Track these events:
+- Likes/unlikes
+- Comments
+- Reposts
+- Shares
+- Follows/unfollows
+- Search queries
+
+4. GEOLOCATION SERVICE
+Files to create:
+- `api/src/utils/geoService.js` - IP geolocation service
+- `api/src/middleware/geoMiddleware.js` - Add geo data to requests
+
+Features:
+- Cache IP geolocation data in `geo_cache` table
+- Add country/region/city data to track plays
+- Respect user privacy settings
+
+5. ANALYTICS CONSENT MANAGEMENT
+Files to modify:
+- `ui/src/app/register/page.js` - Add DOB collection step
+- `ui/src/app/login/page.js` - Add analytics consent checkbox
+- `api/src/routes/auth.js` - Handle analytics consent
+
+Implementation:
+- Optional DOB collection during registration
+- Analytics consent checkbox
+- Store consent data in users table
+
+6. DATA AGGREGATION SYSTEM
+Files to create:
+- `api/src/utils/analyticsAggregator.js` - Daily/weekly/monthly aggregation
+- `api/src/scripts/aggregateAnalytics.js` - Scheduled aggregation script
+
+Features:
+- Daily aggregation of track and user analytics
+- Update `analytics_aggregates` and `user_analytics_aggregates` tables
+- Calculate engagement metrics, geographic data, age ranges
+
+7. PRIVACY & COMPLIANCE
+Files to modify:
+- `ui/src/app/terms/page.js` - Update terms for analytics
+- `ui/src/app/privacy/page.js` - Update privacy policy
+- `api/src/middleware/analyticsMiddleware.js` - Respect user consent
+
+Implementation:
+- Only track users who have given consent
+- Anonymize data for users who haven't consented
+- Provide opt-out mechanisms
+
+IMPLEMENTATION TIMELINE
+
+Week 1: Enhanced Play Tracking
+- Update track play endpoint with analytics data
+- Improve AudioContext play tracking
+- Add discovery method tracking
+
+Week 2: Page Views & Engagement
+- Implement page view tracking
+- Add engagement event tracking
+- Create geolocation service
+
+Week 3: Consent & Privacy
+- Add analytics consent management
+- Update terms and privacy policy
+- Implement privacy middleware
+
+Week 4: Aggregation & Testing
+- Create data aggregation system
+- Add scheduled aggregation scripts
+- Comprehensive testing and validation
+
+TECHNICAL DECISIONS
+
+1. Discovery Method Tracking: Use URL parameters and referrer data to determine how users found content
+2. Listen Duration: Track actual listening time vs. track duration for engagement metrics
+3. Privacy First: Default to no tracking, require explicit consent
+4. Performance: Use aggregation tables for fast analytics queries
+5. Scalability: Cache geo data and use efficient database indexes
+
+SUCCESS METRICS
+- Track plays with complete analytics data (duration, discovery, geo)
+- Page views recorded with referrer information
+- Engagement events properly categorized
+- User consent properly managed
+- Data aggregation working correctly
+
+This plan focuses purely on data gathering without any display components, setting up the foundation for future analytics dashboards and reports.
