@@ -79,6 +79,9 @@
     font-size: 0.8rem;
     color: var(--text-secondary);
     transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
   
   body.dark-mode .nowPlayingArtist {

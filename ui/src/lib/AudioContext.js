@@ -21,20 +21,25 @@ export function AudioProvider({ children }) {
   const urlRefreshAttemptedRef = useRef(false); // Track if we've tried refreshing the URL
   const urlRefreshedRef = useRef(false); // Track if we've refreshed the URL
 
-  // Refs for play counter
+  // Refs for play counter and analytics
   const listeningTimeRef = useRef(0);
   const playRecordedRef = useRef(false);
+  const currentPlayIdRef = useRef(null);
+  const discoveryMethodRef = useRef('unknown');
 
   // Used for counting plays
   // Define functions with useCallback to prevent unnecessary re-creation
   const updateListeningTime = useCallback(() => {
-    if (isPlaying && soundRef.current && !playRecordedRef.current) {
+    if (isPlaying && soundRef.current) {
       listeningTimeRef.current += 1; // Add one second
     }
   }, [isPlaying]);
 
   // Define playNext function before it's used in handleTrackEnd
-  const playNext = useCallback(() => {
+  const playNext = useCallback((skipped = true) => {    
+    // Update play analytics before skipping to next
+    updatePlay(skipped);
+    
     if (playlist.length === 0) return;
     
     let nextIndex;
@@ -56,51 +61,90 @@ export function AudioProvider({ children }) {
   // Handle track end based on loop state
   const handleTrackEnd = useCallback(() => {
     if (isLoopOn && playlist.length === 1) {
+      updatePlay();
+
       // If loop is on and there's only one track, replay it
       soundRef.current.play();
       // Reset play counter state for looped track
       listeningTimeRef.current = 0;
-      playRecordedRef.current = false;
+      currentPlayIdRef.current = null;
     } else {
-      playNext();
+      playNext(false);
     }
   }, [isLoopOn, playlist.length, playNext]);
 
-  // Check and record play based on listening criteria
+  // Check and record initial play based on listening criteria
   const checkAndRecordPlay = useCallback(() => {
     if (!currentTrack || playRecordedRef.current) return;
     
     const duration = soundRef.current?.duration() || 0;
     const threshold = duration < 30 ? duration * 0.9 : 30;
     
-    // Record play if:
+    // Record initial play if:
     // 1. User listened to at least 30 seconds, OR
     // 2. For tracks < 30 seconds, user listened to at least 90% of the track
     if (listeningTimeRef.current >= threshold) {
-      recordPlay();
+      recordInitialPlay();
     }
   }, [currentTrack]);
 
-  // Record a play via API
-  const recordPlay = async () => {
+  // Record initial play via API
+  const recordInitialPlay = async () => {
     if (!currentTrack || playRecordedRef.current) return;
     
     try {
       playRecordedRef.current = true;
-      // console.log(`Recording play for track: ${currentTrack.title}`);
-      await api.post(`/tracks/${currentTrack.id}/play`);
+      
+      // Get referrer URL for discovery method
+      const referrerUrl = document.referrer || null;
+      
+      const response = await api.post(`/tracks/${currentTrack.id}/play`, {
+        discovery_method: discoveryMethodRef.current,
+        referrer_url: referrerUrl
+      });
+      
+      // Store the play ID for later updates
+      currentPlayIdRef.current = response.data.play_id;
     } catch (err) {
-      console.error('Failed to record play:', err);
+      console.error('Failed to record initial play:', err);
     }
   };
 
-  // interval to check for play recording
+  // Update play with final analytics data
+  const updatePlay = async (skipped = false) => {
+    if (!currentTrack || !currentPlayIdRef.current) return;
+    
+    try {
+      // Calculate final analytics data
+      const listenDuration = listeningTimeRef.current;
+      const trackDuration = soundRef.current?.duration() || 0;
+      const isCompletePlay = listenDuration >= trackDuration * 0.98;
+
+      let skipTime = null;
+      if(skipped){
+        skipTime = soundRef.current.seek();
+      }
+      await api.put(`/tracks/${currentTrack.id}/play/${currentPlayIdRef.current}`, {
+        listen_duration: listenDuration,
+        is_complete_play: isCompletePlay,
+        skip_time: skipTime
+      });
+      
+      // Reset play ID after successful update
+      currentPlayIdRef.current = null;
+    } catch (err) {
+      console.error('Failed to update play:', err);
+    }
+  };
+
+  // interval to check for play recording and track analytics
   useEffect(() => {
     if (!currentTrack) return;
     
-    // Reset play counter state for new track
+    // Reset analytics state for new track
     listeningTimeRef.current = 0;
     playRecordedRef.current = false;
+    currentPlayIdRef.current = null;
     
     // Set up interval to track listening time and check for play recording
     const interval = setInterval(() => {
@@ -247,6 +291,7 @@ export function AudioProvider({ children }) {
   const playTrack = (track, tracksToAdd = []) => {
     console.log('Playing track:', track.title, 'with tracks to add:', tracksToAdd.map(t => t.title));
     const newPlaylist = [track, ...tracksToAdd];
+    updatePlay(true); // skip is true because we are playing a new track
     setPlaylist(newPlaylist);
     setCurrentIndex(0);
     setCurrentTrack(track);
@@ -299,6 +344,9 @@ export function AudioProvider({ children }) {
       console.log('Returning to start of current track:', currentTrack.title);
       return;
     }
+    else{
+      updatePlay(); // going to previous track so record the play
+    }
     
     let prevIndex;
     
@@ -336,6 +384,11 @@ export function AudioProvider({ children }) {
     setIsLoopOn(!isLoopOn);
   };
 
+  // Function to set discovery method for analytics
+  const setDiscoveryMethod = (method) => {
+    discoveryMethodRef.current = method;
+  };
+
   return (
     <AudioContext.Provider 
       value={{ 
@@ -353,7 +406,8 @@ export function AudioProvider({ children }) {
         playNext, 
         playPrevious,
         toggleShuffle,
-        toggleLoop
+        toggleLoop,
+        setDiscoveryMethod
       }}
     >
       {children}

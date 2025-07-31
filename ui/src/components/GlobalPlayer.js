@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAudio } from '../lib/AudioContext';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaMusic, 
-  FaVolumeUp, FaVolumeMute, FaChevronDown } from 'react-icons/fa';
+  FaVolumeUp, FaVolumeMute, FaChevronDown, FaCheckCircle } from 'react-icons/fa';
 import styles from './GlobalPlayer.module.css';
 import { useMobile } from '../contexts/MobileContext';
 
@@ -175,7 +175,10 @@ export default function GlobalPlayer() {
               className={`${styles.nowPlayingArtist} link-underline`}
               onClick={navigateToUserProfile}
             >
-              {currentTrack.username}
+              <span className="link-underline" onClick={navigateToUserProfile}>
+                {currentTrack.username}
+              </span>
+              {currentTrack.verified && <FaCheckCircle className="verified-icon" />}
             </div>
           </div>
         </div>
@@ -301,7 +304,10 @@ export default function GlobalPlayer() {
                 className={`${styles.mobilePlayerTrackArtist} link-underline`}
                 onClick={navigateToUserProfile}
               >
-                {currentTrack.username}
+                <span className="link-underline" onClick={navigateToUserProfile}>
+                  {currentTrack.username}
+                </span>
+                {currentTrack.verified && <FaCheckCircle className="verified-icon" />}
               </div>
             </div>
 

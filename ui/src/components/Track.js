@@ -31,7 +31,7 @@ export default function Track(
   const [isExpanded, setIsExpanded] = useState(false);
   const [originalTrack, setOriginalTrack] = useState(null);
   const [collabTracks, setCollabTracks] = useState([]);
-  const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
+  const { currentTrack, isPlaying, playTrack, togglePlayPause, setDiscoveryMethod } = useAudio();
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [activeTab, setActiveTab] = useState('collabs');
   const [isLinkCopied, setIsLinkCopied] = useState(false);
@@ -114,6 +114,28 @@ export default function Track(
 
   const handlePlayToggle = (e) => {
     e.stopPropagation();
+    
+    // Determine discovery method based on current page/context
+    let discoveryMethod = 'unknown';
+    const pathname = window.location.pathname;
+    
+    if (pathname === '/') {
+      discoveryMethod = 'home_feed';
+    } else if (pathname.startsWith('/user/')) {
+      discoveryMethod = 'user_page';
+    } else if (pathname.startsWith('/track/')) {
+      discoveryMethod = 'track_page';
+    } else if (pathname.startsWith('/search')) {
+      discoveryMethod = 'search';
+    } else if (pathname.startsWith('/explore')) {
+      discoveryMethod = 'explore_page';
+    } else if (pathname.startsWith('/featured')) {
+      discoveryMethod = 'featured_page';
+    }
+    
+    // Set discovery method for analytics
+    setDiscoveryMethod(discoveryMethod);
+    
     if (currentTrack?.id === track.id) {
       console.log('Toggling play/pause for:', track.title);
       if (isPlaying) {
