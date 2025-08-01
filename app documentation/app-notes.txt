@@ -30,6 +30,7 @@ RELEASE CHECKLIST
 - test recording sync with original track and metronome
 - register DMCA agent
 - review terms and privacy policy - ensure all legal requirements are met
+- Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
 
 
 
