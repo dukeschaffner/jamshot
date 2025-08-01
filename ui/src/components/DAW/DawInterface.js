@@ -46,6 +46,7 @@ export default function DawInterface({ track, isCollab = false }) {
   const [isEditingTimeSignature, setIsEditingTimeSignature] = useState(false);
   const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
   const bpmControlRef = useRef(null);
+  const playRecordedRef = useRef(false);
 
   // Add navigation guard hook to prevent accidental navigation when recording exists
   useNavigationGuard({ 
@@ -112,6 +113,8 @@ export default function DawInterface({ track, isCollab = false }) {
     
     const initialTimeSignature = track?.time_signature || '4/4';
     setTimeSignature(initialTimeSignature);
+
+    playRecordedRef.current = false;
   }, [track]);
   
   const configureAudioSettings = async () => {
@@ -162,6 +165,9 @@ export default function DawInterface({ track, isCollab = false }) {
   
   // Toggle play/pause
   const togglePlay = async () => {
+    if(isCollab){ // record play for analytics
+      recordPlay();
+    }
     setIsPlaying(!isPlaying);
   };
   
@@ -361,6 +367,26 @@ export default function DawInterface({ track, isCollab = false }) {
   // Handle toggle for snap to grid
   const handleSnapToGridChange = (e) => {
     setSnapToGridEnabled(e.target.checked);
+  };
+
+  const recordPlay = async () => {
+    if (!track || playRecordedRef.current) return;
+    
+    try {
+      playRecordedRef.current = true;
+      
+      // Get referrer URL for discovery method
+      const referrerUrl = document.referrer || null;
+      
+      const response = await api.post(`/tracks/${track.id}/play`, {
+        discovery_method: 'track_page',
+        referrer_url: referrerUrl
+      });
+      
+      console.log('Play recorded for track:', track.id);
+    } catch (err) {
+      console.error('Failed to record initial play:', err);
+    }
   };
 
   return (
