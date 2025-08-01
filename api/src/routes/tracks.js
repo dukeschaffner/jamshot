@@ -29,6 +29,7 @@ const {
   findAllDescendantTracks
 } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
+const { getGeolocationData } = require('../utils/geolocation');
 require('dotenv').config;
 
 // Configure FFMPEG path based on platform
@@ -1149,9 +1150,13 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
   const { id } = req.params;
   const { 
     discovery_method = 'unknown', 
-    referrer_url = null
+    referrer_url = null,
+    listen_duration = null,
+    is_complete_play = false,
+    skip_time = null
   } = req.body;
   const userId = req.user?.id; // Optional - can be null for anonymous plays
+  const isUpdate = listen_duration !== null || is_complete_play !== null || skip_time !== null;
   
   try {
     // Check if track exists
@@ -1160,42 +1165,42 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Track not found' });
     }
     
-    // For logged-in users, check if they've played this track recently (within the last hour)
-    // This prevents abuse while still allowing legitimate repeat plays
+    // Get IP address and geolocation data
+    const ipAddress = req.ip || socket.connection.remoteAddress || req.headers['x-forwarded-for'];
+    
+    let recentPlay = null;
     if (userId) {
-      const recentPlay = await pool.query(
-        'SELECT id FROM track_plays WHERE track_id = $1 AND user_id = $2 AND created_at > NOW() - INTERVAL \'1 hour\'',
+      recentPlay = await pool.query(
+        'SELECT id, listen_duration FROM track_plays WHERE track_id = $1 AND user_id = $2 AND created_at > NOW() - INTERVAL \'1 hour\'',
         [id, userId]
       );
-      
-      if (recentPlay.rows.length > 0) {
-        // User has played this track recently, don't count it again yet
+    }
+    else{
+      // check if this ip address has played this track recently
+      recentPlay = await pool.query(
+        'SELECT id, listen_duration FROM track_plays WHERE track_id = $1 AND ip_address = $2 AND created_at > NOW() - INTERVAL \'1 hour\'',
+        [id, ipAddress]
+      );
+    }
+
+    if(recentPlay && recentPlay.rows.length > 0){
+      if(isUpdate){
+        if(recentPlay.rows[0].listen_duration != null){
+          return res.status(200).json({ message: 'Play completion already recorded' });
+        }
+        // update the play record
+        await pool.query(
+          'UPDATE track_plays SET listen_duration = $1, is_complete_play = $2, skip_time = $3 WHERE id = $4',
+          [listen_duration, is_complete_play, skip_time, recentPlay.rows[0].id]
+        );
+        return res.status(200).json({ message: 'Play updated successfully' });
+      }
+      else{
         return res.status(200).json({ message: 'Play already recorded recently' });
       }
     }
     
-    // Get IP address and geolocation data
-    const ipAddress = req.ip || socket.connection.remoteAddress || req.headers['x-forwarded-for'];
-    
-    // Get geo data from cache or fetch it
-    let geoData = { country_code: null, region: null, city: null };
-    if (ipAddress) {
-      const geoCache = await pool.query(
-        'SELECT country_code, region, city FROM geo_cache WHERE ip_address = $1',
-        [ipAddress]
-      );
-      
-      if (geoCache.rows.length > 0) {
-        geoData = geoCache.rows[0];
-      } else {
-        // TODO: Implement IP geolocation service
-        // For now, we'll cache null values to avoid repeated lookups
-        await pool.query(
-          'INSERT INTO geo_cache (ip_address, country_code, region, city) VALUES ($1, $2, $3, $4) ON CONFLICT (ip_address) DO NOTHING',
-          [ipAddress, null, null, null]
-        );
-      }
-    }
+    const geoData = await getGeolocationData(ipAddress);
     
     // Record the initial play in a transaction
     const client = await pool.connect();
@@ -1203,15 +1208,18 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       await client.query('BEGIN');
       
       // Record the initial play with available data
-      const playResult = await client.query(
+      await client.query(
         `INSERT INTO track_plays (
           track_id, user_id, discovery_method, 
-          country_code, region, city, referrer_url
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+          country_code, region, city, referrer_url,
+          listen_duration, is_complete_play, skip_time,
+          ip_address
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
         [
           id, userId, discovery_method,
           geoData.country_code, geoData.region, geoData.city,
-          referrer_url
+          referrer_url, listen_duration, is_complete_play, skip_time,
+          userId ? null : ipAddress
         ]
       );
       
@@ -1231,8 +1239,7 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       
       res.status(200).json({ 
         message: 'Play recorded successfully',
-        play_count: playCountResult.rows[0].play_count,
-        play_id: playResult.rows[0].id
+        play_count: playCountResult.rows[0].play_count
       });
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1242,47 +1249,6 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
     }
   } catch (err) {
     console.error('Error recording play:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Update play with final analytics data
-// This endpoint is called when a track ends naturally or user skips
-router.put('/:id/play/:playId', apiEndpointLimiter, async (req, res) => {
-  const { id, playId } = req.params;
-  const { 
-    listen_duration, 
-    is_complete_play = false,
-    skip_time = null
-  } = req.body;
-  const userId = req.user?.id;
-  
-  try {
-    // Verify the play record exists and belongs to this user (if logged in)
-    const playCheck = await pool.query(
-      'SELECT id FROM track_plays WHERE id = $1 AND track_id = $2 AND (user_id = $3 OR user_id IS NULL)',
-      [playId, id, userId]
-    );
-    
-    if (playCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Play record not found' });
-    }
-    
-    // Update the play record with final analytics data
-    await pool.query(
-      `UPDATE track_plays SET 
-        listen_duration = $1,
-        is_complete_play = $2,
-        skip_time = $3
-      WHERE id = $4`,
-      [listen_duration, is_complete_play, skip_time, playId]
-    );
-    
-    res.status(200).json({ 
-      message: 'Play updated successfully'
-    });
-  } catch (err) {
-    console.error('Error updating play:', err);
     res.status(500).json({ error: err.message });
   }
 });

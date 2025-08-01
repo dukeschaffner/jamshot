@@ -24,7 +24,6 @@ export function AudioProvider({ children }) {
   // Refs for play counter and analytics
   const listeningTimeRef = useRef(0);
   const playRecordedRef = useRef(false);
-  const currentPlayIdRef = useRef(null);
   const discoveryMethodRef = useRef('unknown');
 
   // Used for counting plays
@@ -67,7 +66,6 @@ export function AudioProvider({ children }) {
       soundRef.current.play();
       // Reset play counter state for looped track
       listeningTimeRef.current = 0;
-      currentPlayIdRef.current = null;
     } else {
       playNext(false);
     }
@@ -91,6 +89,8 @@ export function AudioProvider({ children }) {
   // Record initial play via API
   const recordInitialPlay = async () => {
     if (!currentTrack || playRecordedRef.current) return;
+
+    console.log('recording initial play');
     
     try {
       playRecordedRef.current = true;
@@ -98,21 +98,27 @@ export function AudioProvider({ children }) {
       // Get referrer URL for discovery method
       const referrerUrl = document.referrer || null;
       
-      const response = await api.post(`/tracks/${currentTrack.id}/play`, {
+      api.post(`/tracks/${currentTrack.id}/play`, {
         discovery_method: discoveryMethodRef.current,
         referrer_url: referrerUrl
+      }).catch(err => {
+        console.error('Failed to record initial play:', err);
+        // Reset the flag so we can try again later if needed
+        playRecordedRef.current = false;
       });
       
-      // Store the play ID for later updates
-      currentPlayIdRef.current = response.data.play_id;
     } catch (err) {
       console.error('Failed to record initial play:', err);
+      // Reset the flag so we can try again later if needed
+      playRecordedRef.current = false;
     }
   };
 
   // Update play with final analytics data
   const updatePlay = async (skipped = false) => {
-    if (!currentTrack || !currentPlayIdRef.current) return;
+    if (!currentTrack) return;
+
+    console.log('updating play');
     
     try {
       // Calculate final analytics data
@@ -124,14 +130,14 @@ export function AudioProvider({ children }) {
       if(skipped){
         skipTime = soundRef.current.seek();
       }
-      await api.put(`/tracks/${currentTrack.id}/play/${currentPlayIdRef.current}`, {
+
+      api.post(`/tracks/${currentTrack.id}/play`, {
         listen_duration: listenDuration,
         is_complete_play: isCompletePlay,
         skip_time: skipTime
+      }).catch(err => {
+        console.error('Failed to update play:', err);
       });
-      
-      // Reset play ID after successful update
-      currentPlayIdRef.current = null;
     } catch (err) {
       console.error('Failed to update play:', err);
     }
@@ -144,7 +150,6 @@ export function AudioProvider({ children }) {
     // Reset analytics state for new track
     listeningTimeRef.current = 0;
     playRecordedRef.current = false;
-    currentPlayIdRef.current = null;
     
     // Set up interval to track listening time and check for play recording
     const interval = setInterval(() => {
