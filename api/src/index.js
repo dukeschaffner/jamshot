@@ -11,6 +11,7 @@ const notificationRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
 const paymentRoutes = require('./routes/payments');
 const contactRoutes = require('./routes/contact');
+const analyticsRoutes = require('./routes/analytics');
 require('dotenv').config();
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.get('/', (req, res) => res.send('Music Collab API'));
 

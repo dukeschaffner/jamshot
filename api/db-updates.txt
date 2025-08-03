@@ -193,47 +193,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to update analytics aggregates
-CREATE OR REPLACE FUNCTION update_analytics_aggregates()
-RETURNS TRIGGER AS $$
-DECLARE
-  period_start DATE;
-  period_end DATE;
-  current_period_type time_period;
-BEGIN
-  -- Calculate period dates based on current date
-  period_start := DATE_TRUNC('day', CURRENT_DATE);
-  period_end := period_start + INTERVAL '1 day' - INTERVAL '1 second';
-  
-  -- Update daily aggregates
-  INSERT INTO analytics_aggregates (
-    track_id, user_id, period_type, period_start, period_end,
-    play_count, listener_count, total_listen_duration, avg_listen_duration
-  )
-  VALUES (
-    NEW.track_id, 
-    (SELECT user_id FROM tracks WHERE id = NEW.track_id),
-    'day', 
-    period_start, 
-    period_end,
-    1,
-    CASE WHEN NEW.user_id IS NOT NULL THEN 1 ELSE 0 END,
-    COALESCE(NEW.listen_duration, 0),
-    COALESCE(NEW.listen_duration, 0)
-  )
-  ON CONFLICT (track_id, user_id, period_type, period_start)
-  DO UPDATE SET
-    play_count = analytics_aggregates.play_count + 1,
-    listener_count = analytics_aggregates.listener_count + 
-      CASE WHEN NEW.user_id IS NOT NULL AND NEW.user_id != analytics_aggregates.user_id THEN 1 ELSE 0 END,
-    total_listen_duration = analytics_aggregates.total_listen_duration + COALESCE(NEW.listen_duration, 0),
-    avg_listen_duration = (analytics_aggregates.total_listen_duration + COALESCE(NEW.listen_duration, 0)) / 
-                         (analytics_aggregates.play_count + 1),
-    updated_at = CURRENT_TIMESTAMP;
-    
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 
 

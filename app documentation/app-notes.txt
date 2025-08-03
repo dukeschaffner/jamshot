@@ -2,6 +2,8 @@
 TODO (MVP)
 - analytics
   - delete track plays older than 7 days for non premium users
+  - analytics opt out
+  - DOB collection
 - yearly billing for subscriptions
 - how to page with tutorials
 - handle notification spamming

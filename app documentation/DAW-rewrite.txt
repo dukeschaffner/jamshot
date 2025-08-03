@@ -1,1 +1,8 @@
 DAW Features/Requirements:
+
+use audio engine to play audio
+track backend component
+use workers
+use event/message bus
+use DAWState
+use DAWConfig
