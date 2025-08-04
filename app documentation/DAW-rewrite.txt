@@ -6,3 +6,24 @@ use workers
 use event/message bus
 use DAWState
 use DAWConfig
+
+
+The DAW contains a parent track and a user track
+## Parent Track
+- mostly static. Timing cannot be updated. track cannot be trimmed.
+- The DAW width (duration) is the parent track width (ie if parent track is 38s, the DAW is 38s wide)
+- 
+
+
+## Looper
+- precise, accurate looper 
+- nice to have: dynamic (can be updated during playback)
+
+## Track
+- Dynamic gain (value can be updated during playback)
+- solo button (can be updated during playback)
+- audio level meter (gain fader overlaid on level meter)
+- start and end can be trimmed
+
+## Zoom
+- zoom in and out with a slider
