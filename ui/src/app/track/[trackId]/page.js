@@ -16,6 +16,7 @@ import styles from '@/components/Track.module.css';
 import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop} from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
 import { useMobile } from '../../../contexts/MobileContext';
+import DAW from '@/components/DAW/DAW';
 
 // Component that uses useSearchParams, wrapped in Suspense
 function TrackContent() {
@@ -275,7 +276,7 @@ function TrackContent() {
             <p>Use Desktop version to record or upload file to collaborate</p>
           </div>
         ) : (
-          <DawInterface track={track} isCollab={true}/>
+          <DAW track={track}/>
         )}
       </div>
       {activeTab === 'comments' && (
