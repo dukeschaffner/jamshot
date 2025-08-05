@@ -515,68 +515,6 @@
   color: var(--dark-text-secondary);
 }
 
-/* Control Button Styles */
-.control-button {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 1rem;
-  transition: color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dark-mode .control-button {
-  color: var(--dark-text-secondary);
-}
-
-.control-button:hover, .control-button.active {
-  color: var(--dark);
-}
-
-.dark-mode .control-button:hover, 
-.dark-mode .control-button.active {
-  color: var(--dark-text-primary);
-}
-
-.control-button.play-pause {
-  width: 36px;
-  height: 36px;
-  background-color: var(--seafoam);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.control-button.play-pause:hover {
-  background-color: var(--rustic-pink);
-  color: white;
-}
-
-.control-button.record-stop {
-  width: 36px;
-  height: 36px;
-  background-color: red;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
-}
-
-.control-button.record-stop:hover {
-  background-color: var(--rustic-pink);
-  color: white;
-}
-
 
 
 /* Track Header */

@@ -1182,6 +1182,59 @@ body.dark-mode .metronome-offset-handle {
   transform: scale(0.95);
 }
 
+.record-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: none;
+  background: #ff3b30;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.record-btn:hover {
+  background: #d70015;
+  transform: scale(1.05);
+}
+
+.record-btn:active {
+  transform: scale(0.95);
+}
+
+.record-btn.recording {
+  background: #ff3b30;
+  animation: pulse 1.5s infinite;
+}
+
+.stop-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: none;
+  background: #ff9500;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stop-btn:hover {
+  background: #e6850e;
+  transform: scale(1.05);
+}
+
+.stop-btn:active {
+  transform: scale(0.95);
+}
+
 .time-display {
   font-family: 'Space Mono', monospace;
   font-size: 1.1rem;
@@ -1238,7 +1291,9 @@ body.dark-mode .metronome-offset-handle {
     font-size: 1.2rem;
   }
   
-  .play-pause-btn {
+  .play-pause-btn,
+  .record-btn,
+  .stop-btn {
     width: 40px;
     height: 40px;
     font-size: 1rem;

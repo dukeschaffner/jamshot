@@ -57,9 +57,9 @@ class EventBus {
         }
       }
       
-      if (this.debug) {
-        console.log(`EventBus: Removed listener for '${event}'`);
-      }
+      // if (this.debug) {
+      //   console.log(`EventBus: Removed listener for '${event}'`);
+      // }
     }
     
     emit(event, data = null) {
@@ -72,9 +72,9 @@ class EventBus {
       
       const listeners = this.listeners.get(event) || [];
       
-      if (this.debug) {
-        console.log(`EventBus: Emitting '${event}'`, processedData, `(${listeners.length} listeners)`);
-      }
+      // if (this.debug) {
+      //   console.log(`EventBus: Emitting '${event}'`, processedData, `(${listeners.length} listeners)`);
+      // }
       
       // Execute listeners with error handling
       listeners.forEach(listener => {
