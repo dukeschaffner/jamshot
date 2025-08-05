@@ -7,6 +7,8 @@ const DAWConfig = {
       bufferSize: 8192,
       maxRecordingDuration: 300, // 5 minutes
       scheduleDelay: 0.1, // seconds
+      recordingBufferSize: 4096, // Buffer size for recording processor
+      recordingLatencyCompensation: 0.02, // Additional latency compensation in seconds
     },
     
     ui: {

@@ -1239,16 +1239,6 @@ body.dark-mode .time-display {
   }
 }
 
-.control-button.active {
-  color: var(--seafoam);
-  transform: scale(1.1);
-}
-
-body.dark-mode .control-button.active {
-  color: var(--seafoam);
-  transform: scale(1.1);
-}
-
 /* Tabbed interface styles */
 /* Used by track component */
 .track-tabs {
@@ -1480,52 +1470,11 @@ body.dark-mode .delete-description {
 
 /* DAW INTERFACE */
 
-.daw-interface {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 20px;
-}
 
-.daw-interface .daw-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
 
-.control-button.settings {
-  background-color: var(--grey-1);
-  color: var(--text-primary);
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  border-radius: 50%;
-  transition: background-color 0.3s;
-}
 
-.control-button.settings:hover {
-  background-color: var(--grey-2);
-}
 
-.bpm-control {
-  display: flex;
-  position: relative;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background-color: var(--gray-light);
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
 
-.dark-mode .bpm-control {
-  background-color: var(--dark-hover-color);
-  color: var(--dark-text-primary);
-}
 
 
 .empty-message {

@@ -1,24 +1,43 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlay, faPause } from '@fortawesome/free-solid-svg-icons';
 import AudioEngine from './core/AudioEngine';
 import { eventBus } from './EventBus';
 import { DAW_EVENTS } from './DAWEvents';
-import './DawBody.css';
 import { getAudioBufferFromS3 } from './DAWUtils';
 import WaveSurferWaveform from './WaveSurferWaveform';
+import api from '../../lib/api';
+import TransportControls from './components/TransportControls';
+import styles from './DAW.module.css';
 
 export default function DAW({ track }) {
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [ready, setReady] = useState(false);
-  const [audioBuffer, setAudioBuffer] = useState(null);
+  const [parentAudioBuffer, setParentAudioBuffer] = useState(null);
   const [duration, setDuration] = useState(0);
   const audioEngineRef = useRef(null);
+
+  const [metronomeBpm, setMetronomeBpm] = useState(120);
+  const [timeSignature, setTimeSignature] = useState('4/4');
+
+  const playRecordedRef = useRef(false);
+
+  // Handle track changes
+  useEffect(() => {
+    if(!track) return;
+
+    const initialBpm = track?.metronome_bpm || 120;
+    setMetronomeBpm(initialBpm);
+    
+    const initialTimeSignature = track?.time_signature || '4/4';
+    setTimeSignature(initialTimeSignature);
+
+    playRecordedRef.current = false;
+  }, [track]);
 
 
 
@@ -40,18 +59,51 @@ export default function DAW({ track }) {
       setCurrentTime(data.time);
     };
     
+    // Listen for recording events
+    const handleRecordingStarted = () => {
+      setIsRecording(true);
+    };
+    
+    const handleRecordingStopped = () => {
+      setIsRecording(false);
+    };
+    
+    const handleRecordingError = (error) => {
+      console.error('Recording error:', error);
+      setIsRecording(false);
+    };
+
+    const handleBpmChange = (newBpm) => {
+      console.log('BPM changed to:', newBpm);
+      setMetronomeBpm(newBpm);
+    };
+    
+    const handleTimeSignatureChange = (newTimeSignature) => {
+      console.log('Time signature changed to:', newTimeSignature);
+      setTimeSignature(newTimeSignature);
+    };
+    
     // Register event listeners
     eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     eventBus.on(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
     eventBus.on(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
     eventBus.on(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
-
+    eventBus.on(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
+    eventBus.on(DAW_EVENTS.RECORDING.STOPPED, handleRecordingStopped);
+    eventBus.on(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
+    eventBus.on(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
+    eventBus.on(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
     // Return cleanup function
     return () => {
       eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
       eventBus.off(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
       eventBus.off(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
       eventBus.off(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
+      eventBus.off(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
+      eventBus.off(DAW_EVENTS.RECORDING.STOPPED, handleRecordingStopped);
+      eventBus.off(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
+      eventBus.off(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
+      eventBus.off(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
     };
   }, []); 
 
@@ -81,7 +133,7 @@ export default function DAW({ track }) {
         audioEngineRef.current.createTrack(track.id, buffer);
         
         // Set audio buffer and duration for WaveSurfer
-        setAudioBuffer(buffer);
+        setParentAudioBuffer(buffer);
         setDuration(buffer.duration);
       };
       loadTrack();
@@ -89,52 +141,61 @@ export default function DAW({ track }) {
     }
   }, [initialized, track]);
 
-  const togglePlayPause = () => {
-    if (isPlaying) {
-      // Emit pause event
-      eventBus.emit(DAW_EVENTS.TRANSPORT.PAUSE);
-    } else {
-      // Emit play event
-      eventBus.emit(DAW_EVENTS.TRANSPORT.PLAY);
-    }
-  };
 
   const handleSeek = (newTime) => {
     // Emit seek event to your custom audio engine
     eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: newTime });
   };
 
+  const recordPlay = async () => {
+    if (!track || playRecordedRef.current) return;
+    
+    try {
+      playRecordedRef.current = true;
+      
+      // Get referrer URL for discovery method
+      const referrerUrl = document.referrer || null;
+      
+      const response = await api.post(`/tracks/${track.id}/play`, {
+        discovery_method: 'track_page',
+        referrer_url: referrerUrl
+      });
+      
+      console.log('Play recorded for track:', track.id);
+    } catch (err) {
+      console.error('Failed to record initial play:', err);
+    }
+  };
+
   return (
-    <div className="daw-container">
-      <div className="daw-header">
-        <h2>DAW</h2>
+    <div className={styles.dawContainer}>
+        <TransportControls
+          isRecording={isRecording}
+          isPlaying={isPlaying}
+          ready={ready}
+          metronomeBpm={metronomeBpm}
+          timeSignature={timeSignature}
+        />
         <div className="transport-controls">
-          <button 
-            className="play-pause-btn"
-            onClick={togglePlayPause}
-            disabled={!ready}
-          >
-            <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
-          </button>
+          
           <div className="time-display">
             {formatTime(currentTime)}
           </div>
         </div>
-      </div>
       
-      <div className="daw-body">
+      <div className={styles.dawBody}>
         <div className="timeline">
           {/* Timeline content will go here */}
         </div>
         
         <div className="tracks-container">
-          {audioBuffer && (
+          {parentAudioBuffer && (
             <div>
               <h3 style={{ marginBottom: '12px', color: '#ccc', fontSize: '14px' }}>
                 Waveform Display
               </h3>
               <WaveSurferWaveform
-                audioBuffer={audioBuffer}
+                audioBuffer={parentAudioBuffer}
                 isPlaying={isPlaying}
                 currentTime={currentTime}
                 duration={duration}

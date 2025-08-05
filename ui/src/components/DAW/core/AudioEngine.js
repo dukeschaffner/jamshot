@@ -1,4 +1,5 @@
 import Track from './Track.js';
+import Recorder from './Recorder.js';
 import DAWConfig from '../DAWConfig.js';
 import { eventBus } from '../EventBus.js';
 import { DAW_EVENTS } from '../DAWEvents.js';
@@ -9,6 +10,7 @@ class AudioEngine {
     this.context = null;
     this.tracks = new Map();
     this.processors = new Map();
+    this.recorder = null;
 
     // Transport state
     this.isPlaying = false;
@@ -31,12 +33,16 @@ class AudioEngine {
     this.handleSeekEvent = this.handleSeekEvent.bind(this);
   }
   
-  initialize() {
+  async initialize() {
     this.context = new (window.AudioContext || window.webkitAudioContext)();
 
     if(this.context.state === 'suspended') {
       this.context.resume();
     }
+    
+    // Initialize recorder
+    this.recorder = new Recorder(this.context, this.eventBus);
+    await this.recorder.initialize();
     
     // Listen for transport events
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
@@ -86,6 +92,20 @@ class AudioEngine {
     this.seek(data.time);
   }
   
+  // Recording proxy methods
+  async startRecording() {
+    if (this.recorder) {
+      this.recorder.setRecordingOffset(this.currentTime);
+      await this.recorder.startRecording();
+    }
+  }
+  
+  stopRecording() {
+    if (this.recorder) {
+      this.recorder.stopRecording();
+    }
+  }
+  
   createTrack(id, buffer) {
     const track = new Track(id, this.context, buffer);
     this.tracks.set(id, track);
@@ -133,8 +153,16 @@ class AudioEngine {
     return maxDuration || 1; // Prevent division by zero
   }
   
+
+  
   // Cleanup
   destroy() {
+    // Stop recording if active
+    if (this.recorder) {
+      this.recorder.destroy();
+      this.recorder = null;
+    }
+    
     //this.pause();
     this.tracks.forEach(track => track.destroy());
     this.tracks.clear();
