@@ -105,3 +105,8 @@ export function estimateFileSize(audioBuffer, format = 'wav') {
   
   return Math.round(length * channels * bytesPerSample);
 }
+
+
+export function getPlaybackTime(audioContext, startTime, currentTime) {
+  return currentTime + (audioContext.currentTime - startTime);
+}

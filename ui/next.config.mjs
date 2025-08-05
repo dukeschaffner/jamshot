@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: false,
   // Disable static export for now - we'll use a different approach
   // output: 'export',
   // trailingSlash: true,
