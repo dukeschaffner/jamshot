@@ -8,6 +8,7 @@ import { eventBus } from './EventBus';
 import { DAW_EVENTS } from './DAWEvents';
 import './DawBody.css';
 import { getAudioBufferFromS3 } from './DAWUtils';
+import WaveSurferWaveform from './WaveSurferWaveform';
 
 export default function DAW({ track }) {
 
@@ -15,6 +16,8 @@ export default function DAW({ track }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [initialized, setInitialized] = useState(false);
   const [ready, setReady] = useState(false);
+  const [audioBuffer, setAudioBuffer] = useState(null);
+  const [duration, setDuration] = useState(0);
   const audioEngineRef = useRef(null);
 
 
@@ -76,6 +79,10 @@ export default function DAW({ track }) {
       const loadTrack = async () => {
         const buffer = await getAudioBufferFromS3(track.combined_audio_url, audioEngineRef.current.context);
         audioEngineRef.current.createTrack(track.id, buffer);
+        
+        // Set audio buffer and duration for WaveSurfer
+        setAudioBuffer(buffer);
+        setDuration(buffer.duration);
       };
       loadTrack();
       setReady(true);
@@ -90,6 +97,11 @@ export default function DAW({ track }) {
       // Emit play event
       eventBus.emit(DAW_EVENTS.TRANSPORT.PLAY);
     }
+  };
+
+  const handleSeek = (newTime) => {
+    // Emit seek event to your custom audio engine
+    eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: newTime });
   };
 
   return (
@@ -116,7 +128,24 @@ export default function DAW({ track }) {
         </div>
         
         <div className="tracks-container">
-          {/* Tracks will go here */}
+          {audioBuffer && (
+            <div>
+              <h3 style={{ marginBottom: '12px', color: '#ccc', fontSize: '14px' }}>
+                Waveform Display
+              </h3>
+              <WaveSurferWaveform
+                audioBuffer={audioBuffer}
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={duration}
+                onSeek={handleSeek}
+                height={200}
+                waveColor="#93e9be"
+                progressColor="#007acc"
+                cursorColor="#ff6b6b"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
