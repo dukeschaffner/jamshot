@@ -1,5 +1,8 @@
 import Track from './Track.js';
 import DAWConfig from '../DAWConfig.js';
+import { eventBus } from '../EventBus.js';
+import { DAW_EVENTS } from '../DAWEvents.js';
+import { getPlaybackTime } from '../DAWUtils.js';
 
 class AudioEngine {
   constructor() {
@@ -9,8 +12,8 @@ class AudioEngine {
 
     // Transport state
     this.isPlaying = false;
-    this.currentTime = 0;
-    this.startTime = 0;
+    this.currentTime = 0; // Playback time in seconds
+    this.startTime = 0; // audioContext.currentTime when playback started
     this.isLooping = false;
     this.loopStart = 0;
     this.loopEnd = 100;
@@ -18,47 +21,47 @@ class AudioEngine {
     // Playhead management
     this.playheadTimer = null;
     
-    // Import event bus and events
-    this.eventBus = null;
-    this.DAW_EVENTS = null;
-    
-    // Bind methods
-    this.handlePlayEvent = this.handlePlayEvent.bind(this);
-    this.handlePauseEvent = this.handlePauseEvent.bind(this);
-    this.handleSeekEvent = this.handleSeekEvent.bind(this);
-  }
-  
-  async initialize() {
-    this.context = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // Import event bus and events dynamically
-    const { eventBus } = await import('../EventBus');
-    const { DAW_EVENTS } = await import('../DAWEvents');
-    
+    // Event bus and events (now imported at top)
     this.eventBus = eventBus;
     this.DAW_EVENTS = DAW_EVENTS;
     
+    // Bind methods
+    this.play = this.play.bind(this);
+    this.pause = this.pause.bind(this);
+    this.handleSeekEvent = this.handleSeekEvent.bind(this);
+  }
+  
+  initialize() {
+    this.context = new (window.AudioContext || window.webkitAudioContext)();
+
+    if(this.context.state === 'suspended') {
+      this.context.resume();
+    }
+    
     // Listen for transport events
-    this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PLAY, this.handlePlayEvent);
-    this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PAUSE, this.handlePauseEvent);
+    this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
+    this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
   }
   
-  handlePlayEvent() {
+  play() {
     if (this.isPlaying) return;
     
     // Resume context if suspended
     if (this.context.state === 'suspended') {
       this.context.resume();
     }
+    else if(this.context.state === 'closed') {
+      this.eventBus.emit(this.DAW_EVENTS.ERROR.AUDIO, 'Audio context closed');
+      this.context = new (window.AudioContext || window.webkitAudioContext)();
+    }
     
     this.isPlaying = true;
-    this.startTime = this.context.currentTime - this.currentTime;
+    this.startTime = this.context.currentTime + DAWConfig.audio.scheduleDelay;
     
     // Start all tracks synchronized
     this.tracks.forEach(track => {
-      //track.play(this.startTime, this.currentTime);
-      track.play(0, 0);
+      track.play(this.startTime, this.currentTime);
     });
     
     // Start playhead updates
@@ -68,9 +71,9 @@ class AudioEngine {
     this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.STARTED);
   }
   
-  handlePauseEvent() {
+  pause() {
     this.isPlaying = false;
-    this.currentTime = this.context.currentTime - this.startTime;
+    this.currentTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
     
     this.tracks.forEach(track => track.pause());
     this.stopPlayheadTimer();
@@ -93,17 +96,12 @@ class AudioEngine {
   startPlayheadTimer() {
     this.playheadTimer = setInterval(() => {
       if (this.isPlaying) {
-        this.currentTime = this.context.currentTime - this.startTime;
-        
-        // Handle loop boundaries
-        if (this.isLooping && this.currentTime >= this.loopEnd) {
-          this.seek(this.loopStart);
-        }
+        const playbackTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
         
         // Emit position update event
         this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.POSITION_UPDATE, {
-          time: this.currentTime,
-          position: this.currentTime / this.getDuration()
+          time: playbackTime,
+          position: playbackTime / this.getDuration()
         });
       }
     }, DAWConfig.ui.updateInterval); // 50fps updates
@@ -143,8 +141,8 @@ class AudioEngine {
     
     // Remove event listeners
     if (this.eventBus && this.DAW_EVENTS) {
-      this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PLAY, this.handlePlayEvent);
-      this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PAUSE, this.handlePauseEvent);
+      this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
+      this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
     }
     

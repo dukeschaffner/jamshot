@@ -6,6 +6,7 @@ const DAWConfig = {
       channels: 1,
       bufferSize: 8192,
       maxRecordingDuration: 300, // 5 minutes
+      scheduleDelay: 0.1, // seconds
     },
     
     ui: {

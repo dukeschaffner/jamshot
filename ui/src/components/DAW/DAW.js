@@ -13,60 +13,74 @@ export default function DAW({ track }) {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [initialized, setInitialized] = useState(false);
+  const [ready, setReady] = useState(false);
   const audioEngineRef = useRef(null);
 
+
+
   useEffect(() => {
+    // Listen for transport events
+    const handlePlaybackStarted = () => {
+      setIsPlaying(true);
+    };
+    
+    const handlePlaybackStopped = () => {
+      setIsPlaying(false);
+    };
+    
+    const handlePlaybackPaused = () => {
+      setIsPlaying(false);
+    };
+    
+    const handlePositionUpdate = (data) => {
+      setCurrentTime(data.time);
+    };
+    
+    // Register event listeners
+    eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
+    eventBus.on(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
+    eventBus.on(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
+    eventBus.on(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
+
+    // Return cleanup function
+    return () => {
+      eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
+      eventBus.off(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
+      eventBus.off(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
+      eventBus.off(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
+    };
+  }, []); 
+
+  useEffect(() => {    
     // Initialize audio engine
     const initAudio = async () => {
       audioEngineRef.current = new AudioEngine();
       await audioEngineRef.current.initialize();
-
-      // Create track if track prop is provided
-      if (track) {
-        const buffer = await getAudioBufferFromS3(track.combined_audio_url, audioEngineRef.current.context);
-        audioEngineRef.current.createTrack(track.id, buffer);
-      }
-
-      // Listen for transport events
-      const handlePlaybackStarted = () => {
-        setIsPlaying(true);
-      };
-      
-      const handlePlaybackStopped = () => {
-        setIsPlaying(false);
-      };
-      
-      const handlePlaybackPaused = () => {
-        setIsPlaying(false);
-      };
-      
-      const handlePositionUpdate = (data) => {
-        setCurrentTime(data.time);
-      };
-      
-      // Register event listeners
-      eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
-      eventBus.on(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
-      eventBus.on(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
-      eventBus.on(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
-      
-      // Cleanup function
-      return () => {
-        eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
-        eventBus.off(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
-        eventBus.off(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
-        eventBus.off(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
-      };
     };
     
     initAudio();
-    
+    setInitialized(true);
+
+    // Return cleanup function
     return () => {
       if (audioEngineRef.current) {
         audioEngineRef.current.destroy();
+        audioEngineRef.current = null;
       }
     };
-  }, [track]); // Add track as dependency
+  }, []); 
+
+  useEffect(() => {
+    if (initialized && track && audioEngineRef.current) {
+      const loadTrack = async () => {
+        const buffer = await getAudioBufferFromS3(track.combined_audio_url, audioEngineRef.current.context);
+        audioEngineRef.current.createTrack(track.id, buffer);
+      };
+      loadTrack();
+      setReady(true);
+    }
+  }, [initialized, track]);
 
   const togglePlayPause = () => {
     if (isPlaying) {
@@ -86,6 +100,7 @@ export default function DAW({ track }) {
           <button 
             className="play-pause-btn"
             onClick={togglePlayPause}
+            disabled={!ready}
           >
             <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
           </button>
