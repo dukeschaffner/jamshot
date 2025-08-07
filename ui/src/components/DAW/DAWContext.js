@@ -13,11 +13,13 @@ export function DAWProvider({ children, trackData }) {
 
     const [isPlaying, setIsPlaying] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
-    const [playheadLocation, setPlayheadLocation] = useState({});
+    const [playheadLocation, setPlayheadLocation] = useState({time: 0});
     const [metronomeBpm, setMetronomeBpm] = useState(120);
     const [timeSignature, setTimeSignature] = useState('4/4');
     const [duration, setDuration] = useState(0);
     const [tracks, setTracks] = useState([]);
+    const [zoom, setZoom] = useState(1);
+    const [viewportOffset, setViewportOffset] = useState(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -154,6 +156,18 @@ export function DAWProvider({ children, trackData }) {
     }
   };
   
+  // Zoom control functions
+  const setZoomLevel = (newZoom) => {
+    const clampedZoom = Math.max(0.1, Math.min(10, newZoom));
+    setZoom(clampedZoom);
+    eventBus.emit(DAW_EVENTS.UI.ZOOM_CHANGE, { zoom: clampedZoom });
+  };
+
+  const setViewportOffsetValue = (newOffset) => {
+    setViewportOffset(newOffset);
+    eventBus.emit(DAW_EVENTS.UI.VIEW_CHANGE, { viewportOffset: newOffset });
+  };
+
   return (
     <DAWContext.Provider value={{
       trackManagerRef,
@@ -167,6 +181,10 @@ export function DAWProvider({ children, trackData }) {
       metronomeBpm,
       timeSignature,
       duration,
+      zoom,
+      viewportOffset,
+      setZoomLevel,
+      setViewportOffsetValue,
     }}>
       {children}
     </DAWContext.Provider>
