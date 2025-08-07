@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
+import { eventBus } from './EventBus';
+import { DAW_EVENTS } from './DAWEvents';
+import { bufferRegistry } from './core/BufferRegistry';
+import { useDAW } from './DAWContext';
 
 export default function WaveSurferWaveform({ 
-  audioBuffer, 
-  isPlaying, 
-  currentTime, 
-  duration,
-  onSeek,
+  track,
   height = 100,
   width = '100%',
   waveColor = '#93e9be',
@@ -18,6 +18,10 @@ export default function WaveSurferWaveform({
   const waveformRef = useRef(null);
   const wavesurferRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [audioBuffer, setAudioBuffer] = useState(null);
+
+  const { isPlaying, playheadLocation } = useDAW();
 
   useEffect(() => {
     if (!waveformRef.current) return;
@@ -57,9 +61,7 @@ export default function WaveSurferWaveform({
     });
 
     wavesurfer.on('seek', (position) => {
-      if (onSeek) {
-        onSeek(position * duration);
-      }
+      handleSeek(position * duration);
     });
 
     return () => {
@@ -69,6 +71,14 @@ export default function WaveSurferWaveform({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (track) {
+      const audioBuffer = bufferRegistry.getBuffer(track.regions[0].key);
+      setAudioBuffer(audioBuffer);
+      setDuration(track.duration);
+    }
+  }, [track]);
 
   // Load audio buffer when it changes
   useEffect(() => {
@@ -80,10 +90,9 @@ export default function WaveSurferWaveform({
   // Update playhead position when currentTime changes
   useEffect(() => {
     if (wavesurferRef.current && isReady && duration > 0) {
-      const position = currentTime / duration;
-      wavesurferRef.current.setTime(currentTime);
+      wavesurferRef.current.setTime(playheadLocation.time);
     }
-  }, [currentTime, duration, isReady]);
+  }, [playheadLocation.time, duration, isReady]);
 
   const loadAudioBuffer = async (buffer) => {
     if (!wavesurferRef.current) return;
@@ -107,6 +116,11 @@ export default function WaveSurferWaveform({
     } catch (error) {
       console.error('Error loading audio buffer into WaveSurfer:', error);
     }
+  };
+
+  const handleSeek = (newTime) => {
+    seek(newTime);
+    eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: newTime });
   };
 
   // Helper function to convert AudioBuffer to WAV Blob

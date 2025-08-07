@@ -1,0 +1,176 @@
+// ui/src/contexts/DAWContext.js
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import TrackManager from './core/TrackManager';
+import AudioEngine from './core/AudioEngine';
+import { eventBus } from './EventBus';
+import { DAW_EVENTS } from './DAWEvents';
+
+const DAWContext = createContext();
+
+export function DAWProvider({ children, trackData }) {
+    const trackManagerRef = useRef(null);
+    const audioEngineRef = useRef(null);
+
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [playheadLocation, setPlayheadLocation] = useState({});
+    const [metronomeBpm, setMetronomeBpm] = useState(120);
+    const [timeSignature, setTimeSignature] = useState('4/4');
+    const [duration, setDuration] = useState(0);
+    const [tracks, setTracks] = useState([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const playRecordedRef = useRef(false);
+  
+  useEffect(() => {
+    const initializeDAW = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Initialize audio context
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Create and load all tracks
+        const tm = new TrackManager(audioContext);
+        await tm.loadAllTracks(trackData);
+        
+        // Initialize audio engine
+        const ae = new AudioEngine(audioContext);
+        await ae.initialize(tm);
+        
+        trackManagerRef.current = tm;
+        audioEngineRef.current = ae;
+        setTracks(tm.getAllTracks());
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (trackData) {
+      initializeDAW();
+    }
+  }, [trackData]);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount
+      if (audioEngineRef.current) {
+        audioEngineRef.current.destroy();
+      }
+      if (trackManagerRef.current) {
+        trackManagerRef.current.destroy();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Listen for transport events
+    const handlePlaybackStarted = () => {
+      setIsPlaying(true);
+    };
+    
+    const handlePlaybackStopped = () => {
+      setIsPlaying(false);
+    };
+    
+    const handlePlaybackPaused = () => {
+      setIsPlaying(false);
+    };
+    
+    const handlePositionUpdate = (data) => {
+      setPlayheadLocation(data);
+    };
+    
+    // Listen for recording events
+    const handleRecordingStarted = () => {
+      setIsRecording(true);
+    };
+    
+    const handleRecordingStopped = () => {
+      setIsRecording(false);
+    };
+    
+    const handleRecordingError = (error) => {
+      console.error('Recording error:', error);
+      setIsRecording(false);
+    };
+
+    const handleBpmChange = (newBpm) => {
+      console.log('BPM changed to:', newBpm);
+      setMetronomeBpm(newBpm);
+    };
+    
+    const handleTimeSignatureChange = (newTimeSignature) => {
+      console.log('Time signature changed to:', newTimeSignature);
+      setTimeSignature(newTimeSignature);
+    };
+    
+    // Register event listeners
+    eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
+    eventBus.on(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
+    eventBus.on(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
+    eventBus.on(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
+    eventBus.on(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
+    eventBus.on(DAW_EVENTS.RECORDING.STOPPED, handleRecordingStopped);
+    eventBus.on(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
+    eventBus.on(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
+    eventBus.on(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
+    
+    // Return cleanup function
+    return () => {
+      eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
+      eventBus.off(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
+      eventBus.off(DAW_EVENTS.PLAYBACK.PAUSED, handlePlaybackPaused);
+      eventBus.off(DAW_EVENTS.PLAYBACK.POSITION_UPDATE, handlePositionUpdate);
+      eventBus.off(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
+      eventBus.off(DAW_EVENTS.RECORDING.STOPPED, handleRecordingStopped);
+      eventBus.off(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
+      eventBus.off(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
+      eventBus.off(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
+    };
+  }, []); 
+
+  const recordPlay = async () => {
+    if (!track || playRecordedRef.current) return;
+    
+    try {
+      playRecordedRef.current = true;
+      
+      // Get referrer URL for discovery method
+      const referrerUrl = document.referrer || null;
+      
+      const response = await api.post(`/tracks/${track.id}/play`, {
+        discovery_method: 'track_page',
+        referrer_url: referrerUrl
+      });
+      
+      console.log('Play recorded for track:', track.id);
+    } catch (err) {
+      console.error('Failed to record initial play:', err);
+    }
+  };
+  
+  return (
+    <DAWContext.Provider value={{
+      trackManagerRef,
+      audioEngineRef,
+      isLoading,
+      error,
+      tracks,
+      isPlaying,
+      isRecording,
+      playheadLocation,
+      metronomeBpm,
+      timeSignature,
+      duration,
+    }}>
+      {children}
+    </DAWContext.Provider>
+  );
+}
+
+export const useDAW = () => useContext(DAWContext);
