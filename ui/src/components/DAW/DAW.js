@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useDAW, DAWProvider } from './DAWContext';
 import { eventBus } from './EventBus';
 import { DAW_EVENTS } from './DAWEvents';
-import WaveSurferWaveform from './WaveSurferWaveform';
+import Waveform from './waveform/Waveform';
 import api from '../../lib/api';
 import TransportControls from './components/TransportControls';
+import ZoomSlider from './components/ZoomSlider';
 import styles from './DAW.module.css';
 
 function DAWContent({ track }) {
@@ -22,6 +23,8 @@ function DAWContent({ track }) {
     metronomeBpm,
     timeSignature,
     duration,
+    zoom,
+    setZoomLevel,
   } = useDAW();
 
   // Show loading state
@@ -44,12 +47,18 @@ function DAWContent({ track }) {
 
   return (
     <div className={styles.dawContainer}>
-        <TransportControls
-          isRecording={isRecording}
-          isPlaying={isPlaying}
-          metronomeBpm={metronomeBpm}
-          timeSignature={timeSignature}
-        />
+        <div className={styles.dawControls}>
+          <TransportControls
+            isRecording={isRecording}
+            isPlaying={isPlaying}
+            metronomeBpm={metronomeBpm}
+            timeSignature={timeSignature}
+          />
+          <ZoomSlider
+            zoom={zoom}
+            onZoomChange={setZoomLevel}
+          />
+        </div>
         <div className="transport-controls">
           
           <div className="time-display">
@@ -62,20 +71,27 @@ function DAWContent({ track }) {
           {/* Timeline content will go here */}
         </div>
         
-        <div className="tracks-container">
+        <div className={styles.tracksScrollContainer}>
           {tracks.length > 0 && (
-            <div>
-              <h3 style={{ marginBottom: '12px', color: '#ccc', fontSize: '14px' }}>
-                Waveform Display
-              </h3>
-              <WaveSurferWaveform
-                track={tracks[0]}
-                height={200}
-                waveColor="#93e9be"
-                progressColor="#007acc"
-                cursorColor="#ff6b6b"
-              />
-            </div>
+            <>
+              <div 
+                className={styles.tracksContainer}
+                style={{
+                  width: `${Math.max(100, zoom * 100)}%`,
+                  minWidth: `${Math.max(100, zoom * 100)}%`,
+                }}
+              >
+                <Waveform
+                  zoom={zoom}
+                  width={`${Math.max(100, zoom * 100)}%`}
+                />
+              </div>
+              {zoom > 1 && (
+                <div className={styles.zoomIndicator}>
+                  Zoom: {zoom.toFixed(1)}x
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

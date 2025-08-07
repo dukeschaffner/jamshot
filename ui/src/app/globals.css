@@ -55,6 +55,7 @@ body {
   --grey-4: #333333;
   --text-secondary: #555555;
   --text-primary: #171717;
+  --text-disabled: #999999;
 
   --shadow: rgba(0, 0, 0, 0.05);
 }
@@ -67,6 +68,7 @@ body.dark-mode {
   --grey-4: #333333;
   --text-secondary: #a1a1aa;
   --text-primary: #ffffff;
+  --text-disabled: #666666;
  
   --shadow: rgba(0, 0, 0, 0.2);
 }

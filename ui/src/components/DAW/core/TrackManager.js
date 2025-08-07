@@ -13,8 +13,7 @@ class TrackManager {
   
   async loadTrack(trackData) {
     const regionName = "region";
-    const regionIndex = 0;
-    const bufferKey = bufferRegistry.generateBufferKey(trackData.id, regionIndex, regionName);
+    const bufferKey = bufferRegistry.generateBufferKey(trackData.id, regionName);
       
     let audioContext = this.audioContext;
     if (!audioContext) {
@@ -27,8 +26,7 @@ class TrackManager {
     // Store in registry
     bufferRegistry.storeBuffer(bufferKey, buffer, {
       name: regionName,
-      trackId: trackData.id,
-      regionIndex: regionIndex
+      trackId: trackData.id
     });
       
     // Create track with regions

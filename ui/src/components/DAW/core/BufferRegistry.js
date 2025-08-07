@@ -6,7 +6,33 @@ class BufferRegistry {
     }
     
     // Generate unique key for each buffer
-    generateBufferKey(trackId, regionIndex, regionName) {
+    generateBufferKey(trackId, regionName) {
+      // Validate inputs
+      if (!trackId || !regionName) {
+        throw new Error('trackId and regionName are required');
+      }
+      
+      // get max region index for track. get keys where key starts with trackId
+      const trackKeys = Array.from(this.buffers.keys()).filter(key => key.startsWith(trackId));
+      
+      let regionIndex = 0;
+      let maxRegionIndex = 0; // Default to 0 if no existing regions
+      
+      if (trackKeys.length > 0) {
+        const regionIndexes = trackKeys
+          .map(key => {
+            const parts = key.split('_');
+            return parts.length >= 3 ? parseInt(parts[2]) : 0;
+          })
+          .filter(index => !isNaN(index)); // Filter out NaN values
+        
+        if (regionIndexes.length > 0) {
+          maxRegionIndex = Math.max(...regionIndexes);
+        }
+        regionIndex = maxRegionIndex + 1;
+      }
+      
+      
       return `${trackId}_region_${regionIndex}_${regionName}`;
     }
     
