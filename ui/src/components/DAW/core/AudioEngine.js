@@ -6,9 +6,9 @@ import { DAW_EVENTS } from '../DAWEvents.js';
 import { getPlaybackTime } from '../DAWUtils.js';
 
 class AudioEngine {
-  constructor() {
-    this.context = null;
-    this.tracks = new Map();
+  constructor(audioContext) {
+    this.context = audioContext;
+    this.trackManager = null;
     this.processors = new Map();
     this.recorder = null;
 
@@ -33,8 +33,13 @@ class AudioEngine {
     this.handleSeekEvent = this.handleSeekEvent.bind(this);
   }
   
-  async initialize() {
-    this.context = new (window.AudioContext || window.webkitAudioContext)();
+  async initialize(tm) {
+    this.trackManager = tm;
+    
+    if(!this.context) {
+      eventBus.emit(DAW_EVENTS.ERROR.AUDIO, 'Audio context not found');
+      return;
+    }
 
     if(this.context.state === 'suspended') {
       this.context.resume();
@@ -66,7 +71,7 @@ class AudioEngine {
     this.startTime = this.context.currentTime + DAWConfig.audio.scheduleDelay;
     
     // Start all tracks synchronized
-    this.tracks.forEach(track => {
+    this.trackManager.getAllTracks().forEach(track => {
       track.play(this.startTime, this.currentTime);
     });
     
@@ -81,7 +86,7 @@ class AudioEngine {
     this.isPlaying = false;
     this.currentTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
     
-    this.tracks.forEach(track => track.pause());
+    this.trackManager.getAllTracks().forEach(track => track.pause());
     this.stopPlayheadTimer();
     
     // Emit playback paused event
@@ -104,12 +109,6 @@ class AudioEngine {
     if (this.recorder) {
       this.recorder.stopRecording();
     }
-  }
-  
-  createTrack(id, buffer) {
-    const track = new Track(id, this.context, buffer);
-    this.tracks.set(id, track);
-    return track;
   }
   
   // Playhead timer
@@ -147,7 +146,7 @@ class AudioEngine {
   // Utility methods
   getDuration() {
     let maxDuration = 0;
-    this.tracks.forEach(track => {
+    this.trackManager.getAllTracks().forEach(track => {
       maxDuration = Math.max(maxDuration, track.duration);
     });
     return maxDuration || 1; // Prevent division by zero
@@ -164,8 +163,6 @@ class AudioEngine {
     }
     
     //this.pause();
-    this.tracks.forEach(track => track.destroy());
-    this.tracks.clear();
     
     // Remove event listeners
     if (this.eventBus && this.DAW_EVENTS) {

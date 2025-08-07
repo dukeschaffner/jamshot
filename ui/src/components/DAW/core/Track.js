@@ -1,43 +1,60 @@
-// Track.js - Individual track management
+// ui/src/components/DAW/core/Track.js
+import { bufferRegistry } from './BufferRegistry.js';
+
 class Track {
-  /**
-   * Creates a new Track instance
-   * @param {string} id - Unique identifier for the track
-   * @param {AudioContext} context - Web Audio context for audio processing
-   * @param {AudioBuffer} buffer - Audio buffer containing the track data
-   */
-  constructor(id, context, buffer) {
+  constructor(id, context, regions = []) {
     this.id = id;
     this.context = context;
-    this.buffer = buffer;
+    this.regions = regions; // Array of region objects
     this.gainNode = context.createGain();
     this.analyzer = context.createAnalyser();
     this.sources = new Set();
-    this.duration = buffer ? buffer.duration : 0;
-  }
-  
-  /**
-   * Starts playback of the track
-   * @param {number} startTime - When to start playback (in seconds from AudioContext.currentTime)
-   * @param {number} offset - Offset within the audio buffer to start from (in seconds)
-   * @returns {AudioBufferSourceNode|null} - The created audio source node, or null if no buffer
-   */
-  play(startTime, offset = 0) {
-    if (!this.buffer) return;
     
-    const source = this.context.createBufferSource();
-    source.buffer = this.buffer;
-    source.connect(this.gainNode);
-    this.gainNode.connect(this.analyzer);
     this.gainNode.connect(this.context.destination);
-    source.start(startTime, offset);
-    this.sources.add(source);
-    return source;
+    
+    // Calculate total duration from all regions
+    this.duration = this.calculateTotalDuration();
   }
   
-  /**
-   * Stops all currently playing sources for this track
-   */
+  // Region structure: { key, startTime, duration, name }
+  addRegion(bufferKey, startTime = 0, name = '') {
+    const region = {
+      key: bufferKey,
+      startTime,
+      duration: bufferRegistry.getMetadata(bufferKey)?.duration || 0,
+      name: name || `Region ${this.regions.length + 1}`
+    };
+    
+    this.regions.push(region);
+    this.duration = this.calculateTotalDuration();
+  }
+  
+  calculateTotalDuration() {
+    if (this.regions.length === 0) return 0;
+    
+    return Math.max(
+      ...this.regions.map(region => region.startTime + region.duration)
+    );
+  }
+  
+  play(startTime, offset = 0) {
+    // Play all regions for this track
+    this.regions.forEach(region => {
+      const buffer = bufferRegistry.getBuffer(region.key);
+      if (!buffer) return;
+      
+      const source = this.context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.gainNode);
+      
+      // Schedule playback at the correct time
+      const playTime = startTime + region.startTime;
+      source.start(playTime, offset);
+      
+      this.sources.add(source);
+    });
+  }
+  
   pause() {
     this.sources.forEach(source => {
       try {
@@ -50,44 +67,33 @@ class Track {
     this.sources.clear();
   }
   
-  /**
-   * Stops playback (alias for pause)
-   */
-  stop() {
-    this.pause();
+  // Get all regions for UI display
+  getRegions() {
+    return this.regions.map(region => ({
+      ...region,
+      metadata: bufferRegistry.getMetadata(region.key)
+    }));
   }
   
-  /**
-   * Cleans up all audio resources for this track
-   */
+  // Get a specific region
+  getRegion(index) {
+    const region = this.regions[index];
+    if (!region) return null;
+    
+    return {
+      ...region,
+      metadata: bufferRegistry.getMetadata(region.key)
+    };
+  }
+  
   destroy() {
     this.pause();
-    this.gainNode.disconnect();
-    this.analyzer.disconnect();
-  }
-  
-  /**
-   * Gets the duration of the track in seconds
-   * @returns {number} - Duration in seconds
-   */
-  getDuration() {
-    return this.duration;
-  }
-  
-  /**
-   * Sets the volume of the track
-   * @param {number} volume - Volume level (0.0 to 1.0)
-   */
-  setVolume(volume) {
-    this.gainNode.gain.value = volume;
-  }
-  
-  /**
-   * Gets the current volume of the track
-   * @returns {number} - Current volume level (0.0 to 1.0)
-   */
-  getVolume() {
-    return this.gainNode.gain.value;
+    if (this.gainNode) {
+      this.gainNode.disconnect();
+    }
+    if (this.analyzer) {
+      this.analyzer.disconnect();
+    }
   }
 }
 
