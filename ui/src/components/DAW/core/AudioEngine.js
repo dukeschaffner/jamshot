@@ -120,7 +120,7 @@ class AudioEngine {
         // Emit position update event
         this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.POSITION_UPDATE, {
           time: playbackTime,
-          position: playbackTime / this.getDuration()
+          position: playbackTime / this.getDuration() * 100
         });
       }
     }, DAWConfig.ui.updateInterval); // 50fps updates

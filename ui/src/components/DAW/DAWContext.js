@@ -25,6 +25,11 @@ export function DAWProvider({ children, trackData }) {
   const [error, setError] = useState(null);
 
   const playRecordedRef = useRef(false);
+  const durationRef = useRef(0);
+
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
   
   useEffect(() => {
     const initializeDAW = async () => {
@@ -56,6 +61,12 @@ export function DAWProvider({ children, trackData }) {
       initializeDAW();
     }
   }, [trackData]);
+
+  useEffect(() => {
+    if (tracks.length > 0) {
+      setDuration(tracks[0].duration);
+    }
+  }, [tracks]);
 
   useEffect(() => {
     return () => {
@@ -111,6 +122,11 @@ export function DAWProvider({ children, trackData }) {
       setTimeSignature(newTimeSignature);
     };
     
+    const handleSeek = (data) => {
+      const position = (data.time / durationRef.current) * 100;
+      setPlayheadLocation({time: data.time, position: position});
+    };
+    
     // Register event listeners
     eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     eventBus.on(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
@@ -121,7 +137,7 @@ export function DAWProvider({ children, trackData }) {
     eventBus.on(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
     eventBus.on(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
     eventBus.on(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
-    
+    eventBus.on(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
     // Return cleanup function
     return () => {
       eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
@@ -133,6 +149,7 @@ export function DAWProvider({ children, trackData }) {
       eventBus.off(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
       eventBus.off(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
       eventBus.off(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
+      eventBus.off(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
     };
   }, []); 
 
