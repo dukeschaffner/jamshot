@@ -5,6 +5,7 @@ import { useDAW, DAWProvider } from './DAWContext';
 import { eventBus } from './EventBus';
 import { DAW_EVENTS } from './DAWEvents';
 import Waveform from './waveform/Waveform';
+import Playhead from './Playhead';
 import api from '../../lib/api';
 import TransportControls from './components/TransportControls';
 import ZoomSlider from './components/ZoomSlider';
@@ -67,24 +68,28 @@ function DAWContent({ track }) {
         </div>
       
       <div className={styles.dawBody}>
-        <div className="timeline">
-          {/* Timeline content will go here */}
-        </div>
-        
         <div className={styles.tracksScrollContainer}>
           {tracks.length > 0 && (
             <>
               <div 
-                className={styles.tracksContainer}
+                className={styles.tracksAndTimelineContainer}
                 style={{
                   width: `${Math.max(100, zoom * 100)}%`,
                   minWidth: `${Math.max(100, zoom * 100)}%`,
                 }}
               >
-                <Waveform
-                  zoom={zoom}
-                  width={`${Math.max(100, zoom * 100)}%`}
-                />
+                <div className={styles.timeline}>
+                  {/* Timeline content will go here */}
+                </div>
+                <div className={styles.tracksContainer}>
+                  <div className={styles.track}>
+                    <Waveform
+                      bufferKey={tracks[0].regions[0].key}
+                    />
+                  </div>
+                  <Playhead/>
+                </div>
+                
               </div>
               {zoom > 1 && (
                 <div className={styles.zoomIndicator}>
