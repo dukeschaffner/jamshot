@@ -31,7 +31,7 @@ class TrackManager {
       
     // Create track with regions
     const track = new Track(trackData.id, audioContext); 
-    track.addRegion(bufferKey, 0, regionName);
+    track.addRegion(bufferKey, null, null, null, regionName);
     
     this.tracks.set(trackData.id, track);
     return track;

@@ -1,5 +1,7 @@
 // ui/src/components/DAW/core/Track.js
 import { bufferRegistry } from './BufferRegistry.js';
+import { eventBus } from '../EventBus';
+import { DAW_EVENTS } from '../DAWEvents';
 
 class Track {
   constructor(id, context, regions = []) {
@@ -17,16 +19,28 @@ class Track {
   }
   
   // Region structure: { key, startTime, duration, name }
-  addRegion(bufferKey, startTime = 0, name = '') {
+  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '') {
+    const duration = bufferRegistry.getMetadata(bufferKey)?.duration || 0;
+    startTime = startTime || 0;
+    offset = offset || 0;
+    endTime = endTime || (startTime + duration - offset);
     const region = {
       key: bufferKey,
+      offset,
       startTime,
-      duration: bufferRegistry.getMetadata(bufferKey)?.duration || 0,
+      endTime,
+      duration: duration,
       name: name || `Region ${this.regions.length + 1}`
     };
-    
+    eventBus.emit(DAW_EVENTS.REGION.ADD, { region });
     this.regions.push(region);
+
     this.duration = this.calculateTotalDuration();
+  }
+
+  updateRegion(region) {
+    eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region });
+    this.regions = this.regions.map(r => r.id === region.id ? region : r);
   }
   
   calculateTotalDuration() {

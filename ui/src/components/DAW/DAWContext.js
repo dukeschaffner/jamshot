@@ -19,7 +19,7 @@ export function DAWProvider({ children, trackData }) {
     const [duration, setDuration] = useState(0);
     const [tracks, setTracks] = useState([]);
     const [zoom, setZoom] = useState(1);
-    const [viewportOffset, setViewportOffset] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -180,9 +180,9 @@ export function DAWProvider({ children, trackData }) {
     eventBus.emit(DAW_EVENTS.UI.ZOOM_CHANGE, { zoom: clampedZoom });
   };
 
-  const setViewportOffsetValue = (newOffset) => {
-    setViewportOffset(newOffset);
-    eventBus.emit(DAW_EVENTS.UI.VIEW_CHANGE, { viewportOffset: newOffset });
+  const setScrollLeftValue = (newOffset) => {
+    setScrollLeft(newOffset);
+    eventBus.emit(DAW_EVENTS.UI.VIEW_CHANGE, { scrollLeft: newOffset });
   };
 
   return (
@@ -199,9 +199,9 @@ export function DAWProvider({ children, trackData }) {
       timeSignature,
       duration,
       zoom,
-      viewportOffset,
+      scrollLeft,
       setZoomLevel,
-      setViewportOffsetValue,
+      setScrollLeftValue,
     }}>
       {children}
     </DAWContext.Provider>

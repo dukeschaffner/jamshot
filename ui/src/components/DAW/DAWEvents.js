@@ -50,6 +50,13 @@ export const DAW_EVENTS = {
       VOLUME_CHANGE: 'track:volume:change',
       PAN_CHANGE: 'track:pan:change'
     },
+
+    REGION: {
+      ADD: 'region:add',
+      REMOVE: 'region:remove',
+      SELECT: 'region:select',
+      UPDATE: 'region:update'
+    },
     
     // Take events
     TAKE: {

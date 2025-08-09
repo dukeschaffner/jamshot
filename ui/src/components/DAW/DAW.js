@@ -10,6 +10,7 @@ import api from '../../lib/api';
 import TransportControls from './components/TransportControls';
 import ZoomSlider from './components/ZoomSlider';
 import styles from './DAW.module.css';
+import Track from './components/Track';
 
 function DAWContent({ track }) {
   const { 
@@ -26,7 +27,11 @@ function DAWContent({ track }) {
     duration,
     zoom,
     setZoomLevel,
+    scrollLeft,
+    setScrollLeftValue
   } = useDAW();
+
+  const tracksAndTimelineRef = useRef(null);
 
   // Show loading state
   if (isLoading) {
@@ -68,11 +73,12 @@ function DAWContent({ track }) {
         </div>
       
       <div className={styles.dawBody}>
-        <div className={styles.tracksScrollContainer}>
+        <div className={styles.tracksScrollContainer} onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)}>
           {tracks.length > 0 && (
             <>
               <div 
                 className={styles.tracksAndTimelineContainer}
+                ref={tracksAndTimelineRef}
                 style={{
                   width: `${Math.max(100, zoom * 100)}%`,
                   minWidth: `${Math.max(100, zoom * 100)}%`,
@@ -82,11 +88,9 @@ function DAWContent({ track }) {
                   {/* Timeline content will go here */}
                 </div>
                 <div className={styles.tracksContainer}>
-                  <div className={styles.track}>
-                    <Waveform
-                      bufferKey={tracks[0].regions[0].key}
-                    />
-                  </div>
+                  {tracks.map((track, index) => (
+                    <Track key={index} track={track}/>
+                  ))}
                   <Playhead/>
                 </div>
                 
