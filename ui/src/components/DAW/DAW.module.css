@@ -401,3 +401,11 @@
     flex: 1;
     min-height: 200px;
   }
+
+  .track {
+    height: 100px;
+  }
+
+  .region {
+    height: 100%;
+  }

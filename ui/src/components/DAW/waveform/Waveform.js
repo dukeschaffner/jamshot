@@ -6,14 +6,12 @@ import { bufferRegistry } from '../core/BufferRegistry';
 import { peaksRegistry } from './PeaksRegistry';
 import { virtualizedRenderer } from './VirtualizedRenderer';
 import WaveformChunk from './WaveformChunk';
+import { useDAW } from '../DAWContext';
 
 export default function Waveform({ 
   bufferKey,
-  width = 800,
-  height = 100,
-  zoomLevel = 1,
-  scrollLeft = 0,
-  onScrollChange
+  trackRef,
+  track
 }) {
   const containerRef = useRef(null);
   const [peaks, setPeaks] = useState(null);
@@ -22,6 +20,43 @@ export default function Waveform({
   const [buffer, setBuffer] = useState(null);
   const [chunkWidth] = useState(256); // Fixed chunk width for consistency
   const [samplesPerPixel, setSamplesPerPixel] = useState(100);
+
+  const [width, setWidth] = useState(50);
+
+  const [startTime, setStartTime] = useState(0); // start time of the waveform in the track
+  const [endTime, setEndTime] = useState(0); // end time of the waveform in the track
+  const [offset, setOffset] = useState(0); // start time relative to buffer start
+
+  const { scrollLeft, duration, zoom } = useDAW();
+
+  // #region initial load
+
+  // On initial load, load the buffer
+  useEffect(() => {
+    if (!bufferKey) return;
+    
+    const audioBuffer = bufferRegistry.getBuffer(bufferKey);
+    if (!audioBuffer) return;
+    
+    setBuffer(audioBuffer);
+  }, [bufferKey]);
+
+  // On initial load, Set the width of the waveform based on the region
+  useEffect(() => {
+    if (!track || !bufferKey || !duration) return;
+    const region = track.regions.find(r => r.key === bufferKey);
+    if (region) {
+      setStartTime(region.startTime);
+      setEndTime(region.endTime);
+      setOffset(region.offset);
+      const regionWidth = (region.endTime - region.startTime) / duration * 100;
+      setWidth(regionWidth);
+    }
+  }, [bufferKey, track, duration]);
+
+  // #endregion
+
+// #region render functions
 
   // Calculate optimal zoom level and samples per pixel
   useEffect(() => {
@@ -32,22 +67,16 @@ export default function Waveform({
       buffer.duration, 
       buffer.sampleRate
     );
-    setSamplesPerPixel(optimalSamplesPerPixel * zoomLevel);
-  }, [buffer, width, zoomLevel]);
+    setSamplesPerPixel(optimalSamplesPerPixel * zoom);
+  }, [buffer, width, zoom]);
 
   // Load buffer and calculate peaks
-  useEffect(() => {
-    if (!bufferKey) return;
-    
-    const audioBuffer = bufferRegistry.getBuffer(bufferKey);
-    if (!audioBuffer) return;
-    
-    setBuffer(audioBuffer);
-    
+  useEffect(() => {    
     // Calculate peaks for the current zoom level
-    const peakData = peaksRegistry.calculatePeaks(audioBuffer, bufferKey, samplesPerPixel);
+    if (!buffer) return;
+    const peakData = peaksRegistry.calculatePeaks(buffer, bufferKey, samplesPerPixel);
     setPeaks(peakData);
-  }, [bufferKey, samplesPerPixel]);
+  }, [buffer, bufferKey, samplesPerPixel]);
 
   // Generate chunks based on peaks
   useEffect(() => {
@@ -94,22 +123,6 @@ export default function Waveform({
     calculateVisibleChunks();
   }, [calculateVisibleChunks]);
 
-  // Handle scroll events with throttling
-  const handleScroll = useCallback((e) => {
-    const newScrollLeft = e.target.scrollLeft;
-    if (onScrollChange) {
-      onScrollChange(newScrollLeft);
-    }
-  }, [onScrollChange]);
-
-  // Throttled scroll handler for better performance
-  const throttledScrollHandler = useCallback(
-    (e) => {
-      requestAnimationFrame(() => handleScroll(e));
-    },
-    [handleScroll]
-  );
-
   // Cleanup offscreen canvases when chunks become invisible
   useEffect(() => {
     const cleanup = () => {
@@ -124,9 +137,11 @@ export default function Waveform({
     cleanup();
   }, [visibleChunks, chunks]);
 
+  // #endregion
+
   if (!buffer || !peaks) {
     return (
-      <div className={styles.waveformContainer} style={{ width, height }}>
+      <div className={styles.waveformContainer} style={{ width: `${width}%`, height: '100%' }}>
         <div className={styles.loading}>Loading waveform...</div>
       </div>
     );
@@ -136,14 +151,14 @@ export default function Waveform({
     <div 
       ref={containerRef}
       className={styles.waveformContainer}
-      style={{ width, height }}
-      onScroll={throttledScrollHandler}
+      style={{ width: `${width}%`, height: '100%' }}
+      // onScroll={throttledScrollHandler}
     >
       <div 
         className={styles.waveformContent}
         style={{ 
-          width: peaks.length,
-          height,
+          width: '100%',
+          height: '100%',
           position: 'relative'
         }}
       >
@@ -151,7 +166,7 @@ export default function Waveform({
           <WaveformChunk
             key={chunk.id}
             chunk={chunk}
-            height={height}
+            height={100}
             isVisible={visibleChunks.has(chunk.id)}
             scrollLeft={scrollLeft}
           />
