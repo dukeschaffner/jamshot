@@ -4,7 +4,8 @@ import Waveform from '../waveform/Waveform';
 
 
 const Track = ({
-  track
+  track,
+  tracksScrollContainerRef
 }) => {
 
   const trackRef = useRef(null);  
@@ -14,7 +15,7 @@ const Track = ({
     <div className={styles.track} ref={trackRef}>
         {track.regions.map((region, index) => (
             <div key={index} className={styles.region}>
-                <Waveform bufferKey={region.key} trackRef={trackRef} track={track}/>
+                <Waveform bufferKey={region.key} trackRef={trackRef} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
             </div>
         ))}
     </div>

@@ -224,3 +224,52 @@ export function throttle(func, delay) {
     }
   };
 } 
+
+/**
+ * Render a waveform
+ * @param {Float32Array} buffer - Audio buffer
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {number} vScale - Vertical scale
+ */
+export function renderWaveform(
+  buffer,
+  ctx,
+  vScale = 1,
+) {
+  const drawChannel = (index) => {
+    const channel = buffer[index] || buffer[0]
+    const length = channel.length
+    const { height } = ctx.canvas
+    const halfHeight = height / 2
+    const hScale = ctx.canvas.width / length
+
+    ctx.moveTo(0, halfHeight)
+
+    let prevX = 0
+    let max = 0
+    for (let i = 0; i <= length; i++) {
+      const x = Math.round(i * hScale)
+
+      if (x > prevX) {
+        const h = Math.round(max * halfHeight * vScale) || 1
+        const y = halfHeight + h * (index === 0 ? -1 : 1)
+        ctx.lineTo(prevX, y)
+        prevX = x
+        max = 0
+      }
+
+      const value = Math.abs(channel[i] || 0)
+      if (value > max) max = value
+    }
+
+    ctx.lineTo(prevX, halfHeight)
+  }
+
+  ctx.beginPath()
+
+  drawChannel(0)
+  drawChannel(1)
+
+  ctx.fill()
+  ctx.closePath()
+}

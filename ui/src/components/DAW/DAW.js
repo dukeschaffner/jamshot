@@ -11,6 +11,7 @@ import TransportControls from './components/TransportControls';
 import ZoomSlider from './components/ZoomSlider';
 import styles from './DAW.module.css';
 import Track from './components/Track';
+import Looper from './components/Looper';
 
 function DAWContent({ track }) {
   const { 
@@ -32,6 +33,15 @@ function DAWContent({ track }) {
   } = useDAW();
 
   const tracksAndTimelineRef = useRef(null);
+  const tracksScrollContainerRef = useRef(null);
+
+  const handleTimelineClick = (e) => {
+    e.stopPropagation();
+    if (isRecording) return;
+    const rect = tracksAndTimelineRef.current.getBoundingClientRect();
+    const time = (e.clientX - rect.left) / rect.width * duration;
+    eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: time });
+  };
 
   // Show loading state
   if (isLoading) {
@@ -73,23 +83,28 @@ function DAWContent({ track }) {
         </div>
       
       <div className={styles.dawBody}>
-        <div className={styles.tracksScrollContainer} onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)}>
+        <div 
+          className={styles.tracksScrollContainer} 
+          onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)} 
+          ref={tracksScrollContainerRef}
+        >
           {tracks.length > 0 && (
             <>
               <div 
                 className={styles.tracksAndTimelineContainer}
                 ref={tracksAndTimelineRef}
+                onClick={handleTimelineClick}
                 style={{
                   width: `${Math.max(100, zoom * 100)}%`,
                   minWidth: `${Math.max(100, zoom * 100)}%`,
                 }}
               >
                 <div className={styles.timeline}>
-                  {/* Timeline content will go here */}
+                  <Looper/>
                 </div>
                 <div className={styles.tracksContainer}>
                   {tracks.map((track, index) => (
-                    <Track key={index} track={track}/>
+                    <Track key={index} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
                   ))}
                   <Playhead/>
                 </div>

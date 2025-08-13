@@ -72,14 +72,12 @@ export class PeaksRegistry {
 
   /**
    * Get the best zoom level for a given viewport width and audio duration
-   * @param {number} viewportWidth - Width of the viewport in pixels
-   * @param {number} duration - Audio duration in seconds
+   * @param {number} secondsPerPixel - Seconds per pixel
    * @param {number} sampleRate - Audio sample rate
    * @returns {number} Optimal samples per pixel
    */
-  getOptimalZoomLevel(viewportWidth, duration, sampleRate) {
-    const totalSamples = duration * sampleRate;
-    const samplesPerPixel = totalSamples / viewportWidth;
+  getOptimalZoomLevel(secondsPerPixel, sampleRate) {
+    const samplesPerPixel = secondsPerPixel * sampleRate;
     
     // Round to nearest power of 2 for consistency
     return Math.pow(2, Math.round(Math.log2(samplesPerPixel)));
