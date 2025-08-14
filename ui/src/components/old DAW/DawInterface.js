@@ -7,10 +7,10 @@ import {
   faDrum, faMicrophone, faTrash, faUpload, faCloudUploadAlt,
   faHeart, faComment, faCircle, faStop, faCog
 } from '@fortawesome/free-solid-svg-icons';
-import TracksWidget from './TracksWidget';
-import RecordingWidget from './RecordingWidget';
-import UploadForm from './UploadForm';
-import CountInIcon from './CountInIcon';
+import TracksWidget from '../old DAW/TracksWidget';
+import RecordingWidget from '../old DAW/RecordingWidget';
+import UploadForm from '../old DAW/UploadForm';
+import CountInIcon from '../old DAW/CountInIcon';
 import Cookies from 'js-cookie';
 import './DawInterface.css';
 import { useNavigationGuard } from 'next-navigation-guard';

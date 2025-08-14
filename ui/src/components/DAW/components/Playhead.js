@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useDAW } from './DAWContext';
-import { eventBus } from './EventBus';
-import { DAW_EVENTS } from './DAWEvents';
-import styles from './DAW.module.css';
+import { useDAW } from '../DAWContext';
+import { eventBus } from '../EventBus';
+import { DAW_EVENTS } from '../DAWEvents';
+import styles from '../DAW.module.css';
 
 function Playhead({}) {
   const { playheadLocation, setViewportOffsetValue, duration} = useDAW();

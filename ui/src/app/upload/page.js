@@ -1,5 +1,5 @@
 'use client';
-import DawInterface from '../../components/DAW/DawInterface';
+import DawInterface from '../../components/old DAW/DawInterface';
 import { FaDesktop } from 'react-icons/fa';
 import { useMobile } from '../../contexts/MobileContext';
 

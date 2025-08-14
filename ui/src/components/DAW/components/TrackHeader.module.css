@@ -1,11 +1,150 @@
 .trackHeader {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-align: right;
-    padding-right: 12px;
-    height: 100px;
-    margin-bottom: 16px;
-    align-content: center;
-    justify-items: end;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: right;
+  padding-inline: 12px;
+  height: 100px;
+  margin-bottom: 16px;
+  align-content: center;
+  justify-items: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.trackName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.soloButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  background-color: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.soloButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.soloButton.active {
+  background-color: var(--seafoam, #34c759);
+  color: white;
+  border-color: var(--seafoam, #34c759);
+}
+
+.soloButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recordingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #ff3b30;
+  font-weight: 500;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.audioMeterContainer {
+  height: 6px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: visible;
+  position: relative;
+  width: 100%;
+  margin-top: 5px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.audioMeterBar {
+  height: 100%;
+  background-color: var(--seafoam, #34c759);
+  border-radius: 3px;
+  transition: width 0.05s ease-out, background-color 0.2s ease;
+  min-width: 3px;
+}
+
+.faderHandle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  cursor: ew-resize;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  transition: background-color 0.2s ease;
+}
+
+.faderHandle:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.faderHandle:active,
+.faderHandle.dragging {
+  background-color: var(--seafoam, #34c759);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+/* Prevent text selection during fader dragging */
+.faderHandle.dragging {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.volumeIndicator {
+  position: absolute;
+  bottom: -18px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text-secondary, #666);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.audioMeterContainer:hover .volumeIndicator,
+.faderHandle:active + .volumeIndicator {
+  opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .soloButton span {
+    display: none;
   }
+}

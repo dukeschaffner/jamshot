@@ -2,16 +2,142 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useDAW } from '../DAWContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMicrophone, faHeadphones } from '@fortawesome/free-solid-svg-icons';
 import styles from './TrackHeader.module.css';
+import { eventBus } from '../EventBus';
+import { DAW_EVENTS } from '../DAWEvents';
 
 export default function TrackHeader({
   track
 }) {
+  const [faderValue, setFaderValue] = useState(0.8);
+  const [isDraggingFader, setIsDraggingFader] = useState(false);
+  const faderRef = useRef(null);
+
+  const [isSolo, setIsSolo] = useState(false);
+  const { isRecording } = useDAW();
+
+  const [meterLevel, setMeterLevel] = useState(-60);
+
+  // Helper function to convert dB to meter width percentage
+  const dbToPercent = (db) => {
+    // Map -60dB to 0% and 0dB to 100%
+    return Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+  };
+
+  // Helper function to get meter color based on level
+  const getMeterColor = (db) => {
+    if (db > -6) return '#ff3b30'; // Red for high levels
+    if (db > -12) return '#ff9500'; // Orange for medium-high levels
+    if (db > -24) return '#34c759'; // Green for good levels
+    return '#007aff'; // Blue for low levels
+  };
+
+  const handleFaderMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingFader(true);
+  };
+
+  // Mouse event handlers
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDraggingFader) return;
+
+      // Get container for mouse position calculation
+      const container = faderRef.current?.parentElement;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+
+      // Calculate the new gain value (0 to 1 range)
+      const faderRect = faderRef.current.getBoundingClientRect();
+      const newMousePos = Math.max(0, Math.min(100, ((e.clientX - faderRect.left) / faderRect.width) * 100));
+      const newGain = Math.min(1, Math.max(0, newMousePos / 100));
+      setFaderValue(newGain);
+    };
+
+    const handleMouseUp = (e) => {
+      e.stopPropagation();
+      setIsDraggingFader(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingFader]);
+
+  const handleSoloClick = (e) => {
+    e.stopPropagation();
+    setIsSolo(prev => !prev);
+  };
+
+  useEffect(() => {
+    eventBus.emit(DAW_EVENTS.TRACK.SOLO, { trackId: track.id, isSolo: isSolo });
+  }, [isSolo]);
+
+  useEffect(() => {
+    eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, { trackId: track.id, volume: faderValue });
+  }, [faderValue]);
+
 
 
   return (
     <div className={styles.trackHeader}>
-      <span>{track.name || 'Track ' + (1)}</span>
+      <span className={styles.trackName}>{track.name || 'Track ' + (track.id || 1)}</span>
+      
+      <button 
+        className={`${styles.soloButton} ${isSolo ? styles.active : ''}`}
+        onClick={handleSoloClick}
+        title="Solo track"
+      >
+        <FontAwesomeIcon icon={faHeadphones} />
+        <span>Solo</span>
+      </button>
+      
+      {isRecording && (
+        <div className={styles.recordingIndicator}>
+          <FontAwesomeIcon icon={faMicrophone} />
+          <span>Recording</span>
+        </div>
+      )}
+      
+      {/* Audio Meter */}
+      <div 
+        className={styles.audioMeterContainer} 
+        ref={faderRef}
+      >
+        <div 
+          className={styles.audioMeterBar} 
+          style={{ 
+            width: `${dbToPercent(meterLevel)}%`,
+            backgroundColor: getMeterColor(meterLevel)
+          }}
+        ></div>
+        
+        {/* Fader handle - only shown if not recording and there's a track to control */}
+        {!isRecording && track && (
+          <>
+            <div 
+              className={`${styles.faderHandle} ${isDraggingFader ? styles.dragging : ''}`}
+              style={{ 
+                left: `${faderValue * 100}%`,
+                backgroundColor: isDraggingFader ? 'var(--seafoam)' : 'rgba(255, 255, 255, 0.7)'
+              }}
+              onMouseDown={handleFaderMouseDown}
+              title={`Volume: ${Math.round(faderValue * 100)}%`}
+            ></div>
+            <div className={styles.volumeIndicator} style={{ left: `${faderValue * 100}%` }}>
+              {Math.round(faderValue * 100)}%
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 } 
