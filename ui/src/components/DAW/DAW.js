@@ -12,6 +12,7 @@ import ZoomSlider from './components/ZoomSlider';
 import styles from './DAW.module.css';
 import Track from './components/Track';
 import Looper from './components/Looper';
+import TrackHeader from './components/TrackHeader';
 
 function DAWContent({ track }) {
   const { 
@@ -83,6 +84,11 @@ function DAWContent({ track }) {
         </div>
       
       <div className={styles.dawBody}>
+        <div className={styles.tracksHeaders}>
+          {tracks.map((track, index) => (
+            <TrackHeader key={index} track={track}/>
+          ))}
+        </div>
         <div 
           className={styles.tracksScrollContainer} 
           onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)} 

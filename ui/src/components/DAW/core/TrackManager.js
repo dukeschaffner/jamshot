@@ -46,6 +46,22 @@ class TrackManager {
     await Promise.all(loadPromises);
     return Array.from(this.tracks.values());
   }
+
+  // Create an empty track for recording
+  createEmptyTrack(id = 'recording-track') {
+    if (!this.audioContext) {
+      eventBus.emit(DAW_EVENTS.ERROR.AUDIO, 'Audio context not found');
+      return null;
+    }
+    
+    // Create an empty track with no regions
+    const track = new Track(id, this.audioContext);
+    
+    this.tracks.set(id, track);
+    eventBus.emit(DAW_EVENTS.TRACK.ADD, { track });
+    
+    return track;
+  }
   
   getTrack(id) {
     return this.tracks.get(id);

@@ -41,7 +41,14 @@ export function DAWProvider({ children, trackData }) {
 
         // Create and load all tracks
         const tm = new TrackManager(audioContext);
-        await tm.loadAllTracks(trackData);
+        
+        // Load existing tracks if provided
+        if (trackData && trackData.length > 0) {
+          await tm.loadAllTracks(trackData);
+        }
+        
+        // Always create an empty track for recording
+        tm.createEmptyTrack('recording-track');
         
         // Initialize audio engine
         const ae = new AudioEngine(audioContext);
@@ -57,14 +64,18 @@ export function DAWProvider({ children, trackData }) {
       }
     };
     
-    if (trackData) {
-      initializeDAW();
-    }
+    // Initialize DAW even if no trackData is provided
+    initializeDAW();
   }, [trackData]);
 
   useEffect(() => {
     if (tracks.length > 0) {
-      setDuration(tracks[0].duration);
+      const trackDuration = tracks[0].duration;
+      // Set a default duration of 90 seconds for empty tracks or tracks with 0 duration
+      setDuration(trackDuration > 0 ? trackDuration : 90);
+    } else {
+      // Default duration when no tracks exist
+      setDuration(90);
     }
   }, [tracks]);
 
@@ -103,8 +114,11 @@ export function DAWProvider({ children, trackData }) {
       setIsRecording(true);
     };
     
-    const handleRecordingStopped = () => {
+    const handleRecordingStopped = (data) => {
       setIsRecording(false);
+      console.log('Recording stopped');
+      const track = trackManagerRef.current.getTrack('recording-track');
+      track.addRegion(data.bufferKey, 0, 0, data.duration, '', true);
     };
     
     const handleRecordingError = (error) => {

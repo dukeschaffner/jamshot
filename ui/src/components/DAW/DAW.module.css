@@ -18,9 +18,9 @@
 
 .dawBody {
     display: flex;
-    flex-direction: column;
     width: 100%;
     position: relative;
+    background-color: var(--gray-light);
 }
 
 .tracksScrollContainer {
@@ -38,6 +38,13 @@
     flex-direction: column;
     width: 100%;
     transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+.tracksHeaders {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  width:15%;
 }
 
 /* Control Button Styles */
