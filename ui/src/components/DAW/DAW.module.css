@@ -411,8 +411,45 @@
 
   .track {
     height: 100px;
+    margin-bottom: 16px;
   }
 
   .region {
     height: 100%;
+  }
+
+  /* Empty track styles */
+  .emptyTrack {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--grey-1);
+    border: 2px dashed var(--grey-2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    height: 100%;
+    min-height: 100px;
+  }
+
+  .emptyTrack:hover,
+  .emptyTrack.dragOver {
+    border-color: var(--seafoam);
+    background-color: rgba(76, 217, 172, 0.05);
+  }
+
+  body.dark-mode .emptyTrack {
+    background-color: var(--dark-hover-color);
+    border-color: var(--dark-border-color);
+  }
+
+  body.dark-mode .emptyTrack:hover,
+  body.dark-mode .emptyTrack.dragOver {
+    border-color: var(--seafoam);
+    background-color: rgba(76, 217, 172, 0.1);
+  }
+
+  /* File upload input styling */
+  .fileUploadInput {
+    display: none;
   }
