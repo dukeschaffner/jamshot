@@ -46,6 +46,15 @@ class Track {
     this.duration = this.calculateTotalDuration();
   }
 
+  addRegionFromBuffer(buffer, startTime = null, offset = null, endTime = null, name = '') {
+    const regionName = name || 'Region';
+    const bufferKey = bufferRegistry.generateBufferKey(this.id, regionName);
+    bufferRegistry.storeBuffer(bufferKey, buffer);
+
+    this.addRegion(bufferKey, startTime, offset, endTime, regionName);
+    return bufferKey;
+  }
+
   updateRegion(region) {
     eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region, trackId: this.id });
     this.regions = this.regions.map(r => r.id === region.id ? region : r);
