@@ -19,7 +19,7 @@ class Track {
   }
   
   // Region structure: { key, startTime, duration, name }
-  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '') {
+  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false) {
     const duration = bufferRegistry.getMetadata(bufferKey)?.duration || 0;
     startTime = startTime || 0;
     offset = offset || 0;
@@ -30,16 +30,24 @@ class Track {
       startTime,
       endTime,
       duration: duration,
+      active: true,
       name: name || `Region ${this.regions.length + 1}`
     };
-    eventBus.emit(DAW_EVENTS.REGION.ADD, { region });
+
+    if (overwriteTrack) { // Set all regions to inactive
+      this.regions.forEach(r => {
+        r.active = false;
+        eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
+      });
+    }
+    eventBus.emit(DAW_EVENTS.REGION.ADD, { region, trackId: this.id });
     this.regions.push(region);
 
     this.duration = this.calculateTotalDuration();
   }
 
   updateRegion(region) {
-    eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region });
+    eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region, trackId: this.id });
     this.regions = this.regions.map(r => r.id === region.id ? region : r);
   }
   

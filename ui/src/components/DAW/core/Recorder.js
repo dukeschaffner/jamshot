@@ -1,5 +1,6 @@
 import DAWConfig from '../DAWConfig.js';
 import { DAW_EVENTS } from '../DAWEvents.js';
+import { bufferRegistry } from '../core/BufferRegistry.js';
 
 class Recorder {
   constructor(audioContext, eventBus) {
@@ -104,9 +105,12 @@ class Recorder {
     
     // Create final audio buffer
     const finalBuffer = this.createRecordingBuffer();
+
+    const bufferKey = bufferRegistry.generateBufferKey('recording-track', 'region');
+    bufferRegistry.storeBuffer(bufferKey, finalBuffer);
     
     this.eventBus.emit(DAW_EVENTS.RECORDING.STOPPED, {
-      buffer: finalBuffer,
+      bufferKey: bufferKey,
       duration: finalBuffer ? finalBuffer.duration : 0,
       startTime: this.recordingOffset
     });
