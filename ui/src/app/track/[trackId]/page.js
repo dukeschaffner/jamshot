@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { trackApi } from '@/lib/api';
 import Image from 'next/image';
 import api from '@/lib/api';
-import DawInterface from '@/components/DAW/DawInterface';
+import DawInterface from '@/components/old DAW/DawInterface';
 import CommentSection from '@/components/CommentSection';
 import CustomTabs from '@/components/CustomTabs';
 import LoadingSpinner from '@/components/LoadingSpinner';
