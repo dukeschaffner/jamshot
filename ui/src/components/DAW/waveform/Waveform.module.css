@@ -4,6 +4,21 @@
     overflow: hidden;
 }
 
+/* Region dragging styles */
+.region.dragging {
+    cursor: grabbing !important;
+    user-select: none;
+    z-index: 100;
+}
+
+.region:not(.dragging):not(.cropping) {
+    cursor: grab;
+}
+
+.region:not(.dragging):not(.cropping):hover {
+    cursor: grab;
+}
+
 .waveformContainer {
     width: 100%;
     height: 100px;
