@@ -5,6 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
 import WaveformChunk from './WaveformChunk';
 import { useDAW } from '../DAWContext';
+import { eventBus } from '../EventBus';
+import { DAW_EVENTS } from '../DAWEvents';
 
 export default function Waveform({ 
   region,
@@ -38,11 +40,16 @@ export default function Waveform({
   const [cropStartOffset, setCropStartOffset] = useState(0);
   const [cropEndOffset, setCropEndOffset] = useState(0);
 
+  // Region dragging state
+  const [isDraggingRegion, setIsDraggingRegion] = useState(false);
+  const [regionStartPosBeforeDrag, setRegionStartPosBeforeDrag] = useState(0);
+  const [regionLeftPos, setRegionLeftPos] = useState(0); // position in pixels relative to track
+
   // Crop handle refs
   const cropStartOverlayRef = useRef(null);
   const cropEndOverlayRef = useRef(null);
 
-  const { scrollLeft, duration, zoom } = useDAW();
+  const { scrollLeft, duration, zoom, isPlaying, isRecording } = useDAW();
 
   // #region initial load
 
@@ -101,8 +108,96 @@ export default function Waveform({
       setOffset(region.offset);
       const regionWidth = (region.endTime - region.startTime) / duration * trackRectWidth;
       setWidth(regionWidth);
+      
+      // Set initial region position
+      const regionLeftPos = region.startTime / duration * trackRectWidth;
+      setRegionLeftPos(regionLeftPos);
     }
   }, [bufferKey, track, duration, trackRectWidth]);
+
+  // #endregion
+
+  // #region region dragging logic
+
+  // Handle mouse down on region for dragging
+  const handleRegionMouseDown = (e) => {
+    e.stopPropagation();
+    // Only allow dragging if not playing or recording
+    if (isPlaying || isRecording) return;
+    
+    setIsDraggingRegion(true);
+    setDragStartX(e.clientX);
+    setRegionStartPosBeforeDrag(regionLeftPos);
+  };
+
+  // Mouse event handlers for region dragging
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDraggingRegion) return;
+      
+      const deltaX = e.clientX - dragStartX;
+      const newLeftPos = regionStartPosBeforeDrag + deltaX;
+      
+      // Get the tracks scroll container bounds
+      const scrollContainerRect = tracksScrollContainerRef?.current?.getBoundingClientRect();
+      if (!scrollContainerRect) return;
+      
+      // Ensure the region stays within bounds
+      let boundedLeftPos = newLeftPos;
+      
+      // Don't allow dragging beyond the left edge of the scroll container
+      if (boundedLeftPos < 0) {
+        boundedLeftPos = 0;
+      }
+      
+      // Don't allow dragging beyond the right edge of the scroll container
+      const maxLeftPos = scrollContainerRect.width - width;
+      if (boundedLeftPos > maxLeftPos) {
+        boundedLeftPos = maxLeftPos;
+      }
+      
+      setRegionLeftPos(boundedLeftPos);
+    };
+    
+    const handleMouseUp = (e) => {
+      e.stopPropagation();
+      setIsDraggingRegion(false);
+      
+      // Update the region's start time based on new position
+      if (track && bufferKey && duration && trackRectWidth) {
+        const newStartTime = (regionLeftPos / trackRectWidth) * duration;
+        const regionDuration = endTime - startTime;
+        const newEndTime = newStartTime + regionDuration;
+        
+        // Update the region in the track
+        const updatedRegion = {
+          ...region,
+          startTime: newStartTime,
+          endTime: newEndTime
+        };
+        
+        // Emit event to update the track manager
+        eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+          region: updatedRegion,
+          trackId: track.id
+        });
+        
+        // Update local state
+        setStartTime(newStartTime);
+        setEndTime(newEndTime);
+      }
+    };
+    
+    if (isDraggingRegion) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, width, track, bufferKey, duration, trackRectWidth, tracksScrollContainerRef, region, endTime, startTime]);
 
   // #endregion
 
@@ -140,7 +235,7 @@ export default function Waveform({
     } else if (e.clientX > rightEdgeZone) {
       containerRef.current.style.cursor = 'col-resize';
     } else {
-      containerRef.current.style.cursor = 'default';
+      containerRef.current.style.cursor = 'grab';
     }
   };
 
@@ -266,9 +361,15 @@ export default function Waveform({
 
   return (
     <div 
-      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''}`} 
-      style={{ width: `${width}px`, height: '100%' }}
+      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''}`} 
+      style={{ 
+        width: `${width}px`, 
+        height: '100%',
+        left: `${regionLeftPos}px`,
+        cursor: isPlaying || isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
+      }}
       ref={containerRef}
+      onMouseDown={handleRegionMouseDown}
       onMouseMove={handleWaveformMouseMove}
       onMouseLeave={handleWaveformMouseLeave}
     >
