@@ -156,14 +156,14 @@ const Track = ({
     <div className={styles.track} ref={trackRef}>
         {regions.length > 0 ? (
           regions.map((region, index) => (
-            <div key={index} className={styles.region}>
-              <Waveform 
-                bufferKey={region.key} 
-                trackRef={trackRef} 
-                track={track} 
-                tracksScrollContainerRef={tracksScrollContainerRef}
-              />
-            </div>
+            <Waveform 
+              key={index}
+              region={region}
+              bufferKey={region.key} 
+              trackRef={trackRef} 
+              track={track} 
+              tracksScrollContainerRef={tracksScrollContainerRef}
+            />
           ))
         ) : (
           <div 

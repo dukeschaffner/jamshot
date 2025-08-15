@@ -7,6 +7,7 @@ import WaveformChunk from './WaveformChunk';
 import { useDAW } from '../DAWContext';
 
 export default function Waveform({ 
+  region,
   bufferKey,
   trackRef,
   track,
@@ -25,6 +26,21 @@ export default function Waveform({
   const [startTime, setStartTime] = useState(0); // start time of the waveform in the track
   const [endTime, setEndTime] = useState(0); // end time of the waveform in the track
   const [offset, setOffset] = useState(0); // start time relative to buffer start
+
+  // Crop handles state
+  const [showCropHandles, setShowCropHandles] = useState(false);
+  const [isDraggingCropStart, setIsDraggingCropStart] = useState(false);
+  const [isDraggingCropEnd, setIsDraggingCropEnd] = useState(false);
+  const [cropStartPercentage, setCropStartPercentage] = useState(0);
+  const [cropEndPercentage, setCropEndPercentage] = useState(0);
+  const [dragStartX, setDragStartX] = useState(0);
+
+  const [cropStartOffset, setCropStartOffset] = useState(0);
+  const [cropEndOffset, setCropEndOffset] = useState(0);
+
+  // Crop handle refs
+  const cropStartOverlayRef = useRef(null);
+  const cropEndOverlayRef = useRef(null);
 
   const { scrollLeft, duration, zoom } = useDAW();
 
@@ -90,8 +106,116 @@ export default function Waveform({
 
   // #endregion
 
-// #region render functions
+  // #region crop logic
 
+  // Handle mouse down on crop start handle
+  const handleCropStartMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingCropStart(true);
+    setDragStartX(e.clientX);
+  };
+
+  // Handle mouse down on crop end handle
+  const handleCropEndMouseDown = (e) => {
+    e.stopPropagation();
+    setIsDraggingCropEnd(true);
+    setDragStartX(e.clientX);
+  };
+
+  // Check if mouse is hovering near edges to show crop handles
+  const handleWaveformMouseMove = (e) => {
+    if (!containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const leftEdgeZone = rect.left + 15; // 15px from left edge
+    const rightEdgeZone = rect.right - 15; // 15px from right edge
+    
+    // If mouse is close to either edge, show the crop handles
+    const isNearEdge = e.clientX < leftEdgeZone || e.clientX > rightEdgeZone;
+    setShowCropHandles(isNearEdge);
+    
+    // Update cursor based on position
+    if (e.clientX < leftEdgeZone) {
+      containerRef.current.style.cursor = 'col-resize';
+    } else if (e.clientX > rightEdgeZone) {
+      containerRef.current.style.cursor = 'col-resize';
+    } else {
+      containerRef.current.style.cursor = 'default';
+    }
+  };
+
+  const handleWaveformMouseLeave = () => {
+    setShowCropHandles(false);
+    if (containerRef.current) {
+      containerRef.current.style.cursor = 'default';
+    }
+  };
+
+  // Mouse event handlers for crop dragging
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDraggingCropStart && !isDraggingCropEnd) return;
+      
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      // Handle crop start dragging
+      if (isDraggingCropStart) {
+        const cropEndX = cropEndOverlayRef.current?.getBoundingClientRect().left;
+        const buffer = 5 * (rect.width / 100);
+        let newCropX = 0;
+        
+        if (e.clientX < rect.left) {
+          newCropX = rect.left;
+        } else if (cropEndX && e.clientX > cropEndX - buffer) {
+          newCropX = cropEndX - buffer;
+        } else {
+          newCropX = e.clientX;
+        }
+
+        const relativePos = (newCropX - rect.left) / rect.width * 100;
+        setCropStartPercentage(relativePos);
+      }
+      
+      // Handle crop end dragging
+      if (isDraggingCropEnd) {
+        const cropStartX = cropStartOverlayRef.current?.getBoundingClientRect().right;
+        const buffer = 5 * (rect.width / 100);
+        let newCropX = 0;
+        
+        if (e.clientX > rect.right) {
+          newCropX = rect.right;
+        } else if (cropStartX && e.clientX < cropStartX + buffer) {
+          newCropX = cropStartX + buffer;
+        } else {
+          newCropX = e.clientX;
+        }
+
+        const relativePos = (rect.right - newCropX) / rect.width * 100;
+        setCropEndPercentage(relativePos);
+      }
+    };
+    
+    const handleMouseUp = (e) => {
+      e.stopPropagation();
+      setIsDraggingCropStart(false);
+      setIsDraggingCropEnd(false);
+    };
+    
+    if (isDraggingCropStart || isDraggingCropEnd) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingCropStart, isDraggingCropEnd]);
+
+  // #endregion
+
+// #region render functions
 
   // Generate chunks based on peaks
   useEffect(() => {
@@ -142,31 +266,70 @@ export default function Waveform({
 
   return (
     <div 
-      ref={containerRef}
-      className={styles.waveformContainer}
+      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''}`} 
       style={{ width: `${width}px`, height: '100%' }}
-      // onScroll={throttledScrollHandler}
+      ref={containerRef}
+      onMouseMove={handleWaveformMouseMove}
+      onMouseLeave={handleWaveformMouseLeave}
     >
       <div 
-        className={styles.waveformContent}
-        style={{ 
-          width: '100%',
-          height: '100%',
-          position: 'relative'
-        }}
+        className={`${styles.waveformContainer}`}
+        style={{ width: `${width}px`, height: '100%' }}
       >
-        {chunks.map(chunk => (
-          <WaveformChunk
-            key={chunk.id}
-            bufferData={bufferData}
-            height={100}
-            totalWidth={width}
-            width={chunk.width}
-            offset={chunk.offset}
-            scrollLeft={scrollLeft}
-          />
-        ))}
+        <div 
+          className={styles.waveformContent}
+          style={{ 
+            width: '100%',
+            height: '100%',
+            position: 'relative'
+          }}
+        >
+          {chunks.map(chunk => (
+            <WaveformChunk
+              key={chunk.id}
+              bufferData={bufferData}
+              height={100}
+              totalWidth={width}
+              width={chunk.width}
+              offset={chunk.offset}
+              scrollLeft={scrollLeft}
+            />
+          ))}
+          
+ 
+        </div>
       </div>
+               {/* Crop handles */}
+            {showCropHandles && (
+            <>
+              <div 
+                className={`${styles.cropHandle} ${styles.cropHandleLeft}`}
+                onMouseDown={handleCropStartMouseDown}
+                title="Drag to crop start"
+              />
+              <div 
+                className={`${styles.cropHandle} ${styles.cropHandleRight}`}
+                onMouseDown={handleCropEndMouseDown}
+                title="Drag to crop end"
+              />
+            </>
+          )}
+          
+          {/* Crop overlays */}
+          {(isDraggingCropStart || isDraggingCropEnd) && (
+            <>
+              <div 
+                className={styles.cropLeftOverlay}
+                ref={cropStartOverlayRef}
+                style={{ width: `${cropStartPercentage}%` }}
+              />
+              <div 
+                className={styles.cropRightOverlay}
+                ref={cropEndOverlayRef}
+                style={{ width: `${cropEndPercentage}%` }}
+              />
+            </>
+          )}
     </div>
   );
 } 
