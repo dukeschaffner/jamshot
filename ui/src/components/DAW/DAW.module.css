@@ -414,10 +414,6 @@
     margin-bottom: 16px;
   }
 
-  .region {
-    height: 100%;
-  }
-
   /* Empty track styles */
   .emptyTrack {
     display: flex;
