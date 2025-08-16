@@ -16,9 +16,17 @@ export default function TrackHeader({
   const faderRef = useRef(null);
 
   const [isSolo, setIsSolo] = useState(false);
-  const { isRecording } = useDAW();
+  const { isPlaying, isRecording } = useDAW();
 
   const [meterLevel, setMeterLevel] = useState(-60);
+  const meterAnimationFrameRef = useRef(null);
+
+  // Initialize fader value from track gain
+  useEffect(() => {
+    if (track && track.gain !== undefined) {
+      setFaderValue(track.gain);
+    }
+  }, [track]);
 
   // Helper function to convert dB to meter width percentage
   const dbToPercent = (db) => {
@@ -33,6 +41,62 @@ export default function TrackHeader({
     if (db > -24) return '#34c759'; // Green for good levels
     return '#007aff'; // Blue for low levels
   };
+
+  // Function to start the meter animation loop
+  const startMeterAnimation = () => {
+    // Use time-based throttling instead of frame counting
+    let lastUpdateTime = 0;
+    // Update interval in milliseconds (higher = less frequent updates)
+    const updateInterval = 60; // Update every 60ms
+    
+    const updateMeter = () => {
+      const currentTime = performance.now();
+      const timeSinceLastUpdate = currentTime - lastUpdateTime;
+      
+      // Only process meter updates if enough time has passed
+      if (timeSinceLastUpdate >= updateInterval) {
+        lastUpdateTime = currentTime;
+        
+        // Get analyzer from track
+        const analyzer = track?.getAnalyzer();
+        
+        if (analyzer && isPlaying && !isSolo) {
+          const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+          analyzer.getByteFrequencyData(dataArray);
+          
+          // Calculate RMS value
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += (dataArray[i] / 255.0) ** 2;
+          }
+          const rms = Math.sqrt(sum / dataArray.length);
+          
+          // Convert to dB (with a floor of -60dB)
+          const db = rms > 0 ? 20 * Math.log10(rms) : -60;
+          setMeterLevel(Math.max(-60, db));
+        } else if (!isPlaying) {
+          // Gradually decrease level when not playing
+          setMeterLevel(prevLevel => Math.max(-60, prevLevel - 3));
+        }
+      }
+      
+      meterAnimationFrameRef.current = requestAnimationFrame(updateMeter);
+    };
+    
+    meterAnimationFrameRef.current = requestAnimationFrame(updateMeter);
+  };
+
+  // Start meter animation when component mounts
+  useEffect(() => {
+    startMeterAnimation();
+    
+    // Cleanup function
+    return () => {
+      if (meterAnimationFrameRef.current) {
+        cancelAnimationFrame(meterAnimationFrameRef.current);
+      }
+    };
+  }, [track, isPlaying, isSolo]);
 
   const handleFaderMouseDown = (e) => {
     e.stopPropagation();
@@ -102,8 +166,6 @@ export default function TrackHeader({
   useEffect(() => {
     eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, { trackId: track.id, volume: faderValue });
   }, [faderValue]);
-
-
 
   return (
     <div className={styles.trackHeader}>
