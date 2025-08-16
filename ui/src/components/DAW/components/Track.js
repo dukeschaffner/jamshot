@@ -163,6 +163,7 @@ const Track = ({
               trackRef={trackRef} 
               track={track} 
               tracksScrollContainerRef={tracksScrollContainerRef}
+              readonly={track.readonly}
             />
           ))
         ) : (

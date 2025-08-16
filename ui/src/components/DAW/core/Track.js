@@ -11,6 +11,7 @@ class Track {
     this.gainNode = context.createGain();
     this.analyzer = context.createAnalyser();
     this.sources = new Set();
+    this.readonly = id != 'recording-track';
     
     this.gainNode.connect(this.context.destination);
     
