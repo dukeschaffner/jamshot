@@ -31,6 +31,8 @@ class AudioEngine {
     this.play = this.play.bind(this);
     this.pause = this.pause.bind(this);
     this.handleSeekEvent = this.handleSeekEvent.bind(this);
+    this.handleTrackVolumeChange = this.handleTrackVolumeChange.bind(this);
+    this.handleTrackSolo = this.handleTrackSolo.bind(this);
   }
   
   async initialize(tm) {
@@ -53,6 +55,12 @@ class AudioEngine {
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
+    
+    // Listen for track volume change events
+    this.eventBus.on(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
+    
+    // Listen for track solo events
+    this.eventBus.on(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
   }
   
   play() {
@@ -96,6 +104,53 @@ class AudioEngine {
   
   handleSeekEvent(data) {
     this.seek(data.time);
+  }
+  
+  handleTrackVolumeChange(data) {
+    const { trackId, volume } = data;
+    const track = this.trackManager.getTrack(trackId);
+    
+    if (track) {
+      track.setGain(volume);
+    }
+  }
+  
+  handleTrackSolo(data) {
+    const { trackId, isSolo } = data;
+    const allTracks = this.trackManager.getAllTracks();
+    
+    // If this track is being soloed, unsolo all other tracks first
+    if (isSolo) {
+      allTracks.forEach(track => {
+        if (track.id !== trackId && track.isSolo) {
+          track.setSolo(false);
+        }
+      });
+    }
+    
+    // Set the solo state for the target track
+    const targetTrack = this.trackManager.getTrack(trackId);
+    if (targetTrack) {
+      targetTrack.setSolo(isSolo);
+    }
+    
+    // Check if any track is solo'd
+    const hasSoloTrack = allTracks.some(track => track.isSolo);
+    
+    // Apply solo logic to all tracks
+    allTracks.forEach(track => {
+      if (hasSoloTrack) {
+        // If any track is solo'd, only solo tracks should play
+        const shouldPlay = track.isSolo;
+        const targetGain = shouldPlay ? track.gain : 0;
+        track.gainNode.gain.setValueAtTime(targetGain, this.context.currentTime);
+        track.gainNode.gain.linearRampToValueAtTime(targetGain, this.context.currentTime + 0.05);
+      } else {
+        // If no tracks are solo'd, all tracks play normally
+        track.gainNode.gain.setValueAtTime(track.gain, this.context.currentTime);
+        track.gainNode.gain.linearRampToValueAtTime(track.gain, this.context.currentTime + 0.05);
+      }
+    });
   }
   
   // Recording proxy methods
@@ -170,6 +225,8 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
+      this.eventBus.off(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
+      this.eventBus.off(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
     }
     
     if (this.context) {

@@ -81,6 +81,24 @@ export default function TrackHeader({
     eventBus.emit(DAW_EVENTS.TRACK.SOLO, { trackId: track.id, isSolo: isSolo });
   }, [isSolo]);
 
+  // Listen for solo events from other tracks
+  useEffect(() => {
+    const handleSoloEvent = (data) => {
+      const { trackId, isSolo } = data;
+      
+      // If another track is being soloed and this track is currently soloed
+      if (trackId !== track.id && isSolo) {
+        setIsSolo(false);
+      }
+    };
+
+    eventBus.on(DAW_EVENTS.TRACK.SOLO, handleSoloEvent);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.TRACK.SOLO, handleSoloEvent);
+    };
+  }, [track.id]);
+
   useEffect(() => {
     eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, { trackId: track.id, volume: faderValue });
   }, [faderValue]);
