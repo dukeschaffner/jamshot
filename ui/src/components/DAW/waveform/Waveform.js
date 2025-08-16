@@ -13,7 +13,8 @@ export default function Waveform({
   bufferKey,
   trackRef,
   track,
-  tracksScrollContainerRef
+  tracksScrollContainerRef,
+  readonly = false
 }) {
   const { scrollLeft, duration, zoom, isPlaying, isRecording } = useDAW();
 
@@ -140,7 +141,7 @@ export default function Waveform({
   const handleRegionMouseDown = (e) => {
     e.stopPropagation();
     // Only allow dragging if not playing or recording
-    if (isPlaying || isRecording) return;
+    if (isPlaying || isRecording || readonly) return;
     
     setIsDraggingRegion(true);
     setDragStartX(e.clientX);
@@ -255,6 +256,7 @@ export default function Waveform({
 
   // Handle mouse down on crop start handle
   const handleCropStartMouseDown = (e) => {
+    if (readonly) return;
     e.stopPropagation();
     setIsDraggingCropStart(true);
     setDragStartX(e.clientX);
@@ -262,6 +264,7 @@ export default function Waveform({
 
   // Handle mouse down on crop end handle
   const handleCropEndMouseDown = (e) => {
+    if (readonly) return;
     e.stopPropagation();
     setIsDraggingCropEnd(true);
     setDragStartX(e.clientX);
@@ -269,7 +272,7 @@ export default function Waveform({
 
   // Check if mouse is hovering near edges to show crop handles
   const handleWaveformMouseMove = (e) => {
-    if (!regionContainerRef.current) return;
+    if (!regionContainerRef.current || readonly) return;
     
     const rect = regionContainerRef.current.getBoundingClientRect();
     const leftEdgeZone = rect.left + 15; // 15px from left edge
@@ -463,7 +466,7 @@ export default function Waveform({
         width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : width}%`, 
         height: '100%',
         left: `${isDraggingCropStart || isDraggingCropEnd ? regionCropLeftPos : regionLeftPos}%`,
-        cursor: isPlaying || isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
+        cursor: isPlaying || isRecording || readonly ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
       }}
       ref={regionContainerRef}
       onMouseDown={handleRegionMouseDown}
@@ -503,7 +506,7 @@ export default function Waveform({
         </div>
       </div>
       {/* Crop handles */}
-      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && (
+      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && !readonly && (
       <>
         <div 
           className={`${styles.cropHandle} ${styles.cropHandleLeft}`}
