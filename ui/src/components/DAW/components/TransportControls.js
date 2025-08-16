@@ -40,6 +40,7 @@ const TransportControls = ({
           eventBus.emit(DAW_EVENTS.TRANSPORT.PAUSE);
         } else {
           // Emit play event
+          console.log('playing called');
           eventBus.emit(DAW_EVENTS.TRANSPORT.PLAY);
         }
       };

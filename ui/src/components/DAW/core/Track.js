@@ -79,11 +79,14 @@ class Track {
       source.buffer = buffer;
       source.connect(this.gainNode);
       
-      // Schedule playback at the correct time
+      // Calculate the actual duration to play based on region.endTime
+      const regionDuration = region.endTime - region.startTime;
       const playTime = startTime + region.startTime;
-      source.start(playTime, offset);
+      
+      // Start playback with the calculated duration to respect region.endTime
+      source.start(playTime, region.offset + offset, regionDuration);
 
-      console.log('track', this.id, 'playing region', region.key);
+      console.log('track', this.id, 'playing region', region.key, 'for duration:', regionDuration);
       
       this.sources.add(source);
     });
