@@ -26,6 +26,7 @@ const Track = ({
     const handleRegionUpdate = (data) => {
       if (data.trackId === track.id) {
         setRegions(prevRegions => prevRegions.map(region => region.id === data.region.id ? data.region : region));
+        track.updateRegion(data.region);
       }
     };
 

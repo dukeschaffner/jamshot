@@ -57,7 +57,8 @@ class AudioEngine {
   
   play() {
     if (this.isPlaying) return;
-    
+
+    console.log('playing');
     // Resume context if suspended
     if (this.context.state === 'suspended') {
       this.context.resume();

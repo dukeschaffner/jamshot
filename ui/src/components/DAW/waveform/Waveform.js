@@ -129,7 +129,6 @@ export default function Waveform({
   useEffect(() => {
     if (!buffer || !trackRectWidth || !duration) return;
     const waveformWidthPx = buffer.duration * trackRectWidth / duration;
-    console.log('waveformWidthPx', waveformWidthPx);
     setWaveformWidth(waveformWidthPx);
   }, [buffer, trackRectWidth, duration, width]);
 
@@ -312,7 +311,6 @@ export default function Waveform({
       
       // Handle crop start dragging
       if (isDraggingCropStart) {
-        console.log('regioncrop start', regionCropLeftPos);
         const cropEndX = cropEndOverlayRef.current?.getBoundingClientRect().left;
         const cropBuffer = 5 * (regionRect.width / 100);
         let newCropX = 0;

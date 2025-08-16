@@ -57,7 +57,7 @@ class Track {
   }
 
   updateRegion(region) {
-    eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region, trackId: this.id });
+    //eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region, trackId: this.id });
     this.regions = this.regions.map(r => r.id === region.id ? region : r);
   }
   
@@ -82,6 +82,8 @@ class Track {
       // Schedule playback at the correct time
       const playTime = startTime + region.startTime;
       source.start(playTime, offset);
+
+      console.log('track', this.id, 'playing region', region.key);
       
       this.sources.add(source);
     });
