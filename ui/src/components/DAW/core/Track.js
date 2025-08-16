@@ -16,7 +16,13 @@ class Track {
     this.gain = 0.8;
     this.isSolo = false;
     
-    this.gainNode.connect(this.context.destination);
+    // Configure analyzer for meter functionality
+    this.analyzer.fftSize = 2048;
+    this.analyzer.smoothingTimeConstant = 0.8;
+    
+    // Connect gain node to analyzer, then analyzer to destination
+    this.gainNode.connect(this.analyzer);
+    this.analyzer.connect(this.context.destination);
     
     // Calculate total duration from all regions
     this.duration = this.calculateTotalDuration();
@@ -136,6 +142,11 @@ class Track {
       ...region,
       metadata: bufferRegistry.getMetadata(region.key)
     };
+  }
+
+  // Get analyzer node for meter functionality
+  getAnalyzer() {
+    return this.analyzer;
   }
   
   destroy() {
