@@ -12,6 +12,9 @@ class Track {
     this.analyzer = context.createAnalyser();
     this.sources = new Set();
     this.readonly = id != 'recording-track';
+
+    this.gain = 0.8;
+    this.isSolo = false;
     
     this.gainNode.connect(this.context.destination);
     
@@ -102,6 +105,18 @@ class Track {
       }
     });
     this.sources.clear();
+  }
+
+  setGain(gain) {
+    this.gain = gain;
+    this.gainNode.gain.setValueAtTime(gain, this.context.currentTime);
+    this.gainNode.gain.linearRampToValueAtTime(gain, this.context.currentTime + 0.05);
+  }
+  
+  setSolo(isSolo) {
+    this.isSolo = isSolo;
+    // The actual solo logic is handled by the AudioEngine
+    // which will coordinate between all tracks
   }
   
   // Get all regions for UI display
