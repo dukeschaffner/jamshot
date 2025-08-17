@@ -5,8 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
 import WaveformChunk from './waveform/WaveformChunk';
 import { useDAW } from '../DAWContext';
-import { eventBus } from '../EventBus';
-import { DAW_EVENTS } from '../DAWEvents';
+import { eventBus } from '../misc/EventBus';
+import { DAW_EVENTS } from '../misc/DAWEvents';
 
 export default function Region({ 
   region,

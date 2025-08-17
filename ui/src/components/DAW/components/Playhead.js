@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useDAW } from '../DAWContext';
-import { eventBus } from '../EventBus';
-import { DAW_EVENTS } from '../DAWEvents';
+import { eventBus } from '../misc/EventBus';
+import { DAW_EVENTS } from '../misc/DAWEvents';
 import styles from '../DAW.module.css';
 
 function Playhead({}) {

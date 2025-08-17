@@ -2,8 +2,8 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import TrackManager from './core/TrackManager';
 import AudioEngine from './core/AudioEngine';
-import { eventBus } from './EventBus';
-import { DAW_EVENTS } from './DAWEvents';
+import { eventBus } from './misc/EventBus';
+import { DAW_EVENTS } from './misc/DAWEvents';
 
 const DAWContext = createContext();
 

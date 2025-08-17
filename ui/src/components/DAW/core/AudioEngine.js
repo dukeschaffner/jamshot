@@ -1,9 +1,9 @@
 import Track from './Track.js';
 import Recorder from './Recorder.js';
-import DAWConfig from '../DAWConfig.js';
-import { eventBus } from '../EventBus.js';
-import { DAW_EVENTS } from '../DAWEvents.js';
-import { getPlaybackTime } from '../DAWUtils.js';
+import DAWConfig from '../misc/DAWConfig.js';
+import { eventBus } from '../misc/EventBus.js';
+import { DAW_EVENTS } from '../misc/DAWEvents.js';
+import { getPlaybackTime } from '../misc/DAWUtils.js';
 
 class AudioEngine {
   constructor(audioContext) {

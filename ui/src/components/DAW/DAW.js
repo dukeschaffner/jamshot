@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useDAW, DAWProvider } from './DAWContext';
-import { eventBus } from './EventBus';
-import { DAW_EVENTS } from './DAWEvents';
+import { eventBus } from './misc/EventBus';
+import { DAW_EVENTS } from './misc/DAWEvents';
 import Waveform from './components/Region';
 import Playhead from './components/Playhead';
 import api from '../../lib/api';

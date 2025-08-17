@@ -1,9 +1,9 @@
 // ui/src/components/DAW/core/TrackManager.js
 import { bufferRegistry } from './BufferRegistry.js';
-import { getAudioBufferFromS3 } from '../DAWUtils.js';
+import { getAudioBufferFromS3 } from '../misc/DAWUtils.js';
 import Track from './Track.js';
-import { eventBus } from '../EventBus.js';
-import { DAW_EVENTS } from '../DAWEvents.js';
+import { eventBus } from '../misc/EventBus.js';
+import { DAW_EVENTS } from '../misc/DAWEvents.js';
 
 class TrackManager {
   constructor(audioContext) {
