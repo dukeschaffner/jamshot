@@ -157,15 +157,17 @@ const Track = ({
     <div className={styles.track} ref={trackRef}>
         {regions.length > 0 ? (
           regions.map((region, index) => (
-            <Region 
-              key={index}
-              region={region}
-              bufferKey={region.key} 
-              trackRef={trackRef} 
-              track={track} 
-              tracksScrollContainerRef={tracksScrollContainerRef}
-              readonly={track.readonly}
-            />
+            region.active && (
+              <Region 
+                key={index}
+                region={region}
+                bufferKey={region.key} 
+                trackRef={trackRef} 
+                track={track} 
+                tracksScrollContainerRef={tracksScrollContainerRef}
+                readonly={track.readonly}
+              />
+            )
           ))
         ) : (
           <div 
