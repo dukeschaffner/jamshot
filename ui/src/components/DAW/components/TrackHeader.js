@@ -180,7 +180,7 @@ export default function TrackHeader({
         <span>Solo</span>
       </button>
       
-      {isRecording && (
+      {isRecording && !track.readonly && (
         <div className={styles.recordingIndicator}>
           <FontAwesomeIcon icon={faMicrophone} />
           <span>Recording</span>

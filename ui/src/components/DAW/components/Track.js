@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import styles from '../DAW.module.css';
-import Waveform from '../waveform/Waveform';
+import Region from './Region';
 import { eventBus } from '../EventBus';
 import { DAW_EVENTS } from '../DAWEvents';
 
@@ -157,7 +157,7 @@ const Track = ({
     <div className={styles.track} ref={trackRef}>
         {regions.length > 0 ? (
           regions.map((region, index) => (
-            <Waveform 
+            <Region 
               key={index}
               region={region}
               bufferKey={region.key} 
