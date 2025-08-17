@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useDAW, DAWProvider } from './DAWContext';
 import { eventBus } from './EventBus';
 import { DAW_EVENTS } from './DAWEvents';
-import Waveform from './waveform/Waveform';
+import Waveform from './components/Region';
 import Playhead from './components/Playhead';
 import api from '../../lib/api';
 import TransportControls from './components/TransportControls';

@@ -1,14 +1,14 @@
 'use client';
 
-import styles from './Waveform.module.css';
+import styles from './Region.module.css';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
-import WaveformChunk from './WaveformChunk';
+import WaveformChunk from './waveform/WaveformChunk';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../EventBus';
 import { DAW_EVENTS } from '../DAWEvents';
 
-export default function Waveform({ 
+export default function Region({ 
   region,
   bufferKey,
   trackRef,
