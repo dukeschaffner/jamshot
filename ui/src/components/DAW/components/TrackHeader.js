@@ -5,8 +5,8 @@ import { useDAW } from '../DAWContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMicrophone, faHeadphones } from '@fortawesome/free-solid-svg-icons';
 import styles from './TrackHeader.module.css';
-import { eventBus } from '../EventBus';
-import { DAW_EVENTS } from '../DAWEvents';
+import { eventBus } from '../misc/EventBus';
+import { DAW_EVENTS } from '../misc/DAWEvents';
 
 export default function TrackHeader({
   track

@@ -8,9 +8,9 @@ import {
   faDrum, 
   faCog 
 } from '@fortawesome/free-solid-svg-icons';
-import CountInIcon from '../CountInIcon';
-import { eventBus } from '../EventBus';
-import { DAW_EVENTS } from '../DAWEvents';
+import CountInIcon from '../misc/CountInIcon';
+import { eventBus } from '../misc/EventBus';
+import { DAW_EVENTS } from '../misc/DAWEvents';
 import styles from '../DAW.module.css';
 
 const timeSignatureOptions = [

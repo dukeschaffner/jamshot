@@ -1,5 +1,5 @@
-import DAWConfig from '../DAWConfig.js';
-import { DAW_EVENTS } from '../DAWEvents.js';
+import DAWConfig from '../misc/DAWConfig.js';
+import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import { bufferRegistry } from '../core/BufferRegistry.js';
 
 class Recorder {

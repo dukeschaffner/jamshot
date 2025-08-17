@@ -1,7 +1,7 @@
 // ui/src/components/DAW/core/Track.js
 import { bufferRegistry } from './BufferRegistry.js';
-import { eventBus } from '../EventBus';
-import { DAW_EVENTS } from '../DAWEvents';
+import { eventBus } from '../misc/EventBus.js';
+import { DAW_EVENTS } from '../misc/DAWEvents.js';
 
 class Track {
   constructor(id, context, regions = []) {
