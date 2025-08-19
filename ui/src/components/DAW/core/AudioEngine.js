@@ -66,7 +66,7 @@ class AudioEngine {
   play() {
     if (this.isPlaying) return;
 
-    console.log('playing');
+    console.log('playing. tm id:', this.trackManager.id);
     // Resume context if suspended
     if (this.context.state === 'suspended') {
       this.context.resume();
