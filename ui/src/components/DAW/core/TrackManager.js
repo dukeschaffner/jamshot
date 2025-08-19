@@ -9,6 +9,7 @@ class TrackManager {
   constructor(audioContext) {
     this.tracks = new Map(); // trackId -> Track instance
     this.audioContext = audioContext;
+    this.id = new Date().getTime();
   }
   
   async loadTrack(trackData) {
