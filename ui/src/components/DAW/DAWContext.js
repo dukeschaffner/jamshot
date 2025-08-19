@@ -16,6 +16,7 @@ export function DAWProvider({ children, trackData }) {
     const [playheadLocation, setPlayheadLocation] = useState({time: 0});
     const [metronomeBpm, setMetronomeBpm] = useState(120);
     const [timeSignature, setTimeSignature] = useState('4/4');
+    const [metronomeOffset, setMetronomeOffset] = useState(0);
     const [duration, setDuration] = useState(0);
     const [tracks, setTracks] = useState([]);
     const [zoom, setZoom] = useState(1);
@@ -211,6 +212,8 @@ export function DAWProvider({ children, trackData }) {
       playheadLocation,
       metronomeBpm,
       timeSignature,
+      metronomeOffset,
+      setMetronomeOffset,
       duration,
       zoom,
       scrollLeft,

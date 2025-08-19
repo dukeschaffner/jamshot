@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const { pool } = require('../config/db');
 const AnalyticsAggregator = require('../utils/analyticsAggregator');
 
@@ -11,7 +11,7 @@ const AnalyticsAggregator = require('../utils/analyticsAggregator');
  */
 
 // Get track analytics for a specific track
-router.get('/tracks/:trackId', authenticateToken, async (req, res) => {
+router.get('/tracks/:trackId', authMiddleware, async (req, res) => {
   try {
     const { trackId } = req.params;
     const { period = 'day', start_date, end_date } = req.query;
@@ -99,7 +99,7 @@ router.get('/tracks/:trackId', authenticateToken, async (req, res) => {
 });
 
 // Get user analytics for the authenticated user
-router.get('/users/me', authenticateToken, async (req, res) => {
+router.get('/users/me', authMiddleware, async (req, res) => {
   try {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
@@ -271,7 +271,7 @@ router.get('/users/:username', async (req, res) => {
 });
 
 // Get platform-wide analytics (admin only)
-router.get('/platform', authenticateToken, async (req, res) => {
+router.get('/platform', authMiddleware, async (req, res) => {
   try {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
@@ -365,7 +365,7 @@ router.get('/platform', authenticateToken, async (req, res) => {
 });
 
 // Manual trigger for analytics aggregation (admin only)
-router.post('/aggregate', authenticateToken, async (req, res) => {
+router.post('/aggregate', authMiddleware, async (req, res) => {
   try {
     const { period, date } = req.body;
     const userId = req.user.id;

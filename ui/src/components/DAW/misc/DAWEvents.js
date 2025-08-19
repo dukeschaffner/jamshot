@@ -37,7 +37,8 @@ export const DAW_EVENTS = {
       START: 'metronome:start',
       STOP: 'metronome:stop',
       BPM_CHANGE: 'metronome:bpm:change',
-      TIME_SIGNATURE_CHANGE: 'metronome:time_signature:change'
+      TIME_SIGNATURE_CHANGE: 'metronome:time_signature:change',
+      OFFSET_CHANGE: 'metronome:offset:change'
     },
     
     // Track events

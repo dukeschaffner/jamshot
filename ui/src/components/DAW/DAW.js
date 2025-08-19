@@ -13,6 +13,7 @@ import styles from './DAW.module.css';
 import Track from './components/Track';
 import Looper from './components/Looper';
 import TrackHeader from './components/TrackHeader';
+import MusicalGrid from './components/MusicalGrid';
 
 function DAWContent({ track }) {
   const { 
@@ -26,6 +27,7 @@ function DAWContent({ track }) {
     playheadLocation,
     metronomeBpm,
     timeSignature,
+    metronomeOffset,
     duration,
     zoom,
     setZoomLevel,
@@ -42,6 +44,10 @@ function DAWContent({ track }) {
     const rect = tracksAndTimelineRef.current.getBoundingClientRect();
     const time = (e.clientX - rect.left) / rect.width * duration;
     eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: time });
+  };
+
+  const handleMetronomeOffsetChange = (newOffset) => {
+    eventBus.emit(DAW_EVENTS.METRONOME.OFFSET_CHANGE, { offset: newOffset });
   };
 
   // Show loading state
@@ -106,6 +112,15 @@ function DAWContent({ track }) {
                 }}
               >
                 <div className={styles.timeline}>
+                  <MusicalGrid
+                    bpm={metronomeBpm}
+                    timeSignature={timeSignature}
+                    duration={duration}
+                    metronomeOffset={metronomeOffset}
+                    onMetronomeOffsetChange={handleMetronomeOffsetChange}
+                    isPlaying={isPlaying}
+                    zoom={zoom}
+                  />
                   <Looper/>
                 </div>
                 <div className={styles.tracksContainer}>
