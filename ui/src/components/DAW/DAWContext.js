@@ -127,14 +127,21 @@ export function DAWProvider({ children, trackData }) {
       setIsRecording(false);
     };
 
-    const handleBpmChange = (newBpm) => {
+    const handleBpmChange = (data) => {
+      const newBpm = data.bpm;
       console.log('BPM changed to:', newBpm);
       setMetronomeBpm(newBpm);
     };
     
-    const handleTimeSignatureChange = (newTimeSignature) => {
+    const handleTimeSignatureChange = (data) => {
+      const newTimeSignature = data.timeSignature;
       console.log('Time signature changed to:', newTimeSignature);
       setTimeSignature(newTimeSignature);
+    };
+
+    const handleMetronomeOffsetChange = (data) => {
+      const newOffset = data.offset;
+      setMetronomeOffset(newOffset);
     };
     
     const handleSeek = (data) => {
@@ -152,6 +159,7 @@ export function DAWProvider({ children, trackData }) {
     eventBus.on(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
     eventBus.on(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
     eventBus.on(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
+    eventBus.on(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
     eventBus.on(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
     // Return cleanup function
     return () => {
@@ -164,6 +172,7 @@ export function DAWProvider({ children, trackData }) {
       eventBus.off(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
       eventBus.off(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
       eventBus.off(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
+      eventBus.off(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
       eventBus.off(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
     };
   }, []); 

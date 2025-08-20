@@ -40,6 +40,10 @@
     z-index: 15;
     pointer-events: auto;
     transition: opacity 0.2s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
   }
 
   .metronomeOffsetHandle:hover {

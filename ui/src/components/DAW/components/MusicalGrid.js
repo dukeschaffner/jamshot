@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from './MusicalGrid.module.css';
 import { useDAW } from '../DAWContext';
+import { eventBus } from '../misc/EventBus';
+import { DAW_EVENTS } from '../misc/DAWEvents';
 
 function MusicalGrid() {
-  const { isPlaying, setMetronomeOffset, metronomeOffset, timeSignature, metronomeBpm, duration } = useDAW();
+  const { isPlaying, metronomeOffset, timeSignature, metronomeBpm, duration } = useDAW();
 
   const [isDraggingOffset, setIsDraggingOffset] = useState(false);
   const offsetHandleRef = useRef(null);
@@ -95,7 +97,7 @@ function MusicalGrid() {
       // Convert position back to offset percentage
       const offsetPercent = Math.min(Math.max(parseFloat(newOffsetPos / measurePosition), 0), 1);
       
-      setMetronomeOffset(offsetPercent);
+      eventBus.emit(DAW_EVENTS.METRONOME.OFFSET_CHANGE, {offset: offsetPercent});
     };
     
     const handleMouseUp = () => {
