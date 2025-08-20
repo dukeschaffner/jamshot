@@ -5,6 +5,7 @@ import styles from './Track.module.css';
 import Region from './Region';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
+import { useDAW } from '../DAWContext';
 
 
 const Track = ({
@@ -15,6 +16,13 @@ const Track = ({
   const trackRef = useRef(null);  
   const [regions, setRegions] = useState(track.regions);
   const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Recording state
+  const [recordingStartPos, setRecordingStartPos] = useState(0);
+  const [recordingWidth, setRecordingWidth] = useState(0);
+  
+  // Get DAW context for recording state and playhead position
+  const { isRecording, playheadLocation, duration } = useDAW();
 
   useEffect(() => {
     const handleRegionAdd = (data) => {
@@ -30,13 +38,35 @@ const Track = ({
       }
     };
 
+    // Listen for recording started event
+    const handleRecordingStarted = (data) => {
+      // Convert current playhead time to percentage position
+      const startPos = (data.startTime / duration) * 100;
+      setRecordingStartPos(startPos);
+      setRecordingWidth(0);
+    };
+
     eventBus.on(DAW_EVENTS.REGION.ADD, handleRegionAdd);
     eventBus.on(DAW_EVENTS.REGION.UPDATE, handleRegionUpdate);
+    eventBus.on(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
+    
     return () => {
       eventBus.off(DAW_EVENTS.REGION.ADD, handleRegionAdd);
       eventBus.off(DAW_EVENTS.REGION.UPDATE, handleRegionUpdate);
+      eventBus.off(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
     };
   }, []);
+
+  // Update recording width when recording and playhead position changes
+  useEffect(() => {
+    if (!track.readonly && isRecording && duration > 0) {
+      const currentPos = (playheadLocation.time / duration) * 100;
+      const indicatorWidth = currentPos - recordingStartPos;
+      setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
+    } else {
+      setRecordingWidth(0);
+    }
+  }, [isRecording, playheadLocation.time, recordingStartPos, duration]);
 
   // File processing function from RecordingWidget
   const processAudioChunks = async (chunks) => {
@@ -155,43 +185,56 @@ const Track = ({
 
   return (
     <div className={styles.track} ref={trackRef}>
-        {regions.length > 0 ? (
-          regions.map((region, index) => (
-            region.active && (
-              <Region 
-                key={index}
-                region={region}
-                bufferKey={region.key} 
-                trackRef={trackRef} 
-                track={track} 
-                tracksScrollContainerRef={tracksScrollContainerRef}
-                readonly={track.readonly}
-              />
-            )
-          ))
-        ) : (
+        {/* Recording indicator - shown during recording */}
+        {isRecording && !track.readonly && recordingWidth > 0 ? (
           <div 
-            className={`${styles.emptyTrack} ${isDragOver ? styles.dragOver : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              document.getElementById(`audio-file-input-${track.id}`).click();
+            className={styles.recordingIndicator}
+            style={{
+              left: `${recordingStartPos}%`,
+              width: `${recordingWidth}%`
             }}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="empty-message">
-              <FontAwesomeIcon icon={faCloudUploadAlt} />
-              <span>Drop audio file here or click to browse</span>
-              <input 
-                type="file" 
-                id={`audio-file-input-${track.id}`}
-                className={styles.fileUploadInput} 
-                accept="audio/*"
-                onChange={handleFileChange}
-              />
-            </div>
-          </div>
+          />
+        ) : (
+          <>
+            {regions.length > 0 ? (
+              regions.map((region, index) => (
+                region.active && (
+                  <Region 
+                    key={index}
+                    region={region}
+                    bufferKey={region.key} 
+                    trackRef={trackRef} 
+                    track={track} 
+                    tracksScrollContainerRef={tracksScrollContainerRef}
+                    readonly={track.readonly}
+                  />
+                )
+              ))
+            ) : (
+              <div 
+                className={`${styles.emptyTrack} ${isDragOver ? styles.dragOver : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  document.getElementById(`audio-file-input-${track.id}`).click();
+                }}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="empty-message">
+                  <FontAwesomeIcon icon={faCloudUploadAlt} />
+                  <span>Drop audio file here or click to browse</span>
+                  <input 
+                    type="file" 
+                    id={`audio-file-input-${track.id}`}
+                    className={styles.fileUploadInput} 
+                    accept="audio/*"
+                    onChange={handleFileChange}
+                  />
+                </div>
+              </div>
+            )}
+          </>
         )}
     </div>
   );

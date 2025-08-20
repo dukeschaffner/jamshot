@@ -191,7 +191,7 @@ const TransportControls = ({
 
   return (
     
-    <div className={styles.dawControls}>
+    <div className={styles.transportControls}>
         {!isRecording && (
             <button 
             className={styles.controlButton + ' ' + styles.playPause} 

@@ -29,10 +29,6 @@ class Recorder {
     } catch (error) {
       console.warn('Could not load recorder processor:', error);
     }
-    
-    // Listen for recording events
-    this.eventBus.on(DAW_EVENTS.RECORDING.START, this.startRecording);
-    this.eventBus.on(DAW_EVENTS.RECORDING.STOP, this.stopRecording);
   }
   
   async startRecording() {
@@ -67,7 +63,6 @@ class Recorder {
       // Initialize recording state
       this.isRecording = true;
       this.recordingStartTime = this.context.currentTime;
-      this.recordingOffset = 0; // Will be set by AudioEngine
       this.recordingBuffer = [];
       
       // Calculate latency compensation
@@ -202,12 +197,6 @@ class Recorder {
     // Stop recording if active
     if (this.isRecording) {
       this.stopRecording();
-    }
-    
-    // Remove event listeners
-    if (this.eventBus) {
-      this.eventBus.off(DAW_EVENTS.RECORDING.START, this.startRecording);
-      this.eventBus.off(DAW_EVENTS.RECORDING.STOP, this.stopRecording);
     }
   }
 }
