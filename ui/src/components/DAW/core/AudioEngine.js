@@ -11,6 +11,8 @@ class AudioEngine {
     this.trackManager = null;
     this.processors = new Map();
     this.recorder = null;
+    this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log('AudioEngine created with instance ID:', this.instanceId);
 
     // Transport state
     this.isPlaying = false;
@@ -215,7 +217,7 @@ class AudioEngine {
   play() {
     if (this.isPlaying) return;
 
-    console.log('playing. tm id:', this.trackManager.id);
+    console.log('AudioEngine instance', this.instanceId, 'playing. tm id:', this.trackManager.id);
     // Resume context if suspended
     if (this.context.state === 'suspended') {
       this.context.resume();
@@ -446,6 +448,7 @@ class AudioEngine {
   
   // Cleanup
   destroy() {
+    console.log('AudioEngine instance destroyed:', this.instanceId);
     // Stop recording if active
     if (this.recorder) {
       this.recorder.destroy();
@@ -458,6 +461,7 @@ class AudioEngine {
     
     // Remove event listeners
     if (this.eventBus && this.DAW_EVENTS) {
+      console.log('Removing event listeners for AudioEngine instance:', this.instanceId);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);

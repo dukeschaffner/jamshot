@@ -9,7 +9,8 @@ class TrackManager {
   constructor(audioContext) {
     this.tracks = new Map(); // trackId -> Track instance
     this.audioContext = audioContext;
-    this.id = new Date().getTime();
+    this.id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log('TrackManager created with ID:', this.id);
   }
   
   async loadTrack(trackData) {
