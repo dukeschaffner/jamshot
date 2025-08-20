@@ -37,6 +37,16 @@ export function DAWProvider({ children, trackData }) {
       try {
         setIsLoading(true);
         
+        // Clean up existing instances first
+        if (audioEngineRef.current) {
+          audioEngineRef.current.destroy();
+          audioEngineRef.current = null;
+        }
+        if (trackManagerRef.current) {
+          trackManagerRef.current.destroy();
+          trackManagerRef.current = null;
+        }
+        
         // Initialize audio context
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
