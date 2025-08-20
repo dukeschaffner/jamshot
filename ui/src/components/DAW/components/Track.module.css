@@ -41,3 +41,16 @@
   .fileUploadInput {
     display: none;
   }
+
+  /* Recording indicator styling */
+  .recordingIndicator {
+    position: relative;
+    top: 0;
+    height: 100%;
+    background-color: rgba(255, 59, 48, 0.3);
+    border: 2px solid rgba(255, 59, 48, 0.8);
+    border-radius: 4px;
+    z-index: 1;
+    pointer-events: none;
+    transition: width 0.1s ease;
+  }

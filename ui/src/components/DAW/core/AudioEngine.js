@@ -51,6 +51,8 @@ class AudioEngine {
     // Bind methods
     this.play = this.play.bind(this);
     this.pause = this.pause.bind(this);
+    this.startRecording = this.startRecording.bind(this);
+    this.stopRecording = this.stopRecording.bind(this);
     this.handleSeekEvent = this.handleSeekEvent.bind(this);
     this.handleTrackVolumeChange = this.handleTrackVolumeChange.bind(this);
     this.handleTrackSolo = this.handleTrackSolo.bind(this);
@@ -85,6 +87,8 @@ class AudioEngine {
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
+    this.eventBus.on(this.DAW_EVENTS.RECORDING.START, this.startRecording);
+    this.eventBus.on(this.DAW_EVENTS.RECORDING.STOP, this.stopRecording);
     
     // Listen for track volume change events
     this.eventBus.on(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
@@ -213,6 +217,8 @@ class AudioEngine {
       this.metronomeScheduleInterval = null;
     }
   }
+
+  // #region event handlers (play/pause...)
   
   play() {
     if (this.isPlaying) return;
@@ -385,6 +391,8 @@ class AudioEngine {
     const { isEnabled } = data || {};
     this.isCountInEnabled = isEnabled !== undefined ? isEnabled : !this.isCountInEnabled;
   }
+
+  // #endregion
   
   // Set count-in flag for next playback
   setCountIn(enabled) {
@@ -397,12 +405,22 @@ class AudioEngine {
       this.recorder.setRecordingOffset(this.currentTime);
       await this.recorder.startRecording();
     }
+
+    // Auto-start playback when recording begins (if not already playing)
+    if (!this.isPlaying) {
+      // If count-in is enabled, set the flag for the next playback
+      if (this.isCountInEnabled) {
+        this.setCountIn(true);
+      }
+      this.play();
+    }
   }
   
   stopRecording() {
     if (this.recorder) {
       this.recorder.stopRecording();
     }
+    this.pause();
   }
   
   // Playhead timer
@@ -464,6 +482,8 @@ class AudioEngine {
       console.log('Removing event listeners for AudioEngine instance:', this.instanceId);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
+      this.eventBus.off(this.DAW_EVENTS.RECORDING.START, this.startRecording);
+      this.eventBus.off(this.DAW_EVENTS.RECORDING.STOP, this.stopRecording);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
       this.eventBus.off(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
