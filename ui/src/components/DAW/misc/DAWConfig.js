@@ -22,6 +22,14 @@ const DAWConfig = {
       defaultBPM: 120,
       defaultVolume: 0.7,
       clickDuration: 0.05, // seconds
+      highClickFrequency: 1600, // Hz for downbeat
+      lowClickFrequency: 900, // Hz for other beats
+      highClickDecay: 5, // Decay factor for high click
+      lowClickDecay: 10, // Decay factor for low click
+      scheduleInterval: 100, // ms between scheduling checks
+      lookAheadMeasures: 2, // Number of measures to schedule ahead
+      defaultTimeSignature: '4/4',
+      defaultOffset: 0, // Default offset as percentage of measure
     },
     
     effects: {

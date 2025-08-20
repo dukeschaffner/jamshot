@@ -116,7 +116,7 @@ const TransportControls = ({
     // Only update if the BPM actually changed
     if (newBpm !== metronomeBpm) {
       // Update BPM state and input value
-      eventBus.emit(DAW_EVENTS.METRONOME.BPM_CHANGE, newBpm);
+      eventBus.emit(DAW_EVENTS.METRONOME.BPM_CHANGE, { bpm: newBpm });
       setBpmInputValue(newBpm.toString());
     }
   };
@@ -136,7 +136,7 @@ const TransportControls = ({
   const handleTimeSignatureChange = (newTimeSignature) => {
     // Only update if the time signature changed
     if (newTimeSignature !== timeSignature) {
-      eventBus.emit(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, newTimeSignature);
+      eventBus.emit(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, { timeSignature: newTimeSignature });
       
       // This is client-side only and doesn't save the value to the track
       console.log(`Time signature changed to ${newTimeSignature}`);
@@ -153,12 +153,16 @@ const TransportControls = ({
 
     // Toggle count-in
     const toggleCountIn = () => {
-        setIsCountInEnabled(prev => !prev);
+        const newState = !isCountInEnabled;
+        setIsCountInEnabled(newState);
+        eventBus.emit(DAW_EVENTS.METRONOME.START, { isOn: newState });
       };
 
         // Toggle metronome
   const toggleMetronome = () => {
-    setIsMetronomeOn(prev => !prev);
+    const newState = !isMetronomeOn;
+    setIsMetronomeOn(newState);
+    eventBus.emit(DAW_EVENTS.METRONOME.START, { isOn: newState });
   };
 
 
