@@ -107,6 +107,7 @@ class Recorder {
     
     // Disconnect processor
     if (this.recordingProcessor) {
+      this.recordingProcessor.port.onmessage = null;
       this.recordingProcessor.disconnect();
       this.recordingProcessor = null;
     }

@@ -12,7 +12,6 @@ class AudioEngine {
     this.processors = new Map();
     this.recorder = null;
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    console.log('AudioEngine created with instance ID:', this.instanceId);
 
     // Transport state
     this.isPlaying = false;
@@ -474,7 +473,6 @@ class AudioEngine {
   
   // Cleanup
   destroy() {
-    console.log('AudioEngine instance destroyed:', this.instanceId);
     // Stop recording if active
     if (this.recorder) {
       this.recorder.destroy();
@@ -487,7 +485,6 @@ class AudioEngine {
     
     // Remove event listeners
     if (this.eventBus && this.DAW_EVENTS) {
-      console.log('Removing event listeners for AudioEngine instance:', this.instanceId);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PLAY, this.play);
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.PAUSE, this.pause);
       this.eventBus.off(this.DAW_EVENTS.RECORDING.START, this.startRecording);
