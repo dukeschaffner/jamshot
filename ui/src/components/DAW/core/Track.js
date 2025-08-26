@@ -26,6 +26,17 @@ class Track {
     
     // Calculate total duration from all regions
     this.duration = this.calculateTotalDuration();
+
+    // Listen for region update events
+    this.handleRegionUpdate = this.handleRegionUpdate.bind(this);
+    eventBus.on(DAW_EVENTS.REGION.UPDATE, this.handleRegionUpdate);
+  }
+
+  handleRegionUpdate(data) {
+    // Only update if the region belongs to this track
+    if (data.trackId === this.id) {
+      this.updateRegion(data.region);
+    }
   }
   
   // Region structure: { key, startTime, duration, name }
@@ -84,6 +95,8 @@ class Track {
   play(startTime, offset = 0) {
     // Play all regions for this track
     this.regions.forEach(region => {
+      if(!region.active) return;
+      
       const buffer = bufferRegistry.getBuffer(region.key);
       if (!buffer) return;
       
@@ -98,8 +111,6 @@ class Track {
       // Start playback with the calculated duration to respect region.endTime
       source.start(playTime, region.offset + offset, regionDuration);
 
-      console.log('track', this.id, 'playing region', region.key, 'for duration:', regionDuration);
-      
       this.sources.add(source);
     });
   }
@@ -160,6 +171,8 @@ class Track {
     if (this.analyzer) {
       this.analyzer.disconnect();
     }
+    // Remove event listener
+    eventBus.off(DAW_EVENTS.REGION.UPDATE, this.handleRegionUpdate);
   }
 }
 
