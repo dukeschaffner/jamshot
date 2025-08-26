@@ -1,10 +1,12 @@
+import DAWConfig from './DAWConfig';
+
 // EventBus.js - Full implementation with features needed for DAW
 class EventBus {
     constructor() {
       this.listeners = new Map();
       this.onceListeners = new Map();
       this.middleware = [];
-      this.debug = process.env.NODE_ENV === 'development';
+      this.debug = DAWConfig.logging.eventBus;
     }
     
     // Core event methods

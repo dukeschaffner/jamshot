@@ -9,17 +9,31 @@ class Recorder {
     
     // Recording state
     this.isRecording = false;
-    this.recordingStartTime = 0; // When recording started in context time
-    this.recordingOffset = 0; // Offset within the recording buffer
     this.recordingBuffer = null;
     this.recordingProcessor = null;
     this.recordingStream = null;
     this.recordingLatency = 0; // Latency compensation in seconds
     
+    // Playback tracking
+    this.playbackStartTime = 0; // audioContextTime when playback started
+    this.playbackTime = 0; // playback time when playback/recording started
+    
     // Bind methods
     this.startRecording = this.startRecording.bind(this);
     this.stopRecording = this.stopRecording.bind(this);
     this.handleRecordingData = this.handleRecordingData.bind(this);
+    this.handleRecorderMessage = this.handleRecorderMessage.bind(this);
+    this.handlePlaybackStarted = this.handlePlaybackStarted.bind(this);
+    
+    // Set up event listeners
+    this.eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
+  }
+  
+  handlePlaybackStarted(data) {
+    if(!this.isRecording) return;
+    this.playbackStartTime = data.audioContextTime;
+    this.playbackTime = data.playbackTime;
+    console.log('Recorder: Playback started - audioContextTime:', this.playbackStartTime, 'playbackTime:', this.playbackTime);
   }
   
   async initialize() {
@@ -48,7 +62,7 @@ class Recorder {
       
       // Create recording processor
       this.recordingProcessor = new AudioWorkletNode(this.context, 'recorder-processor');
-      this.recordingProcessor.port.onmessage = this.handleRecordingData;
+      this.recordingProcessor.port.onmessage = this.handleRecorderMessage;
       
       // Configure processor with buffer size
       this.recordingProcessor.port.postMessage({
@@ -62,8 +76,8 @@ class Recorder {
       
       // Initialize recording state
       this.isRecording = true;
-      this.recordingStartTime = this.context.currentTime;
       this.recordingBuffer = [];
+      this.firstSampleTime = null;
       
       // Calculate latency compensation
       this.recordingLatency = this.calculateRecordingLatency();
@@ -72,7 +86,6 @@ class Recorder {
       this.recordingProcessor.port.postMessage('reset');
       
       this.eventBus.emit(DAW_EVENTS.RECORDING.STARTED, {
-        startTime: this.recordingOffset,
         latency: this.recordingLatency
       });
       
@@ -101,35 +114,53 @@ class Recorder {
     // Create final audio buffer
     const finalBuffer = this.createRecordingBuffer();
 
+    console.log('duration', finalBuffer.duration);
+    console.log('startTime', this.playbackTime);
+    console.log('offset', this.playbackStartTime - this.firstSampleTime);
+
     const bufferKey = bufferRegistry.generateBufferKey('recording-track', 'region');
     bufferRegistry.storeBuffer(bufferKey, finalBuffer);
     
     this.eventBus.emit(DAW_EVENTS.RECORDING.STOPPED, {
       bufferKey: bufferKey,
       duration: finalBuffer ? finalBuffer.duration : 0,
-      startTime: this.recordingOffset
+      startTime: this.playbackTime,
+      offset: this.playbackStartTime - this.firstSampleTime
     });
     
     // Clean up
     this.recordingBuffer = null;
-    this.recordingStartTime = 0;
-    this.recordingOffset = 0;
     this.recordingLatency = 0;
   }
+
+  handleRecorderMessage(event){
+    if (!this.isRecording) return;
+
+    if (event.data.type === 'first-sample') {
+      const { frame, time } = event.data;
+      this.firstSampleTime = time; 
+      console.log("sample time: " + time);
+    }
   
-  handleRecordingData(event) {
+    if (event.data.type === 'audio') {
+      const audioBuffer = event.data.data;
+      this.handleRecordingData(audioBuffer);
+    }
+  }
+  
+  handleRecordingData(data) {
     if (!this.isRecording) return;
     
-    const audioData = event.data;
+    const audioData = data;
     if (audioData instanceof Float32Array) {
       this.recordingBuffer.push(audioData);
       
       // Emit progress event
-      const currentTime = this.context.currentTime - this.recordingStartTime + this.recordingOffset;
-      this.eventBus.emit(DAW_EVENTS.RECORDING.PROGRESS, {
-        currentTime,
-        bufferLength: this.recordingBuffer.length
-      });
+      // const currentTime = this.context.currentTime - this.recordingStartTime + this.recordingOffset;
+      // this.eventBus.emit(DAW_EVENTS.RECORDING.PROGRESS, {
+      //   currentTime,
+      //   bufferLength: this.recordingBuffer.length
+      // });
     }
   }
   
@@ -185,11 +216,7 @@ class Recorder {
   
   getRecordingTime() {
     if (!this.isRecording) return 0;
-    return this.context.currentTime - this.recordingStartTime + this.recordingOffset;
-  }
-  
-  setRecordingOffset(offset) {
-    this.recordingOffset = offset;
+    return this.context.currentTime - this.playbackStartTime + this.playbackTime;
   }
   
   // Cleanup
@@ -198,6 +225,9 @@ class Recorder {
     if (this.isRecording) {
       this.stopRecording();
     }
+    
+    // Remove event listeners
+    this.eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
   }
 }
 

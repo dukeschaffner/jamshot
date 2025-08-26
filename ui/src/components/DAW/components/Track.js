@@ -14,7 +14,7 @@ const Track = ({
 }) => {
 
   const trackRef = useRef(null);  
-  const [regions, setRegions] = useState(track.regions);
+  const [regions, setRegions] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   
   // Recording state
@@ -25,8 +25,17 @@ const Track = ({
   const { isRecording, playheadLocation, duration } = useDAW();
 
   useEffect(() => {
+    const regions = [];
+    for(const region of track.regions) {
+      regions.push(region);
+    }
+    setRegions(regions);
+  }, [track]);
+
+  useEffect(() => {
     const handleRegionAdd = (data) => {
       if (data.trackId === track.id) {
+        if(regions.find(region => region.id === data.region.id)) return; // Don't add region if it already exists
         setRegions(prevRegions => [...prevRegions, data.region]);
       }
     };
@@ -34,28 +43,27 @@ const Track = ({
     const handleRegionUpdate = (data) => {
       if (data.trackId === track.id) {
         setRegions(prevRegions => prevRegions.map(region => region.id === data.region.id ? data.region : region));
-        track.updateRegion(data.region);
       }
     };
 
     // Listen for recording started event
-    const handleRecordingStarted = (data) => {
+    const handlePlaybackStarted = (data) => {
       // Convert current playhead time to percentage position
-      const startPos = (data.startTime / duration) * 100;
+      const startPos = (data.playbackTime / duration) * 100;
       setRecordingStartPos(startPos);
       setRecordingWidth(0);
     };
 
     eventBus.on(DAW_EVENTS.REGION.ADD, handleRegionAdd);
     eventBus.on(DAW_EVENTS.REGION.UPDATE, handleRegionUpdate);
-    eventBus.on(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
+    eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     
     return () => {
       eventBus.off(DAW_EVENTS.REGION.ADD, handleRegionAdd);
       eventBus.off(DAW_EVENTS.REGION.UPDATE, handleRegionUpdate);
-      eventBus.off(DAW_EVENTS.RECORDING.STARTED, handleRecordingStarted);
+      eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     };
-  }, []);
+  }, [duration]);
 
   // Update recording width when recording and playhead position changes
   useEffect(() => {

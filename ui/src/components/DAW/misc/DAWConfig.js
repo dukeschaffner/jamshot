@@ -40,6 +40,10 @@ const DAWConfig = {
     collaboration: {
       enabled: false,
       realTimeSync: false,
+    },
+
+    logging: {
+      eventBus: false,
     }
 };
 

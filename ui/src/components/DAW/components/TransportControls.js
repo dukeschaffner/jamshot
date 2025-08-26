@@ -151,18 +151,18 @@ const TransportControls = ({
     updateTimeSignatureValue();
   };
 
-    // Toggle count-in
-    const toggleCountIn = () => {
-        const newState = !isCountInEnabled;
-        setIsCountInEnabled(newState);
-        eventBus.emit(DAW_EVENTS.METRONOME.START, { isOn: newState });
-      };
+  // Toggle count-in
+  const toggleCountIn = () => {
+    const newState = !isCountInEnabled;
+    setIsCountInEnabled(newState);
+    eventBus.emit(DAW_EVENTS.METRONOME.COUNT_IN_TOGGLE, { isOn: newState });
+  };
 
-        // Toggle metronome
+  // Toggle metronome
   const toggleMetronome = () => {
     const newState = !isMetronomeOn;
     setIsMetronomeOn(newState);
-    eventBus.emit(DAW_EVENTS.METRONOME.START, { isOn: newState });
+    eventBus.emit(DAW_EVENTS.METRONOME.TOGGLE, { isOn: newState });
   };
 
 
