@@ -34,6 +34,8 @@ class Track {
     startTime = startTime || 0;
     offset = offset || 0;
     endTime = endTime || (startTime + duration - offset);
+
+    const id = 'track-' + this.id + '-' + Math.random().toString(36).substring(2, 15);
     const region = {
       key: bufferKey,
       offset,
@@ -41,7 +43,8 @@ class Track {
       endTime,
       duration: duration,
       active: true,
-      name: name || `Region ${this.regions.length + 1}`
+      name: name || `Region ${this.regions.length + 1}`,
+      id: id
     };
 
     if (overwriteTrack) { // Set all regions to inactive

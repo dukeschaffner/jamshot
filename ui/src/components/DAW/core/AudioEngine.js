@@ -97,13 +97,15 @@ class AudioEngine {
     this.eventBus.on(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
     
     // Listen for metronome events
-    this.eventBus.on(this.DAW_EVENTS.METRONOME.START, this.handleMetronomeToggle);
-    this.eventBus.on(this.DAW_EVENTS.METRONOME.STOP, this.handleMetronomeToggle);
+    this.eventBus.on(this.DAW_EVENTS.METRONOME.TOGGLE, this.handleMetronomeToggle);
     this.eventBus.on(this.DAW_EVENTS.METRONOME.BPM_CHANGE, this.handleMetronomeBPMChange);
     this.eventBus.on(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
     this.eventBus.on(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
+    this.eventBus.on(this.DAW_EVENTS.METRONOME.COUNT_IN_TOGGLE, this.handleCountInToggle);
   }
   
+  // #region metronome
+
   // Create metronome click sounds
   createMetronomeSounds() {
     if (!this.context) return;
@@ -218,12 +220,13 @@ class AudioEngine {
     }
   }
 
+  // #endregion
+
   // #region event handlers (play/pause...)
   
-  play() {
+  play(isRecording = false) {
     if (this.isPlaying) return;
 
-    console.log('AudioEngine instance', this.instanceId, 'playing. tm id:', this.trackManager.id);
     // Resume context if suspended
     if (this.context.state === 'suspended') {
       this.context.resume();
@@ -238,7 +241,7 @@ class AudioEngine {
     // Calculate start time with count-in if enabled
     let scheduledStartTime = this.context.currentTime + DAWConfig.audio.scheduleDelay;
     
-    if (this.shouldCountIn && this.isCountInEnabled) {
+    if (this.shouldCountIn && this.isCountInEnabled && this.isMetronomeOn) {
       const beatsPerMeasure = parseInt(this.timeSignature.split('/')[0], 10);
       const secondsPerBeat = 60 / this.metronomeBPM;
       const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
@@ -250,7 +253,9 @@ class AudioEngine {
     
     // Start all tracks synchronized
     this.trackManager.getAllTracks().forEach(track => {
-      track.play(this.startTime, this.currentTime);
+      if(track.id !== 'recording-track' || !isRecording) {
+        track.play(this.startTime, this.currentTime);
+      }
     });
     
     // Start metronome if enabled
@@ -263,7 +268,7 @@ class AudioEngine {
     this.startPlayheadTimer();
     
     // Emit playback started event
-    this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.STARTED);
+    this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.STARTED, { audioContextTime: this.startTime, playbackTime: this.currentTime});
   }
   
   pause() {
@@ -279,6 +284,28 @@ class AudioEngine {
     
     // Emit playback paused event
     this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.PAUSED);
+  }
+
+  async startRecording() {
+    if (this.recorder) {
+      await this.recorder.startRecording();
+    }
+
+    // Auto-start playback when recording begins (if not already playing)
+    if (!this.isPlaying) {
+      // If count-in is enabled, set the flag for the next playback
+      if (this.isCountInEnabled && this.isMetronomeOn) {
+        this.setCountIn(true);
+      }
+      this.play(true);
+    }
+  }
+  
+  stopRecording() {
+    if (this.recorder) {
+      this.recorder.stopRecording();
+    }
+    this.pause();
   }
   
   handleSeekEvent(data) {
@@ -344,6 +371,11 @@ class AudioEngine {
       this.stopAndClearMetronomeClicks();
     }
   }
+
+  handleCountInToggle(data) {
+    const { isOn } = data || {};
+    this.isCountInEnabled = isOn !== undefined ? isOn : !this.isCountInEnabled;
+  }
   
   handleMetronomeBPMChange(data) {
     const { bpm } = data;
@@ -397,30 +429,6 @@ class AudioEngine {
   // Set count-in flag for next playback
   setCountIn(enabled) {
     this.shouldCountIn = enabled;
-  }
-  
-  // Recording proxy methods
-  async startRecording() {
-    if (this.recorder) {
-      this.recorder.setRecordingOffset(this.currentTime);
-      await this.recorder.startRecording();
-    }
-
-    // Auto-start playback when recording begins (if not already playing)
-    if (!this.isPlaying) {
-      // If count-in is enabled, set the flag for the next playback
-      if (this.isCountInEnabled) {
-        this.setCountIn(true);
-      }
-      this.play();
-    }
-  }
-  
-  stopRecording() {
-    if (this.recorder) {
-      this.recorder.stopRecording();
-    }
-    this.pause();
   }
   
   // Playhead timer
@@ -487,8 +495,8 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
       this.eventBus.off(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
-      this.eventBus.off(this.DAW_EVENTS.METRONOME.START, this.handleMetronomeToggle);
-      this.eventBus.off(this.DAW_EVENTS.METRONOME.STOP, this.handleMetronomeToggle);
+      this.eventBus.off(this.DAW_EVENTS.METRONOME.TOGGLE, this.handleMetronomeToggle);
+      this.eventBus.off(this.DAW_EVENTS.METRONOME.COUNT_IN_TOGGLE, this.handleCountInToggle);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.BPM_CHANGE, this.handleMetronomeBPMChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);

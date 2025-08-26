@@ -128,8 +128,9 @@ export function DAWProvider({ children, trackData }) {
     const handleRecordingStopped = (data) => {
       setIsRecording(false);
       console.log('Recording stopped');
+
       const track = trackManagerRef.current.getTrack('recording-track');
-      track.addRegion(data.bufferKey, 0, 0, data.duration, '', true);
+      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', true);
     };
     
     const handleRecordingError = (error) => {

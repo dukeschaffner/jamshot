@@ -38,6 +38,50 @@ function DAWContent({ track }) {
   const tracksAndTimelineRef = useRef(null);
   const tracksScrollContainerRef = useRef(null);
 
+  // Add keyboard event listener for space and enter keys
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if user is typing in an input field, textarea, or contentEditable element
+      if (
+        e.target.tagName === 'INPUT' || 
+        e.target.tagName === 'TEXTAREA' || 
+        e.target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Handle space key for play/pause
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault(); // Prevent space from scrolling the page
+        
+        if (isRecording) {
+          // Stop recording if currently recording
+          eventBus.emit(DAW_EVENTS.RECORDING.STOP);
+        } else {
+          // Toggle play/pause
+          if (isPlaying) {
+            eventBus.emit(DAW_EVENTS.TRANSPORT.PAUSE);
+          } else {
+            eventBus.emit(DAW_EVENTS.TRANSPORT.PLAY);
+          }
+        }
+      }
+      // Handle enter key for seek to time 0
+      else if (e.code === 'Enter' || e.key === 'Enter') {
+        e.preventDefault();
+        eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: 0 });
+      }
+    };
+
+    // Add event listener to the window
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Clean up the event listener when component unmounts
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPlaying, isRecording]); // Include dependencies
+
   const handleTimelineClick = (e) => {
     e.stopPropagation();
     if (isRecording) return;
