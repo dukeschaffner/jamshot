@@ -35,7 +35,7 @@ class Track {
   handleRegionUpdate(data) {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
-      this.updateRegion(data.region);
+      this.regions = this.regions.map(r => r.id === data.region.id ? data.region : r);
     }
   }
   
@@ -78,11 +78,6 @@ class Track {
     this.addRegion(bufferKey, startTime, offset, endTime, regionName);
     return bufferKey;
   }
-
-  updateRegion(region) {
-    //eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region, trackId: this.id });
-    this.regions = this.regions.map(r => r.id === region.id ? region : r);
-  }
   
   calculateTotalDuration() {
     if (this.regions.length === 0) return 0;
@@ -90,41 +85,6 @@ class Track {
     return Math.max(
       ...this.regions.map(region => region.startTime + region.duration)
     );
-  }
-  
-  play(startTime, offset = 0) {
-    // Play all regions for this track
-    this.regions.forEach(region => {
-      if(!region.active) return;
-      
-      const buffer = bufferRegistry.getBuffer(region.key);
-      if (!buffer) return;
-      
-      const source = this.context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(this.gainNode);
-      
-      // Calculate the actual duration to play based on region.endTime
-      const regionDuration = region.endTime - region.startTime;
-      const playTime = startTime + region.startTime;
-      
-      // Start playback with the calculated duration to respect region.endTime
-      source.start(playTime, region.offset + offset, regionDuration);
-
-      this.sources.add(source);
-    });
-  }
-  
-  pause() {
-    this.sources.forEach(source => {
-      try {
-        source.stop();
-        source.disconnect();
-      } catch (e) {
-        // Source may have already stopped
-      }
-    });
-    this.sources.clear();
   }
 
   setGain(gain) {
@@ -145,6 +105,18 @@ class Track {
       ...region,
       metadata: bufferRegistry.getMetadata(region.key)
     }));
+  }
+  
+  // Get regions with buffer data for ChunkScheduler
+  getActiveRegionsWithBuffers() {
+    return this.regions.map(region => {
+      const buffer = bufferRegistry.getBuffer(region.key);
+      return {
+        ...region,
+        buffer,
+        gain: this.gain
+      };
+    }).filter(region => region.buffer && region.active); // Only return regions with valid buffers
   }
   
   // Get a specific region
