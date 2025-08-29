@@ -42,6 +42,15 @@ const DAWConfig = {
       realTimeSync: false,
     },
 
+    segments: {
+      lookAheadWindow: 0.1, // seconds
+      segmentDuration: 2, // seconds
+      crossfadeDuration: 0.005, // seconds
+      scheduleInterval: 50, // ms
+      maxConcurrentSegments: 50,
+      segmentOverlapThreshold: 0.1, // seconds
+    },
+
     logging: {
       eventBus: false,
     }

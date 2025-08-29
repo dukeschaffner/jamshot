@@ -58,7 +58,11 @@ export const DAW_EVENTS = {
       ADD: 'region:add',
       REMOVE: 'region:remove',
       SELECT: 'region:select',
-      UPDATE: 'region:update'
+      UPDATE: 'region:update',
+      REAL_TIME_UPDATE: 'region:real_time_update',
+      SEGMENT_UPDATE: 'region:segment_update',
+      CROSSFADE_START: 'region:crossfade_start',
+      CROSSFADE_END: 'region:crossfade_end'
     },
     
     // Take events
@@ -88,6 +92,19 @@ export const DAW_EVENTS = {
       BUFFER_ERROR: 'audio:buffer:error',
       PROCESSING_START: 'audio:processing:start',
       PROCESSING_END: 'audio:processing:end'
+    },
+    
+    // Segment events
+    SEGMENT: {
+      SCHEDULED: 'segment:scheduled',
+      COMPLETED: 'segment:completed',
+      CANCELLED: 'segment:cancelled',
+      UPDATED: 'segment:updated',
+      ERROR: 'segment:error',
+      SCHEDULER_STARTED: 'segment:scheduler:started',
+      SCHEDULER_STOPPED: 'segment:scheduler:stopped',
+      SCHEDULER_DESTROYED: 'segment:scheduler:destroyed',
+      SCHEDULING_UPDATE: 'segment:scheduling:update'
     },
     
     // Error events

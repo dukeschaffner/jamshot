@@ -1,5 +1,6 @@
 import Track from './Track.js';
 import Recorder from './Recorder.js';
+import ChunkScheduler from './ChunkScheduler.js';
 import DAWConfig from '../misc/DAWConfig.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
@@ -9,6 +10,7 @@ class AudioEngine {
   constructor(audioContext) {
     this.context = audioContext;
     this.trackManager = null;
+    this.chunkScheduler = null;
     this.processors = new Map();
     this.recorder = null;
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -74,6 +76,9 @@ class AudioEngine {
     if(this.context.state === 'suspended') {
       this.context.resume();
     }
+    
+    // Initialize chunk scheduler
+    this.chunkScheduler = new ChunkScheduler(this.context, this.trackManager);
     
     // Initialize recorder
     this.recorder = new Recorder(this.context, this.eventBus);
@@ -250,12 +255,10 @@ class AudioEngine {
     
     this.startTime = scheduledStartTime;
     
-    // Start all tracks synchronized
-    this.trackManager.getAllTracks().forEach(track => {
-      if(track.id !== 'recording-track' || !isRecording) {
-        track.play(this.startTime, this.currentTime);
-      }
-    });
+    // Start chunk scheduler
+    if (this.chunkScheduler) {
+      this.chunkScheduler.start(this.startTime, this.currentTime);
+    }
     
     // Start metronome if enabled
     if (this.isMetronomeOn) {
@@ -274,7 +277,11 @@ class AudioEngine {
     this.isPlaying = false;
     this.currentTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
     
-    this.trackManager.getAllTracks().forEach(track => track.pause());
+    // Stop chunk scheduler
+    if (this.chunkScheduler) {
+      this.chunkScheduler.stop();
+    }
+    
     this.stopPlayheadTimer();
     
     // Stop metronome
@@ -473,6 +480,12 @@ class AudioEngine {
   
   // Cleanup
   destroy() {
+    // Stop chunk scheduler
+    if (this.chunkScheduler) {
+      this.chunkScheduler.destroy();
+      this.chunkScheduler = null;
+    }
+    
     // Stop recording if active
     if (this.recorder) {
       this.recorder.destroy();
