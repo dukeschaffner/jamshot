@@ -23,6 +23,11 @@ class ChunkScheduler {
     this.scheduleInterval = DAWConfig.segments?.scheduleInterval || 50; // ms
     this.crossfadeDuration = DAWConfig.segments?.crossfadeDuration || 0.05; // seconds
     this.maxConcurrentSegments = DAWConfig.segments?.maxConcurrentSegments || 50;
+
+    //looping
+    this.looping = false;
+    this.loopStart = 0;
+    this.loopEnd = 0;
     
     // Bind methods
     this.updateScheduling = this.updateScheduling.bind(this);
@@ -140,20 +145,27 @@ class ChunkScheduler {
       const segmentEndTime = Math.min(region.endTime, endTime);
       
       if (segmentStartTime >= segmentEndTime) return;
+
+      const adjustedStartTime = Math.max(segmentStartTime - this.crossfadeDuration, region.startTime);
+      const adjustedEndTime = Math.min(segmentEndTime + this.crossfadeDuration, region.endTime);
+      const adjustedOffset = region.offset + (adjustedStartTime - region.startTime);
+      const adjustedDuration = adjustedEndTime - adjustedStartTime;
+      const crossFadeStartDuration = segmentStartTime - adjustedStartTime;
+      const crossFadeEndDuration = adjustedEndTime - segmentEndTime;
       
       // Create segment
       const segment = {
-        id: `${trackId}-${region.id}-${segmentStartTime}-${segmentEndTime}`,
+        id: `${trackId}-${region.id}-${adjustedStartTime}-${adjustedEndTime}`,
         trackId,
         regionId: region.id,
         buffer: region.buffer,
-        startTime: segmentStartTime,
-        endTime: segmentEndTime,
-        duration: segmentEndTime - segmentStartTime,
-        offset: region.offset + (segmentStartTime - region.startTime),
-        playTime: this.startTime + (segmentStartTime - this.currentTime),
-        gain: region.gain || 1.0,
-        needsCrossfade: this.shouldApplyCrossfade(region, startTime, endTime)
+        startTime: adjustedStartTime,
+        endTime: adjustedEndTime,
+        duration: adjustedDuration,
+        offset: adjustedOffset,
+        playTime: this.startTime + (adjustedStartTime - this.currentTime),
+        crossFadeStartDuration: crossFadeStartDuration,
+        crossFadeEndDuration: crossFadeEndDuration,
       };
       
       segments.push(segment);
@@ -202,10 +214,7 @@ class ChunkScheduler {
         this.handleSegmentComplete(segment.id);
       };
       
-      // Apply crossfade if needed
-      if (segment.needsCrossfade) {
-        this.applyCrossfade(segment);
-      }
+      this.applyCrossfade(segment);
 
       console.log('Scheduled segment from: ', segment.startTime, 'to: ', segment.endTime, 'for track: ', segment.trackId);
       
@@ -220,60 +229,68 @@ class ChunkScheduler {
   }
   
   /**
-   * Determine if crossfade should be applied
+   * Get the last scheduled segment for a specific track
    */
-  shouldApplyCrossfade(region, startTime, endTime) {
-    // Apply crossfade if region starts or ends within the scheduling window
-    const regionStart = region.startTime;
-    const regionEnd = region.endTime;
-    return false;
-    return (regionStart > startTime && regionStart < startTime + this.crossfadeDuration) ||
-           (regionEnd < endTime && regionEnd > endTime - this.crossfadeDuration);
+  getLastScheduledSegmentForTrack(trackId) {
+    const trackSegments = this.getTrackSegments(trackId);
+    if (trackSegments.length === 0) return null;
+    
+    // Find the segment with the latest end time
+    return trackSegments.reduce((latest, segment) => {
+      return segment.endTime > latest.endTime ? segment : latest;
+    });
   }
+  
+
   
   /**
    * Apply crossfade to a segment
    */
   applyCrossfade(segment) {
-    // const segmentInfo = this.scheduledSegments.get(segment.id);
-    // if (!segmentInfo) return;
+    if(segment.crossFadeStartDuration == 0 && segment.crossFadeEndDuration == 0) return;
+
+    const segmentInfo = this.scheduledSegments.get(segment.id);
+    if (!segmentInfo) return;
     
-    // const { track, startTime, endTime } = segmentInfo;
-    // const currentTime = this.context.currentTime;
+    const { track } = segmentInfo;
     
-    // // Fade in if segment starts within crossfade window
-    // if (startTime > this.currentPlaybackTime && 
-    //     startTime < this.currentPlaybackTime + this.crossfadeDuration) {
-    //   const fadeInStart = currentTime + (startTime - this.currentPlaybackTime);
-    //   const fadeInEnd = fadeInStart + this.crossfadeDuration;
+    // Apply fade-in if this segment starts with a crossfade
+    if (segment.crossFadeStartDuration > 0) {
+      const fadeInStart = this.startTime + (segment.startTime - this.currentTime);
+      const fadeInEnd = fadeInStart + segment.crossFadeStartDuration;
       
-    //   track.gainNode.gain.setValueAtTime(0, fadeInStart);
-    //   track.gainNode.gain.linearRampToValueAtTime(track.gain, fadeInEnd);
+      // Create a gain node for this segment's crossfade
+      const crossfadeGain = this.context.createGain();
+      crossfadeGain.gain.setValueAtTime(0, fadeInStart);
+      crossfadeGain.gain.linearRampToValueAtTime(1, fadeInEnd);
       
-    //   eventBus.emit(DAW_EVENTS.REGION.CROSSFADE_START, { 
-    //     segment, 
-    //     type: 'fadeIn',
-    //     startTime: fadeInStart,
-    //     endTime: fadeInEnd
-    //   });
-    // }
+      // Connect the source through the crossfade gain
+      segmentInfo.source.disconnect();
+      segmentInfo.source.connect(crossfadeGain);
+      crossfadeGain.connect(track.gainNode);
+      
+      // Store the crossfade gain for cleanup
+      segmentInfo.crossfadeGain = crossfadeGain;
+    }
     
-    // // Fade out if segment ends within crossfade window
-    // if (endTime < this.currentPlaybackTime + this.lookAheadWindow && 
-    //     endTime > this.currentPlaybackTime + this.lookAheadWindow - this.crossfadeDuration) {
-    //   const fadeOutStart = currentTime + (endTime - this.currentPlaybackTime) - this.crossfadeDuration;
-    //   const fadeOutEnd = currentTime + (endTime - this.currentPlaybackTime);
+    // Apply fade-out if this segment ends with a crossfade
+    if (segment.crossFadeEndDuration > 0) {
+      const fadeOutEnd = this.startTime + (segment.endTime - this.currentTime);
+      const fadeOutStart = fadeOutEnd - segment.crossFadeEndDuration;
       
-    //   track.gainNode.gain.setValueAtTime(track.gain, fadeOutStart);
-    //   track.gainNode.gain.linearRampToValueAtTime(0, fadeOutEnd);
+      // Create a gain node for this segment's crossfade
+      const crossfadeGain = this.context.createGain();
+      crossfadeGain.gain.setValueAtTime(1, fadeOutStart);
+      crossfadeGain.gain.linearRampToValueAtTime(0, fadeOutEnd);
       
-    //   eventBus.emit(DAW_EVENTS.REGION.CROSSFADE_START, { 
-    //     segment, 
-    //     type: 'fadeOut',
-    //     startTime: fadeOutStart,
-    //     endTime: fadeOutEnd
-    //   });
-    // }
+      // Connect the source through the crossfade gain
+      segmentInfo.source.disconnect();
+      segmentInfo.source.connect(crossfadeGain);
+      crossfadeGain.connect(track.gainNode);
+      
+      // Store the crossfade gain for cleanup
+      segmentInfo.crossfadeGain = crossfadeGain;
+    }
   }
   
   
@@ -311,12 +328,16 @@ class ChunkScheduler {
    * Get scheduling statistics
    */
   getStats() {
+    const currentPlaybackTime = this.currentTime + (this.context.currentTime - this.startTime);
     return {
       activeSegments: this.scheduledSegments.size,
       activeSources: this.activeSources.size,
       isPlaying: this.isPlaying,
-      currentPlaybackTime: this.currentPlaybackTime,
-      lookAheadWindow: this.lookAheadWindow
+      currentPlaybackTime,
+      lookAheadWindow: this.lookAheadWindow,
+      looping: this.looping,
+      loopStart: this.loopStart,
+      loopEnd: this.loopEnd
     };
   }
 
@@ -337,6 +358,9 @@ class ChunkScheduler {
     // Clean up audio nodes
     try {
       segmentInfo.source.disconnect();
+      if (segmentInfo.crossfadeGain) {
+        segmentInfo.crossfadeGain.disconnect();
+      }
     } catch (error) {
       // Nodes may have already been disconnected
     }
@@ -345,6 +369,28 @@ class ChunkScheduler {
     this.scheduledSegments.delete(segmentId);
     
     eventBus.emit(DAW_EVENTS.SEGMENT.COMPLETED, { segment: segmentInfo });
+  }
+  
+  /**
+   * Set loop boundaries
+   */
+  setLoopBoundaries(loopStart, loopEnd) {
+    this.looping = true;
+    this.loopStart = loopStart;
+    this.loopEnd = loopEnd;
+    
+    eventBus.emit(DAW_EVENTS.LOOP.BOUNDARIES_SET, { loopStart, loopEnd });
+  }
+  
+  /**
+   * Clear loop boundaries
+   */
+  clearLoopBoundaries() {
+    this.looping = false;
+    this.loopStart = 0;
+    this.loopEnd = 0;
+    
+    eventBus.emit(DAW_EVENTS.LOOP.BOUNDARIES_CLEARED);
   }
   
   /**
@@ -409,6 +455,9 @@ class ChunkScheduler {
         try {
             segmentInfo.source.stop();
             segmentInfo.source.disconnect();
+            if (segmentInfo.crossfadeGain) {
+                segmentInfo.crossfadeGain.disconnect();
+            }
         } catch (error) {
             // Source may have already stopped
         }
