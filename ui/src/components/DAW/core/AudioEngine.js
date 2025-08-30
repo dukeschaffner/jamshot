@@ -63,6 +63,7 @@ class AudioEngine {
     this.handleTimeSignatureChange = this.handleTimeSignatureChange.bind(this);
     this.handleMetronomeOffsetChange = this.handleMetronomeOffsetChange.bind(this);
     this.handleCountInToggle = this.handleCountInToggle.bind(this);
+    this.handleLoopStart = this.handleLoopStart.bind(this);
   }
   
   async initialize(tm) {
@@ -106,6 +107,9 @@ class AudioEngine {
     this.eventBus.on(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
     this.eventBus.on(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
     this.eventBus.on(this.DAW_EVENTS.METRONOME.COUNT_IN_TOGGLE, this.handleCountInToggle);
+    
+    // Listen for loop events
+    this.eventBus.on(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
   }
   
   // #region metronome
@@ -425,9 +429,25 @@ class AudioEngine {
     }
   }
   
-  handleCountInToggle(data) {
-    const { isEnabled } = data || {};
-    this.isCountInEnabled = isEnabled !== undefined ? isEnabled : !this.isCountInEnabled;
+  // Loop event handlers
+  handleLoopStart(data) {
+    const { loopStart, occured_at } = data;
+    
+    // Update the start time to when the loop restart occurred
+    if (occured_at) {
+      this.startTime = occured_at;
+    }
+    
+    // Update the current time to the loop start position
+    if (loopStart !== undefined) {
+      this.currentTime = loopStart;
+    }
+    
+    // Restart metronome scheduling if currently playing and metronome is on
+    if (this.isPlaying && this.isMetronomeOn) {
+      this.stopAndClearMetronomeClicks();
+      this.startMetronomeScheduling();
+    }
   }
 
   // #endregion
@@ -510,6 +530,7 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.METRONOME.BPM_CHANGE, this.handleMetronomeBPMChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
+      this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
     }
     
     if (this.context) {
