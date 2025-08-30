@@ -107,6 +107,14 @@ export const DAW_EVENTS = {
       SCHEDULING_UPDATE: 'segment:scheduling:update'
     },
     
+    // Loop events
+    LOOP: {
+      BOUNDARIES_SET: 'loop:boundaries:set',
+      BOUNDARIES_CLEARED: 'loop:boundaries:cleared',
+      START: 'loop:start',
+      END: 'loop:end'
+    },
+    
     // Error events
     ERROR: {
       AUDIO: 'error:audio',
