@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from './Looper.module.css';
 import { useDAW } from '../DAWContext';
+import { eventBus } from '../misc/EventBus';
+import { DAW_EVENTS } from '../misc/DAWEvents';
 
 export default function Looper({
   snapToGridEnabled = false
@@ -26,6 +28,23 @@ export default function Looper({
   const leftHandleRef = useRef(null);
   const rightHandleRef = useRef(null);
   const regionRef = useRef(null);
+
+  useEffect(() => {
+    // Emit loop toggle event when enabling/disabling loop
+    eventBus.emit(DAW_EVENTS.LOOP.TOGGLE, {
+      isLooping: isLooping
+    });
+  }, [isLooping]);
+
+  useEffect(() => {
+    // Emit loop boundaries set event when enabling loop
+    const loopStart = looperLeftPos / 100 * duration;
+    const loopEnd = looperRightPos / 100 * duration;
+    eventBus.emit(DAW_EVENTS.LOOP.BOUNDARIES_SET, {
+      loopStart: loopStart,
+      loopEnd: loopEnd
+    });
+  }, [looperLeftPos, looperRightPos, duration]);
 
   // Mouse down handlers
   const handleLeftMouseDown = (e) => {

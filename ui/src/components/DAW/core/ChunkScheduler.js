@@ -28,12 +28,49 @@ class ChunkScheduler {
     this.looping = false;
     this.loopStart = 0;
     this.loopEnd = 0;
+    this.pendingLoopStartTime = null;
+    
+    // Event listener IDs for cleanup
+    this.eventListenerIds = new Map();
     
     // Bind methods
     this.updateScheduling = this.updateScheduling.bind(this);
     this.cleanupCompletedSegments = this.cleanupCompletedSegments.bind(this);
+    this.handleLoopToggle = this.handleLoopToggle.bind(this);
+    this.handleLoopBoundariesSet = this.handleLoopBoundariesSet.bind(this);
+    
+    // Set up event listeners
+    this.setupEventListeners();
   }
   
+  /**
+   * Set up event listeners for loop events
+   */
+  setupEventListeners() {
+    const toggleId = eventBus.on(DAW_EVENTS.LOOP.TOGGLE, this.handleLoopToggle);
+    const boundariesId = eventBus.on(DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
+    
+    this.eventListenerIds.set(DAW_EVENTS.LOOP.TOGGLE, toggleId);
+    this.eventListenerIds.set(DAW_EVENTS.LOOP.BOUNDARIES_SET, boundariesId);
+  }
+
+  /**
+   * Handle loop toggle events
+   */
+  handleLoopToggle({ isLooping }) {
+    this.looping = isLooping;
+    console.log('Loop toggled:', isLooping);
+  }
+
+  /**
+   * Handle loop boundaries set events
+   */
+  handleLoopBoundariesSet({ loopStart, loopEnd }) {
+    this.loopStart = loopStart;
+    this.loopEnd = loopEnd;
+    console.log('Loop boundaries set:', loopStart, 'to', loopEnd);
+  }
+
   /**
    * Start the chunk scheduler
    */
@@ -88,15 +125,45 @@ class ChunkScheduler {
     if (!this.trackManager) return;
     
     // If playback just starting, playbackTime could be negative (playback gets scheduled in the future)
-    const playbackTime = this.currentTime + (this.context.currentTime - this.startTime);
+    let playbackTime = this.currentTime + (this.context.currentTime - this.startTime);
+
+    // check if we've reached the end of the loop and if we have, clear the pending loop start time
+    if(this.pendingLoopStartTime && playbackTime >= this.loopEnd) {
+      console.log('restarting loop');
+      eventBus.emit(DAW_EVENTS.LOOP.START, { loopStart: this.loopStart, occured_at: this.pendingLoopStartTime });
+      this.startTime = this.pendingLoopStartTime;
+      this.currentTime = this.loopStart;
+      this.pendingLoopStartTime = null;
+      playbackTime = this.currentTime + (this.context.currentTime - this.startTime);
+    }
 
     // Check if we need to schedule more segments
-    const needToSchedule = this.lastScheduledTime - playbackTime < this.lookAheadWindow;
+    let needToSchedule = false;
+    // If looping is enabled, and we're within the lookAheadWindow, and we don't have a pending loop start time, schedule the loop start
+    if(this.looping && (this.loopEnd - playbackTime < this.lookAheadWindow) && !this.pendingLoopStartTime) {
+      needToSchedule = true;
+      this.pendingLoopStartTime = this.startTime + (this.loopEnd - this.currentTime);
+      console.log('scheduling loop start', this.pendingLoopStartTime);
+    }
+    // If we haven't scheduled the loop start, and we're within the lookAheadWindow, schedule the next segment
+    else if(!this.pendingLoopStartTime && (this.lastScheduledTime - playbackTime < this.lookAheadWindow)) {
+      needToSchedule = true;
+      console.log('scheduling next segment');
+    }
     if(!needToSchedule) return;
 
     // Calculate scheduling window
-    const windowStart = this.lastScheduledTime > playbackTime ? this.lastScheduledTime : playbackTime;
-    const windowEnd = this.lastScheduledTime + this.segmentDuration;
+    let windowStart = 0;
+    if(this.pendingLoopStartTime) {
+      windowStart = this.loopStart;
+    }
+    else {
+      windowStart = this.lastScheduledTime > playbackTime ? this.lastScheduledTime : playbackTime;
+    }
+    let windowEnd = windowStart + this.segmentDuration;
+    if(this.looping && windowEnd > this.loopEnd) {
+      windowEnd = this.loopEnd;
+    }
 
     this.lastScheduledTime = windowEnd;
     
@@ -139,6 +206,8 @@ class ChunkScheduler {
 
       // If region ends before the start of the scheduling window, skip it
       if(region.endTime < startTime) return;
+
+      const isSchedulingLoopStart = this.pendingLoopStartTime && startTime == this.loopStart;
       
       // Calculate segment boundaries
       const segmentStartTime = Math.max(region.startTime, startTime);
@@ -146,12 +215,21 @@ class ChunkScheduler {
       
       if (segmentStartTime >= segmentEndTime) return;
 
-      const adjustedStartTime = Math.max(segmentStartTime - this.crossfadeDuration, region.startTime);
-      const adjustedEndTime = Math.min(segmentEndTime + this.crossfadeDuration, region.endTime);
+      const adjustedStartTime = segmentStartTime;//Math.max(segmentStartTime - this.crossfadeDuration, region.startTime);
+      const adjustedEndTime = segmentEndTime;//Math.min(segmentEndTime + this.crossfadeDuration, region.endTime);
       const adjustedOffset = region.offset + (adjustedStartTime - region.startTime);
       const adjustedDuration = adjustedEndTime - adjustedStartTime;
       const crossFadeStartDuration = segmentStartTime - adjustedStartTime;
       const crossFadeEndDuration = adjustedEndTime - segmentEndTime;
+
+
+      let playTime = 0;
+      if(isSchedulingLoopStart) {
+        playTime = this.pendingLoopStartTime;
+      }
+      else {
+        playTime = this.startTime + (adjustedStartTime - this.currentTime);
+      }
       
       // Create segment
       const segment = {
@@ -163,7 +241,7 @@ class ChunkScheduler {
         endTime: adjustedEndTime,
         duration: adjustedDuration,
         offset: adjustedOffset,
-        playTime: this.startTime + (adjustedStartTime - this.currentTime),
+        playTime: playTime,
         crossFadeStartDuration: crossFadeStartDuration,
         crossFadeEndDuration: crossFadeEndDuration,
       };
@@ -216,8 +294,8 @@ class ChunkScheduler {
       
       this.applyCrossfade(segment);
 
-      console.log('Scheduled segment from: ', segment.startTime, 'to: ', segment.endTime, 'for track: ', segment.trackId);
-      
+      console.log('Scheduled segment from: ', segment.startTime, '-', segment.endTime + ' (' + segment.playTime + '-' + (segment.playTime + segment.duration) + ')');
+
       eventBus.emit(DAW_EVENTS.SEGMENT.SCHEDULED, { segment });
       
     } catch (error) {
@@ -291,6 +369,8 @@ class ChunkScheduler {
       // Store the crossfade gain for cleanup
       segmentInfo.crossfadeGain = crossfadeGain;
     }
+
+    console.log('Applied crossfade to segment: ', segment.id);
   }
   
   
@@ -337,7 +417,8 @@ class ChunkScheduler {
       lookAheadWindow: this.lookAheadWindow,
       looping: this.looping,
       loopStart: this.loopStart,
-      loopEnd: this.loopEnd
+      loopEnd: this.loopEnd,
+      loopDuration: this.loopEnd - this.loopStart
     };
   }
 
@@ -371,27 +452,6 @@ class ChunkScheduler {
     eventBus.emit(DAW_EVENTS.SEGMENT.COMPLETED, { segment: segmentInfo });
   }
   
-  /**
-   * Set loop boundaries
-   */
-  setLoopBoundaries(loopStart, loopEnd) {
-    this.looping = true;
-    this.loopStart = loopStart;
-    this.loopEnd = loopEnd;
-    
-    eventBus.emit(DAW_EVENTS.LOOP.BOUNDARIES_SET, { loopStart, loopEnd });
-  }
-  
-  /**
-   * Clear loop boundaries
-   */
-  clearLoopBoundaries() {
-    this.looping = false;
-    this.loopStart = 0;
-    this.loopEnd = 0;
-    
-    eventBus.emit(DAW_EVENTS.LOOP.BOUNDARIES_CLEARED);
-  }
   
   /**
    * Clean up completed segments
@@ -445,6 +505,16 @@ class ChunkScheduler {
     });
   }
 
+  /**
+   * Cancel all scheduled segments
+   */
+  cancelAllSegments() {
+    const segmentsToCancel = Array.from(this.scheduledSegments.keys());
+    segmentsToCancel.forEach(segmentId => {
+      this.cancelSegment(segmentId);
+    });
+  }
+
     /**
      * Cancel a specific segment
      */
@@ -473,6 +543,12 @@ class ChunkScheduler {
    */
   destroy() {
     this.stop();
+    
+    // Remove event listeners
+    this.eventListenerIds.forEach((listenerId, event) => {
+      eventBus.off(event, listenerId);
+    });
+    this.eventListenerIds.clear();
     
     // Clear all references
     this.scheduledSegments.clear();

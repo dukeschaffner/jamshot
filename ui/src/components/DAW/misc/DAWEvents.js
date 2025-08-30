@@ -109,10 +109,9 @@ export const DAW_EVENTS = {
     
     // Loop events
     LOOP: {
+      TOGGLE: 'loop:toggle',
       BOUNDARIES_SET: 'loop:boundaries:set',
-      BOUNDARIES_CLEARED: 'loop:boundaries:cleared',
-      START: 'loop:start',
-      END: 'loop:end'
+      START: 'loop:start'
     },
     
     // Error events
