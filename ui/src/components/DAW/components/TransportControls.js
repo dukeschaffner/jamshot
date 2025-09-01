@@ -9,6 +9,7 @@ import {
   faCog 
 } from '@fortawesome/free-solid-svg-icons';
 import CountInIcon from '../misc/CountInIcon';
+import AudioSettings from './AudioSettings';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import styles from '../DAW.module.css';
@@ -30,7 +31,6 @@ const TransportControls = ({
     const [isEditingBpm, setIsEditingBpm] = useState(false);
     const [isEditingTimeSignature, setIsEditingTimeSignature] = useState(false);
     const [bpmInputValue, setBpmInputValue] = useState(metronomeBpm.toString());
-    const [metronomeVolume, setMetronomeVolume] = useState(0.7);
     const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
     const bpmControlRef = useRef(null);
 
@@ -190,7 +190,7 @@ const TransportControls = ({
 
 
   return (
-    
+    <>
     <div className={styles.transportControls}>
         {!isRecording && (
             <button 
@@ -283,6 +283,13 @@ const TransportControls = ({
         <FontAwesomeIcon icon={faCog} />
     </button>
     </div>
+
+    {/* Audio Settings Modal */}
+    <AudioSettings
+      showAudioSettingsModal={showAudioSettingsModal}
+      setShowAudioSettingsModal={setShowAudioSettingsModal}
+    />
+    </>
   );
 };
 

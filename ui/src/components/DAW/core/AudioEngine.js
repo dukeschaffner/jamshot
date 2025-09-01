@@ -109,6 +109,7 @@ class AudioEngine {
     this.eventBus.on(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
     this.eventBus.on(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
     this.eventBus.on(this.DAW_EVENTS.METRONOME.COUNT_IN_TOGGLE, this.handleCountInToggle);
+    this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
     
     // Listen for loop events
     this.eventBus.on(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
@@ -579,6 +580,7 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.METRONOME.BPM_CHANGE, this.handleMetronomeBPMChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
+      this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
       this.eventBus.off(this.DAW_EVENTS.LOOP.TOGGLE, this.handleLoopToggle);
       this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
