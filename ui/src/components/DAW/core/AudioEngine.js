@@ -64,6 +64,8 @@ class AudioEngine {
     this.handleMetronomeOffsetChange = this.handleMetronomeOffsetChange.bind(this);
     this.handleCountInToggle = this.handleCountInToggle.bind(this);
     this.handleLoopStart = this.handleLoopStart.bind(this);
+    this.handleLoopToggle = this.handleLoopToggle.bind(this);
+    this.handleLoopBoundariesSet = this.handleLoopBoundariesSet.bind(this);
   }
   
   async initialize(tm) {
@@ -110,6 +112,8 @@ class AudioEngine {
     
     // Listen for loop events
     this.eventBus.on(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
+    this.eventBus.on(this.DAW_EVENTS.LOOP.TOGGLE, this.handleLoopToggle);
+    this.eventBus.on(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
   }
   
   // #region metronome
@@ -245,6 +249,10 @@ class AudioEngine {
     }
     
     this.isPlaying = true;
+
+    if(this.isLooping) {
+      this.currentTime = this.loopStart;
+    }
     
     // Calculate start time with count-in if enabled
     let scheduledStartTime = this.context.currentTime + DAWConfig.audio.scheduleDelay;
@@ -277,9 +285,9 @@ class AudioEngine {
     this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.STARTED, { audioContextTime: this.startTime, playbackTime: this.currentTime});
   }
   
-  pause() {
+  pause(currentTime = null) {
     this.isPlaying = false;
-    this.currentTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
+    this.currentTime = currentTime !== undefined ? currentTime : getPlaybackTime(this.context, this.startTime, this.currentTime);
     
     // Stop chunk scheduler
     if (this.chunkScheduler) {
@@ -450,6 +458,38 @@ class AudioEngine {
     }
   }
 
+  handleLoopToggle(data) {
+    const { isLooping } = data || {};
+    this.isLooping = isLooping !== undefined ? isLooping : !this.isLooping;
+    
+    // Restart metronome scheduling if currently playing and metronome is on
+    if (this.isPlaying && this.isMetronomeOn) {
+      if (this.isLooping) {
+        this.startMetronomeScheduling();
+      } else {
+        this.stopMetronomeScheduling();
+        this.stopAndClearMetronomeClicks();
+      }
+    }
+  }
+
+  handleLoopBoundariesSet(data) {
+    const { loopStart, loopEnd } = data;
+    
+    if (loopStart !== undefined) {
+      this.loopStart = loopStart;
+    }
+    if (loopEnd !== undefined) {
+      this.loopEnd = loopEnd;
+    }
+    
+    // Restart metronome scheduling if currently playing, metronome is on, and looping is enabled
+    if (this.isPlaying && this.isMetronomeOn && this.isLooping) {
+      this.stopAndClearMetronomeClicks();
+      this.startMetronomeScheduling();
+    }
+  }
+
   // #endregion
   
   // Set count-in flag for next playback
@@ -461,13 +501,21 @@ class AudioEngine {
   startPlayheadTimer() {
     this.playheadTimer = setInterval(() => {
       if (this.isPlaying) {
-        const playbackTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
+        let playbackTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
+
+        if(playbackTime > this.getDuration()) {
+          this.pause();
+          this.currentTime = 0;
+          playbackTime = 0;
+        }
         
         // Emit position update event
         this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.POSITION_UPDATE, {
           time: playbackTime,
           position: playbackTime / this.getDuration() * 100
         });
+
+
       }
     }, DAWConfig.ui.updateInterval); // 50fps updates
   }
@@ -481,10 +529,11 @@ class AudioEngine {
   
   seek(time) {
     this.currentTime = time;
+    console.log('seek', time);
     
     if (this.isPlaying) {
       // Restart playback at new position
-      this.pause();
+      this.pause(time);
       this.play();
     }
   }
@@ -531,6 +580,8 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
+      this.eventBus.off(this.DAW_EVENTS.LOOP.TOGGLE, this.handleLoopToggle);
+      this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
     }
     
     if (this.context) {

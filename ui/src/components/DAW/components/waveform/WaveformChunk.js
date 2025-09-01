@@ -44,7 +44,7 @@ export default function WaveformChunk({
   
       const ctx = canvasRef.current.getContext('2d')
 
-      ctx.fillStyle = 'black';
+      ctx.fillStyle = 'gray';
   
       const data = bufferData.map((channel) => {
         const start = Math.floor((offset / totalWidth) * channel.length)
