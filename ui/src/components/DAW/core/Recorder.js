@@ -14,6 +14,12 @@ class Recorder {
     this.recordingStream = null;
     this.recordingLatency = 0; // Latency compensation in seconds
     
+    // Audio input device tracking
+    this.selectedAudioInputDevice = null;
+    
+    // User latency compensation setting
+    this.userLatencyCompensation = 0; // User-defined latency compensation in seconds
+    
     // Playback tracking
     this.playbackStartTime = 0; // audioContextTime when playback started
     this.playbackTime = 0; // playback time when playback/recording started
@@ -24,9 +30,61 @@ class Recorder {
     this.handleRecordingData = this.handleRecordingData.bind(this);
     this.handleRecorderMessage = this.handleRecorderMessage.bind(this);
     this.handlePlaybackStarted = this.handlePlaybackStarted.bind(this);
+    this.handleAudioInputDeviceChange = this.handleAudioInputDeviceChange.bind(this);
+    this.handleLatencyCompensationChange = this.handleLatencyCompensationChange.bind(this);
+    this.handleDeviceChange = this.handleDeviceChange.bind(this);
     
     // Set up event listeners
     this.eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
+    this.eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleAudioInputDeviceChange);
+    this.eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, this.handleLatencyCompensationChange);
+    
+    // Set up device change detection
+    this.setupDeviceChangeDetection();
+  }
+  
+  setupDeviceChangeDetection() {
+    // Listen for device changes
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', this.handleDeviceChange);
+    }
+  }
+  
+  handleDeviceChange() {
+    // When devices change, we need to re-enumerate and potentially update the selected device
+    this.enumerateAudioDevices();
+  }
+  
+  async enumerateAudioDevices() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(device => device.kind === 'audioinput');
+      
+      // If our selected device is no longer available, clear it
+      if (this.selectedAudioInputDevice) {
+        const deviceStillExists = audioInputs.some(device => device.deviceId === this.selectedAudioInputDevice);
+        if (!deviceStillExists) {
+          if(audioInputs.length > 0) {
+            this.eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: audioInputs[0].deviceId });
+          }
+          else {
+            this.eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: null });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error enumerating audio devices:', error);
+    }
+  }
+  
+  handleAudioInputDeviceChange(data) {
+    this.selectedAudioInputDevice = data.deviceId;
+    console.log('Audio input device changed to:', this.selectedAudioInputDevice);
+  }
+  
+  handleLatencyCompensationChange(data) {
+    this.userLatencyCompensation = data.value || 0;
+    console.log('User latency compensation changed to:', this.userLatencyCompensation);
   }
   
   handlePlaybackStarted(data) {
@@ -49,15 +107,22 @@ class Recorder {
     if (this.isRecording) return;
     
     try {
-      // Get microphone access
+      // Get microphone access with selected device if available
+      const audioConstraints = {
+        sampleRate: DAWConfig.audio.sampleRate,
+        channelCount: DAWConfig.audio.channels,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      };
+      
+      // Add device selection if a device is selected
+      if (this.selectedAudioInputDevice) {
+        audioConstraints.deviceId = { exact: this.selectedAudioInputDevice };
+      }
+      
       this.recordingStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: DAWConfig.audio.sampleRate,
-          channelCount: DAWConfig.audio.channels,
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
-        }
+        audio: audioConstraints
       });
       
       // Create recording processor
@@ -111,13 +176,15 @@ class Recorder {
       this.recordingProcessor.disconnect();
       this.recordingProcessor = null;
     }
+
+    const recordingOffset = this.recordingLatency + (this.playbackStartTime - this.firstSampleTime);
     
     // Create final audio buffer
     const finalBuffer = this.createRecordingBuffer();
 
     console.log('duration', finalBuffer.duration);
     console.log('startTime', this.playbackTime);
-    console.log('offset', this.playbackStartTime - this.firstSampleTime);
+    console.log('offset', recordingOffset);
 
     const bufferKey = bufferRegistry.generateBufferKey('recording-track', 'region');
     bufferRegistry.storeBuffer(bufferKey, finalBuffer);
@@ -126,7 +193,7 @@ class Recorder {
       bufferKey: bufferKey,
       duration: finalBuffer ? finalBuffer.duration : 0,
       startTime: this.playbackTime,
-      offset: this.playbackStartTime - this.firstSampleTime
+      offset: recordingOffset
     });
     
     // Clean up
@@ -167,10 +234,9 @@ class Recorder {
   
   calculateRecordingLatency() {
     // Estimate latency based on buffer size and sample rate
-    const bufferLatency = DAWConfig.audio.recordingBufferSize / DAWConfig.audio.sampleRate;
-    const processingLatency = 0.01; // Conservative estimate for processing delay
-    const additionalCompensation = DAWConfig.audio.recordingLatencyCompensation;
-    const totalLatency = bufferLatency + processingLatency + additionalCompensation;
+    const outputLatency = this.context.outputLatency;
+    const userCompensation = this.userLatencyCompensation;
+    const totalLatency = outputLatency + userCompensation;
     
     return totalLatency;
   }
@@ -190,12 +256,9 @@ class Recorder {
       DAWConfig.audio.sampleRate
     );
     
-    // Copy data to buffer with latency compensation
+    // Copy data to buffer
     const channelData = audioBuffer.getChannelData(0);
-    
-    // Apply latency compensation by shifting the audio data
-    const latencySamples = Math.round(this.recordingLatency * DAWConfig.audio.sampleRate);
-    let writeOffset = latencySamples;
+    let writeOffset = 0;
     
     for (let i = 0; i < this.recordingBuffer.length; i++) {
       const buffer = this.recordingBuffer[i];
@@ -229,6 +292,11 @@ class Recorder {
     
     // Remove event listeners
     this.eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
+    this.eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleAudioInputDeviceChange);
+    this.eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, this.handleLatencyCompensationChange);
+    if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
+      navigator.mediaDevices.removeEventListener('devicechange', this.handleDeviceChange);
+    }
   }
 }
 

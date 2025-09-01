@@ -28,6 +28,14 @@ export const DAW_EVENTS = {
       POSITION_UPDATE: 'playback:position:update',
       DURATION_CHANGE: 'playback:duration:change'
     },
+
+    // Audio settings events
+    AUDIO_SETTINGS: {
+      INPUT_DEVICE_CHANGE: 'audio:settings:input:device:change',
+      LATENCY_COMPENSATION_CHANGE: 'audio:settings:latency:compensation:change',
+      SNAP_TO_GRID_CHANGE: 'audio:settings:snap:to:grid:change',
+      METRONOME_VOLUME_CHANGE: 'audio:settings:metronome:volume:change',
+    },
     
     // Metronome events
     METRONOME: {
