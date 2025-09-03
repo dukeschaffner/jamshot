@@ -46,6 +46,12 @@ const Track = ({
       }
     };
 
+    const handleRegionRemove = (data) => {
+      if (data.trackId === track.id) {
+        setRegions(prevRegions => prevRegions.filter(region => region.id !== data.region.id));
+      }
+    };
+
     // Listen for recording started event
     const handlePlaybackStarted = (data) => {
       // Convert current playhead time to percentage position
@@ -54,13 +60,15 @@ const Track = ({
       setRecordingWidth(0);
     };
 
-    eventBus.on(DAW_EVENTS.REGION.ADD, handleRegionAdd);
-    eventBus.on(DAW_EVENTS.REGION.UPDATE, handleRegionUpdate);
+    eventBus.on(DAW_EVENTS.REGION.ADDED, handleRegionAdd);
+    eventBus.on(DAW_EVENTS.REGION.UPDATED, handleRegionUpdate);
+    eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionRemove);
     eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     
     return () => {
-      eventBus.off(DAW_EVENTS.REGION.ADD, handleRegionAdd);
-      eventBus.off(DAW_EVENTS.REGION.UPDATE, handleRegionUpdate);
+      eventBus.off(DAW_EVENTS.REGION.ADDED, handleRegionAdd);
+      eventBus.off(DAW_EVENTS.REGION.UPDATED, handleRegionUpdate);
+      eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionRemove);
       eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     };
   }, [duration]);
@@ -168,23 +176,7 @@ const Track = ({
       
       if (fileBuffer) {
         // Create a new region from the file
-        const newRegion = {
-          id: Date.now().toString(),
-          key: `region_${Date.now()}`,
-          buffer: fileBuffer,
-          startTime: 0,
-          endTime: fileBuffer.duration,
-          name: file.name || `Audio ${regions.length + 1}`
-        };
-        
-        // Add the region to the track
-        setRegions(prevRegions => [...prevRegions, newRegion]);
-        
-        // Emit event to notify other components
-        eventBus.emit(DAW_EVENTS.REGION.ADD, {
-          trackId: track.id,
-          region: newRegion
-        });
+        track.addRegionFromBuffer(fileBuffer, 0, 0, fileBuffer.duration, file.name);
       }
     } catch (error) {
       console.error('Error processing dropped file:', error);
@@ -231,7 +223,7 @@ const Track = ({
               >
                 <div className="empty-message">
                   <FontAwesomeIcon icon={faCloudUploadAlt} />
-                  <span>Drop audio file here or click to browse</span>
+                  <span>Upload audio file or start recording</span>
                   <input 
                     type="file" 
                     id={`audio-file-input-${track.id}`}

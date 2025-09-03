@@ -1,0 +1,85 @@
+.takesContainer {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.takesContainer h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.takesList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.takeItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.takeItem:hover {
+  background-color: #f0f0f0;
+}
+
+.takeItem.selected {
+  border-color: #007aff;
+  background-color: rgba(0, 122, 255, 0.05);
+}
+
+.takeName {
+  font-weight: 500;
+  color: #333;
+}
+
+.takeControls {
+  display: flex;
+  gap: 8px;
+}
+
+.takePlay,
+.takeDelete {
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.takePlay:hover {
+  background-color: #0062cc;
+}
+
+.takeDelete {
+  background-color: #ff3b30;
+}
+
+.takeDelete:hover {
+  background-color: #d70015;
+}
+
+.takePlay:disabled,
+.takeDelete:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}

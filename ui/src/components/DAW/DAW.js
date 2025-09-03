@@ -14,6 +14,7 @@ import Track from './components/Track';
 import Looper from './components/Looper';
 import TrackHeader from './components/TrackHeader';
 import MusicalGrid from './components/MusicalGrid';
+import Takes from './components/Takes';
 
 function DAWContent({ track }) {
   const { 
@@ -32,11 +33,14 @@ function DAWContent({ track }) {
     zoom,
     setZoomLevel,
     scrollLeft,
-    setScrollLeftValue
+    setScrollLeftValue,
+    tracksContainerWidth,
+    setTracksContainerWidth,
   } = useDAW();
 
   const tracksAndTimelineRef = useRef(null);
   const tracksScrollContainerRef = useRef(null);
+  const tracksContainerRef = useRef(null);
 
   // Add keyboard event listener for space and enter keys
   useEffect(() => {
@@ -94,6 +98,38 @@ function DAWContent({ track }) {
     eventBus.emit(DAW_EVENTS.METRONOME.OFFSET_CHANGE, { offset: newOffset });
   };
 
+  // Listen to track rect width changes
+  useEffect(() => {
+    if (!tracksContainerRef?.current) return;
+
+    const updateTrackRectWidth = () => {
+      if (tracksContainerRef.current) {
+        const rect = tracksContainerRef.current.getBoundingClientRect();
+        setTracksContainerWidth(rect.width);
+      }
+    };
+
+    // Initial measurement
+    updateTrackRectWidth();
+
+    // Set up ResizeObserver to watch for width changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setTracksContainerWidth(entry.contentRect.width);
+      }
+    });
+
+    resizeObserver.observe(tracksContainerRef.current);
+
+    // Cleanup
+    return () => {
+      if (tracksContainerRef.current) {
+        resizeObserver.unobserve(tracksContainerRef.current);
+      }
+      resizeObserver.disconnect();
+    };
+  }, [tracksContainerRef.current]);
+
   // Show loading state
   if (isLoading) {
     return (
@@ -134,6 +170,7 @@ function DAWContent({ track }) {
         </div>
       
       <div className={styles.dawBody}>
+        <div className={styles.tracks}>
         <div className={styles.tracksHeaders}>
           {tracks.map((track, index) => (
             <TrackHeader key={index} track={track}/>
@@ -167,7 +204,7 @@ function DAWContent({ track }) {
                   />
                   <Looper/>
                 </div>
-                <div className={styles.tracksContainer}>
+                <div className={styles.tracksContainer} ref={tracksContainerRef}>
                   {tracks.map((track, index) => (
                     <Track key={index} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
                   ))}
@@ -183,6 +220,10 @@ function DAWContent({ track }) {
             </>
           )}
         </div>
+        </div>
+        
+        {/* Takes Component */}
+        <Takes />
       </div>
     </div>
   );

@@ -26,9 +26,16 @@
 
 .dawBody {
     display: flex;
+    flex-direction: column;
     width: 100%;
     position: relative;
-    background-color: var(--gray-light);
+}
+
+.tracks {
+  display: flex;
+  width: 100%;
+  position: relative;
+  background-color: var(--gray-light);
 }
 
 .tracksScrollContainer {

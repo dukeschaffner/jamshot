@@ -29,13 +29,23 @@ class Track {
 
     // Listen for region update events
     this.handleRegionUpdate = this.handleRegionUpdate.bind(this);
+    this.handleRegionRemove = this.handleRegionRemove.bind(this);
     eventBus.on(DAW_EVENTS.REGION.UPDATE, this.handleRegionUpdate);
+    eventBus.on(DAW_EVENTS.REGION.REMOVE, this.handleRegionRemove);
   }
 
   handleRegionUpdate(data) {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
       this.regions = this.regions.map(r => r.id === data.region.id ? data.region : r);
+      eventBus.emit(DAW_EVENTS.REGION.UPDATED, { region: data.region, trackId: this.id });
+    }
+  }
+
+  handleRegionRemove(data) {
+    if (data.trackId === this.id) {
+      this.regions = this.regions.filter(r => r.id !== data.region.id);
+      eventBus.emit(DAW_EVENTS.REGION.REMOVED, { region: data.region, trackId: this.id });
     }
   }
   
@@ -64,8 +74,9 @@ class Track {
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
       });
     }
-    eventBus.emit(DAW_EVENTS.REGION.ADD, { region, trackId: this.id });
     this.regions.push(region);
+    eventBus.emit(DAW_EVENTS.REGION.ADDED, { region, trackId: this.id });
+    
 
     this.duration = this.calculateTotalDuration();
   }
@@ -136,7 +147,7 @@ class Track {
   }
   
   destroy() {
-    this.pause();
+    //this.pause();
     if (this.gainNode) {
       this.gainNode.disconnect();
     }
@@ -145,6 +156,7 @@ class Track {
     }
     // Remove event listener
     eventBus.off(DAW_EVENTS.REGION.UPDATE, this.handleRegionUpdate);
+    eventBus.off(DAW_EVENTS.REGION.REMOVE, this.handleRegionRemove);
   }
 }
 

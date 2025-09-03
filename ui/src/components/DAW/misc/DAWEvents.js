@@ -64,9 +64,13 @@ export const DAW_EVENTS = {
 
     REGION: {
       ADD: 'region:add',
+      ADDED: 'region:added',
       REMOVE: 'region:remove',
+      REMOVED: 'region:removed',
       SELECT: 'region:select',
+      SELECTED: 'region:selected',
       UPDATE: 'region:update',
+      UPDATED: 'region:updated',
       REAL_TIME_UPDATE: 'region:real_time_update',
       SEGMENT_UPDATE: 'region:segment_update',
       CROSSFADE_START: 'region:crossfade_start',
