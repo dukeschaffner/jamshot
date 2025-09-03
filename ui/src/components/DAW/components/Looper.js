@@ -5,12 +5,13 @@ import styles from './Looper.module.css';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
+import { timeToPos } from '../misc/DAWUtils';
 
-export default function Looper({
-  snapToGridEnabled = false
-}) {
 
-  const { isPlaying, isRecording, duration, bpm, timeSignature } = useDAW();
+export default function Looper() {
+
+  const { isPlaying, isRecording, duration, metronomeBpm} = useDAW();
+  
   const [isLooping, setIsLooping] = useState(false);
   // Internal state for dragging
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
@@ -23,11 +24,72 @@ export default function Looper({
   const [looperLeftPos, setLooperLeftPos] = useState(0);
   const [looperRightPos, setLooperRightPos] = useState(100);
 
+  // Grid-related state
+  const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
+  const musicGridLinesRef = useRef([]);
+
   // Refs for DOM elements
   const looperRef = useRef(null);
   const leftHandleRef = useRef(null);
   const rightHandleRef = useRef(null);
   const regionRef = useRef(null);
+
+  // Grid snapping constants
+  const gridSnapThreshold = 0.1; // Threshold for grid snapping. Percentage of beat width
+
+  // Event listeners for grid updates
+  useEffect(() => {
+    const handleSnapToGridChange = (data) => {
+      setSnapToGridEnabled(data.snapToGridEnabled);
+    };
+
+    const handleGridLinesUpdate = (data) => {
+      musicGridLinesRef.current = data.gridLines || [];
+    };
+
+    // Listen for grid snap toggle events and grid lines updates
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
+    eventBus.on(DAW_EVENTS.GRID.LINES_UPDATE, handleGridLinesUpdate);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
+      eventBus.off(DAW_EVENTS.GRID.LINES_UPDATE, handleGridLinesUpdate);
+    };
+  }, []);
+
+
+  // Snap to grid function
+  const snapToGrid = (value) => {
+    if (snapToGridEnabled && metronomeBpm && duration && duration > 0) {
+      // If grid lines aren't generated yet, return the original value
+      if (!musicGridLinesRef.current || musicGridLinesRef.current.length === 0) {
+        return value;
+      }
+      
+      // Find the closest grid line
+      let closestGridLine = value;
+      let minDistance = Infinity;
+
+      const secondsPerBeat = 60 / metronomeBpm;
+      const beatWidthPos = timeToPos(secondsPerBeat, duration);
+      const calculatedGridSnapThreshold = beatWidthPos * gridSnapThreshold;
+      
+      for (const gridLine of musicGridLinesRef.current) {
+        const distance = Math.abs(gridLine.position - value);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestGridLine = gridLine;
+        }
+      }
+      
+      // Only snap if the distance is less than the threshold
+      if (minDistance <= calculatedGridSnapThreshold) {
+        return closestGridLine.position;
+      }
+    }
+    
+    return value;
+  };
 
   useEffect(() => {
     // Emit loop toggle event when enabling/disabling loop
@@ -83,13 +145,15 @@ export default function Looper({
       // Dragging left handle
       if (isDraggingLeft) {
         const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-        setLooperLeftPos(newLeftPos);
+        const snappedLeftPos = snapToGrid(newLeftPos);
+        setLooperLeftPos(snappedLeftPos);
       }
 
       // Dragging right handle
       if (isDraggingRight) {
         const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-        setLooperRightPos(newRightPos);
+        const snappedRightPos = snapToGrid(newRightPos);
+        setLooperRightPos(snappedRightPos);
       }
 
       // Dragging entire region
@@ -113,11 +177,11 @@ export default function Looper({
         }
 
         // Apply grid snapping
-        // const snappedLeftPos = snapToGridFn(newLeftPos);
-        // const snappedRightPos = snapToGridFn(newRightPos);
+        const snappedLeftPos = snapToGrid(newLeftPos);
+        const snappedRightPos = snapToGrid(newRightPos);
 
-        setLooperLeftPos(newLeftPos);
-        setLooperRightPos(newRightPos);
+        setLooperLeftPos(snappedLeftPos);
+        setLooperRightPos(snappedRightPos);
       }
     };
 

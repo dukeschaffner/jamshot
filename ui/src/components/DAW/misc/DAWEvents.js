@@ -122,6 +122,11 @@ export const DAW_EVENTS = {
       START: 'loop:start'
     },
     
+    // Grid events
+    GRID: {
+      LINES_UPDATE: 'grid:lines:update'
+    },
+    
     // Error events
     ERROR: {
       AUDIO: 'error:audio',
