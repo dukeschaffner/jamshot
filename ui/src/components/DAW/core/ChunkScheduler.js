@@ -68,7 +68,6 @@ class ChunkScheduler {
   handleLoopBoundariesSet({ loopStart, loopEnd }) {
     this.loopStart = loopStart;
     this.loopEnd = loopEnd;
-    console.log('Loop boundaries set:', loopStart, 'to', loopEnd);
   }
 
   /**

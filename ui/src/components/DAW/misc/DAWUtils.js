@@ -2,6 +2,15 @@
  * DAW Utilities - Helper functions for audio processing
  */
 
+  // Helper functions
+  export const posToTime = (pos, duration) => {
+    return (pos / 100) * duration;
+  };
+  
+  export const timeToPos = (time, duration) => {
+    return (time / duration) * 100;
+  };
+
 /**
  * Fetches an audio buffer from an S3 URL
  * @param {string} url - The S3 URL to fetch audio from

@@ -44,6 +44,7 @@ function MusicalGrid() {
         gridLines.push({
           type: 'measure',
           position,
+          time: measureTime,
           measure: measure + 1
         });
       }
@@ -64,16 +65,19 @@ function MusicalGrid() {
           gridLines.push({
             type: 'beat',
             position,
+            time: beatTime,
             beat: (beat % beatsPerMeasure) + 1
           });
         }
       }
     }
-
       return gridLines;
     };
 
-    setGridLines(generateGridLines());
+    const newGridLines = generateGridLines();
+    setGridLines(newGridLines);
+    
+    eventBus.emit(DAW_EVENTS.GRID.LINES_UPDATE, { gridLines: newGridLines });
   }, [metronomeBpm, timeSignature, metronomeOffset, duration, secondsPerMeasure]);
 
   // Handle metronome offset dragging
