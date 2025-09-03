@@ -177,7 +177,6 @@ export default function AudioSettings({
             </div>
             <p className={styles.helpText}>
               Adjust this value if your recording is not in sync with the original track.
-              Negative values play your recording earlier, positive values play it later.
             </p>
           </div>
 

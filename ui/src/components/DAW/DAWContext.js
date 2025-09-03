@@ -21,6 +21,7 @@ export function DAWProvider({ children, trackData }) {
     const [tracks, setTracks] = useState([]);
     const [zoom, setZoom] = useState(1);
     const [scrollLeft, setScrollLeft] = useState(0);
+    const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -239,6 +240,8 @@ export function DAWProvider({ children, trackData }) {
       scrollLeft,
       setZoomLevel,
       setScrollLeftValue,
+      tracksContainerWidth,
+      setTracksContainerWidth,
     }}>
       {children}
     </DAWContext.Provider>

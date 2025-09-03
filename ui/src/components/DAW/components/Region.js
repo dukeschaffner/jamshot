@@ -16,7 +16,7 @@ export default function Region({
   tracksScrollContainerRef,
   readonly = false
 }) {
-  const { scrollLeft, duration, zoom, isPlaying, isRecording } = useDAW();
+  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth } = useDAW();
 
   const regionContainerRef = useRef(null);
   const waveformContainerRef = useRef(null);
@@ -27,8 +27,7 @@ export default function Region({
   const MAX_CHUNK_WIDTH = 2000;
 
   const [width, setWidth] = useState(0); // width of the waveform/region in percentage
-  const [trackRectWidth, setTrackRectWidth] = useState(0); // width of the track rect
-  const widthPx = width * trackRectWidth / 100; // width of the waveform/region in pixels
+  const widthPx = width * tracksContainerWidth / 100; // width of the waveform/region in pixels
   const [waveformWidth, setWaveformWidth] = useState(0); // width of the waveform in pixels
 
   const [startTime, setStartTime] = useState(0); // start time of the waveform in the track
@@ -57,6 +56,10 @@ export default function Region({
   const [isDraggingRegion, setIsDraggingRegion] = useState(false);
   const [regionStartPosBeforeDrag, setRegionStartPosBeforeDrag] = useState(0);
 
+  // Context menu state
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+
 
 
 
@@ -77,38 +80,6 @@ export default function Region({
     setBufferData(bufferData);
   }, [bufferKey]);
 
-  // Listen to track rect width changes
-  useEffect(() => {
-    if (!trackRef?.current) return;
-
-    const updateTrackRectWidth = () => {
-      if (trackRef.current) {
-        const rect = trackRef.current.getBoundingClientRect();
-        setTrackRectWidth(rect.width);
-      }
-    };
-
-    // Initial measurement
-    updateTrackRectWidth();
-
-    // Set up ResizeObserver to watch for width changes
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setTrackRectWidth(entry.contentRect.width);
-      }
-    });
-
-    resizeObserver.observe(trackRef.current);
-
-    // Cleanup
-    return () => {
-      if (trackRef.current) {
-        resizeObserver.unobserve(trackRef.current);
-      }
-      resizeObserver.disconnect();
-    };
-  }, [trackRef]);
-
   // On initial load, Set the width of the waveform based on the region
   useEffect(() => {
     if (!track || !bufferKey || !duration) return;
@@ -127,10 +98,10 @@ export default function Region({
   }, [bufferKey, track, duration]);
 
   useEffect(() => {
-    if (!buffer || !trackRectWidth || !duration) return;
-    const waveformWidthPx = buffer.duration * trackRectWidth / duration;
+    if (!buffer || !tracksContainerWidth || !duration) return;
+    const waveformWidthPx = buffer.duration * tracksContainerWidth / duration;
     setWaveformWidth(waveformWidthPx);
-  }, [buffer, trackRectWidth, duration, width]);
+  }, [buffer, tracksContainerWidth, duration, width]);
 
   // #endregion
 
@@ -144,9 +115,51 @@ export default function Region({
     
     setIsDraggingRegion(true);
     setDragStartX(e.clientX);
-    const regionLeftPixels = regionLeftPos * trackRectWidth / 100;
+    const regionLeftPixels = regionLeftPos * tracksContainerWidth / 100;
     setRegionStartPosBeforeDrag(regionLeftPixels);
   };
+
+  // Handle right-click for context menu
+  const handleRegionContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isPlaying || isRecording || readonly) return;
+    
+    // Position context menu at mouse position
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  };
+
+  // Handle region deletion
+  const handleRegionDelete = () => {
+    if (isPlaying || isRecording || readonly) return;
+
+    if (track && region) {
+      eventBus.emit(DAW_EVENTS.REGION.REMOVE, {
+        region: region,
+        trackId: track.id
+      });
+    }
+    
+    // Hide context menu
+    setShowContextMenu(false);
+  };
+
+  // Handle click outside context menu to close it
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowContextMenu(false);
+    };
+    
+    if (showContextMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showContextMenu]);
 
   // Mouse event handlers for region dragging
   useEffect(() => {
@@ -173,7 +186,7 @@ export default function Region({
         boundedLeftPos = maxLeftPos;
       }
       
-      const newRegionLeftPos = boundedLeftPos / trackRectWidth * 100;
+      const newRegionLeftPos = boundedLeftPos / tracksContainerWidth * 100;
       setRegionLeftPos(newRegionLeftPos);
     };
     
@@ -182,7 +195,7 @@ export default function Region({
       setIsDraggingRegion(false);
       
       // Update the region's start time based on new position
-      if (track && bufferKey && duration && trackRectWidth) {
+      if (track && bufferKey && duration && tracksContainerWidth) {
         const newStartTime = (regionLeftPos / 100) * duration;
         const regionDuration = endTime - startTime;
         const newEndTime = newStartTime + regionDuration;
@@ -215,7 +228,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, trackRectWidth, tracksScrollContainerRef, region, endTime, startTime]);
+  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime]);
 
   // #endregion
 
@@ -470,6 +483,7 @@ export default function Region({
       onMouseDown={handleRegionMouseDown}
       onMouseMove={handleWaveformMouseMove}
       onMouseLeave={handleWaveformMouseLeave}
+      onContextMenu={handleRegionContextMenu}
     >
       <div 
         className={`${styles.waveformContainer}`}
@@ -533,6 +547,25 @@ export default function Region({
           style={{ width: `${cropEndPercentage}%` }}
         />
       </>
+    )}
+
+    {/* Context Menu */}
+    {showContextMenu && (
+      <div 
+        className={styles.contextMenu} 
+        style={{ 
+          top: `${contextMenuPosition.y}px`, 
+          left: `${contextMenuPosition.x}px`
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button 
+          onClick={handleRegionDelete}
+          style={{ color: '#ff3b30' }}
+        >
+          Delete Region
+        </button>
+      </div>
     )}
     </div>
   );
