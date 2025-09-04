@@ -7,7 +7,7 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 
 function MusicalGrid() {
-  const { isPlaying, metronomeOffset, timeSignature, metronomeBpm, duration } = useDAW();
+  const { isPlaying, metronomeOffset, timeSignature, metronomeBpm, duration, tracksContainerWidth } = useDAW();
 
   const [isDraggingOffset, setIsDraggingOffset] = useState(false);
   const offsetHandleRef = useRef(null);
@@ -24,11 +24,12 @@ function MusicalGrid() {
   const [gridLines, setGridLines] = useState([]);
 
   const height = 500;
+  const minBeatPixelWidth = 10;
 
   // Generate musical grid lines
   useEffect(() => {
   const generateGridLines = () => {
-    if(!timeSignature || !metronomeBpm || !duration || !secondsPerMeasure) return [];
+    if(!timeSignature || !metronomeBpm || !duration || !secondsPerMeasure || !tracksContainerWidth) return [];
     
     const gridLines = [];
     const offsetSeconds = metronomeOffset * secondsPerMeasure;
@@ -48,6 +49,13 @@ function MusicalGrid() {
           measure: measure + 1
         });
       }
+    }
+
+    // If the beat pixel width is less than the minimum beat pixel width, 
+    // return only the measure lines
+    const beatPixelWidth = secondsPerBeat / duration * tracksContainerWidth;
+    if (beatPixelWidth < minBeatPixelWidth) {
+      return gridLines;
     }
 
     // Calculate beat positions
@@ -78,7 +86,7 @@ function MusicalGrid() {
     setGridLines(newGridLines);
     
     eventBus.emit(DAW_EVENTS.GRID.LINES_UPDATE, { gridLines: newGridLines });
-  }, [metronomeBpm, timeSignature, metronomeOffset, duration, secondsPerMeasure]);
+  }, [metronomeBpm, timeSignature, metronomeOffset, duration, secondsPerMeasure, tracksContainerWidth]);
 
   // Handle metronome offset dragging
   const handleOffsetMouseDown = (e) => {
