@@ -6,6 +6,7 @@ import Region from './Region';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
+import DAWConfig from '../misc/DAWConfig';
 
 
 const Track = ({
@@ -23,6 +24,12 @@ const Track = ({
   
   // Get DAW context for recording state and playhead position
   const { isRecording, playheadLocation, duration } = useDAW();
+
+  const durationRef = useRef(duration);
+
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
 
   useEffect(() => {
     const regions = [];
@@ -155,8 +162,19 @@ const Track = ({
       const fileBuffer = await processAudioChunks(chunks);
       
       if (fileBuffer) {
+        if (fileBuffer.duration > DAWConfig.audio.maxFileUploadDuration) {
+          const minutes = Math.floor(DAWConfig.audio.maxFileUploadDuration / 60);
+          alert(`File is too long. Please select a file shorter than ${minutes} minutes.`);
+          return;
+        }
+
+        let endTime = fileBuffer.duration;
+        if (fileBuffer.duration > durationRef.current) {
+          endTime = durationRef.current;
+        }
+
         // Create a new region from the file
-        track.addRegionFromBuffer(fileBuffer, 0, 0, fileBuffer.duration, file.name);
+        track.addRegionFromBuffer(fileBuffer, 0, 0, endTime, file.name);
       }
     } catch (error) {
       console.error('Error processing uploaded file:', error);
