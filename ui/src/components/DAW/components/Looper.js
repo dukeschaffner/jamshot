@@ -10,7 +10,7 @@ import { timeToPos } from '../misc/DAWUtils';
 
 export default function Looper() {
 
-  const { isPlaying, isRecording, duration, metronomeBpm} = useDAW();
+  const { isPlaying, isRecording, duration, metronomeBpm, tracksContainerWidth } = useDAW();
   
   const [isLooping, setIsLooping] = useState(false);
   // Internal state for dragging
@@ -35,7 +35,8 @@ export default function Looper() {
   const regionRef = useRef(null);
 
   // Grid snapping constants
-  const gridSnapThreshold = 0.1; // Threshold for grid snapping. Percentage of beat width
+  const gridSnapThreshold = 5; // Threshold for grid snapping (Pixels)
+  const tracksContainerWidthRef = useRef(0);
 
   // Event listeners for grid updates
   useEffect(() => {
@@ -57,6 +58,10 @@ export default function Looper() {
     };
   }, []);
 
+  useEffect(() => {
+    tracksContainerWidthRef.current = tracksContainerWidth;
+  }, [tracksContainerWidth]);
+
 
   // Snap to grid function
   const snapToGrid = (value) => {
@@ -72,7 +77,6 @@ export default function Looper() {
 
       const secondsPerBeat = 60 / metronomeBpm;
       const beatWidthPos = timeToPos(secondsPerBeat, duration);
-      const calculatedGridSnapThreshold = beatWidthPos * gridSnapThreshold;
       
       for (const gridLine of musicGridLinesRef.current) {
         const distance = Math.abs(gridLine.position - value);
@@ -81,9 +85,15 @@ export default function Looper() {
           closestGridLine = gridLine;
         }
       }
+
+      if(minDistance === Infinity) {
+        return value;
+      }
+
+      const distancePx = minDistance * tracksContainerWidthRef.current / 100;
       
       // Only snap if the distance is less than the threshold
-      if (minDistance <= calculatedGridSnapThreshold) {
+      if (distancePx <= gridSnapThreshold) {
         return closestGridLine.position;
       }
     }
