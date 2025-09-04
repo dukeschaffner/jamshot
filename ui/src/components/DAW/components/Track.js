@@ -107,10 +107,35 @@ const Track = ({
       console.error('Error processing audio chunks:', error);
     }
   };
+  
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+  
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+  
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const file = e.dataTransfer.files[0];
+    await createRegionFromFile(file);
+  };
 
   // File handling functions from RecordingWidget
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
+    await createRegionFromFile(file);
+  };
+
+  const createRegionFromFile = async (file) => {
     if (!file) return;
     
     // Check if file is an audio file
@@ -135,51 +160,6 @@ const Track = ({
       }
     } catch (error) {
       console.error('Error processing uploaded file:', error);
-    }
-  };
-  
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  };
-  
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  };
-  
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    
-    // Check if file is an audio file
-    if (!file.type.startsWith('audio/')) {
-      alert('Please select an audio file');
-      return;
-    }
-    
-    try {
-      // Read file as array buffer
-      const arrayBuffer = await file.arrayBuffer();
-      
-      // Create chunks
-      const chunks = [new Uint8Array(arrayBuffer)];
-      
-      // Process the file
-      const fileBuffer = await processAudioChunks(chunks);
-      
-      if (fileBuffer) {
-        // Create a new region from the file
-        track.addRegionFromBuffer(fileBuffer, 0, 0, fileBuffer.duration, file.name);
-      }
-    } catch (error) {
-      console.error('Error processing dropped file:', error);
     }
   };
 
