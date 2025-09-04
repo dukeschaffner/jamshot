@@ -11,6 +11,7 @@ class ChunkScheduler {
     this.activeSources = new Set(); // currently playing sources
     this.schedulingInterval = null;
     this.isPlaying = false;
+    this.isRecording = false;
 
     this.startTime = 0; // audioContext.currentTime that playback started at
     this.currentTime = 0; // last playback time checkpoint
@@ -73,9 +74,10 @@ class ChunkScheduler {
   /**
    * Start the chunk scheduler
    */
-  start(startTime, currentTime) {
+  start(startTime, currentTime, isRecording) {
     this.startTime = startTime;
     this.currentTime = currentTime;
+    this.isRecording = isRecording;
     this.lastScheduledTime = 0;
     
     if (this.schedulingInterval) return;
@@ -171,6 +173,9 @@ class ChunkScheduler {
     
     // Process each track
     tracks.forEach(track => {
+      // If we're recording, don't schedule segments for the recording track
+      if(this.isRecording && track.id === 'recording-track') return;
+      
       this.processTrackSegments(track, windowStart, windowEnd);
     });
   }

@@ -270,7 +270,7 @@ class AudioEngine {
     
     // Start chunk scheduler
     if (this.chunkScheduler) {
-      this.chunkScheduler.start(this.startTime, this.currentTime);
+      this.chunkScheduler.start(this.startTime, this.currentTime, isRecording);
     }
     
     // Start metronome if enabled
