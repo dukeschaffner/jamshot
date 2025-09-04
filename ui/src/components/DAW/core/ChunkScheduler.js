@@ -18,7 +18,7 @@ class ChunkScheduler {
     this.lastScheduledTime = 0;
     
     // Configuration
-    this.lookAheadWindow = DAWConfig.segments?.lookAheadWindow || 4.0; // seconds
+    this.lookAheadWindow = DAWConfig.segments?.lookAheadWindow || 0.1; // seconds
     this.segmentDuration = DAWConfig.segments?.segmentDuration || 2.0; // seconds
     this.scheduleInterval = DAWConfig.segments?.scheduleInterval || 50; // ms
     this.crossfadeDuration = DAWConfig.segments?.crossfadeDuration || 0.05; // seconds
@@ -255,7 +255,15 @@ class ChunkScheduler {
    * Schedule a single segment
    */
   scheduleSegment(segment) {
-    if (this.scheduledSegments.has(segment.id)) return;
+    if (this.scheduledSegments.has(segment.id)){
+      // Don't require unique segment ids if loop duration is less than the segment duration (duplicate segments are expected)
+      if(this.looping && (this.loopEnd - this.loopStart <= this.segmentDuration)){
+        segment.id = `${segment.id}-2`;
+      }
+      else{
+        return;
+      }
+    }
     
     try {
       // Get the track for this segment
