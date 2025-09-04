@@ -2,6 +2,7 @@
 import { bufferRegistry } from './BufferRegistry.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
+import { audioBufferToWav } from '../../../lib/utils.js';
 
 class Track {
   constructor(id, context, regions = []) {
@@ -144,6 +145,77 @@ class Track {
   // Get analyzer node for meter functionality
   getAnalyzer() {
     return this.analyzer;
+  }
+
+  // Combine all active regions into a single buffer, convert to Wav
+  exportTrack(duration) {
+    // Get all active regions with their buffers
+    const activeRegions = this.regions.filter(region => region.active);
+    
+    if (activeRegions.length === 0) {
+      return null; // No active regions to export
+    }
+    
+    // Get buffers for all active regions
+    const regionsWithBuffers = activeRegions.map(region => {
+      const buffer = bufferRegistry.getBuffer(region.key);
+      return {
+        ...region,
+        buffer
+      };
+    }).filter(region => region.buffer); // Only include regions with valid buffers
+    
+    if (regionsWithBuffers.length === 0) {
+      return null; // No valid buffers found
+    }
+    
+    // Calculate total duration needed for the combined buffer
+    const totalDuration = duration;
+    
+    // Get sample rate and channel count from first buffer (assuming all are the same)
+    const firstBuffer = regionsWithBuffers[0].buffer;
+    const sampleRate = firstBuffer.sampleRate;
+    const numberOfChannels = firstBuffer.numberOfChannels;
+    
+    // Create the combined buffer
+    const totalLength = Math.ceil(totalDuration * sampleRate);
+    const combinedBuffer = this.context.createBuffer(numberOfChannels, totalLength, sampleRate);
+    
+    // Copy each region's audio data to the correct position
+    regionsWithBuffers.forEach(region => {
+      const { buffer, startTime, offset, endTime } = region;
+      
+      // Calculate the actual audio data to copy
+      const startSample = Math.floor(offset * sampleRate);
+      const endSample = Math.floor((endTime - startTime) * sampleRate);
+      const copyLength = Math.min(endSample, buffer.length - startSample);
+      
+      if (copyLength <= 0) return; // Skip invalid regions
+      
+      // Calculate destination position in the combined buffer
+      const destStartSample = Math.floor(startTime * sampleRate);
+      
+      // Copy audio data for each channel
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const sourceChannelData = buffer.getChannelData(channel);
+        const destChannelData = combinedBuffer.getChannelData(channel);
+        
+        // Copy the audio data with proper offset and timing
+        for (let i = 0; i < copyLength; i++) {
+          const sourceIndex = startSample + i;
+          const destIndex = destStartSample + i;
+          
+          if (sourceIndex < sourceChannelData.length && destIndex < destChannelData.length) {
+            destChannelData[destIndex] += sourceChannelData[sourceIndex];
+          }
+        }
+      }
+    });
+    
+    // Convert the combined buffer to WAV format
+    const wavArrayBuffer = audioBufferToWav(combinedBuffer, sampleRate);
+    
+    return wavArrayBuffer;
   }
   
   destroy() {

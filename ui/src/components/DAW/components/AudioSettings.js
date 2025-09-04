@@ -21,9 +21,6 @@ export default function AudioSettings({
   // Get available audio input devices
   const getAudioInputDevices = async () => {
     try {
-      if (showAudioSettingsModal) {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
       const devices = await navigator.mediaDevices.enumerateDevices();
       const audioInputs = devices.filter(device => device.kind === 'audioinput');
       setAudioInputDevices(audioInputs);
@@ -35,71 +32,85 @@ export default function AudioSettings({
 
   // Fetch available audio input devices
   useEffect(() => {
-    configureAudioSettings();
-  }, [showAudioSettingsModal]);
-
-  const configureAudioSettings = async () => {
-    const audioInputs = await getAudioInputDevices();
-    const preferredAudioInputDevice = Cookies.get('preferredAudioInputDevice');
-    let deviceSelected = false;
-    if(audioInputs.length === 1){
-      setSelectedAudioInputDevice(audioInputs[0].deviceId);
-      deviceSelected = true;
-    }
-    else if(preferredAudioInputDevice){
-      const device = audioInputs.find(device => device.deviceId === preferredAudioInputDevice);
-      if(device){
-        setSelectedAudioInputDevice(device.deviceId);
+    const configureAudioSettings = async () => {
+      const audioInputs = await getAudioInputDevices();
+      const preferredAudioInputDevice = Cookies.get('preferredAudioInputDevice');
+      let deviceSelected = false;
+      if(audioInputs.length === 1){
+        setSelectedAudioInputDevice(audioInputs[0].deviceId);
         deviceSelected = true;
       }
-    }
-    else{ // Get the first audio input device
-      setSelectedAudioInputDevice(audioInputs[0].deviceId);
-      deviceSelected = true;
-    }
-
-    const savedLatencyCompensation = Cookies.get('userLatencyCompensation');
-    if (savedLatencyCompensation !== undefined) {
-      setUserLatencyCompensation(parseInt(savedLatencyCompensation, 10));
-    } else {
-      // Default value of 15ms if not set
-      setUserLatencyCompensation(15);
-    }
-
-    // Load snap to grid preference from cookies
-    const savedSnapToGridEnabled = Cookies.get('snapToGridEnabled');
-    if (savedSnapToGridEnabled !== undefined) {
-      setSnapToGridEnabled(savedSnapToGridEnabled === 'true');
-    }
-
-    return deviceSelected;
-  }
-
-  useEffect(() => {
-    Cookies.set('preferredAudioInputDevice', selectedAudioInputDevice, { expires: 365 });
-  }, [selectedAudioInputDevice]);
-
-   // Save latency compensation to cookies when it changes
-   useEffect(() => {
-    Cookies.set('userLatencyCompensation', userLatencyCompensation.toString(), { expires: 365 });
-  }, [userLatencyCompensation]);
+      else if(preferredAudioInputDevice){
+        const device = audioInputs.find(device => device.deviceId === preferredAudioInputDevice);
+        if(device){
+          setSelectedAudioInputDevice(device.deviceId);
+          deviceSelected = true;
+        }
+      }
+      else{ // Get the first audio input device
+        setSelectedAudioInputDevice(audioInputs[0].deviceId);
+        deviceSelected = true;
+      }
   
-  // Save snap to grid preference to cookies when it changes
-  useEffect(() => {
-    Cookies.set('snapToGridEnabled', snapToGridEnabled.toString(), { expires: 365 });
-  }, [snapToGridEnabled]);
+      const savedLatencyCompensation = Cookies.get('userLatencyCompensation');
+      if (savedLatencyCompensation !== undefined) {
+        setUserLatencyCompensation(parseInt(savedLatencyCompensation, 10));
+      } else {
+        // Default value of 15ms if not set
+        setUserLatencyCompensation(15);
+      }
+  
+      // Load snap to grid preference from cookies
+      const savedSnapToGridEnabled = Cookies.get('snapToGridEnabled');
+      if (savedSnapToGridEnabled !== undefined) {
+        setSnapToGridEnabled(savedSnapToGridEnabled === 'true');
+      }
+  
+      const savedMetronomeVolume = Cookies.get('metronomeVolume');
+      if (savedMetronomeVolume !== undefined) {
+        setMetronomeVolume(parseFloat(savedMetronomeVolume));
+      }
+  
+      return deviceSelected;
+    }
+    // get audio settings on load
+    configureAudioSettings();
+
+    // listen for device change events
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', getAudioInputDevices);
+    }
+    return () => {
+      if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
+        navigator.mediaDevices.removeEventListener('devicechange', getAudioInputDevices);
+      }
+    };
+  }, []);
+
+  
 
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
-    setSelectedAudioInputDevice(e.target.value);
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: e.target.value });
+    Cookies.set('preferredAudioInputDevice', e.target.value, { expires: 365 });
   };
+
+  //listen for input device change events, disconnect on unmount
+  useEffect(() => {
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, (data) => {
+      setSelectedAudioInputDevice(data.deviceId);
+    });
+    return () => {
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE);
+    };
+  }, []);
 
   // Handle latency compensation change
   const handleLatencyCompensationChange = (e) => {
     const latencyCompensation = parseInt(e.target.value, 10);
     setUserLatencyCompensation(latencyCompensation);
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, { latencyCompensation: latencyCompensation });
+    Cookies.set('userLatencyCompensation', latencyCompensation.toString(), { expires: 365 });
   };
 
   // Handle snap to grid toggle
@@ -107,6 +118,7 @@ export default function AudioSettings({
     const snapToGridEnabled = e.target.checked;
     setSnapToGridEnabled(snapToGridEnabled);
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, { snapToGridEnabled: snapToGridEnabled });
+    Cookies.set('snapToGridEnabled', snapToGridEnabled.toString(), { expires: 365 });
   };
 
   // Handle metronome volume change
@@ -114,6 +126,7 @@ export default function AudioSettings({
     const newVolume = parseFloat(e.target.value);
     setMetronomeVolume(newVolume);
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, { volume: newVolume });
+    Cookies.set('metronomeVolume', newVolume.toString(), { expires: 365 });
   };
 
   // Handle close button click

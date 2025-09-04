@@ -9,6 +9,7 @@ const DAWConfig = {
       scheduleDelay: 0.1, // seconds
       recordingBufferSize: 4096, // Buffer size for recording processor
       recordingLatencyCompensation: 0.02, // Additional latency compensation in seconds
+      maxFileUploadDuration: 900, // 15 minutes
     },
     
     ui: {
