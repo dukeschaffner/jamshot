@@ -33,7 +33,7 @@ RELEASE CHECKLIST
 - register DMCA agent
 - review terms and privacy policy - ensure all legal requirements are met
 - Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
-
+- VonGon partnership
 
 
 
@@ -61,6 +61,7 @@ TODO (after beta testing)
 - feed ads
 - improve search algorithm - prioritize popular results
 - improve feed algorithms - track user preferences
+- change non auth cookies to local storage
 
 
 MONETIZATION
@@ -106,6 +107,16 @@ LEGAL
 About
 This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
 
+Tech Stack:
+- Frontend: Next.js hosted on AWS Amplify
+- Backend: Express.js hosted on Azure App Service
+- File Storage: AWS S3 for audio files and images
+- Database: PostgreSQL hosted on NeonDB
+- Payments: Stripe
+alternatives:
+- Add AWS CDN or switch to bunny.net or cloudflare for CDN when scaling
+- Add a Redis caching layer to the database
+- move api to aws lambda
 
 Goals/VALUE
 - music collaboration as a social media
