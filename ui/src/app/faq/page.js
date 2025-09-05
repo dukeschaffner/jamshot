@@ -19,7 +19,7 @@ export default function FAQPage() {
     {
       id: 'daw',
       question: 'How can I use my own DAW to record audio?',
-      answer: 'To use your DAW with Sterio, install a virtual audio output plugin and place it on your DAW’s master output. Then, set that virtual output as the input source in Sterio. Muse provides a free virtual audio output plugin compatible with both Windows and Mac.'      
+      answer: 'To use your DAW with Sterio, install a virtual audio input/output plugin (such as BlackHole 2ch) and place it on your DAW’s master output. Then, set that plugin as the input source in Sterio.'      
     },
     // {
     //   id: 'algorithm',

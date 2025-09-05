@@ -31,6 +31,15 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      setFeedType('following');
+    }
+    else {
+      setFeedType('popular');
+    }
+  }, [isAuthenticated]);
+
   const closeWelcomeDialog = () => {
     setShowWelcomeDialog(false);
     trackWelcomeDialogClose();
@@ -110,7 +119,7 @@ export default function Home() {
 
   // Create tabs configuration
   const tabs = [
-    { key: 'for-you', label: 'For You' },
+    // { key: 'for-you', label: 'For You' },
     ...(isAuthenticated ? [{ key: 'following', label: 'Following' }] : []),
     { key: 'popular', label: 'Popular' }
   ];
