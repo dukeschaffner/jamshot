@@ -118,6 +118,10 @@ class Track {
       metadata: bufferRegistry.getMetadata(region.key)
     }));
   }
+
+  getActiveRegions() {
+    return this.regions.filter(region => region.active);
+  }
   
   // Get regions with buffer data for ChunkScheduler
   getActiveRegionsWithBuffers() {

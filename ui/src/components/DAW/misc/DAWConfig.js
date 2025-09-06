@@ -32,6 +32,10 @@ const DAWConfig = {
       defaultTimeSignature: '4/4',
       defaultOffset: 0, // Default offset as percentage of measure
     },
+
+    timeSignature: {
+      options: ['4/4', '3/4', '2/4', '2/2', '6/8', '9/8', '12/8', '5/4', '7/8', '3/8'],
+    },
     
     effects: {
       enabled: false,

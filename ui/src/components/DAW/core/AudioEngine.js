@@ -505,7 +505,12 @@ class AudioEngine {
         let playbackTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
 
         if(playbackTime > this.getDuration()) {
-          this.pause();
+          if(this.isRecording) {
+            this.stopRecording();
+          }
+          else {
+            this.pause();
+          }
           this.currentTime = 0;
           playbackTime = 0;
         }

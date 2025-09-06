@@ -13,11 +13,10 @@ import AudioSettings from './AudioSettings';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import styles from '../DAW.module.css';
+import { useUser } from '../../../contexts/UserContext';
+import DAWConfig from '../misc/DAWConfig';
 
-const timeSignatureOptions = [
-  '2/2', '2/4', '3/4', '4/4', '5/4', '6/4', '7/4', '8/4',
-  '3/8', '6/8', '9/8', '12/8'
-];
+const timeSignatureOptions = DAWConfig.timeSignature.options;
 
 const TransportControls = ({
   isRecording,
@@ -26,71 +25,83 @@ const TransportControls = ({
   timeSignature,
 }) => {
 
-    const [isMetronomeOn, setIsMetronomeOn] = useState(false);
-    const [isCountInEnabled, setIsCountInEnabled] = useState(true);
-    const [isEditingBpm, setIsEditingBpm] = useState(false);
-    const [isEditingTimeSignature, setIsEditingTimeSignature] = useState(false);
-    const [bpmInputValue, setBpmInputValue] = useState(metronomeBpm.toString());
-    const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
-    const bpmControlRef = useRef(null);
+  const [isMetronomeOn, setIsMetronomeOn] = useState(false);
+  const [isCountInEnabled, setIsCountInEnabled] = useState(true);
+  const [isEditingBpm, setIsEditingBpm] = useState(false);
+  const [isEditingTimeSignature, setIsEditingTimeSignature] = useState(false);
+  const [bpmInputValue, setBpmInputValue] = useState(metronomeBpm.toString());
+  const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
+  const bpmControlRef = useRef(null);
 
-    const togglePlayPause = () => {
-        if (isPlaying) {
-          // Emit pause event
-          eventBus.emit(DAW_EVENTS.TRANSPORT.PAUSE);
-        } else {
-          // Emit play event
-          console.log('playing called');
-          eventBus.emit(DAW_EVENTS.TRANSPORT.PLAY);
-        }
-      };
-    
-      const toggleRecording = () => {
-        if (isRecording) {
-          // Stop recording
-          eventBus.emit(DAW_EVENTS.RECORDING.STOP);
-        } else {
-          // Start recording
-          eventBus.emit(DAW_EVENTS.RECORDING.START);
-        }
-      };
+  const { isAuthenticated } = useUser();
+  const isAuthenticatedRef = useRef(isAuthenticated);
 
-        // Handle BPM input change
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
+  const togglePlayPause = () => {
+    if (isPlaying) {
+      // Emit pause event
+      eventBus.emit(DAW_EVENTS.TRANSPORT.PAUSE);
+    } else {
+      // Emit play event
+      console.log('playing called');
+      eventBus.emit(DAW_EVENTS.TRANSPORT.PLAY);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      // Stop recording
+      eventBus.emit(DAW_EVENTS.RECORDING.STOP);
+    } else {
+      // Start recording
+      if(isAuthenticatedRef.current) {
+        eventBus.emit(DAW_EVENTS.RECORDING.START);
+      }
+      else {
+        alert('Please sign in to record');
+      }
+    }
+  };
+
+  // Handle BPM input change
   const handleBpmChange = (e) => {
     // Only allow numbers
     const value = e.target.value.replace(/[^0-9]/g, '');
     setBpmInputValue(value);
   };
 
-    // Handle BPM input key press events for numeric validation and submit/cancel
-    const handleBpmKeyDown = (e) => {
-        // Handle submit/cancel
-        if (e.key === 'Enter') {
-          setIsEditingBpm(false);
-          updateBpmValue();
-          return;
-        } else if (e.key === 'Escape') {
-          setIsEditingBpm(false);
-          setBpmInputValue(metronomeBpm.toString());
-          return;
-        }
-        
-        // Allow: backspace, delete, tab, escape, enter
-        if ([8, 46, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
-            // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-            (e.keyCode >= 65 && e.keyCode <= 90 && e.ctrlKey === true) ||
-            // Allow: home, end, left, right
-            (e.keyCode >= 35 && e.keyCode <= 39)) {
-          // Let it happen
-          return;
-        }
-        
-        // Ensure that it is a number and stop the keypress if it's not
-        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && 
-            (e.keyCode < 96 || e.keyCode > 105)) {
-          e.preventDefault();
-        }
-      };
+  // Handle BPM input key press events for numeric validation and submit/cancel
+  const handleBpmKeyDown = (e) => {
+      // Handle submit/cancel
+      if (e.key === 'Enter') {
+        setIsEditingBpm(false);
+        updateBpmValue();
+        return;
+      } else if (e.key === 'Escape') {
+        setIsEditingBpm(false);
+        setBpmInputValue(metronomeBpm.toString());
+        return;
+      }
+      
+      // Allow: backspace, delete, tab, escape, enter
+      if ([8, 46, 9, 27, 13].indexOf(e.keyCode) !== -1 ||
+          // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+          (e.keyCode >= 65 && e.keyCode <= 90 && e.ctrlKey === true) ||
+          // Allow: home, end, left, right
+          (e.keyCode >= 35 && e.keyCode <= 39)) {
+        // Let it happen
+        return;
+      }
+      
+      // Ensure that it is a number and stop the keypress if it's not
+      if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && 
+          (e.keyCode < 96 || e.keyCode > 105)) {
+        e.preventDefault();
+      }
+    };
 
       // Handle BPM input blur
   const handleBpmBlur = () => {
