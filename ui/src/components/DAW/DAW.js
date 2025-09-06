@@ -15,6 +15,11 @@ import Looper from './components/Looper';
 import TrackHeader from './components/TrackHeader';
 import MusicalGrid from './components/MusicalGrid';
 import Takes from './components/Takes';
+import { useNavigationGuard } from 'next-navigation-guard';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faUpload } from '@fortawesome/free-solid-svg-icons';
+import UploadForm from './components/UploadForm';
+import TimeDisplay from './components/TimeDisplay';
 
 function DAWContent({ track }) {
   const { 
@@ -36,11 +41,19 @@ function DAWContent({ track }) {
     setScrollLeftValue,
     tracksContainerWidth,
     setTracksContainerWidth,
+    recordingTrackHasAudio,
   } = useDAW();
+
+  useNavigationGuard({ 
+    enabled: !!recordingTrackHasAudio, 
+    confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.") 
+  });
 
   const tracksAndTimelineRef = useRef(null);
   const tracksScrollContainerRef = useRef(null);
   const tracksContainerRef = useRef(null);
+
+  const [showUploadForm, setShowUploadForm] = useState(false);
 
   // Add keyboard event listener for space and enter keys
   useEffect(() => {
@@ -149,92 +162,112 @@ function DAWContent({ track }) {
   }
 
   return (
-    <div className={styles.dawContainer}>
-        <div className={styles.dawControls}>
-          <TransportControls
-            isRecording={isRecording}
-            isPlaying={isPlaying}
-            metronomeBpm={metronomeBpm}
-            timeSignature={timeSignature}
-          />
-          <ZoomSlider
-            zoom={zoom}
-            onZoomChange={setZoomLevel}
-          />
-        </div>
-        <div className="transport-controls">
-          
-          <div className="time-display">
-            {formatTime(playheadLocation.time)}
-          </div>
-        </div>
-      
-      <div className={styles.dawBody}>
-        <div className={styles.tracks}>
-        <div className={styles.tracksHeaders}>
-          {tracks.map((track, index) => (
-            <TrackHeader key={index} track={track}/>
-          ))}
-        </div>
-        <div 
-          className={styles.tracksScrollContainer} 
-          onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)} 
-          ref={tracksScrollContainerRef}
-        >
-          {tracks.length > 0 && (
-            <>
-              <div 
-                className={styles.tracksAndTimelineContainer}
-                ref={tracksAndTimelineRef}
-                onClick={handleTimelineClick}
-                style={{
-                  width: `${Math.max(100, zoom * 100)}%`,
-                  minWidth: `${Math.max(100, zoom * 100)}%`,
-                }}
-              >
-                <div className={styles.timeline}>
-                  <MusicalGrid
-                    bpm={metronomeBpm}
-                    timeSignature={timeSignature}
-                    duration={duration}
-                    metronomeOffset={metronomeOffset}
-                    onMetronomeOffsetChange={handleMetronomeOffsetChange}
-                    isPlaying={isPlaying}
-                    zoom={zoom}
-                  />
-                  <Looper/>
-                </div>
-                <div className={styles.tracksContainer} ref={tracksContainerRef}>
-                  {tracks.map((track, index) => (
-                    <Track key={index} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
-                  ))}
-                  <Playhead/>
-                </div>
-                
-              </div>
-              {zoom > 1 && (
-                <div className={styles.zoomIndicator}>
-                  Zoom: {zoom.toFixed(1)}x
-                </div>
+    <>
+      <div 
+        className={styles.dawContainer}
+        style={{display: showUploadForm ? 'none' : 'block'}}
+      >
+          <div className={styles.dawControls}>
+            <TransportControls
+              isRecording={isRecording}
+              isPlaying={isPlaying}
+              metronomeBpm={metronomeBpm}
+              timeSignature={timeSignature}
+            />
+            <TimeDisplay />
+            <div>
+              {recordingTrackHasAudio && !isRecording && (track ? track.layer < 4 : true) && (
+                  <button 
+                    className="pill-btn gradient-btn"
+                    style={{justifySelf: 'end'}}
+                    onClick={() => setShowUploadForm(true)}
+                    title="Upload Recording"
+                  >
+                    <FontAwesomeIcon icon={faUpload} />
+                    Go To: Upload
+                  </button>
               )}
-            </>
-          )}
-        </div>
-        </div>
+            </div>
+          </div>
+
         
-        {/* Takes Component */}
-        <Takes />
+        <div className={styles.dawBody}>
+          <div className={styles.tracks}>
+          <div className={styles.tracksHeaders}>
+            {tracks.map((track, index) => (
+              <TrackHeader key={index} track={track}/>
+            ))}
+          </div>
+          <div 
+            className={styles.tracksScrollContainer} 
+            onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)} 
+            ref={tracksScrollContainerRef}
+          >
+            {tracks.length > 0 && (
+              <>
+                <div 
+                  className={styles.tracksAndTimelineContainer}
+                  ref={tracksAndTimelineRef}
+                  onClick={handleTimelineClick}
+                  style={{
+                    width: `${Math.max(100, zoom * 100)}%`,
+                    minWidth: `${Math.max(100, zoom * 100)}%`,
+                  }}
+                >
+                  <div className={styles.timeline}>
+                    <MusicalGrid
+                      bpm={metronomeBpm}
+                      timeSignature={timeSignature}
+                      duration={duration}
+                      metronomeOffset={metronomeOffset}
+                      onMetronomeOffsetChange={handleMetronomeOffsetChange}
+                      isPlaying={isPlaying}
+                      zoom={zoom}
+                    />
+                    <Looper/>
+                  </div>
+                  <div className={styles.tracksContainer} ref={tracksContainerRef}>
+                    {tracks.map((track, index) => (
+                      <Track key={index} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
+                    ))}
+                    <Playhead/>
+                  </div>
+                  
+                </div>
+                {zoom > 1 && (
+                  <div className={styles.zoomIndicator}>
+                    Zoom: {zoom.toFixed(1)}x
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          </div>
+          <ZoomSlider
+              zoom={zoom}
+              onZoomChange={setZoomLevel}
+            />
+          {/* Takes Component */}
+          <Takes />
+        </div>
       </div>
-    </div>
+
+      {recordingTrackHasAudio && showUploadForm && (
+        <UploadForm 
+          isCollab={track ? true : false}
+          onCancel={() => {
+            setShowUploadForm(false);
+          }}
+          onUploadComplete={() => {
+            console.log("Upload completed successfully!");
+            setUploadComplete(true);
+          }}
+        />
+      )}
+      </>
   );
 }
 
-// Helper function to format time
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
 
 // Main DAW component that provides the context
 function DAW({ track }) {

@@ -60,7 +60,6 @@ class ChunkScheduler {
    */
   handleLoopToggle({ isLooping }) {
     this.looping = isLooping;
-    console.log('Loop toggled:', isLooping);
   }
 
   /**
@@ -130,7 +129,6 @@ class ChunkScheduler {
 
     // check if we've reached the end of the loop and if we have, clear the pending loop start time
     if(this.pendingLoopStartTime && playbackTime >= this.loopEnd) {
-      console.log('restarting loop');
       eventBus.emit(DAW_EVENTS.LOOP.START, { loopStart: this.loopStart, occured_at: this.pendingLoopStartTime });
       this.startTime = this.pendingLoopStartTime;
       this.currentTime = this.loopStart;
@@ -144,12 +142,10 @@ class ChunkScheduler {
     if(this.looping && (this.loopEnd - playbackTime < this.lookAheadWindow) && !this.pendingLoopStartTime) {
       needToSchedule = true;
       this.pendingLoopStartTime = this.startTime + (this.loopEnd - this.currentTime);
-      console.log('scheduling loop start', this.pendingLoopStartTime);
     }
     // If we haven't scheduled the loop start, and we're within the lookAheadWindow, schedule the next segment
     else if(!this.pendingLoopStartTime && (this.lastScheduledTime - playbackTime < this.lookAheadWindow)) {
       needToSchedule = true;
-      console.log('scheduling next segment');
     }
     if(!needToSchedule) return;
 
@@ -306,8 +302,6 @@ class ChunkScheduler {
       
       this.applyCrossfade(segment);
 
-      console.log('Scheduled segment from: ', segment.startTime, '-', segment.endTime + ' (' + segment.playTime + '-' + (segment.playTime + segment.duration) + ')');
-
       eventBus.emit(DAW_EVENTS.SEGMENT.SCHEDULED, { segment });
       
     } catch (error) {
@@ -381,8 +375,6 @@ class ChunkScheduler {
       // Store the crossfade gain for cleanup
       segmentInfo.crossfadeGain = crossfadeGain;
     }
-
-    console.log('Applied crossfade to segment: ', segment.id);
   }
   
   

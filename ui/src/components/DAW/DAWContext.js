@@ -8,20 +8,21 @@ import { DAW_EVENTS } from './misc/DAWEvents';
 const DAWContext = createContext();
 
 export function DAWProvider({ children, trackData }) {
-    const trackManagerRef = useRef(null);
-    const audioEngineRef = useRef(null);
+  const trackManagerRef = useRef(null);
+  const audioEngineRef = useRef(null);
 
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isRecording, setIsRecording] = useState(false);
-    const [playheadLocation, setPlayheadLocation] = useState({time: 0});
-    const [metronomeBpm, setMetronomeBpm] = useState(120);
-    const [timeSignature, setTimeSignature] = useState('4/4');
-    const [metronomeOffset, setMetronomeOffset] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [tracks, setTracks] = useState([]);
-    const [zoom, setZoom] = useState(1);
-    const [scrollLeft, setScrollLeft] = useState(0);
-    const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [playheadLocation, setPlayheadLocation] = useState({time: 0});
+  const [metronomeBpm, setMetronomeBpm] = useState(120);
+  const [timeSignature, setTimeSignature] = useState('4/4');
+  const [metronomeOffset, setMetronomeOffset] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [tracks, setTracks] = useState([]);
+  const [zoom, setZoom] = useState(1);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
+  const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,6 +37,7 @@ export function DAWProvider({ children, trackData }) {
   useEffect(() => {
     const initializeDAW = async () => {
       try {
+        if(isLoading || !trackData) return;
         setIsLoading(true);
         
         // Clean up existing instances first
@@ -160,6 +162,22 @@ export function DAWProvider({ children, trackData }) {
       const position = (data.time / durationRef.current) * 100;
       setPlayheadLocation({time: data.time, position: position});
     };
+
+    const handleRegionsUpdated = (data) => {
+      if(data.trackId === 'recording-track') {
+        if(trackManagerRef.current){
+          const track = trackManagerRef.current.getTrack('recording-track');
+          if(track) {
+            const activeRegions = track.getActiveRegions();
+            if(activeRegions.length > 0) {
+              setRecordingTrackHasAudio(true);
+              return;
+            }
+          }
+        }
+        setRecordingTrackHasAudio(false);
+      }
+    };
     
     // Register event listeners
     eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
@@ -173,6 +191,9 @@ export function DAWProvider({ children, trackData }) {
     eventBus.on(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
     eventBus.on(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
     eventBus.on(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
+    eventBus.on(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
+    eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
+
     // Return cleanup function
     return () => {
       eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
@@ -186,6 +207,8 @@ export function DAWProvider({ children, trackData }) {
       eventBus.off(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
       eventBus.off(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
       eventBus.off(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
+      eventBus.off(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
+      eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
     };
   }, []); 
 
@@ -225,6 +248,7 @@ export function DAWProvider({ children, trackData }) {
     <DAWContext.Provider value={{
       trackManagerRef,
       audioEngineRef,
+      trackData,
       isLoading,
       error,
       tracks,
@@ -242,6 +266,7 @@ export function DAWProvider({ children, trackData }) {
       setScrollLeftValue,
       tracksContainerWidth,
       setTracksContainerWidth,
+      recordingTrackHasAudio,
     }}>
       {children}
     </DAWContext.Provider>

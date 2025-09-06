@@ -5,23 +5,24 @@
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 20px;
-    padding-top: 20px;
+    margin-top: 20px;
   }
 
   .dawControls {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
     align-items: center;
     gap: 16px;
     width: 100%;
     margin-bottom: 16px;
+    white-space: nowrap;
   }
   
 .transportControls {
     display: flex;
     align-items: center;
     gap: 16px;
-    width: 100%;
+    width: min-content;
 }
 
 .dawBody {
@@ -288,6 +289,9 @@
     border-radius: 20px;
     font-size: 0.9rem;
     font-weight: 600;
+    width: min-content;
+    margin: 10px 0;
+    align-self: center;
   }
   
   body.dark-mode .zoomControl {
