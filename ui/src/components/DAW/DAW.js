@@ -21,8 +21,9 @@ import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 
-function DAWContent({ track }) {
+function DAWContent({ track}) {
   const { 
+    isCollab,
     trackManagerRef, 
     audioEngineRef, 
     isLoading, 
@@ -254,7 +255,7 @@ function DAWContent({ track }) {
 
       {recordingTrackHasAudio && showUploadForm && (
         <UploadForm 
-          isCollab={track ? true : false}
+          isCollab={isCollab}
           onCancel={() => {
             setShowUploadForm(false);
           }}
@@ -273,10 +274,11 @@ function DAWContent({ track }) {
 function DAW({ track }) {
   // Convert track data to the format expected by DAWContext
   const trackData = track ? [track] : [];
+  const isCollab = track ? true : false;
   
   return (
-    <DAWProvider trackData={trackData}>
-      <DAWContent track={track} />
+    <DAWProvider trackData={trackData} isCollab={isCollab}>
+      <DAWContent track={track}/>
     </DAWProvider>
   );
 }

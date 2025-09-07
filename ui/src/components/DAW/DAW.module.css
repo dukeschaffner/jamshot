@@ -81,7 +81,6 @@
   .tracksContainer {
     position: relative;
     flex: 1;
-    min-height: 200px;
   }
 
   /* #endregion */

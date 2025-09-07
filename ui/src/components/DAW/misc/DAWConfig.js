@@ -1,5 +1,9 @@
 // DAWConfig.js - Centralized configuration
 const DAWConfig = {
+    project: {
+      defaultDuration: 10, // seconds
+    },
+
     audio: {
       sampleRate: 48000,
       bitDepth: 24,
@@ -58,6 +62,10 @@ const DAWConfig = {
 
     logging: {
       eventBus: false,
+    },
+
+    singleTrackDAW: {
+      dawDurationExtensionLookahead: 2, // seconds
     }
 };
 

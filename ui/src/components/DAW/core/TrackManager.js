@@ -50,6 +50,7 @@ class TrackManager {
     const trackDurations = await Promise.all(this.tracks.values().map(track => track.calculateTotalDuration()));
     const maxDuration = Math.max(...trackDurations);
     AudioState.dawDuration = maxDuration;
+    eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: AudioState.dawDuration });
 
     return Array.from(this.tracks.values());
   }

@@ -5,10 +5,11 @@ import AudioEngine from './core/AudioEngine';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
 import api from '@/lib/api';
+import DAWConfig from './misc/DAWConfig';
 
 const DAWContext = createContext();
 
-export function DAWProvider({ children, trackData }) {
+export function DAWProvider({ children, trackData, isCollab }) {
   const trackManagerRef = useRef(null);
   const audioEngineRef = useRef(null);
 
@@ -38,7 +39,7 @@ export function DAWProvider({ children, trackData }) {
   useEffect(() => {
     const initializeDAW = async () => {
       try {
-        if(isLoading || !trackData) return;
+        if(isLoading || (!trackData && !isCollab)) return;
         setIsLoading(true);
         
         // Clean up existing instances first
@@ -66,7 +67,7 @@ export function DAWProvider({ children, trackData }) {
         tm.createEmptyTrack('recording-track');
         
         // Initialize audio engine
-        const ae = new AudioEngine(audioContext);
+        const ae = new AudioEngine(audioContext, isCollab);
         await ae.initialize(tm);
         
         trackManagerRef.current = tm;
@@ -87,10 +88,10 @@ export function DAWProvider({ children, trackData }) {
     if (tracks.length > 0) {
       const trackDuration = tracks[0].duration;
       // Set a default duration of 90 seconds for empty tracks or tracks with 0 duration
-      setDuration(trackDuration > 0 ? trackDuration : 90);
+      setDuration(trackDuration > 0 ? trackDuration : DAWConfig.project.defaultDuration);
     } else {
       // Default duration when no tracks exist
-      setDuration(90);
+      setDuration(DAWConfig.project.defaultDuration);
     }
   }, [tracks]);
 
@@ -183,6 +184,10 @@ export function DAWProvider({ children, trackData }) {
       }
     };
     
+    const handleDurationChange = (data) => {
+      setDuration(data.duration);
+    };
+    
     // Register event listeners
     eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     eventBus.on(DAW_EVENTS.PLAYBACK.STOPPED, handlePlaybackStopped);
@@ -197,6 +202,7 @@ export function DAWProvider({ children, trackData }) {
     eventBus.on(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
     eventBus.on(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
     eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
+    eventBus.on(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
 
     // Return cleanup function
     return () => {
@@ -213,11 +219,12 @@ export function DAWProvider({ children, trackData }) {
       eventBus.off(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
       eventBus.off(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
       eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
+      eventBus.off(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
     };
   }, []); 
 
   const recordPlay = async () => {
-    if (!trackData || playRecordedRef.current) return;
+    if (!trackData || !isCollab || playRecordedRef.current) return;
     
     try {
       playRecordedRef.current = true;
@@ -250,6 +257,7 @@ export function DAWProvider({ children, trackData }) {
 
   return (
     <DAWContext.Provider value={{
+      isCollab,
       trackManagerRef,
       audioEngineRef,
       trackData,

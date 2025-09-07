@@ -15,6 +15,7 @@ import { DAW_EVENTS } from '../misc/DAWEvents';
 import styles from '../DAW.module.css';
 import { useUser } from '../../../contexts/UserContext';
 import DAWConfig from '../misc/DAWConfig';
+import { useDAW } from '../DAWContext';
 
 const timeSignatureOptions = DAWConfig.timeSignature.options;
 
@@ -32,6 +33,8 @@ const TransportControls = ({
   const [bpmInputValue, setBpmInputValue] = useState(metronomeBpm.toString());
   const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
   const bpmControlRef = useRef(null);
+
+  const { isCollab, recordingTrackHasAudio } = useDAW();
 
   const { isAuthenticated } = useUser();
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -203,7 +206,7 @@ const TransportControls = ({
   return (
     <>
     <div className={styles.transportControls}>
-        {!isRecording && (
+        {!isRecording && (isCollab || recordingTrackHasAudio) && (
             <button 
             className={styles.controlButton + ' ' + styles.playPause} 
             onClick={togglePlayPause}
