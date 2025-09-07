@@ -3,6 +3,7 @@ import { bufferRegistry } from './BufferRegistry.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import { audioBufferToWav } from '../../../lib/utils.js';
+import AudioState from './AudioStateStore.js';
 
 class Track {
   constructor(id, context, regions = []) {
@@ -56,6 +57,10 @@ class Track {
     startTime = startTime || 0;
     offset = offset || 0;
     endTime = endTime || (startTime + duration - offset);
+
+    if(endTime > AudioState.dawDuration) {
+      AudioState.dawDuration = endTime;
+    }
 
     const id = 'track-' + this.id + '-' + Math.random().toString(36).substring(2, 15);
     const region = {

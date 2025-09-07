@@ -1,6 +1,7 @@
 import DAWConfig from '../misc/DAWConfig.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import { bufferRegistry } from '../core/BufferRegistry.js';
+import AudioState from './AudioStateStore.js';
 
 class Recorder {
   constructor(audioContext, eventBus) {
@@ -8,7 +9,6 @@ class Recorder {
     this.eventBus = eventBus;
     
     // Recording state
-    this.isRecording = false;
     this.recordingBuffer = null;
     this.recordingProcessor = null;
     this.recordingStream = null;
@@ -88,7 +88,7 @@ class Recorder {
   }
   
   handlePlaybackStarted(data) {
-    if(!this.isRecording) return;
+    if(!AudioState.isRecording) return;
     this.playbackStartTime = data.audioContextTime;
     this.playbackTime = data.playbackTime;
     console.log('Recorder: Playback started - audioContextTime:', this.playbackStartTime, 'playbackTime:', this.playbackTime);
@@ -104,7 +104,7 @@ class Recorder {
   }
   
   async startRecording() {
-    if (this.isRecording) return;
+    if (AudioState.isRecording) return;
     
     try {
       // Get microphone access with selected device if available
@@ -140,7 +140,7 @@ class Recorder {
       source.connect(this.recordingProcessor);
       
       // Initialize recording state
-      this.isRecording = true;
+      AudioState.isRecording = true;
       this.recordingBuffer = [];
       this.firstSampleTime = null;
       
@@ -160,9 +160,9 @@ class Recorder {
   }
   
   stopRecording() {
-    if (!this.isRecording) return;
+    if (!AudioState.isRecording) return;
     
-    this.isRecording = false;
+    AudioState.isRecording = false;
     
     // Stop the media stream
     if (this.recordingStream) {
@@ -202,7 +202,7 @@ class Recorder {
   }
 
   handleRecorderMessage(event){
-    if (!this.isRecording) return;
+    if (!AudioState.isRecording) return;
 
     if (event.data.type === 'first-sample') {
       const { frame, time } = event.data;
@@ -217,7 +217,7 @@ class Recorder {
   }
   
   handleRecordingData(data) {
-    if (!this.isRecording) return;
+    if (!AudioState.isRecording) return;
     
     const audioData = data;
     if (audioData instanceof Float32Array) {
@@ -275,18 +275,18 @@ class Recorder {
   
   // Recording utility methods
   isRecordingActive() {
-    return this.isRecording;
+    return AudioState.isRecording;
   }
   
   getRecordingTime() {
-    if (!this.isRecording) return 0;
+    if (!AudioState.isRecording) return 0;
     return this.context.currentTime - this.playbackStartTime + this.playbackTime;
   }
   
   // Cleanup
   destroy() {
     // Stop recording if active
-    if (this.isRecording) {
+    if (AudioState.isRecording) {
       this.stopRecording();
     }
     

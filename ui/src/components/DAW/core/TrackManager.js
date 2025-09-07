@@ -4,6 +4,7 @@ import { getAudioBufferFromS3 } from '../misc/DAWUtils.js';
 import Track from './Track.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
+import AudioState from './AudioStateStore.js';
 
 class TrackManager {
   constructor(audioContext) {
@@ -45,6 +46,11 @@ class TrackManager {
     );
     
     await Promise.all(loadPromises);
+
+    const trackDurations = await Promise.all(this.tracks.values().map(track => track.calculateTotalDuration()));
+    const maxDuration = Math.max(...trackDurations);
+    AudioState.dawDuration = maxDuration;
+
     return Array.from(this.tracks.values());
   }
 

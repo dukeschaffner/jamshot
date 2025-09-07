@@ -2,6 +2,7 @@
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import DAWConfig from '../misc/DAWConfig.js';
+import AudioState from './AudioStateStore.js';
 
 class ChunkScheduler {
   constructor(audioContext, trackManager) {
@@ -10,11 +11,6 @@ class ChunkScheduler {
     this.scheduledSegments = new Map(); // segmentId -> segment info
     this.activeSources = new Set(); // currently playing sources
     this.schedulingInterval = null;
-    this.isPlaying = false;
-    this.isRecording = false;
-
-    this.startTime = 0; // audioContext.currentTime that playback started at
-    this.currentTime = 0; // last playback time checkpoint
 
     this.lastScheduledTime = 0;
     
@@ -26,9 +22,6 @@ class ChunkScheduler {
     this.maxConcurrentSegments = DAWConfig.segments?.maxConcurrentSegments || 50;
 
     //looping
-    this.looping = false;
-    this.loopStart = 0;
-    this.loopEnd = 0;
     this.pendingLoopStartTime = null;
     
     // Event listener IDs for cleanup
@@ -49,41 +42,37 @@ class ChunkScheduler {
    */
   setupEventListeners() {
     const toggleId = eventBus.on(DAW_EVENTS.LOOP.TOGGLE, this.handleLoopToggle);
-    const boundariesId = eventBus.on(DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
-    
     this.eventListenerIds.set(DAW_EVENTS.LOOP.TOGGLE, toggleId);
+    
+    const boundariesId = eventBus.on(DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
     this.eventListenerIds.set(DAW_EVENTS.LOOP.BOUNDARIES_SET, boundariesId);
   }
 
   /**
-   * Handle loop toggle events
+   * Handle loop boundaries set events
    */
   handleLoopToggle({ isLooping }) {
-    this.looping = isLooping;
+    AudioState.isLooping = isLooping;
   }
 
   /**
    * Handle loop boundaries set events
    */
   handleLoopBoundariesSet({ loopStart, loopEnd }) {
-    this.loopStart = loopStart;
-    this.loopEnd = loopEnd;
+    AudioState.loopStart = loopStart;
+    AudioState.loopEnd = loopEnd;
   }
 
   /**
    * Start the chunk scheduler
    */
-  start(startTime, currentTime, isRecording) {
-    this.startTime = startTime;
-    this.currentTime = currentTime;
-    this.isRecording = isRecording;
+  start() {
     this.lastScheduledTime = 0;
     
     if (this.schedulingInterval) return;
     
-    this.isPlaying = true;
     this.schedulingInterval = setInterval(() => {
-      if (this.isPlaying) {
+      if (AudioState.isPlaying) {
         this.updateScheduling();
         this.cleanupCompletedSegments();
       }
@@ -96,8 +85,6 @@ class ChunkScheduler {
    * Stop the chunk scheduler
    */
   stop() {
-    this.isPlaying = false;
-    
     if (this.schedulingInterval) {
       clearInterval(this.schedulingInterval);
       this.schedulingInterval = null;
@@ -125,23 +112,29 @@ class ChunkScheduler {
     if (!this.trackManager) return;
     
     // If playback just starting, playbackTime could be negative (playback gets scheduled in the future)
-    let playbackTime = this.currentTime + (this.context.currentTime - this.startTime);
+    let playbackTime = AudioState.currentTime + (this.context.currentTime - AudioState.startTime);
 
     // check if we've reached the end of the loop and if we have, clear the pending loop start time
-    if(this.pendingLoopStartTime && playbackTime >= this.loopEnd) {
-      eventBus.emit(DAW_EVENTS.LOOP.START, { loopStart: this.loopStart, occured_at: this.pendingLoopStartTime });
-      this.startTime = this.pendingLoopStartTime;
-      this.currentTime = this.loopStart;
+    if(this.pendingLoopStartTime && playbackTime >= AudioState.loopEnd) {
+
+      // For now, stop recording on loop end
+      if(AudioState.isRecording) {
+        eventBus.emit(DAW_EVENTS.RECORDING.STOP);
+        return;
+      }
+      eventBus.emit(DAW_EVENTS.LOOP.START);
+      AudioState.startTime = this.pendingLoopStartTime;
+      AudioState.currentTime = AudioState.loopStart;
       this.pendingLoopStartTime = null;
-      playbackTime = this.currentTime + (this.context.currentTime - this.startTime);
+      playbackTime = AudioState.currentTime + (this.context.currentTime - AudioState.startTime);
     }
 
     // Check if we need to schedule more segments
     let needToSchedule = false;
     // If looping is enabled, and we're within the lookAheadWindow, and we don't have a pending loop start time, schedule the loop start
-    if(this.looping && (this.loopEnd - playbackTime < this.lookAheadWindow) && !this.pendingLoopStartTime) {
+    if(AudioState.isLooping && (AudioState.loopEnd - playbackTime < this.lookAheadWindow) && !this.pendingLoopStartTime) {
       needToSchedule = true;
-      this.pendingLoopStartTime = this.startTime + (this.loopEnd - this.currentTime);
+      this.pendingLoopStartTime = AudioState.startTime + (AudioState.loopEnd - AudioState.currentTime);
     }
     // If we haven't scheduled the loop start, and we're within the lookAheadWindow, schedule the next segment
     else if(!this.pendingLoopStartTime && (this.lastScheduledTime - playbackTime < this.lookAheadWindow)) {
@@ -152,14 +145,14 @@ class ChunkScheduler {
     // Calculate scheduling window
     let windowStart = 0;
     if(this.pendingLoopStartTime) {
-      windowStart = this.loopStart;
+      windowStart = AudioState.loopStart;
     }
     else {
       windowStart = this.lastScheduledTime > playbackTime ? this.lastScheduledTime : playbackTime;
     }
     let windowEnd = windowStart + this.segmentDuration;
-    if(this.looping && windowEnd > this.loopEnd) {
-      windowEnd = this.loopEnd;
+    if(AudioState.isLooping && windowEnd > AudioState.loopEnd) {
+      windowEnd = AudioState.loopEnd;
     }
 
     this.lastScheduledTime = windowEnd;
@@ -170,7 +163,7 @@ class ChunkScheduler {
     // Process each track
     tracks.forEach(track => {
       // If we're recording, don't schedule segments for the recording track
-      if(this.isRecording && track.id === 'recording-track') return;
+      if(AudioState.isRecording && track.id === 'recording-track') return;
       
       this.processTrackSegments(track, windowStart, windowEnd);
     });
@@ -207,7 +200,7 @@ class ChunkScheduler {
       // If region ends before the start of the scheduling window, skip it
       if(region.endTime < startTime) return;
 
-      const isSchedulingLoopStart = this.pendingLoopStartTime && startTime == this.loopStart;
+      const isSchedulingLoopStart = this.pendingLoopStartTime && startTime == AudioState.loopStart;
       
       // Calculate segment boundaries
       const segmentStartTime = Math.max(region.startTime, startTime);
@@ -228,7 +221,7 @@ class ChunkScheduler {
         playTime = this.pendingLoopStartTime;
       }
       else {
-        playTime = this.startTime + (adjustedStartTime - this.currentTime);
+        playTime = AudioState.startTime + (adjustedStartTime - AudioState.currentTime);
       }
       
       // Create segment
@@ -258,7 +251,7 @@ class ChunkScheduler {
   scheduleSegment(segment) {
     if (this.scheduledSegments.has(segment.id)){
       // Don't require unique segment ids if loop duration is less than the segment duration (duplicate segments are expected)
-      if(this.looping && (this.loopEnd - this.loopStart <= this.segmentDuration)){
+      if(AudioState.isLooping && (AudioState.loopEnd - AudioState.loopStart <= this.segmentDuration)){
         segment.id = `${segment.id}-2`;
       }
       else{
@@ -340,7 +333,7 @@ class ChunkScheduler {
     
     // Apply fade-in if this segment starts with a crossfade
     if (segment.crossFadeStartDuration > 0) {
-      const fadeInStart = this.startTime + (segment.startTime - this.currentTime);
+      const fadeInStart = AudioState.startTime + (segment.startTime - AudioState.currentTime);
       const fadeInEnd = fadeInStart + segment.crossFadeStartDuration;
       
       // Create a gain node for this segment's crossfade
@@ -359,7 +352,7 @@ class ChunkScheduler {
     
     // Apply fade-out if this segment ends with a crossfade
     if (segment.crossFadeEndDuration > 0) {
-      const fadeOutEnd = this.startTime + (segment.endTime - this.currentTime);
+      const fadeOutEnd = AudioState.startTime + (segment.endTime - AudioState.currentTime);
       const fadeOutStart = fadeOutEnd - segment.crossFadeEndDuration;
       
       // Create a gain node for this segment's crossfade
@@ -412,17 +405,12 @@ class ChunkScheduler {
    * Get scheduling statistics
    */
   getStats() {
-    const currentPlaybackTime = this.currentTime + (this.context.currentTime - this.startTime);
+    const currentPlaybackTime = AudioState.currentTime + (this.context.currentTime - AudioState.startTime);
     return {
       activeSegments: this.scheduledSegments.size,
       activeSources: this.activeSources.size,
-      isPlaying: this.isPlaying,
       currentPlaybackTime,
       lookAheadWindow: this.lookAheadWindow,
-      looping: this.looping,
-      loopStart: this.loopStart,
-      loopEnd: this.loopEnd,
-      loopDuration: this.loopEnd - this.loopStart
     };
   }
 
