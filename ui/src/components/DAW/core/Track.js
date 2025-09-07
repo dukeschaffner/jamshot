@@ -156,10 +156,23 @@ class Track {
     return this.analyzer;
   }
 
+  hasSilenceAtStart() {
+    const activeRegions = this.getActiveRegions();
+    const earliestStartTime = Math.min(...activeRegions.map(region => region.startTime));
+    return earliestStartTime > 0;
+  }
+
+  hasSilenceAtEnd() {
+    const activeRegions = this.getActiveRegions();
+    const latestEndTime = Math.max(...activeRegions.map(region => region.endTime));
+    return latestEndTime < AudioState.dawDuration;
+  }
+
   // Combine all active regions into a single buffer, convert to Wav
-  exportTrack(duration) {
+  exportTrack(trimSilence = false) {
+    console.log('Exporting track with trimSilence:', trimSilence);
     // Get all active regions with their buffers
-    const activeRegions = this.regions.filter(region => region.active);
+    const activeRegions = this.getActiveRegions();
     
     if (activeRegions.length === 0) {
       return null; // No active regions to export
@@ -178,16 +191,29 @@ class Track {
       return null; // No valid buffers found
     }
     
-    // Calculate total duration needed for the combined buffer
-    const totalDuration = duration;
-    
     // Get sample rate and channel count from first buffer (assuming all are the same)
     const firstBuffer = regionsWithBuffers[0].buffer;
     const sampleRate = firstBuffer.sampleRate;
     const numberOfChannels = firstBuffer.numberOfChannels;
     
+    // Calculate duration based on trimSilence setting
+    let exportDuration = AudioState.dawDuration;
+    let startOffset = 0;
+    
+    if (trimSilence) {
+      // Find the earliest start time and latest end time of active regions
+      const startTimes = regionsWithBuffers.map(region => region.startTime);
+      const endTimes = regionsWithBuffers.map(region => region.endTime);
+      
+      const earliestStart = Math.min(...startTimes);
+      const latestEnd = Math.max(...endTimes);
+      
+      startOffset = earliestStart;
+      exportDuration = latestEnd - earliestStart;
+    }
+    
     // Create the combined buffer
-    const totalLength = Math.ceil(totalDuration * sampleRate);
+    const totalLength = Math.ceil(exportDuration * sampleRate);
     const combinedBuffer = this.context.createBuffer(numberOfChannels, totalLength, sampleRate);
     
     // Copy each region's audio data to the correct position
@@ -202,7 +228,8 @@ class Track {
       if (copyLength <= 0) return; // Skip invalid regions
       
       // Calculate destination position in the combined buffer
-      const destStartSample = Math.floor(startTime * sampleRate);
+      // Adjust for startOffset when trimming empty space
+      const destStartSample = Math.floor((startTime - startOffset) * sampleRate);
       
       // Copy audio data for each channel
       for (let channel = 0; channel < numberOfChannels; channel++) {
@@ -214,7 +241,7 @@ class Track {
           const sourceIndex = startSample + i;
           const destIndex = destStartSample + i;
           
-          if (sourceIndex < sourceChannelData.length && destIndex < destChannelData.length) {
+          if (sourceIndex < sourceChannelData.length && destIndex < destChannelData.length && destIndex >= 0) {
             destChannelData[destIndex] += sourceChannelData[sourceIndex];
           }
         }

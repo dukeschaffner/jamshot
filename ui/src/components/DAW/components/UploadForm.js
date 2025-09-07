@@ -5,7 +5,7 @@ import api from '../../../lib/api';
 import TagSelector from '../../TagSelector';
 import LoadingSpinner from '../../LoadingSpinner';
 import { trackTrackUpload, trackCollaboration } from '../../../lib/analytics';
-import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload } from 'react-icons/fa';
+import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload, FaCut } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLock } from '@fortawesome/free-solid-svg-icons';
 import styles from './UploadForm.module.css';
@@ -35,6 +35,22 @@ export default function UploadForm({
   const [parentTrackModel, setParentTrackModel] = useState(null);
   const router = useRouter();
 
+  const [hasSilenceAtStart, setHasSilenceAtStart] = useState(false);
+  const [hasSilenceAtEnd, setHasSilenceAtEnd] = useState(false);
+  const [trimSilence, setTrimSilence] = useState(false);
+
+
+  useEffect(() => {
+    if(isCollab || !trackManagerRef.current) return;
+    const recordingTrack = trackManagerRef.current.getTrack('recording-track');
+    if(recordingTrack) {
+      const silenceAtStart = recordingTrack.hasSilenceAtStart();
+      const silenceAtEnd = recordingTrack.hasSilenceAtEnd();
+      setHasSilenceAtStart(silenceAtStart);
+      setHasSilenceAtEnd(silenceAtEnd);
+      setTrimSilence(silenceAtStart || silenceAtEnd);
+    }
+  }, [isCollab]);
 
   // Generate appropriate upgrade message based on limit type
   const getUpgradeMessage = () => {
@@ -115,7 +131,7 @@ export default function UploadForm({
       return;
     }
     else{
-      buffer = recordingTrack.exportTrack();
+      buffer = recordingTrack.exportTrack(trimSilence);
       if(!buffer){
         setError('Error exporting recording track');
         return;
@@ -372,6 +388,33 @@ export default function UploadForm({
               </div>
             )}
           </>
+        )}
+
+        {/* Trim silence option - only show if track has silence at start or end */}
+        {(hasSilenceAtStart || hasSilenceAtEnd) && (
+          <div className="flex items-center space-x-2 mt-4">
+            <input
+              type="checkbox"
+              id="trimSilence"
+              checked={trimSilence}
+              onChange={(e) => setTrimSilence(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="trimSilence" className="flex items-center text-sm">
+              <FaCut className="mr-2 text-gray-600" />
+              {hasSilenceAtStart && hasSilenceAtEnd 
+                ? "Trim silence at start and end"
+                : hasSilenceAtStart 
+                ? "Trim silence at start"
+                : "Trim silence at end"
+              }
+              {hasSilenceAtStart ? (
+                <span className="ml-2 text-xs text-gray-500">(Recommended but might affect grid sync)</span>
+              ) : (
+                <span className="ml-2 text-xs text-gray-500">(Recommended)</span>
+              )}
+            </label>
+          </div>
         )}
 
         {/* Download permission - show for both regular tracks and collaborations */}
