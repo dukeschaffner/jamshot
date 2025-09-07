@@ -5,6 +5,7 @@ import DAWConfig from '../misc/DAWConfig.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import { getPlaybackTime } from '../misc/DAWUtils.js';
+import AudioState from './AudioStateStore.js';
 
 class AudioEngine {
   constructor(audioContext) {
@@ -15,13 +16,7 @@ class AudioEngine {
     this.recorder = null;
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Transport state
-    this.isPlaying = false;
-    this.currentTime = 0; // Playback time in seconds
-    this.startTime = 0; // audioContext.currentTime when playback started
-    this.isLooping = false;
-    this.loopStart = 0;
-    this.loopEnd = 100;
+    AudioState.reset();
     
     // Playhead management
     this.playheadTimer = null;
@@ -64,7 +59,6 @@ class AudioEngine {
     this.handleMetronomeOffsetChange = this.handleMetronomeOffsetChange.bind(this);
     this.handleCountInToggle = this.handleCountInToggle.bind(this);
     this.handleLoopStart = this.handleLoopStart.bind(this);
-    this.handleLoopToggle = this.handleLoopToggle.bind(this);
     this.handleLoopBoundariesSet = this.handleLoopBoundariesSet.bind(this);
   }
   
@@ -113,7 +107,6 @@ class AudioEngine {
     
     // Listen for loop events
     this.eventBus.on(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
-    this.eventBus.on(this.DAW_EVENTS.LOOP.TOGGLE, this.handleLoopToggle);
     this.eventBus.on(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
   }
   
@@ -161,7 +154,7 @@ class AudioEngine {
     const offsetSeconds = this.metronomeOffset * secondsPerMeasure;
     
     // Calculate the current beat based on playhead position, adjusting for the offset
-    const currentPlaybackTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
+    const currentPlaybackTime = getPlaybackTime(this.context, AudioState.startTime, AudioState.currentTime);
     const adjustedTime = currentPlaybackTime + (secondsPerMeasure - offsetSeconds);
     const nextPlayheadBeat = Math.ceil(adjustedTime * this.metronomeBPM / 60);
     
@@ -217,7 +210,7 @@ class AudioEngine {
     if (!this.isMetronomeOn) return;
     
     this.metronomeScheduleInterval = setInterval(() => {
-      if (!this.isPlaying) {
+      if (!AudioState.isPlaying) {
         clearInterval(this.metronomeScheduleInterval);
         return;
       }
@@ -237,8 +230,8 @@ class AudioEngine {
 
   // #region event handlers (play/pause...)
   
-  play(isRecording = false) {
-    if (this.isPlaying) return;
+  play() {
+    if (AudioState.isPlaying) return;
 
     // Resume context if suspended
     if (this.context.state === 'suspended') {
@@ -249,10 +242,10 @@ class AudioEngine {
       this.context = new (window.AudioContext || window.webkitAudioContext)();
     }
     
-    this.isPlaying = true;
+    AudioState.isPlaying = true;
 
-    if(this.isLooping) {
-      this.currentTime = this.loopStart;
+    if(AudioState.isLooping) {
+      AudioState.currentTime = AudioState.loopStart;
     }
     
     // Calculate start time with count-in if enabled
@@ -266,11 +259,11 @@ class AudioEngine {
       this.shouldCountIn = false;
     }
     
-    this.startTime = scheduledStartTime;
+    AudioState.startTime = scheduledStartTime;
     
     // Start chunk scheduler
     if (this.chunkScheduler) {
-      this.chunkScheduler.start(this.startTime, this.currentTime, isRecording);
+      this.chunkScheduler.start();
     }
     
     // Start metronome if enabled
@@ -283,12 +276,12 @@ class AudioEngine {
     this.startPlayheadTimer();
     
     // Emit playback started event
-    this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.STARTED, { audioContextTime: this.startTime, playbackTime: this.currentTime});
+    this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.STARTED, { audioContextTime: AudioState.startTime, playbackTime: AudioState.currentTime});
   }
   
   pause(currentTime = null) {
-    this.isPlaying = false;
-    this.currentTime = currentTime !== undefined ? currentTime : getPlaybackTime(this.context, this.startTime, this.currentTime);
+    AudioState.isPlaying = false;
+    AudioState.currentTime = currentTime !== null ? currentTime : getPlaybackTime(this.context, AudioState.startTime, AudioState.currentTime);
     
     // Stop chunk scheduler
     if (this.chunkScheduler) {
@@ -311,12 +304,12 @@ class AudioEngine {
     }
 
     // Auto-start playback when recording begins (if not already playing)
-    if (!this.isPlaying) {
+    if (!AudioState.isPlaying) {
       // If count-in is enabled, set the flag for the next playback
       if (this.isCountInEnabled && this.isMetronomeOn) {
         this.setCountIn(true);
       }
-      this.play(true);
+      this.play();
     }
   }
   
@@ -383,7 +376,7 @@ class AudioEngine {
     const { isOn } = data || {};
     this.isMetronomeOn = isOn !== undefined ? isOn : !this.isMetronomeOn;
     
-    if (this.isPlaying && this.isMetronomeOn) {
+    if (AudioState.isPlaying && this.isMetronomeOn) {
       this.startMetronomeScheduling();
     } else {
       this.stopMetronomeScheduling();
@@ -401,7 +394,7 @@ class AudioEngine {
     this.metronomeBPM = bpm;
     
     // Restart metronome scheduling if currently playing
-    if (this.isPlaying && this.isMetronomeOn) {
+    if (AudioState.isPlaying && this.isMetronomeOn) {
       this.stopAndClearMetronomeClicks();
       this.startMetronomeScheduling();
     }
@@ -421,7 +414,7 @@ class AudioEngine {
     this.timeSignature = timeSignature;
     
     // Restart metronome scheduling if currently playing
-    if (this.isPlaying && this.isMetronomeOn) {
+    if (AudioState.isPlaying && this.isMetronomeOn) {
       this.stopAndClearMetronomeClicks();
       this.startMetronomeScheduling();
     }
@@ -432,60 +425,24 @@ class AudioEngine {
     this.metronomeOffset = offset;
     
     // Restart metronome scheduling if currently playing
-    if (this.isPlaying && this.isMetronomeOn) {
+    if (AudioState.isPlaying && this.isMetronomeOn) {
       this.stopAndClearMetronomeClicks();
       this.startMetronomeScheduling();
     }
   }
   
   // Loop event handlers
-  handleLoopStart(data) {
-    const { loopStart, occured_at } = data;
-    
-    // Update the start time to when the loop restart occurred
-    if (occured_at) {
-      this.startTime = occured_at;
-    }
-    
-    // Update the current time to the loop start position
-    if (loopStart !== undefined) {
-      this.currentTime = loopStart;
-    }
-    
+  handleLoopStart() {
     // Restart metronome scheduling if currently playing and metronome is on
-    if (this.isPlaying && this.isMetronomeOn) {
+    if (AudioState.isPlaying && this.isMetronomeOn) {
       this.stopAndClearMetronomeClicks();
       this.startMetronomeScheduling();
     }
   }
 
-  handleLoopToggle(data) {
-    const { isLooping } = data || {};
-    this.isLooping = isLooping !== undefined ? isLooping : !this.isLooping;
-    
-    // Restart metronome scheduling if currently playing and metronome is on
-    if (this.isPlaying && this.isMetronomeOn) {
-      if (this.isLooping) {
-        this.startMetronomeScheduling();
-      } else {
-        this.stopMetronomeScheduling();
-        this.stopAndClearMetronomeClicks();
-      }
-    }
-  }
-
-  handleLoopBoundariesSet(data) {
-    const { loopStart, loopEnd } = data;
-    
-    if (loopStart !== undefined) {
-      this.loopStart = loopStart;
-    }
-    if (loopEnd !== undefined) {
-      this.loopEnd = loopEnd;
-    }
-    
+  handleLoopBoundariesSet() {
     // Restart metronome scheduling if currently playing, metronome is on, and looping is enabled
-    if (this.isPlaying && this.isMetronomeOn && this.isLooping) {
+    if (AudioState.isPlaying && this.isMetronomeOn && AudioState.isLooping) {
       this.stopAndClearMetronomeClicks();
       this.startMetronomeScheduling();
     }
@@ -501,17 +458,17 @@ class AudioEngine {
   // Playhead timer
   startPlayheadTimer() {
     this.playheadTimer = setInterval(() => {
-      if (this.isPlaying) {
-        let playbackTime = getPlaybackTime(this.context, this.startTime, this.currentTime);
+      if (AudioState.isPlaying) {
+        let playbackTime = getPlaybackTime(this.context, AudioState.startTime, AudioState.currentTime);
 
         if(playbackTime > this.getDuration()) {
-          if(this.isRecording) {
+          if(AudioState.isRecording) {
             this.stopRecording();
           }
           else {
             this.pause();
           }
-          this.currentTime = 0;
+          AudioState.currentTime = 0;
           playbackTime = 0;
         }
         
@@ -534,10 +491,10 @@ class AudioEngine {
   }
   
   seek(time) {
-    this.currentTime = time;
+    AudioState.currentTime = time;
     console.log('seek', time);
     
-    if (this.isPlaying) {
+    if (AudioState.isPlaying) {
       // Restart playback at new position
       this.pause(time);
       this.play();
@@ -587,7 +544,6 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
-      this.eventBus.off(this.DAW_EVENTS.LOOP.TOGGLE, this.handleLoopToggle);
       this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
     }
     
