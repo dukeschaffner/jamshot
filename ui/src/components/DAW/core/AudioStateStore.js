@@ -1,3 +1,5 @@
+import DAWConfig from '../misc/DAWConfig.js';
+
 /**
  * AudioStateStore - Centralized state management for DAW audio state
  * Single source of truth for all audio-related state variables
@@ -18,7 +20,9 @@ class AudioStateStore {
     this.loopStart = 0;
     this.loopEnd = 100;
 
-    this.dawDuration = 0;
+    this.dawDuration = DAWConfig.project.defaultDuration;
+
+    this.isCollab = false;
     
     // this.isMetronomeOn = false;
     // this.metronomeBPM = 120;

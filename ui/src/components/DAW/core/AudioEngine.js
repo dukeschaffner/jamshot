@@ -8,7 +8,7 @@ import { getPlaybackTime } from '../misc/DAWUtils.js';
 import AudioState from './AudioStateStore.js';
 
 class AudioEngine {
-  constructor(audioContext) {
+  constructor(audioContext, isCollab) {
     this.context = audioContext;
     this.trackManager = null;
     this.chunkScheduler = null;
@@ -17,6 +17,7 @@ class AudioEngine {
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     AudioState.reset();
+    AudioState.isCollab = isCollab;
     
     // Playhead management
     this.playheadTimer = null;
@@ -461,7 +462,7 @@ class AudioEngine {
       if (AudioState.isPlaying) {
         let playbackTime = getPlaybackTime(this.context, AudioState.startTime, AudioState.currentTime);
 
-        if(playbackTime > this.getDuration()) {
+        if(playbackTime > AudioState.dawDuration) {
           if(AudioState.isRecording) {
             this.stopRecording();
           }
@@ -471,11 +472,15 @@ class AudioEngine {
           AudioState.currentTime = 0;
           playbackTime = 0;
         }
+        else if(!AudioState.isCollab && playbackTime > AudioState.dawDuration - DAWConfig.singleTrackDAW.dawDurationExtensionLookahead) {
+          AudioState.dawDuration = AudioState.dawDuration + 15;
+          this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: AudioState.dawDuration });
+        }
         
         // Emit position update event
         this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.POSITION_UPDATE, {
           time: playbackTime,
-          position: playbackTime / this.getDuration() * 100
+          position: playbackTime / AudioState.dawDuration * 100
         });
 
 
@@ -499,15 +504,6 @@ class AudioEngine {
       this.pause(time);
       this.play();
     }
-  }
-  
-  // Utility methods
-  getDuration() {
-    let maxDuration = 0;
-    this.trackManager.getAllTracks().forEach(track => {
-      maxDuration = Math.max(maxDuration, track.duration);
-    });
-    return maxDuration || 1; // Prevent division by zero
   }
   
   // Cleanup

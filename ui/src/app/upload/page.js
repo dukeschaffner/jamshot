@@ -1,7 +1,7 @@
 'use client';
-import DawInterface from '../../components/old DAW/DawInterface';
 import { FaDesktop } from 'react-icons/fa';
 import { useMobile } from '../../contexts/MobileContext';
+import DAW from '@/components/DAW/DAW';
 
 export default function Upload() {
   const { isMobile } = useMobile();
@@ -19,7 +19,7 @@ export default function Upload() {
           <p>Use Desktop version to record or upload file to collaborate</p>
         </div>
       ) : (
-        <DawInterface isCollab={false} />
+        <DAW/>
       )}
     </div>
   );
