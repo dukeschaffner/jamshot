@@ -60,8 +60,7 @@ export default function Region({
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
 
-
-
+  const [shouldRender, setShouldRender] = useState(true); // whether to render the region
 
 
 
@@ -85,6 +84,15 @@ export default function Region({
     if (!track || !bufferKey || !duration) return;
     const region = track.regions.find(r => r.key === bufferKey);
     if (region) {
+      let regionShouldRender = true;
+      if(region.startTime > duration) { // Don't render the region if it's outside the duration
+        regionShouldRender = false;
+      }
+      else if(region.endTime > duration) { // If project end cuts off the region, set the end time to the project end
+        region.endTime = duration;
+        eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: region, trackId: track.id });
+      }
+      setShouldRender(regionShouldRender);
       setStartTime(region.startTime);
       setEndTime(region.endTime);
       setOffset(region.offset);
@@ -426,7 +434,7 @@ export default function Region({
 
   // Generate chunks based on peaks
   useEffect(() => {
-    if (!buffer) return;
+    if (!buffer || !waveformWidth) return;
     const baseChunkWidth = Math.min(MAX_CHUNK_WIDTH, waveformWidth);
     const chunksCount = Math.ceil(waveformWidth / baseChunkWidth);
     const newChunks = [];
@@ -461,6 +469,10 @@ export default function Region({
   }, [visibleChunks, chunks]);
 
   // #endregion
+
+  if (!shouldRender) {
+    return null;
+  }
 
   if (!buffer || !chunks) {
     return (

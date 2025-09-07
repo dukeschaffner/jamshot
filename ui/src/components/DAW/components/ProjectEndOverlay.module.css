@@ -1,0 +1,36 @@
+
+  /* Project End Overlay */
+  .projectEndOverlay {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #999;
+    cursor: ew-resize;
+    z-index: 1000;
+    transition: left 0.2s ease, background-color 0.2s ease;
+  }
+
+  .projectEndOverlay:hover {
+    background-color: #666;
+  }
+
+  .projectEndOverlay.dragging {
+    background-color: #666;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .projectEndOverlayBackground {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    background-color: transparent;
+    pointer-events: none;
+    z-index: 999;
+    transition: background-color 0.2s ease;
+  }
+
+  .projectEndOverlayBackground.dragging {
+    background-color: rgba(0, 0, 0, 0.1);
+  }

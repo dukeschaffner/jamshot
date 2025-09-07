@@ -6,6 +6,7 @@ import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
 import api from '@/lib/api';
 import DAWConfig from './misc/DAWConfig';
+import AudioState from './core/AudioStateStore';
 
 const DAWContext = createContext();
 
@@ -26,7 +27,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
   const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const playRecordedRef = useRef(false);
@@ -51,6 +52,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
           trackManagerRef.current.destroy();
           trackManagerRef.current = null;
         }
+
+        AudioState.reset();
         
         // Initialize audio context
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();

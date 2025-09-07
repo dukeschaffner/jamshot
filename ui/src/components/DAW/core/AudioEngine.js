@@ -16,7 +16,6 @@ class AudioEngine {
     this.recorder = null;
     this.instanceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    AudioState.reset();
     AudioState.isCollab = isCollab;
     
     // Playhead management
@@ -61,6 +60,7 @@ class AudioEngine {
     this.handleCountInToggle = this.handleCountInToggle.bind(this);
     this.handleLoopStart = this.handleLoopStart.bind(this);
     this.handleLoopBoundariesSet = this.handleLoopBoundariesSet.bind(this);
+    this.handleDurationChange = this.handleDurationChange.bind(this);
   }
   
   async initialize(tm) {
@@ -109,6 +109,9 @@ class AudioEngine {
     // Listen for loop events
     this.eventBus.on(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
     this.eventBus.on(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
+
+    // Listen for duration change events
+    this.eventBus.on(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, this.handleDurationChange);
   }
   
   // #region metronome
@@ -449,6 +452,11 @@ class AudioEngine {
     }
   }
 
+  handleDurationChange(data) {
+    const { duration } = data;
+    AudioState.dawDuration = duration;
+  }
+
   // #endregion
   
   // Set count-in flag for next playback
@@ -472,7 +480,7 @@ class AudioEngine {
           AudioState.currentTime = 0;
           playbackTime = 0;
         }
-        else if(!AudioState.isCollab && playbackTime > AudioState.dawDuration - DAWConfig.singleTrackDAW.dawDurationExtensionLookahead) {
+        else if(!AudioState.isCollab && AudioState.isRecording && playbackTime > AudioState.dawDuration - DAWConfig.singleTrackDAW.dawDurationExtensionLookahead) {
           AudioState.dawDuration = AudioState.dawDuration + 15;
           this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: AudioState.dawDuration });
         }
@@ -541,6 +549,7 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
       this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
+      this.eventBus.off(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, this.handleDurationChange);
     }
     
     if (this.context) {
