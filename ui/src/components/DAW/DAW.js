@@ -20,6 +20,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
+import ProjectEndOverlay from './components/ProjectEndOverlay';
 
 function DAWContent({ track}) {
   const { 
@@ -52,7 +53,7 @@ function DAWContent({ track}) {
 
   const tracksAndTimelineRef = useRef(null);
   const tracksScrollContainerRef = useRef(null);
-  const tracksContainerRef = useRef(null);
+  const [tracksContainer, setTracksContainer] = useState(null);
 
   const [showUploadForm, setShowUploadForm] = useState(false);
 
@@ -114,11 +115,11 @@ function DAWContent({ track}) {
 
   // Listen to track rect width changes
   useEffect(() => {
-    if (!tracksContainerRef?.current) return;
+    if (!tracksContainer) return;
 
     const updateTrackRectWidth = () => {
-      if (tracksContainerRef.current) {
-        const rect = tracksContainerRef.current.getBoundingClientRect();
+      if (tracksContainer) {
+        const rect = tracksContainer.getBoundingClientRect();
         setTracksContainerWidth(rect.width);
       }
     };
@@ -133,16 +134,16 @@ function DAWContent({ track}) {
       }
     });
 
-    resizeObserver.observe(tracksContainerRef.current);
+    resizeObserver.observe(tracksContainer);
 
     // Cleanup
     return () => {
-      if (tracksContainerRef.current) {
-        resizeObserver.unobserve(tracksContainerRef.current);
+      if (tracksContainer) {
+        resizeObserver.unobserve(tracksContainer);
       }
       resizeObserver.disconnect();
     };
-  }, [tracksContainerRef.current]);
+  }, [tracksContainer]);
 
   // Show loading state
   if (isLoading) {
@@ -227,13 +228,21 @@ function DAWContent({ track}) {
                     />
                     <Looper/>
                   </div>
-                  <div className={styles.tracksContainer} ref={tracksContainerRef}>
+                  <div className={styles.tracksContainer} ref={setTracksContainer}>
                     {tracks.map((track, index) => (
                       <Track key={index} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
                     ))}
                     <Playhead/>
                   </div>
                   
+                  {/* Project End Overlay - only show in collaboration mode */}
+                  {!isCollab && (
+                    <ProjectEndOverlay 
+                      containerRef={tracksAndTimelineRef}
+                      duration={duration}
+                      zoom={zoom}
+                    />
+                  )}
                 </div>
                 {zoom > 1 && (
                   <div className={styles.zoomIndicator}>

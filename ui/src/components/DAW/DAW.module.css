@@ -54,6 +54,7 @@
     flex-direction: column;
     width: 100%;
     transition: width 0.2s ease, min-width 0.2s ease;
+    /* position: relative; */
 }
 
 .tracksHeaders {
@@ -81,6 +82,7 @@
   .tracksContainer {
     position: relative;
     flex: 1;
+    margin-top:15px;
   }
 
   /* #endregion */
