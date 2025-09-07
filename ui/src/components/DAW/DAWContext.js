@@ -4,6 +4,7 @@ import TrackManager from './core/TrackManager';
 import AudioEngine from './core/AudioEngine';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
+import api from '@/lib/api';
 
 const DAWContext = createContext();
 
@@ -109,6 +110,9 @@ export function DAWProvider({ children, trackData }) {
     // Listen for transport events
     const handlePlaybackStarted = () => {
       setIsPlaying(true);
+      if(!playRecordedRef.current) {
+        recordPlay();
+      }
     };
     
     const handlePlaybackStopped = () => {
@@ -213,7 +217,7 @@ export function DAWProvider({ children, trackData }) {
   }, []); 
 
   const recordPlay = async () => {
-    if (!track || playRecordedRef.current) return;
+    if (!trackData || playRecordedRef.current) return;
     
     try {
       playRecordedRef.current = true;
@@ -221,12 +225,12 @@ export function DAWProvider({ children, trackData }) {
       // Get referrer URL for discovery method
       const referrerUrl = document.referrer || null;
       
-      const response = await api.post(`/tracks/${track.id}/play`, {
+      const response = await api.post(`/tracks/${trackData.id}/play`, {
         discovery_method: 'track_page',
         referrer_url: referrerUrl
       });
       
-      console.log('Play recorded for track:', track.id);
+      console.log('Play recorded for track:', trackData.id);
     } catch (err) {
       console.error('Failed to record initial play:', err);
     }
