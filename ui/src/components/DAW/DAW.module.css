@@ -54,7 +54,7 @@
     flex-direction: column;
     width: 100%;
     transition: width 0.2s ease, min-width 0.2s ease;
-    /* position: relative; */
+    position: relative;
 }
 
 .tracksHeaders {

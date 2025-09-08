@@ -23,7 +23,7 @@ const Track = ({
   const [recordingWidth, setRecordingWidth] = useState(0);
   
   // Get DAW context for recording state and playhead position
-  const { isRecording, playheadLocation, duration } = useDAW();
+  const { isRecording, playheadLocation, duration, isCollab } = useDAW();
 
   const durationRef = useRef(duration);
 
@@ -169,7 +169,15 @@ const Track = ({
         }
 
         let endTime = fileBuffer.duration;
-        if (fileBuffer.duration > durationRef.current) {
+        if(!isCollab) { // Set DAW duration to file duration or max upload duration
+          let duration = fileBuffer.duration;
+          if(duration > DAWConfig.audio.maxRecordingDuration) {
+            duration = DAWConfig.audio.maxRecordingDuration;
+            endTime = duration;
+          }
+          eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: duration });
+        }
+        else if (fileBuffer.duration > durationRef.current) {
           endTime = durationRef.current;
         }
 
