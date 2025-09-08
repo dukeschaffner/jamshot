@@ -9,6 +9,7 @@ export default function Register() {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -41,6 +42,23 @@ export default function Register() {
       setError('Name must be 40 characters or less.');
       return;
     }
+    // Validate date of birth
+    if (!dateOfBirth) {
+      setError('Date of birth is required.');
+      return;
+    }
+    // Check if user is at least 13 years old
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    if (age < 13) {
+      setError('You must be at least 13 years old to register.');
+      return;
+    }
     // Check if passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -59,6 +77,7 @@ export default function Register() {
         username, 
         name, 
         email, 
+        dateOfBirth,
         password, 
         acceptTerms 
       });
@@ -74,6 +93,7 @@ export default function Register() {
       setUsername('');
       setName('');
       setEmail('');
+      setDateOfBirth('');
       setPassword('');
       setConfirmPassword('');
       setAcceptTerms(false);
@@ -158,6 +178,22 @@ export default function Register() {
               required
               disabled={isRegistering}
             />
+          </div>
+          <div>
+            <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1">
+              Date of Birth
+            </label>
+            <input
+              id="dateOfBirth"
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              className="w-full p-2 border rounded"
+              required
+              disabled={isRegistering}
+              max={new Date().toISOString().split('T')[0]} // Prevent future dates
+            />
+            <p className="text-xs text-gray-500 mt-1">You must be at least 13 years old to register.</p>
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
