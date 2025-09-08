@@ -12,6 +12,7 @@ const {
   passwordResetLimiter, 
   emailVerificationLimiter 
 } = require('../middleware/rateLimiting');
+const { validateDateOfBirth } = require('../../shared/utils/validation');
 require('dotenv').config();
 
 const router = express.Router();
@@ -81,7 +82,7 @@ const validatePassword = (password) => {
 
 // Register
 router.post('/register', authLimiter, async (req, res) => {
-  let { username, name, email, password, acceptTerms } = req.body;
+  let { username, name, email, dateOfBirth, password, acceptTerms } = req.body;
   const deviceInfo = req.headers['user-agent'] || null;
   
   // Username validation: only allow letters, numbers, and underscores
@@ -116,6 +117,12 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Name is required' });
     }
     
+    // Validate date of birth
+    const dobValidation = validateDateOfBirth(dateOfBirth);
+    if (!dobValidation.valid) {
+      return res.status(400).json({ error: dobValidation.error });
+    }
+    
     // Validate policy acceptance
     if (!acceptTerms) {
       return res.status(400).json({ error: 'You must accept the Terms of Service and Privacy Policy to register.' });
@@ -144,11 +151,11 @@ router.post('/register', authLimiter, async (req, res) => {
     const currentTimestamp = new Date();
     
     const result = await pool.query(
-      `INSERT INTO users (username, name, email, password_hash, terms_accepted, privacy_policy_accepted, 
+      `INSERT INTO users (username, name, email, password_hash, date_of_birth, terms_accepted, privacy_policy_accepted, 
        policy_accepted_at, policy_accepted_ip, policy_version) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
        RETURNING id, username, email`,
-      [username, name, email, hashedPassword, true, true, currentTimestamp, clientIp, '1.0']
+      [username, name, email, hashedPassword, dateOfBirth, true, true, currentTimestamp, clientIp, '1.0']
     );
     
     const user = result.rows[0];
