@@ -299,7 +299,7 @@ export default function UploadForm({
                   className="w-4 h-4"
                 />
                 <label htmlFor="noMetronome" className="text-sm font-medium">
-                  My recording doesn't use the metronome
+                  My recording doesn&apos;t use the metronome
                 </label>
               </div>
               
