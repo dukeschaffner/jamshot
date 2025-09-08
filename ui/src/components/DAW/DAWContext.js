@@ -60,6 +60,15 @@ export function DAWProvider({ children, trackData, isCollab }) {
 
         // Create and load all tracks
         const tm = new TrackManager(audioContext);
+
+        let metronomeBpm = null;
+        let timeSignature = null;
+        let metronomeOffset = null;
+        if(trackData && trackData.length > 0) {
+          metronomeBpm = trackData[0].metronome_bpm;
+          timeSignature = trackData[0].time_signature;
+          metronomeOffset = trackData[0].metronome_offset;
+        }
         
         // Load existing tracks if provided
         if (trackData && trackData.length > 0) {
@@ -71,11 +80,20 @@ export function DAWProvider({ children, trackData, isCollab }) {
         
         // Initialize audio engine
         const ae = new AudioEngine(audioContext, isCollab);
-        await ae.initialize(tm);
+        await ae.initialize(tm, metronomeBpm, timeSignature, metronomeOffset);
         
         trackManagerRef.current = tm;
         audioEngineRef.current = ae;
         setTracks(tm.getAllTracks());
+        if(metronomeBpm) {
+          setMetronomeBpm(metronomeBpm);
+        }
+        if(timeSignature) {
+          setTimeSignature(timeSignature);
+        }
+        if(metronomeOffset) {
+          setMetronomeOffset(metronomeOffset);
+        }
       } catch (err) {
         setError(err.message);
       } finally {

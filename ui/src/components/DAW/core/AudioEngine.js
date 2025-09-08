@@ -63,7 +63,7 @@ class AudioEngine {
     this.handleDurationChange = this.handleDurationChange.bind(this);
   }
   
-  async initialize(tm) {
+  async initialize(tm, metronomeBpm, timeSignature, metronomeOffset) {
     this.trackManager = tm;
     
     if(!this.context) {
@@ -73,6 +73,16 @@ class AudioEngine {
 
     if(this.context.state === 'suspended') {
       this.context.resume();
+    }
+
+    if(metronomeBpm) {
+      this.metronomeBPM = metronomeBpm;
+    }
+    if(timeSignature) {
+      this.timeSignature = timeSignature;
+    }
+    if(metronomeOffset) {
+      this.metronomeOffset = metronomeOffset;
     }
     
     // Initialize chunk scheduler
@@ -484,7 +494,7 @@ class AudioEngine {
           AudioState.dawDuration = AudioState.dawDuration + 15;
           this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: AudioState.dawDuration });
         }
-        
+
         // Emit position update event
         this.eventBus.emit(this.DAW_EVENTS.PLAYBACK.POSITION_UPDATE, {
           time: playbackTime,

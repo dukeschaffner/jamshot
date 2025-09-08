@@ -38,6 +38,7 @@ export default function UploadForm({
   const [hasSilenceAtStart, setHasSilenceAtStart] = useState(false);
   const [hasSilenceAtEnd, setHasSilenceAtEnd] = useState(false);
   const [trimSilence, setTrimSilence] = useState(false);
+  const [noMetronome, setNoMetronome] = useState(false);
 
 
   useEffect(() => {
@@ -179,10 +180,12 @@ export default function UploadForm({
       }
 
       if (!isCollab) {
-        formData.append('metronome_bpm', metronomeBpm);
-        formData.append('time_signature', timeSignature);
+        if (!noMetronome) {
+          formData.append('metronome_bpm', metronomeBpm);
+          formData.append('time_signature', timeSignature);
+          formData.append('metronome_offset', metronomeOffset);
+        }
         formData.append('is_private', isPrivate);
-        formData.append('metronome_offset', metronomeOffset);
       }
       
       // Add download permission for both regular tracks and collaborations
@@ -287,65 +290,69 @@ export default function UploadForm({
         {!isCollab && (
           <>
             <div>
-              <label htmlFor="metronome" className="block text-sm font-medium mb-1">Metronome (BPM)</label>
-              <div className="flex items-center">
+              <div className="flex items-center space-x-2 mb-3">
                 <input
-                  id="metronome"
-                  type="number"
-                  min="40"
-                  max="240"
-                  value={metronomeBpmInput}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setMetronomeBpmInput(value);
-                    
-                    // Update parent component BPM if valid
-                    const newBpm = parseInt(value, 10);
-                    if (!isNaN(newBpm) && newBpm >= 40 && newBpm <= 240 && setMetronomeBpm) {
-                      setMetronomeBpm(newBpm);
-                    }
-                  }}
-                  placeholder={parentTrackModel?.metronome_bpm || "e.g., 120"}
-                  className="w-full p-2 border rounded"
+                  type="checkbox"
+                  id="noMetronome"
+                  checked={noMetronome}
+                  onChange={(e) => setNoMetronome(e.target.checked)}
+                  className="w-4 h-4"
                 />
+                <label htmlFor="noMetronome" className="text-sm font-medium">
+                  My recording doesn't use the metronome
+                </label>
               </div>
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
-                <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
-                <p className="text-sm text-gray-700">
-                  <strong>Important:</strong> Only specify a metronome BPM if your track actually follows this tempo precisely. 
-                  This helps collaborators stay in sync with your track. Leave blank if unsure.
-                </p>
-              </div>
-            </div>
-            
-            <div>
-              <label htmlFor="timeSignature" className="block text-sm font-medium mb-1">Time Signature</label>
-              <select
-                id="timeSignature"
-                value={timeSignatureInput}
-                onChange={(e) => {
-                  const newTimeSignature = e.target.value;
-                  setTimeSignatureInput(newTimeSignature);
+              
+              {!noMetronome && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="metronome" className="block text-sm font-medium mb-1">Metronome (BPM)</label>
+                    <input
+                      id="metronome"
+                      type="number"
+                      min="40"
+                      max="240"
+                      value={metronomeBpmInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setMetronomeBpmInput(value);
+                        
+                        // Update parent component BPM if valid
+                        const newBpm = parseInt(value, 10);
+                        if (!isNaN(newBpm) && newBpm >= 40 && newBpm <= 240 && setMetronomeBpm) {
+                          setMetronomeBpm(newBpm);
+                        }
+                      }}
+                      placeholder={parentTrackModel?.metronome_bpm || "e.g., 120"}
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
                   
-                  // Update parent component time signature if callback exists
-                  if (setTimeSignature) {
-                    setTimeSignature(newTimeSignature);
-                  }
-                }}
-                className="w-full p-2 border rounded"
-              >
-                {timeSignatureOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
-                <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
-                <p className="text-sm text-gray-700">
-                  Select the time signature that matches your track&apos;s rhythm. This helps collaborators maintain the correct musical structure.
-                </p>
-              </div>
+                  <div>
+                    <label htmlFor="timeSignature" className="block text-sm font-medium mb-1">Time Signature</label>
+                    <select
+                      id="timeSignature"
+                      value={timeSignatureInput}
+                      onChange={(e) => {
+                        const newTimeSignature = e.target.value;
+                        setTimeSignatureInput(newTimeSignature);
+                        
+                        // Update parent component time signature if callback exists
+                        if (setTimeSignature) {
+                          setTimeSignature(newTimeSignature);
+                        }
+                      }}
+                      className="w-full p-2 border rounded"
+                    >
+                      {timeSignatureOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
