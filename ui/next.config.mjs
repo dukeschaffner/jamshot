@@ -1,14 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false,
-  // Disable static export for now - we'll use a different approach
+  // reactStrictMode: false,
+  // // Enable static export for Amplify deployment
   // output: 'export',
   // trailingSlash: true,
+  // images: {
+  //   domains: ['sterio-test.s3.us-east-2.amazonaws.com','sterio.s3.us-east-2.amazonaws.com'],
+  //   unoptimized: true, // Required for static export
+  // },
+  // // Ensure all assets are properly handled
+  // assetPrefix: process.env.NODE_ENV === 'production' ? './' : '',
+
   images: {
     domains: ['sterio-test.s3.us-east-2.amazonaws.com','sterio.s3.us-east-2.amazonaws.com'],
   },
-  // Ensure all assets are properly handled
-  assetPrefix: process.env.NODE_ENV === 'production' ? './' : '',
 };
 
 export default nextConfig;
