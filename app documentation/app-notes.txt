@@ -26,7 +26,7 @@ TODO (MVP)
 BUGS
 - invalid credentials on login -> error message is session expired instead of invalid credentials
 - when not following any users, sometimes it loads the popular feed but shows the following feed button selected
-- selected device showed as blackhole but was actually mac microphone
+- audio mixing doesnt sound good
 
 
 RELEASE CHECKLIST
@@ -59,7 +59,6 @@ TODO (after beta testing)
 - "add on" option where instead of adding layers, they can add audio before or after
 - paginate track, reposts, likes on user page
 - comment edit view
-- improve waveform rendering with peaks.js or wavesurfer.js
 - audio ads
 - feed ads
 - improve search algorithm - prioritize popular results
