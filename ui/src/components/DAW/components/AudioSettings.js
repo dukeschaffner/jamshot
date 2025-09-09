@@ -44,11 +44,13 @@ export default function AudioSettings({
       else if(preferredAudioInputDevice){
         const device = audioInputs.find(device => device.deviceId === preferredAudioInputDevice);
         if(device){
+          eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: device.deviceId });
           setSelectedAudioInputDevice(device.deviceId);
           deviceSelected = true;
         }
       }
       else{ // Get the first audio input device
+        eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: audioInputs[0].deviceId });
         setSelectedAudioInputDevice(audioInputs[0].deviceId);
         deviceSelected = true;
       }

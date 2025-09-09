@@ -46,8 +46,10 @@ function DAWContent({ track}) {
     recordingTrackHasAudio,
   } = useDAW();
 
+  const saved = useRef(false);
+
   useNavigationGuard({ 
-    enabled: !!recordingTrackHasAudio, 
+    enabled: !!recordingTrackHasAudio && !saved.current, 
     confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.") 
   });
 
@@ -56,6 +58,7 @@ function DAWContent({ track}) {
   const [tracksContainer, setTracksContainer] = useState(null);
 
   const [showUploadForm, setShowUploadForm] = useState(false);
+
 
   // Add keyboard event listener for space and enter keys
   useEffect(() => {
@@ -89,6 +92,17 @@ function DAWContent({ track}) {
       else if (e.code === 'Enter' || e.key === 'Enter') {
         e.preventDefault();
         eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: 0 });
+      }
+      // Handle 'r' key for recording
+      else if (e.code === 'KeyR' || e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        if (isRecording) {
+          // Stop recording if currently recording
+          eventBus.emit(DAW_EVENTS.RECORDING.STOP);
+        } else {
+          // Start recording if not currently recording
+          eventBus.emit(DAW_EVENTS.RECORDING.START);
+        }
       }
     };
 
@@ -270,7 +284,7 @@ function DAWContent({ track}) {
           }}
           onUploadComplete={() => {
             console.log("Upload completed successfully!");
-            setUploadComplete(true);
+            saved.current = true;
           }}
         />
       )}
