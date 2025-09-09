@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // reactStrictMode: false,
+  reactStrictMode: false,
   // // Enable static export for Amplify deployment
   // output: 'export',
   // trailingSlash: true,

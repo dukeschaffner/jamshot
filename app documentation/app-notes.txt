@@ -17,13 +17,16 @@ TODO (MVP)
   - Profile (analytics + track count)
   - Track (analytics)
   - Upload form (private tracks + track count)
+- input monitoring
+- actions during playback
+- handle sample rate mismatch (should input device determine sample rate?)
+- handle stereo input devices
 
 
 BUGS
-- dark mode inconsistencies
-- handle deleting takes during playback
-- Muse plugin clicks occasionally
-- weird trimming behavior (COULDN'T REPRODUCE)
+- invalid credentials on login -> error message is session expired instead of invalid credentials
+- when not following any users, sometimes it loads the popular feed but shows the following feed button selected
+- selected device showed as blackhole but was actually mac microphone
 
 
 RELEASE CHECKLIST
