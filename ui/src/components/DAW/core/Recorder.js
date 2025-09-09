@@ -185,6 +185,8 @@ class Recorder {
     console.log('duration', finalBuffer.duration);
     console.log('startTime', this.playbackTime);
     console.log('offset', recordingOffset);
+    console.log('sample rate', finalBuffer.sampleRate);
+    console.log('channels', finalBuffer.numberOfChannels);
 
     const bufferKey = bufferRegistry.generateBufferKey('recording-track', 'region');
     bufferRegistry.storeBuffer(bufferKey, finalBuffer);

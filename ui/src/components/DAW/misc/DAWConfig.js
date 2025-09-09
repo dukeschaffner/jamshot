@@ -5,7 +5,7 @@ const DAWConfig = {
     },
 
     audio: {
-      sampleRate: 48000,
+      sampleRate: 44100,
       bitDepth: 24,
       channels: 1,
       bufferSize: 8192,
@@ -14,6 +14,10 @@ const DAWConfig = {
       recordingBufferSize: 4096, // Buffer size for recording processor
       recordingLatencyCompensation: 0.02, // Additional latency compensation in seconds
       maxFileUploadDuration: 900, // 15 minutes
+    },
+
+    recording:{
+      defaultLatencyCompensation: 15, // Additional latency compensation in ms
     },
     
     ui: {

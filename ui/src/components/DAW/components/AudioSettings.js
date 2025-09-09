@@ -5,6 +5,7 @@ import styles from './AudioSettings.module.css';
 import Cookies from 'js-cookie';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
+import DAWConfig from '../misc/DAWConfig.js';
 
 export default function AudioSettings({ 
   showAudioSettingsModal,
@@ -57,7 +58,7 @@ export default function AudioSettings({
         setUserLatencyCompensation(parseInt(savedLatencyCompensation, 10));
       } else {
         // Default value of 15ms if not set
-        setUserLatencyCompensation(15);
+        setUserLatencyCompensation(DAWConfig.recording.defaultLatencyCompensation);
       }
   
       // Load snap to grid preference from cookies
