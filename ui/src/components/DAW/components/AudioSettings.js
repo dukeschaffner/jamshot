@@ -6,6 +6,7 @@ import Cookies from 'js-cookie';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import DAWConfig from '../misc/DAWConfig.js';
+import AudioState from '../core/AudioStateStore.js';
 
 export default function AudioSettings({ 
   showAudioSettingsModal,
@@ -36,24 +37,22 @@ export default function AudioSettings({
     const configureAudioSettings = async () => {
       const audioInputs = await getAudioInputDevices();
       const preferredAudioInputDevice = Cookies.get('preferredAudioInputDevice');
-      let deviceSelected = false;
+      let deviceId = null;
       if(audioInputs.length === 1){
-        setSelectedAudioInputDevice(audioInputs[0].deviceId);
-        deviceSelected = true;
+        deviceId = audioInputs[0].deviceId;
       }
       else if(preferredAudioInputDevice){
         const device = audioInputs.find(device => device.deviceId === preferredAudioInputDevice);
         if(device){
-          eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: device.deviceId });
-          setSelectedAudioInputDevice(device.deviceId);
-          deviceSelected = true;
+          deviceId = device.deviceId;
         }
       }
       else{ // Get the first audio input device
-        eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: audioInputs[0].deviceId });
-        setSelectedAudioInputDevice(audioInputs[0].deviceId);
-        deviceSelected = true;
+        deviceId = audioInputs[0].deviceId;
       }
+      eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: deviceId });
+      setSelectedAudioInputDevice(deviceId);
+      AudioState.selectedAudioInputDevice = deviceId;
   
       const savedLatencyCompensation = Cookies.get('userLatencyCompensation');
       if (savedLatencyCompensation !== undefined) {
@@ -73,8 +72,6 @@ export default function AudioSettings({
       if (savedMetronomeVolume !== undefined) {
         setMetronomeVolume(parseFloat(savedMetronomeVolume));
       }
-  
-      return deviceSelected;
     }
     // get audio settings on load
     configureAudioSettings();

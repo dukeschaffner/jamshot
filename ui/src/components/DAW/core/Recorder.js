@@ -13,9 +13,7 @@ class Recorder {
     this.recordingProcessor = null;
     this.recordingStream = null;
     this.recordingLatency = 0; // Latency compensation in seconds
-    
-    // Audio input device tracking
-    this.selectedAudioInputDevice = null;
+  
     
     // User latency compensation setting
     this.userLatencyCompensation = 0; // User-defined latency compensation in seconds
@@ -61,8 +59,8 @@ class Recorder {
       const audioInputs = devices.filter(device => device.kind === 'audioinput');
       
       // If our selected device is no longer available, clear it
-      if (this.selectedAudioInputDevice) {
-        const deviceStillExists = audioInputs.some(device => device.deviceId === this.selectedAudioInputDevice);
+      if (AudioState.selectedAudioInputDevice) {
+        const deviceStillExists = audioInputs.some(device => device.deviceId === AudioState.selectedAudioInputDevice);
         if (!deviceStillExists) {
           if(audioInputs.length > 0) {
             this.eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: audioInputs[0].deviceId });
@@ -78,8 +76,8 @@ class Recorder {
   }
   
   handleAudioInputDeviceChange(data) {
-    this.selectedAudioInputDevice = data.deviceId;
-    console.log('Audio input device changed to:', this.selectedAudioInputDevice);
+    AudioState.selectedAudioInputDevice = data.deviceId;
+    console.log('Audio input device changed to:', AudioState.selectedAudioInputDevice);
   }
   
   handleLatencyCompensationChange(data) {
@@ -117,8 +115,8 @@ class Recorder {
       };
       
       // Add device selection if a device is selected
-      if (this.selectedAudioInputDevice) {
-        audioConstraints.deviceId = { exact: this.selectedAudioInputDevice };
+      if (AudioState.selectedAudioInputDevice) {
+        audioConstraints.deviceId = { exact: AudioState.selectedAudioInputDevice };
       }
       
       this.recordingStream = await navigator.mediaDevices.getUserMedia({

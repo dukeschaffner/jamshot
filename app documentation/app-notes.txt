@@ -1,3 +1,5 @@
+RUNNING STRIPE: stripe listen --forward-to localhost:5001/api/payments/webhook
+
 
 TODO (MVP)
 - analytics
@@ -27,6 +29,7 @@ BUGS
 - invalid credentials on login -> error message is session expired instead of invalid credentials
 - when not following any users, sometimes it loads the popular feed but shows the following feed button selected
 - audio mixing doesnt sound good
+- track plays - it's recording plays with skip time ~ 2 s, unknown disc method, no ip
 
 
 RELEASE CHECKLIST

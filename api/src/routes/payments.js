@@ -165,7 +165,7 @@ router.post('/modify-subscription', contentCreationLimiter, authMiddleware, asyn
         price: newPlan.stripe_price_id,
       }],
       cancel_at_period_end: false, // Ensure subscription is not set to cancel
-      proration_behavior: 'create_prorations', // Handle proration for immediate changes
+      proration_behavior: 'always_invoice', // Handle proration for immediate changes
     });
 
     // Update user record immediately (webhook will also update, but this ensures consistency)
@@ -270,7 +270,7 @@ router.get('/subscription-status', authMiddleware, async (req, res) => {
       cancel_at_period_end: false
     };
 
-    if (user.stripe_subscription_id) {
+    if (user.stripe_subscription_id && subscriptionStatus.tier !== SUBSCRIPTION_TIERS.FREE) {
       try {
         const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
         subscriptionStatus.is_active = subscription.status === 'active';
@@ -309,24 +309,27 @@ router.post('/webhook', async (req, res) => {
     // Handle the event
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object);
+        await handleCheckoutCompleted(event.data.object); //handle one-time payment (sets supporter = true)
         break;
       
-      case 'customer.subscription.created':
+      // case 'customer.subscription.created':
+      //   await handleSubscriptionUpdated(event.data.object); //handle new subscription (sets subscription_tier and subscription_expires_at)
+      //   break;
       case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object);
+        if(event.data.object.status == "active"){
+          await handleSubscriptionUpdated(event.data.object); //handle subscription update (sets subscription_tier and subscription_expires_at)
+        }
         break;
-      
       case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object);
+        await handleSubscriptionDeleted(event.data.object); // handle subscription cancellation (sets subscription_tier to free)
         break;
       
       case 'invoice.payment_succeeded':
-        await handleInvoicePaymentSucceeded(event.data.object);
+        await handleInvoicePaymentSucceeded(event.data.object); // logs event
         break;
       
       case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event.data.object);
+        await handleInvoicePaymentFailed(event.data.object); // logs event
         break;
       
       default:
