@@ -43,6 +43,9 @@ export default function UserPage() {
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -233,6 +236,35 @@ export default function UserPage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      alert('Please enter your password to confirm account deletion');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await api.delete('/users/me', { data: { password: deletePassword } });
+      
+      // Clear local storage and cookies
+      localStorage.clear();
+      Cookies.remove('token');
+      Cookies.remove('refreshToken');
+      
+      // Redirect to home page
+      router.push('/');
+      
+      alert('Your account has been successfully deleted');
+    } catch (err) {
+      console.error('Failed to delete account:', err);
+      alert(err.response?.data?.error || 'Failed to delete account');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setDeletePassword('');
+    }
+  };
+
   // Create tabs configuration
   const tabs = [
     { key: 'tracks', label: 'Tracks' },
@@ -311,6 +343,13 @@ export default function UserPage() {
                     </button>
                     <button className="save-btn" onClick={handleEditSubmit}>
                       <FaCheck /> Save
+                    </button>
+                    <button 
+                      className="delete-account-btn" 
+                      onClick={() => setShowDeleteModal(true)}
+                      title="Delete Account"
+                    >
+                      Delete Account
                     </button>
                   </div>
                 ) : (
@@ -532,6 +571,60 @@ export default function UserPage() {
         type="following"
         userId={userProfile?.id}
       />
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div 
+          className={styles.modalOverlay}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteModal(false);
+              setDeletePassword('');
+            }
+          }}
+        >
+          <div className={styles.deleteModal}>
+            <h2>Delete Account</h2>
+            <p className={styles.warningText}>
+              <strong>Warning:</strong> This action cannot be undone. All your tracks, comments, and account data will be permanently deleted.
+            </p>
+            <p className={styles.infoText}>
+              Tracks with collaborations will be anonymized but preserved for other users.
+            </p>
+            <div className={styles.passwordInput}>
+              <label htmlFor="deletePassword">Enter your password to confirm:</label>
+              <input
+                type="password"
+                id="deletePassword"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Your password"
+                className={styles.formControl}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className={styles.modalActions}>
+              <button 
+                className="cancel-btn" 
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletePassword('');
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button 
+                className="delete-confirm-btn" 
+                onClick={handleDeleteAccount}
+                disabled={isDeleting || !deletePassword.trim()}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
