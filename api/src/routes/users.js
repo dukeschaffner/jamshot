@@ -10,7 +10,9 @@ const {
 } = require('../middleware/rateLimiting');
 const multer = require('multer');
 const sharp = require('sharp');
-const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
+const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils');
+const bcrypt = require('bcryptjs');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 AWS.config.update({ signatureVersion: 'v4' });
 const s3 = new AWS.S3({
@@ -1065,6 +1067,84 @@ router.get('/:username/liked', async (req, res) => {
 
     res.json(tracks);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete user account
+router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const { password } = req.body;
+  
+  try {
+    // Verify password
+    const userResult = await pool.query(
+      'SELECT password_hash, stripe_customer_id, stripe_subscription_id, profile_pic_url FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userResult.rows[0];
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    
+    // Get all user's tracks
+    const tracksResult = await pool.query(
+      'SELECT id FROM tracks WHERE user_id = $1',
+      [userId]
+    );
+    
+    // Delete all user's tracks (respect soft/hard delete logic)
+    const trackDeletionResults = [];
+    for (const track of tracksResult.rows) {
+      const result = await deleteTrack(track.id, userId, {
+        skipOwnershipCheck: true, // Skip ownership check since we know user owns these tracks
+        returnResult: true
+      });
+      trackDeletionResults.push(result);
+    }
+    
+    // Handle Stripe subscription cancellation
+    if (user.stripe_subscription_id) {
+      try {
+        await stripe.subscriptions.cancel(user.stripe_subscription_id);
+        console.log(`Stripe subscription ${user.stripe_subscription_id} canceled for user ${userId}`);
+      } catch (stripeError) {
+        console.error('Error canceling Stripe subscription:', stripeError);
+        // Continue with deletion even if Stripe cancellation fails
+      }
+    }
+    
+    // Delete profile picture from S3
+    if (user.profile_pic_url && user.profile_pic_url.includes('images/profile/')) {
+      try {
+        const profilePicKey = user.profile_pic_url.split('.com/')[1]; // Extract S3 key
+        await s3.deleteObject({
+          Bucket: process.env.S3_BUCKET,
+          Key: profilePicKey
+        }).promise();
+        console.log(`Profile picture deleted from S3 for user ${userId}`);
+      } catch (s3Error) {
+        console.error('Error deleting profile picture from S3:', s3Error);
+        // Continue with deletion even if S3 cleanup fails
+      }
+    }
+    
+    // Delete user record (cascades will handle most related data)
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    
+    res.json({ 
+      message: 'Account deleted successfully',
+      tracks_deleted: trackDeletionResults.length
+    });
+    
+  } catch (err) {
+    console.error('Error deleting account:', err);
     res.status(500).json({ error: err.message });
   }
 });

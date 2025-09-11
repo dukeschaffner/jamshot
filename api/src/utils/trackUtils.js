@@ -325,8 +325,14 @@ async function downloadS3File(key, localPath) {
   });
 }
 
+// Map UI gain (0–1) → dB value
+function uiToDb(value) {
+  if (value <= 0) return -100; // effectively mute
+  return 20 * Math.log10(value);
+}
+
 // Combine audio files using ffmpeg with normalization
-async function combineAudioFiles(inputFiles, outputPath, gainValues = [], targetLUFS = -16, truePeakLimit = -1) {
+async function combineAudioFilesOld(inputFiles, outputPath, gainValues = [], targetLUFS = -16, truePeakLimit = -1) {
   return new Promise((resolve, reject) => {
     console.log('Combining files with ffmpeg:', inputFiles);
     console.log('Using gain values:', gainValues);
@@ -373,6 +379,63 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
         reject(err);
       })
       .run();
+  });
+}
+
+// Combine audio files using ffmpeg with normalization
+async function combineAudioFiles(inputFiles, outputPath, gainValues = [], targetLUFS = -16, truePeakLimit = -1) {
+  return new Promise((resolve, reject) => {
+    console.log('Combining files with ffmpeg:', inputFiles);
+    console.log('Using gain values:', gainValues);
+    console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
+    
+    const command = ffmpeg();
+    
+    // Add input files
+    inputFiles.forEach((file) => {
+      command.input(file);
+    });
+
+    const db1 = uiToDb(gainValues[0]);
+    const db2 = uiToDb(gainValues[1]);
+    
+    // Build FFmpeg command
+    ffmpeg()
+      // Input tracks
+      .input(inputFiles[0])
+      .input(inputFiles[1])
+
+      // Apply loudness normalization on each input before mixing
+      // -14 LUFS is common for streaming services
+      .complexFilter([
+        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db1}dB[a0]`,
+        `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db2}dB[a1]`,
+        `[a0][a1]amix=inputs=2:normalize=0[aout]`
+      ])
+
+      // include limiter
+      // .complexFilter([
+      //   `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db1}dB[a0]`,
+      //   `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db2}dB[a1]`,
+      //   `[a0][a1]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
+      // ])
+
+      // Output settings
+      .outputOptions([
+        '-map [aout]',     // use the mixed stream
+        '-c:a pcm_s16le',  // uncompressed WAV output
+        '-ar 44100'        // sample rate
+      ])
+
+      .save(outputPath)
+      .on('end', () => {
+        console.log(`Mix completed: ${outputPath}`);
+        resolve();
+      })
+      .on('error', (err) => {
+        console.error('Error:', err.message);
+        reject(err);
+      });
   });
 }
 
@@ -456,8 +519,117 @@ async function findAllDescendantTracks(trackId) {
       }
     }
     
-    return descendants;
+  return descendants;
+}
+
+/**
+ * Delete a track with proper S3 cleanup and soft/hard delete logic
+ * @param {number} trackId - The track ID to delete
+ * @param {number} userId - The user ID requesting deletion
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.skipOwnershipCheck - Skip ownership verification (for user deletion)
+ * @param {boolean} options.skipChildrenCheck - Skip children check and force hard delete
+ * @param {boolean} options.returnResult - Return result object instead of throwing errors
+ * @returns {Object} Deletion result with success status and details
+ */
+async function deleteTrack(trackId, userId, options = {}) {
+  const { 
+    skipOwnershipCheck = false,
+    skipChildrenCheck = false,
+    returnResult = false
+  } = options;
+
+  try {
+    // Get track details
+    const trackCheck = await pool.query(
+      'SELECT user_id, audio_url, combined_audio_url FROM tracks WHERE id = $1',
+      [trackId]
+    );
+    
+    if (trackCheck.rows.length === 0) {
+      if (returnResult) return { success: false, error: 'Track not found' };
+      throw new Error('Track not found');
+    }
+    
+    // Ownership check (skip for user deletion)
+    if (!skipOwnershipCheck && trackCheck.rows[0].user_id !== userId) {
+      if (returnResult) return { success: false, error: 'Permission denied' };
+      throw new Error('You do not have permission to delete this track');
+    }
+    
+    // Children check (can be skipped for user deletion)
+    let hasChildren = false;
+    if (!skipChildrenCheck) {
+      const childrenCheck = await pool.query(
+        'SELECT COUNT(*) FROM tracks WHERE parent_track_id = $1',
+        [trackId]
+      );
+      hasChildren = parseInt(childrenCheck.rows[0].count) > 0;
+    }
+    
+    if (hasChildren) {
+      // Soft delete - clear user_id and make track public
+      await pool.query(
+        'UPDATE tracks SET user_id = NULL, is_private = FALSE WHERE id = $1',
+        [trackId]
+      );
+      return { success: true, soft_delete: true, message: 'Track soft-deleted because it has collaborations' };
+    } else {
+      // Hard delete - remove track and delete files from S3
+      const audioUrl = trackCheck.rows[0].audio_url;
+      const combinedAudioUrl = trackCheck.rows[0].combined_audio_url;
+      
+      // Delete from database first
+      await pool.query('DELETE FROM tracks WHERE id = $1', [trackId]);
+      
+      // Delete files from S3
+      await deleteTrackS3Files(audioUrl, combinedAudioUrl);
+      
+      return { success: true, soft_delete: false, message: 'Track permanently deleted' };
+    }
+  } catch (error) {
+    if (returnResult) {
+      return { success: false, error: error.message };
+    }
+    throw error;
   }
+}
+
+/**
+ * Delete track audio files from S3
+ * @param {string} audioUrl - The original audio file S3 key
+ * @param {string} combinedAudioUrl - The combined/processed audio file S3 key
+ */
+async function deleteTrackS3Files(audioUrl, combinedAudioUrl) {
+  const deletePromises = [];
+  
+  if (audioUrl && audioUrl.startsWith('tracks/')) {
+    deletePromises.push(
+      s3.deleteObject({
+        Bucket: process.env.S3_BUCKET,
+        Key: audioUrl
+      }).promise()
+    );
+  }
+  
+  if (combinedAudioUrl && combinedAudioUrl !== audioUrl && combinedAudioUrl.startsWith('tracks/')) {
+    deletePromises.push(
+      s3.deleteObject({
+        Bucket: process.env.S3_BUCKET,
+        Key: combinedAudioUrl
+      }).promise()
+    );
+  }
+  
+  if (deletePromises.length > 0) {
+    try {
+      await Promise.all(deletePromises);
+    } catch (s3Error) {
+      console.error('Error deleting track files from S3:', s3Error);
+      // Don't throw - S3 cleanup failures shouldn't block deletion
+    }
+  }
+}
 
 module.exports = {
   s3,
@@ -474,5 +646,7 @@ module.exports = {
   getPopularFeedQuery,
   getFollowingFeedQuery,
   getForYouFeedQuery,
-  findAllDescendantTracks
+  findAllDescendantTracks,
+  deleteTrack,
+  deleteTrackS3Files
 }; 

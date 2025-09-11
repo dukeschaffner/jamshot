@@ -304,6 +304,8 @@ const createApiMethods = (apiClient) => {
     
     getFollowing: (username, page = 1) => 
       api.get(`/users/${username}/following?page=${page}`),
+    
+    deleteAccount: (password) => api.delete('/users/me', { data: { password } }),
   };
 
   // Auth API methods
