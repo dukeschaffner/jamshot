@@ -229,7 +229,7 @@ function TrackContent() {
                 width={40}
                 height={40} 
               />
-             <span className="artist-name">{track?.username || 'Unknown Artist'}</span>
+             <span className="artist-name ml-2">{track?.username || 'Unknown Artist'}</span>
              {track?.verified && <FaCheckCircle className="verified-icon" />}
            </div>
            <div>
@@ -241,7 +241,7 @@ function TrackContent() {
                   {track?.parent_track_id ? 
                   (
                     <>
-                      <b>Layer {track.layer}</b> - Based on &quot;{track.original_title}&quot; by {track.original_username}
+                      <b>Layer {track.layer}</b> - Based on &quot;{track.original_title}&quot; by {track.original_username ? track.original_username : "Unknown Artist"}
                     </>) 
                   : (<b>Original track</b>)}
                 </div>

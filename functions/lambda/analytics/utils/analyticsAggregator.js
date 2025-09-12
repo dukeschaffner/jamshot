@@ -1,10 +1,9 @@
 const { pool } = require('../config/db');
 
 /**
- * Analytics Aggregator Utility
+ * Analytics Aggregator Utility for Lambda
  * Handles aggregation of analytics data for performance and reporting
  */
-
 class AnalyticsAggregator {
   constructor() {
     this.timePeriods = ['day', 'week', 'month', 'year'];
@@ -354,6 +353,7 @@ class AnalyticsAggregator {
       SELECT COUNT(*) as follower_count
       FROM follows 
       WHERE following_id = $1 
+        AND created_at >= $2
         AND created_at <= $3
     `;
     
@@ -557,4 +557,4 @@ class AnalyticsAggregator {
   }
 }
 
-module.exports = AnalyticsAggregator; 
+module.exports = AnalyticsAggregator;
