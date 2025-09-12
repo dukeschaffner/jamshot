@@ -1153,8 +1153,9 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
     discovery_method = 'unknown', 
     referrer_url = null,
     listen_duration = null,
-    is_complete_play = false,
-    skip_time = null
+    is_complete_play = null,
+    skip_time = null,
+    play_id = null
   } = req.body;
   const userId = req.user?.id; // Optional - can be null for anonymous plays
   const isUpdate = listen_duration !== null || is_complete_play !== null || skip_time !== null;
@@ -1170,7 +1171,16 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
     const ipAddress = req.ip || socket.connection.remoteAddress || req.headers['x-forwarded-for'];
     
     let recentPlay = null;
-    if (userId) {
+    if(play_id){
+      recentPlay = await pool.query(
+        'SELECT id, listen_duration FROM track_plays WHERE id = $1',
+        [play_id]
+      );
+      if(recentPlay.rows.length === 0){
+        return res.status(404).json({ error: 'Play not found' });
+      }
+    }
+    else if (userId) {
       recentPlay = await pool.query(
         'SELECT id, listen_duration FROM track_plays WHERE track_id = $1 AND user_id = $2 AND created_at > NOW() - INTERVAL \'1 hour\'',
         [id, userId]
@@ -1209,7 +1219,7 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       await client.query('BEGIN');
       
       // Record the initial play with available data
-      await client.query(
+      const playResult = await client.query(
         `INSERT INTO track_plays (
           track_id, user_id, discovery_method, 
           country_code, region, city, referrer_url,
@@ -1240,6 +1250,7 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       
       res.status(200).json({ 
         message: 'Play recorded successfully',
+        play_id: playResult.rows[0].id,
         play_count: playCountResult.rows[0].play_count
       });
     } catch (err) {

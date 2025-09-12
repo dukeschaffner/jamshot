@@ -24,6 +24,8 @@ export function AudioProvider({ children }) {
   // Refs for play counter and analytics
   const listeningTimeRef = useRef(0);
   const playRecordedRef = useRef(false);
+  const playIdRef = useRef(null);
+  const thresholdRef = useRef(0); // threshold for recording initial play
   const discoveryMethodRef = useRef('unknown');
 
   // Used for counting plays
@@ -76,12 +78,12 @@ export function AudioProvider({ children }) {
     if (!currentTrack || playRecordedRef.current) return;
     
     const duration = soundRef.current?.duration() || 0;
-    const threshold = duration < 30 ? duration * 0.9 : 30;
+    thresholdRef.current = duration < 30 ? duration * 0.9 : 30;
     
     // Record initial play if:
     // 1. User listened to at least 30 seconds, OR
     // 2. For tracks < 30 seconds, user listened to at least 90% of the track
-    if (listeningTimeRef.current >= threshold) {
+    if (listeningTimeRef.current >= thresholdRef.current) {
       recordInitialPlay();
     }
   }, [currentTrack]);
@@ -98,7 +100,7 @@ export function AudioProvider({ children }) {
       // Get referrer URL for discovery method
       const referrerUrl = document.referrer || null;
       
-      api.post(`/tracks/${currentTrack.id}/play`, {
+      const response = await api.post(`/tracks/${currentTrack.id}/play`, {
         discovery_method: discoveryMethodRef.current,
         referrer_url: referrerUrl
       }).catch(err => {
@@ -106,7 +108,8 @@ export function AudioProvider({ children }) {
         // Reset the flag so we can try again later if needed
         playRecordedRef.current = false;
       });
-      
+      playIdRef.current = response.data.play_id;
+
     } catch (err) {
       console.error('Failed to record initial play:', err);
       // Reset the flag so we can try again later if needed
@@ -117,6 +120,7 @@ export function AudioProvider({ children }) {
   // Update play with final analytics data
   const updatePlay = async (skipped = false) => {
     if (!currentTrack) return;
+    if (listeningTimeRef.current < thresholdRef.current) return;
 
     console.log('updating play');
     
@@ -134,7 +138,8 @@ export function AudioProvider({ children }) {
       api.post(`/tracks/${currentTrack.id}/play`, {
         listen_duration: listenDuration,
         is_complete_play: isCompletePlay,
-        skip_time: skipTime
+        skip_time: skipTime,
+        play_id: playIdRef.current
       }).catch(err => {
         console.error('Failed to update play:', err);
       });
