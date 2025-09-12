@@ -51,10 +51,6 @@ export default function TrackTreePage() {
     
   }, [trackId, secret]);
 
-  const handleBackClick = () => {
-    router.back();
-  };
-
   if (loading) {
     return (
       <div className="track-detail-page loading">
@@ -81,11 +77,9 @@ export default function TrackTreePage() {
 
   return (
     <div className="track-detail-page">
-      <div className="track-detail-header">
-        <button onClick={handleBackClick} className="back-button">
-          <FaArrowLeft /> Back
-        </button>
-        <h1>Explore all the different versions of this track</h1>
+      <div className="about-header" style={{marginBottom: '0px'}}>
+        <h1 className="about-title">Track Tree</h1>
+        <p className="about-subtitle">Explore all the different versions of this track</p>
       </div>
 
       <div className="track-tree-container">

@@ -118,12 +118,12 @@
   }
   
   .controlButton:hover, .controlButton.active {
-    color: var(--dark);
+    color: var(--seafoam);
   }
   
   body.dark-mode .controlButton:hover, 
   body.dark-mode .controlButton.active {
-    color: var(--dark-text-primary);
+    color: var(--seafoam);
   }
   
   .controlButton.playPause {

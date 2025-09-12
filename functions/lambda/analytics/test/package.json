@@ -1,0 +1,23 @@
+{
+  "name": "jamshot-analytics-lambda-test",
+  "version": "1.0.0",
+  "description": "Local testing utilities for Jamshot Analytics Lambda",
+  "main": "local-test.js",
+  "scripts": {
+    "test": "node local-test.js",
+    "test:all": "node local-test.js all",
+    "test:day": "node local-test.js day",
+    "test:week": "node local-test.js week",
+    "test:month": "node local-test.js month",
+    "test:year": "node local-test.js year",
+    "test:timer": "node local-test.js timer",
+    "test:cleanup": "node local-test.js cleanup",
+    "test:data": "node test-data.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

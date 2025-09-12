@@ -188,7 +188,9 @@ export default function Track(
 
   const navigateToUserProfile = (e) => {
     e.stopPropagation();
-    router.push(`/user/${track.username}`);
+    if(track.username) {
+      router.push(`/user/${track.username}`);
+    }
   };
 
   const navigateToTrack = (e) => {
@@ -218,18 +220,18 @@ export default function Track(
         <div className={styles.trackArtist}>
             <Image 
               src={track?.profile_pic_url || '/avatar.svg'} 
-              alt={track.username}
+              alt={track.username ? track.username : "Unknown Artist"}
               width={24}
               height={24} 
-              className="avatar hover:pointer mr-1" 
+              className={`avatar ${track.username ? 'hover:pointer' : ''} mr-1`} 
               onClick={navigateToUserProfile}
             />
             <div className={styles.artistName}>
               <span 
-                className="link-underline" 
+                className={`${track.username ? 'link-underline' : ''}`} 
                 onClick={navigateToUserProfile}
               >
-                {track.username}
+                {track.username ? track.username : "Unknown Artist"}
               </span>
               {track.verified && <FaCheckCircle className="verified-icon" />}
             </div>
@@ -243,7 +245,7 @@ export default function Track(
             {track?.parent_track_id ? 
             (
               <>
-                <b>Layer {track.layer}</b> - Based on &quot;{track.original_title}&quot; by {track.original_username}
+                <b>Layer {track.layer}</b> - Based on &quot;{track.original_title}&quot; by {track.original_username ? track.original_username : "Unknown Artist"}
               </>) 
             : (<b>Original track</b>)}
           </div>

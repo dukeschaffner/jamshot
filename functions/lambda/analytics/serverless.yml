@@ -1,0 +1,132 @@
+service: jamshot-analytics
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    DB_HOST: ${env:DB_HOST}
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_NAME: ${env:DB_NAME}
+    DB_PORT: ${env:DB_PORT, '5432'}
+    DB_SSL: ${env:DB_SSL, 'true'}
+  
+  timeout: 900 # 15 minutes (max for Lambda)
+  memorySize: 1024 # 1GB memory
+  
+  # VPC configuration for database access
+  vpc:
+    securityGroupIds:
+      - ${env:DB_SECURITY_GROUP_ID}
+    subnetIds:
+      - ${env:DB_SUBNET_ID_1}
+      - ${env:DB_SUBNET_ID_2}
+  
+  # IAM role permissions
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: "arn:aws:logs:*:*:*"
+        - Effect: Allow
+          Action:
+            - rds:DescribeDBInstances
+            - rds:DescribeDBClusters
+          Resource: "*"
+
+functions:
+  # Main analytics aggregator (triggered by EventBridge)
+  analyticsAggregator:
+    handler: handler.timerHandler
+    description: "Timer-based analytics aggregation for Jamshot"
+    events:
+      # Run every day at 2 AM UTC
+      - schedule:
+          rate: cron(0 2 * * ? *)
+          enabled: true
+      # Run every Sunday at 3 AM UTC for full aggregation
+      - schedule:
+          rate: cron(0 3 ? * SUN *)
+          enabled: true
+    environment:
+      AGGREGATION_TYPE: "scheduled"
+  
+  # Manual analytics aggregator (for API Gateway or direct invocation)
+  analyticsManual:
+    handler: handler.handler
+    description: "Manual analytics aggregation for Jamshot"
+    events:
+      - http:
+          path: analytics/aggregate
+          method: post
+          cors: true
+    environment:
+      AGGREGATION_TYPE: "manual"
+  
+  # Cleanup function (run monthly)
+  analyticsCleanup:
+    handler: handler.cleanupHandler
+    description: "Cleanup old analytics data for Jamshot"
+    events:
+      # Run on the 1st of every month at 4 AM UTC
+      - schedule:
+          rate: cron(0 4 1 * ? *)
+          enabled: true
+    environment:
+      AGGREGATION_TYPE: "cleanup"
+
+plugins:
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001
+    host: 0.0.0.0
+
+# Package configuration
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!test/**'
+    - '!*.md'
+    - '!serverless.yml'
+    - '!package-lock.json'
+
+# Resources for EventBridge rules (if needed)
+resources:
+  Resources:
+    # EventBridge rule for analytics aggregation
+    AnalyticsAggregationRule:
+      Type: AWS::Events::Rule
+      Properties:
+        Name: jamshot-analytics-aggregation
+        Description: "Trigger analytics aggregation daily"
+        ScheduleExpression: "cron(0 2 * * ? *)"
+        State: ENABLED
+        Targets:
+          - Arn: 
+              Fn::GetAtt: [AnalyticsAggregatorLambdaFunction, Arn]
+            Id: "AnalyticsAggregationTarget"
+    
+    # EventBridge rule for cleanup
+    AnalyticsCleanupRule:
+      Type: AWS::Events::Rule
+      Properties:
+        Name: jamshot-analytics-cleanup
+        Description: "Trigger analytics cleanup monthly"
+        ScheduleExpression: "cron(0 4 1 * ? *)"
+        State: ENABLED
+        Targets:
+          - Arn: 
+              Fn::GetAtt: [AnalyticsCleanupLambdaFunction, Arn]
+            Id: "AnalyticsCleanupTarget"
