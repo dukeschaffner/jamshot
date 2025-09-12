@@ -27,8 +27,9 @@ exports.handler = async (event, context) => {
     const period = event.period || 'all';
     const dateArg = event.date;
     
-    // Parse date argument if provided
+    // Parse date argument if provided, default to previous day for analytics
     let targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() - 1); // Default to previous day
     if (dateArg) {
       targetDate = new Date(dateArg);
       if (isNaN(targetDate.getTime())) {
@@ -108,18 +109,21 @@ exports.timerHandler = async (event, context) => {
   // For timer events, we typically want to run daily aggregation
   // but we can also run full aggregation on specific days
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const previousDay = new Date(now);
+  previousDay.setDate(previousDay.getDate() - 1); // Process previous day's data
+  const dayOfWeek = previousDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
   
   // Run full aggregation on Sundays (day 0)
   // Run daily aggregation on other days
-  const period = dayOfWeek === 0 ? 'all' : 'day';
+  //const period = dayOfWeek === 0 ? 'all' : 'day';
+  const period = 'day';
   
-  console.log(`📅 Day of week: ${dayOfWeek}, Running: ${period} aggregation`);
+  console.log(`📅 Processing data for: ${previousDay.toISOString().split('T')[0]} (day ${dayOfWeek}), Running: ${period} aggregation`);
   
   // Create a modified event for the main handler
   const modifiedEvent = {
     period: period,
-    date: now.toISOString().split('T')[0]
+    date: previousDay.toISOString().split('T')[0]
   };
   
   return exports.handler(modifiedEvent, context);

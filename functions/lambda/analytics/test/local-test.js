@@ -20,7 +20,7 @@
 // Load environment variables first
 require('dotenv').config({ path: './.env' });
 
-const { handler, timerHandler, cleanupHandler } = require('../handler');
+const { handler, timerHandler, cleanupHandler } = require('..');
 const { pool } = require('../config/db');
 
 // Mock Lambda context

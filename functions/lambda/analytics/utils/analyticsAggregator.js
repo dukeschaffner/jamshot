@@ -56,6 +56,7 @@ class AnalyticsAggregator {
 
   /**
    * Aggregate track analytics for a specific period
+   * Only processes tracks for users with basic or premium subscription tiers
    */
   async aggregateTrackAnalytics(periodType, startDate, endDate) {
     const client = await pool.connect();
@@ -63,13 +64,15 @@ class AnalyticsAggregator {
     try {
       await client.query('BEGIN');
 
-      // Get all tracks with plays in the period (exclude tracks with null user_id)
+      // Get all tracks with plays in the period for users with basic or premium subscription tiers
       const tracksQuery = `
         SELECT DISTINCT t.id, t.user_id, t.title
         FROM tracks t
         INNER JOIN track_plays tp ON t.id = tp.track_id
+        INNER JOIN users u ON t.user_id = u.id
         WHERE tp.created_at >= $1 AND tp.created_at <= $2
           AND t.user_id IS NOT NULL
+          AND u.subscription_tier IN ('basic', 'premium')
       `;
       
       const tracksResult = await client.query(tracksQuery, [startDate, endDate]);
@@ -251,6 +254,7 @@ class AnalyticsAggregator {
 
   /**
    * Aggregate user analytics for a specific period
+   * Only processes users with basic or premium subscription tiers
    */
   async aggregateUserAnalytics(periodType, startDate, endDate) {
     const client = await pool.connect();
@@ -258,7 +262,7 @@ class AnalyticsAggregator {
     try {
       await client.query('BEGIN');
 
-      // Get all users with activity in the period (exclude users with null id)
+      // Get all users with basic or premium subscription tiers who have activity in the period
       const usersQuery = `
         SELECT DISTINCT u.id, u.username
         FROM users u
@@ -266,12 +270,14 @@ class AnalyticsAggregator {
         INNER JOIN track_plays tp ON t.id = tp.track_id
         WHERE tp.created_at >= $1 AND tp.created_at <= $2
           AND u.id IS NOT NULL
+          AND u.subscription_tier IN ('basic', 'premium')
         UNION
         SELECT DISTINCT u.id, u.username
         FROM users u
         INNER JOIN track_plays tp ON u.id = tp.user_id
         WHERE tp.created_at >= $1 AND tp.created_at <= $2
           AND u.id IS NOT NULL
+          AND u.subscription_tier IN ('basic', 'premium')
       `;
       
       const usersResult = await client.query(usersQuery, [startDate, endDate]);
@@ -523,6 +529,7 @@ class AnalyticsAggregator {
 
   /**
    * Clean up old analytics data (keep last 2 years)
+   * Also deletes track plays older than 1 week for free tier users
    */
   async cleanupOldData() {
     const client = await pool.connect();
@@ -531,7 +538,12 @@ class AnalyticsAggregator {
       const cutoffDate = new Date();
       cutoffDate.setFullYear(cutoffDate.getFullYear() - 2);
       
+      // Calculate 1 week ago for free tier cleanup
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
       console.log(`🧹 Cleaning up analytics data older than ${cutoffDate.toISOString()}`);
+      console.log(`🧹 Cleaning up track plays older than ${oneWeekAgo.toISOString()} for free tier users`);
       
       // Clean up old track analytics
       const trackCleanup = await client.query(
@@ -545,8 +557,22 @@ class AnalyticsAggregator {
         [cutoffDate]
       );
       
+      // Clean up track plays older than 1 week for free tier users
+      const freeTierCleanup = await client.query(
+        `DELETE FROM track_plays 
+         WHERE created_at < $1 
+         AND track_id IN (
+           SELECT t.id 
+           FROM tracks t 
+           INNER JOIN users u ON t.user_id = u.id 
+           WHERE u.subscription_tier = 'free'
+         )`,
+        [oneWeekAgo]
+      );
+      
       console.log(`✅ Cleaned up ${trackCleanup.rowCount} track analytics records`);
       console.log(`✅ Cleaned up ${userCleanup.rowCount} user analytics records`);
+      console.log(`✅ Cleaned up ${freeTierCleanup.rowCount} track plays for free tier users`);
       
     } catch (error) {
       console.error('❌ Error cleaning up old data:', error);
