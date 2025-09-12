@@ -46,10 +46,10 @@ function DAWContent({ track}) {
     recordingTrackHasAudio,
   } = useDAW();
 
-  const saved = useRef(false);
+  const [saved, setSaved] = useState(false);
 
   useNavigationGuard({ 
-    enabled: !!recordingTrackHasAudio && !saved.current, 
+    enabled: !!recordingTrackHasAudio && !saved, 
     confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.") 
   });
 
@@ -284,7 +284,7 @@ function DAWContent({ track}) {
           }}
           onUploadComplete={() => {
             console.log("Upload completed successfully!");
-            saved.current = true;
+            setSaved(true);
           }}
         />
       )}

@@ -154,6 +154,20 @@ body.dark-mode .pink-btn {
   background-color: var(--rustic-pink);
   color: white;
 }
+
+.green-btn {
+  background-color: var(--seafoam-light);
+  color: var(--dark);
+}
+
+body.dark-mode .green-btn {
+  background-color: var(--seafoam);
+}
+
+.green-btn:hover {
+  background-color: var(--seafoam);
+  color: white;
+}
 /* #endregion */
 
 /* #region Layout/Nav */

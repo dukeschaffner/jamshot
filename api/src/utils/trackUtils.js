@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const fs = require('fs');
+const path = require('path');
 const pool = require('../config/db');
 const ffmpeg = require('fluent-ffmpeg');
 const crypto = require('crypto');
@@ -389,15 +390,35 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
     console.log('Using gain values:', gainValues);
     console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
     
-    const command = ffmpeg();
+    // Validate inputs
+    if (!inputFiles || inputFiles.length < 2) {
+      return reject(new Error('At least 2 input files are required'));
+    }
     
-    // Add input files
-    inputFiles.forEach((file) => {
-      command.input(file);
-    });
+    if (!gainValues || gainValues.length < 2) {
+      return reject(new Error('Gain values for both inputs are required'));
+    }
+    
+    // Check if input files exist
+    for (const file of inputFiles) {
+      if (!fs.existsSync(file)) {
+        return reject(new Error(`Input file does not exist: ${file}`));
+      }
+    }
+    
+    // Validate gain values (should be between 0 and 1)
+    for (let i = 0; i < gainValues.length; i++) {
+      if (gainValues[i] < 0 || gainValues[i] > 1) {
+        return reject(new Error(`Invalid gain value at index ${i}: ${gainValues[i]}. Must be between 0 and 1.`));
+      }
+    }
 
     const db1 = uiToDb(gainValues[0]);
     const db2 = uiToDb(gainValues[1]);
+    
+    // Determine output format based on file extension
+    const outputExt = path.extname(outputPath).toLowerCase();
+    const isMp3 = outputExt === '.mp3';
     
     // Build FFmpeg command
     ffmpeg()
@@ -423,7 +444,7 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
       // Output settings
       .outputOptions([
         '-map [aout]',     // use the mixed stream
-        '-c:a pcm_s16le',  // uncompressed WAV output
+        isMp3 ? '-c:a libmp3lame' : '-c:a pcm_s16le',  // MP3 or WAV codec
         '-ar 44100'        // sample rate
       ])
 

@@ -254,12 +254,12 @@ export function DAWProvider({ children, trackData, isCollab }) {
       // Get referrer URL for discovery method
       const referrerUrl = document.referrer || null;
       
-      const response = await api.post(`/tracks/${trackData.id}/play`, {
+      const response = await api.post(`/tracks/${trackData[0].id}/play`, {
         discovery_method: 'track_page',
         referrer_url: referrerUrl
       });
       
-      console.log('Play recorded for track:', trackData.id);
+      console.log('Play recorded for track:', trackData[0].id);
     } catch (err) {
       console.error('Failed to record initial play:', err);
     }
