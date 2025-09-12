@@ -4,9 +4,6 @@
   "description": "AWS Lambda function for Jamshot analytics aggregation",
   "main": "handler.js",
   "scripts": {
-    "deploy": "serverless deploy",
-    "remove": "serverless remove",
-    "logs": "serverless logs -f analyticsAggregator",
     "test": "node test/local-test.js",
     "test:all": "node test/local-test.js all",
     "test:day": "node test/local-test.js day",
@@ -24,8 +21,6 @@
     "pg": "^8.11.3"
   },
   "devDependencies": {
-    "serverless": "^3.38.0",
-    "serverless-offline": "^13.3.0",
     "dotenv": "^16.3.1"
   },
   "engines": {

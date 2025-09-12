@@ -18,7 +18,7 @@
 // Load environment variables first
 require('dotenv').config({ path: './.env' });
 
-const { handler } = require('../handler');
+const { handler } = require('..');
 const { pool } = require('../config/db');
 
 async function quickTest(period = 'day', date = null) {
