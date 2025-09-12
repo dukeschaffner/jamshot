@@ -341,11 +341,11 @@ export default function UserPage() {
                     <button className="cancel-btn" onClick={() => setIsEditing(false)}>
                       <FaTimes /> Cancel
                     </button>
-                    <button className="save-btn" onClick={handleEditSubmit}>
+                    <button className="pill-btn sm green-btn" onClick={handleEditSubmit}>
                       <FaCheck /> Save
                     </button>
                     <button 
-                      className="delete-account-btn" 
+                      className="pill-btn sm pink-btn" 
                       onClick={() => setShowDeleteModal(true)}
                       title="Delete Account"
                     >
@@ -615,7 +615,7 @@ export default function UserPage() {
                 Cancel
               </button>
               <button 
-                className="delete-confirm-btn" 
+                className="pill-btn sm pink-btn" 
                 onClick={handleDeleteAccount}
                 disabled={isDeleting || !deletePassword.trim()}
               >

@@ -58,7 +58,8 @@ class Track {
     offset = offset || 0;
     endTime = endTime || (startTime + duration - offset);
 
-    if(endTime > AudioState.dawDuration) {
+    // Only update DAW duration if not a collab
+    if(!AudioState.isCollab && endTime > AudioState.dawDuration) {
       AudioState.dawDuration = endTime;
     }
 
@@ -210,7 +211,9 @@ class Track {
       
       startOffset = earliestStart;
       exportDuration = latestEnd - earliestStart;
-    }
+    } 
+    // Ensure the buffer is always at least 1 sample shorter than DAW duration
+    exportDuration = Math.max(0, AudioState.dawDuration - (1 / sampleRate));
     
     // Create the combined buffer
     const totalLength = Math.ceil(exportDuration * sampleRate);
