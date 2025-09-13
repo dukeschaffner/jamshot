@@ -117,6 +117,11 @@ const createApiClient = (config = {}) => {
         return Promise.reject(error);
       }
       
+      // Don't attempt token refresh for login attempts - let them handle their own 401 errors
+      if (originalRequest.url?.includes('/auth/login')) {
+        return Promise.reject(error);
+      }
+      
       // Mark this request as retried to prevent infinite loops
       originalRequest._retry = true;
       
@@ -304,7 +309,7 @@ const createApiMethods = (apiClient) => {
     
     getFollowing: (username, page = 1) => 
       api.get(`/users/${username}/following?page=${page}`),
-    
+
     deleteAccount: (password) => api.delete('/users/me', { data: { password } }),
   };
 
