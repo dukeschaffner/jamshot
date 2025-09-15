@@ -1,28 +1,30 @@
-Competition feature:
+# Competition feature:
 - users can host a competition around their track
-- competition has cash prize
+- competition has cash prize ($5 minimum)
+- can be 1 day to 1 month long
 - browse competitions on competition page
-- pinned competitions have higher viz on competition page
+- pinned competitions have higher viz on competition page (for a fee of $25)
 - sponsored comp pinned on home page and top of competition page
-- comp host decides winner selection method (curated, likes/plays, hybrid)
-- gifted competitions - provide a voucher for a free partially preconfigured 
-- private competitions - only access via code
+- comp host decides winner selection method (curated, automated)
+    - curated - host picks the winner (winner automatically chosen if 24 hrs passes)
+    - automated - winner is the track with the most likes (tiebreaker: play count, then random choice)
+- gifted/preconfigured competitions - provide a voucher for a free partially preconfigured. this will help get bigger artists to host competitions
+- one entry per user (always free)
+- host cannot enter themselves
+- competition tracks still show up in other pages (search, user profile, home feed, etc) but with a banner indicating they are a competition track (if competition is active)
+- winner gets notification/email + stripe payout
+- track cannot be a layer 5 track ( if must be able to allow more collabs)
+- track cannot be deleted while competition is active if there are any entries
+- any track uploaded to the competition track during the competition will be automatically entered into the competition
+- host can cancel competition up until it has it's first entry. cancel options: delete track AND competitino or just the competition
+- link to contact page from competition page for help/support
+- cost to host competition is prize_pool + prize_pool * 0.15 (15% platform fee)
 
-Two main types of competitions:
+
+## Two main types of competitions:
 
 1. User-Hosted Competitions
-
-Flow:
-
 A user pays a fee to host a competition around their track.
-
-Example: $50 entry → $35 goes into the prize pool, $15 goes to the platform.
-
-Winner is picked either by:
-Host (curated)
-Votes/likes (community-driven)
-Hybrid (top 5 by votes, host chooses winner).
-
 Upsells:
 “Pin” option → higher tier pricing, guarantees visibility on the home/featured page.
 
@@ -34,9 +36,7 @@ Company pays a flat sponsorship fee ($500–$5,000+).
 Prize money OR winner gets software or gear
 
 
-🔒 Subscription Tie-Ins
-
-Here’s where you can bake competitions into the tiers:
+## Subscription Tie-Ins
 
 Free
 Can join competitions. 
@@ -44,33 +44,94 @@ Cannot host competitions.
 
 Basic
 Can host competitions.
-Can host 1 free competition per month (with small prize pool, $5–10).
 
 Premium
-Discounted competition hosting fees.
-Get 1 free pinned competition per year or discounted pinned fee.
-OR
-$15 credit to hosting/pinned competition fees
-Early access to sponsored competitions (exclusivity feels big).
+No hosting fees.
+Get 1 free pinned competition per year.
 
 
-gifted competitions - provide a voucher for a free partially preconfigured 
-competition to a user - this will help get bigger artists to host competitions
+## DATABASE SCHEMA:
+
+competition data model:
+startdate, not null
+enddate, not null
+track_id, not null
+title, null (used for sponsored only)
+description, nullable (used for sponsored only)
+prize_amount, int null (if null, then it's a sponsored competition with a non cash prize)
+host_id, null (if null, then it's a sponsored competition)
+pinned, bool not null
+sponsored, bool not null
+sponsor_name, nullable (used for sponsored only)
+image_url, nullable (used for sponsored only)
+voucher_code, nullable
+winner_selection_method, not null
+winner_id, nullable,
+backup_winner_id, nullable, (determined at competition end if not automated, used to determine winner if no winner is determined in 24 hrs)
+created_at, not null
+updated_at, not null
+... anything else?
+
+add is_competition_entry to tracks table
 
 
-competition:
-startdate
-enddate
-track_id
-description
-prize
-host_id
-pinned
-sponsored
-voucher_code
-winner_selection_method
-winner_id
+## API:
+- extract and reuse track endpoint logic where possible and appropriate
+
+Endpoints:
+
+- GET /competitions
+- GET /competitions/:id
+- POST /competitions/create
+- PUT /competitions/:id
+- DELETE /competitions/:id
+
+if user deletes track while comptition is active, if track has no entries, delete competition too (show message to user before deleting ie "Are you sure you want to delete this track? This will also delete the competition if it has no entries.")
 
 
-display user competition wins and prizes won on user page
-add icon to indicate total number of won competitions wherever a user is shown
+## Lambda functions:
+- competition end handler (select winner at competition end date if automated, otherwise determine backup winner and schdule new lamdba in 24 hrs to determine winner if not chosen by host)
+    - sends notification to host and winner when chosen
+
+
+
+
+
+## Competition UI:
+- competitions page
+    - reuse track component with custom styling
+    - pinned section + regular section
+        - filter by genre, instrument, etc
+    - create competition button
+        - similar to upload page (single track DAW + upload form with added form fields for competition)
+    - section or page for competitions I have entered in (active, past)
+    - section or page for competitions I have hosted (active, past)
+
+
+- competition page
+    - very similar to track page (maybe just no tabs for now or just the one for the DAW)
+
+- sponsored competition component (new):
+    - show on home page and pinned at top of competition page
+    - show image, description, prize, start/end date, play button, track meta social, track meta music, share btn
+
+- track component updates:
+    - on competition page: show prize, start/end date, collab button changes to enter competition button -> competition page
+    - on other pages: 
+        - if the track is the winning track of a competition, show a banner/icon indicating it is a competition winner
+        - if the track is in a competition, show an icon indicating it is a competition track
+        - if the track is a competition entry, show a message indicating it is a competition entry
+
+
+
+
+## future features/considerations (ignore for now):
+- private competitions - only access via code
+- display user competition wins and prizes won on user page
+- add icon to indicate total number of won competitions wherever a user is shown
+- 1 "free" $15 prize competition for premium users per year?
+-Legal & Compliance (will address later)
+    Terms of service: What are the legal terms for competitions?
+    Tax implications: How do you handle tax reporting for prize winners?
+    Age restrictions: Are there age limits for competition participation?
+    International compliance: How do you handle competitions across different countries?
