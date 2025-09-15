@@ -76,6 +76,8 @@ class AnalyticsAggregator {
       `;
       
       const tracksResult = await client.query(tracksQuery, [startDate, endDate]);
+
+      console.log(`🔍 Found ${tracksResult.rows.length} tracks to aggregate`);
       
       for (const track of tracksResult.rows) {
         await this.aggregateSingleTrack(client, track.id, periodType, startDate, endDate);
@@ -271,16 +273,11 @@ class AnalyticsAggregator {
         WHERE tp.created_at >= $1 AND tp.created_at <= $2
           AND u.id IS NOT NULL
           AND u.subscription_tier IN ('basic', 'premium')
-        UNION
-        SELECT DISTINCT u.id, u.username
-        FROM users u
-        INNER JOIN track_plays tp ON u.id = tp.user_id
-        WHERE tp.created_at >= $1 AND tp.created_at <= $2
-          AND u.id IS NOT NULL
-          AND u.subscription_tier IN ('basic', 'premium')
       `;
       
       const usersResult = await client.query(usersQuery, [startDate, endDate]);
+      
+      console.log(`🔍 Found ${usersResult.rows.length} users to aggregate`);
       
       for (const user of usersResult.rows) {
         await this.aggregateSingleUser(client, user.id, periodType, startDate, endDate);
