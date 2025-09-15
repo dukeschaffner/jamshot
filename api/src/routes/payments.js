@@ -347,8 +347,8 @@ router.post('/webhook', async (req, res) => {
 // Webhook helper functions
 async function handleCheckoutCompleted(session) {
   if (session.mode === 'payment') {
-    // Handle one-time payment (donation)
     const userId = session.metadata.userId;
+    const paymentType = session.metadata.type;
     
     if (!userId) {
       console.error('No user ID found in session metadata');
@@ -369,13 +369,54 @@ async function handleCheckoutCompleted(session) {
       ]
     );
 
-    // Update user to be a supporter
-    await db.query(
-      `UPDATE users SET is_supporter = TRUE WHERE id = $1`,
-      [userId]
-    );
-
-    console.log(`Payment successful for user ${userId}`);
+    // Handle different payment types
+    if (paymentType === 'competition_creation') {
+      // Create competition after successful payment
+      const {
+        trackId,
+        startdate,
+        enddate,
+        prizeAmount,
+        winnerSelectionMethod,
+        pinned,
+        voucherCode
+      } = session.metadata;
+      
+      if (trackId && startdate && enddate && prizeAmount && winnerSelectionMethod) {
+        try {
+          const competitionResult = await db.query(
+            `INSERT INTO competitions (
+              track_id, startdate, enddate, prize_amount, host_id, 
+              pinned, winner_selection_method, voucher_code
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [
+              trackId,
+              new Date(startdate),
+              new Date(enddate),
+              parseInt(prizeAmount),
+              userId,
+              pinned === 'true',
+              winnerSelectionMethod,
+              voucherCode || null
+            ]
+          );
+          
+          const competition = competitionResult.rows[0];
+          console.log(`Competition created successfully after payment: ${competition.id}`);
+        } catch (error) {
+          console.error('Error creating competition after payment:', error);
+        }
+      } else {
+        console.error('Missing competition data in session metadata');
+      }
+    } else {
+      // Default: donation/supporter payment
+      await db.query(
+        `UPDATE users SET is_supporter = TRUE WHERE id = $1`,
+        [userId]
+      );
+      console.log(`Donation payment successful for user ${userId}`);
+    }
   } else if (session.mode === 'subscription') {
     // Subscription checkout completed
     console.log(`Subscription checkout completed for session ${session.id}`);
