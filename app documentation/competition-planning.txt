@@ -76,7 +76,6 @@ add is_competition_entry to tracks table
 
 
 ## API:
-- extract and reuse track endpoint logic where possible and appropriate
 
 Endpoints:
 
@@ -85,16 +84,12 @@ Endpoints:
 - POST /competitions/create
 - PUT /competitions/:id
 - DELETE /competitions/:id
-
-if user deletes track while comptition is active, if track has no entries, delete competition too (show message to user before deleting ie "Are you sure you want to delete this track? This will also delete the competition if it has no entries.")
+- Payment processing webhook update: handle competition creation fee payment (mark as paid in db)
 
 
 ## Lambda functions:
 - competition end handler (select winner at competition end date if automated, otherwise determine backup winner and schdule new lamdba in 24 hrs to determine winner if not chosen by host)
     - sends notification to host and winner when chosen
-
-
-
 
 
 ## Competition UI:
@@ -103,7 +98,6 @@ if user deletes track while comptition is active, if track has no entries, delet
     - pinned section + regular section
         - filter by genre, instrument, etc
     - create competition button
-        - similar to upload page (single track DAW + upload form with added form fields for competition)
     - section or page for competitions I have entered in (active, past)
     - section or page for competitions I have hosted (active, past)
 
@@ -121,6 +115,26 @@ if user deletes track while comptition is active, if track has no entries, delet
         - if the track is the winning track of a competition, show a banner/icon indicating it is a competition winner
         - if the track is in a competition, show an icon indicating it is a competition track
         - if the track is a competition entry, show a message indicating it is a competition entry
+
+- competition/create?track={trackId} (after track is uploaded):
+    - competition form for competition details
+
+
+COMPETITION CREATE FLOW:
+- user clicks a create competition button somewhere in the app (will determine later)
+- navs to /upload?isCompetition=true
+- user creates and uploads track
+- if isCompetition is true, then navs to /competition/create?track={trackId}
+- user fills out competition form
+- user clicks create competition button
+- stripe payment session created
+    - if payment is successful, then mark as paid in db by webhook
+- user is redirected to competition page
+
+
+
+## Double check later:
+if user deletes track while comptition is active, if track has no entries, delete competition too (show message to user before deleting ie "Are you sure you want to delete this track? This will also delete the competition if it has no entries.")
 
 
 
