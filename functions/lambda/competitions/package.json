@@ -1,0 +1,25 @@
+{
+  "name": "jamshot-competition-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for Jamshot competition processing",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/local-test.js",
+    "test:all": "node test/local-test.js all",
+    "test:competition-end": "node test/local-test.js competition_end",
+    "test:curated-followup": "node test/local-test.js curated_followup",
+    "package": "bash scripts/create-competition-lambda-zip.sh"
+  },
+  "dependencies": {
+    "pg": "^8.11.3",
+    "aws-sdk": "^2.1490.0",
+    "stripe": "^14.7.0",
+    "nodemailer": "^6.9.7"
+  },
+  "devDependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

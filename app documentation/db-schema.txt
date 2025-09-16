@@ -26,7 +26,8 @@ CREATE TABLE users (
   date_of_birth DATE,
   analytics_consent BOOLEAN NOT NULL DEFAULT FALSE,
   analytics_consent_at TIMESTAMP,
-  analytics_consent_ip VARCHAR(45)
+  analytics_consent_ip VARCHAR(45),
+  stripe_account_id VARCHAR(255)
 );
 
 CREATE INDEX idx_users_subscription_tier ON users(subscription_tier);
@@ -591,3 +592,18 @@ EXECUTE FUNCTION update_competition_timestamp();
 
 -- Add index for competition notifications
 CREATE INDEX idx_notifications_competition_id ON notifications(competition_id);
+
+-- Create payouts table for tracking prize payouts
+CREATE TABLE payouts (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  amount INT NOT NULL, -- In cents
+  type VARCHAR(50) NOT NULL, -- e.g., 'competition_prize'
+  stripe_transfer_id VARCHAR(255) NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add index for payouts table
+CREATE INDEX idx_payouts_user_id ON payouts(user_id);
+CREATE INDEX idx_payouts_created_at ON payouts(created_at);
