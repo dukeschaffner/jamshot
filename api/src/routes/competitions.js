@@ -10,6 +10,7 @@ const {
 } = require('../middleware/rateLimiting');
 const { processTrack } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
+const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler');
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
@@ -419,6 +420,15 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
       );
       
       const competition = competitionResult.rows[0];
+      
+      // Schedule the competition end event
+      try {
+        await scheduleCompetitionEnd(competition.id, endDate, winner_selection_method);
+        console.log(`Competition end scheduled for ID: ${competition.id}`);
+      } catch (scheduleError) {
+        console.error('Error scheduling competition end:', scheduleError);
+        // Don't fail the request if scheduling fails - log and continue
+      }
       
       return res.status(201).json({
         competition,
