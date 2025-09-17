@@ -288,6 +288,9 @@ const createApiMethods = (apiClient) => {
     
     updateTrackPrivacy: (id, isPrivate) => 
       api.put(`/tracks/${id}/privacy`, { is_private: isPrivate }),
+    
+    getUserTracks: (userId, page = 1, limit = 50) => 
+      api.get(`/users/${userId}/tracks?page=${page}&limit=${limit}`),
   };
 
   // User API methods
@@ -349,12 +352,34 @@ const createApiMethods = (apiClient) => {
     markAllAsRead: () => api.put('/notifications/read-all'),
   };
 
+  // Competition API methods
+  const competitionApi = {
+    getCompetitions: (params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/competitions?${queryParams.toString()}`);
+    },
+    
+    getCompetition: (id) => api.get(`/competitions/${id}`),
+    
+    createCompetition: (data) => api.post('/competitions/create', data),
+    
+    updateCompetition: (id, data) => api.put(`/competitions/${id}`, data),
+    
+    deleteCompetition: (id) => api.delete(`/competitions/${id}`),
+  };
+
   return {
     trackApi,
     userApi,
     authApi,
     searchApi,
     notificationApi,
+    competitionApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,
