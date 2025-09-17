@@ -1,0 +1,281 @@
+/* Competitions Page */
+.competitionsPage {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Create Button */
+.createButtonContainer {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+/* Tabs Container */
+.tabsContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--grey-1);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 24px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.tab:hover {
+  background: var(--grey-2);
+  color: var(--text-primary);
+}
+
+.activeTab {
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Filters Panel */
+.filtersPanel {
+  background: var(--grey-1);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filterGroup label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.filterSelect {
+  padding: 8px 12px;
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: var(--seafoam);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 400 !important;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--seafoam);
+}
+
+.filterActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Content */
+.content {
+  min-height: 400px;
+}
+
+/* Loading State */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.loadingContainer p {
+  margin-top: 16px;
+  color: var(--text-secondary);
+}
+
+/* Error State */
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.errorContainer svg {
+  font-size: 3rem;
+  color: var(--red);
+  margin-bottom: 16px;
+}
+
+.errorContainer p {
+  margin: 16px 0;
+  color: var(--text-secondary);
+}
+
+/* Empty State */
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.emptyContainer svg {
+  font-size: 4rem;
+  color: var(--seafoam);
+  margin-bottom: 20px;
+}
+
+.emptyContainer h3 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+}
+
+.emptyContainer p {
+  margin: 0 0 24px 0;
+  color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+/* Competitions List */
+.competitionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Load More */
+.loadMoreContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.loadMoreContainer button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .competitionsPage {
+    padding: 16px;
+  }
+  
+  .tabsContainer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .tabs {
+    justify-content: center;
+  }
+  
+  .tab {
+    flex: 1;
+    justify-content: center;
+    min-width: 120px;
+  }
+  
+  .filtersPanel {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .filterActions {
+    justify-content: center;
+  }
+  
+  .emptyContainer {
+    padding: 40px 20px;
+  }
+  
+  .emptyContainer svg {
+    font-size: 3rem;
+  }
+  
+  .emptyContainer h3 {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabs {
+    flex-direction: column;
+  }
+  
+  .tab {
+    width: 100%;
+  }
+  
+  .filtersPanel {
+    padding: 16px;
+  }
+}
+
+/* Dark Mode */
+body.dark-mode .filtersPanel {
+  background: var(--grey-1);
+  border-color: var(--grey-2);
+}
+
+body.dark-mode .filterSelect {
+  background: var(--background);
+  border-color: var(--grey-2);
+  color: var(--text-primary);
+}
+
+body.dark-mode .tab {
+  background: var(--grey-1);
+  color: var(--text-secondary);
+}
+
+body.dark-mode .tab:hover {
+  background: var(--grey-2);
+  color: var(--text-primary);
+}

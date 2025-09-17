@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '../../../lib/api';
 import TagSelector from '../../TagSelector';
 import LoadingSpinner from '../../LoadingSpinner';
@@ -34,6 +34,8 @@ export default function UploadForm({
   const [allowDownload, setAllowDownload] = useState(true);
   const [parentTrackModel, setParentTrackModel] = useState(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const createCompetition = searchParams.get('createCompetition') === 'true';
 
   const [hasSilenceAtStart, setHasSilenceAtStart] = useState(false);
   const [hasSilenceAtEnd, setHasSilenceAtEnd] = useState(false);
@@ -210,9 +212,15 @@ export default function UploadForm({
         onUploadComplete();
       }
       
-      setTimeout(() => {// For new tracks, redirect to the uploaded track page
+      setTimeout(() => {
         if (uploadedTrack && uploadedTrack.id) {
-          router.push(`/track/${uploadedTrack.id}`);
+          // If creating competition, redirect to competition create page with track ID
+          if (createCompetition) {
+            router.push(`/competition/create?track=${uploadedTrack.id}`);
+          } else {
+            // For new tracks, redirect to the uploaded track page
+            router.push(`/track/${uploadedTrack.id}`);
+          }
         } else {
           // Fallback to home if track ID is not available
           router.push('/');

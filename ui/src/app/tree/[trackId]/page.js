@@ -93,7 +93,7 @@ export default function TrackTreePage() {
                   <Track 
                     track={track} 
                     allTracks={trackTree}
-                    isTreeView={true}
+                    view="tree"
                     expandedTrackId={expandedTrackId}
                     setExpandedTrackId={setExpandedTrackId}
                     trackTreeIds={trackTreeIds}

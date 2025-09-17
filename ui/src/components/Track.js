@@ -8,7 +8,7 @@ import LoadingSpinner from './LoadingSpinner';
 import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
@@ -20,9 +20,13 @@ export default function Track(
       allTracks, 
       setExpandedTrackId, 
       expandedTrackId,
-      isTreeView = false, // Used in tree view
+      view = 'default', // Used in tree view, competition view, or default
       setSelectedTrack, // Used in tree view
-      trackTreeIds // Used in tree view
+      trackTreeIds, // Used in tree view
+      competition, // Competition data when in competition view
+      entryStatus, // User's entry status in competition
+      onEnterCompetition, // Callback for entering competition
+      isEntering // Loading state for entering competition
     }
   ) 
 {
@@ -198,6 +202,71 @@ export default function Track(
     router.push(`/track/${track.id}`);
   };
 
+  // Competition button helpers
+  const getCompetitionButtonClass = () => {
+    if (!competition) return 'pink-btn sm';
+    
+    const now = new Date();
+    const startDate = new Date(competition.startdate);
+    const endDate = new Date(competition.enddate);
+    const isActive = now >= startDate && now <= endDate;
+    
+    if (!isActive) return 'disabled-btn sm';
+    if (entryStatus === 'entered') return 'green-btn sm';
+    if (competition.host_id === currentUser?.id) return 'disabled-btn sm';
+    
+    return 'gradient-btn sm';
+  };
+
+  const isCompetitionButtonDisabled = () => {
+    if (!competition) return false;
+    
+    const now = new Date();
+    const startDate = new Date(competition.startdate);
+    const endDate = new Date(competition.enddate);
+    const isActive = now >= startDate && now <= endDate;
+    
+    return !isActive || entryStatus === 'entered' || competition.host_id === currentUser?.id || isEntering;
+  };
+
+  const getCompetitionButtonContent = () => {
+    if (!competition) return <><FaUsers /> Collab</>;
+    
+    const now = new Date();
+    const startDate = new Date(competition.startdate);
+    const endDate = new Date(competition.enddate);
+    const isActive = now >= startDate && now <= endDate;
+    
+    if (!isActive) {
+      return <><FaClock /> Competition Not Active</>;
+    }
+    
+    if (entryStatus === 'entered') {
+      return <><FaCheckCircle /> Entered</>;
+    }
+    
+    if (competition.host_id === currentUser?.id) {
+      return <><FaTrophy /> Your Competition</>;
+    }
+    
+    if (isEntering) {
+      return <><FaUsers /> Entering...</>;
+    }
+    
+    return <><FaUsers /> Enter Competition</>;
+  };
+
+  const handleCompetitionAction = (e) => {
+    e.stopPropagation();
+    
+    if (onEnterCompetition) {
+      onEnterCompetition();
+    } else {
+      // Fallback to normal track navigation
+      router.push(`/track/${track.id}`);
+    }
+  };
+
   // Create tabs configuration
   const tabs = [
     { key: 'collabs', label: 'Collabs' },
@@ -324,15 +393,27 @@ export default function Track(
             {isLinkCopied ? <FaCheck /> : <FaShareAlt />}
             {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
           </button>
-          <button 
-            className="pill-btn pink-btn sm" 
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/track/${track.id}`);
-            }}
-          >
-            {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
-          </button>
+          
+          {/* Competition view button */}
+          {view === 'competition' && competition ? (
+            <button 
+              className={`pill-btn ${getCompetitionButtonClass()}`}
+              onClick={handleCompetitionAction}
+              disabled={isCompetitionButtonDisabled()}
+            >
+              {getCompetitionButtonContent()}
+            </button>
+          ) : (
+            <button 
+              className="pill-btn pink-btn sm" 
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/track/${track.id}`);
+              }}
+            >
+              {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
+            </button>
+          )}
         </div>
 
         <div className={styles.trackTimestamp}>
@@ -361,7 +442,7 @@ export default function Track(
                   </div>
                 ) : (
                   <>
-                    {originalTrack && !isTreeView && (
+                    {originalTrack && view !== 'tree' && (
                       <>
                         <div className={styles.trackRelation}>Original</div>
                         <MiniTrack track={originalTrack} relatedTracks={collabTracks} />
@@ -372,7 +453,7 @@ export default function Track(
                       <>
                         <div className={styles.trackRelation}>Based on this</div>
                         {collabTracks.map(collab => (
-                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} isTreeView={isTreeView} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
+                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} view={view} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
                         ))}
                         
                         {hasMoreTracks && (
@@ -396,7 +477,7 @@ export default function Track(
                     ) : (
                       <>
                         {/* if tree view and no related tracks, show message */}
-                        {(isTreeView || !originalTrack) && collabTracks.length === 0 && (
+                        {(view === 'tree' || !originalTrack) && collabTracks.length === 0 && (
                           <div className={styles.noRelated}>There are no tracks based on this track</div>
                         )}
                       </>
