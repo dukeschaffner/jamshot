@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FaHome, FaUpload, FaSearch, FaSun, FaMoon } from 'react-icons/fa';
+import { FaHome, FaUpload, FaSearch, FaSun, FaMoon, FaTrophy } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 import { useMobile } from '../contexts/MobileContext';
 import { trackSearch } from '../lib/analytics';
@@ -70,6 +70,11 @@ export default function Navbar() {
         <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
           <FaHome />
           Home
+        </Link>
+        
+        <Link href="/competitions" className={`nav-link ${pathname === '/competitions' ? 'active' : ''}`}>
+          <FaTrophy />
+          Competitions
         </Link>
         
         {isAuthenticated && (

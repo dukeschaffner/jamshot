@@ -389,14 +389,14 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
     console.log('Combining files with ffmpeg:', inputFiles);
     console.log('Using gain values:', gainValues);
     console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
-    
+
     // Validate inputs
-    if (!inputFiles || inputFiles.length < 2) {
-      return reject(new Error('At least 2 input files are required'));
+    if (!inputFiles || inputFiles.length < 1 || inputFiles.length > 2) {
+      return reject(new Error('1 or 2 input files are required'));
     }
-    
-    if (!gainValues || gainValues.length < 2) {
-      return reject(new Error('Gain values for both inputs are required'));
+
+    if (!gainValues || gainValues.length !== inputFiles.length) {
+      return reject(new Error(`Gain values for all ${inputFiles.length} input(s) are required`));
     }
     
     // Check if input files exist
@@ -413,44 +413,44 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
       }
     }
 
-    const db1 = uiToDb(gainValues[0]);
-    const db2 = uiToDb(gainValues[1]);
-    
     // Determine output format based on file extension
     const outputExt = path.extname(outputPath).toLowerCase();
     const isMp3 = outputExt === '.mp3';
-    
-    // Build FFmpeg command
-    ffmpeg()
-      // Input tracks
-      .input(inputFiles[0])
-      .input(inputFiles[1])
 
-      // Apply loudness normalization on each input before mixing
-      // -14 LUFS is common for streaming services
-      .complexFilter([
-        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db1}dB[a0]`,
-        `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db2}dB[a1]`,
+    const command = ffmpeg();
+
+    // Add input files
+    inputFiles.forEach(file => {
+      command.input(file);
+    });
+
+    const dbValues = gainValues.map(uiToDb);
+
+    if (inputFiles.length === 1) {
+      // Single input: just apply normalization and volume
+      command.complexFilter([
+        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[0]}dB[aout]`
+      ]);
+    } else {
+      // Two inputs: apply normalization and volume to both, then mix
+      command.complexFilter([
+        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[0]}dB[a0]`,
+        `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[1]}dB[a1]`,
         `[a0][a1]amix=inputs=2:normalize=0[aout]`
-      ])
+      ]);
+    }
 
-      // include limiter
-      // .complexFilter([
-      //   `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db1}dB[a0]`,
-      //   `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db2}dB[a1]`,
-      //   `[a0][a1]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
-      // ])
+    // Output settings
+    command.outputOptions([
+      '-map [aout]',     // use the mixed stream
+      isMp3 ? '-c:a libmp3lame' : '-c:a pcm_s16le',  // MP3 or WAV codec
+      '-ar 44100'        // sample rate
+    ]);
 
-      // Output settings
-      .outputOptions([
-        '-map [aout]',     // use the mixed stream
-        isMp3 ? '-c:a libmp3lame' : '-c:a pcm_s16le',  // MP3 or WAV codec
-        '-ar 44100'        // sample rate
-      ])
-
+    command
       .save(outputPath)
       .on('end', () => {
-        console.log(`Mix completed: ${outputPath}`);
+        console.log(`${inputFiles.length === 1 ? 'Processing' : 'Mix'} completed: ${outputPath}`);
         resolve();
       })
       .on('error', (err) => {

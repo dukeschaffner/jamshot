@@ -33,25 +33,27 @@ router.get('/', async (req, res) => {
   try {
     let whereClause = '';
     const queryParams = [];
+    const whereParams = []; // Separate array for WHERE clause parameters
     let paramIndex = 1;
+    let whereParamIndex = 1;
     
     // Build status filter
     const now = new Date();
     switch (status) {
       case 'active':
-        whereClause += `c.startdate <= $${paramIndex} AND c.enddate >= $${paramIndex}`;
-        queryParams.push(now);
-        paramIndex++;
+        whereClause += `c.startdate <= $${whereParamIndex} AND c.enddate >= $${whereParamIndex}`;
+        whereParams.push(now);
+        whereParamIndex++;
         break;
       case 'upcoming':
-        whereClause += `c.startdate > $${paramIndex}`;
-        queryParams.push(now);
-        paramIndex++;
+        whereClause += `c.startdate > $${whereParamIndex}`;
+        whereParams.push(now);
+        whereParamIndex++;
         break;
       case 'ended':
-        whereClause += `c.enddate < $${paramIndex}`;
-        queryParams.push(now);
-        paramIndex++;
+        whereClause += `c.enddate < $${whereParamIndex}`;
+        whereParams.push(now);
+        whereParamIndex++;
         break;
     }
     
@@ -64,19 +66,22 @@ router.get('/', async (req, res) => {
     // Add genre filter
     if (genreId) {
       if (whereClause) whereClause += ' AND ';
-      whereClause += `EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = c.track_id AND tg.genre_id = $${paramIndex})`;
-      queryParams.push(genreId);
-      paramIndex++;
+      whereClause += `EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = c.track_id AND tg.genre_id = $${whereParamIndex})`;
+      whereParams.push(genreId);
+      whereParamIndex++;
     }
     
     // Add instrument filter
     if (instrumentId) {
       if (whereClause) whereClause += ' AND ';
-      whereClause += `EXISTS (SELECT 1 FROM track_instruments ti WHERE ti.track_id = c.track_id AND ti.instrument_id = $${paramIndex})`;
-      queryParams.push(instrumentId);
-      paramIndex++;
+      whereClause += `EXISTS (SELECT 1 FROM track_instruments ti WHERE ti.track_id = c.track_id AND ti.instrument_id = $${whereParamIndex})`;
+      whereParams.push(instrumentId);
+      whereParamIndex++;
     }
-    
+
+    // Calculate parameter indices for SELECT clause (after WHERE parameters)
+    const selectParamOffset = whereParams.length;
+
     // Build the main query
     let query = `
       SELECT 
@@ -100,13 +105,13 @@ router.get('/', async (req, res) => {
         u.profile_pic_url,
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
-        ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $' + paramIndex + ' AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
+        ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $' + (selectParamOffset + 1) + ' AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
         (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
         (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
         (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
         (SELECT COUNT(*) FROM tracks WHERE competition_id = c.id AND is_competition_entry = true) AS entry_count,
-        ${userId ? 'EXISTS(SELECT 1 FROM tracks WHERE competition_id = c.id AND user_id = $' + (paramIndex + 1) + ' AND is_competition_entry = true) AS has_entered,' : 'false AS has_entered,'}
-        ${userId ? 'c.host_id = $' + (paramIndex + 2) + ' AS is_host' : 'false AS is_host'}
+        ${userId ? 'EXISTS(SELECT 1 FROM tracks WHERE competition_id = c.id AND user_id = $' + (selectParamOffset + 2) + ' AND is_competition_entry = true) AS has_entered,' : 'false AS has_entered,'}
+        ${userId ? 'c.host_id = $' + (selectParamOffset + 3) + ' AS is_host' : 'false AS is_host'}
       FROM competitions c
       JOIN tracks t ON c.track_id = t.id
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
@@ -117,6 +122,9 @@ router.get('/', async (req, res) => {
       query += ` WHERE ${whereClause}`;
     }
     
+    // Combine WHERE parameters and user parameters for the main query
+    queryParams.push(...whereParams);
+
     // Add user parameters for authenticated requests
     if (userId) {
       queryParams.push(userId, userId, userId);
@@ -137,9 +145,12 @@ router.get('/', async (req, res) => {
       countQuery += ` WHERE ${whereClause}`;
     }
     
+    // Count query only needs WHERE clause parameters
+    const countParams = whereParams;
+    
     const [result, countResult] = await Promise.all([
       pool.query(query, queryParams),
-      pool.query(countQuery, queryParams.slice(0, -2)) // Remove limit and offset params
+      pool.query(countQuery, countParams)
     ]);
     
     // Process tracks using the existing utility function

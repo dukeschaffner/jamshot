@@ -3,6 +3,9 @@
 ## Overview
 Sterio is a social music collaboration platform with a modern, clean design that emphasizes creativity and community. The design system is built around a cohesive color palette, consistent typography, and intuitive user interactions.
 
+!! All CSS should go into component/page module files unless adding a global style
+!! reuse global css where possible (especially buttons/colors)
+
 ## Brand Identity
 
 ### App Name

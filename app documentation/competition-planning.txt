@@ -93,13 +93,17 @@ Endpoints:
 
 
 ## Competition UI:
-- competitions page
-    - reuse track component with custom styling
-    - pinned section + regular section
-        - filter by genre, instrument, etc
-    - create competition button
-    - section or page for competitions I have entered in (active, past)
-    - section or page for competitions I have hosted (active, past)
+- competitions page (all data paginated with infinite scroll)
+    - active tab (pinned first, then regular) 
+        - exclude sponsored competitions
+         - filter by genre, instrument (include or exclude - ie competitions that don't already have vocals)
+    - upcoming tab (pinned first, then regular)
+        - exclude sponsored competitions
+        - filter by genre, instrument (include or exclude - ie competitions that don't already have vocals)
+       
+    - create competition button (for now just nav to upload page)
+    - tab for competitions I have entered in (default to active, option to include past)
+    - tab for competitions I have hosted (default to active, option to include past)
 
 
 - competition page
@@ -110,11 +114,16 @@ Endpoints:
     - show image, description, prize, start/end date, play button, track meta social, track meta music, share btn
 
 - track component updates:
-    - on competition page: show prize, start/end date, collab button changes to enter competition button -> competition page
     - on other pages: 
         - if the track is the winning track of a competition, show a banner/icon indicating it is a competition winner
         - if the track is in a competition, show an icon indicating it is a competition track
         - if the track is a competition entry, show a message indicating it is a competition entry
+
+- competition component:
+    - wraps track component
+        - change isTreeView to 'view' with options default, competition, tree
+        - for competition view, change collab button to enter competition button (if competition is active, otherwise disabled button indicating competition is not active - may need to add disabled state to global button class)
+    - shows prize, start/end date, 
 
 - competition/create?track={trackId} (after track is uploaded):
     - competition form for competition details
