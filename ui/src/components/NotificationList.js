@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { FaBell, FaComment, FaHeart, FaMusic, FaRetweet, FaUserPlus, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { FaBell, FaComment, FaHeart, FaMusic, FaRetweet, FaUserPlus, FaCheckCircle, FaTimesCircle, FaTrophy } from 'react-icons/fa';
 import api from '../lib/api';
 import TimeDisplay from './TimeDisplay';
 import styles from './Notifications.module.css';
@@ -22,14 +22,20 @@ export default function NotificationList({
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
-    
+
     // For follow requests, don't navigate
     if (notification.type === 'follow_request') {
       return;
     }
-    
-    // Navigate to the track
-    router.push(`/track/${notification.related_track_id}`);
+
+    // Navigate based on notification type
+    if (notification.type === 'competition_winner') {
+      // Navigate to competition page (assuming we have competition pages)
+      router.push(`/competition/${notification.competition_id}`);
+    } else {
+      // Navigate to the track
+      router.push(`/track/${notification.related_track_id}`);
+    }
   };
 
   const getNotificationIcon = (type) => {
@@ -44,6 +50,8 @@ export default function NotificationList({
         return <FaRetweet className="text-purple-500" />;
       case 'follow_request':
         return <FaUserPlus className="text-indigo-500" />;
+      case 'competition_winner':
+        return <FaTrophy className="text-yellow-500" />;
       default:
         return <FaBell className="text-gray-500" />;
     }
@@ -51,7 +59,7 @@ export default function NotificationList({
 
   const getNotificationText = (notification) => {
     const { type, actor_username, track_title } = notification;
-    
+
     switch (type) {
       case 'like':
         return `${actor_username} liked your track "${track_title}"`;
@@ -63,6 +71,8 @@ export default function NotificationList({
         return `${actor_username} reposted your track "${track_title}"`;
       case 'follow_request':
         return `${actor_username} requested to follow you`;
+      case 'competition_winner':
+        return `🎉 You won a competition! Your prize will be paid out automatically via Stripe.`;
       default:
         return `New activity on your track "${track_title}"`;
     }

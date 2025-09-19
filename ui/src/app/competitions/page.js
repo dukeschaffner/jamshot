@@ -148,10 +148,6 @@ export default function CompetitionsPage() {
     loadTags();
   }, []);
 
-  const getTabCount = () => {
-    // This would ideally come from the API, but for now we'll show the current loaded count
-    return competitions.length;
-  };
 
   const getEmptyMessage = () => {
     switch (activeTab) {
@@ -202,14 +198,14 @@ export default function CompetitionsPage() {
             onClick={() => handleTabChange('active')}
           >
             <FaPlay style={{ marginRight: '8px' }} />
-            Active ({getTabCount()})
+            Active
           </button>
           <button
             className={`${styles.tab} ${activeTab === 'upcoming' ? styles.activeTab : ''}`}
             onClick={() => handleTabChange('upcoming')}
           >
             <FaClock style={{ marginRight: '8px' }} />
-            Upcoming ({getTabCount()})
+            Upcoming
           </button>
           {isAuthenticated && (
             <>
@@ -218,14 +214,14 @@ export default function CompetitionsPage() {
                 onClick={() => handleTabChange('my_entries')}
               >
                 <FaUsers style={{ marginRight: '8px' }} />
-                My Entries ({getTabCount()})
+                My Entries
               </button>
               <button
                 className={`${styles.tab} ${activeTab === 'my_hosted' ? styles.activeTab : ''}`}
                 onClick={() => handleTabChange('my_hosted')}
               >
                 <FaTrophy style={{ marginRight: '8px' }} />
-                My Hosted ({getTabCount()})
+                My Hosted
               </button>
             </>
           )}

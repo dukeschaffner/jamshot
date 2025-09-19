@@ -598,8 +598,23 @@ class CompetitionProcessor {
           ${isBackupWinner ? '<p><em>Note: You were selected as the winner after the host didn\'t choose within 24 hours.</em></p>' : ''}
           ${competition.prize_amount ? `<p><strong>Prize:</strong> $${(competition.prize_amount / 100).toFixed(2)}</p>` : ''}
           <p><strong>Total entries:</strong> ${allEntries.length}</p>
+
+          ${competition.prize_amount ? `
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #333; margin-top: 0;">💰 How to Collect Your Winnings</h3>
+            <p>Your prize will be automatically transferred to your Stripe account within 2-3 business days. To ensure smooth payout:</p>
+            <ol style="color: #555;">
+              <li>Visit your <a href="https://dashboard.stripe.com/" style="color: #6772E5; text-decoration: none;">Stripe Express dashboard</a></li>
+              <li>Complete your account setup if you haven't already</li>
+              <li>Add your bank account details for payouts</li>
+            </ol>
+            <p style="margin-bottom: 0;"><em>If you don't have a Stripe account yet, one will be created for you automatically.</em></p>
+          </div>
+          ` : ''}
+
           <div style="text-align: center; margin: 30px 0;">
             <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
+            ${competition.prize_amount ? `<a href="https://dashboard.stripe.com/" style="background-color: #6772E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px;">Set Up Payouts</a>` : ''}
           </div>
         </div>
       `
