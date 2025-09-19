@@ -14,8 +14,9 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 
-export default function UploadForm({ 
-  isCollab = false, 
+export default function UploadForm({
+  isCollab = false,
+  hasActiveCompetition = false,
   onCancel = null,
   onUploadComplete = null
 }) {
@@ -32,6 +33,7 @@ export default function UploadForm({
   const [timeSignatureInput, setTimeSignatureInput] = useState(timeSignature);
   const [isPrivate, setIsPrivate] = useState(false);
   const [allowDownload, setAllowDownload] = useState(true);
+  const [enterCompetition, setEnterCompetition] = useState(true); // Default to checked
   const [parentTrackModel, setParentTrackModel] = useState(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -192,6 +194,11 @@ export default function UploadForm({
       
       // Add download permission for both regular tracks and collaborations
       formData.append('allow_download', allowDownload);
+
+      // Add competition entry preference for collaborations
+      if (isCollab && hasActiveCompetition) {
+        formData.append('enter_competition', enterCompetition);
+      }
 
       const response = await api.post('/tracks/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -447,6 +454,24 @@ export default function UploadForm({
             <span className="ml-2 text-xs text-gray-500">(Recommended for sharing)</span>
           </label>
         </div>
+
+        {/* Competition entry - only show for collaborations with active competition */}
+        {isCollab && hasActiveCompetition && (
+          <div className="flex items-center space-x-2 mt-4">
+            <input
+              type="checkbox"
+              id="enterCompetition"
+              checked={enterCompetition}
+              onChange={(e) => setEnterCompetition(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="enterCompetition" className="flex items-center text-sm">
+              <span className="mr-2 text-gray-600">🏆</span>
+              Enter this track in the active competition
+              <span className="ml-2 text-xs text-gray-500">(Win prizes and get exposure!)</span>
+            </label>
+          </div>
+        )}
         
         {!allowDownload && (
           <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded flex items-start">

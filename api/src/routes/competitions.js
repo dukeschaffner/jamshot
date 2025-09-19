@@ -379,7 +379,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
     
     // Check if track exists and belongs to user
     const trackResult = await pool.query(
-      'SELECT id, user_id, layer FROM tracks WHERE id = $1',
+      'SELECT id, user_id, layer, competition_id FROM tracks WHERE id = $1',
       [track_id]
     );
     
@@ -388,6 +388,12 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
     }
     
     const track = trackResult.rows[0];
+
+    if (track.competition_id !== null) {
+      return res.status(400).json({
+        error: 'Cannot create competition for a track that is already associated with another competition'
+      });
+    }
     
     if (track.user_id !== userId) {
       return res.status(403).json({ error: 'You can only create competitions for your own tracks' });
@@ -405,10 +411,10 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
       'SELECT id FROM competitions WHERE track_id = $1 AND enddate > NOW()',
       [track_id]
     );
-    
+
     if (existingCompetition.rows.length > 0) {
-      return res.status(400).json({ 
-        error: 'This track already has an active competition' 
+      return res.status(400).json({
+        error: 'This track already has an active competition'
       });
     }
     
@@ -452,14 +458,20 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
     if (finalFee === 0) {
       const competitionResult = await pool.query(
         `INSERT INTO competitions (
-          track_id, startdate, enddate, prize_amount, host_id, 
+          track_id, startdate, enddate, prize_amount, host_id,
           pinned, winner_selection_method, voucher_code
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [track_id, startDate, endDate, prizeAmount, userId, pinned, winner_selection_method, voucher_code]
       );
-      
+
       const competition = competitionResult.rows[0];
-      
+
+      // Update the host track with competition_id (is_competition_entry remains false to indicate host track)
+      await pool.query(
+        'UPDATE tracks SET competition_id = $1 WHERE id = $2',
+        [competition.id, track_id]
+      );
+
       // Schedule the competition end event
       try {
         await scheduleCompetitionEnd(competition.id, endDate, winner_selection_method);
@@ -468,7 +480,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
         console.error('Error scheduling competition end:', scheduleError);
         // Don't fail the request if scheduling fails - log and continue
       }
-      
+
       return res.status(201).json({
         competition,
         payment_required: false,
@@ -703,10 +715,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      
+
+      // Clear competition_id from the host track
+      await client.query('UPDATE tracks SET competition_id = NULL WHERE id = $1', [competition.track_id]);
+
       // Delete the competition
       await client.query('DELETE FROM competitions WHERE id = $1', [id]);
-      
+
       await client.query('COMMIT');
       
       res.json({ 

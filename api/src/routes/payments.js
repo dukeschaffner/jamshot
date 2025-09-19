@@ -402,6 +402,13 @@ async function handleCheckoutCompleted(session) {
           );
           
           const competition = competitionResult.rows[0];
+
+          // Update the host track with competition_id (is_competition_entry remains false to indicate host track)
+          await db.query(
+            'UPDATE tracks SET competition_id = $1 WHERE id = $2',
+            [competition.id, trackId]
+          );
+
           console.log(`Competition created successfully after payment: ${competition.id}`);
         } catch (error) {
           console.error('Error creating competition after payment:', error);
