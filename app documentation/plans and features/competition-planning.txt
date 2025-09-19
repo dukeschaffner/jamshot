@@ -15,7 +15,8 @@
 - winner gets notification/email + stripe payout
 - track cannot be a layer 5 track ( if must be able to allow more collabs)
 - track cannot be deleted while competition is active if there are any entries
-- any track uploaded to the competition track during the competition will be automatically entered into the competition
+- when uploading a track to an active competition track, user can check a box to enter the track into the competition on upload
+- if a track is already associated with a competition, user cannot create a new competition for that track
 - host can cancel competition up until it has it's first entry. cancel options: delete track AND competitino or just the competition
 - link to contact page from competition page for help/support
 - cost to host competition is prize_pool + prize_pool * 0.15 (15% platform fee)

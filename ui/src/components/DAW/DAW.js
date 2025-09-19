@@ -277,8 +277,9 @@ function DAWContent({ track}) {
       </div>
 
       {recordingTrackHasAudio && showUploadForm && (
-        <UploadForm 
+        <UploadForm
           isCollab={isCollab}
+          hasActiveCompetition={track?.has_active_competition || false}
           onCancel={() => {
             setShowUploadForm(false);
           }}

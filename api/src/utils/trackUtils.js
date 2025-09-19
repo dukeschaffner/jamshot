@@ -286,28 +286,59 @@ async function processTrack(track, userId = null) {
   // Convert S3 URLs to signed URLs
   let audioUrl = track.audio_url;
   let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-  
+
   // Generate signed URLs if paths are S3 paths
   if (audioUrl) {
     audioUrl = generateSignedUrl(audioUrl);
   }
-  
+
   if (combinedAudioUrl) {
     combinedAudioUrl = generateSignedUrl(combinedAudioUrl);
   }
-  
+
   // Get genres and instruments
   const [genresResult, instrumentsResult] = await Promise.all([
     getTrackGenres(track.id),
     getTrackInstruments(track.id)
   ]);
-  
+
+  // Check if track has an active competition
+  // Only query competition table for host tracks (competition_id exists but is_competition_entry is false)
+  let has_active_competition = false;
+  try {
+    // If track has competition_id but is not an entry, it's a host track - query competition details
+    if (track.competition_id && track.is_competition_entry === false) {
+      const competitionQuery = `
+        SELECT c.startdate, c.enddate
+        FROM competitions c
+        WHERE c.id = $1
+      `;
+      const competitionResult = await pool.query(competitionQuery, [track.competition_id]);
+
+      if (competitionResult.rows.length > 0) {
+        const competition = competitionResult.rows[0];
+        const now = new Date();
+        const startDate = new Date(competition.startdate);
+        const endDate = new Date(competition.enddate);
+
+        // Competition is active if current time is between start and end dates
+        has_active_competition = now >= startDate && now <= endDate;
+      }
+    }
+    // If track is an entry (is_competition_entry = true), has_active_competition remains false
+    // If track has no competition_id, has_active_competition remains false
+  } catch (error) {
+    console.error('Error checking competition status:', error);
+    // Don't fail the whole request if competition check fails
+  }
+
   return {
     ...track,
     audio_url: audioUrl,
     combined_audio_url: combinedAudioUrl,
     genres: genresResult.rows,
-    instruments: instrumentsResult.rows
+    instruments: instrumentsResult.rows,
+    has_active_competition
   };
 }
 

@@ -131,7 +131,7 @@ id/tree endpoint
 
 
 router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), async (req, res) => {
-  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset, allow_download } = req.body;
+  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset, allow_download, enter_competition = false } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
@@ -291,31 +291,34 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
         return res.status(400).json({ error: 'Layer limit reached' });
       }
 
-      // Validate competition entry if parent track exists and is not a competition entry itself
+      // Validate competition entry only if user opted in and parent track exists
       let competitionValidation = null;
       let isCompetitionEntry = false;
       let competitionId = null;
 
-      // Check if parent track is associated with a competition and is not an entry
-      const parentCompetitionCheck = await pool.query(
-        'SELECT c.id FROM competitions c WHERE c.track_id = $1',
-        [parent_track_id]
-      );
+      // Only check for competition entry if it's a collaboration and user wants to enter
+      if (parent_track_id && enter_competition === 'true') {
+        // Check if parent track is associated with a competition
+        const parentCompetitionCheck = await pool.query(
+          'SELECT c.id FROM competitions c WHERE c.track_id = $1',
+          [parent_track_id]
+        );
 
-      if (parentCompetitionCheck.rows.length > 0) {
-        // Parent track is a competition track, validate if this can be an entry
-        competitionValidation = await validateCompetitionEntry(parent_track_id, userId);
+        if (parentCompetitionCheck.rows.length > 0) {
+          // Parent track is a competition track, validate if this can be an entry
+          competitionValidation = await validateCompetitionEntry(parent_track_id, userId);
 
-        if (!competitionValidation.valid) {
-          return res.status(400).json({
-            error: 'Competition entry validation failed',
-            message: competitionValidation.error
-          });
+          if (!competitionValidation.valid) {
+            return res.status(400).json({
+              error: 'Competition entry validation failed',
+              message: competitionValidation.error
+            });
+          }
+
+          // Validation passed, set competition entry flags
+          isCompetitionEntry = true;
+          competitionId = competitionValidation.competitionId;
         }
-
-        // Validation passed, set competition entry flags
-        isCompetitionEntry = true;
-        competitionId = competitionValidation.competitionId;
       }
 
       const parentCombinedKey = parentTrack.combined_audio_url || parentTrack.audio_url;
