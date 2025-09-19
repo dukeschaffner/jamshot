@@ -31,6 +31,7 @@ const {
 } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
+const { validateCompetitionEntry } = require('../../../shared/utils/competition');
 require('dotenv').config;
 
 // Configure FFMPEG path based on platform
@@ -289,7 +290,34 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       if (layer > 4) {
         return res.status(400).json({ error: 'Layer limit reached' });
       }
-      
+
+      // Validate competition entry if parent track exists and is not a competition entry itself
+      let competitionValidation = null;
+      let isCompetitionEntry = false;
+      let competitionId = null;
+
+      // Check if parent track is associated with a competition and is not an entry
+      const parentCompetitionCheck = await pool.query(
+        'SELECT c.id FROM competitions c WHERE c.track_id = $1',
+        [parent_track_id]
+      );
+
+      if (parentCompetitionCheck.rows.length > 0) {
+        // Parent track is a competition track, validate if this can be an entry
+        competitionValidation = await validateCompetitionEntry(parent_track_id, userId);
+
+        if (!competitionValidation.valid) {
+          return res.status(400).json({
+            error: 'Competition entry validation failed',
+            message: competitionValidation.error
+          });
+        }
+
+        // Validation passed, set competition entry flags
+        isCompetitionEntry = true;
+        competitionId = competitionValidation.competitionId;
+      }
+
       const parentCombinedKey = parentTrack.combined_audio_url || parentTrack.audio_url;
       const localFiles = [];
 
@@ -367,8 +395,8 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     }
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload]
+        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *',
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId]
     );
     
     const trackId = result.rows[0].id;

@@ -55,6 +55,20 @@ router.get('/', async (req, res) => {
         whereParams.push(now);
         whereParamIndex++;
         break;
+      case 'my_entries':
+        if (userId) {
+          whereClause += `EXISTS(SELECT 1 FROM tracks WHERE competition_id = c.id AND user_id = $${whereParamIndex} AND is_competition_entry = true)`;
+          whereParams.push(userId);
+          whereParamIndex++;
+        }
+        break;
+      case 'my_hosted':
+        if (userId) {
+          whereClause += `c.host_id = $${whereParamIndex}`;
+          whereParams.push(userId);
+          whereParamIndex++;
+        }
+        break;
     }
     
     // Add pinned filter

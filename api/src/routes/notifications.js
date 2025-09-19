@@ -26,13 +26,14 @@ router.get('/', async (req, res) => {
     
     // Get paginated notifications
     const result = await pool.query(`
-      SELECT 
-        n.id, 
-        n.type, 
-        n.is_read, 
+      SELECT
+        n.id,
+        n.type,
+        n.is_read,
         n.created_at,
         n.related_track_id,
         n.related_user_id,
+        n.competition_id,
         CASE 
           WHEN n.type = 'follow_request' THEN NULL
           ELSE t.title 
