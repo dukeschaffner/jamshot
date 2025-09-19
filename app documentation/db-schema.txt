@@ -53,7 +53,7 @@ CREATE TABLE tracks (
   secret_token VARCHAR(64), -- For secure sharing of private tracks
   allow_download BOOLEAN NOT NULL DEFAULT TRUE,
   is_competition_entry BOOLEAN NOT NULL DEFAULT FALSE,
-  competition_id INT REFERENCES competitions(id) ON DELETE SET NULL
+  competition_id INT REFERENCES competitions(id) ON DELETE SET NULL -- used to indicate both competition entries and hosted competitions
 );
 
 

@@ -47,7 +47,7 @@ export default function CompetitionDetailPage() {
     try {
       setLoadingEntries(true);
       const response = await competitionApi.getCompetitionEntries(competitionId);
-      const entries = response.data || [];
+      const entries = Array.isArray(response.data) ? response.data : [];
       setEntries(entries);
       
       // Check if current user has entered
@@ -57,6 +57,9 @@ export default function CompetitionDetailPage() {
       }
     } catch (err) {
       console.error('Error loading entries:', err);
+      // Set default values on error
+      setEntries([]);
+      setEntryStatus('not_entered');
     } finally {
       setLoadingEntries(false);
     }

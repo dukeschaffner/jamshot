@@ -56,7 +56,7 @@ export default function Competition({
       
       try {
         const response = await competitionApi.getCompetitionEntries(competition.id);
-        const entries = response.data || [];
+        const entries = Array.isArray(response.data) ? response.data : [];
         
         // Check if current user has entered
         const userEntry = entries.find(entry => entry.user_id === currentUser?.id);
@@ -64,6 +64,9 @@ export default function Competition({
         setEntryCount(entries.length);
       } catch (err) {
         console.error('Error checking entry status:', err);
+        // Set default values on error
+        setEntryStatus('not_entered');
+        setEntryCount(0);
       }
     };
 
