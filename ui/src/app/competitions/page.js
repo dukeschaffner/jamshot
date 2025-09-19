@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../contexts/UserContext';
 import { FaTrophy, FaPlus, FaFilter, FaSearch, FaCalendarAlt, FaUsers, FaDollarSign, FaClock, FaExclamationTriangle, FaCheckCircle, FaPlay } from 'react-icons/fa';
-import { competitionApi } from '../../lib/api';
+import { competitionApi, tagApi } from '../../lib/api';
 import Competition from '../../components/Competition';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import styles from './Competitions.module.css';
@@ -28,6 +28,11 @@ export default function CompetitionsPage() {
     pinned: false
   });
   const [showFilters, setShowFilters] = useState(false);
+
+  // Tag data for dropdowns
+  const [genres, setGenres] = useState([]);
+  const [instruments, setInstruments] = useState([]);
+  const [tagsLoading, setTagsLoading] = useState(true);
 
   // Load competitions based on current tab and filters
   const loadCompetitions = async (page = 1, reset = false) => {
@@ -117,6 +122,31 @@ export default function CompetitionsPage() {
 
     return () => clearTimeout(timeoutId);
   }, [filters]);
+
+  // Load genres and instruments for filter dropdowns
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        setTagsLoading(true);
+        const [genresResponse, instrumentsResponse] = await Promise.all([
+          tagApi.getGenres(),
+          tagApi.getInstruments()
+        ]);
+
+        setGenres(genresResponse.data || []);
+        setInstruments(instrumentsResponse.data || []);
+      } catch (err) {
+        console.error('Error loading tags:', err);
+        // Set empty arrays so dropdowns show "All Genres/Instruments" option
+        setGenres([]);
+        setInstruments([]);
+      } finally {
+        setTagsLoading(false);
+      }
+    };
+
+    loadTags();
+  }, []);
 
   const getTabCount = () => {
     // This would ideally come from the API, but for now we'll show the current loaded count
@@ -221,9 +251,14 @@ export default function CompetitionsPage() {
               value={filters.genreId}
               onChange={(e) => handleFilterChange('genreId', e.target.value)}
               className={styles.filterSelect}
+              disabled={tagsLoading}
             >
               <option value="">All Genres</option>
-              {/* Genre options would be loaded from API */}
+              {genres.map((genre) => (
+                <option key={genre.id} value={genre.id}>
+                  {genre.name}
+                </option>
+              ))}
             </select>
           </div>
           
@@ -234,9 +269,14 @@ export default function CompetitionsPage() {
               value={filters.instrumentId}
               onChange={(e) => handleFilterChange('instrumentId', e.target.value)}
               className={styles.filterSelect}
+              disabled={tagsLoading}
             >
               <option value="">All Instruments</option>
-              {/* Instrument options would be loaded from API */}
+              {instruments.map((instrument) => (
+                <option key={instrument.id} value={instrument.id}>
+                  {instrument.name}
+                </option>
+              ))}
             </select>
           </div>
           

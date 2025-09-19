@@ -373,6 +373,21 @@ const createApiMethods = (apiClient) => {
     deleteCompetition: (id) => api.delete(`/competitions/${id}`),
   };
 
+  // Tag API methods
+  const tagApi = {
+    getGenres: () => api.get('/tags/genres'),
+
+    getInstruments: () => api.get('/tags/instruments'),
+
+    getTrackGenres: (trackId) => api.get(`/tags/track/${trackId}/genres`),
+
+    getTrackInstruments: (trackId) => api.get(`/tags/track/${trackId}/instruments`),
+
+    updateTrackGenres: (trackId, genreIds) => api.post(`/tags/track/${trackId}/genres`, { genreIds }),
+
+    updateTrackInstruments: (trackId, instrumentIds) => api.post(`/tags/track/${trackId}/instruments`, { instrumentIds }),
+  };
+
   return {
     trackApi,
     userApi,
@@ -380,6 +395,7 @@ const createApiMethods = (apiClient) => {
     searchApi,
     notificationApi,
     competitionApi,
+    tagApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,
