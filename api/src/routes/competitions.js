@@ -155,7 +155,14 @@ router.get('/', async (req, res) => {
     
     // Process tracks using the existing utility function
     const competitions = await Promise.all(result.rows.map(async (row) => {
-      const track = await processTrack(row, userId);
+      // Map track properties to correct names before processing
+      const trackData = {
+        ...row,
+        id: row.track_id,
+        title: row.track_title,
+        created_at: row.track_created_at
+      };
+      const track = await processTrack(trackData, userId);
       return {
         track,
         id: row.id,
@@ -251,7 +258,14 @@ router.get('/:id', async (req, res) => {
     }
     
     const row = result.rows[0];
-    const track = await processTrack(row, userId);
+    // Map track properties to correct names before processing
+    const trackData = {
+      ...row,
+      id: row.track_id,
+      title: row.track_title,
+      created_at: row.track_created_at
+    };
+    const track = await processTrack(trackData, userId);
     
     const competition = {
       track,
@@ -694,6 +708,79 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     
   } catch (err) {
     console.error('Error deleting competition:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /competitions/:id/entries - Get competition entries
+router.get('/:id/entries', async (req, res) => {
+  const { id: competitionId } = req.params;
+  const userId = req.user?.id;
+  const { page = 1, limit = 10 } = req.query;
+  
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+
+  try {
+    // Import track utils here to avoid circular dependencies
+    const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
+    
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false);
+      queryParams = [competitionId, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false);
+      queryParams = [competitionId];
+    }
+
+    // Get competition entries
+    let entriesQuery = `
+      SELECT 
+        ${baseQuery}
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.is_competition_entry = true 
+        AND t.competition_id = $1
+      ORDER BY t.created_at DESC
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
+    
+    // Get the total count for pagination info
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM tracks
+      WHERE is_competition_entry = true 
+        AND competition_id = $1
+    `;
+    
+    // Execute queries for entries and count
+    const [entriesResult, countResult] = await Promise.all([
+      pool.query(entriesQuery, [...queryParams, limitNum, offset]),
+      pool.query(countQuery, [competitionId])
+    ]);
+    
+    // Process tracks
+    const entries = await Promise.all(entriesResult.rows.map(track => processTrack(track, userId)));
+    
+    // Get pagination info
+    const totalCount = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalCount / limitNum);
+    
+    res.json({
+      data: entries,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: limitNum,
+        pages: totalPages,
+        hasMore: parseInt(page) < totalPages
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching competition entries:', err);
     res.status(500).json({ error: err.message });
   }
 });
