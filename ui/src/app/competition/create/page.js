@@ -1,12 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { FaTrophy, FaCalendarAlt, FaDollarSign, FaUsers, FaClock, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { competitionApi, trackApi } from '../../../lib/api';
 import styles from './CompetitionCreate.module.css';
 
-export default function CreateCompetition() {
+function CreateCompetitionClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAuthenticated } = useUser();
@@ -454,5 +454,24 @@ export default function CreateCompetition() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function CreateCompetition() {
+  return (
+    <Suspense fallback={
+      <div className={styles.competitionCreateContainer}>
+        <div className="about-header">
+          <h1 className="about-title">Create Competition</h1>
+          <p className="about-subtitle">Host a competition to inspire collaboration and creativity</p>
+        </div>
+        <div className="loading-spinner">
+          <div className="spinner-icon">⟳</div>
+          Loading...
+        </div>
+      </div>
+    }>
+      <CreateCompetitionClient />
+    </Suspense>
   );
 }
