@@ -422,21 +422,21 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
     console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
 
     // Validate inputs
-    if (!inputFiles || inputFiles.length < 1 || inputFiles.length > 2) {
-      return reject(new Error('1 or 2 input files are required'));
+    if (!inputFiles || inputFiles.length < 1) {
+      return reject(new Error('At least 1 input file is required'));
     }
 
     if (!gainValues || gainValues.length !== inputFiles.length) {
       return reject(new Error(`Gain values for all ${inputFiles.length} input(s) are required`));
     }
-    
+
     // Check if input files exist
     for (const file of inputFiles) {
       if (!fs.existsSync(file)) {
         return reject(new Error(`Input file does not exist: ${file}`));
       }
     }
-    
+
     // Validate gain values (should be between 0 and 1)
     for (let i = 0; i < gainValues.length; i++) {
       if (gainValues[i] < 0 || gainValues[i] > 1) {
@@ -463,12 +463,20 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
         `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[0]}dB[aout]`
       ]);
     } else {
-      // Two inputs: apply normalization and volume to both, then mix
-      command.complexFilter([
-        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[0]}dB[a0]`,
-        `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[1]}dB[a1]`,
-        `[a0][a1]amix=inputs=2:normalize=0[aout]`
-      ]);
+      // Multiple inputs: apply normalization and volume to each, then mix
+      const filters = [];
+      const mixInputs = [];
+
+      // Create volume filters for each input
+      for (let i = 0; i < inputFiles.length; i++) {
+        filters.push(`[${i}:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[i]}dB[a${i}]`);
+        mixInputs.push(`[a${i}]`);
+      }
+
+      // Add the mix filter
+      filters.push(`${mixInputs.join('')}amix=inputs=${inputFiles.length}:normalize=0[aout]`);
+
+      command.complexFilter(filters);
     }
 
     // Output settings
@@ -767,6 +775,49 @@ function calculateEffectiveGain(trackId, mixGains) {
   return stem ? stem.gain : 1.0;
 }
 
+// Validate a stem chain for mixing
+function validateStemChain(stemChain, maxStems = 10) {
+  if (!Array.isArray(stemChain) || stemChain.length === 0) {
+    return { valid: false, error: 'Stem chain must be a non-empty array' };
+  }
+
+  if (stemChain.length > maxStems) {
+    return {
+      valid: false,
+      error: `Stem chain too long (${stemChain.length}). Maximum: ${maxStems}`
+    };
+  }
+
+  for (let i = 0; i < stemChain.length; i++) {
+    const stem = stemChain[i];
+
+    if (!stem.track_id || typeof stem.track_id !== 'number') {
+      return { valid: false, error: `Invalid track_id at index ${i}` };
+    }
+
+    if (!stem.audio_url || typeof stem.audio_url !== 'string') {
+      return { valid: false, error: `Invalid audio_url at index ${i}` };
+    }
+
+    if (typeof stem.gain !== 'number' || stem.gain < 0 || stem.gain > 2) {
+      return { valid: false, error: `Invalid gain at index ${i}: ${stem.gain}` };
+    }
+
+    if (typeof stem.order !== 'number' || stem.order < 0) {
+      return { valid: false, error: `Invalid order at index ${i}: ${stem.order}` };
+    }
+  }
+
+  // Check for duplicate track_ids
+  const trackIds = stemChain.map(s => s.track_id);
+  const uniqueTrackIds = [...new Set(trackIds)];
+  if (trackIds.length !== uniqueTrackIds.length) {
+    return { valid: false, error: 'Duplicate track_ids found in stem chain' };
+  }
+
+  return { valid: true };
+}
+
 module.exports = {
   s3,
   s3Client,
@@ -787,5 +838,6 @@ module.exports = {
   deleteTrackS3Files,
   getStemChain,
   validateMixGains,
-  calculateEffectiveGain
+  calculateEffectiveGain,
+  validateStemChain
 }; 
