@@ -13,9 +13,9 @@ const {
   interactionLimiter, 
   apiEndpointLimiter 
 } = require('../middleware/rateLimiting');
-const { 
-  s3, 
-  s3Client, 
+const {
+  s3,
+  s3Client,
   generateSignedUrl,
   processTrack,
   downloadS3File,
@@ -27,11 +27,12 @@ const {
   getFollowingFeedQuery,
   getForYouFeedQuery,
   findAllDescendantTracks,
-  deleteTrack
+  deleteTrack,
+  getStemChain
 } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
-const { validateCompetitionEntry } = require('../../../shared/utils/competition');
+const { validateCompetitionEntry } = require('../../shared/utils/competition');
 require('dotenv').config;
 
 // Configure FFMPEG path based on platform
@@ -138,6 +139,8 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
   let parentIsPrivate = false;
   let parentSecretToken = null;
   let parsedMetronomeOffset = metronome_offset ? Math.min(Math.max(parseFloat(metronome_offset), 0), 1) : 0;
+  let isCompetitionEntry = false;
+  let competitionId = null;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
   
@@ -248,16 +251,6 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
   }
 
   try {
-    // 1. Upload raw file to S3
-    audioUrl = `tracks/${Date.now()}-${file.originalname}`;
-    const uploadParams = {
-      Bucket: process.env.S3_BUCKET,
-      Key: audioUrl,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    };
-    await s3.upload(uploadParams).promise();
-
     if (parent_track_id) {
       const parentResult = await pool.query(
         'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
@@ -293,8 +286,6 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
 
       // Validate competition entry only if user opted in and parent track exists
       let competitionValidation = null;
-      let isCompetitionEntry = false;
-      let competitionId = null;
 
       // Only check for competition entry if it's a collaboration and user wants to enter
       if (parent_track_id && enter_competition === 'true') {
@@ -397,12 +388,104 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       await fsPromises.unlink(normalizedPath).catch(err => console.error('Cleanup error:', err));
     }
 
+    // Upload raw file to S3 after all validation is complete
+    audioUrl = `tracks/${Date.now()}-${file.originalname}`;
+    const uploadParams = {
+      Bucket: process.env.S3_BUCKET,
+      Key: audioUrl,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+    await s3.upload(uploadParams).promise();
+
+    // Phase 1: Insert track with placeholder mix_gains
+    let placeholderMixGains;
+    if (parent_track_id) {
+      // For collaborations, get parent track's mix_gains for placeholder
+      const parentTrackResult = await pool.query(
+        'SELECT mix_gains FROM tracks WHERE id = $1',
+        [parent_track_id]
+      );
+
+      if (parentTrackResult.rows[0]?.mix_gains?.stems) {
+        // Use parent's stem information as placeholder
+        placeholderMixGains = {
+          stems: parentTrackResult.rows[0].mix_gains.stems,
+          status: 'incomplete',
+          version: 'hybrid_v1'
+        };
+      } else {
+        // Fallback if parent doesn't have mix_gains yet
+        placeholderMixGains = {
+          stems: [{
+            track_id: parent_track_id,
+            gain: parsedOriginalGain,
+            order: 0
+          }],
+          status: 'incomplete',
+          version: 'hybrid_v1'
+        };
+      }
+    } else {
+      // For original tracks, start with empty stems placeholder
+      placeholderMixGains = {
+        stems: [],
+        status: 'incomplete',
+        version: 'hybrid_v1'
+      };
+    }
+
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId]
+        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(placeholderMixGains)]
     );
-    
+
     const trackId = result.rows[0].id;
+
+    // Phase 2: Complete mix_gains with current track's stem information
+    let completeMixGains;
+    if (parent_track_id) {
+      // For collaborations: inherit parent stems + add current stem
+      const parentTrackResult = await pool.query(
+        'SELECT mix_gains FROM tracks WHERE id = $1',
+        [parent_track_id]
+      );
+
+      let parentStems = [];
+      if (parentTrackResult.rows[0]?.mix_gains?.stems) {
+        parentStems = parentTrackResult.rows[0].mix_gains.stems;
+      }
+
+      completeMixGains = {
+        stems: [
+          ...parentStems,
+          {
+            track_id: trackId,
+            gain: parsedRecordingGain,
+            order: parentStems.length
+          }
+        ],
+        version: 'hybrid_v1',
+        created_at: new Date().toISOString()
+      };
+    } else {
+      // For original tracks: just add current stem
+      completeMixGains = {
+        stems: [{
+          track_id: trackId,
+          gain: 1.0,  // Original tracks start at full volume
+          order: 0
+        }],
+        version: 'hybrid_v1',
+        created_at: new Date().toISOString()
+      };
+    }
+
+    // Update with complete stem information
+    await pool.query(
+      'UPDATE tracks SET mix_gains = $1 WHERE id = $2',
+      [JSON.stringify(completeMixGains), trackId]
+    );
     
     // Create notification for parent track owner if this is a collaboration
     if (parent_track_id) {
@@ -584,6 +667,34 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
     
     res.json(tracks);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get stem chain for DAW loading
+router.get('/:id/stems', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  try {
+    // Check if user has access to the track
+    const accessCheck = await checkTrackAccess(id, userId);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
+    }
+
+    // Get the complete stem chain using the utility function
+    const stemChain = await getStemChain(id);
+
+    // Convert S3 URLs to signed URLs for client access
+    const stemsWithSignedUrls = stemChain.map(stem => ({
+      ...stem,
+      audio_url: generateSignedUrl(stem.audio_url)
+    }));
+
+    res.json(stemsWithSignedUrls);
+  } catch (err) {
+    console.error('Stem chain retrieval error:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -5,6 +5,7 @@ import Track from './Track.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import AudioState from './AudioStateStore.js';
+import api from '../../../lib/api.js';
 
 class TrackManager {
   constructor(audioContext) {
@@ -13,46 +14,111 @@ class TrackManager {
     this.id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
   
-  async loadTrack(trackData) {
+  // Load stem chain for DAW using complete stem information
+  async loadStemChain(trackData) {
+    try {
+      // Call the stems API endpoint to get complete stem information with signed URLs
+      const stemsResponse = await api.get(`/tracks/${trackData.id}/stems`);
+      const stemsData = stemsResponse.data;
+
+      if (!stemsData || stemsData.length === 0) {
+        // Fallback if stems endpoint fails
+        return [await this.createTrackFromData(trackData)];
+      }
+
+      // Load all stem audio files in parallel
+      const stemPromises = stemsData.map(async (stem, index) => {
+        const buffer = await getAudioBufferFromS3(stem.audio_url, this.audioContext);
+        return {
+          id: stem.track_id,
+          buffer: buffer,
+          gain: stem.gain,
+          order: stem.order,
+          name: `Stem ${index + 1} (Track ${stem.track_id})`
+        };
+      });
+
+      const stems = await Promise.all(stemPromises);
+
+      // Sort by order and create tracks
+      const tracks = stems
+        .sort((a, b) => a.order - b.order)
+        .map(stem => this.createTrackFromStem(stem));
+
+      // Set DAW duration from longest stem
+      const durations = tracks.map(track => track.calculateTotalDuration());
+      const maxDuration = Math.max(...durations);
+      AudioState.dawDuration = maxDuration;
+      eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: maxDuration });
+
+      return tracks;
+
+    } catch (error) {
+      console.error('Error loading stem chain:', error);
+      // Fallback to legacy loading on error
+      return [await this.createTrackFromData(trackData)];
+    }
+  }
+
+  createTrackFromStem(stemData) {
+    const bufferKey = bufferRegistry.generateBufferKey(stemData.id, 'stem-region');
+
+    // Store buffer in registry
+    bufferRegistry.storeBuffer(bufferKey, stemData.buffer, {
+      name: 'stem-region',
+      trackId: stemData.id
+    });
+
+    const track = new Track(stemData.id, this.audioContext);
+    track.setGain(stemData.gain);
+    track.addRegion(bufferKey, null, null, null, 'stem-region');
+
+    this.tracks.set(stemData.id, track);
+    return track;
+  }
+
+  // Fallback method for legacy tracks
+  async createTrackFromData(trackData) {
     const regionName = "region";
     const bufferKey = bufferRegistry.generateBufferKey(trackData.id, regionName);
-      
-    let audioContext = this.audioContext;
-    if (!audioContext) {
-      eventBus.emit(DAW_EVENTS.ERROR.AUDIO, 'Audio context not found');
-      return;
-    }
-    
-    const buffer = await getAudioBufferFromS3(trackData.combined_audio_url, audioContext);
-      
+
+    // Load buffer from S3
+    const buffer = await getAudioBufferFromS3(trackData.combined_audio_url || trackData.audio_url, this.audioContext);
+
     // Store in registry
     bufferRegistry.storeBuffer(bufferKey, buffer, {
       name: regionName,
       trackId: trackData.id
     });
-      
-    // Create track with regions
-    const track = new Track(trackData.id, audioContext); 
+
+    const track = new Track(trackData.id, this.audioContext);
+    track.setGain(1.0);
     track.addRegion(bufferKey, null, null, null, regionName);
-    
+
     this.tracks.set(trackData.id, track);
     return track;
   }
-  
-  // Load multiple tracks
-  async loadAllTracks(tracksData) {
-    const loadPromises = tracksData.map(trackData => 
-      this.loadTrack(trackData)
-    );
-    
-    await Promise.all(loadPromises);
 
-    const trackDurations = await Promise.all(this.tracks.values().map(track => track.calculateTotalDuration()));
+  // Legacy method for backward compatibility
+  async loadTrack(trackData) {
+    return (await this.loadStemChain(trackData))[0];
+  }
+
+  // Load multiple tracks (legacy method)
+  async loadAllTracks(tracksData) {
+    const loadPromises = tracksData.map(trackData =>
+      this.loadStemChain(trackData)
+    );
+
+    const trackArrays = await Promise.all(loadPromises);
+    const allTracks = trackArrays.flat();
+
+    const trackDurations = await Promise.all(allTracks.map(track => track.calculateTotalDuration()));
     const maxDuration = Math.max(...trackDurations);
     AudioState.dawDuration = maxDuration;
     eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: AudioState.dawDuration });
 
-    return Array.from(this.tracks.values());
+    return allTracks;
   }
 
   // Create an empty track for recording

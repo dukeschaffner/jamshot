@@ -73,7 +73,16 @@ export function DAWProvider({ children, trackData, isCollab }) {
         
         // Load existing tracks if provided
         if (trackData && trackData.length > 0) {
-          await tm.loadAllTracks(trackData);
+          // Check if this is a collaboration (has parent) - use hybrid loading
+          const isCollaboration = trackData[0]?.parent_track_id !== null;
+
+          if (isCollaboration) {
+            // Use hybrid stem chain loading for collaborations
+            await tm.loadStemChain(trackData[0]);
+          } else {
+            // Use legacy loading for original tracks
+            await tm.loadAllTracks(trackData);
+          }
         }
         
         // Always create an empty track for recording
