@@ -159,10 +159,17 @@ export default function UploadForm({
         if (isCollab) {
           if (parentTrackModel && parentTrackModel.id) {
             formData.append('parent_track_id', parentTrackModel.id);
-            const recordingGain = recordingTrack.gain;
-            const originalGain = trackManagerRef.current.getTrack(parentTrackModel.id).gain;
-            formData.append('original_gain', originalGain.toString());
-            formData.append('recording_gain', recordingGain.toString());
+
+            // Collect all track gains from the TrackManager
+            const allTracks = trackManagerRef.current.getAllTracks();
+            const stemGains = allTracks.map(track => ({
+              track_id: track.id === 'recording-track' ? 'recording' : track.id,
+              gain: track.gain
+            }));
+
+            console.log('Collected stem gains for upload:', stemGains);
+            formData.append('stem_gains', JSON.stringify(stemGains));
+
           }
           else{
             throw new Error('Parent track model not found');
