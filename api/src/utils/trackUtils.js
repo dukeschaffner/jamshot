@@ -683,6 +683,90 @@ async function deleteTrackS3Files(audioUrl, combinedAudioUrl) {
   }
 }
 
+// Get complete stem chain for a track (used by DAW)
+async function getStemChain(trackId) {
+  // Get the track with its complete stem information
+  const trackResult = await pool.query(
+    'SELECT id, audio_url, combined_audio_url, mix_gains FROM tracks WHERE id = $1',
+    [trackId]
+  );
+
+  if (!trackResult.rows[0]) {
+    throw new Error('Track not found');
+  }
+
+  const track = trackResult.rows[0];
+  const mixGains = track.mix_gains;
+
+  if (!mixGains?.stems) {
+    // Fallback for tracks without complete stem info
+    return [{
+      track_id: track.id,
+      audio_url: track.audio_url,
+      gain: 1.0,
+      order: 0
+    }];
+  }
+
+  // Get audio URLs for all stems in the chain
+  const stemIds = mixGains.stems.map(stem => stem.track_id);
+  const stemsQuery = await pool.query(
+    'SELECT id, audio_url FROM tracks WHERE id = ANY($1)',
+    [stemIds]
+  );
+
+  // Create lookup map for audio URLs
+  const audioUrlMap = {};
+  stemsQuery.rows.forEach(row => {
+    audioUrlMap[row.id] = row.audio_url;
+  });
+
+  // Build complete stem information
+  const stems = mixGains.stems.map(stem => ({
+    track_id: stem.track_id,
+    audio_url: audioUrlMap[stem.track_id],
+    gain: stem.gain,
+    order: stem.order
+  }));
+
+  // Sort by order to maintain proper sequence
+  return stems.sort((a, b) => a.order - b.order);
+}
+
+// Validate mix_gains structure
+function validateMixGains(mixGains) {
+  if (!mixGains || typeof mixGains !== 'object') {
+    return false;
+  }
+
+  if (!Array.isArray(mixGains.stems)) {
+    return false;
+  }
+
+  // Validate each stem has required fields
+  for (const stem of mixGains.stems) {
+    if (typeof stem.track_id !== 'number' ||
+        typeof stem.gain !== 'number' ||
+        typeof stem.order !== 'number') {
+      return false;
+    }
+
+    if (stem.gain < 0 || stem.gain > 2) {
+      return false; // Reasonable gain limits
+    }
+  }
+
+  return true;
+}
+
+// Calculate effective gain for a stem in the final mix
+function calculateEffectiveGain(trackId, mixGains) {
+  if (!mixGains?.stems) return 1.0;
+
+  const stem = mixGains.stems.find(s => s.track_id === trackId);
+  return stem ? stem.gain : 1.0;
+}
+
 module.exports = {
   s3,
   s3Client,
@@ -700,5 +784,8 @@ module.exports = {
   getForYouFeedQuery,
   findAllDescendantTracks,
   deleteTrack,
-  deleteTrackS3Files
+  deleteTrackS3Files,
+  getStemChain,
+  validateMixGains,
+  calculateEffectiveGain
 }; 

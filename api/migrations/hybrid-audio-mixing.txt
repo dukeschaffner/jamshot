@@ -1,6 +1,6 @@
 -- Hybrid Audio Mixing - Phase 1: Database Foundation
+-- Migration: Add mix_gains column for complete stem chain storage
 -- Date: 2025-09-19
--- Description: Add mix_gains column for complete stem chain storage
 
 -- Add mix_gains column for storing complete stem information
 ALTER TABLE tracks ADD COLUMN IF NOT EXISTS mix_gains JSONB;
