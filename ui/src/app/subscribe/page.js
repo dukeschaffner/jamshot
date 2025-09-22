@@ -82,12 +82,15 @@ function SubscribeContent() {
       // Handle different response types
       if (data.type === 'checkout_session') {
         // Redirect to Stripe Checkout for new subscriptions
+        console.log('Redirecting to Stripe Checkout for new subscription');
         const stripe = await stripePromise;
+        console.log('Stripe instance created');
         const { error } = await stripe.redirectToCheckout({
           sessionId: data.id,
         });
 
         if (error) {
+          console.error('Error redirecting to Stripe Checkout:', error);
           throw new Error(error.message);
         }
       } else if (data.type === 'tier_change') {
