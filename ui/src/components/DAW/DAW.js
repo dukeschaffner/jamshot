@@ -23,12 +23,13 @@ import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 
 function DAWContent({ track}) {
-  const { 
+  const {
     isCollab,
-    trackManagerRef, 
-    audioEngineRef, 
-    isLoading, 
-    error, 
+    trackManagerRef,
+    audioEngineRef,
+    trackData,
+    isLoading,
+    error,
     tracks,
     isPlaying,
     isRecording,
@@ -193,7 +194,7 @@ function DAWContent({ track}) {
             <TimeDisplay />
             <div>
               {recordingTrackHasAudio && !isRecording && (track ? track.layer < 4 : true) && (
-                  <button 
+                  <button
                     className="pill-btn gradient-btn"
                     style={{justifySelf: 'end'}}
                     onClick={() => setShowUploadForm(true)}
@@ -211,7 +212,11 @@ function DAWContent({ track}) {
           <div className={styles.tracks}>
           <div className={styles.tracksHeaders}>
             {tracks.map((track, index) => (
-              <TrackHeader key={index} track={track}/>
+              <TrackHeader
+                key={`${track.id}-${index}`}
+                track={track}
+                trackData={trackData && trackData.length > 0 ? trackData[0] : null}
+              />
             ))}
           </div>
           <div 
@@ -277,8 +282,9 @@ function DAWContent({ track}) {
       </div>
 
       {recordingTrackHasAudio && showUploadForm && (
-        <UploadForm 
+        <UploadForm
           isCollab={isCollab}
+          hasActiveCompetition={track?.has_active_competition || false}
           onCancel={() => {
             setShowUploadForm(false);
           }}

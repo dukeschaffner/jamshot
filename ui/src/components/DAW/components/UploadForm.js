@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '../../../lib/api';
 import TagSelector from '../../TagSelector';
 import LoadingSpinner from '../../LoadingSpinner';
@@ -14,8 +14,9 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 
-export default function UploadForm({ 
-  isCollab = false, 
+export default function UploadForm({
+  isCollab = false,
+  hasActiveCompetition = false,
   onCancel = null,
   onUploadComplete = null
 }) {
@@ -32,8 +33,11 @@ export default function UploadForm({
   const [timeSignatureInput, setTimeSignatureInput] = useState(timeSignature);
   const [isPrivate, setIsPrivate] = useState(false);
   const [allowDownload, setAllowDownload] = useState(true);
+  const [enterCompetition, setEnterCompetition] = useState(true); // Default to checked
   const [parentTrackModel, setParentTrackModel] = useState(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const createCompetition = searchParams.get('createCompetition') === 'true';
 
   const [hasSilenceAtStart, setHasSilenceAtStart] = useState(false);
   const [hasSilenceAtEnd, setHasSilenceAtEnd] = useState(false);
@@ -155,10 +159,6 @@ export default function UploadForm({
         if (isCollab) {
           if (parentTrackModel && parentTrackModel.id) {
             formData.append('parent_track_id', parentTrackModel.id);
-            const recordingGain = recordingTrack.gain;
-            const originalGain = trackManagerRef.current.getTrack(parentTrackModel.id).gain;
-            formData.append('original_gain', originalGain.toString());
-            formData.append('recording_gain', recordingGain.toString());
           }
           else{
             throw new Error('Parent track model not found');
@@ -170,6 +170,16 @@ export default function UploadForm({
         setIsUploading(false);
         return;
       }
+
+      // Collect all track gains from the TrackManager
+      const allTracks = trackManagerRef.current.getAllTracks();
+      const stemGains = allTracks.map(track => ({
+        track_id: track.id === 'recording-track' ? 'recording' : track.id,
+        gain: track.gain
+      }));
+
+      console.log('Collected stem gains for upload:', stemGains);
+      formData.append('stem_gains', JSON.stringify(stemGains));
       
       // Add genre and instrument IDs
       if (selectedGenres.length > 0) {
@@ -191,6 +201,11 @@ export default function UploadForm({
       // Add download permission for both regular tracks and collaborations
       formData.append('allow_download', allowDownload);
 
+      // Add competition entry preference for collaborations
+      if (isCollab && hasActiveCompetition) {
+        formData.append('enter_competition', enterCompetition);
+      }
+
       const response = await api.post('/tracks/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -210,9 +225,15 @@ export default function UploadForm({
         onUploadComplete();
       }
       
-      setTimeout(() => {// For new tracks, redirect to the uploaded track page
+      setTimeout(() => {
         if (uploadedTrack && uploadedTrack.id) {
-          router.push(`/track/${uploadedTrack.id}`);
+          // If creating competition, redirect to competition create page with track ID
+          if (createCompetition) {
+            router.push(`/competition/create?track=${uploadedTrack.id}`);
+          } else {
+            // For new tracks, redirect to the uploaded track page
+            router.push(`/track/${uploadedTrack.id}`);
+          }
         } else {
           // Fallback to home if track ID is not available
           router.push('/');
@@ -439,6 +460,24 @@ export default function UploadForm({
             <span className="ml-2 text-xs text-gray-500">(Recommended for sharing)</span>
           </label>
         </div>
+
+        {/* Competition entry - only show for collaborations with active competition */}
+        {isCollab && hasActiveCompetition && (
+          <div className="flex items-center space-x-2 mt-4">
+            <input
+              type="checkbox"
+              id="enterCompetition"
+              checked={enterCompetition}
+              onChange={(e) => setEnterCompetition(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="enterCompetition" className="flex items-center text-sm">
+              <span className="mr-2 text-gray-600">🏆</span>
+              Enter this track in the active competition
+              <span className="ml-2 text-xs text-gray-500">(Win prizes and get exposure!)</span>
+            </label>
+          </div>
+        )}
         
         {!allowDownload && (
           <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded flex items-start">

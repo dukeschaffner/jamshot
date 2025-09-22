@@ -1,0 +1,425 @@
+/* Competition Detail Page */
+.competitionDetailPage {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.headerInfo {
+  flex: 1;
+  min-width: 300px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  margin: 0 0 8px 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  gap: 12px;
+}
+
+.pinnedBadge {
+  background: var(--seafoam);
+  color: var(--text-primary);
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.sponsorInfo {
+  margin: 0;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 1rem;
+}
+
+.headerActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* Status Badges */
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.activeBadge {
+  background: var(--seafoam);
+  color: var(--text-primary);
+}
+
+.upcomingBadge {
+  background: var(--rustic-pink-light);
+  color: var(--text-primary);
+}
+
+.endedBadge {
+  background: var(--grey-2);
+  color: var(--text-secondary);
+}
+
+.winnerBadge {
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  color: var(--text-primary);
+}
+
+/* Competition Info */
+.competitionInfo {
+  background: var(--grey-1);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.infoItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+}
+
+.infoItem svg {
+  color: var(--seafoam-dark);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.infoItem div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.infoLabel {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.infoValue {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dates {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.dateItem {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Description */
+.description {
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+}
+
+.description h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.description p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Track Section */
+.trackSection {
+  margin-bottom: 30px;
+}
+
+.trackSection h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* Entries Section */
+.entriesSection {
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+}
+
+.entriesSection h3 {
+  margin: 0 0 20px 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.entriesList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.entryItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--grey-1);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+  transition: all 0.2s ease;
+}
+
+.entryItem:hover {
+  background: var(--grey-2);
+  transform: translateY(-1px);
+}
+
+.entryRank {
+  background: var(--seafoam);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.entryTrack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.entryTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.entryArtist {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.entryStats {
+  display: flex;
+  gap: 16px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Empty Entries */
+.emptyEntries {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.emptyEntries svg {
+  font-size: 3rem;
+  color: var(--seafoam);
+  margin-bottom: 16px;
+}
+
+.emptyEntries h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+}
+
+.emptyEntries p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* Loading States */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.loadingContainer p {
+  margin-top: 16px;
+  color: var(--text-secondary);
+}
+
+/* Error States */
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.errorContainer svg {
+  font-size: 3rem;
+  color: var(--red);
+  margin-bottom: 16px;
+}
+
+.errorContainer h3 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+  font-size: 1.5rem;
+}
+
+.errorContainer p {
+  margin: 0 0 24px 0;
+  color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fee;
+  color: var(--red);
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .competitionDetailPage {
+    padding: 16px;
+  }
+  
+  .header {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .headerInfo {
+    min-width: auto;
+  }
+  
+  .title {
+    font-size: 1.5rem;
+  }
+  
+  .headerActions {
+    align-items: stretch;
+    width: 100%;
+  }
+  
+  .infoGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .infoItem {
+    padding: 12px;
+  }
+  
+  .dates {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .entryItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .entryStats {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .competitionInfo,
+  .description,
+  .entriesSection {
+    padding: 16px;
+  }
+  
+  .infoItem {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+}
+
+/* Dark Mode */
+body.dark-mode .competitionInfo,
+body.dark-mode .description,
+body.dark-mode .entriesSection {
+  background: var(--background);
+  border-color: var(--grey-2);
+}
+
+body.dark-mode .infoItem,
+body.dark-mode .entryItem {
+  background: var(--grey-1);
+  border-color: var(--grey-2);
+}
+
+body.dark-mode .entryItem:hover {
+  background: var(--grey-2);
+}

@@ -1,0 +1,18 @@
+{
+  "name": "jamshot-competition-lambda-test",
+  "version": "1.0.0",
+  "description": "Local testing utilities for Jamshot Competition Lambda",
+  "main": "local-test.js",
+  "scripts": {
+    "test": "node local-test.js",
+    "test:all": "node local-test.js all",
+    "test:competition-end": "node local-test.js competition_end",
+    "test:curated-followup": "node local-test.js curated_followup"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

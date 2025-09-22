@@ -1627,7 +1627,14 @@ body.dark-mode .about-header {
   background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-title svg {
+  color: var(--seafoam);
+  flex-shrink: 0;
 }
 
 .about-subtitle {

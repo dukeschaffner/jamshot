@@ -15,6 +15,8 @@ const AnalyticsAggregator = require('./utils/analyticsAggregator');
  * }
  */
 
+//0 2 * * ? *
+
 exports.handler = async (event, context) => {
   console.log('🎵 Jamshot Analytics Lambda Started');
   console.log('Event:', JSON.stringify(event, null, 2));

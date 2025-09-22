@@ -1,0 +1,89 @@
+
+## Phase 1: Database Schema & Backend Foundation
+
+### 1. Database Schema Implementation
+- **Create competitions table** with all specified fields:
+  - `startdate`, `enddate`, `track_id`, `title`, `description`, `prize_amount`
+  - `host_id`, `pinned`, `sponsored`, `sponsor_name`, `image_url`
+  - `voucher_code`, `winner_selection_method`, `winner_id`, `backup_winner_id`
+  - `created_at`, `updated_at`
+- **Add `is_competition_entry` column** to tracks table
+- **Create database migration scripts** and update `db-updates.txt`
+
+### 2. API Endpoints Development
+- **GET /competitions** - Browse competitions with filtering (genre, instrument, etc.)
+- **GET /competitions/:id** - Get specific competition details
+- **POST /competitions/create** - Create new competition (with payment integration)
+- **PUT /competitions/:id** - Update competition (host only)
+- **DELETE /competitions/:id** - Cancel/delete competition (with entry validation)
+- **Extract and reuse existing track endpoint logic** where appropriate
+
+### 3. Lambda Functions
+- **Competition end handler** - Automatically select winners at end date
+- **Winner selection logic**:
+  - Automated: Most likes (tiebreaker: play count, then random)
+  - Curated: Host picks (24hr timeout with backup winner)
+- **Notification system** - Send notifications to host and winner
+- **Scheduled Lambda** - 24hr follow-up for curated competitions
+
+## Phase 2: Payment Integration
+
+### 4. Stripe Integration
+- **Competition hosting fees** - `prize_pool + prize_pool * 0.15` (15% platform fee)
+- **Prize payouts** - Automatic Stripe payouts to winners
+- **Pinning fees** - $25 for pinned competitions
+- **Subscription tie-ins**:
+  - Free: Can join, cannot host
+  - Basic: Can host competitions
+  - Premium: No hosting fees, 1 free pinned competition per year
+
+## Phase 3: Frontend UI Components
+
+### 5. Competition Pages
+- **Competitions page**:
+  - Pinned section + regular section
+  - Filter by genre, instrument, etc.
+  - Create competition button
+  - Sections for "My Entries" and "My Hosted Competitions"
+- **Competition detail page** - Similar to track page with DAW tab
+- **Create competition form** - Similar to upload page with additional competition fields
+
+### 6. Track Component Updates
+- **Competition page display**: Show prize, start/end date, "Enter Competition" button
+- **Other pages display**:
+  - Competition winner banner/icon
+  - Active competition track icon
+  - Competition entry indicator
+- **Reuse existing track component** with custom styling
+
+### 7. Sponsored Competition Component
+- **Home page display** - Featured sponsored competitions
+- **Competition page display** - Pinned at top with branding
+- **Show**: Image, description, prize, dates, play button, social meta, share button
+
+## Phase 4: Business Logic & Rules
+
+### 8. Competition Rules Implementation
+- **Entry restrictions**: One entry per user (always free), host cannot enter
+- **Track restrictions**: Cannot be layer 5 track, cannot delete while active with entries
+- **Auto-entry**: Any track uploaded to competition track during competition period
+- **Cancellation**: Host can cancel until first entry (with confirmation dialog)
+- **Winner selection**: Curated vs automated methods
+- **Prize minimum**: $5 minimum cash prize
+
+### 9. Notification System
+- **Winner notifications** - Email and in-app notifications
+- **Entry confirmations** - When user enters competition
+- **Competition updates** - Start/end notifications
+- **Host notifications** - Entry alerts, winner selection reminders
+
+## Phase 5: Integration & Testing
+
+### 10. Privacy & Access Control
+- **Competition tracks** show in all feeds with competition indicators
+- **Privacy rules** - Follow existing track privacy system
+- **Access control** - Host-only editing, public viewing
+
+### 11. Contact & Support
+- **Link to contact page** from competition page for help/support
+- **Help documentation** for competition hosting and entry

@@ -24,7 +24,9 @@ const SUBSCRIPTION_PLANS_BASE = {
       analytics: false,
       ads: true,
       free_samples_per_month: 0,
-      advanced_daw: false
+      advanced_daw: false,
+      host_competitions: false,
+      no_hosting_fees: false
     },
     limits: {
       daily_uploads: 1,
@@ -53,7 +55,9 @@ const SUBSCRIPTION_PLANS_BASE = {
       analytics: true,
       ads: false,
       free_samples_per_month: 0,
-      advanced_daw: false
+      advanced_daw: false,
+      host_competitions: true,
+      no_hosting_fees: false
     },
     limits: {
       daily_uploads: 5,
@@ -83,7 +87,9 @@ const SUBSCRIPTION_PLANS_BASE = {
       analytics: true,
       ads: false,
       free_samples_per_month: 5,
-      advanced_daw: true
+      advanced_daw: true,
+      host_competitions: true,
+      no_hosting_fees: true
     },
     limits: {
       daily_uploads: 25,

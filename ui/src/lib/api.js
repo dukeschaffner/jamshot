@@ -50,6 +50,8 @@ const {
   authApi,
   searchApi,
   notificationApi,
+  competitionApi,
+  tagApi,
   setRefreshUserState,
   getRefreshUserState,
 } = createApiMethods(apiClient);
@@ -63,6 +65,8 @@ export {
   authApi,
   searchApi,
   notificationApi,
+  competitionApi,
+  tagApi,
   setRefreshUserState,
   getRefreshUserState,
 };

@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import Cookies from 'js-cookie';
-import api, { setRefreshUserState } from '../lib/api';
+import api, { authApi, setRefreshUserState } from '../lib/api';
 import { useRouter } from 'next/navigation';
 import { getUserPlan } from '../lib/subscriptionUtils';
 
@@ -53,7 +53,7 @@ export const UserProvider = ({ children }) => {
   // Login function
   const login = async (email, password) => {
     try {
-      const response = await api.post('/auth/login', { email, password });
+      const response = await authApi.login(email, password);
       
       // Store both tokens in cookies
       const { accessToken, refreshToken } = response.data;

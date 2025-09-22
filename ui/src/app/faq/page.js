@@ -19,7 +19,17 @@ export default function FAQPage() {
     {
       id: 'daw',
       question: 'How can I use my own DAW to record audio?',
-      answer: 'To use your DAW with Sterio, install a virtual audio input/output plugin (such as BlackHole 2ch) and place it on your DAW’s master output. Then, set that plugin as the input source in Sterio.'      
+      answer: 'To use your DAW with Sterio, install a virtual audio input/output plugin (such as BlackHole 2ch) and place it on your DAW\'s master output. Then, set that plugin as the input source in Sterio.'
+    },
+    {
+      id: 'competition-winnings',
+      question: 'How do I collect my competition winnings?',
+      answer: 'Competition winnings are paid out automatically via Stripe within 2-3 business days of winning. You\'ll receive an email notification when you win, and the prize amount will be transferred to your connected Stripe account. If you haven\'t set up payouts yet, visit your Stripe Express dashboard to complete your account setup and add your bank account details. If you don\'t have a Stripe account, one will be created for you automatically.'
+    },
+    {
+      id: 'competition-rules',
+      question: 'How do competitions work?',
+      answer: 'Users can host competitions around their tracks with cash prizes (minimum $5). Competitions run for 1 day to 1 month, and anyone can enter by creating a track that builds on the original. Winners are selected either by the host (curated) or automatically based on the most likes (with play count as tiebreaker). The platform takes a 15% fee from the prize pool.'
     },
     // {
     //   id: 'algorithm',
