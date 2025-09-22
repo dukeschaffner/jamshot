@@ -706,15 +706,7 @@ async function getStemChain(trackId) {
   const track = trackResult.rows[0];
   const mixGains = track.mix_gains;
 
-  if (!mixGains?.stems) {
-    // Fallback for tracks without complete stem info
-    return [{
-      track_id: track.id,
-      audio_url: track.audio_url,
-      gain: 1.0,
-      order: 0
-    }];
-  }
+
 
   // Get audio URLs for all stems in the chain
   const stemIds = mixGains.stems.map(stem => stem.track_id);
@@ -775,10 +767,18 @@ function calculateEffectiveGain(trackId, mixGains) {
   return stem ? stem.gain : 1.0;
 }
 
-// Validate a stem chain for mixing
-function validateStemChain(stemChain, maxStems = 10) {
-  if (!Array.isArray(stemChain) || stemChain.length === 0) {
+// Validate a stem chain for mixing and validate/update against provided stem gains
+function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
+  if (!stemChain || !parsedStemGains) {
+    return { valid: false, error: 'Stem chain and parsedStemGains are required' };
+  }
+
+  if (!Array.isArray(stemChain)) {
     return { valid: false, error: 'Stem chain must be a non-empty array' };
+  }
+
+  if (!Array.isArray(parsedStemGains) || parsedStemGains.length === 0) {
+    return { valid: false, error: 'parsedStemGains must be a non-empty array' };
   }
 
   if (stemChain.length > maxStems) {
@@ -786,6 +786,10 @@ function validateStemChain(stemChain, maxStems = 10) {
       valid: false,
       error: `Stem chain too long (${stemChain.length}). Maximum: ${maxStems}`
     };
+  }
+
+  if(parsedStemGains.length !== stemChain.length + 1) {
+    return { valid: false, error: 'parsedStemGains must have the same length as the stem chain plus one' };
   }
 
   for (let i = 0; i < stemChain.length; i++) {
@@ -815,6 +819,49 @@ function validateStemChain(stemChain, maxStems = 10) {
     return { valid: false, error: 'Duplicate track_ids found in stem chain' };
   }
 
+  // Check that all stem chain track_ids exist in parsedStemGains (except recording)
+  const stemChainTrackIds = stemChain.map(s => s.track_id);
+  const parsedStemGainsTrackIds = parsedStemGains.map(g => g.track_id);
+
+  // Check that all stem chain track_ids are present in parsedStemGains
+  for (const trackId of stemChainTrackIds) {
+    if (!parsedStemGainsTrackIds.includes(trackId)) {
+      return { valid: false, error: `parsedStemGains is missing gain for track_id: ${trackId}` };
+    }
+  }
+
+  // Check that parsedStemGains has the 'recording' entry
+  if (!parsedStemGainsTrackIds.includes('recording')) {
+    return { valid: false, error: 'parsedStemGains must include an entry with track_id: "recording"' };
+  }
+
+  // Validate that all entries in parsedStemGains have valid gain values
+  for (const gainEntry of parsedStemGains) {
+    if (!gainEntry.track_id) {
+      return { valid: false, error: 'parsedStemGains entry missing track_id' };
+    }
+    if (typeof gainEntry.gain !== 'number' || gainEntry.gain < 0 || gainEntry.gain > 2) {
+      return { valid: false, error: `Invalid gain value for track_id ${gainEntry.track_id}: ${gainEntry.gain}` };
+    }
+  }
+
+  // Update gain values in stemChain with values from parsedStemGains
+  for (let i = 0; i < stemChain.length; i++) {
+    const stem = stemChain[i];
+    const matchingGainEntry = parsedStemGains.find(g => g.track_id === stem.track_id);
+    if (matchingGainEntry) {
+      stemChain[i].gain = matchingGainEntry.gain;
+    }
+  }
+
+  // Add recording gain to the end of the stemChain
+  stemChain.push({
+    track_id: 'recording',
+    audio_url: '',
+    gain: parsedStemGains.find(g => g.track_id === 'recording').gain,
+    order: stemChain.length
+  });
+
   return { valid: true };
 }
 
@@ -839,5 +886,5 @@ module.exports = {
   getStemChain,
   validateMixGains,
   calculateEffectiveGain,
-  validateStemChain
+  validateAndUpdateStemChain
 }; 
