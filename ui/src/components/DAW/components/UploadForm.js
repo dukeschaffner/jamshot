@@ -159,17 +159,6 @@ export default function UploadForm({
         if (isCollab) {
           if (parentTrackModel && parentTrackModel.id) {
             formData.append('parent_track_id', parentTrackModel.id);
-
-            // Collect all track gains from the TrackManager
-            const allTracks = trackManagerRef.current.getAllTracks();
-            const stemGains = allTracks.map(track => ({
-              track_id: track.id === 'recording-track' ? 'recording' : track.id,
-              gain: track.gain
-            }));
-
-            console.log('Collected stem gains for upload:', stemGains);
-            formData.append('stem_gains', JSON.stringify(stemGains));
-
           }
           else{
             throw new Error('Parent track model not found');
@@ -181,6 +170,16 @@ export default function UploadForm({
         setIsUploading(false);
         return;
       }
+
+      // Collect all track gains from the TrackManager
+      const allTracks = trackManagerRef.current.getAllTracks();
+      const stemGains = allTracks.map(track => ({
+        track_id: track.id === 'recording-track' ? 'recording' : track.id,
+        gain: track.gain
+      }));
+
+      console.log('Collected stem gains for upload:', stemGains);
+      formData.append('stem_gains', JSON.stringify(stemGains));
       
       // Add genre and instrument IDs
       if (selectedGenres.length > 0) {

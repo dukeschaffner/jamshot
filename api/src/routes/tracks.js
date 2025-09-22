@@ -29,7 +29,7 @@ const {
   findAllDescendantTracks,
   deleteTrack,
   getStemChain,
-  validateStemChain
+  validateAndUpdateStemChain
 } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
@@ -220,10 +220,6 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
   
   // Parse metronome_bpm if provided
   let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
-  
-  // Parse gain values with fallbacks to default values (1.0 = full volume)
-  const parsedOriginalGain = original_gain ? parseFloat(original_gain) : 0.8;
-  const parsedRecordingGain = recording_gain ? parseFloat(recording_gain) : 0.8;
 
   // Parse stem gains array if provided
   let parsedStemGains = null;
@@ -265,6 +261,24 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     }
   } catch (err) {
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
+  }
+
+  let stemChain = [];
+  try {
+    // Get the complete stem chain for mixing
+    stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
+
+    // Validate stem chain and parsedStemGains
+    const validation = validateAndUpdateStemChain(stemChain, parsedStemGains);
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: 'Invalid stem chain or stem gains',
+        message: validation.error
+      });
+    }
+  } catch (err) {
+    console.error('Error validating stem chain and parsedStemGains:', err);
+    return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
   }
 
   try {
@@ -329,46 +343,23 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
         }
       }
 
-      // Get the complete stem chain for mixing
-      const stemChain = await getStemChain(parent_track_id);
-      console.log('Complete stem chain for mixing:', stemChain.map(s => ({ id: s.track_id, gain: s.gain, order: s.order })));
-
-      // Validate stem chain
-      const validation = validateStemChain(stemChain);
-      if (!validation.valid) {
-        return res.status(400).json({
-          error: 'Invalid stem chain',
-          message: validation.error
-        });
-      }
-
       const localFiles = [];
       const gainValues = [];
 
       // Download all stems in the chain and prepare gain values
       for (const stem of stemChain) {
+        if (stem.track_id === 'recording') {
+          continue;
+        }
+
         // Validate stem data
         if (!stem.audio_url) {
           console.warn(`Stem ${stem.track_id} has no audio_url, skipping`);
           continue;
         }
 
-        // Determine gain value: use provided stem_gains if available, otherwise use stored gain
-        let gainValue = stem.gain; // Default to stored gain
-
-        if (parsedStemGains && Array.isArray(parsedStemGains)) {
-          // Find matching gain in provided stem_gains array
-          const providedGain = parsedStemGains.find(g => g.track_id === stem.track_id);
-          if (providedGain && typeof providedGain.gain === 'number' && providedGain.gain >= 0 && providedGain.gain <= 2) {
-            gainValue = providedGain.gain;
-            console.log(`Using provided gain for stem ${stem.track_id}: ${gainValue} (was ${stem.gain})`);
-          }
-        }
-
-        if (typeof gainValue !== 'number' || gainValue < 0 || gainValue > 2) {
-          console.warn(`Stem ${stem.track_id} has invalid gain ${gainValue}, using default 0.8`);
-          gainValue = 0.8; // Use reasonable default
-        }
+        const gainValue = stem.gain;
+        console.log(`Using gain for stem ${stem.track_id}: ${gainValue}`);
 
         const stemLocalPath = path.join(tempDir, `stem-${stem.track_id}-${Date.now()}-${path.basename(stem.audio_url)}`);
         console.log(`Downloading stem ${stem.track_id}:`, stem.audio_url, 'to:', stemLocalPath);
@@ -399,16 +390,10 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       await fsPromises.writeFile(uploadedLocalPath, file.buffer);
       localFiles.push(uploadedLocalPath);
 
-      // Use provided recording gain from stem_gains if available, otherwise use parsedRecordingGain
-      let finalRecordingGain = parsedRecordingGain;
-      if (parsedStemGains && Array.isArray(parsedStemGains)) {
-        // Find recording gain in stem_gains (it won't have a track_id yet since it's new)
-        const recordingGainEntry = parsedStemGains.find(g => g.track_id === 'recording' || g.track_id === null);
-        if (recordingGainEntry && typeof recordingGainEntry.gain === 'number' && recordingGainEntry.gain >= 0 && recordingGainEntry.gain <= 2) {
-          finalRecordingGain = recordingGainEntry.gain;
-          console.log(`Using provided recording gain: ${finalRecordingGain} (was ${parsedRecordingGain})`);
-        }
-      }
+      // Get recording gain from validated parsedStemGains
+      const recordingGainEntry = parsedStemGains.find(g => g.track_id === 'recording');
+      const finalRecordingGain = recordingGainEntry.gain;
+      console.log(`Using provided recording gain: ${finalRecordingGain}`);
       gainValues.push(finalRecordingGain);
 
       console.log('Local files before combining:', localFiles);
@@ -500,87 +485,30 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     await s3.upload(uploadParams).promise();
 
     // Phase 1: Insert track with placeholder mix_gains
-    let placeholderMixGains;
-    if (parent_track_id) {
-      // For collaborations, get parent track's mix_gains for placeholder
-      const parentTrackResult = await pool.query(
-        'SELECT mix_gains FROM tracks WHERE id = $1',
-        [parent_track_id]
-      );
+    // Create a copy of stem chain without audio_url property for placeholder
+    const stemChainToInsert = stemChain.map(stem => ({
+      track_id: stem.track_id,
+      gain: stem.gain,
+      order: stem.order
+    }));
 
-      if (parentTrackResult.rows[0]?.mix_gains?.stems) {
-        // Use parent's stem information as placeholder
-        placeholderMixGains = {
-          stems: parentTrackResult.rows[0].mix_gains.stems,
-          status: 'incomplete',
-          version: 'hybrid_v1'
-        };
-      } else {
-        // Fallback if parent doesn't have mix_gains yet
-        placeholderMixGains = {
-          stems: [{
-            track_id: parent_track_id,
-            gain: parsedOriginalGain,
-            order: 0
-          }],
-          status: 'incomplete',
-          version: 'hybrid_v1'
-        };
-      }
-    } else {
-      // For original tracks, start with empty stems placeholder
-      placeholderMixGains = {
-        stems: [],
-        status: 'incomplete',
-        version: 'hybrid_v1'
-      };
-    }
+    let mixGainsToInsert = {
+      stems: stemChainToInsert
+    };
 
     const result = await pool.query(
         'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(placeholderMixGains)]
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert)]
     );
 
     const trackId = result.rows[0].id;
 
-    // Phase 2: Complete mix_gains with current track's stem information
-    let completeMixGains;
-    if (parent_track_id) {
-      // For collaborations: inherit parent stems + add current stem
-      const parentTrackResult = await pool.query(
-        'SELECT mix_gains FROM tracks WHERE id = $1',
-        [parent_track_id]
-      );
-
-      let parentStems = [];
-      if (parentTrackResult.rows[0]?.mix_gains?.stems) {
-        parentStems = parentTrackResult.rows[0].mix_gains.stems;
-      }
-
-      completeMixGains = {
-        stems: [
-          ...parentStems,
-          {
-            track_id: trackId,
-            gain: parsedRecordingGain,
-            order: parentStems.length
-          }
-        ],
-        version: 'hybrid_v1',
-        created_at: new Date().toISOString()
-      };
-    } else {
-      // For original tracks: just add current stem
-      completeMixGains = {
-        stems: [{
-          track_id: trackId,
-          gain: 1.0,  // Original tracks start at full volume
-          order: 0
-        }],
-        version: 'hybrid_v1',
-        created_at: new Date().toISOString()
-      };
-    }
+    // Phase 2: update stem for recording: change trackId to the new trackId
+    const recordingStem = stemChainToInsert.find(s => s.track_id === 'recording');
+    recordingStem.track_id = trackId;
+    const completeMixGains = {
+      stems: stemChainToInsert
+    };
 
     // Update with complete stem information
     await pool.query(

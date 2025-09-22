@@ -33,7 +33,7 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (origin === 'https://main.d3cx888lrkmdbn.amplifyapp.com') {
+    if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com') {
       return callback(null, true);
     }
 
