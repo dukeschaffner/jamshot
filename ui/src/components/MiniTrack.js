@@ -17,7 +17,7 @@ export default function MiniTrack(
   { 
     track, 
     relatedTracks = [], 
-    isTreeView = false, // Used in tree view
+    view = 'default', // Used in tree view, competition view, or default
     trackTreeIds // Used in tree view
   }
 ) {
@@ -40,7 +40,7 @@ export default function MiniTrack(
   };
   
   const handleSelectTrack = (e) => {
-    if(isTreeView) {
+    if(view === 'tree') {
       e.stopPropagation();
       router.push(`/tree/${track.id}`);
     }
@@ -58,7 +58,7 @@ export default function MiniTrack(
   
   return (
     <div 
-      className={`${styles.miniTrackTrack} ${isTreeView && trackTreeIds && trackTreeIds.includes(track.id) ? styles.selected : 'cursor-pointer'}`}
+      className={`${styles.miniTrackTrack} ${view === 'tree' && trackTreeIds && trackTreeIds.includes(track.id) ? styles.selected : 'cursor-pointer'}`}
       onClick={handleSelectTrack}
     >
       <div className={styles.miniTrackPlay} onClick={handlePlayToggle}>

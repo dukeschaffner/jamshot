@@ -4,48 +4,100 @@ on:
   push:
     branches:
       - main
+      - dev
     paths:
       - 'api/**'
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - prod
       reason:
         description: 'Reason for deployment'
         required: false
         default: 'Manual deployment'
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      build-artifact: api-build-${{ github.run_number }}
     defaults:
       run:
         working-directory: ./api/
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-      
+
     - name: Set up Node.js 22
       uses: actions/setup-node@v3
       with:
         node-version: '22'
         cache: 'npm'
         cache-dependency-path: './api/package-lock.json'
-        
+
     - name: Install dependencies
       run: |
         npm ci
-        
+
     - name: Build
       run: |
         npm run build --if-present
-        
+
     - name: Make FFMPEG binary executable
       run: |
         chmod +x ./bin/ffmpeg
-        
-    - name: Deploy to Azure Web App
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: api-build-${{ github.run_number }}
+        path: ./api/
+
+  deploy-to-test:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: test
+      url: https://sterio-api-test.azurewebsites.net
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Deploy to Test Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'sterio-api-test'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API_TEST }}
+        package: .
+
+  deploy-to-prod:
+    runs-on: ubuntu-latest
+    needs: [build, deploy-to-test]
+    environment:
+      name: prod
+      url: https://jamshot-api.azurewebsites.net
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Deploy to Prod Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'jamshot-api'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
-        package: './api'
+        package: .

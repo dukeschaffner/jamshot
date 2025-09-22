@@ -1,0 +1,236 @@
+/* Competition Container */
+.competitionContainer {
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.competitionContainer:hover {
+  box-shadow: 0 4px 16px var(--shadow);
+  transform: translateY(-2px);
+}
+
+/* Competition Header */
+.competitionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--seafoam-light), var(--rustic-pink-light));
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.competitionInfo {
+  flex: 1;
+}
+
+.competitionTitle {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.trophyIcon {
+  color: var(--seafoam-dark);
+  margin-right: 8px;
+  font-size: 1.2rem;
+}
+
+.competitionTitle h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pinnedBadge {
+  background: var(--seafoam);
+  color: var(--text-primary);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.sponsorInfo {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+.competitionMeta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.metaItem svg {
+  color: var(--seafoam-dark);
+  font-size: 0.8rem;
+}
+
+.competitionActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* Status Badges */
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.activeBadge {
+  background: var(--seafoam);
+  color: var(--text-primary);
+}
+
+.upcomingBadge {
+  background: var(--rustic-pink-light);
+  color: var(--text-primary);
+}
+
+.endedBadge {
+  background: var(--grey-2);
+  color: var(--text-secondary);
+}
+
+.winnerBadge {
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  color: var(--text-primary);
+}
+
+/* Competition Description */
+.competitionDescription {
+  padding: 16px 20px;
+  background: var(--grey-1);
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.competitionDescription p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Track Wrapper */
+.trackWrapper {
+  background: var(--background);
+}
+
+/* Competition Footer */
+.competitionFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--grey-1);
+  border-top: 1px solid var(--grey-2);
+}
+
+.competitionDates {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dateItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.dateItem svg {
+  color: var(--seafoam-dark);
+  font-size: 0.8rem;
+}
+
+.competitionStats {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Error Message */
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fee;
+  color: var(--red);
+  border-top: 1px solid #fcc;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .competitionHeader {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .competitionActions {
+    align-items: stretch;
+    width: 100%;
+  }
+  
+  .competitionMeta {
+    gap: 12px;
+  }
+  
+  .competitionDates {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .competitionFooter {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+}
+
+/* Dark Mode */
+body.dark-mode .competitionContainer {
+  background: var(--background);
+  border-color: var(--grey-2);
+}
+
+body.dark-mode .competitionHeader {
+  background: linear-gradient(135deg, var(--grey-1), var(--grey-2));
+}
+
+body.dark-mode .competitionDescription {
+  background: var(--grey-1);
+}
+
+body.dark-mode .competitionFooter {
+  background: var(--grey-1);
+}

@@ -12,6 +12,7 @@ const searchRoutes = require('./routes/search');
 const paymentRoutes = require('./routes/payments');
 const contactRoutes = require('./routes/contact');
 const analyticsRoutes = require('./routes/analytics');
+const competitionRoutes = require('./routes/competitions');
 require('dotenv').config();
 
 const app = express();
@@ -32,7 +33,7 @@ app.use(cors({
       return callback(null, true);
     }
 
-    if (origin === 'https://main.d3cx888lrkmdbn.amplifyapp.com') {
+    if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com') {
       return callback(null, true);
     }
 
@@ -69,6 +70,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/competitions', competitionRoutes);
 
 app.get('/', (req, res) => res.send('Music Collab API'));
 

@@ -286,28 +286,59 @@ async function processTrack(track, userId = null) {
   // Convert S3 URLs to signed URLs
   let audioUrl = track.audio_url;
   let combinedAudioUrl = track.combined_audio_url || track.audio_url;
-  
+
   // Generate signed URLs if paths are S3 paths
   if (audioUrl) {
     audioUrl = generateSignedUrl(audioUrl);
   }
-  
+
   if (combinedAudioUrl) {
     combinedAudioUrl = generateSignedUrl(combinedAudioUrl);
   }
-  
+
   // Get genres and instruments
   const [genresResult, instrumentsResult] = await Promise.all([
     getTrackGenres(track.id),
     getTrackInstruments(track.id)
   ]);
-  
+
+  // Check if track has an active competition
+  // Only query competition table for host tracks (competition_id exists but is_competition_entry is false)
+  let has_active_competition = false;
+  try {
+    // If track has competition_id but is not an entry, it's a host track - query competition details
+    if (track.competition_id && track.is_competition_entry === false) {
+      const competitionQuery = `
+        SELECT c.startdate, c.enddate
+        FROM competitions c
+        WHERE c.id = $1
+      `;
+      const competitionResult = await pool.query(competitionQuery, [track.competition_id]);
+
+      if (competitionResult.rows.length > 0) {
+        const competition = competitionResult.rows[0];
+        const now = new Date();
+        const startDate = new Date(competition.startdate);
+        const endDate = new Date(competition.enddate);
+
+        // Competition is active if current time is between start and end dates
+        has_active_competition = now >= startDate && now <= endDate;
+      }
+    }
+    // If track is an entry (is_competition_entry = true), has_active_competition remains false
+    // If track has no competition_id, has_active_competition remains false
+  } catch (error) {
+    console.error('Error checking competition status:', error);
+    // Don't fail the whole request if competition check fails
+  }
+
   return {
     ...track,
     audio_url: audioUrl,
     combined_audio_url: combinedAudioUrl,
     genres: genresResult.rows,
-    instruments: instrumentsResult.rows
+    instruments: instrumentsResult.rows,
+    has_active_competition
   };
 }
 
@@ -389,23 +420,23 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
     console.log('Combining files with ffmpeg:', inputFiles);
     console.log('Using gain values:', gainValues);
     console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
-    
+
     // Validate inputs
-    if (!inputFiles || inputFiles.length < 2) {
-      return reject(new Error('At least 2 input files are required'));
+    if (!inputFiles || inputFiles.length < 1) {
+      return reject(new Error('At least 1 input file is required'));
     }
-    
-    if (!gainValues || gainValues.length < 2) {
-      return reject(new Error('Gain values for both inputs are required'));
+
+    if (!gainValues || gainValues.length !== inputFiles.length) {
+      return reject(new Error(`Gain values for all ${inputFiles.length} input(s) are required`));
     }
-    
+
     // Check if input files exist
     for (const file of inputFiles) {
       if (!fs.existsSync(file)) {
         return reject(new Error(`Input file does not exist: ${file}`));
       }
     }
-    
+
     // Validate gain values (should be between 0 and 1)
     for (let i = 0; i < gainValues.length; i++) {
       if (gainValues[i] < 0 || gainValues[i] > 1) {
@@ -413,44 +444,52 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
       }
     }
 
-    const db1 = uiToDb(gainValues[0]);
-    const db2 = uiToDb(gainValues[1]);
-    
     // Determine output format based on file extension
     const outputExt = path.extname(outputPath).toLowerCase();
     const isMp3 = outputExt === '.mp3';
-    
-    // Build FFmpeg command
-    ffmpeg()
-      // Input tracks
-      .input(inputFiles[0])
-      .input(inputFiles[1])
 
-      // Apply loudness normalization on each input before mixing
-      // -14 LUFS is common for streaming services
-      .complexFilter([
-        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db1}dB[a0]`,
-        `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db2}dB[a1]`,
-        `[a0][a1]amix=inputs=2:normalize=0[aout]`
-      ])
+    const command = ffmpeg();
 
-      // include limiter
-      // .complexFilter([
-      //   `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db1}dB[a0]`,
-      //   `[1:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${db2}dB[a1]`,
-      //   `[a0][a1]amix=inputs=2:normalize=0,alimiter=limit=0.95[aout]`
-      // ])
+    // Add input files
+    inputFiles.forEach(file => {
+      command.input(file);
+    });
 
-      // Output settings
-      .outputOptions([
-        '-map [aout]',     // use the mixed stream
-        isMp3 ? '-c:a libmp3lame' : '-c:a pcm_s16le',  // MP3 or WAV codec
-        '-ar 44100'        // sample rate
-      ])
+    const dbValues = gainValues.map(uiToDb);
 
+    if (inputFiles.length === 1) {
+      // Single input: just apply normalization and volume
+      command.complexFilter([
+        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[0]}dB[aout]`
+      ]);
+    } else {
+      // Multiple inputs: apply normalization and volume to each, then mix
+      const filters = [];
+      const mixInputs = [];
+
+      // Create volume filters for each input
+      for (let i = 0; i < inputFiles.length; i++) {
+        filters.push(`[${i}:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[i]}dB[a${i}]`);
+        mixInputs.push(`[a${i}]`);
+      }
+
+      // Add the mix filter
+      filters.push(`${mixInputs.join('')}amix=inputs=${inputFiles.length}:normalize=0[aout]`);
+
+      command.complexFilter(filters);
+    }
+
+    // Output settings
+    command.outputOptions([
+      '-map [aout]',     // use the mixed stream
+      isMp3 ? '-c:a libmp3lame' : '-c:a pcm_s16le',  // MP3 or WAV codec
+      '-ar 44100'        // sample rate
+    ]);
+
+    command
       .save(outputPath)
       .on('end', () => {
-        console.log(`Mix completed: ${outputPath}`);
+        console.log(`${inputFiles.length === 1 ? 'Processing' : 'Mix'} completed: ${outputPath}`);
         resolve();
       })
       .on('error', (err) => {
@@ -652,6 +691,180 @@ async function deleteTrackS3Files(audioUrl, combinedAudioUrl) {
   }
 }
 
+// Get complete stem chain for a track (used by DAW)
+async function getStemChain(trackId) {
+  // Get the track with its complete stem information
+  const trackResult = await pool.query(
+    'SELECT id, audio_url, combined_audio_url, mix_gains FROM tracks WHERE id = $1',
+    [trackId]
+  );
+
+  if (!trackResult.rows[0]) {
+    throw new Error('Track not found');
+  }
+
+  const track = trackResult.rows[0];
+  const mixGains = track.mix_gains;
+
+
+
+  // Get audio URLs for all stems in the chain
+  const stemIds = mixGains.stems.map(stem => stem.track_id);
+  const stemsQuery = await pool.query(
+    'SELECT id, audio_url FROM tracks WHERE id = ANY($1)',
+    [stemIds]
+  );
+
+  // Create lookup map for audio URLs
+  const audioUrlMap = {};
+  stemsQuery.rows.forEach(row => {
+    audioUrlMap[row.id] = row.audio_url;
+  });
+
+  // Build complete stem information
+  const stems = mixGains.stems.map(stem => ({
+    track_id: stem.track_id,
+    audio_url: audioUrlMap[stem.track_id],
+    gain: stem.gain,
+    order: stem.order
+  }));
+
+  // Sort by order to maintain proper sequence
+  return stems.sort((a, b) => a.order - b.order);
+}
+
+// Validate mix_gains structure
+function validateMixGains(mixGains) {
+  if (!mixGains || typeof mixGains !== 'object') {
+    return false;
+  }
+
+  if (!Array.isArray(mixGains.stems)) {
+    return false;
+  }
+
+  // Validate each stem has required fields
+  for (const stem of mixGains.stems) {
+    if (typeof stem.track_id !== 'number' ||
+        typeof stem.gain !== 'number' ||
+        typeof stem.order !== 'number') {
+      return false;
+    }
+
+    if (stem.gain < 0 || stem.gain > 2) {
+      return false; // Reasonable gain limits
+    }
+  }
+
+  return true;
+}
+
+// Calculate effective gain for a stem in the final mix
+function calculateEffectiveGain(trackId, mixGains) {
+  if (!mixGains?.stems) return 1.0;
+
+  const stem = mixGains.stems.find(s => s.track_id === trackId);
+  return stem ? stem.gain : 1.0;
+}
+
+// Validate a stem chain for mixing and validate/update against provided stem gains
+function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
+  if (!stemChain || !parsedStemGains) {
+    return { valid: false, error: 'Stem chain and parsedStemGains are required' };
+  }
+
+  if (!Array.isArray(stemChain)) {
+    return { valid: false, error: 'Stem chain must be a non-empty array' };
+  }
+
+  if (!Array.isArray(parsedStemGains) || parsedStemGains.length === 0) {
+    return { valid: false, error: 'parsedStemGains must be a non-empty array' };
+  }
+
+  if (stemChain.length > maxStems) {
+    return {
+      valid: false,
+      error: `Stem chain too long (${stemChain.length}). Maximum: ${maxStems}`
+    };
+  }
+
+  if(parsedStemGains.length !== stemChain.length + 1) {
+    return { valid: false, error: 'parsedStemGains must have the same length as the stem chain plus one' };
+  }
+
+  for (let i = 0; i < stemChain.length; i++) {
+    const stem = stemChain[i];
+
+    if (!stem.track_id || typeof stem.track_id !== 'number') {
+      return { valid: false, error: `Invalid track_id at index ${i}` };
+    }
+
+    if (!stem.audio_url || typeof stem.audio_url !== 'string') {
+      return { valid: false, error: `Invalid audio_url at index ${i}` };
+    }
+
+    if (typeof stem.gain !== 'number' || stem.gain < 0 || stem.gain > 2) {
+      return { valid: false, error: `Invalid gain at index ${i}: ${stem.gain}` };
+    }
+
+    if (typeof stem.order !== 'number' || stem.order < 0) {
+      return { valid: false, error: `Invalid order at index ${i}: ${stem.order}` };
+    }
+  }
+
+  // Check for duplicate track_ids
+  const trackIds = stemChain.map(s => s.track_id);
+  const uniqueTrackIds = [...new Set(trackIds)];
+  if (trackIds.length !== uniqueTrackIds.length) {
+    return { valid: false, error: 'Duplicate track_ids found in stem chain' };
+  }
+
+  // Check that all stem chain track_ids exist in parsedStemGains (except recording)
+  const stemChainTrackIds = stemChain.map(s => s.track_id);
+  const parsedStemGainsTrackIds = parsedStemGains.map(g => g.track_id);
+
+  // Check that all stem chain track_ids are present in parsedStemGains
+  for (const trackId of stemChainTrackIds) {
+    if (!parsedStemGainsTrackIds.includes(trackId)) {
+      return { valid: false, error: `parsedStemGains is missing gain for track_id: ${trackId}` };
+    }
+  }
+
+  // Check that parsedStemGains has the 'recording' entry
+  if (!parsedStemGainsTrackIds.includes('recording')) {
+    return { valid: false, error: 'parsedStemGains must include an entry with track_id: "recording"' };
+  }
+
+  // Validate that all entries in parsedStemGains have valid gain values
+  for (const gainEntry of parsedStemGains) {
+    if (!gainEntry.track_id) {
+      return { valid: false, error: 'parsedStemGains entry missing track_id' };
+    }
+    if (typeof gainEntry.gain !== 'number' || gainEntry.gain < 0 || gainEntry.gain > 2) {
+      return { valid: false, error: `Invalid gain value for track_id ${gainEntry.track_id}: ${gainEntry.gain}` };
+    }
+  }
+
+  // Update gain values in stemChain with values from parsedStemGains
+  for (let i = 0; i < stemChain.length; i++) {
+    const stem = stemChain[i];
+    const matchingGainEntry = parsedStemGains.find(g => g.track_id === stem.track_id);
+    if (matchingGainEntry) {
+      stemChain[i].gain = matchingGainEntry.gain;
+    }
+  }
+
+  // Add recording gain to the end of the stemChain
+  stemChain.push({
+    track_id: 'recording',
+    audio_url: '',
+    gain: parsedStemGains.find(g => g.track_id === 'recording').gain,
+    order: stemChain.length
+  });
+
+  return { valid: true };
+}
+
 module.exports = {
   s3,
   s3Client,
@@ -669,5 +882,9 @@ module.exports = {
   getForYouFeedQuery,
   findAllDescendantTracks,
   deleteTrack,
-  deleteTrackS3Files
+  deleteTrackS3Files,
+  getStemChain,
+  validateMixGains,
+  calculateEffectiveGain,
+  validateAndUpdateStemChain
 }; 

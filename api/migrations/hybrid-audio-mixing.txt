@@ -1,0 +1,50 @@
+-- Hybrid Audio Mixing - Phase 1: Database Foundation
+-- Migration: Add mix_gains column for complete stem chain storage
+-- Date: 2025-09-19
+
+-- Add mix_gains column for storing complete stem information
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS mix_gains JSONB;
+
+-- Add index for performance on mix_gains queries
+CREATE INDEX IF NOT EXISTS idx_tracks_mix_gains ON tracks USING GIN (mix_gains);
+
+-- Add index for mix_gains version queries
+CREATE INDEX IF NOT EXISTS idx_tracks_mix_gains_version ON tracks ((mix_gains->>'version'));
+
+-- Migrate existing original tracks (no parent_track_id)
+UPDATE tracks
+SET mix_gains = jsonb_build_object(
+  'stems', json_build_array(
+    jsonb_build_object(
+      'track_id', id,
+      'gain', 1.0,
+      'order', 0
+    )
+  ),
+  'version', 'migrated_original',
+  'migrated_at', NOW()
+)
+WHERE parent_track_id IS NULL
+  AND (mix_gains IS NULL OR mix_gains = 'null'::jsonb);
+
+-- Migrate existing collaboration tracks (have parent_track_id)
+-- This is a simplified migration - in production, you'd want a more sophisticated
+-- script that reconstructs the actual stem chains from parent relationships
+UPDATE tracks
+SET mix_gains = jsonb_build_object(
+  'stems', json_build_array(
+    jsonb_build_object(
+      'track_id', id,
+      'gain', 0.8,
+      'order', 0
+    )
+  ),
+  'version', 'migrated_collab_simplified',
+  'migrated_at', NOW(),
+  'note', 'Simplified migration - full stem reconstruction needed'
+)
+WHERE parent_track_id IS NOT NULL
+  AND (mix_gains IS NULL OR mix_gains = 'null'::jsonb);
+
+-- Add comment to document the new column
+COMMENT ON COLUMN tracks.mix_gains IS 'Complete stem chain information for hybrid audio mixing. Contains array of stem objects with track_id, gain, and order fields.';

@@ -1,0 +1,64 @@
+
+
+Analytics UI:
+all analytics pages/views should only be accessible to the user who owns the track or account that is being viewed.
+Both views should have a time window selector that applies to all graphs and tables (max 365 days)
+handle no data case for all graphs and tables
+should be responsive and compatible with mobile devices
+
+Track View (accessible from tracks page (analytics tab) OR user analytics page analytics tab)
+Main view (line graph):
+- time window (x axis)
+- choose metric (y axis): plays, listeners, likes, comments, reposts, shares, collab count
+- filter by: Country (only plays and listeners can be filtered by country)
+
+Streams by User (only premium users can see this)
+
+Source of streams (bar graph):
+discovery method (x axis)
+plays/listeners (y axis)
+
+plays/listeners by age range (bar graph):
+age range (x axis)
+plays/listeners (y axis)
+
+Countries list/table (by plays or by listeners, sorted desc)
+cities list/table (by plays or by listeners, sorted desc)
+
+
+User View:
+
+Overview:
+track table:
+- track name
+- plays, listeners, likes, comments, reposts, shares, collab count
+- on click, shows track view (do not navigate to track page, just update route, ie /user/username/analytics/track/trackId)
+
+Streams by User (only premium users can see this)
+
+Per day performance (line graph):
+- choose metric (y axis): plays, listeners, likes, comments, reposts, shares, collab count
+- time window (x axis)
+- filter by: Country (only plays and listeners can be filtered by country)
+
+Countries list/table (by plays or by listeners, sorted desc)
+cities list/table (by plays or by listeners, sorted desc)
+
+followers line graph
+
+
+any time a parameter changes (time window, metric, filter by country, etc), the ui calls the api to get the data and updates the ui.
+UI calls api with:
+- time window
+- metric
+- filter (optional, right now only country is supported)
+- track id (optional if getting user analytics)
+- group by (optional, 'track' or 'user' 'age_range', 'discovery_method', 'country', 'city')
+
+api should:
+- select min amount of data to return for efficiency
+- format data appropriately for the ui
+- ALWAYS use day granularity for the x axis (only select from the analytics aggregates table where period_type = 'day')
+
+
+

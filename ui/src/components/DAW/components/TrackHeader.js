@@ -9,13 +9,15 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 
 export default function TrackHeader({
-  track
+  track,
+  trackData // Additional track data for stem information
 }) {
   const [faderValue, setFaderValue] = useState(0.8);
   const [isDraggingFader, setIsDraggingFader] = useState(false);
   const faderRef = useRef(null);
 
   const [isSolo, setIsSolo] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const { isPlaying, isRecording } = useDAW();
 
   const [meterLevel, setMeterLevel] = useState(-60);
@@ -141,9 +143,18 @@ export default function TrackHeader({
     setIsSolo(prev => !prev);
   };
 
+  const handleMuteClick = (e) => {
+    e.stopPropagation();
+    setIsMuted(prev => !prev);
+  };
+
   useEffect(() => {
     eventBus.emit(DAW_EVENTS.TRACK.SOLO, { trackId: track.id, isSolo: isSolo });
   }, [isSolo]);
+
+  useEffect(() => {
+    eventBus.emit(DAW_EVENTS.TRACK.MUTE, { trackId: track.id, isMuted: isMuted });
+  }, [isMuted]);
 
   // Listen for solo events from other tracks
   useEffect(() => {
@@ -167,11 +178,26 @@ export default function TrackHeader({
     eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, { trackId: track.id, volume: faderValue });
   }, [faderValue]);
 
+  // Generate display name for track
+  const getTrackDisplayName = () => {
+    return track.name || 'Track ' + (track.id || 1);
+  };
+
   return (
-    <div className={styles.trackHeader}>
-      <span className={styles.trackName}>{track.name || 'Track ' + (track.id || 1)}</span>
-      
-      <button 
+    <div className={`${styles.trackHeader}`}>
+      <span className={styles.trackName}>
+        {getTrackDisplayName()}
+      </span>
+
+      <button
+        className={`${styles.muteButton} ${isMuted ? styles.active : ''}`}
+        onClick={handleMuteClick}
+        title="Mute track"
+      >
+        <span>M</span>
+      </button>
+
+      <button
         className={`${styles.soloButton} ${isSolo ? styles.active : ''}`}
         onClick={handleSoloClick}
         title="Solo track"

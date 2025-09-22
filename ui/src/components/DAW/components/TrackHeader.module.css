@@ -142,9 +142,51 @@
   opacity: 1;
 }
 
+
+/* Mute button styles */
+.muteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e0e0e0);
+  background-color: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.muteButton:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.muteButton.active {
+  background-color: #ff3b30;
+  color: white;
+  border-color: #ff3b30;
+}
+
+.muteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .soloButton span {
     display: none;
+  }
+
+  .muteButton {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
   }
 }

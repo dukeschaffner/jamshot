@@ -13,9 +13,9 @@ const {
   interactionLimiter, 
   apiEndpointLimiter 
 } = require('../middleware/rateLimiting');
-const { 
-  s3, 
-  s3Client, 
+const {
+  s3,
+  s3Client,
   generateSignedUrl,
   processTrack,
   downloadS3File,
@@ -27,10 +27,13 @@ const {
   getFollowingFeedQuery,
   getForYouFeedQuery,
   findAllDescendantTracks,
-  deleteTrack
+  deleteTrack,
+  getStemChain,
+  validateAndUpdateStemChain
 } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
+const { validateCompetitionEntry } = require('../../shared/utils/competition');
 require('dotenv').config;
 
 // Configure FFMPEG path based on platform
@@ -130,21 +133,22 @@ id/tree endpoint
 
 
 router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), async (req, res) => {
-  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, original_gain, recording_gain, time_signature, is_private, metronome_offset, allow_download } = req.body;
+  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, stem_gains, time_signature, is_private, metronome_offset, allow_download, enter_competition = false } = req.body;
   const userId = req.user.id;
   const file = req.file;
   let layer = 0;
   let parentIsPrivate = false;
   let parentSecretToken = null;
   let parsedMetronomeOffset = metronome_offset ? Math.min(Math.max(parseFloat(metronome_offset), 0), 1) : 0;
+  let isCompetitionEntry = false;
+  let competitionId = null;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
   
   console.log('Upload request received:');
   console.log('- Title:', title);
   console.log('- Parent track ID:', parent_track_id || 'None (original track)');
-  console.log('- Original gain:', original_gain || 'Not provided');
-  console.log('- Recording gain:', recording_gain || 'Not provided');
+  console.log('- Stem gains:', stem_gains || 'Not provided');
   console.log('- Time signature:', time_signature || '4/4 (default)');
   console.log('- Metronome offset:', parsedMetronomeOffset);
   console.log('- Private:', is_private ? 'Yes' : 'No');
@@ -216,10 +220,23 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
   
   // Parse metronome_bpm if provided
   let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
-  
-  // Parse gain values with fallbacks to default values (1.0 = full volume)
-  const parsedOriginalGain = original_gain ? parseFloat(original_gain) : 0.8;
-  const parsedRecordingGain = recording_gain ? parseFloat(recording_gain) : 0.8;
+
+  // Parse stem gains array if provided
+  let parsedStemGains = null;
+  if (stem_gains) {
+    try {
+      parsedStemGains = typeof stem_gains === 'string' ? JSON.parse(stem_gains) : stem_gains;
+      if (!Array.isArray(parsedStemGains)) {
+        console.warn('stem_gains is not an array, ignoring');
+        parsedStemGains = null;
+      } else {
+        console.log('Parsed stem gains:', parsedStemGains);
+      }
+    } catch (error) {
+      console.warn('Failed to parse stem_gains:', error);
+      parsedStemGains = null;
+    }
+  }
 
   // Use the provided time signature or default to 4/4
   let parsedTimeSignature = time_signature || '4/4';
@@ -246,17 +263,25 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
   }
 
+  let stemChain = [];
   try {
-    // 1. Upload raw file to S3
-    audioUrl = `tracks/${Date.now()}-${file.originalname}`;
-    const uploadParams = {
-      Bucket: process.env.S3_BUCKET,
-      Key: audioUrl,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    };
-    await s3.upload(uploadParams).promise();
+    // Get the complete stem chain for mixing
+    stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
 
+    // Validate stem chain and parsedStemGains
+    const validation = validateAndUpdateStemChain(stemChain, parsedStemGains);
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: 'Invalid stem chain or stem gains',
+        message: validation.error
+      });
+    }
+  } catch (err) {
+    console.error('Error validating stem chain and parsedStemGains:', err);
+    return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
+  }
+
+  try {
     if (parent_track_id) {
       const parentResult = await pool.query(
         'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
@@ -289,39 +314,121 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       if (layer > 4) {
         return res.status(400).json({ error: 'Layer limit reached' });
       }
-      
-      const parentCombinedKey = parentTrack.combined_audio_url || parentTrack.audio_url;
-      const localFiles = [];
 
+      // Validate competition entry only if user opted in and parent track exists
+      let competitionValidation = null;
+
+      // Only check for competition entry if it's a collaboration and user wants to enter
+      if (parent_track_id && enter_competition === 'true') {
+        // Check if parent track is associated with a competition
+        const parentCompetitionCheck = await pool.query(
+          'SELECT c.id FROM competitions c WHERE c.track_id = $1',
+          [parent_track_id]
+        );
+
+        if (parentCompetitionCheck.rows.length > 0) {
+          // Parent track is a competition track, validate if this can be an entry
+          competitionValidation = await validateCompetitionEntry(parent_track_id, userId);
+
+          if (!competitionValidation.valid) {
+            return res.status(400).json({
+              error: 'Competition entry validation failed',
+              message: competitionValidation.error
+            });
+          }
+
+          // Validation passed, set competition entry flags
+          isCompetitionEntry = true;
+          competitionId = competitionValidation.competitionId;
+        }
+      }
+
+      const localFiles = [];
+      const gainValues = [];
+
+      // Download all stems in the chain and prepare gain values
+      for (const stem of stemChain) {
+        if (stem.track_id === 'recording') {
+          continue;
+        }
+
+        // Validate stem data
+        if (!stem.audio_url) {
+          console.warn(`Stem ${stem.track_id} has no audio_url, skipping`);
+          continue;
+        }
+
+        const gainValue = stem.gain;
+        console.log(`Using gain for stem ${stem.track_id}: ${gainValue}`);
+
+        const stemLocalPath = path.join(tempDir, `stem-${stem.track_id}-${Date.now()}-${path.basename(stem.audio_url)}`);
+        console.log(`Downloading stem ${stem.track_id}:`, stem.audio_url, 'to:', stemLocalPath);
+
+        try {
+          await downloadS3File(stem.audio_url, stemLocalPath);
+          localFiles.push(stemLocalPath);
+          gainValues.push(gainValue);
+        } catch (downloadError) {
+          console.error(`Failed to download stem ${stem.track_id}:`, downloadError);
+          return res.status(500).json({
+            error: `Failed to download stem audio file for track ${stem.track_id}`,
+            message: 'One or more stem files could not be accessed'
+          });
+        }
+      }
+
+      // Ensure we have at least one stem file
+      if (localFiles.length === 0) {
+        return res.status(400).json({
+          error: 'No valid stem files found',
+          message: 'Unable to mix tracks - no stem audio files available'
+        });
+      }
+
+      // Add the new recording as the last stem
       const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
       await fsPromises.writeFile(uploadedLocalPath, file.buffer);
       localFiles.push(uploadedLocalPath);
 
-      if (parentCombinedKey) {
-        const parentLocalPath = path.join(tempDir, `parent-${Date.now()}-${path.basename(parentCombinedKey)}`);
-        console.log('Downloading parent:', parentCombinedKey, 'to:', parentLocalPath);
-        await downloadS3File(parentCombinedKey, parentLocalPath);
-        localFiles.push(parentLocalPath);
-      }
+      // Get recording gain from validated parsedStemGains
+      const recordingGainEntry = parsedStemGains.find(g => g.track_id === 'recording');
+      const finalRecordingGain = recordingGainEntry.gain;
+      console.log(`Using provided recording gain: ${finalRecordingGain}`);
+      gainValues.push(finalRecordingGain);
 
       console.log('Local files before combining:', localFiles);
+      console.log('Gain values for mixing:', gainValues);
+
+      // Final validation before mixing
+      if (gainValues.length !== localFiles.length) {
+        // Clean up downloaded files
+        await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(() => {})));
+        return res.status(500).json({
+          error: 'Gain values and file count mismatch',
+          message: 'Internal error during audio processing'
+        });
+      }
+
       combinedAudioUrl = `tracks/combined-${Date.now()}-${title}.mp3`;
       const combinedPath = path.join(tempDir, path.basename(combinedAudioUrl));
-      
-      // Prepare gain values
-      // localFiles order is: [uploaded recording, parent track]
-      // First element (index 0) is the new recording, second element (index 1) is the parent
-      const gainValues = [];
-      
-      // Recording gain first - index 0
-      gainValues[0] = parsedRecordingGain;
-      
-      // Original gain second - index 1
-      if (localFiles.length > 1) {
-        gainValues[1] = parsedOriginalGain;
+
+      try {
+        await combineAudioFiles(localFiles, combinedPath, gainValues);
+        console.log(`Successfully mixed ${localFiles.length} stems into combined track`);
+      } catch (mixError) {
+        console.error('Audio mixing failed:', mixError);
+        // Clean up downloaded files
+        await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(() => {})));
+        return res.status(500).json({
+          error: 'Audio mixing failed',
+          message: 'Failed to combine audio stems. Please try again.',
+          details: mixError.message
+        });
       }
-      
-      await combineAudioFiles(localFiles, combinedPath, gainValues);
+
+      // Clean up downloaded stem files (keep the uploaded file for now)
+      const stemFiles = localFiles.slice(0, -1); // All except the last one (uploaded file)
+      await Promise.all(stemFiles.map(f => fsPromises.unlink(f).catch(err => console.error('Cleanup error:', err))));
 
       const combinedParams = {
         Bucket: process.env.S3_BUCKET,
@@ -331,7 +438,8 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       };
       await s3.upload(combinedParams).promise();
 
-      await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(err => console.error('Cleanup error:', err))));
+      // Clean up remaining files (uploaded file and combined file)
+      await fsPromises.unlink(uploadedLocalPath).catch(err => console.error('Cleanup error:', err));
       await fsPromises.unlink(combinedPath).catch(err => console.error('Cleanup error:', err));
     } else {
       // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, return an error
@@ -366,12 +474,47 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       await fsPromises.unlink(normalizedPath).catch(err => console.error('Cleanup error:', err));
     }
 
+    // Upload raw file to S3 after all validation is complete
+    audioUrl = `tracks/${Date.now()}-${file.originalname}`;
+    const uploadParams = {
+      Bucket: process.env.S3_BUCKET,
+      Key: audioUrl,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+    await s3.upload(uploadParams).promise();
+
+    // Phase 1: Insert track with placeholder mix_gains
+    // Create a copy of stem chain without audio_url property for placeholder
+    const stemChainToInsert = stemChain.map(stem => ({
+      track_id: stem.track_id,
+      gain: stem.gain,
+      order: stem.order
+    }));
+
+    let mixGainsToInsert = {
+      stems: stemChainToInsert
+    };
+
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload]
+        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
+        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert)]
     );
-    
+
     const trackId = result.rows[0].id;
+
+    // Phase 2: update stem for recording: change trackId to the new trackId
+    const recordingStem = stemChainToInsert.find(s => s.track_id === 'recording');
+    recordingStem.track_id = trackId;
+    const completeMixGains = {
+      stems: stemChainToInsert
+    };
+
+    // Update with complete stem information
+    await pool.query(
+      'UPDATE tracks SET mix_gains = $1 WHERE id = $2',
+      [JSON.stringify(completeMixGains), trackId]
+    );
     
     // Create notification for parent track owner if this is a collaboration
     if (parent_track_id) {
@@ -553,6 +696,34 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
     
     res.json(tracks);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get stem chain for DAW loading
+router.get('/:id/stems', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  try {
+    // Check if user has access to the track
+    const accessCheck = await checkTrackAccess(id, userId);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
+    }
+
+    // Get the complete stem chain using the utility function
+    const stemChain = await getStemChain(id);
+
+    // Convert S3 URLs to signed URLs for client access
+    const stemsWithSignedUrls = stemChain.map(stem => ({
+      ...stem,
+      audio_url: generateSignedUrl(stem.audio_url)
+    }));
+
+    res.json(stemsWithSignedUrls);
+  } catch (err) {
+    console.error('Stem chain retrieval error:', err);
     res.status(500).json({ error: err.message });
   }
 });
