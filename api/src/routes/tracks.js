@@ -147,7 +147,27 @@ id/tree endpoint
 
 
 
-router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), async (req, res) => {
+// Multer error handling wrapper
+const handleMulterError = (error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    console.error('Multer error:', error);
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File too large. Maximum size is 100MB.' });
+    }
+    return res.status(400).json({ error: `Upload error: ${error.message}` });
+  } else if (error) {
+    console.error('Unknown upload error:', error);
+    return res.status(400).json({ error: `Upload error: ${error.message}` });
+  }
+  next();
+};
+
+router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
+  upload.single('audio')(req, res, (err) => {
+    if (err) return handleMulterError(err, req, res, next);
+    next();
+  });
+}, async (req, res) => {
   let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, stem_gains, time_signature, is_private, metronome_offset, allow_download, enter_competition = false } = req.body;
   const userId = req.user.id;
   const file = req.file;
@@ -159,7 +179,19 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
   let competitionId = null;
 
   if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
-  
+
+  // Check if file was actually saved to disk
+  if (!file.path || !fs.existsSync(file.path)) {
+    console.error('File upload failed - file not saved to disk:', file);
+    return res.status(500).json({ error: 'File upload failed - could not save file to disk' });
+  }
+
+  // Debug file upload
+  console.log('File upload debug:');
+  console.log('- File object:', JSON.stringify(file, null, 2));
+  console.log('- File path exists:', file.path ? fs.existsSync(file.path) : 'No file.path');
+  console.log('- Temp directory exists:', fs.existsSync(path.join(__dirname, '../../temp')));
+
   console.log('Upload request received:');
   console.log('- Title:', title);
   console.log('- Parent track ID:', parent_track_id || 'None (original track)');
@@ -452,8 +484,7 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       };
       await s3.upload(combinedParams).promise();
 
-      // Clean up remaining files (uploaded file and combined file)
-      await fsPromises.unlink(uploadedLocalPath).catch(err => console.error('Cleanup error:', err));
+      // Clean up combined file (keep uploaded file for raw conversion)
       await fsPromises.unlink(combinedPath).catch(err => console.error('Cleanup error:', err));
     } else {
       // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, return an error

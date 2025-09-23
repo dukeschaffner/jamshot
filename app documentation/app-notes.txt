@@ -6,15 +6,12 @@ TODO (MVP)
   - analytics opt out
     - user opts out -> unique anonymous id is created? anonymize track play data
     - keep anonymized analytics data after user deletes account?
-  - DOB collection
 - yearly billing for subscriptions
+- DAW - track virtual rendering when zoomed in + throttle/debounce
 - how to page with tutorials
 - handle notification spamming
-- @mentions
-  - (prompt) add an @mentions system where users can tag other users in the track title, creating a notification for the user. start by searching the existing codebase, designing the business logic/rules around the system including edge cases (ie what happens when a user that is tagged in a post changes their username). be concise and dont write any code yet
 - display uploads left in nav?
 - on delete track, delete analytics for that track too (check and make sure this is working)
-- ensure collab count accounts for ALL descendants of the track
 - upgrade suggestions
   - Profile (analytics + track count)
   - Track (analytics)
@@ -55,7 +52,6 @@ TODO (after beta testing)
 - profile banner image
 - undo redo (DAW)
 - global player audio level
-- freemium model
 - invite people to collab on private tracks (groups)?
 - "add on" option where instead of adding layers, they can add audio before or after
 - paginate track, reposts, likes on user page
@@ -65,6 +61,11 @@ TODO (after beta testing)
 - improve search algorithm - prioritize popular results
 - improve feed algorithms - track user preferences
 - change non auth cookies to local storage
+- @mentions
+  - (prompt) add an @mentions system where users can tag other users in the track title, creating a notification for the user. start by searching the existing codebase, designing the business logic/rules around the system including edge cases (ie what happens when a user that is tagged in a post changes their username). be concise and dont write any code yet
+- ensure collab count accounts for ALL descendants of the track
+
+
 
 
 MONETIZATION
