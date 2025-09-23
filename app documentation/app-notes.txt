@@ -20,11 +20,11 @@ TODO (MVP)
 - actions during playback
 - handle sample rate mismatch (should input device determine sample rate?)
 - handle stereo input devices
+- 
 
 
 BUGS
 - when not following any users, sometimes it loads the popular feed but shows the following feed button selected
-- audio mixing doesnt sound good
 
 
 RELEASE CHECKLIST
