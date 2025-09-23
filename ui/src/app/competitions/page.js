@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../contexts/UserContext';
-import { FaTrophy, FaPlus, FaFilter, FaSearch, FaCalendarAlt, FaUsers, FaDollarSign, FaClock, FaExclamationTriangle, FaCheckCircle, FaPlay } from 'react-icons/fa';
+import { FaTrophy, FaPlus, FaFilter, FaSearch, FaCalendarAlt, FaUsers, FaDollarSign, FaClock, FaExclamationTriangle, FaCheckCircle, FaPlay, FaTimes } from 'react-icons/fa';
 import { competitionApi, tagApi } from '../../lib/api';
 import Competition from '../../components/Competition';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -20,6 +20,7 @@ export default function CompetitionsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   
   // Filters
   const [filters, setFilters] = useState({
@@ -107,6 +108,17 @@ export default function CompetitionsPage() {
     });
   };
 
+  // Handle create competition modal actions
+  const handleCreateFromNewTrack = () => {
+    setShowCreateModal(false);
+    router.push('/upload?createCompetition=true');
+  };
+
+  const handleCreateFromExistingTrack = () => {
+    setShowCreateModal(false);
+    router.push('/competition/create');
+  };
+
   // Load competitions when tab or filters change
   useEffect(() => {
     loadCompetitions(1, true);
@@ -181,7 +193,7 @@ export default function CompetitionsPage() {
       {isAuthenticated && (
         <div className={styles.createButtonContainer}>
           <button
-            onClick={() => router.push('/upload?createCompetition=true')}
+            onClick={() => setShowCreateModal(true)}
             className="pill-btn gradient-btn"
           >
             <FaPlus style={{ marginRight: '8px' }} />
@@ -355,6 +367,57 @@ export default function CompetitionsPage() {
           </div>
         )}
       </div>
+
+      {/* Create Competition Modal */}
+      {showCreateModal && (
+        <div
+          className="modal-overlay active"
+          onClick={(e) => {
+            if (e.target.className === 'modal-overlay active') {
+              setShowCreateModal(false);
+            }
+          }}
+        >
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Create Competition</h2>
+              <button
+                className="close-btn"
+                onClick={() => setShowCreateModal(false)}
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <div style={{ padding: '2rem', display: 'flex', gap: '1rem', flexDirection: 'column' }}>
+              <div
+                className={styles.competitionOption}
+                onClick={handleCreateFromNewTrack}
+              >
+                <div className={styles.optionIcon}>
+                  <FaPlus style={{ fontSize: '2rem' }} />
+                </div>
+                <div className={styles.optionContent}>
+                  <h3>Create from New Track</h3>
+                  <p>Upload a new track and create a competition around it</p>
+                </div>
+              </div>
+
+              <div
+                className={styles.competitionOption}
+                onClick={handleCreateFromExistingTrack}
+              >
+                <div className={styles.optionIcon}>
+                  <FaTrophy style={{ fontSize: '2rem' }} />
+                </div>
+                <div className={styles.optionContent}>
+                  <h3>Create from Existing Track</h3>
+                  <p>Use one of your existing tracks to create a competition</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

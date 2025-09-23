@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { FaTrophy, FaCalendarAlt, FaDollarSign, FaUsers, FaClock, FaPlay, FaPause, FaExclamationTriangle, FaCheckCircle, FaArrowLeft, FaShareAlt, FaHeart, FaRegHeart, FaRetweet, FaCodeBranch, FaMusic, FaEye, FaComment } from 'react-icons/fa';
 import { competitionApi, trackApi } from '../../../lib/api';
+import { formatCompetitionDateRange } from '../../../shared/utils/formatting';
 import Competition from '../../../components/Competition';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import styles from './CompetitionDetail.module.css';
@@ -107,15 +108,7 @@ export default function CompetitionDetailPage() {
     }
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // Date formatting is handled by shared utilities
 
   const getTimeRemaining = () => {
     if (!competition) return '';
@@ -289,10 +282,7 @@ export default function CompetitionDetailPage() {
         
         <div className={styles.dates}>
           <div className={styles.dateItem}>
-            <strong>Starts:</strong> {formatDate(competition.startdate)}
-          </div>
-          <div className={styles.dateItem}>
-            <strong>Ends:</strong> {formatDate(competition.enddate)}
+            <strong>Duration:</strong> {formatCompetitionDateRange(competition.startdate, competition.enddate)}
           </div>
         </div>
       </div>

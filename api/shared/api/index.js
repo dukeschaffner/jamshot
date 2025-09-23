@@ -363,13 +363,16 @@ const createApiMethods = (apiClient) => {
       });
       return api.get(`/competitions?${queryParams.toString()}`);
     },
-    
+
     getCompetition: (id) => api.get(`/competitions/${id}`),
-    
+
+    getCompetitionEntries: (id, page = 1, limit = 10) => 
+      api.get(`/competitions/${id}/entries?page=${page}&limit=${limit}`),
+
     createCompetition: (data) => api.post('/competitions/create', data),
-    
+
     updateCompetition: (id, data) => api.put(`/competitions/${id}`, data),
-    
+
     deleteCompetition: (id) => api.delete(`/competitions/${id}`),
   };
 

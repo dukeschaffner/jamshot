@@ -173,15 +173,37 @@ export const validateAudioDuration = (duration) => {
   if (typeof duration !== 'number' || isNaN(duration)) {
     return { valid: false, error: 'Duration must be a number' };
   }
-  
+
   if (duration <= 0) {
     return { valid: false, error: 'Duration must be greater than 0' };
   }
-  
-  if (duration > 90) {
-    return { valid: false, error: 'Audio must be less than 90 seconds' };
+
+  if (duration > 300) {
+    return { valid: false, error: 'Audio must be less than 5 minutes' };
   }
-  
+
+  return { valid: true };
+};
+
+/**
+ * Validate audio file size
+ * @param {number} fileSize - File size in bytes
+ * @returns {Object} Validation result with valid boolean and error message
+ */
+export const validateAudioFileSize = (fileSize) => {
+  if (typeof fileSize !== 'number' || isNaN(fileSize)) {
+    return { valid: false, error: 'File size must be a number' };
+  }
+
+  if (fileSize <= 0) {
+    return { valid: false, error: 'File size must be greater than 0' };
+  }
+
+  const maxSize = 100 * 1024 * 1024; // 100MB
+  if (fileSize > maxSize) {
+    return { valid: false, error: 'Audio file must be less than 100MB' };
+  }
+
   return { valid: true };
 };
 
