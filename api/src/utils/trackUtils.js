@@ -499,6 +499,35 @@ async function combineAudioFiles(inputFiles, outputPath, gainValues = [], target
   });
 }
 
+// Convert audio file to MP3 without any processing (no normalization, no gain adjustment)
+async function convertToMp3(inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    console.log('Converting to MP3 without processing:', inputPath, '->', outputPath);
+
+    // Check if input file exists
+    if (!fs.existsSync(inputPath)) {
+      return reject(new Error(`Input file does not exist: ${inputPath}`));
+    }
+
+    const command = ffmpeg(inputPath)
+      .outputOptions([
+        '-c:a libmp3lame',  // MP3 codec
+        '-ar 44100',        // sample rate
+        '-q:a 2'            // quality (0-9, lower is better, 2 is good quality)
+      ])
+      .output(outputPath)
+      .on('end', () => {
+        console.log('MP3 conversion completed:', outputPath);
+        resolve();
+      })
+      .on('error', (err) => {
+        console.error('MP3 conversion error:', err.message);
+        reject(err);
+      })
+      .run();
+  });
+}
+
 // Generate a secure random token
 function generateSecureToken(length = 32) {
   return crypto.randomBytes(length).toString('hex');
@@ -875,6 +904,7 @@ module.exports = {
   downloadS3File,
   checkTrackAccess,
   combineAudioFiles,
+  convertToMp3,
   generateSecureToken,
   getBaseTrackSelectQuery,
   getPopularFeedQuery,
