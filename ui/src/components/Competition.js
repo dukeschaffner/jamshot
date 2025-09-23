@@ -5,6 +5,7 @@ import { FaTrophy, FaCalendarAlt, FaDollarSign, FaUsers, FaClock, FaPlay, FaPaus
 import { useUser } from '../contexts/UserContext';
 import { useAudio } from '../lib/AudioContext';
 import { competitionApi } from '../lib/api';
+import { formatCompetitionDateRange } from '../../shared/utils/formatting';
 import Track from './Track';
 import styles from './Competition.module.css';
 import TimeDisplay from './TimeDisplay';
@@ -38,16 +39,7 @@ export default function Competition({
   const isEnded = now > endDate;
   const hasWinner = competition.winner_id;
 
-  // Format dates
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  // Format dates using shared utility (shows in user's local timezone)
 
   // Check if user has already entered
   useEffect(() => {
@@ -250,11 +242,7 @@ export default function Competition({
         <div className={styles.competitionDates}>
           <div className={styles.dateItem}>
             <FaCalendarAlt />
-            <span>Starts: {formatDate(competition.startdate)}</span>
-          </div>
-          <div className={styles.dateItem}>
-            <FaCalendarAlt />
-            <span>Ends: {formatDate(competition.enddate)}</span>
+            <span>{formatCompetitionDateRange(competition.startdate, competition.enddate)}</span>
           </div>
         </div>
         

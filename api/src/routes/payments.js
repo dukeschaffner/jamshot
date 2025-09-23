@@ -384,15 +384,19 @@ async function handleCheckoutCompleted(session) {
       
       if (trackId && startdate && enddate && prizeAmount && winnerSelectionMethod) {
         try {
+          // Ensure dates are parsed as UTC (frontend sends UTC ISO strings)
+          const startDateUTC = new Date(startdate + (startdate.includes('Z') ? '' : 'Z'));
+          const endDateUTC = new Date(enddate + (enddate.includes('Z') ? '' : 'Z'));
+
           const competitionResult = await db.query(
             `INSERT INTO competitions (
-              track_id, startdate, enddate, prize_amount, host_id, 
+              track_id, startdate, enddate, prize_amount, host_id,
               pinned, winner_selection_method, voucher_code
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
             [
               trackId,
-              new Date(startdate),
-              new Date(enddate),
+              startDateUTC,
+              endDateUTC,
               parseInt(prizeAmount),
               userId,
               pinned === 'true',

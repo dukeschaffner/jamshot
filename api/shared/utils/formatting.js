@@ -33,13 +33,69 @@ export const formatDuration = (seconds, precision = 0) => {
  */
 export const formatDate = (dateString) => {
   if (!dateString) return '';
-  
+
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   });
+};
+
+/**
+ * Format a datetime to a readable string in user's local timezone
+ * @param {string} dateString - ISO date string (UTC)
+ * @param {boolean} includeTime - Whether to include time in the format
+ * @returns {string} Formatted datetime string in user's local timezone
+ */
+export const formatDateTime = (dateString, includeTime = true) => {
+  if (!dateString) return '';
+
+  const date = new Date(dateString);
+  const options = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  };
+
+  if (includeTime) {
+    options.hour = 'numeric';
+    options.minute = '2-digit';
+    options.hour12 = true;
+  }
+
+  return date.toLocaleDateString('en-US', options);
+};
+
+/**
+ * Format competition date range for display
+ * @param {string} startDate - ISO start date string (UTC)
+ * @param {string} endDate - ISO end date string (UTC)
+ * @returns {string} Formatted date range string
+ */
+export const formatCompetitionDateRange = (startDate, endDate) => {
+  if (!startDate || !endDate) return '';
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const startFormatted = start.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  const endFormatted = end.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  return `${startFormatted} - ${endFormatted}`;
 };
 
 /**

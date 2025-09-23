@@ -342,30 +342,30 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
       });
     }
     
-    // Validate dates
-    const startDate = new Date(startdate);
-    const endDate = new Date(enddate);
+    // Validate dates - frontend sends UTC ISO strings, so parse as UTC
+    const startDate = new Date(startdate + (startdate.includes('Z') ? '' : 'Z')); // Ensure UTC
+    const endDate = new Date(enddate + (enddate.includes('Z') ? '' : 'Z')); // Ensure UTC
     const now = new Date();
-    
+
     if (startDate <= now) {
-      return res.status(400).json({ 
-        error: 'Competition start date must be in the future' 
+      return res.status(400).json({
+        error: 'Competition start date must be in the future'
       });
     }
-    
+
     if (endDate <= startDate) {
-      return res.status(400).json({ 
-        error: 'Competition end date must be after start date' 
+      return res.status(400).json({
+        error: 'Competition end date must be after start date'
       });
     }
-    
+
     // Check if competition duration is valid (1 day to 1 month)
     const durationMs = endDate.getTime() - startDate.getTime();
     const durationDays = durationMs / (1000 * 60 * 60 * 24);
-    
+
     if (durationDays < 1 || durationDays > 30) {
-      return res.status(400).json({ 
-        error: 'Competition duration must be between 1 day and 1 month' 
+      return res.status(400).json({
+        error: 'Competition duration must be between 1 day and 1 month'
       });
     }
     
@@ -589,37 +589,37 @@ router.put('/:id', authMiddleware, async (req, res) => {
     let paramIndex = 1;
     
     if (startdate !== undefined) {
-      const startDate = new Date(startdate);
+      const startDate = new Date(startdate + (startdate.includes('Z') ? '' : 'Z')); // Ensure UTC
       if (startDate <= now) {
-        return res.status(400).json({ 
-          error: 'Competition start date must be in the future' 
+        return res.status(400).json({
+          error: 'Competition start date must be in the future'
         });
       }
       updates.push(`startdate = $${paramIndex}`);
       values.push(startDate);
       paramIndex++;
     }
-    
+
     if (enddate !== undefined) {
-      const endDate = new Date(enddate);
-      const currentStartDate = startdate ? new Date(startdate) : new Date(competition.startdate);
-      
+      const endDate = new Date(enddate + (enddate.includes('Z') ? '' : 'Z')); // Ensure UTC
+      const currentStartDate = startdate ? new Date(startdate + (startdate.includes('Z') ? '' : 'Z')) : new Date(competition.startdate);
+
       if (endDate <= currentStartDate) {
-        return res.status(400).json({ 
-          error: 'Competition end date must be after start date' 
+        return res.status(400).json({
+          error: 'Competition end date must be after start date'
         });
       }
-      
+
       // Check duration limits
       const durationMs = endDate.getTime() - currentStartDate.getTime();
       const durationDays = durationMs / (1000 * 60 * 60 * 24);
-      
+
       if (durationDays < 1 || durationDays > 30) {
-        return res.status(400).json({ 
-          error: 'Competition duration must be between 1 day and 1 month' 
+        return res.status(400).json({
+          error: 'Competition duration must be between 1 day and 1 month'
         });
       }
-      
+
       updates.push(`enddate = $${paramIndex}`);
       values.push(endDate);
       paramIndex++;

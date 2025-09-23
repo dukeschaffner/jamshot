@@ -101,41 +101,56 @@ function CreateCompetitionClient() {
       setError('Prize amount must be at least $5');
       return false;
     }
-    
+
     const startDate = new Date(formData.startdate);
     const endDate = new Date(formData.enddate);
     const now = new Date();
-    
-    if (startDate <= now) {
+
+    // Convert to UTC for comparison (user inputs are in local time)
+    const startDateUTC = new Date(startDate.getTime() - (startDate.getTimezoneOffset() * 60000));
+    const endDateUTC = new Date(endDate.getTime() - (endDate.getTimezoneOffset() * 60000));
+    const nowUTC = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+
+    if (startDateUTC <= nowUTC) {
       setError('Start date must be in the future');
       return false;
     }
-    
-    if (endDate <= startDate) {
+
+    if (endDateUTC <= startDateUTC) {
       setError('End date must be after start date');
       return false;
     }
-    
-    const durationDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    const durationDays = (endDateUTC.getTime() - startDateUTC.getTime()) / (1000 * 60 * 60 * 24);
     if (durationDays < 1 || durationDays > 30) {
       setError('Competition duration must be between 1 day and 1 month');
       return false;
     }
-    
+
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
     setError('');
-    
+
     try {
+      // Convert local datetime inputs to UTC ISO strings for storage
+      const startDate = new Date(formData.startdate);
+      const endDate = new Date(formData.enddate);
+
+      // Convert to UTC ISO strings
+      const startDateUTC = new Date(startDate.getTime() - (startDate.getTimezoneOffset() * 60000)).toISOString();
+      const endDateUTC = new Date(endDate.getTime() - (endDate.getTimezoneOffset() * 60000)).toISOString();
+
       const response = await competitionApi.createCompetition({
         ...formData,
+        startdate: startDateUTC,
+        enddate: endDateUTC,
         prize_amount: parseInt(formData.prize_amount) * 100 // Convert to cents
       });
       
@@ -276,7 +291,7 @@ function CreateCompetitionClient() {
                   onChange={handleInputChange}
                   required
                   className={styles.formInput}
-                  min={new Date().toISOString().slice(0, 16)}
+                  min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
                 />
               </div>
               
