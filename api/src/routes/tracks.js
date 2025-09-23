@@ -21,6 +21,7 @@ const {
   downloadS3File,
   checkTrackAccess,
   combineAudioFiles,
+  convertToMp3,
   generateSecureToken,
   getBaseTrackSelectQuery,
   getPopularFeedQuery,
@@ -49,10 +50,24 @@ if (process.platform === 'linux') {
 
 const router = express.Router();
 
-// Multer setup - Memory storage
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+// Multer setup - Disk storage for large files
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      // Ensure temp directory exists
+      const tempDir = path.join(__dirname, '../../temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      cb(null, tempDir);
+    },
+    filename: (req, file, cb) => {
+      // Generate unique filename to avoid conflicts
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${file.originalname}`;
+      cb(null, uniqueName);
+    }
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit for 5min 24-bit audio
 });
 
 // Apply optional auth middleware to all routes
@@ -252,10 +267,10 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
   try {
-    const metadata = await mm.parseBuffer(file.buffer, file.mimetype);
+    const metadata = await mm.parseFile(file.path);
     duration = metadata.format.duration;
     
-    // Validate track duration (max 10 minutes = 600 seconds)
+    // Validate track duration (max 5 minutes = 300 seconds)
     if (duration > 5 * 60) {
       return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 5 minutes' });
     }
@@ -386,9 +401,8 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
       }
 
       // Add the new recording as the last stem
-      const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
-      await fsPromises.writeFile(uploadedLocalPath, file.buffer);
-      localFiles.push(uploadedLocalPath);
+      // File is already stored on disk by multer, use its path directly
+      localFiles.push(file.path);
 
       // Get recording gain from validated parsedStemGains
       const recordingGainEntry = parsedStemGains.find(g => g.track_id === 'recording');
@@ -444,23 +458,23 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
     } else {
       // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, return an error
       if (isPrivate && !subscription.features.private_tracks) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Private tracks are not allowed for your subscription tier. Upgrade your plan to enable private tracks.',
           upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
         });
       }
-      
+
       // Apply normalization to regular uploads for consistent audio quality
-      const uploadedLocalPath = path.join(tempDir, `${Date.now()}-${file.originalname}`);
-      await fsPromises.writeFile(uploadedLocalPath, file.buffer);
-      
+      // File is already stored on disk by multer, use its path directly
+      const uploadedLocalPath = file.path;
+
       combinedAudioUrl = `tracks/normalized-${Date.now()}-${title}.mp3`;
       const normalizedPath = path.join(tempDir, path.basename(combinedAudioUrl));
-      
+
       // Use default normalization settings for regular uploads
       // Target LUFS: -16 (good for general use), True Peak: -1 dB (prevents clipping)
       await combineAudioFiles([uploadedLocalPath], normalizedPath, [1.0], -16, -1);
-      
+
       const normalizedParams = {
         Bucket: process.env.S3_BUCKET,
         Key: combinedAudioUrl,
@@ -468,21 +482,26 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
         ContentType: 'audio/mpeg',
       };
       await s3.upload(normalizedParams).promise();
-      
-      // Clean up local files
-      await fsPromises.unlink(uploadedLocalPath).catch(err => console.error('Cleanup error:', err));
+
+      // Clean up normalized file (keep original file for raw conversion)
       await fsPromises.unlink(normalizedPath).catch(err => console.error('Cleanup error:', err));
     }
 
-    // Upload raw file to S3 after all validation is complete
-    audioUrl = `tracks/${Date.now()}-${file.originalname}`;
+    // Upload raw file to S3 after all validation is complete (converted to MP3)
+    const rawMp3Path = path.join(tempDir, `raw-${Date.now()}-${path.parse(file.originalname).name}.mp3`);
+    await convertToMp3(file.path, rawMp3Path); // Convert to MP3 without any processing
+
+    audioUrl = `tracks/${Date.now()}-${path.parse(file.originalname).name}.mp3`;
     const uploadParams = {
       Bucket: process.env.S3_BUCKET,
       Key: audioUrl,
-      Body: file.buffer,
-      ContentType: file.mimetype,
+      Body: fs.createReadStream(rawMp3Path),
+      ContentType: 'audio/mpeg',
     };
     await s3.upload(uploadParams).promise();
+
+    // Clean up temporary MP3 file
+    await fsPromises.unlink(rawMp3Path).catch(err => console.error('Raw MP3 cleanup error:', err));
 
     // Phase 1: Insert track with placeholder mix_gains
     // Create a copy of stem chain without audio_url property for placeholder
@@ -555,10 +574,19 @@ router.post('/upload', uploadLimiter, authMiddleware, upload.single('audio'), as
         );
       }
     }
-    
+
+    // Clean up the uploaded file from disk storage
+    await fsPromises.unlink(file.path).catch(err => console.error('Upload file cleanup error:', err));
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error('Upload error:', err);
+
+    // Clean up uploaded file on error
+    if (file && file.path) {
+      await fsPromises.unlink(file.path).catch(cleanupErr => console.error('Upload file cleanup error:', cleanupErr));
+    }
+
     res.status(500).json({ error: `Upload failed: ${err.message}` });
   }
 });

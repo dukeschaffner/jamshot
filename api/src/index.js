@@ -54,8 +54,8 @@ app.use(cookieParser());
 // Special handling for Stripe webhook
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-// Regular JSON parsing for all other routes
-app.use(express.json());
+// Regular JSON parsing for all other routes (increased limit for metadata)
+app.use(express.json({ limit: '50mb' }));
 
 // Apply CSRF protection globally (after auth middleware in routes)
 app.use(csrfProtection);
