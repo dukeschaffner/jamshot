@@ -8,7 +8,6 @@ import { UserProvider, useUser } from '../contexts/UserContext';
 import { MobileProvider } from '../contexts/MobileContext';
 import { NavigationGuardProvider } from 'next-navigation-guard';
 import { initGA, trackPageView, trackSearch } from '../lib/analytics';
-import MobileWarning from '../components/MobileWarning';
 import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';
 import GlobalPlayer from '../components/GlobalPlayer';
@@ -100,8 +99,6 @@ function AppContent({ children }) {
 
   return (
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>
-      <MobileWarning />
-      
       {/* Desktop Navbar */}
       <Navbar />
       
