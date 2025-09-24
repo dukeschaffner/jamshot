@@ -5,6 +5,7 @@ import { useUser } from '../../contexts/UserContext';
 import { FaTrophy, FaPlus, FaFilter, FaSearch, FaCalendarAlt, FaUsers, FaDollarSign, FaClock, FaExclamationTriangle, FaCheckCircle, FaPlay, FaTimes } from 'react-icons/fa';
 import { competitionApi, tagApi } from '../../lib/api';
 import Competition from '../../components/Competition';
+import SponsoredCompetition from '../../components/SponsoredCompetition';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import styles from './Competitions.module.css';
 
@@ -45,7 +46,8 @@ export default function CompetitionsPage() {
         page,
         limit: 10,
         status: activeTab,
-        ...filters
+        ...filters,
+        excludeSponsored: true
       };
       
       const response = await competitionApi.getCompetitions(params);
@@ -188,6 +190,9 @@ export default function CompetitionsPage() {
           Discover and participate in music competitions
         </p>
       </div>
+
+      {/* Sponsored Competition Banner */}
+      <SponsoredCompetition variant="banner" />
 
       {/* Create Competition Button */}
       {isAuthenticated && (

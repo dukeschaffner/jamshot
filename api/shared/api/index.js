@@ -364,6 +364,15 @@ const createApiMethods = (apiClient) => {
       return api.get(`/competitions?${queryParams.toString()}`);
     },
 
+    getSponsoredCompetition: () => {
+      // Get active sponsored competition
+      const params = new URLSearchParams({
+        status: 'active',
+        limit: 1
+      });
+      return api.get(`/competitions/sponsored?${params.toString()}`);
+    },
+
     getCompetition: (id) => api.get(`/competitions/${id}`),
 
     getCompetitionEntries: (id, page = 1, limit = 10) => 

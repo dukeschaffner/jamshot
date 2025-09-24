@@ -15,6 +15,107 @@ const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler');
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
 
+// GET /competitions/sponsored - Get active sponsored competition
+router.get('/sponsored', async (req, res) => {
+  const userId = req.user?.id;
+  
+  try {
+    const now = new Date();
+    
+    // Query for active sponsored competition
+    let query = `
+      SELECT 
+        c.*,
+        t.id as track_id,
+        t.title as track_title,
+        t.audio_url,
+        t.combined_audio_url,
+        t.duration,
+        t.layer,
+        t.parent_track_id,
+        t.play_count,
+        t.is_private,
+        t.metronome_bpm,
+        t.time_signature,
+        t.created_at as track_created_at,
+        u.id as user_id,
+        u.username,
+        u.name,
+        u.verified,
+        u.profile_pic_url,
+        t2.title AS original_title,
+        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+        ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $3 AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
+        (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
+        (SELECT COUNT(*) FROM tracks WHERE competition_id = c.id AND is_competition_entry = true) AS entry_count,
+        ${userId ? 'EXISTS(SELECT 1 FROM tracks WHERE competition_id = c.id AND user_id = $4 AND is_competition_entry = true) AS has_entered,' : 'false AS has_entered,'}
+        ${userId ? 'c.host_id = $5 AS is_host' : 'false AS is_host'}
+      FROM competitions c
+      JOIN tracks t ON c.track_id = t.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE c.sponsored = true 
+        AND c.startdate <= $1 
+        AND c.enddate >= $2
+      ORDER BY c.pinned DESC, c.created_at DESC
+      LIMIT 1
+    `;
+    
+    const queryParams = [now, now];
+    if (userId) {
+      queryParams.push(userId, userId, userId);
+    }
+    
+    const result = await pool.query(query, queryParams);
+    
+    if (result.rows.length === 0) {
+      return res.json({ competition: null });
+    }
+    
+    // Process the track using the existing utility function
+    const row = result.rows[0];
+    const trackData = {
+      ...row,
+      id: row.track_id,
+      title: row.track_title,
+      created_at: row.track_created_at
+    };
+    const track = await processTrack(trackData, userId);
+    
+    const competition = {
+      track,
+      id: row.id,
+      startdate: row.startdate,
+      enddate: row.enddate,
+      title: row.title,
+      description: row.description,
+      prize_amount: row.prize_amount,
+      host_id: row.host_id,
+      pinned: row.pinned,
+      sponsored: row.sponsored,
+      sponsor_name: row.sponsor_name,
+      image_url: row.image_url,
+      voucher_code: row.voucher_code,
+      winner_selection_method: row.winner_selection_method,
+      winner_id: row.winner_id,
+      backup_winner_id: row.backup_winner_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      creation_fee_paid: row.creation_fee_paid,
+      entry_count: row.entry_count,
+      has_entered: row.has_entered,
+      is_host: row.is_host
+    };
+    
+    res.json({ competition });
+  } catch (err) {
+    console.error('Error fetching sponsored competition:', err);
+    res.status(500).json({ error: 'Failed to fetch sponsored competition' });
+  }
+});
+
 // GET /competitions - Browse competitions with filtering
 router.get('/', async (req, res) => {
   const userId = req.user?.id;
@@ -24,9 +125,9 @@ router.get('/', async (req, res) => {
     genreId, 
     instrumentId, 
     status = 'active', // active, upcoming, ended
-    pinned = false 
+    pinned = false,
+    excludeSponsored 
   } = req.query;
-  
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
   
@@ -91,6 +192,11 @@ router.get('/', async (req, res) => {
       whereClause += `EXISTS (SELECT 1 FROM track_instruments ti WHERE ti.track_id = c.track_id AND ti.instrument_id = $${whereParamIndex})`;
       whereParams.push(instrumentId);
       whereParamIndex++;
+    }
+
+    if (excludeSponsored) {
+      if (whereClause) whereClause += ' AND ';
+      whereClause += `c.sponsored = false`;
     }
 
     // Calculate parameter indices for SELECT clause (after WHERE parameters)

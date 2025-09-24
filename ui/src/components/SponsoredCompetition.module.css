@@ -1,0 +1,363 @@
+/* Sponsored Competition Component */
+.sponsoredCompetition {
+  background: var(--background);
+  border: 2px solid var(--seafoam);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.sponsoredCompetition:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+body.dark-mode .sponsoredCompetition {
+  background: var(--grey-1);
+  border-color: var(--seafoam);
+  box-shadow: 0 4px 12px var(--dark-shadow);
+}
+
+body.dark-mode .sponsoredCompetition:hover {
+  box-shadow: 0 8px 24px var(--dark-shadow);
+}
+
+/* Sponsored Badge */
+.sponsoredBadge {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  color: white;
+  padding: 6px 12px;
+  border-radius: 0 10px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+
+.badgeIcon {
+  font-size: 10px;
+}
+
+/* Sponsor Branding */
+.sponsorBranding {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--grey-2);
+}
+
+body.dark-mode .sponsorBranding {
+  border-bottom-color: var(--grey-3);
+}
+
+.sponsorLogo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.sponsorName {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Content */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Status Badge */
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.statusBadge.active {
+  background: var(--seafoam-light);
+  color: var(--dark);
+}
+
+.statusBadge.upcoming {
+  background: var(--rustic-pink-light);
+  color: var(--dark);
+}
+
+.statusBadge.ended {
+  background: var(--grey-2);
+  color: var(--text-secondary);
+}
+
+.statusIcon {
+  font-size: 10px;
+}
+
+/* Competition Info */
+.info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.infoItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.infoIcon {
+  color: var(--seafoam-dark);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Track Preview */
+.trackPreview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--grey-1);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+}
+
+body.dark-mode .trackPreview {
+  background: var(--grey-2);
+  border-color: var(--grey-3);
+}
+
+.playButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.playButton:hover {
+  transform: scale(1.05);
+}
+
+.trackInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.trackTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trackArtist {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.viewButton {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.enterButton {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+/* Variant Styles */
+
+/* Sidebar Variant - Default for desktop sidebar */
+.sidebar {
+  max-width: 320px;
+}
+
+.sidebar .title {
+  font-size: 16px;
+}
+
+.sidebar .info {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar .actions {
+  flex-direction: column;
+}
+
+.sidebar .viewButton,
+.sidebar .enterButton {
+  flex: none;
+  width: 100%;
+}
+
+/* Banner Variant - For mobile/narrow screens */
+.banner {
+  margin-bottom: 16px;
+}
+
+.banner .content {
+  gap: 12px;
+}
+
+.banner .header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.banner .title {
+  font-size: 16px;
+}
+
+.banner .info {
+  justify-content: space-between;
+}
+
+.banner .trackPreview {
+  padding: 8px;
+}
+
+.banner .playButton {
+  width: 32px;
+  height: 32px;
+}
+
+.banner .actions {
+  justify-content: center;
+}
+
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .sponsoredCompetition {
+    padding: 16px;
+  }
+
+  .sidebar .title,
+  .banner .title {
+    font-size: 15px;
+  }
+
+  .featured .title {
+    font-size: 18px;
+  }
+
+  .info {
+    gap: 12px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .viewButton,
+  .enterButton {
+    width: 100%;
+    flex: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .sponsoredCompetition {
+    padding: 12px;
+  }
+
+  .title {
+    font-size: 14px !important;
+  }
+
+  .description {
+    font-size: 13px;
+  }
+
+  .trackPreview {
+    padding: 8px;
+  }
+
+  .playButton {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}

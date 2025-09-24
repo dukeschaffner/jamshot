@@ -4,8 +4,10 @@ import api from '../lib/api';
 import Track from '../components/Track';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CustomTabs from '../components/CustomTabs';
+import SponsoredCompetition from '../components/SponsoredCompetition';
 import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
+import { useMobile } from '../contexts/MobileContext';
 import { trackWelcomeDialogClose, trackFeedChange, trackTrackExpand } from '../lib/analytics';
 import styles from './Home.module.css';
 
@@ -21,6 +23,7 @@ export default function Home() {
   const observer = useRef();
   const TRACKS_PER_PAGE = 5;
   const { isAuthenticated } = useUser();
+  const { isMobile } = useMobile();
   // Check if this is the first visit when component mounts
   useEffect(() => {
     const hasVisitedBefore = localStorage.getItem('sterio_visited');
@@ -204,9 +207,17 @@ export default function Home() {
         />
       </div>
 
+      {/* Mobile Banner - Show sponsored competition above feed on mobile */}
+      {isMobile && (
+        <SponsoredCompetition variant="banner" />
+      )}
+
       {error && <p className={styles.errorMessage}>{error}</p>}
       
-      <div className={styles.feed}>
+      {/* Desktop Layout - Feed with Sidebar */}
+      <div className={styles.homeLayout}>
+        <div className={styles.feedContent}>
+          <div className={styles.feed}>
         {tracks.length === 0 && !loading ? (
           <div className={styles.emptyFeed}>
             <p>
@@ -233,8 +244,17 @@ export default function Home() {
           </div>
         )}
         
-        {loading && (
-          <LoadingSpinner />
+            {loading && (
+              <LoadingSpinner />
+            )}
+          </div>
+        </div>
+        
+        {/* Desktop Sidebar - Show sponsored competition on desktop */}
+        {!isMobile && (
+          <div className={styles.sidebar}>
+            <SponsoredCompetition variant="sidebar" />
+          </div>
         )}
       </div>
     </div>

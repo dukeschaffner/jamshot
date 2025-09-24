@@ -1,6 +1,6 @@
 .feedContainer {
     width: 100%;
-    max-width: 1000px;
+    /* max-width: 1000px; */
     margin: 0 auto;
   }
   
@@ -106,4 +106,33 @@
   .trackList {
     display: flex;
     flex-direction: column;
+  }
+
+  /* Home Layout with Sidebar */
+  .homeLayout {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+
+  .feedContent {
+    flex-grow: 1;
+    min-width: 0; /* Allows flex item to shrink below content size */
+  }
+
+  .sidebar {
+    width: 320px;
+    flex-shrink: 0;
+  }
+
+  /* Mobile responsive - stack vertically */
+  @media (max-width: 768px) {
+    .homeLayout {
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sidebar {
+      width: 100%;
+    }
   }
