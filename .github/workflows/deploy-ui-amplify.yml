@@ -23,18 +23,18 @@ on:
         default: 'Manual deployment'
 
 jobs:
-  approve:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for approval
-        uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ github.TOKEN }}
-          approvers: dukeschaffner
-          timeout_minutes: 60
-      - name: Deploy to production
-        run: |
-          echo "Deploying to production..."
+  # approve:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Wait for approval
+  #       uses: trstringer/manual-approval@v1
+  #       with:
+  #         secret: ${{ github.TOKEN }}
+  #         approvers: dukeschaffner
+  #         timeout_minutes: 60
+  #     - name: Deploy to production
+  #       run: |
+  #         echo "Deploying to production..."
 
   build:
     runs-on: ubuntu-latest
