@@ -89,13 +89,13 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ vars.AWS_REGION_TEST || 'us-east-2' }}
 
-    - name: Deploy to Test Lambda: Aggregator
+    - name: Deploy to Test Lambda - Aggregator
       run: |
         aws lambda update-function-code \
           --function-name sterio-analytics-aggregator-test \
           --zip-file fileb://analytics-lambda.zip
 
-    - name: Deploy to Test Lambda: Cleanup
+    - name: Deploy to Test Lambda - Cleanup
       run: |
         aws lambda update-function-code \
           --function-name sterio-analytics-cleanup-test \
@@ -134,13 +134,13 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
         aws-region: ${{ vars.AWS_REGION_PROD || 'us-east-2' }}
 
-    - name: Deploy to Prod Lambda: Aggregator
+    - name: Deploy to Prod Lambda - Aggregator
       run: |
         aws lambda update-function-code \
           --function-name sterio-analytics-aggregator \
           --zip-file fileb://analytics-lambda.zip
 
-    - name: Deploy to Prod Lambda: Cleanup
+    - name: Deploy to Prod Lambda - Cleanup
       run: |
         aws lambda update-function-code \
           --function-name sterio-analytics-cleanup \
