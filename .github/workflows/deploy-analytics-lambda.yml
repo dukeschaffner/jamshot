@@ -1,0 +1,166 @@
+name: Deploy Analytics Lambda to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'functions/lambda/analytics/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - prod
+      reason:
+        description: 'Reason for deployment'
+        required: false
+        default: 'Manual deployment'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build-artifact: analytics-lambda-build-${{ github.run_number }}
+    defaults:
+      run:
+        working-directory: ./functions/lambda/analytics/
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './functions/lambda/analytics/package-lock.json'
+
+    - name: Install dependencies
+      run: |
+        npm ci
+
+    - name: Run tests
+      run: |
+        npm test
+
+    - name: Create deployment package
+      run: |
+        # Create deployment zip similar to existing script but CI-friendly
+        zip -r analytics-lambda.zip . \
+          -x ".env*" \
+          -x "test/*" \
+          -x "*.md" \
+          -x "package-lock.json" \
+          -x "scripts/*" \
+          -x ".git/*" \
+          -x "node_modules/.cache/*"
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: analytics-lambda-build-${{ github.run_number }}
+        path: ./functions/lambda/analytics/analytics-lambda.zip
+
+  deploy-to-test:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: analytics-test
+      url: ${{ vars.ANALYTICS_LAMBDA_TEST_URL }}
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION_TEST || 'us-east-2' }}
+
+    - name: Deploy to Test Lambda: Aggregator
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-analytics-aggregator-test \
+          --zip-file fileb://analytics-lambda.zip
+
+    - name: Deploy to Test Lambda: Cleanup
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-analytics-cleanup-test \
+          --zip-file fileb://analytics-lambda.zip
+
+    # - name: Update Lambda configuration (if needed)
+    #   run: |
+    #     aws lambda update-function-configuration \
+    #       --function-name ${{ vars.ANALYTICS_LAMBDA_FUNCTION_NAME_TEST }} \
+    #       --environment Variables="{
+    #         NODE_ENV=test,
+    #         DB_HOST=${{ secrets.DB_HOST_TEST }},
+    #         DB_USER=${{ secrets.DB_USER_TEST }},
+    #         DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
+    #         DB_NAME=${{ secrets.DB_NAME_TEST }}
+    #       }"
+
+  deploy-to-prod:
+    runs-on: ubuntu-latest
+    needs: [build, deploy-to-test]
+    environment:
+      name: analytics-prod
+      url: ${{ vars.ANALYTICS_LAMBDA_PROD_URL }}
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+        aws-region: ${{ vars.AWS_REGION_PROD || 'us-east-2' }}
+
+    - name: Deploy to Prod Lambda: Aggregator
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-analytics-aggregator \
+          --zip-file fileb://analytics-lambda.zip
+
+    - name: Deploy to Prod Lambda: Cleanup
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-analytics-cleanup \
+          --zip-file fileb://analytics-lambda.zip
+
+    # - name: Update Lambda configuration (if needed)
+    #   run: |
+    #     aws lambda update-function-configuration \
+    #       --function-name ${{ vars.ANALYTICS_LAMBDA_FUNCTION_NAME_PROD }} \
+    #       --environment Variables="{
+    #         NODE_ENV=production,
+    #         DB_HOST=${{ secrets.DB_HOST_PROD }},
+    #         DB_USER=${{ secrets.DB_USER_PROD }},
+    #         DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+    #         DB_NAME=${{ secrets.DB_NAME_PROD }}
+    #       }"
+
+    - name: Create deployment tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "analytics-lambda-v${{ github.run_number }}" -m "Analytics Lambda deployment ${{ github.run_number }}"
+        git push origin "analytics-lambda-v${{ github.run_number }}"
