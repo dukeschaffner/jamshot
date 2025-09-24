@@ -3,6 +3,7 @@ RUNNING STRIPE: stripe listen --forward-to localhost:5001/api/payments/webhook
 
 TODO (MVP)
 - analytics
+  - analytics ui
   - analytics opt out
     - user opts out -> unique anonymous id is created? anonymize track play data
     - keep anonymized analytics data after user deletes account?
@@ -20,7 +21,10 @@ TODO (MVP)
 - actions during playback
 - handle sample rate mismatch (should input device determine sample rate?)
 - handle stereo input devices
-- 
+- competition
+  - sponsored competition
+  - update track component with competition indicators
+  - indicate number of comp wins on user page (or by their username display)
 
 
 BUGS
