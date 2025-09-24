@@ -76,6 +76,10 @@ export default function MoreDropdown() {
                 </button>
               </div>
               <div className="mobile-more-modal-body">
+                <Link className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
+                  <FaCrown />
+                  <span>Subscribe</span>
+                </Link>
                 <Link className="mobile-more-link" href="/about" onClick={handleLinkClick}>
                   <FaInfoCircle />
                   <span>About</span>
