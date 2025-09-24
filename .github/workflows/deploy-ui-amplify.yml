@@ -27,9 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for approval
-        uses: peter-evans/wait-for-approval@v2
+        uses: trstringer/manual-workflow-approval@v1
         with:
-          reviewers: 'dukeschaffner'
+          approvers: 'dukeschaffner'
+          timeout_minutes: 60
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production..."
 
   build:
     runs-on: ubuntu-latest
