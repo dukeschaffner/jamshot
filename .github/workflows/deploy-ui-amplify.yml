@@ -23,6 +23,14 @@ on:
         default: 'Manual deployment'
 
 jobs:
+  approve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for approval
+        uses: peter-evans/wait-for-approval@v2
+        with:
+          reviewers: 'dukeschaffner'
+
   build:
     runs-on: ubuntu-latest
     outputs:
