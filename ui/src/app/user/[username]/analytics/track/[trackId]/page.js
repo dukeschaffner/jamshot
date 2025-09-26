@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { analyticsApi, trackApi } from '../../../../../../lib/api';
 import { useUser } from '../../../../../../contexts/UserContext';
+import { getCountryName } from '../../../../../../../../shared/utils/formatting.js';
 import TimeSelector from '../../../../../../components/analytics/TimeSelector';
 import MetricSelector from '../../../../../../components/analytics/MetricSelector';
 import ChartJSAnalyticsChart from '../../../../../../components/analytics/ChartJSAnalyticsChart';
@@ -131,21 +132,8 @@ export default function TrackAnalyticsPage() {
         // Parse geographic data
         if (latestData.geographic_data) {
           try {
-            const countryNames = {
-              'US': 'United States',
-              'UK': 'United Kingdom', 
-              'CA': 'Canada',
-              'DE': 'Germany',
-              'FR': 'France',
-              'AU': 'Australia',
-              'JP': 'Japan',
-              'BR': 'Brazil',
-              'IN': 'India',
-              'MX': 'Mexico'
-            };
-            
             const geoArray = Object.values(latestData.geographic_data).map(location => ({
-              country: countryNames[location.country_code] || location.country_code,
+              country: getCountryName(location.country_code),
               country_code: location.country_code,
               city: location.city,
               region: location.region,
@@ -306,6 +294,7 @@ export default function TrackAnalyticsPage() {
           onMetricChange={handleMetricChange}
           onFilterChange={handleFilterChange}
           showCountryFilter={true}
+          availableCountries={geographicData}
         />
       </div>
 
@@ -323,6 +312,7 @@ export default function TrackAnalyticsPage() {
               height={300}
               isDateBased={true}
               timeRange={timeRange}
+              variant="track"
             />
 
             {/* Detailed Analytics */}
@@ -348,6 +338,7 @@ export default function TrackAnalyticsPage() {
                     color="#86a699"
                     height={250}
                     isDateBased={false}
+                    variant="track"
                   />
                 </div>
                 
@@ -360,6 +351,7 @@ export default function TrackAnalyticsPage() {
                     color="#E9A9A1"
                     height={250}
                     isDateBased={false}
+                    variant="track"
                   />
                 </div>
               </div>

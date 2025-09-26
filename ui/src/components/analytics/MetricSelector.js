@@ -2,12 +2,13 @@
 import { useState } from 'react';
 import styles from './MetricSelector.module.css';
 
-const MetricSelector = ({ 
-  onMetricChange, 
-  onFilterChange, 
-  availableMetrics = [], 
+const MetricSelector = ({
+  onMetricChange,
+  onFilterChange,
+  availableMetrics = [],
   showCountryFilter = false,
-  selectedMetric = 'plays'
+  selectedMetric = 'plays',
+  availableCountries = []
 }) => {
   const [selectedFilter, setSelectedFilter] = useState('');
 
@@ -60,23 +61,16 @@ const MetricSelector = ({
               className={styles.countrySelect}
             >
               <option value="">All Countries</option>
-              <option value="US">United States</option>
-              <option value="GB">United Kingdom</option>
-              <option value="CA">Canada</option>
-              <option value="AU">Australia</option>
-              <option value="DE">Germany</option>
-              <option value="FR">France</option>
-              <option value="JP">Japan</option>
-              <option value="BR">Brazil</option>
-              <option value="IN">India</option>
-              <option value="MX">Mexico</option>
-              <option value="ES">Spain</option>
-              <option value="IT">Italy</option>
-              <option value="NL">Netherlands</option>
-              <option value="SE">Sweden</option>
-              <option value="NO">Norway</option>
-              <option value="DK">Denmark</option>
-              <option value="FI">Finland</option>
+              {availableCountries
+                .filter((country, index, self) =>
+                  index === self.findIndex(c => c.country_code === country.country_code)
+                )
+                .sort((a, b) => a.country.localeCompare(b.country))
+                .map(country => (
+                  <option key={country.country_code} value={country.country_code}>
+                    {country.country}
+                  </option>
+                ))}
             </select>
             {selectedFilter && (
               <button

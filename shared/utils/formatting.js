@@ -233,4 +233,64 @@ export const posToTime = (position, duration) => {
  */
 export const timeToPos = (time, duration) => {
   return (time / duration) * 100;
+};
+
+/**
+ * Get country name from country code
+ * @param {string} countryCode - ISO country code (e.g., 'US', 'UK', 'CA')
+ * @returns {string} Full country name or country code if not found
+ */
+export const getCountryName = (countryCode) => {
+  const countryNames = {
+    'US': 'United States',
+    'UK': 'United Kingdom',
+    'GB': 'United Kingdom', // Alternative code for UK
+    'CA': 'Canada',
+    'DE': 'Germany',
+    'FR': 'France',
+    'AU': 'Australia',
+    'JP': 'Japan',
+    'BR': 'Brazil',
+    'IN': 'India',
+    'MX': 'Mexico',
+    'ES': 'Spain',
+    'IT': 'Italy',
+    'NL': 'Netherlands',
+    'SE': 'Sweden',
+    'NO': 'Norway',
+    'DK': 'Denmark',
+    'FI': 'Finland'
+  };
+
+  return countryNames[countryCode] || countryCode;
+};
+
+/**
+ * Get country flag emoji from country code
+ * @param {string} countryCode - ISO country code (e.g., 'US', 'UK', 'CA')
+ * @returns {string} Flag emoji or globe emoji if not found
+ */
+export const getCountryFlag = (countryCode) => {
+  const flagEmojis = {
+    'US': '🇺🇸',
+    'UK': '🇬🇧',
+    'GB': '🇬🇧',
+    'CA': '🇨🇦',
+    'DE': '🇩🇪',
+    'FR': '🇫🇷',
+    'AU': '🇦🇺',
+    'JP': '🇯🇵',
+    'BR': '🇧🇷',
+    'IN': '🇮🇳',
+    'MX': '🇲🇽',
+    'ES': '🇪🇸',
+    'IT': '🇮🇹',
+    'NL': '🇳🇱',
+    'SE': '🇸🇪',
+    'NO': '🇳🇴',
+    'DK': '🇩🇰',
+    'FI': '🇫🇮'
+  };
+
+  return flagEmojis[countryCode] || '🌍';
 }; 

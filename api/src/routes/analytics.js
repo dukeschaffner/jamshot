@@ -238,6 +238,86 @@ router.get('/tracks/:trackId/streams', authMiddleware, async (req, res) => {
   }
 });
 
+// Get track analytics overview for the authenticated user
+router.get('/users/me/tracks', authMiddleware, async (req, res) => {
+  try {
+    const { period = 'day', start_date, end_date } = req.query;
+    const userId = req.user.id;
+
+    const userResult = await pool.query(
+      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check subscription access - analytics requires basic or premium
+    if (!canUserAccessAnalytics(userResult.rows[0])) {
+      return res.status(403).json({
+        error: 'Analytics access denied',
+        message: 'Analytics requires a Basic or Premium subscription.',
+        upgrade_required: true
+      });
+    }
+
+    // Build date range
+    let startDate, endDate;
+    if (start_date && end_date) {
+      startDate = new Date(start_date);
+      endDate = new Date(end_date);
+    } else {
+      const aggregator = new AnalyticsAggregator();
+      const { start, end } = aggregator.calculatePeriodDates(period);
+      startDate = start;
+      endDate = end;
+    }
+
+    // Get track analytics overview with aggregated data for the time period
+    const tracksQuery = `
+      SELECT
+        t.id,
+        t.title,
+        t.created_at,
+        SUM(COALESCE(aa.play_count, 0)) as play_count,
+        SUM(COALESCE(aa.like_count, 0)) as like_count,
+        SUM(COALESCE(aa.comment_count, 0)) as comment_count,
+        SUM(COALESCE(aa.repost_count, 0)) as repost_count
+      FROM tracks t
+      LEFT JOIN analytics_aggregates aa ON t.id = aa.track_id
+        AND aa.period_type = $2
+        AND aa.period_start >= $3
+        AND aa.period_end <= $4
+      WHERE t.user_id = $1
+        AND t.user_id IS NOT NULL
+      GROUP BY t.id, t.title, t.created_at
+      HAVING SUM(COALESCE(aa.play_count, 0)) > 0
+          OR SUM(COALESCE(aa.like_count, 0)) > 0
+          OR SUM(COALESCE(aa.comment_count, 0)) > 0
+          OR SUM(COALESCE(aa.repost_count, 0)) > 0
+      ORDER BY t.created_at DESC
+    `;
+
+    const tracksResult = await pool.query(tracksQuery, [
+      userId, period, startDate, endDate
+    ]);
+
+    res.json({
+      tracks: tracksResult.rows,
+      period: {
+        type: period,
+        start_date: startDate,
+        end_date: endDate
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching user track analytics:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get user analytics for the authenticated user
 router.get('/users/me', authMiddleware, async (req, res) => {
   try {
