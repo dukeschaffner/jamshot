@@ -3,7 +3,6 @@ RUNNING STRIPE: stripe listen --forward-to localhost:5001/api/payments/webhook
 
 TODO (MVP)
 - analytics
-  - analytics ui
   - analytics opt out
     - user opts out -> unique anonymous id is created? anonymize track play data
     - keep anonymized analytics data after user deletes account?
@@ -28,7 +27,6 @@ TODO (MVP)
 - API infra solution
 - move to R2 + Cloudflare CDN
 - production ready CICD for all infra
-- reserve username "me"
 - handle if user blocked mic access
 
 
