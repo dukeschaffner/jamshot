@@ -21,6 +21,7 @@ export default function TrackAnalyticsPage() {
   const [discoveryData, setDiscoveryData] = useState([]);
   const [ageRangeData, setAgeRangeData] = useState([]);
   const [geographicData, setGeographicData] = useState([]);
+  const [hasDetailedAccess, setHasDetailedAccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedMetric, setSelectedMetric] = useState('plays');
@@ -83,6 +84,9 @@ export default function TrackAnalyticsPage() {
         end_date: timeRange.end_date
       };
       const streamsResponse = await analyticsApi.getTrackStreams(trackId, streamsParams);
+      
+      // Store the detailed access flag from the API response
+      setHasDetailedAccess(streamsResponse.data.has_detailed_access || false);
       
       // Transform the streams data to match expected format
       const transformedStreamsData = (streamsResponse.data.streams || []).map(stream => ({
@@ -219,7 +223,7 @@ export default function TrackAnalyticsPage() {
   };
 
   const streamsTableColumns = [
-    { field: 'username', label: 'User', type: 'default' },
+    { field: 'username', label: 'User', type: 'user' },
     { field: 'streams', label: 'Streams', type: 'number' },
   ];
 
@@ -330,6 +334,7 @@ export default function TrackAnalyticsPage() {
                 columns={streamsTableColumns}
                 sortable={true}
                 maxRows={10}
+                hasDetailedAccess={hasDetailedAccess}
               />
 
               {/* Discovery Methods */}

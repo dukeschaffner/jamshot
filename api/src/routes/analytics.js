@@ -200,12 +200,20 @@ router.get('/tracks/:trackId/streams', authMiddleware, async (req, res) => {
     // Check if user has access to detailed streams by user data
     const hasDetailedAccess = canUserAccessStreamsByUser(userResult.rows[0]);
     
+    // Helper function to obfuscate username by randomly replacing alphabetic characters
+    const obfuscateUsername = (username) => {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      return username.replace(/[a-zA-Z]/g, () => {
+        return chars[Math.floor(Math.random() * chars.length)];
+      });
+    };
+    
     // If user doesn't have detailed access, obfuscate usernames
     if (!hasDetailedAccess) {
-      streamData = streamData.map((stream, index) => ({
+      streamData = streamData.map((stream) => ({
         id: stream.id,
-        username: `User ${index + 1}`, // Obfuscated username
-        profile_pic_url: stream.profile_pic_url, // Hide profile pic for privacy
+        username: obfuscateUsername(stream.username), // Obfuscated username with random characters
+        profile_pic_url: stream.profile_pic_url,
         play_count: stream.play_count
       }));
     }
