@@ -394,6 +394,20 @@ export default function Track(
             {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
           </button>
           
+          {/* Analytics button for track owners */}
+          {currentUser?.id === track.user_id && (
+            <button 
+              className="pill-btn green-btn sm" 
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/user/${track.artist?.username || currentUser.username}/analytics/track/${track.id}`);
+              }}
+              title="View analytics"
+            >
+              📊 Analytics
+            </button>
+          )}
+          
           {/* Competition view button */}
           {view === 'competition' && competition ? (
             <button 

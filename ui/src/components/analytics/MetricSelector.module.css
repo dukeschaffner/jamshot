@@ -1,0 +1,142 @@
+.metricSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sectionTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.metricButtons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.metricButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--grey-2);
+  background-color: var(--background);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.metricButton:hover {
+  background-color: var(--grey-1);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.metricButton.active {
+  background-color: var(--seafoam);
+  color: white;
+  border-color: var(--seafoam);
+  box-shadow: 0 2px 8px rgba(147, 233, 190, 0.3);
+}
+
+.metricIcon {
+  font-size: 1rem;
+}
+
+.metricLabel {
+  font-weight: 500;
+}
+
+.filterGroup {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.countrySelect {
+  padding: 0.5rem;
+  border: 1px solid var(--grey-2);
+  border-radius: 6px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  min-width: 200px;
+  cursor: pointer;
+}
+
+.countrySelect:focus {
+  outline: none;
+  border-color: var(--seafoam);
+}
+
+.clearFilter {
+  padding: 0.5rem 0.75rem;
+  background-color: var(--rustic-pink-light);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.clearFilter:hover {
+  background-color: var(--rustic-pink);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .metricButtons {
+    justify-content: center;
+  }
+  
+  .metricButton {
+    flex: 1;
+    min-width: 100px;
+    font-size: 0.8rem;
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .metricIcon {
+    font-size: 0.9rem;
+  }
+  
+  .countrySelect {
+    min-width: 150px;
+    font-size: 0.8rem;
+  }
+  
+  .filterGroup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .clearFilter {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .metricButtons {
+    flex-direction: column;
+  }
+  
+  .metricButton {
+    justify-content: center;
+    min-width: auto;
+  }
+}

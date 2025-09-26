@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
-const { pool } = require('../config/db');
+const pool = require('../config/db');
 const AnalyticsAggregator = require('../utils/analyticsAggregator');
+const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils');
 
 /**
  * Analytics API Routes
@@ -16,6 +17,24 @@ router.get('/tracks/:trackId', authMiddleware, async (req, res) => {
     const { trackId } = req.params;
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
+
+    const userResult = await pool.query(
+      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check subscription access - analytics requires basic or premium
+    if (!canUserAccessAnalytics(userResult.rows[0])) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics requires a Basic or Premium subscription.',
+        upgrade_required: true
+      });
+    }
 
     // Verify user has access to this track (owner or public track)
     const trackAccessQuery = `
@@ -33,9 +52,9 @@ router.get('/tracks/:trackId', authMiddleware, async (req, res) => {
     
     const track = trackResult.rows[0];
     
-    // Check access permissions
-    if (track.is_private && track.user_id !== userId) {
-      return res.status(403).json({ error: 'Access denied' });
+    // Check ownership - users can only view analytics for their own tracks
+    if (track.user_id !== userId) {
+      return res.status(403).json({ error: 'Access denied. You can only view analytics for your own tracks.' });
     }
 
     // Build date range
@@ -98,11 +117,142 @@ router.get('/tracks/:trackId', authMiddleware, async (req, res) => {
   }
 });
 
+// Get streams by user for a specific track
+router.get('/tracks/:trackId/streams', authMiddleware, async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    const { start_date, end_date } = req.query;
+    const userId = req.user.id;
+
+    const userResult = await pool.query(
+      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check subscription access - analytics requires basic or premium
+    if (!canUserAccessAnalytics(userResult.rows[0])) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics requires a Basic or Premium subscription.',
+        upgrade_required: true
+      });
+    }
+
+    // Verify track exists and user owns it
+    const trackAccessQuery = `
+      SELECT t.id, t.user_id, t.title
+      FROM tracks t
+      WHERE t.id = $1
+    `;
+    
+    const trackResult = await pool.query(trackAccessQuery, [trackId]);
+    
+    if (trackResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const track = trackResult.rows[0];
+    
+    // Check ownership - users can only view streams for their own tracks
+    if (track.user_id !== userId) {
+      return res.status(403).json({ error: 'Access denied. You can only view streams for your own tracks.' });
+    }
+
+    // Build date range - default to last 30 days if not provided
+    let startDate, endDate;
+    if (start_date && end_date) {
+      startDate = new Date(start_date);
+      endDate = new Date(end_date);
+    } else {
+      endDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30); // Default to last 30 days
+    }
+
+    // Get top 15 users by play count for this track in the time window
+    const streamsQuery = `
+      SELECT 
+        u.id,
+        u.username,
+        u.profile_pic_url,
+        COUNT(tp.id) as play_count
+      FROM track_plays tp
+      INNER JOIN users u ON tp.user_id = u.id
+      WHERE tp.track_id = $1 
+        AND tp.user_id IS NOT NULL
+        AND tp.created_at >= $2
+        AND tp.created_at <= $3
+      GROUP BY u.id, u.username, u.profile_pic_url
+      ORDER BY play_count DESC
+      LIMIT 15
+    `;
+    
+    const streamsResult = await pool.query(streamsQuery, [
+      trackId, startDate, endDate
+    ]);
+
+    let streamData = streamsResult.rows;
+
+    // Check if user has access to detailed streams by user data
+    const hasDetailedAccess = canUserAccessStreamsByUser(userResult.rows[0]);
+    
+    // If user doesn't have detailed access, obfuscate usernames
+    if (!hasDetailedAccess) {
+      streamData = streamData.map((stream, index) => ({
+        id: stream.id,
+        username: `User ${index + 1}`, // Obfuscated username
+        profile_pic_url: stream.profile_pic_url, // Hide profile pic for privacy
+        play_count: stream.play_count
+      }));
+    }
+
+    res.json({
+      track: {
+        id: track.id,
+        title: track.title
+      },
+      streams: streamData,
+      period: {
+        start_date: startDate,
+        end_date: endDate
+      },
+      has_detailed_access: hasDetailedAccess,
+      total_users: streamData.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching track streams:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get user analytics for the authenticated user
 router.get('/users/me', authMiddleware, async (req, res) => {
   try {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
+
+    const userResult = await pool.query(
+      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check subscription access - analytics requires basic or premium
+    if (!canUserAccessAnalytics(userResult.rows[0])) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics requires a Basic or Premium subscription.',
+        upgrade_required: true
+      });
+    }
 
     // Build date range
     let startDate, endDate;
@@ -173,29 +323,36 @@ router.get('/users/me', authMiddleware, async (req, res) => {
   }
 });
 
-// Get user analytics for a specific user (public data only)
-router.get('/users/:username', async (req, res) => {
+// Get user analytics for a specific user - requires authentication and users can only access their own analytics
+router.get('/users/:username', authMiddleware, async (req, res) => {
   try {
     const { username } = req.params;
     const { period = 'day', start_date, end_date } = req.query;
+    const requestingUserId = req.user.id;
 
-    // Get user info
-    const userQuery = `
-      SELECT id, username, is_private
-      FROM users 
-      WHERE username = $1
-    `;
-    const userResult = await pool.query(userQuery, [username]);
-    
+    const userResult = await pool.query(
+      'SELECT id, username, is_private, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check subscription access - analytics requires basic or premium
+    if (!canUserAccessAnalytics(userResult.rows[0])) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics requires a Basic or Premium subscription.',
+        upgrade_required: true
+      });
     }
     
     const user = userResult.rows[0];
     
-    // Check if user is private
-    if (user.is_private) {
-      return res.status(403).json({ error: 'User profile is private' });
+    // Check ownership - users can only view their own analytics
+    if (user.id !== requestingUserId) {
+      return res.status(403).json({ error: 'Access denied. You can only view your own analytics.' });
     }
 
     // Build date range
@@ -210,19 +367,13 @@ router.get('/users/:username', async (req, res) => {
       endDate = end;
     }
 
-    // Get public analytics data (limited to what's publicly available)
+    // Get user analytics data (same as /users/me endpoint since user can only access their own)
     const analyticsQuery = `
       SELECT 
-        uaa.period_start,
-        uaa.period_end,
-        uaa.total_plays_received,
-        uaa.total_listeners_received,
-        uaa.total_likes_received,
-        uaa.total_comments_received,
-        uaa.total_reposts_received,
-        uaa.follower_count,
-        uaa.tracks_uploaded
+        uaa.*,
+        u.username
       FROM user_analytics_aggregates uaa
+      INNER JOIN users u ON uaa.user_id = u.id
       WHERE uaa.user_id = $1 
         AND uaa.period_type = $2
         AND uaa.period_start >= $3
@@ -234,27 +385,30 @@ router.get('/users/:username', async (req, res) => {
       user.id, period, startDate, endDate
     ]);
 
-    // Get current public stats
-    const publicStatsQuery = `
-      SELECT 
-        COUNT(DISTINCT t.id) as track_count,
-        SUM(t.play_count) as total_plays,
-        COUNT(DISTINCT f.follower_id) as follower_count
-      FROM users u
-      LEFT JOIN tracks t ON u.id = t.user_id AND t.is_private = false
-      LEFT JOIN follows f ON u.id = f.following_id
-      WHERE u.id = $1
+    // Get current follower count
+    const followerQuery = `
+      SELECT COUNT(*) as follower_count
+      FROM follows 
+      WHERE following_id = $1
     `;
-    const publicStatsResult = await pool.query(publicStatsQuery, [user.id]);
-    const publicStats = publicStatsResult.rows[0];
+    const followerResult = await pool.query(followerQuery, [user.id]);
+    const currentFollowerCount = parseInt(followerResult.rows[0]?.follower_count) || 0;
+
+    // Get track count
+    const trackCountQuery = `
+      SELECT COUNT(*) as track_count
+      FROM tracks 
+      WHERE user_id = $1
+    `;
+    const trackCountResult = await pool.query(trackCountQuery, [user.id]);
+    const currentTrackCount = parseInt(trackCountResult.rows[0]?.track_count) || 0;
 
     res.json({
       user: {
         id: user.id,
         username: user.username,
-        current_track_count: parseInt(publicStats.track_count) || 0,
-        current_total_plays: parseInt(publicStats.total_plays) || 0,
-        current_follower_count: parseInt(publicStats.follower_count) || 0
+        current_follower_count: currentFollowerCount,
+        current_track_count: currentTrackCount
       },
       analytics: analyticsResult.rows,
       period: {
@@ -265,7 +419,7 @@ router.get('/users/:username', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching public user analytics:', error);
+    console.error('Error fetching user analytics:', error);
     res.status(500).json({ error: error.message });
   }
 });

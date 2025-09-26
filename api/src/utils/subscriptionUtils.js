@@ -67,6 +67,11 @@ const canUserAccessAnalytics = (user) => {
   return plan.features.analytics;
 };
 
+const canUserAccessStreamsByUser = (user) => {
+  const plan = getUserPlan(user);
+  return plan.features.analytics_streams_by_user;
+};
+
 const canUserAccessAdvancedDAW = (user) => {
   const plan = getUserPlan(user);
   return plan.features.advanced_daw;
@@ -117,6 +122,7 @@ module.exports = {
   canUserUpload,
   canUserCreatePrivateTrack,
   canUserAccessAnalytics,
+  canUserAccessStreamsByUser,
   canUserAccessAdvancedDAW,
   getUserUploadLimit,
   getUserRecordingLimit,

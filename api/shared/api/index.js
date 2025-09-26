@@ -400,6 +400,50 @@ const createApiMethods = (apiClient) => {
     updateTrackInstruments: (trackId, instrumentIds) => api.post(`/tags/track/${trackId}/instruments`, { instrumentIds }),
   };
 
+  // Analytics API methods
+  const analyticsApi = {
+    getTrackAnalytics: (trackId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/tracks/${trackId}?${queryParams.toString()}`);
+    },
+
+    getTrackStreams: (trackId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/tracks/${trackId}/streams?${queryParams.toString()}`);
+    },
+
+    getUserAnalytics: (username = 'me', params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      const endpoint = username === 'me' ? '/analytics/users/me' : `/analytics/users/${username}`;
+      return api.get(`${endpoint}?${queryParams.toString()}`);
+    },
+
+    getPlatformAnalytics: (params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/platform?${queryParams.toString()}`);
+    },
+  };
+
   return {
     trackApi,
     userApi,
@@ -408,6 +452,7 @@ const createApiMethods = (apiClient) => {
     notificationApi,
     competitionApi,
     tagApi,
+    analyticsApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,
