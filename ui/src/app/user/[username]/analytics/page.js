@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { analyticsApi, userApi } from '../../../../lib/api';
+import { analyticsApi, userApi, trackApi } from '../../../../lib/api';
 import { useUser } from '../../../../contexts/UserContext';
+import { getCountryName, getCountryFlag } from '../../../../../shared/utils/formatting.js';
 import TimeSelector from '../../../../components/analytics/TimeSelector';
 import MetricSelector from '../../../../components/analytics/MetricSelector';
 import ChartJSAnalyticsChart from '../../../../components/analytics/ChartJSAnalyticsChart';
@@ -16,6 +17,7 @@ export default function UserAnalyticsPage() {
   const { user, isAuthenticated } = useUser();
   const [analyticsData, setAnalyticsData] = useState([]);
   const [tracksData, setTracksData] = useState([]);
+  const [geographicData, setGeographicData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedMetric, setSelectedMetric] = useState('plays');
@@ -47,7 +49,7 @@ export default function UserAnalyticsPage() {
     if (user && isOwnProfile) {
       fetchAnalyticsData();
     }
-  }, [user, timeRange, selectedMetric, countryFilter]);
+  }, [user, timeRange, isOwnProfile]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -61,9 +63,42 @@ export default function UserAnalyticsPage() {
 
       const response = await analyticsApi.getUserAnalytics('me', params);
       setAnalyticsData(response.data.analytics || []);
-      
+      setError('');
+
+      // Parse geographic data if available
+      if (response.data.analytics && response.data.analytics.length > 0) {
+        const latestData = response.data.analytics[0]; // Get the most recent data point
+
+        // Parse geographic data
+        if (latestData.listener_geographic_data) {
+          try {
+            const geoObj = typeof latestData.listener_geographic_data === 'string'
+              ? JSON.parse(latestData.listener_geographic_data)
+              : latestData.listener_geographic_data;
+
+            const geoArray = Object.values(geoObj).map(location => ({
+              country: getCountryName(location.country_code),
+              country_code: location.country_code,
+              city: location.city,
+              region: location.region,
+              plays: location.count,
+              listeners: location.count // Assuming plays = listeners for now
+            }));
+
+            setGeographicData(geoArray);
+          } catch (err) {
+            console.error('Error parsing geographic data:', err);
+            setGeographicData([]);
+          }
+        } else {
+          setGeographicData([]);
+        }
+      } else {
+        setGeographicData([]);
+      }
+
       // Fetch track-level data for the overview table
-      //fetchTracksOverview();
+      fetchTracksOverview();
       
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -75,11 +110,16 @@ export default function UserAnalyticsPage() {
 
   const fetchTracksOverview = async () => {
     try {
-      // This would need to be implemented in the API - get user's tracks with analytics summary
-      const response = await userApi.getUserTracks(user.id, 1, 20);
+      const params = {
+        ...timeRange,
+        period: timeRange.period
+      };
+
+      const response = await analyticsApi.getUserTrackAnalytics(params);
       setTracksData(response.data.tracks || []);
     } catch (err) {
       console.error('Error fetching tracks overview:', err);
+      setTracksData([]);
     }
   };
 
@@ -181,6 +221,7 @@ export default function UserAnalyticsPage() {
           onMetricChange={handleMetricChange}
           onFilterChange={handleFilterChange}
           showCountryFilter={true}
+          availableCountries={geographicData}
         />
       </div>
 
@@ -198,6 +239,7 @@ export default function UserAnalyticsPage() {
               height={300}
               isDateBased={true}
               timeRange={timeRange}
+              variant="user"
             />
 
             {/* Track Overview Table */}
@@ -211,44 +253,56 @@ export default function UserAnalyticsPage() {
             />
 
             {/* Geographic Data */}
-            {(selectedMetric === 'plays' || selectedMetric === 'listeners') && (
+            {(selectedMetric === 'plays' || selectedMetric === 'listeners') && geographicData.length > 0 && (
               <div className={styles.geographicSection}>
                 <h3>Geographic Breakdown</h3>
                 <div className={styles.geographicGrid}>
                   <div className={styles.geographicCard}>
                     <h4>Top Countries</h4>
                     <div className={styles.geographicList}>
-                      {/* This would be populated from the analytics data */}
-                      <div className={styles.geographicItem}>
-                        <span className={styles.country}>🇺🇸 United States</span>
-                        <span className={styles.count}>1,234</span>
-                      </div>
-                      <div className={styles.geographicItem}>
-                        <span className={styles.country}>🇬🇧 United Kingdom</span>
-                        <span className={styles.count}>856</span>
-                      </div>
-                      <div className={styles.geographicItem}>
-                        <span className={styles.country}>🇨🇦 Canada</span>
-                        <span className={styles.count}>432</span>
-                      </div>
+                      {geographicData
+                        .reduce((countries, location) => {
+                          const existing = countries.find(c => c.country_code === location.country_code);
+                          if (existing) {
+                            existing.plays += location.plays;
+                            existing.listeners += location.listeners;
+                          } else {
+                            countries.push({
+                              country: location.country,
+                              country_code: location.country_code,
+                              plays: location.plays,
+                              listeners: location.listeners
+                            });
+                          }
+                          return countries;
+                        }, [])
+                        .sort((a, b) => b.plays - a.plays)
+                        .slice(0, 10)
+                        .map((country, index) => (
+                          <div key={country.country_code} className={styles.geographicItem}>
+                            <span className={styles.country}>
+                              {getCountryFlag(country.country_code)} {country.country}
+                            </span>
+                            <span className={styles.count}>{country.plays.toLocaleString()}</span>
+                          </div>
+                        ))}
                     </div>
                   </div>
-                  
+
                   <div className={styles.geographicCard}>
                     <h4>Top Cities</h4>
                     <div className={styles.geographicList}>
-                      <div className={styles.geographicItem}>
-                        <span className={styles.country}>New York, NY</span>
-                        <span className={styles.count}>345</span>
-                      </div>
-                      <div className={styles.geographicItem}>
-                        <span className={styles.country}>London, UK</span>
-                        <span className={styles.count}>289</span>
-                      </div>
-                      <div className={styles.geographicItem}>
-                        <span className={styles.country}>Toronto, CA</span>
-                        <span className={styles.count}>156</span>
-                      </div>
+                      {geographicData
+                        .sort((a, b) => b.plays - a.plays)
+                        .slice(0, 10)
+                        .map((location, index) => (
+                          <div key={`${location.country_code}-${location.city}`} className={styles.geographicItem}>
+                            <span className={styles.country}>
+                              {location.city}, {location.region}
+                            </span>
+                            <span className={styles.count}>{location.plays.toLocaleString()}</span>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>

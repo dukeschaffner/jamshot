@@ -433,6 +433,16 @@ const createApiMethods = (apiClient) => {
       return api.get(`${endpoint}?${queryParams.toString()}`);
     },
 
+    getUserTrackAnalytics: (params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/users/me/tracks?${queryParams.toString()}`);
+    },
+
     getPlatformAnalytics: (params = {}) => {
       const queryParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {

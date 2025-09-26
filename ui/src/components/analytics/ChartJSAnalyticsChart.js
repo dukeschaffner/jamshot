@@ -35,7 +35,8 @@ const ChartJSAnalyticsChart = ({
   height = 300,
   color = '#93E9BE',
   isDateBased = true,
-  timeRange = null // { start_date, end_date, period }
+  timeRange = null, // { start_date, end_date, period }
+  variant = 'track' // 'track' or 'user' - determines which field names to use
 }) => {
   const formatLabel = (labelString) => {
     // If it's not date-based data, return the label as-is
@@ -97,18 +98,33 @@ const ChartJSAnalyticsChart = ({
   };
 
   const chartData = useMemo(() => {
-    // Map UI metric names to database field names
-    const metricFieldMap = {
-      'plays': 'play_count',
-      'listeners': 'listener_count',
-      'likes': 'like_count',
-      'comments': 'comment_count',
-      'reposts': 'repost_count',
-      'shares': 'share_count',
-      'collaborations': 'collaboration_count'
+    // Define field mappings for different analytics variants
+    const fieldMappings = {
+      // Track-level analytics field names
+      track: {
+        'plays': 'play_count',
+        'listeners': 'listener_count',
+        'likes': 'like_count',
+        'comments': 'comment_count',
+        'reposts': 'repost_count',
+        'shares': 'share_count',
+        'collaborations': 'collaboration_count'
+      },
+      // User-level analytics field names
+      user: {
+        'plays': 'total_plays_received',
+        'listeners': 'total_listeners_received',
+        'likes': 'total_likes_received',
+        'comments': 'total_comments_received',
+        'reposts': 'total_reposts_received',
+        'shares': 'total_shares_received',
+        'collaborations': 'total_collaborations_received'
+      }
     };
     
-    const dbFieldName = metricFieldMap[metric] || metric;
+    // Get the appropriate field mapping based on variant
+    const currentMapping = fieldMappings[variant] || fieldMappings.track;
+    const dbFieldName = currentMapping[metric] || metric;
     
     let processedData;
     
@@ -124,7 +140,8 @@ const ChartJSAnalyticsChart = ({
       const dataMap = {};
       (data || []).forEach(item => {
         const dateKey = item.period_start?.split('T')[0] || item.period_start;
-        dataMap[dateKey] = item[dbFieldName] || item[`${metric}_count`] || item[metric] || 0;
+        const value = item[dbFieldName] || item[`${metric}_count`] || item[metric] || 0;
+        dataMap[dateKey] = value;
       });
       
       // Fill complete date range with data or zeros
@@ -172,7 +189,7 @@ const ChartJSAnalyticsChart = ({
         }
       ]
     };
-  }, [data, metric, color, type, isDateBased, timeRange]);
+  }, [data, metric, color, type, isDateBased, timeRange, variant]);
 
   const chartOptions = useMemo(() => {
     // Detect dark mode for grid colors
