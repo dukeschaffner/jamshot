@@ -1,0 +1,273 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  margin-bottom: 3rem;
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--grey-1);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  margin-bottom: 2rem;
+}
+
+.backButton:hover {
+  background-color: var(--grey-2);
+  color: var(--text-primary);
+}
+
+.trackInfo {
+  text-align: center;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.artist {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0 0 2rem 0;
+}
+
+.trackStats {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--grey-1);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.statIcon {
+  color: var(--seafoam);
+  font-size: 1rem;
+}
+
+.controls {
+  background-color: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.error {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.error h2 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.error p {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 1rem;
+}
+
+.analyticsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.analyticsCard {
+  background-color: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.premiumFeatures {
+  background: linear-gradient(135deg, var(--grey-1), var(--seafoam-light));
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.premiumFeatures h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 2rem 0;
+}
+
+.premiumGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.premiumCard {
+  background-color: var(--background);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: left;
+  border: 1px solid var(--grey-2);
+}
+
+.premiumCard h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.premiumCard p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Dark mode adjustments */
+body.dark-mode .controls,
+body.dark-mode .analyticsCard {
+  background-color: var(--grey-1);
+  border-color: var(--grey-3);
+}
+
+body.dark-mode .stat {
+  background-color: var(--grey-2);
+}
+
+body.dark-mode .backButton {
+  background-color: var(--grey-2);
+  color: var(--text-secondary);
+}
+
+body.dark-mode .backButton:hover {
+  background-color: var(--grey-3);
+  color: var(--text-primary);
+}
+
+body.dark-mode .premiumCard {
+  background-color: var(--grey-2);
+  border-color: var(--grey-3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  .artist {
+    font-size: 1rem;
+  }
+  
+  .trackStats {
+    gap: 1rem;
+    justify-content: center;
+  }
+  
+  .stat {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+  
+  .controls {
+    padding: 1.5rem;
+  }
+  
+  .analyticsGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .premiumFeatures {
+    padding: 1.5rem;
+  }
+  
+  .premiumGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .premiumCard {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0.5rem;
+  }
+  
+  .header {
+    margin-bottom: 2rem;
+  }
+  
+  .title {
+    font-size: 1.8rem;
+  }
+  
+  .trackStats {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .stat {
+    width: 100%;
+    justify-content: center;
+    max-width: 200px;
+  }
+  
+  .controls {
+    padding: 1rem;
+  }
+  
+  .content {
+    gap: 1rem;
+  }
+  
+  .premiumFeatures {
+    padding: 1rem;
+  }
+  
+  .premiumFeatures h3 {
+    font-size: 1.2rem;
+  }
+}
