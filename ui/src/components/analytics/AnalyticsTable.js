@@ -1,5 +1,8 @@
 'use client';
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { FaCrown } from 'react-icons/fa';
 import styles from './AnalyticsTable.module.css';
 
 const AnalyticsTable = ({ 
@@ -8,7 +11,8 @@ const AnalyticsTable = ({
   columns = [],
   sortable = true,
   searchable = false,
-  maxRows = 50
+  maxRows = 50,
+  hasDetailedAccess = true
 }) => {
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -67,7 +71,7 @@ const AnalyticsTable = ({
     }
   };
 
-  const formatValue = (value, type = 'default') => {
+  const formatValue = (value, type = 'default', row = null, field = null) => {
     if (value === null || value === undefined) return '-';
     
     switch (type) {
@@ -88,6 +92,24 @@ const AnalyticsTable = ({
       case 'country':
         // You could add a country code to name mapping here
         return value;
+      case 'user':
+        // Special case for user with avatar and username
+        const avatarUrl = row?.avatar || '/avatar.svg';
+        const username = value || 'Unknown User';
+        return (
+          <div className={styles.userCell}>
+            <Image
+              src={avatarUrl}
+              alt={username}
+              width={24}
+              height={24}
+              className={styles.userAvatar}
+            />
+            <span className={`${styles.username} ${!hasDetailedAccess ? styles.blurred : ''}`}>
+              {username}
+            </span>
+          </div>
+        );
       default:
         return value;
     }
@@ -161,7 +183,7 @@ const AnalyticsTable = ({
                     className={styles.tableCell}
                     data-type={column.type}
                   >
-                    {formatValue(row[column.field], column.type)}
+                    {formatValue(row[column.field], column.type, row, column.field)}
                   </td>
                 ))}
               </tr>
@@ -184,6 +206,21 @@ const AnalyticsTable = ({
       {searchTerm && sortedAndFilteredData.length === 0 && (
         <div className={styles.noResults}>
           <p>No results found for "{searchTerm}"</p>
+        </div>
+      )}
+      
+      {!hasDetailedAccess && data.length > 0 && (
+        <div className={styles.upgradePrompt}>
+          <div className={styles.upgradeContent}>
+            <FaCrown className={styles.crownIcon} />
+            <div className={styles.upgradeText}>
+              <h4>Want to see who's listening?</h4>
+              <p>Upgrade to Premium to see detailed listener information and unlock advanced analytics features.</p>
+            </div>
+            <Link href="/subscribe" className={styles.upgradeButton}>
+              Upgrade to Premium
+            </Link>
+          </div>
         </div>
       )}
     </div>
