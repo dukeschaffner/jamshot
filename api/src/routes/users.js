@@ -498,7 +498,12 @@ router.put('/me', authMiddleware, async (req, res) => {
     if (username) {
       username = username.toLowerCase();
     }
-    
+
+    // Prevent using "me" as username
+    if (username === 'me') {
+      return res.status(400).json({ error: 'Username "me" is not allowed' });
+    }
+
     // Check if username is taken (if username is being updated)
     if (username) {
       const existingUser = await pool.query(

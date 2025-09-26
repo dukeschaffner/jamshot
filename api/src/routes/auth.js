@@ -104,7 +104,12 @@ router.post('/register', authLimiter, async (req, res) => {
   if (username) {
     username = username.toLowerCase();
   }
-  
+
+  // Prevent using "me" as username
+  if (username === 'me') {
+    return res.status(400).json({ error: 'Username "me" is not allowed' });
+  }
+
   try {
     // Validate password
     const passwordValidation = validatePassword(password);
