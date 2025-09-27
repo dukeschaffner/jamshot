@@ -23,6 +23,8 @@ const {
   combineAudioFiles,
   convertToMp3,
   generateSecureToken,
+  generateTrackFilenameBase,
+  generateStandardTrackFilename,
   getBaseTrackSelectQuery,
   getPopularFeedQuery,
   getFollowingFeedQuery,
@@ -328,6 +330,9 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
     return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
   }
 
+  // Generate shared filename base for both processed and raw files
+  const filenameBase = generateTrackFilenameBase();
+
   try {
     if (parent_track_id) {
       const parentResult = await pool.query(
@@ -455,7 +460,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
         });
       }
 
-      combinedAudioUrl = `tracks/combined-${Date.now()}-${title}.mp3`;
+      combinedAudioUrl = `tracks/${generateStandardTrackFilename('processed', filenameBase)}`;
       const combinedPath = path.join(tempDir, path.basename(combinedAudioUrl));
 
       try {
@@ -477,7 +482,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
       await Promise.all(stemFiles.map(f => fsPromises.unlink(f).catch(err => console.error('Cleanup error:', err))));
 
       const combinedParams = {
-        Bucket: process.env.S3_BUCKET,
+        Bucket: process.env.R2_BUCKET,
         Key: combinedAudioUrl,
         Body: fs.createReadStream(combinedPath),
         ContentType: 'audio/mpeg',
@@ -499,7 +504,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
       // File is already stored on disk by multer, use its path directly
       const uploadedLocalPath = file.path;
 
-      combinedAudioUrl = `tracks/normalized-${Date.now()}-${title}.mp3`;
+      combinedAudioUrl = `tracks/${generateStandardTrackFilename('processed', filenameBase)}`;
       const normalizedPath = path.join(tempDir, path.basename(combinedAudioUrl));
 
       // Use default normalization settings for regular uploads
@@ -507,7 +512,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
       await combineAudioFiles([uploadedLocalPath], normalizedPath, [1.0], -16, -1);
 
       const normalizedParams = {
-        Bucket: process.env.S3_BUCKET,
+        Bucket: process.env.R2_BUCKET,
         Key: combinedAudioUrl,
         Body: fs.createReadStream(normalizedPath),
         ContentType: 'audio/mpeg',
@@ -522,9 +527,9 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
     const rawMp3Path = path.join(tempDir, `raw-${Date.now()}-${path.parse(file.originalname).name}.mp3`);
     await convertToMp3(file.path, rawMp3Path); // Convert to MP3 without any processing
 
-    audioUrl = `tracks/${Date.now()}-${path.parse(file.originalname).name}.mp3`;
+    audioUrl = `tracks/${generateStandardTrackFilename('raw', filenameBase)}`;
     const uploadParams = {
-      Bucket: process.env.S3_BUCKET,
+      Bucket: process.env.R2_BUCKET,
       Key: audioUrl,
       Body: fs.createReadStream(rawMp3Path),
       ContentType: 'audio/mpeg',

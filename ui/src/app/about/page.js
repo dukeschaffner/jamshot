@@ -248,7 +248,7 @@ function AboutContent() {
           <div className={styles.creatorProfile}>
             <img
               className={styles.creatorImage}
-              src={`https://s3.us-east-2.amazonaws.com/${process.env.NEXT_PUBLIC_S3_BUCKET}/images/static/about_bio_pic.jpg`}
+              src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/about_bio_pic.jpg`}
               alt="Duke Schaffner bio photo"
               style={{ objectFit: 'cover' }}
             />
