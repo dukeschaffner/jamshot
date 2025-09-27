@@ -5,11 +5,12 @@ const { optionalAuthMiddleware } = require('../middleware/auth');
 const { searchLimiter } = require('../middleware/rateLimiting');
 const AWS = require('aws-sdk');
 
-AWS.config.update({ signatureVersion: 'v4' });
 const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
+  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  region: 'auto', // R2 uses 'auto' region
+  endpoint: process.env.R2_ENDPOINT,
+  signatureVersion: 'v4',
 });
 
 // Apply optional auth middleware to all routes
@@ -65,11 +66,8 @@ router.get('/', async (req, res) => {
       tracks = await Promise.all(tracksResult.rows.map(async track => {
         let combinedAudioUrl = track.combined_audio_url || track.audio_url;
         if (combinedAudioUrl.startsWith('tracks/')) {
-          combinedAudioUrl = s3.getSignedUrl('getObject', {
-            Bucket: process.env.S3_BUCKET,
-            Key: track.combined_audio_url || track.audio_url,
-            Expires: 3600,
-          });
+          // Use public R2 URL instead of signed URL
+          combinedAudioUrl = `${process.env.R2_PUBLIC_URL}/${track.combined_audio_url || track.audio_url}`;
         }
         
         // Get genres for this track

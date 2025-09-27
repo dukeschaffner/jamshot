@@ -6,32 +6,31 @@ const pool = require('../config/db');
 const ffmpeg = require('fluent-ffmpeg');
 const crypto = require('crypto');
 
-// AWS S3 setup
-AWS.config.update({ signatureVersion: 'v4' });
+// Cloudflare R2 setup
 const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
+  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  region: 'auto', // R2 uses 'auto' region
+  endpoint: process.env.R2_ENDPOINT,
+  signatureVersion: 'v4',
 });
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: 'auto', // R2 uses 'auto' region
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
   },
+  endpoint: process.env.R2_ENDPOINT,
 });
 
-// Generate a signed URL for S3
+// Generate a public URL for R2 (no signing needed for public access)
 function generateSignedUrl(key, expiresIn = 3600) {
   if (!key || !key.startsWith('tracks/')) {
-    return key; // Return the original key if it's not an S3 path
+    return key; // Return the original key if it's not an R2 path
   }
-  
-  return s3.getSignedUrl('getObject', {
-    Bucket: process.env.S3_BUCKET,
-    Key: key,
-    Expires: expiresIn,
-  });
+
+  // Return public R2 URL for tracks
+  return `${process.env.R2_PUBLIC_URL}/${key}`;
 }
 
 // Get genres for a track
@@ -342,10 +341,10 @@ async function processTrack(track, userId = null) {
   };
 }
 
-// Download a file from S3 to a local path
+// Download a file from R2 to a local path
 async function downloadS3File(key, localPath) {
   const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET,
+    Bucket: process.env.R2_BUCKET,
     Key: key,
   });
   const { Body } = await s3Client.send(command);
@@ -533,6 +532,19 @@ function generateSecureToken(length = 32) {
   return crypto.randomBytes(length).toString('hex');
 }
 
+// Generate a standardized track filename base (timestamp-guid)
+function generateTrackFilenameBase() {
+  const timestamp = Date.now();
+  const guid = generateSecureToken(8); // 16 character hex string (8 bytes * 2 chars per byte)
+  return `${timestamp}-${guid}`;
+}
+
+// Generate a standardized track filename with format: {timestamp}-{guid}-{type}.mp3
+function generateStandardTrackFilename(type = 'raw', base = null) {
+  const filenameBase = base || generateTrackFilenameBase();
+  return `${filenameBase}-${type}.mp3`;
+}
+
 // Check if a user has access to a private track
 async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   const trackCheck = await pool.query(
@@ -685,37 +697,37 @@ async function deleteTrack(trackId, userId, options = {}) {
 }
 
 /**
- * Delete track audio files from S3
- * @param {string} audioUrl - The original audio file S3 key
- * @param {string} combinedAudioUrl - The combined/processed audio file S3 key
+ * Delete track audio files from R2
+ * @param {string} audioUrl - The original audio file R2 key
+ * @param {string} combinedAudioUrl - The combined/processed audio file R2 key
  */
 async function deleteTrackS3Files(audioUrl, combinedAudioUrl) {
   const deletePromises = [];
-  
+
   if (audioUrl && audioUrl.startsWith('tracks/')) {
     deletePromises.push(
       s3.deleteObject({
-        Bucket: process.env.S3_BUCKET,
+        Bucket: process.env.R2_BUCKET,
         Key: audioUrl
       }).promise()
     );
   }
-  
+
   if (combinedAudioUrl && combinedAudioUrl !== audioUrl && combinedAudioUrl.startsWith('tracks/')) {
     deletePromises.push(
       s3.deleteObject({
-        Bucket: process.env.S3_BUCKET,
+        Bucket: process.env.R2_BUCKET,
         Key: combinedAudioUrl
       }).promise()
     );
   }
-  
+
   if (deletePromises.length > 0) {
     try {
       await Promise.all(deletePromises);
-    } catch (s3Error) {
-      console.error('Error deleting track files from S3:', s3Error);
-      // Don't throw - S3 cleanup failures shouldn't block deletion
+    } catch (r2Error) {
+      console.error('Error deleting track files from R2:', r2Error);
+      // Don't throw - R2 cleanup failures shouldn't block deletion
     }
   }
 }
@@ -906,6 +918,8 @@ module.exports = {
   combineAudioFiles,
   convertToMp3,
   generateSecureToken,
+  generateTrackFilenameBase,
+  generateStandardTrackFilename,
   getBaseTrackSelectQuery,
   getPopularFeedQuery,
   getFollowingFeedQuery,

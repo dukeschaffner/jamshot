@@ -14,11 +14,12 @@ const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils
 const bcrypt = require('bcryptjs');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-AWS.config.update({ signatureVersion: 'v4' });
 const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
+  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  region: 'auto', // R2 uses 'auto' region
+  endpoint: process.env.R2_ENDPOINT,
+  signatureVersion: 'v4',
 });
 
 // Configure multer for memory storage
@@ -574,7 +575,7 @@ router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('i
       const oldKey = currentUser.rows[0].profile_pic_url;
       try {
         await s3.deleteObject({
-          Bucket: process.env.S3_BUCKET,
+          Bucket: process.env.R2_BUCKET,
           Key: oldKey
         }).promise();
       } catch (err) {
@@ -596,16 +597,16 @@ router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('i
     // Generate unique filename
     const filename = `images/profile/${req.user.id}-${Date.now()}.jpg`;
 
-    // Upload to S3
+    // Upload to R2
     await s3.putObject({
-      Bucket: process.env.S3_BUCKET,
+      Bucket: process.env.R2_BUCKET,
       Key: filename,
       Body: processedImageBuffer,
       ContentType: 'image/jpeg'
     }).promise();
 
     // Get the S3 URL for the uploaded image
-    const s3Url = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${filename}`;
+    const s3Url = `${process.env.R2_PUBLIC_URL}/${filename}`;
 
     // Update user's profile_image_url in database with the S3 URL
     const result = await pool.query(
@@ -1130,7 +1131,7 @@ router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) =>
       try {
         const profilePicKey = user.profile_pic_url.split('.com/')[1]; // Extract S3 key
         await s3.deleteObject({
-          Bucket: process.env.S3_BUCKET,
+          Bucket: process.env.R2_BUCKET,
           Key: profilePicKey
         }).promise();
         console.log(`Profile picture deleted from S3 for user ${userId}`);
