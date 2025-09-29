@@ -5,6 +5,7 @@
 # dependencies
 */node_modules
 api/node_modules
+api/lambda/node_modules
 ui/node_modules
 /node_modules
 /.pnp
