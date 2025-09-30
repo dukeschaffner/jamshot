@@ -5,6 +5,7 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;
 const mm = require('music-metadata');
 const ffmpeg = require('fluent-ffmpeg');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const { 
@@ -14,7 +15,6 @@ const {
   apiEndpointLimiter 
 } = require('../middleware/rateLimiting');
 const {
-  s3,
   s3Client,
   generateSignedUrl,
   processTrack,
@@ -487,7 +487,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
         Body: fs.createReadStream(combinedPath),
         ContentType: 'audio/mpeg',
       };
-      await s3.upload(combinedParams).promise();
+      await s3Client.send(new PutObjectCommand(combinedParams));
 
       // Clean up combined file (keep uploaded file for raw conversion)
       await fsPromises.unlink(combinedPath).catch(err => console.error('Cleanup error:', err));
@@ -517,7 +517,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
         Body: fs.createReadStream(normalizedPath),
         ContentType: 'audio/mpeg',
       };
-      await s3.upload(normalizedParams).promise();
+      await s3Client.send(new PutObjectCommand(normalizedParams));
 
       // Clean up normalized file (keep original file for raw conversion)
       await fsPromises.unlink(normalizedPath).catch(err => console.error('Cleanup error:', err));
@@ -534,7 +534,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
       Body: fs.createReadStream(rawMp3Path),
       ContentType: 'audio/mpeg',
     };
-    await s3.upload(uploadParams).promise();
+    await s3Client.send(new PutObjectCommand(uploadParams));
 
     // Clean up temporary MP3 file
     await fsPromises.unlink(rawMp3Path).catch(err => console.error('Raw MP3 cleanup error:', err));
