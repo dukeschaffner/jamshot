@@ -899,7 +899,6 @@ function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
 }
 
 module.exports = {
-  s3,
   s3Client,
   generateSignedUrl,
   getTrackGenres,
