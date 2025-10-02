@@ -8,8 +8,8 @@ const { Pool } = require('pg');
 
 // Configure FFMPEG path based on platform
 if (process.platform === 'linux') {
-  // Use the FFMPEG binary in the bin directory on Linux (Azure)
-  const ffmpegPath = path.join(__dirname, '../../../api/bin/ffmpeg');
+  // Use the FFMPEG binary in the lambda directory on Linux (Azure)
+  const ffmpegPath = path.join(__dirname, '../ffmpeg');
   ffmpeg.setFfmpegPath(ffmpegPath);
   console.log('Using local FFMPEG binary:', ffmpegPath);
 } else {
