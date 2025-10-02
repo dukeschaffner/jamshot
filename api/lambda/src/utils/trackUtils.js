@@ -1,4 +1,5 @@
 const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
@@ -23,6 +24,59 @@ function generateSignedUrl(key, expiresIn = 3600) {
 
   // Return public R2 URL for tracks
   return `${process.env.R2_PUBLIC_URL}/${key}`;
+}
+
+// Generate a pre-signed URL for direct S3 uploads
+async function generateUploadUrl(userId, filename, fileSize) {
+  const timestamp = Date.now();
+  const randomId = crypto.randomBytes(8).toString('hex');
+  const key = `uploads/temp/${userId}/${timestamp}-${randomId}-${filename}`;
+
+  const command = new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET,
+    Key: key,
+    ContentType: 'audio/*', // Allow any audio type
+    ContentLength: fileSize,
+    Metadata: {
+      userId: userId.toString(),
+      originalFilename: filename,
+      uploadTimestamp: timestamp.toString()
+    }
+  });
+
+  const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }); // 15 minutes
+
+  return {
+    uploadUrl: signedUrl,
+    key: key,
+    expiresAt: new Date(Date.now() + 900 * 1000).toISOString()
+  };
+}
+
+// Move a file from one S3 key to another
+async function moveS3File(sourceKey, destinationKey) {
+  try {
+    // Copy the object to the new location
+    await s3Client.send(new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: destinationKey,
+      CopySource: {
+        Bucket: process.env.R2_BUCKET,
+        Key: sourceKey
+      }
+    }));
+
+    // Delete the original object
+    await s3Client.send(new DeleteObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: sourceKey
+    }));
+
+    console.log(`Successfully moved S3 file from ${sourceKey} to ${destinationKey}`);
+  } catch (error) {
+    console.error('Error moving S3 file:', error);
+    throw error;
+  }
 }
 
 // Get genres for a track
@@ -901,6 +955,8 @@ function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
 module.exports = {
   s3Client,
   generateSignedUrl,
+  generateUploadUrl,
+  moveS3File,
   getTrackGenres,
   getTrackInstruments,
   processTrack,
