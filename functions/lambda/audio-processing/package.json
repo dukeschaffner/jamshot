@@ -4,6 +4,10 @@
   "description": "AWS Lambda function for processing audio files asynchronously",
   "main": "index.js",
   "scripts": {
+    "dev": "node dev-start.js",
+    "start": "node dev-start.js",
+    "monitor": "node dev-server.js",
+    "lambda": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["lambda", "audio", "processing", "ffmpeg"],
@@ -12,6 +16,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.490.0",
     "@aws-sdk/s3-request-presigner": "^3.490.0",
+    "dotenv": "^16.3.1",
     "fluent-ffmpeg": "^2.1.2",
     "music-metadata": "^7.14.0",
     "pg": "^8.11.3"

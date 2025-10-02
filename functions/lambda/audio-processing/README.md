@@ -27,8 +27,9 @@ This AWS Lambda function handles asynchronous audio processing for Jamshot track
    ```
 
 3. **Required Layers/Packages**:
-   - FFMPEG binary (can be included in deployment package or as a Lambda layer)
+   - FFMPEG binary (included in the lambda directory as `ffmpeg` for Linux deployments)
    - Node.js dependencies (installed via npm)
+   - Note: On macOS/Windows development, system-installed FFMPEG is used
 
 4. **S3 Lifecycle Configuration**:
    Apply the lifecycle rules in `s3-lifecycle-config.json` to your R2 bucket:

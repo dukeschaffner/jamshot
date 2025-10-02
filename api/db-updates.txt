@@ -1,9 +1,0 @@
--- Add processing_status column to tracks table for async audio processing
-ALTER TABLE tracks ADD COLUMN processing_status TEXT DEFAULT 'completed' CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed'));
--- Default to 'completed' for existing tracks
-
--- Add index for querying tracks by processing status
-CREATE INDEX idx_tracks_processing_status ON tracks(processing_status);
-
--- Add processing_error column to store error messages for failed processing
-ALTER TABLE tracks ADD COLUMN processing_error TEXT;

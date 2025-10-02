@@ -23,9 +23,9 @@ exports.handler = async (event, context) => {
   const processor = new AudioProcessor();
 
   try {
-    // Parse event parameters
-    const trackId = event.track_id || event.detail?.track_id;
-    const s3Key = event.s3_key || event.detail?.s3_key;
+    // Parse event parameters (support both EventBridge format and environment variables for local dev)
+    const trackId = event.track_id || event.detail?.track_id || process.env.TRACK_ID;
+    const s3Key = event.s3_key || event.detail?.s3_key || process.env.S3_KEY;
 
     if (!trackId) {
       throw new Error('track_id is required in event');

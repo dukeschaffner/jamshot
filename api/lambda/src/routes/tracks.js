@@ -4,7 +4,6 @@ const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const mm = require('music-metadata');
-const ffmpeg = require('fluent-ffmpeg');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
@@ -21,8 +20,6 @@ const {
   downloadS3File,
   moveS3File,
   checkTrackAccess,
-  combineAudioFiles,
-  convertToMp3,
   generateSecureToken,
   generateUploadUrl,
   generateTrackFilenameBase,
@@ -41,16 +38,7 @@ const { getGeolocationData } = require('../utils/geolocation');
 const { validateCompetitionEntry } = require('../../shared/utils/competition');
 require('dotenv').config;
 
-// Configure FFMPEG path based on platform
-if (process.platform === 'linux') {
-  // Use the FFMPEG binary in the bin directory on Linux (Azure)
-  const ffmpegPath = path.join(__dirname, '../../bin/ffmpeg');
-  ffmpeg.setFfmpegPath(ffmpegPath);
-  console.log('Using local FFMPEG binary:', ffmpegPath);
-} else {
-  // On other platforms (macOS/Windows), rely on system installation
-  console.log('Using system-installed FFMPEG');
-}
+// Audio processing is now handled by the dedicated audio-processing lambda
 
 const router = express.Router();
 
@@ -77,35 +65,7 @@ const upload = multer({
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
 
-// Add a health check endpoint to verify FFMPEG is working
-router.get('/ffmpeg-check', async (req, res) => {
-  try {
-    ffmpeg.getAvailableFormats((err, formats) => {
-      if (err) {
-        console.error('FFMPEG check failed:', err);
-        return res.status(500).json({ 
-          error: 'FFMPEG check failed', 
-          message: err.message,
-          platform: process.platform
-        });
-      }
-      
-      return res.status(200).json({ 
-        status: 'FFMPEG is available',
-        platform: process.platform,
-        formatsAvailable: Object.keys(formats).length > 0
-      });
-    });
-  } catch (err) {
-    console.error('FFMPEG check exception:', err);
-    return res.status(500).json({ 
-      error: 'FFMPEG check exception', 
-      message: err.message,
-      platform: process.platform
-    });
-  }
-});
-
+// Audio processing health check is now handled by the audio-processing lambda
 
 
 
