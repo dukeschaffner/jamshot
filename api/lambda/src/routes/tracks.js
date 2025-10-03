@@ -817,7 +817,7 @@ router.get('/:id/status', optionalAuthMiddleware, async (req, res) => {
 
     // Get processing status
     const result = await pool.query(
-      'SELECT processing_status, processing_error, created_at, updated_at FROM tracks WHERE id = $1',
+      'SELECT processing_status, processing_error, created_at FROM tracks WHERE id = $1',
       [id]
     );
 
@@ -848,8 +848,7 @@ router.get('/:id/status', optionalAuthMiddleware, async (req, res) => {
       track_id: id,
       status: status,
       error: track.processing_error,
-      estimated_time_remaining: estimatedTimeRemaining,
-      last_updated: track.updated_at
+      estimated_time_remaining: estimatedTimeRemaining
     });
 
   } catch (err) {

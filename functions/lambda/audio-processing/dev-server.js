@@ -118,7 +118,7 @@ console.log('🔄 Starting database monitoring...');
 checkForTracksToProcess();
 
 // Check for new tracks every 5 seconds
-const monitorInterval = setInterval(checkForTracksToProcess, 5000);
+const monitorInterval = setInterval(checkForTracksToProcess, 15000);
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
