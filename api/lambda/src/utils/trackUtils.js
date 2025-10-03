@@ -1,4 +1,4 @@
-const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, PutObjectCommand, CopyObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('fs');
 const path = require('path');
@@ -26,10 +26,15 @@ function generateSignedUrl(key, expiresIn = 3600) {
 }
 
 // Generate a pre-signed URL for direct S3 uploads
-async function generateUploadUrl(userId, filename, fileSize) {
-  const timestamp = Date.now();
-  const randomId = crypto.randomBytes(8).toString('hex');
-  const key = `uploads/temp/${userId}/${timestamp}-${randomId}-${filename}`;
+async function generateUploadUrl(userId, filename, fileSize, filenameBase = null) {
+  // Use provided filenameBase or generate one
+  const base = filenameBase || generateTrackFilenameBase();
+
+  // Extract file extension from filename
+  const ext = filename.split('.').pop();
+  const tempFilename = `${base}-temp.${ext}`;
+
+  const key = `uploads/temp/${userId}/${tempFilename}`;
 
   const command = new PutObjectCommand({
     Bucket: process.env.R2_BUCKET,
@@ -39,7 +44,8 @@ async function generateUploadUrl(userId, filename, fileSize) {
     Metadata: {
       userId: userId.toString(),
       originalFilename: filename,
-      uploadTimestamp: timestamp.toString()
+      uploadTimestamp: Date.now().toString(),
+      filenameBase: base
     }
   });
 
@@ -48,6 +54,7 @@ async function generateUploadUrl(userId, filename, fileSize) {
   return {
     uploadUrl: signedUrl,
     key: key,
+    filenameBase: base,
     expiresAt: new Date(Date.now() + 900 * 1000).toISOString()
   };
 }
@@ -55,14 +62,16 @@ async function generateUploadUrl(userId, filename, fileSize) {
 // Move a file from one S3 key to another
 async function moveS3File(sourceKey, destinationKey) {
   try {
+    // Validate environment variables
+    if (!process.env.R2_BUCKET || typeof process.env.R2_BUCKET !== 'string') {
+      throw new Error('R2_BUCKET environment variable is not set or is not a string');
+    }
+
     // Copy the object to the new location
-    await s3Client.send(new PutObjectCommand({
+    await s3Client.send(new CopyObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: destinationKey,
-      CopySource: {
-        Bucket: process.env.R2_BUCKET,
-        Key: sourceKey
-      }
+      CopySource: `${process.env.R2_BUCKET}/${encodeURIComponent(sourceKey)}`
     }));
 
     // Delete the original object

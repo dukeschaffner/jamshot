@@ -121,8 +121,19 @@ export default function UploadForm({
   }, [title]);
 
   // Poll processing status
-  const pollProcessingStatus = useCallback(async (trackId) => {
+  const pollProcessingStatus = useCallback(async (trackId, startTime = Date.now()) => {
     try {
+      // Check if we've exceeded the 5-minute timeout (300,000 ms)
+      const elapsedTime = Date.now() - startTime;
+      const timeoutMs = 5 * 60 * 1000; // 5 minutes
+
+      if (elapsedTime > timeoutMs) {
+        setError('Processing timed out after 5 minutes. Please try again or contact support if the issue persists.');
+        setProcessingStatus('failed');
+        setIsUploading(false);
+        return;
+      }
+
       const response = await trackApi.getProcessingStatus(trackId);
       const status = response.data;
 
@@ -144,7 +155,7 @@ export default function UploadForm({
         setIsUploading(false);
       } else {
         // Still processing, poll again in 3 seconds
-        setTimeout(() => pollProcessingStatus(trackId), 3000);
+        setTimeout(() => pollProcessingStatus(trackId, startTime), 3000);
       }
     } catch (err) {
       console.error('Error polling processing status:', err);

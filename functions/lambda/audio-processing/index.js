@@ -28,25 +28,21 @@ exports.handler = async (event, context) => {
   try {
     // Parse event parameters (support both EventBridge format and environment variables for local dev)
     const trackId = event.track_id || event.detail?.track_id || process.env.TRACK_ID;
-    const s3Key = event.s3_key || event.detail?.s3_key || process.env.S3_KEY;
 
     console.log('🔍 Debug: Environment variables:');
     console.log(`  TRACK_ID: ${process.env.TRACK_ID}`);
-    console.log(`  S3_KEY: ${process.env.S3_KEY}`);
     console.log('🔍 Debug: Parsed values:');
     console.log(`  trackId: ${trackId}`);
-    console.log(`  s3Key: ${s3Key}`);
 
     if (!trackId) {
       throw new Error('track_id is required in event');
     }
 
     console.log(`🎵 Processing audio for track: ${trackId}`);
-    console.log(`📁 S3 Key: ${s3Key}`);
 
     // Process the audio
     console.log('🔍 Debug: Calling processor.processAudio()');
-    const result = await processor.processAudio(trackId, s3Key);
+    const result = await processor.processAudio(trackId);
     console.log('🔍 Debug: processor.processAudio() completed');
 
     console.log('✅ Audio processing completed successfully!');
@@ -83,8 +79,7 @@ exports.trackCreatedHandler = async (event, context) => {
   console.log('🎵 Track created event received');
 
   const modifiedEvent = {
-    track_id: event.detail?.track_id,
-    s3_key: event.detail?.s3_key
+    track_id: event.detail?.track_id
   };
 
   return exports.handler(modifiedEvent, context);
@@ -107,8 +102,7 @@ if (require.main === module) {
     try {
       // Create event object from environment variables (set by dev server)
       const event = {
-        track_id: process.env.TRACK_ID,
-        s3_key: process.env.S3_KEY
+        track_id: process.env.TRACK_ID
       };
       console.log('🔍 Debug: Local event object:', event);
 
