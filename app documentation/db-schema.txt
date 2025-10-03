@@ -54,7 +54,12 @@ CREATE TABLE tracks (
   allow_download BOOLEAN NOT NULL DEFAULT TRUE,
   is_competition_entry BOOLEAN NOT NULL DEFAULT FALSE,
   competition_id INT REFERENCES competitions(id) ON DELETE SET NULL -- used to indicate both competition entries and hosted competitions
+  processing_status TEXT DEFAULT 'completed' CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')),
+  processing_error TEXT
 );
+
+CREATE INDEX idx_tracks_processing_status ON tracks(processing_status);
+
 
 
 
