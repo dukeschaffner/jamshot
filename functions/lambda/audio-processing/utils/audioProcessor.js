@@ -46,10 +46,33 @@ const pool = new Pool({
 
 class AudioProcessor {
   constructor() {
-    this.tempDir = '/tmp'; // Lambda's temporary directory
+    if (process.env.NODE_ENV === 'development') {
+      this.tempDir = path.join(__dirname, '../temp');
+    } else {
+      this.tempDir = '/tmp'; // Lambda's temporary directory
+    }
   }
 
-  async processAudio(trackId, s3Key) {
+  // Extract filename base from temp S3 key (format: temp/tracks/{userId}/{base}-temp.{ext})
+  extractFilenameBaseFromTempKey(tempKey) {
+    const tempFilename = tempKey.split('/').pop(); // e.g., "1234567890-abcdef-temp.mp3"
+    return tempFilename.replace('-temp.', '.').split('.')[0]; // Extract base before "-temp"
+  }
+
+  // Generate standard track filename (same as trackUtils.js)
+  generateStandardTrackFilename(type = 'raw', base = null) {
+    const filenameBase = base || this.generateTrackFilenameBase();
+    return `${filenameBase}-${type}.mp3`;
+  }
+
+  // Generate track filename base (timestamp-guid format)
+  generateTrackFilenameBase() {
+    const timestamp = Date.now();
+    const guid = require('crypto').randomBytes(8).toString('hex');
+    return `${timestamp}-${guid}`;
+  }
+
+  async processAudio(trackId) {
     console.log(`🎵 Starting audio processing for track ${trackId}`);
 
     try {
@@ -64,6 +87,18 @@ class AudioProcessor {
       }
 
       const track = trackResult.rows[0];
+      const s3Key = track.audio_url;
+
+      // Extract filename base from the temp S3 key stored in audio_url
+      const filenameBase = this.extractFilenameBaseFromTempKey(track.audio_url);
+
+      // Derive final URLs using the extracted base
+      const finalAudioUrl = `tracks/${this.generateStandardTrackFilename('raw', filenameBase)}`;
+      const finalCombinedAudioUrl = `tracks/${this.generateStandardTrackFilename('processed', filenameBase)}`;
+
+      console.log(`📝 Derived final URLs from base "${filenameBase}":`);
+      console.log(`  Raw: ${finalAudioUrl}`);
+      console.log(`  Processed: ${finalCombinedAudioUrl}`);
 
       // Update processing status to 'processing'
       await pool.query(
@@ -72,34 +107,31 @@ class AudioProcessor {
       );
 
       // Download the raw audio file
-      const localFilePath = path.join(this.tempDir, `track-${trackId}-raw-${Date.now()}.mp3`);
+      // Preserve original file extension from S3 key to avoid format detection issues
+      const originalExtension = path.extname(s3Key) || '.mp3'; // fallback to .mp3 if no extension
+      const localFilePath = path.join(this.tempDir, `track-${trackId}-raw-${Date.now()}${originalExtension}`);
 
       if (s3Key) {
         // Download from provided S3 key
+        console.log(`📥 Downloading from S3 key: ${s3Key} to ${localFilePath}`);
         await this.downloadS3File(s3Key, localFilePath);
       } else {
-        // Fallback: try to find the file in temp location
-        const tempKey = `temp/tracks/${trackId}/raw-${trackId}.mp3`;
-        try {
-          await this.downloadS3File(tempKey, localFilePath);
-        } catch (error) {
-          throw new Error(`Could not locate audio file for track ${trackId}`);
-        }
+        throw new Error(`Could not locate audio file for track ${trackId}`);
       }
 
       console.log(`📥 Downloaded raw audio file to ${localFilePath}`);
 
       // Determine if this is a collaboration or regular upload
       if (track.parent_track_id) {
-        await this.processCollaboration(track, localFilePath);
+        await this.processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
       } else {
-        await this.processRegularUpload(track, localFilePath);
+        await this.processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
       }
 
-      // Update processing status to 'completed'
+      // Update processing status to 'completed' and set final URLs
       await pool.query(
-        'UPDATE tracks SET processing_status = $1 WHERE id = $2',
-        ['completed', trackId]
+        'UPDATE tracks SET processing_status = $1, audio_url = $2, combined_audio_url = $3 WHERE id = $4',
+        ['completed', finalAudioUrl, finalCombinedAudioUrl, trackId]
       );
 
       // Clean up temp file
@@ -126,7 +158,7 @@ class AudioProcessor {
     }
   }
 
-  async processCollaboration(track, localFilePath) {
+  async processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl) {
     console.log(`🎵 Processing collaboration for track ${track.id}`);
 
     // Get stem chain
@@ -146,7 +178,9 @@ class AudioProcessor {
         continue;
       }
 
-      const stemLocalPath = path.join(this.tempDir, `stem-${stem.track_id}-${Date.now()}.mp3`);
+      // Preserve original file extension from S3 key to avoid format detection issues
+      const stemExtension = path.extname(stem.audio_url) || '.mp3'; // fallback to .mp3 if no extension
+      const stemLocalPath = path.join(this.tempDir, `stem-${stem.track_id}-${Date.now()}${stemExtension}`);
 
       try {
         await this.downloadS3File(stem.audio_url, stemLocalPath);
@@ -180,16 +214,14 @@ class AudioProcessor {
     const combinedPath = path.join(this.tempDir, `combined-${track.id}-${Date.now()}.mp3`);
     await this.combineAudioFiles(localFiles, combinedPath, gainValues);
 
-    // Upload the combined file
-    const combinedS3Key = track.combined_audio_url;
-    await this.uploadToS3(combinedPath, combinedS3Key);
+    // Upload the combined file to final location
+    await this.uploadToS3(combinedPath, finalCombinedAudioUrl);
 
-    // Convert and upload raw file
+    // Convert and upload raw file to final location
     const rawPath = path.join(this.tempDir, `raw-${track.id}-${Date.now()}.mp3`);
     await this.convertToMp3(localFilePath, rawPath);
 
-    const rawS3Key = track.audio_url;
-    await this.uploadToS3(rawPath, rawS3Key);
+    await this.uploadToS3(rawPath, finalAudioUrl);
 
     // Clean up temp files
     await Promise.all([
@@ -199,23 +231,21 @@ class AudioProcessor {
     ]);
   }
 
-  async processRegularUpload(track, localFilePath) {
+  async processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl) {
     console.log(`🎵 Processing regular upload for track ${track.id}`);
 
     // Normalize the audio
     const normalizedPath = path.join(this.tempDir, `normalized-${track.id}-${Date.now()}.mp3`);
     await this.combineAudioFiles([localFilePath], normalizedPath, [1.0], -16, -1); // LUFS -16, True Peak -1
 
-    // Upload normalized file
-    const processedS3Key = track.combined_audio_url;
-    await this.uploadToS3(normalizedPath, processedS3Key);
+    // Upload normalized file to final location
+    await this.uploadToS3(normalizedPath, finalCombinedAudioUrl);
 
-    // Convert and upload raw file
+    // Convert and upload raw file to final location
     const rawPath = path.join(this.tempDir, `raw-${track.id}-${Date.now()}.mp3`);
     await this.convertToMp3(localFilePath, rawPath);
 
-    const rawS3Key = track.audio_url;
-    await this.uploadToS3(rawPath, rawS3Key);
+    await this.uploadToS3(rawPath, finalAudioUrl);
 
     // Clean up temp files
     await Promise.all([
@@ -231,9 +261,13 @@ class AudioProcessor {
     });
 
     const response = await s3Client.send(command);
-    const stream = response.Body.transformToByteArray();
+    const byteArray = await response.Body.transformToByteArray();
 
-    await fsPromises.writeFile(localPath, await stream);
+    // Ensure the directory exists before writing the file
+    const dirPath = path.dirname(localPath);
+    await fsPromises.mkdir(dirPath, { recursive: true });
+
+    await fsPromises.writeFile(localPath, byteArray);
   }
 
   async uploadToS3(localPath, s3Key) {

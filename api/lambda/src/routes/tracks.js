@@ -190,12 +190,16 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
       });
     }
 
-    // Generate pre-signed upload URL
-    const uploadData = await generateUploadUrl(userId, filename, fileSize);
+    // Generate filename base for consistent naming throughout the upload process
+    const filenameBase = generateTrackFilenameBase();
+
+    // Generate pre-signed upload URL with the filename base
+    const uploadData = await generateUploadUrl(userId, filename, fileSize, filenameBase);
 
     res.json({
       uploadUrl: uploadData.uploadUrl,
       key: uploadData.key,
+      filenameBase: uploadData.filenameBase,
       expiresAt: uploadData.expiresAt,
       maxSize: 100 * 1024 * 1024 // 100MB
     });
@@ -373,12 +377,13 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
   }
 
-  // Generate shared filename base for both processed and raw files
-  const filenameBase = generateTrackFilenameBase();
+  // Extract filename base from the S3 key (format: uploads/temp/{userId}/{base}-temp.{ext})
+  const s3KeyParts = s3Key.split('/');
 
-  // Set placeholder URLs - actual audio processing will happen asynchronously
-  const audioUrl = `tracks/${generateStandardTrackFilename('raw', filenameBase)}`;
-  const combinedAudioUrl = `tracks/${generateStandardTrackFilename('processed', filenameBase)}`;
+  // Set audio_url to the permanent temp S3 location for audio processing lambda
+  // The lambda will extract the base and derive final URLs
+  const permanentTempKey = s3Key.replace('uploads/temp/', 'temp/tracks/');
+  const audioUrl = permanentTempKey;
 
   // Validate collaboration logic (but don't do audio processing yet)
   try {
@@ -462,8 +467,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing']
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing']
     );
 
     const trackId = result.rows[0].id;
