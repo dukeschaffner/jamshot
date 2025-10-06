@@ -205,7 +205,7 @@ const AnalyticsTable = ({
       
       {searchTerm && sortedAndFilteredData.length === 0 && (
         <div className={styles.noResults}>
-          <p>No results found for "{searchTerm}"</p>
+          <p>No results found for &quot;{searchTerm}&quot;</p>
         </div>
       )}
       
@@ -214,7 +214,7 @@ const AnalyticsTable = ({
           <div className={styles.upgradeContent}>
             <FaCrown className={styles.crownIcon} />
             <div className={styles.upgradeText}>
-              <h4>Want to see who's listening?</h4>
+              <h4>Want to see who&apos;s listening?</h4>
               <p>Upgrade to Premium to see detailed listener information and unlock advanced analytics features.</p>
             </div>
             <Link href="/subscribe" className={styles.upgradeButton}>
