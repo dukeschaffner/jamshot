@@ -1,4 +1,4 @@
-name: Deploy Analytics Lambda to AWS
+name: Deploy Audio Processing Lambda to AWS
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
       - dev
     paths:
-      - 'functions/lambda/analytics/**'
+      - 'functions/lambda/audio-processing/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -26,10 +26,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      build-artifact: analytics-lambda-build-${{ github.run_number }}
+      build-artifact: audio-processing-lambda-build-${{ github.run_number }}
     defaults:
       run:
-        working-directory: ./functions/lambda/analytics/
+        working-directory: ./functions/lambda/audio-processing/
 
     steps:
     - name: Checkout code
@@ -40,7 +40,7 @@ jobs:
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './functions/lambda/analytics/package-lock.json'
+        cache-dependency-path: './functions/lambda/audio-processing/package-lock.json'
 
     - name: Install dependencies
       run: |
@@ -53,27 +53,30 @@ jobs:
     - name: Create deployment package
       run: |
         # Create deployment zip similar to existing script but CI-friendly
-        zip -r analytics-lambda.zip . \
+        zip -r audio-processing-lambda.zip . \
           -x ".env*" \
           -x "test/*" \
           -x "*.md" \
           -x "package-lock.json" \
           -x "scripts/*" \
           -x ".git/*" \
-          -x "node_modules/.cache/*"
+          -x "node_modules/.cache/*" \
+          -x "dev-server.js" \
+          -x "dev-start.js" \
+          -x "temp/*"
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: analytics-lambda-build-${{ github.run_number }}
-        path: ./functions/lambda/analytics/analytics-lambda.zip
+        name: audio-processing-lambda-build-${{ github.run_number }}
+        path: ./functions/lambda/audio-processing/audio-processing-lambda.zip
 
   deploy-to-test:
     runs-on: ubuntu-latest
     needs: build
     environment:
-      name: analytics-test
-      url: ${{ vars.ANALYTICS_LAMBDA_TEST_URL }}
+      name: audio-processing-test
+      url: ${{ vars.AUDIO_PROCESSING_LAMBDA_TEST_URL }}
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
 
     steps:
@@ -89,41 +92,27 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ vars.AWS_REGION_TEST || 'us-east-2' }}
 
-    - name: Deploy to Test Lambda - Aggregator
+    - name: Deploy to Test Lambda
       run: |
         aws lambda update-function-code \
-          --function-name sterio-analytics-aggregator-test \
-          --zip-file fileb://analytics-lambda.zip
+          --function-name sterio-audio-processor-test \
+          --zip-file fileb://audio-processing-lambda.zip
 
-    - name: Deploy to Test Lambda - Cleanup
-      run: |
-        aws lambda update-function-code \
-          --function-name sterio-analytics-cleanup-test \
-          --zip-file fileb://analytics-lambda.zip
-
-    - name: Update Lambda configuration - Aggregator
+    - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
-          --function-name sterio-analytics-aggregator-test \
+          --function-name sterio-audio-processor-test \
           --environment Variables="{
             DB_HOST=${{ secrets.DB_HOST_TEST }},
-            DB_NAME=${{ secrets.DB_NAME }},
-            DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
-            DB_PORT=${{ secrets.DB_PORT }},
             DB_USER=${{ secrets.DB_USER }},
-            NODE_ENV=test
-          }"
-
-    - name: Update Lambda configuration - Cleanup
-      run: |
-        aws lambda update-function-configuration \
-          --function-name sterio-analytics-cleanup-test \
-          --environment Variables="{
-            DB_HOST=${{ secrets.DB_HOST_TEST }},
-            DB_NAME=${{ secrets.DB_NAME }},
             DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
+            DB_NAME=${{ secrets.DB_NAME }},
             DB_PORT=${{ secrets.DB_PORT }},
-            DB_USER=${{ secrets.DB_USER }},
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_TEST }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_TEST }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_TEST }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_TEST }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_TEST }},
             NODE_ENV=test
           }"
 
@@ -131,8 +120,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, deploy-to-test]
     environment:
-      name: analytics-prod
-      url: ${{ vars.ANALYTICS_LAMBDA_PROD_URL }}
+      name: audio-processing-prod
+      url: ${{ vars.AUDIO_PROCESSING_LAMBDA_PROD_URL }}
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
 
     steps:
@@ -148,41 +137,27 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
         aws-region: ${{ vars.AWS_REGION_PROD || 'us-east-2' }}
 
-    - name: Deploy to Prod Lambda - Aggregator
+    - name: Deploy to Prod Lambda
       run: |
         aws lambda update-function-code \
-          --function-name sterio-analytics-aggregator \
-          --zip-file fileb://analytics-lambda.zip
+          --function-name sterio-audio-processor \
+          --zip-file fileb://audio-processing-lambda.zip
 
-    - name: Deploy to Prod Lambda - Cleanup
-      run: |
-        aws lambda update-function-code \
-          --function-name sterio-analytics-cleanup \
-          --zip-file fileb://analytics-lambda.zip
-
-    - name: Update Lambda configuration - Aggregator
+    - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
-          --function-name sterio-analytics-aggregator \
+          --function-name sterio-audio-processor \
           --environment Variables="{
             DB_HOST=${{ secrets.DB_HOST_PROD }},
-            DB_NAME=${{ secrets.DB_NAME }},
-            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
-            DB_PORT=${{ secrets.DB_PORT }},
             DB_USER=${{ secrets.DB_USER }},
-            NODE_ENV=production
-          }"
-
-    - name: Update Lambda configuration - Cleanup
-      run: |
-        aws lambda update-function-configuration \
-          --function-name sterio-analytics-cleanup \
-          --environment Variables="{
-            DB_HOST=${{ secrets.DB_HOST_PROD }},
-            DB_NAME=${{ secrets.DB_NAME }},
             DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+            DB_NAME=${{ secrets.DB_NAME }},
             DB_PORT=${{ secrets.DB_PORT }},
-            DB_USER=${{ secrets.DB_USER }},
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_PROD }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_PROD }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_PROD }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_PROD }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_PROD }},
             NODE_ENV=production
           }"
 
@@ -190,5 +165,5 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git tag -a "analytics-lambda-v${{ github.run_number }}" -m "Analytics Lambda deployment ${{ github.run_number }}"
-        git push origin "analytics-lambda-v${{ github.run_number }}"
+        git tag -a "audio-processing-lambda-v${{ github.run_number }}" -m "Audio Processing Lambda deployment ${{ github.run_number }}"
+        git push origin "audio-processing-lambda-v${{ github.run_number }}"

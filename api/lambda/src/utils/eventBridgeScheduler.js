@@ -1,7 +1,7 @@
-const AWS = require('aws-sdk');
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
 
 // Initialize EventBridge
-const eventbridge = new AWS.EventBridge({
+const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || 'us-east-1'
 });
 
@@ -31,9 +31,10 @@ async function scheduleCompetitionEnd(competitionId, endDate, winnerSelectionMet
         }
       ]
     };
-    
-    const result = await eventbridge.putEvents(params).promise();
-    
+
+    const command = new PutEventsCommand(params);
+    const result = await eventBridgeClient.send(command);
+
     console.log(`Competition end event scheduled:`, result);
     
     // For curated competitions, also schedule the 24hr follow-up
@@ -76,9 +77,10 @@ async function scheduleCuratedFollowup(competitionId, followupDate) {
         }
       ]
     };
-    
-    const result = await eventbridge.putEvents(params).promise();
-    
+
+    const command = new PutEventsCommand(params);
+    const result = await eventBridgeClient.send(command);
+
     console.log(`Curated follow-up event scheduled:`, result);
     return result;
     
@@ -137,9 +139,10 @@ async function triggerCompetitionEndNow(competitionId) {
         }
       ]
     };
-    
-    const result = await eventbridge.putEvents(params).promise();
-    
+
+    const command = new PutEventsCommand(params);
+    const result = await eventBridgeClient.send(command);
+
     console.log(`Competition end event triggered:`, result);
     return result;
     
