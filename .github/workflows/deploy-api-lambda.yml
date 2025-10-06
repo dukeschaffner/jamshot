@@ -96,6 +96,10 @@ jobs:
           --function-name sterio-api-test \
           --zip-file fileb://api-lambda.zip
 
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-api-test
+
     - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
@@ -154,6 +158,10 @@ jobs:
         aws lambda update-function-code \
           --function-name sterio-api \
           --zip-file fileb://api-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-api
 
     - name: Update Lambda configuration
       run: |
