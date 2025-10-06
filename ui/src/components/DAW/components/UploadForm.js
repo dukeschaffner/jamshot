@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import api from '../../../lib/api';
+import { trackApi } from '../../../lib/api';
 import TagSelector from '../../TagSelector';
 import LoadingSpinner from '../../LoadingSpinner';
 import { trackTrackUpload, trackCollaboration } from '../../../lib/analytics';
-import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload, FaCut } from 'react-icons/fa';
+import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload, FaCut, FaCog } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLock } from '@fortawesome/free-solid-svg-icons';
 import styles from './UploadForm.module.css';
@@ -35,6 +35,9 @@ export default function UploadForm({
   const [allowDownload, setAllowDownload] = useState(true);
   const [enterCompetition, setEnterCompetition] = useState(true); // Default to checked
   const [parentTrackModel, setParentTrackModel] = useState(null);
+  const [processingStatus, setProcessingStatus] = useState(null); // 'processing', 'completed', 'failed'
+  const [processingError, setProcessingError] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0); // 0-100 for S3 upload progress
   const router = useRouter();
   const searchParams = useSearchParams();
   const createCompetition = searchParams.get('createCompetition') === 'true';
@@ -117,6 +120,80 @@ export default function UploadForm({
     }
   }, [title]);
 
+  // Poll processing status
+  const pollProcessingStatus = useCallback(async (trackId, startTime = Date.now()) => {
+    try {
+      // Check if we've exceeded the 5-minute timeout (300,000 ms)
+      const elapsedTime = Date.now() - startTime;
+      const timeoutMs = 5 * 60 * 1000; // 5 minutes
+
+      if (elapsedTime > timeoutMs) {
+        setError('Processing timed out after 5 minutes. Please try again or contact support if the issue persists.');
+        setProcessingStatus('failed');
+        setIsUploading(false);
+        return;
+      }
+
+      const response = await trackApi.getProcessingStatus(trackId);
+      const status = response.data;
+
+      setProcessingStatus(status.status);
+      setProcessingError(status.error);
+
+      if (status.status === 'completed') {
+        // Processing is done, redirect
+        setTimeout(() => {
+          if (createCompetition) {
+            router.push(`/competition/create?track=${trackId}`);
+          } else {
+            router.push(`/track/${trackId}`);
+          }
+        }, 100);
+      } else if (status.status === 'failed') {
+        // Processing failed, show error
+        setError(`Processing failed: ${status.error || 'Unknown error'}`);
+        setIsUploading(false);
+      } else {
+        // Still processing, poll again in 3 seconds
+        setTimeout(() => pollProcessingStatus(trackId, startTime), 3000);
+      }
+    } catch (err) {
+      console.error('Error polling processing status:', err);
+      setError('Failed to check processing status');
+      setIsUploading(false);
+    }
+  }, [createCompetition, router]);
+
+  // Upload file directly to S3
+  const uploadToS3 = async (uploadUrl, file) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          setUploadProgress(percentComplete);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.response);
+        } else {
+          reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('S3 upload failed'));
+      });
+
+      xhr.open('PUT', uploadUrl);
+      xhr.setRequestHeader('Content-Type', file.type || 'audio/wav');
+      xhr.send(file);
+    });
+  };
+
   // Time signature options
   const timeSignatureOptions = DAWConfig.timeSignature.options;
 
@@ -129,7 +206,7 @@ export default function UploadForm({
     e.preventDefault();
 
     let buffer = null;
-    
+
     const recordingTrack = trackManagerRef.current.getTrack('recording-track');
     if (!recordingTrack) {
       setError('No recording track found');
@@ -145,108 +222,89 @@ export default function UploadForm({
 
     setIsUploading(true);
     setError('');
+    setUploadProgress(0);
+    setProcessingStatus(null);
+    setProcessingError(null);
 
     try {
-      const formData = new FormData();
-      formData.append('title', title);
-      
-      // Add audio file or recording buffer
-      try {
-        const blob = new Blob([buffer], { type: 'audio/wav' });
-        formData.append('audio', blob, 'recording.wav');
-        
-        // Add collab specific data
-        if (isCollab) {
-          if (parentTrackModel && parentTrackModel.id) {
-            formData.append('parent_track_id', parentTrackModel.id);
-          }
-          else{
-            throw new Error('Parent track model not found');
-          }
+      // Phase 1: Initialize upload to get pre-signed S3 URL
+      const blob = new Blob([buffer], { type: 'audio/wav' });
+      const filename = 'recording.wav';
+
+      const initResponse = await trackApi.initUpload(filename, blob.size);
+      const { uploadUrl, key: s3Key } = initResponse.data;
+
+      console.log('Upload initialized, S3 key:', s3Key);
+
+      // Phase 2: Upload directly to S3
+      console.log('Uploading to S3...');
+      await uploadToS3(uploadUrl, blob);
+      setUploadProgress(100);
+      console.log('S3 upload completed');
+
+      // Phase 3: Process upload - create database record and trigger audio processing
+      const uploadData = {
+        title,
+        s3Key,
+        stem_gains: JSON.stringify(trackManagerRef.current.getAllTracks().map(track => ({
+          track_id: track.id === 'recording-track' ? 'recording' : track.id,
+          gain: track.gain
+        }))),
+        genreIds: selectedGenres.length > 0 ? JSON.stringify(selectedGenres) : undefined,
+        instrumentIds: selectedInstruments.length > 0 ? JSON.stringify(selectedInstruments) : undefined,
+        allow_download: allowDownload
+      };
+
+      // Add collab specific data
+      if (isCollab) {
+        if (parentTrackModel && parentTrackModel.id) {
+          uploadData.parent_track_id = parentTrackModel.id;
+        } else {
+          throw new Error('Parent track model not found');
         }
-      } catch (audioError) {
-        console.error('Error processing audio buffer:', audioError);
-        setError('Error processing audio: ' + audioError.message);
-        setIsUploading(false);
-        return;
-      }
-
-      // Collect all track gains from the TrackManager
-      const allTracks = trackManagerRef.current.getAllTracks();
-      const stemGains = allTracks.map(track => ({
-        track_id: track.id === 'recording-track' ? 'recording' : track.id,
-        gain: track.gain
-      }));
-
-      console.log('Collected stem gains for upload:', stemGains);
-      formData.append('stem_gains', JSON.stringify(stemGains));
-      
-      // Add genre and instrument IDs
-      if (selectedGenres.length > 0) {
-        formData.append('genreIds', JSON.stringify(selectedGenres));
-      }
-      if (selectedInstruments.length > 0) {
-        formData.append('instrumentIds', JSON.stringify(selectedInstruments));
-      }
-
-      if (!isCollab) {
+        if (hasActiveCompetition) {
+          uploadData.enter_competition = enterCompetition;
+        }
+      } else {
+        // Only add these for non-collaborations
         if (!noMetronome) {
-          formData.append('metronome_bpm', metronomeBpm);
-          formData.append('time_signature', timeSignature);
-          formData.append('metronome_offset', metronomeOffset);
+          uploadData.metronome_bpm = metronomeBpm;
+          uploadData.time_signature = timeSignature;
+          uploadData.metronome_offset = metronomeOffset;
         }
-        formData.append('is_private', isPrivate);
-      }
-      
-      // Add download permission for both regular tracks and collaborations
-      formData.append('allow_download', allowDownload);
-
-      // Add competition entry preference for collaborations
-      if (isCollab && hasActiveCompetition) {
-        formData.append('enter_competition', enterCompetition);
+        uploadData.is_private = isPrivate;
       }
 
-      const response = await api.post('/tracks/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      
-      // Get the uploaded track data from the response
-      const uploadedTrack = response.data;
-      
+      console.log('Processing upload with data:', uploadData);
+      const processResponse = await trackApi.processUpload(uploadData);
+      const uploadedTrack = processResponse.data;
+
+      console.log('Upload processed, track created:', uploadedTrack);
+
       // Track analytics event
       if (isCollab) {
         trackCollaboration(uploadedTrack.id, uploadedTrack.title);
       } else {
         trackTrackUpload(uploadedTrack.title);
       }
-      
+
       // Notify parent component that upload is complete
       if (onUploadComplete) {
         onUploadComplete();
       }
-      
-      setTimeout(() => {
-        if (uploadedTrack && uploadedTrack.id) {
-          // If creating competition, redirect to competition create page with track ID
-          if (createCompetition) {
-            router.push(`/competition/create?track=${uploadedTrack.id}`);
-          } else {
-            // For new tracks, redirect to the uploaded track page
-            router.push(`/track/${uploadedTrack.id}`);
-          }
-        } else {
-          // Fallback to home if track ID is not available
-          router.push('/');
-        }
-      }, 100); // Small timeout to ensure state updates complete before redirect
+
+      // Start polling for processing status
+      setProcessingStatus('processing');
+      pollProcessingStatus(uploadedTrack.id);
+
     } catch (err) {
       console.error('Upload error:', err);
-      
+
       // Check if the error response contains an upgrade link
       const errorData = err.response?.data;
       if (errorData?.upgrade_link) {
         setUpgradeLink(errorData.upgrade_link);
-        
+
         // Determine the type of limit based on the error message
         if (errorData.error?.includes('Daily upload limit reached')) {
           setLimitType('daily');
@@ -261,9 +319,8 @@ export default function UploadForm({
         setUpgradeLink('');
         setLimitType('');
       }
-      
+
       setError(errorData?.error || 'Upload failed: ' + (err.message || 'Unknown error'));
-    } finally {
       setIsUploading(false);
     }
   };
@@ -428,11 +485,11 @@ export default function UploadForm({
               onChange={(e) => setTrimSilence(e.target.checked)}
               className="w-4 h-4"
             />
-            <label htmlFor="trimSilence" className="flex items-center text-sm">
+                <label htmlFor="trimSilence" className="flex items-center text-sm">
               <FaCut className="mr-2 text-gray-600" />
-              {hasSilenceAtStart && hasSilenceAtEnd 
+              {hasSilenceAtStart && hasSilenceAtEnd
                 ? "Trim silence at start and end"
-                : hasSilenceAtStart 
+                : hasSilenceAtStart
                 ? "Trim silence at start"
                 : "Trim silence at end"
               }
@@ -519,26 +576,76 @@ export default function UploadForm({
           </div>
         )}
         
+        {/* Processing Status Display */}
+        {processingStatus && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <FaCog className={`text-blue-500 ${processingStatus === 'processing' ? 'animate-spin' : ''}`} />
+              <div className="flex-1">
+                <h3 className="font-medium text-blue-800">
+                  {processingStatus === 'processing' && 'Processing your audio...'}
+                  {processingStatus === 'completed' && 'Processing completed!'}
+                  {processingStatus === 'failed' && 'Processing failed'}
+                </h3>
+                {processingStatus === 'processing' && (
+                  <p className="text-sm text-blue-600 mt-1">
+                    This may take a few minutes. We&apos;ll redirect you when it&apos;s ready.
+                  </p>
+                )}
+                {processingStatus === 'failed' && processingError && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Error: {processingError}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upload Progress Display */}
+        {isUploading && uploadProgress > 0 && uploadProgress < 100 && (
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <LoadingSpinner size="small" />
+              <div className="flex-1">
+                <h3 className="font-medium text-gray-800">Uploading to server...</h3>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">{Math.round(uploadProgress)}% complete</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex space-x-4">
           {onCancel && (
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={onCancel}
-              disabled={isUploading}
+              disabled={isUploading || processingStatus === 'processing'}
               className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
           )}
-          <button 
-            type="submit" 
-            disabled={isUploading}
+          <button
+            type="submit"
+            disabled={isUploading || processingStatus === 'processing'}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {isUploading ? (
+            {isUploading && uploadProgress < 100 ? (
               <>
                 <LoadingSpinner size="small" style={{padding: 0}} />
                 Uploading...
+              </>
+            ) : processingStatus === 'processing' ? (
+              <>
+                <FaCog className="animate-spin" />
+                Processing...
               </>
             ) : (
               'Upload'

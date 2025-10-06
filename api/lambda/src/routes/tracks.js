@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const mm = require('music-metadata');
-const ffmpeg = require('fluent-ffmpeg');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const { 
@@ -14,15 +14,14 @@ const {
   apiEndpointLimiter 
 } = require('../middleware/rateLimiting');
 const {
-  s3,
   s3Client,
   generateSignedUrl,
   processTrack,
   downloadS3File,
+  moveS3File,
   checkTrackAccess,
-  combineAudioFiles,
-  convertToMp3,
   generateSecureToken,
+  generateUploadUrl,
   generateTrackFilenameBase,
   generateStandardTrackFilename,
   getBaseTrackSelectQuery,
@@ -39,16 +38,7 @@ const { getGeolocationData } = require('../utils/geolocation');
 const { validateCompetitionEntry } = require('../../shared/utils/competition');
 require('dotenv').config;
 
-// Configure FFMPEG path based on platform
-if (process.platform === 'linux') {
-  // Use the FFMPEG binary in the bin directory on Linux (Azure)
-  const ffmpegPath = path.join(__dirname, '../../bin/ffmpeg');
-  ffmpeg.setFfmpegPath(ffmpegPath);
-  console.log('Using local FFMPEG binary:', ffmpegPath);
-} else {
-  // On other platforms (macOS/Windows), rely on system installation
-  console.log('Using system-installed FFMPEG');
-}
+// Audio processing is now handled by the dedicated audio-processing lambda
 
 const router = express.Router();
 
@@ -75,35 +65,7 @@ const upload = multer({
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
 
-// Add a health check endpoint to verify FFMPEG is working
-router.get('/ffmpeg-check', async (req, res) => {
-  try {
-    ffmpeg.getAvailableFormats((err, formats) => {
-      if (err) {
-        console.error('FFMPEG check failed:', err);
-        return res.status(500).json({ 
-          error: 'FFMPEG check failed', 
-          message: err.message,
-          platform: process.platform
-        });
-      }
-      
-      return res.status(200).json({ 
-        status: 'FFMPEG is available',
-        platform: process.platform,
-        formatsAvailable: Object.keys(formats).length > 0
-      });
-    });
-  } catch (err) {
-    console.error('FFMPEG check exception:', err);
-    return res.status(500).json({ 
-      error: 'FFMPEG check exception', 
-      message: err.message,
-      platform: process.platform
-    });
-  }
-});
-
+// Audio processing health check is now handled by the audio-processing lambda
 
 
 
@@ -164,15 +126,94 @@ const handleMulterError = (error, req, res, next) => {
   next();
 };
 
-router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
-  upload.single('audio')(req, res, (err) => {
-    if (err) return handleMulterError(err, req, res, next);
-    next();
-  });
-}, async (req, res) => {
-  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, stem_gains, time_signature, is_private, metronome_offset, allow_download, enter_competition = false } = req.body;
+// Initialize upload by generating pre-signed S3 URL
+router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
+  const { filename, fileSize } = req.body;
   const userId = req.user.id;
-  const file = req.file;
+
+  if (!filename || !fileSize) {
+    return res.status(400).json({ error: 'filename and fileSize are required' });
+  }
+
+  if (fileSize > 100 * 1024 * 1024) { // 100MB limit
+    return res.status(400).json({ error: 'File size exceeds maximum limit of 100MB' });
+  }
+
+  try {
+    // Check user's subscription limits (but don't consume them yet)
+    const userResult = await pool.query(
+      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+    const subscription = getUserPlan(user);
+
+    // Check daily upload limit
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const uploadCountResult = await pool.query(
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2',
+      [userId, today]
+    );
+
+    const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
+
+    if (subscription.limits.daily_uploads !== -1 && dailyUploadCount >= subscription.limits.daily_uploads) {
+      return res.status(429).json({
+        error: 'Daily upload limit reached',
+        message: `You can only upload ${subscription.limits.daily_uploads} tracks per day. Upgrade your plan to increase your upload limit.`,
+        daily_count: dailyUploadCount,
+        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
+      });
+    }
+
+    // Check total track limit
+    const totalTrackCountResult = await pool.query(
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1',
+      [userId]
+    );
+
+    const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
+
+    if (subscription.limits.max_total_uploads !== -1 && totalTrackCount >= subscription.limits.max_total_uploads) {
+      return res.status(429).json({
+        error: 'Total track limit reached',
+        message: `You can only have ${subscription.limits.max_total_uploads} tracks maximum. Upgrade your plan to increase your track limit.`,
+        total_count: totalTrackCount,
+        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
+      });
+    }
+
+    // Generate filename base for consistent naming throughout the upload process
+    const filenameBase = generateTrackFilenameBase();
+
+    // Generate pre-signed upload URL with the filename base
+    const uploadData = await generateUploadUrl(userId, filename, fileSize, filenameBase);
+
+    res.json({
+      uploadUrl: uploadData.uploadUrl,
+      key: uploadData.key,
+      filenameBase: uploadData.filenameBase,
+      expiresAt: uploadData.expiresAt,
+      maxSize: 100 * 1024 * 1024 // 100MB
+    });
+
+  } catch (err) {
+    console.error('Upload initialization error:', err);
+    res.status(500).json({ error: `Failed to initialize upload: ${err.message}` });
+  }
+});
+
+// Process upload after S3 upload is complete
+router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
+  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, stem_gains, time_signature, is_private, metronome_offset, allow_download, enter_competition = false, s3Key } = req.body;
+  const userId = req.user.id;
   let layer = 0;
   let parentIsPrivate = false;
   let parentSecretToken = null;
@@ -180,28 +221,36 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
   let isCompetitionEntry = false;
   let competitionId = null;
 
-  if (!file) return res.status(400).json({ error: 'No audio file uploaded' });
+  if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
 
-  // Check if file was actually saved to disk
-  if (!file.path || !fs.existsSync(file.path)) {
-    console.error('File upload failed - file not saved to disk:', file);
-    return res.status(500).json({ error: 'File upload failed - could not save file to disk' });
+  // Validate S3 key format
+  if (!s3Key.startsWith('uploads/temp/') || !s3Key.includes(`/${userId}/`)) {
+    return res.status(400).json({ error: 'Invalid S3 key format' });
   }
 
-  // Debug file upload
-  console.log('File upload debug:');
-  console.log('- File object:', JSON.stringify(file, null, 2));
-  console.log('- File path exists:', file.path ? fs.existsSync(file.path) : 'No file.path');
-  console.log('- Temp directory exists:', fs.existsSync(path.join(__dirname, '../../temp')));
-
-  console.log('Upload request received:');
+  console.log('Upload processing request received:');
   console.log('- Title:', title);
   console.log('- Parent track ID:', parent_track_id || 'None (original track)');
+  console.log('- S3 Key:', s3Key);
   console.log('- Stem gains:', stem_gains || 'Not provided');
   console.log('- Time signature:', time_signature || '4/4 (default)');
   console.log('- Metronome offset:', parsedMetronomeOffset);
   console.log('- Private:', is_private ? 'Yes' : 'No');
   console.log('- Allow download:', allow_download !== 'false' ? 'Yes' : 'No');
+
+  // Download file from S3 for validation
+  const tempDir = path.join(__dirname, '../../temp');
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+  const localFilePath = path.join(tempDir, `validation-${Date.now()}-${path.basename(s3Key)}`);
+
+  try {
+    await downloadS3File(s3Key, localFilePath);
+    console.log('Successfully downloaded file from S3 for validation');
+  } catch (downloadError) {
+    console.error('Failed to download file from S3:', downloadError);
+    return res.status(400).json({ error: 'Failed to access uploaded file. Please try uploading again.' });
+  }
 
   let subscription = null;
   // Check if user has reached their daily upload limit (3 uploads per day)
@@ -296,14 +345,12 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
   // Parse the allow_download flag (default to true if not provided)
   let allowDownload = allow_download !== 'false' && allow_download !== false;
 
-  let audioUrl, combinedAudioUrl, duration;
-  const tempDir = path.join(__dirname, '../../temp');
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+  let duration;
 
   try {
-    const metadata = await mm.parseFile(file.path);
+    const metadata = await mm.parseFile(localFilePath);
     duration = metadata.format.duration;
-    
+
     // Validate track duration (max 5 minutes = 300 seconds)
     if (duration > 5 * 60) {
       return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 5 minutes' });
@@ -330,13 +377,19 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
     return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
   }
 
-  // Generate shared filename base for both processed and raw files
-  const filenameBase = generateTrackFilenameBase();
+  // Extract filename base from the S3 key (format: uploads/temp/{userId}/{base}-temp.{ext})
+  const s3KeyParts = s3Key.split('/');
 
+  // Set audio_url to the permanent temp S3 location for audio processing lambda
+  // The lambda will extract the base and derive final URLs
+  const permanentTempKey = s3Key.replace('uploads/temp/', 'temp/tracks/');
+  const audioUrl = permanentTempKey;
+
+  // Validate collaboration logic (but don't do audio processing yet)
   try {
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT combined_audio_url, audio_url, duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -345,11 +398,11 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
 
       const parentTrack = parentResult.rows[0];
       const parentDuration = parentTrack.duration;
-      
+
       // Store parent privacy status and secret token
       parentIsPrivate = parentTrack.is_private;
       parentSecretToken = parentTrack.secret_token;
-      
+
       isPrivate = parentIsPrivate;
 
       parsedMetronomeBpm = parentTrack.metronome_bpm;
@@ -361,17 +414,14 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
       if (duration > parentDuration) {
         return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
       }
-      
+
       layer = (parentTrack.layer ?? 0) + 1;
       if (layer > 4) {
         return res.status(400).json({ error: 'Layer limit reached' });
       }
 
       // Validate competition entry only if user opted in and parent track exists
-      let competitionValidation = null;
-
-      // Only check for competition entry if it's a collaboration and user wants to enter
-      if (parent_track_id && enter_competition === 'true') {
+      if (enter_competition === 'true') {
         // Check if parent track is associated with a competition
         const parentCompetitionCheck = await pool.query(
           'SELECT c.id FROM competitions c WHERE c.track_id = $1',
@@ -380,7 +430,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
 
         if (parentCompetitionCheck.rows.length > 0) {
           // Parent track is a competition track, validate if this can be an entry
-          competitionValidation = await validateCompetitionEntry(parent_track_id, userId);
+          const competitionValidation = await validateCompetitionEntry(parent_track_id, userId);
 
           if (!competitionValidation.valid) {
             return res.status(400).json({
@@ -394,103 +444,6 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
           competitionId = competitionValidation.competitionId;
         }
       }
-
-      const localFiles = [];
-      const gainValues = [];
-
-      // Download all stems in the chain and prepare gain values
-      for (const stem of stemChain) {
-        if (stem.track_id === 'recording') {
-          continue;
-        }
-
-        // Validate stem data
-        if (!stem.audio_url) {
-          console.warn(`Stem ${stem.track_id} has no audio_url, skipping`);
-          continue;
-        }
-
-        const gainValue = stem.gain;
-        console.log(`Using gain for stem ${stem.track_id}: ${gainValue}`);
-
-        const stemLocalPath = path.join(tempDir, `stem-${stem.track_id}-${Date.now()}-${path.basename(stem.audio_url)}`);
-        console.log(`Downloading stem ${stem.track_id}:`, stem.audio_url, 'to:', stemLocalPath);
-
-        try {
-          await downloadS3File(stem.audio_url, stemLocalPath);
-          localFiles.push(stemLocalPath);
-          gainValues.push(gainValue);
-        } catch (downloadError) {
-          console.error(`Failed to download stem ${stem.track_id}:`, downloadError);
-          return res.status(500).json({
-            error: `Failed to download stem audio file for track ${stem.track_id}`,
-            message: 'One or more stem files could not be accessed'
-          });
-        }
-      }
-
-      // Ensure we have at least one stem file
-      if (localFiles.length === 0) {
-        return res.status(400).json({
-          error: 'No valid stem files found',
-          message: 'Unable to mix tracks - no stem audio files available'
-        });
-      }
-
-      // Add the new recording as the last stem
-      // File is already stored on disk by multer, use its path directly
-      localFiles.push(file.path);
-
-      // Get recording gain from validated parsedStemGains
-      const recordingGainEntry = parsedStemGains.find(g => g.track_id === 'recording');
-      const finalRecordingGain = recordingGainEntry.gain;
-      console.log(`Using provided recording gain: ${finalRecordingGain}`);
-      gainValues.push(finalRecordingGain);
-
-      console.log('Local files before combining:', localFiles);
-      console.log('Gain values for mixing:', gainValues);
-
-      // Final validation before mixing
-      if (gainValues.length !== localFiles.length) {
-        // Clean up downloaded files
-        await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(() => {})));
-        return res.status(500).json({
-          error: 'Gain values and file count mismatch',
-          message: 'Internal error during audio processing'
-        });
-      }
-
-      combinedAudioUrl = `tracks/${generateStandardTrackFilename('processed', filenameBase)}`;
-      const combinedPath = path.join(tempDir, path.basename(combinedAudioUrl));
-
-      try {
-        await combineAudioFiles(localFiles, combinedPath, gainValues);
-        console.log(`Successfully mixed ${localFiles.length} stems into combined track`);
-      } catch (mixError) {
-        console.error('Audio mixing failed:', mixError);
-        // Clean up downloaded files
-        await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(() => {})));
-        return res.status(500).json({
-          error: 'Audio mixing failed',
-          message: 'Failed to combine audio stems. Please try again.',
-          details: mixError.message
-        });
-      }
-
-      // Clean up downloaded stem files (keep the uploaded file for now)
-      const stemFiles = localFiles.slice(0, -1); // All except the last one (uploaded file)
-      await Promise.all(stemFiles.map(f => fsPromises.unlink(f).catch(err => console.error('Cleanup error:', err))));
-
-      const combinedParams = {
-        Bucket: process.env.R2_BUCKET,
-        Key: combinedAudioUrl,
-        Body: fs.createReadStream(combinedPath),
-        ContentType: 'audio/mpeg',
-      };
-      await s3.upload(combinedParams).promise();
-
-      // Clean up combined file (keep uploaded file for raw conversion)
-      await fsPromises.unlink(combinedPath).catch(err => console.error('Cleanup error:', err));
     } else {
       // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, return an error
       if (isPrivate && !subscription.features.private_tracks) {
@@ -499,45 +452,7 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
           upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
         });
       }
-
-      // Apply normalization to regular uploads for consistent audio quality
-      // File is already stored on disk by multer, use its path directly
-      const uploadedLocalPath = file.path;
-
-      combinedAudioUrl = `tracks/${generateStandardTrackFilename('processed', filenameBase)}`;
-      const normalizedPath = path.join(tempDir, path.basename(combinedAudioUrl));
-
-      // Use default normalization settings for regular uploads
-      // Target LUFS: -16 (good for general use), True Peak: -1 dB (prevents clipping)
-      await combineAudioFiles([uploadedLocalPath], normalizedPath, [1.0], -16, -1);
-
-      const normalizedParams = {
-        Bucket: process.env.R2_BUCKET,
-        Key: combinedAudioUrl,
-        Body: fs.createReadStream(normalizedPath),
-        ContentType: 'audio/mpeg',
-      };
-      await s3.upload(normalizedParams).promise();
-
-      // Clean up normalized file (keep original file for raw conversion)
-      await fsPromises.unlink(normalizedPath).catch(err => console.error('Cleanup error:', err));
     }
-
-    // Upload raw file to S3 after all validation is complete (converted to MP3)
-    const rawMp3Path = path.join(tempDir, `raw-${Date.now()}-${path.parse(file.originalname).name}.mp3`);
-    await convertToMp3(file.path, rawMp3Path); // Convert to MP3 without any processing
-
-    audioUrl = `tracks/${generateStandardTrackFilename('raw', filenameBase)}`;
-    const uploadParams = {
-      Bucket: process.env.R2_BUCKET,
-      Key: audioUrl,
-      Body: fs.createReadStream(rawMp3Path),
-      ContentType: 'audio/mpeg',
-    };
-    await s3.upload(uploadParams).promise();
-
-    // Clean up temporary MP3 file
-    await fsPromises.unlink(rawMp3Path).catch(err => console.error('Raw MP3 cleanup error:', err));
 
     // Phase 1: Insert track with placeholder mix_gains
     // Create a copy of stem chain without audio_url property for placeholder
@@ -552,15 +467,17 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, combined_audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
-        [userId, title, audioUrl, combinedAudioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert)]
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing']
     );
 
     const trackId = result.rows[0].id;
 
     // Phase 2: update stem for recording: change trackId to the new trackId
     const recordingStem = stemChainToInsert.find(s => s.track_id === 'recording');
-    recordingStem.track_id = trackId;
+    if (recordingStem) {
+      recordingStem.track_id = trackId;
+    }
     const completeMixGains = {
       stems: stemChainToInsert
     };
@@ -611,16 +528,23 @@ router.post('/upload', uploadLimiter, authMiddleware, (req, res, next) => {
       }
     }
 
-    // Clean up the uploaded file from disk storage
-    await fsPromises.unlink(file.path).catch(err => console.error('Upload file cleanup error:', err));
+    // Clean up the downloaded file from disk storage
+    await fsPromises.unlink(localFilePath).catch(err => console.error('Upload file cleanup error:', err));
 
-    res.status(201).json(result.rows[0]);
+    // Move S3 file to permanent temp location for processing
+    const permanentTempKey = s3Key.replace('uploads/temp/', 'temp/tracks/');
+    await moveS3File(s3Key, permanentTempKey);
+
+    res.status(201).json({
+      ...result.rows[0],
+      processing_status: 'processing'
+    });
   } catch (err) {
     console.error('Upload error:', err);
 
-    // Clean up uploaded file on error
-    if (file && file.path) {
-      await fsPromises.unlink(file.path).catch(cleanupErr => console.error('Upload file cleanup error:', cleanupErr));
+    // Clean up downloaded file on error
+    if (localFilePath) {
+      await fsPromises.unlink(localFilePath).catch(cleanupErr => console.error('Upload file cleanup error:', cleanupErr));
     }
 
     res.status(500).json({ error: `Upload failed: ${err.message}` });
@@ -880,6 +804,60 @@ router.get('/:id/related', async (req, res) => {
       }
     });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get track processing status
+router.get('/:id/status', optionalAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+
+  try {
+    // Check if track exists and user has access
+    const accessCheck = await checkTrackAccess(id, userId);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
+    }
+
+    // Get processing status
+    const result = await pool.query(
+      'SELECT processing_status, processing_error, created_at FROM tracks WHERE id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+
+    const track = result.rows[0];
+    const status = track.processing_status || 'completed'; // Default to completed for existing tracks
+
+    // Calculate estimated time for processing tracks
+    let estimatedTimeRemaining = null;
+    if (status === 'processing') {
+      const createdAt = new Date(track.created_at);
+      const now = new Date();
+      const elapsedMs = now - createdAt;
+
+      // Estimate 5 minutes max processing time
+      const estimatedTotalMs = 5 * 60 * 1000;
+      const remainingMs = Math.max(0, estimatedTotalMs - elapsedMs);
+
+      if (remainingMs > 0) {
+        estimatedTimeRemaining = Math.ceil(remainingMs / 1000); // seconds
+      }
+    }
+
+    res.json({
+      track_id: id,
+      status: status,
+      error: track.processing_error,
+      estimated_time_remaining: estimatedTimeRemaining
+    });
+
+  } catch (err) {
+    console.error('Error fetching track status:', err);
     res.status(500).json({ error: err.message });
   }
 });
