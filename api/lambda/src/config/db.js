@@ -17,7 +17,7 @@ const poolConfig = {
 };
 
 // Enable SSL for production or when explicitly configured
-if (process.env.NODE_ENV === 'production' || process.env.DB_SSL === 'true') {
+if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test' || process.env.DB_SSL === 'true') {
   poolConfig.ssl = {
     rejectUnauthorized: false, // Allows SSL without strict certificate validation
     sslmode: 'require'
