@@ -9,6 +9,8 @@ exports.handler = (event, context) => {
   // Set callbackWaitsForEmptyEventLoop to false to prevent Lambda from waiting
   // for the event loop to be empty before returning
   context.callbackWaitsForEmptyEventLoop = false;
+  console.log('Event:', event);
+  console.log('Context:', context);
 
   return serverlessExpressInstance(event, context);
 };
