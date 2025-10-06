@@ -314,18 +314,19 @@ const validateForm = (formData, validationRules) => {
   
   return { valid: isValid, errors };
 };
+
 module.exports = {
+  validateTrackTitle,
+  validateBPM,
+  validateBio,
+  validatePassword,
   validateEmail,
   validateUsername,
-  validatePassword,
-  validateTrackTitle,
-  validateCommentContent,
-  validateBPM,
-  validateTimeSignature,
-  validateAudioDuration,
-  validateAudioFileSize,
   validateName,
-  validateBio,
+  validateAudioDuration,
   validateDateOfBirth,
-  validateForm
+  validateForm,
+  validateCommentContent,
+  validateAudioFileSize,
+  validateTimeSignature,
 };

@@ -249,27 +249,28 @@ const formatLimitDisplay = (limit) => {
 };
 
 // Export all subscription utilities
-export {
-  SUBSCRIPTION_TIERS,
-  SUBSCRIPTION_PLANS,
-  createSubscriptionPlans,
-  isValidTier,
-  compareTiers,
-  getTierRank,
-  isUpgrade,
+
+module.exports = {
   isDowngrade,
-  getUserTier,
-  getUserPlan,
-  canUserUpload,
-  canUserCreatePrivateTrack,
-  canUserAccessAnalytics,
-  canUserAccessAdvancedDAW,
-  getUserUploadLimit,
+  compareTiers,
   getUserRecordingLimit,
-  hasReachedTotalUploadLimit,
-  getFeaturesByTier,
-  getLimitsByTier,
+  canUserUpload,
+  getUserUploadLimit,
+  canUserAccessAnalytics,
+  isUpgrade,
+  canUserAccessAdvancedDAW,
+  getUserTier,
   getTierUpgradeOptions,
+  getFeaturesByTier,
+  isValidTier,
+  formatLimitDisplay,
+  canUserCreatePrivateTrack,
+  getUserPlan,
+  SUBSCRIPTION_PLANS,
   formatPrice,
-  formatLimitDisplay
-}; 
+  SUBSCRIPTION_TIERS,
+  getTierRank,
+  hasReachedTotalUploadLimit,
+  createSubscriptionPlans,
+  getLimitsByTier,
+};
