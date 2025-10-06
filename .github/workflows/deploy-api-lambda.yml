@@ -1,4 +1,4 @@
-name: Deploy Competitions Lambda to AWS
+name: Deploy API Lambda to AWS
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
       - dev
     paths:
-      - 'functions/lambda/competitions/**'
+      - 'api/lambda/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -26,10 +26,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      build-artifact: competitions-lambda-build-${{ github.run_number }}
+      build-artifact: api-lambda-build-${{ github.run_number }}
     defaults:
       run:
-        working-directory: ./functions/lambda/competitions/
+        working-directory: ./api/lambda/
 
     steps:
     - name: Checkout code
@@ -40,40 +40,41 @@ jobs:
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './functions/lambda/competitions/package-lock.json'
+        cache-dependency-path: './api/lambda/package-lock.json'
 
     - name: Install dependencies
       run: |
-        npm ci
+        npm ci --production
 
     - name: Run tests
       run: |
-        npm test
+        npm test --if-present
 
     - name: Create deployment package
       run: |
         # Create deployment zip similar to existing script but CI-friendly
-        zip -r competitions-lambda.zip . \
+        zip -r api-lambda.zip . \
           -x ".env*" \
           -x "test/*" \
           -x "*.md" \
           -x "package-lock.json" \
           -x "scripts/*" \
           -x ".git/*" \
-          -x "node_modules/.cache/*"
+          -x "node_modules/.cache/*" \
+          -x "dev-server.js"
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: competitions-lambda-build-${{ github.run_number }}
-        path: ./functions/lambda/competitions/competitions-lambda.zip
+        name: api-lambda-build-${{ github.run_number }}
+        path: ./api/lambda/api-lambda.zip
 
   deploy-to-test:
     runs-on: ubuntu-latest
     needs: build
     environment:
-      name: competitions-test
-      url: ${{ vars.COMPETITIONS_LAMBDA_TEST_URL }}
+      name: api-lambda-test
+      url: ${{ vars.API_LAMBDA_TEST_URL }}
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
 
     steps:
@@ -92,14 +93,15 @@ jobs:
     - name: Deploy to Test Lambda
       run: |
         aws lambda update-function-code \
-          --function-name sterio-competition-processor-test \
-          --zip-file fileb://competitions-lambda.zip
+          --function-name sterio-api-test \
+          --zip-file fileb://api-lambda.zip
 
     - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
-          --function-name sterio-competition-processor-test \
+          --function-name sterio-api-test \
           --environment Variables="{
+            API_URL=${{ secrets.API_URL_TEST }},
             DB_HOST=${{ secrets.DB_HOST_TEST }},
             DB_NAME=${{ secrets.DB_NAME }},
             DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
@@ -107,18 +109,31 @@ jobs:
             DB_USER=${{ secrets.DB_USER }},
             EMAIL=${{ secrets.EMAIL }},
             EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            FRONTEND_URL=${{ secrets.FRONTEND_URL_TEST }},
+            IPGEO_API_KEY=${{ secrets.IPGEO_API_KEY }},
+            JWT_SECRET=${{ secrets.JWT_SECRET }},
             NODE_ENV=test,
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_TEST }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_TEST }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_TEST }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_TEST }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_TEST }},
             SMTP_HOST=${{ secrets.SMTP_HOST }},
             SMTP_PORT=${{ secrets.SMTP_PORT }},
-            SMTP_SECURE=${{ secrets.SMTP_SECURE }}
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
+            STRIPE_BASIC_PRICE_ID=${{ secrets.STRIPE_BASIC_PRICE_ID_TEST }},
+            STRIPE_PREMIUM_PRICE_ID=${{ secrets.STRIPE_PREMIUM_PRICE_ID_TEST }},
+            STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_TEST }},
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_TEST }},
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           }"
 
   deploy-to-prod:
     runs-on: ubuntu-latest
     needs: [build, deploy-to-test]
     environment:
-      name: competitions-prod
-      url: ${{ vars.COMPETITIONS_LAMBDA_PROD_URL }}
+      name: api-lambda-prod
+      url: ${{ vars.API_LAMBDA_PROD_URL }}
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
 
     steps:
@@ -130,21 +145,22 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
         aws-region: ${{ vars.AWS_REGION_PROD || 'us-east-2' }}
 
     - name: Deploy to Prod Lambda
       run: |
         aws lambda update-function-code \
-          --function-name sterio-competition-processor \
-          --zip-file fileb://competitions-lambda.zip
+          --function-name sterio-api \
+          --zip-file fileb://api-lambda.zip
 
     - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
-          --function-name sterio-competition-processor \
+          --function-name sterio-api \
           --environment Variables="{
+            API_URL=${{ secrets.API_URL_PROD }},
             DB_HOST=${{ secrets.DB_HOST_PROD }},
             DB_NAME=${{ secrets.DB_NAME }},
             DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
@@ -152,15 +168,28 @@ jobs:
             DB_USER=${{ secrets.DB_USER }},
             EMAIL=${{ secrets.EMAIL }},
             EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }},
+            IPGEO_API_KEY=${{ secrets.IPGEO_API_KEY }},
+            JWT_SECRET=${{ secrets.JWT_SECRET }},
             NODE_ENV=production,
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_PROD }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_PROD }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_PROD }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_PROD }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_PROD }},
             SMTP_HOST=${{ secrets.SMTP_HOST }},
             SMTP_PORT=${{ secrets.SMTP_PORT }},
-            SMTP_SECURE=${{ secrets.SMTP_SECURE }}
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
+            STRIPE_BASIC_PRICE_ID=${{ secrets.STRIPE_BASIC_PRICE_ID_PROD }},
+            STRIPE_PREMIUM_PRICE_ID=${{ secrets.STRIPE_PREMIUM_PRICE_ID_PROD }},
+            STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }},
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }},
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}
           }"
 
     - name: Create deployment tag
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git tag -a "competitions-lambda-v${{ github.run_number }}" -m "Competitions Lambda deployment ${{ github.run_number }}"
-        git push origin "competitions-lambda-v${{ github.run_number }}"
+        git tag -a "api-lambda-v${{ github.run_number }}" -m "API Lambda deployment ${{ github.run_number }}"
+        git push origin "api-lambda-v${{ github.run_number }}"

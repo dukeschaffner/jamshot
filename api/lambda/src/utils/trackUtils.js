@@ -1,37 +1,90 @@
-const AWS = require('aws-sdk');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, PutObjectCommand, CopyObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
-const ffmpeg = require('fluent-ffmpeg');
 const crypto = require('crypto');
 
-// AWS S3 setup
-AWS.config.update({ signatureVersion: 'v4' });
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
-});
+// Cloudflare R2 setup
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: 'auto', // R2 uses 'auto' region
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
   },
+  endpoint: process.env.R2_ENDPOINT,
 });
 
-// Generate a signed URL for S3
+// Generate a public URL for R2 (no signing needed for public access)
 function generateSignedUrl(key, expiresIn = 3600) {
   if (!key || !key.startsWith('tracks/')) {
-    return key; // Return the original key if it's not an S3 path
+    return key; // Return the original key if it's not an R2 path
   }
-  
-  return s3.getSignedUrl('getObject', {
-    Bucket: process.env.S3_BUCKET,
+
+  // Return public R2 URL for tracks
+  return `${process.env.R2_PUBLIC_URL}/${key}`;
+}
+
+// Generate a pre-signed URL for direct S3 uploads
+async function generateUploadUrl(userId, filename, fileSize, filenameBase = null) {
+  // Use provided filenameBase or generate one
+  const base = filenameBase || generateTrackFilenameBase();
+
+  // Extract file extension from filename
+  const ext = filename.split('.').pop();
+  const tempFilename = `${base}-temp.${ext}`;
+
+  const key = `uploads/temp/${userId}/${tempFilename}`;
+
+  const command = new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET,
     Key: key,
-    Expires: expiresIn,
+    ContentType: 'audio/*', // Allow any audio type
+    ContentLength: fileSize,
+    Metadata: {
+      userId: userId.toString(),
+      originalFilename: filename,
+      uploadTimestamp: Date.now().toString(),
+      filenameBase: base
+    }
   });
+
+  const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }); // 15 minutes
+
+  return {
+    uploadUrl: signedUrl,
+    key: key,
+    filenameBase: base,
+    expiresAt: new Date(Date.now() + 900 * 1000).toISOString()
+  };
+}
+
+// Move a file from one S3 key to another
+async function moveS3File(sourceKey, destinationKey) {
+  try {
+    // Validate environment variables
+    if (!process.env.R2_BUCKET || typeof process.env.R2_BUCKET !== 'string') {
+      throw new Error('R2_BUCKET environment variable is not set or is not a string');
+    }
+
+    // Copy the object to the new location
+    await s3Client.send(new CopyObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: destinationKey,
+      CopySource: `${process.env.R2_BUCKET}/${encodeURIComponent(sourceKey)}`
+    }));
+
+    // Delete the original object
+    await s3Client.send(new DeleteObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: sourceKey
+    }));
+
+    console.log(`Successfully moved S3 file from ${sourceKey} to ${destinationKey}`);
+  } catch (error) {
+    console.error('Error moving S3 file:', error);
+    throw error;
+  }
 }
 
 // Get genres for a track
@@ -342,10 +395,10 @@ async function processTrack(track, userId = null) {
   };
 }
 
-// Download a file from S3 to a local path
+// Download a file from R2 to a local path
 async function downloadS3File(key, localPath) {
   const command = new GetObjectCommand({
-    Bucket: process.env.S3_BUCKET,
+    Bucket: process.env.R2_BUCKET,
     Key: key,
   });
   const { Body } = await s3Client.send(command);
@@ -363,174 +416,26 @@ function uiToDb(value) {
   return 20 * Math.log10(value);
 }
 
-// Combine audio files using ffmpeg with normalization
-async function combineAudioFilesOld(inputFiles, outputPath, gainValues = [], targetLUFS = -16, truePeakLimit = -1) {
-  return new Promise((resolve, reject) => {
-    console.log('Combining files with ffmpeg:', inputFiles);
-    console.log('Using gain values:', gainValues);
-    console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
-    
-    const command = ffmpeg();
-    
-    // Add input files
-    inputFiles.forEach((file) => {
-      command.input(file);
-    });
-    
-    // Step 1: Apply user gains to each input
-    let filterComplex = inputFiles.map((_, index) => {
-      const gainValue = gainValues[index] !== undefined ? gainValues[index] : 1.0;
-      // Convert gain (0-1 range) to dB for FFmpeg volume filter
-      // 0 dB = no change, -6 dB = half volume, +6 dB = double volume
-      // Formula: dB = 20 * log10(gain)
-      const dB = 20 * Math.log10(gainValue);
-      console.log(`Input ${index}: Gain=${gainValue}, dB=${dB}`);
-      return `[${index}:a]volume=${dB}dB[a${index}]`;
-    }).join(';');
-    
-    // Step 2: Mix tracks together
-    const audioInputs = inputFiles.map((_, index) => `[a${index}]`).join('');
-    filterComplex += `;${audioInputs}amix=inputs=${inputFiles.length}:duration=longest[mixed]`;
-    
-    // Step 3: Measure Integrated LUFS and normalize to target LUFS
-    // Step 4: Apply true peak limiting to prevent digital distortion
-    filterComplex += `;[mixed]loudnorm=I=${targetLUFS}:TP=${truePeakLimit}:LRA=11:measured_I=-16:measured_LRA=11:measured_TP=-1:measured_thresh=-25:offset=0:linear=true:print_format=json[normalized]`;
-    
-    console.log('FFmpeg filter complex:', filterComplex);
-    
-    command
-      .complexFilter(filterComplex, 'normalized')
-      .outputOptions('-c:a mp3')
-      .output(outputPath)
-      .on('end', () => {
-        console.log('Combine and normalize complete:', outputPath);
-        resolve();
-      })
-      .on('error', (err) => {
-        console.error('FFmpeg error:', err);
-        reject(err);
-      })
-      .run();
-  });
-}
+// Audio processing functions moved to dedicated audio-processing lambda
 
-// Combine audio files using ffmpeg with normalization
-async function combineAudioFiles(inputFiles, outputPath, gainValues = [], targetLUFS = -16, truePeakLimit = -1) {
-  return new Promise((resolve, reject) => {
-    console.log('Combining files with ffmpeg:', inputFiles);
-    console.log('Using gain values:', gainValues);
-    console.log('Target LUFS:', targetLUFS, 'True Peak Limit:', truePeakLimit);
-
-    // Validate inputs
-    if (!inputFiles || inputFiles.length < 1) {
-      return reject(new Error('At least 1 input file is required'));
-    }
-
-    if (!gainValues || gainValues.length !== inputFiles.length) {
-      return reject(new Error(`Gain values for all ${inputFiles.length} input(s) are required`));
-    }
-
-    // Check if input files exist
-    for (const file of inputFiles) {
-      if (!fs.existsSync(file)) {
-        return reject(new Error(`Input file does not exist: ${file}`));
-      }
-    }
-
-    // Validate gain values (should be between 0 and 1)
-    for (let i = 0; i < gainValues.length; i++) {
-      if (gainValues[i] < 0 || gainValues[i] > 1) {
-        return reject(new Error(`Invalid gain value at index ${i}: ${gainValues[i]}. Must be between 0 and 1.`));
-      }
-    }
-
-    // Determine output format based on file extension
-    const outputExt = path.extname(outputPath).toLowerCase();
-    const isMp3 = outputExt === '.mp3';
-
-    const command = ffmpeg();
-
-    // Add input files
-    inputFiles.forEach(file => {
-      command.input(file);
-    });
-
-    const dbValues = gainValues.map(uiToDb);
-
-    if (inputFiles.length === 1) {
-      // Single input: just apply normalization and volume
-      command.complexFilter([
-        `[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[0]}dB[aout]`
-      ]);
-    } else {
-      // Multiple inputs: apply normalization and volume to each, then mix
-      const filters = [];
-      const mixInputs = [];
-
-      // Create volume filters for each input
-      for (let i = 0; i < inputFiles.length; i++) {
-        filters.push(`[${i}:a]loudnorm=I=-14:TP=-1.5:LRA=11,volume=${dbValues[i]}dB[a${i}]`);
-        mixInputs.push(`[a${i}]`);
-      }
-
-      // Add the mix filter
-      filters.push(`${mixInputs.join('')}amix=inputs=${inputFiles.length}:normalize=0[aout]`);
-
-      command.complexFilter(filters);
-    }
-
-    // Output settings
-    command.outputOptions([
-      '-map [aout]',     // use the mixed stream
-      isMp3 ? '-c:a libmp3lame' : '-c:a pcm_s16le',  // MP3 or WAV codec
-      '-ar 44100'        // sample rate
-    ]);
-
-    command
-      .save(outputPath)
-      .on('end', () => {
-        console.log(`${inputFiles.length === 1 ? 'Processing' : 'Mix'} completed: ${outputPath}`);
-        resolve();
-      })
-      .on('error', (err) => {
-        console.error('Error:', err.message);
-        reject(err);
-      });
-  });
-}
-
-// Convert audio file to MP3 without any processing (no normalization, no gain adjustment)
-async function convertToMp3(inputPath, outputPath) {
-  return new Promise((resolve, reject) => {
-    console.log('Converting to MP3 without processing:', inputPath, '->', outputPath);
-
-    // Check if input file exists
-    if (!fs.existsSync(inputPath)) {
-      return reject(new Error(`Input file does not exist: ${inputPath}`));
-    }
-
-    const command = ffmpeg(inputPath)
-      .outputOptions([
-        '-c:a libmp3lame',  // MP3 codec
-        '-ar 44100',        // sample rate
-        '-q:a 2'            // quality (0-9, lower is better, 2 is good quality)
-      ])
-      .output(outputPath)
-      .on('end', () => {
-        console.log('MP3 conversion completed:', outputPath);
-        resolve();
-      })
-      .on('error', (err) => {
-        console.error('MP3 conversion error:', err.message);
-        reject(err);
-      })
-      .run();
-  });
-}
+// Audio conversion functions moved to dedicated audio-processing lambda
 
 // Generate a secure random token
 function generateSecureToken(length = 32) {
   return crypto.randomBytes(length).toString('hex');
+}
+
+// Generate a standardized track filename base (timestamp-guid)
+function generateTrackFilenameBase() {
+  const timestamp = Date.now();
+  const guid = generateSecureToken(8); // 16 character hex string (8 bytes * 2 chars per byte)
+  return `${timestamp}-${guid}`;
+}
+
+// Generate a standardized track filename with format: {timestamp}-{guid}-{type}.mp3
+function generateStandardTrackFilename(type = 'raw', base = null) {
+  const filenameBase = base || generateTrackFilenameBase();
+  return `${filenameBase}-${type}.mp3`;
 }
 
 // Check if a user has access to a private track
@@ -685,37 +590,37 @@ async function deleteTrack(trackId, userId, options = {}) {
 }
 
 /**
- * Delete track audio files from S3
- * @param {string} audioUrl - The original audio file S3 key
- * @param {string} combinedAudioUrl - The combined/processed audio file S3 key
+ * Delete track audio files from R2
+ * @param {string} audioUrl - The original audio file R2 key
+ * @param {string} combinedAudioUrl - The combined/processed audio file R2 key
  */
 async function deleteTrackS3Files(audioUrl, combinedAudioUrl) {
   const deletePromises = [];
-  
+
   if (audioUrl && audioUrl.startsWith('tracks/')) {
     deletePromises.push(
-      s3.deleteObject({
-        Bucket: process.env.S3_BUCKET,
+      s3Client.send(new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET,
         Key: audioUrl
-      }).promise()
+      }))
     );
   }
-  
+
   if (combinedAudioUrl && combinedAudioUrl !== audioUrl && combinedAudioUrl.startsWith('tracks/')) {
     deletePromises.push(
-      s3.deleteObject({
-        Bucket: process.env.S3_BUCKET,
+      s3Client.send(new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET,
         Key: combinedAudioUrl
-      }).promise()
+      }))
     );
   }
-  
+
   if (deletePromises.length > 0) {
     try {
       await Promise.all(deletePromises);
-    } catch (s3Error) {
-      console.error('Error deleting track files from S3:', s3Error);
-      // Don't throw - S3 cleanup failures shouldn't block deletion
+    } catch (r2Error) {
+      console.error('Error deleting track files from R2:', r2Error);
+      // Don't throw - R2 cleanup failures shouldn't block deletion
     }
   }
 }
@@ -895,17 +800,18 @@ function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
 }
 
 module.exports = {
-  s3,
   s3Client,
   generateSignedUrl,
+  generateUploadUrl,
+  moveS3File,
   getTrackGenres,
   getTrackInstruments,
   processTrack,
   downloadS3File,
   checkTrackAccess,
-  combineAudioFiles,
-  convertToMp3,
   generateSecureToken,
+  generateTrackFilenameBase,
+  generateStandardTrackFilename,
   getBaseTrackSelectQuery,
   getPopularFeedQuery,
   getFollowingFeedQuery,
