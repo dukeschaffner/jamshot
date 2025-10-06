@@ -190,16 +190,4 @@ if (typeof window !== 'undefined' || typeof self !== 'undefined') {
     isUpgrade,
     isDowngrade
   };
-}
-
-// For ES modules
-export {
-  SUBSCRIPTION_TIERS,
-  SUBSCRIPTION_PLANS_BASE,
-  createSubscriptionPlans,
-  isValidTier,
-  compareTiers,
-  getTierRank,
-  isUpgrade,
-  isDowngrade
-}; 
+} 
