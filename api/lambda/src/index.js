@@ -18,7 +18,8 @@ require('dotenv').config();
 const app = express();
 
 // Trust proxy for accurate IP detection (required for API Gateway/Lambda)
-app.set('trust proxy', true);
+// Set to 1 to trust only the immediate proxy (API Gateway)
+app.set('trust proxy', 1);
 
 // Apply global rate limiting first (before CORS and other middleware)
 app.use(globalLimiter);
