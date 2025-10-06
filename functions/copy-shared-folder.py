@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to copy the shared folder into mobile and ui folders, overwriting existing ones.
+Script to copy the shared folder into mobile, ui, and api/lambda folders, overwriting existing ones.
 """
 
 import os
@@ -11,7 +11,7 @@ from pathlib import Path
 
 def copy_shared_folder():
     """
-    Copy the shared folder to both mobile and ui directories, overwriting existing ones.
+    Copy the shared folder to mobile, ui, and api/lambda directories, overwriting existing ones.
     """
     # Get the project root directory (parent of functions directory)
     script_dir = Path(__file__).parent
@@ -21,7 +21,7 @@ def copy_shared_folder():
     shared_source = project_root / "shared"
     mobile_dest = project_root / "mobile" / "shared"
     ui_dest = project_root / "ui" / "shared"
-    api_dest = project_root / "api" / "shared"
+    api_dest = project_root / "api" / "lambda" / "shared"
     
     # Check if shared folder exists
     if not shared_source.exists():
@@ -74,7 +74,7 @@ def copy_shared_folder():
         return False
 
     print()
-    print("🎉 All done! Shared folder has been copied to both mobile, ui, and api directories.")
+    print("🎉 All done! Shared folder has been copied to mobile, ui, and api/lambda directories.")
     return True
 
 

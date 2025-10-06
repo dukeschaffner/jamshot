@@ -1,4 +1,4 @@
-name: Deploy API Lambda to AWS
+name: Deploy Audio Processing Lambda to AWS
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
       - dev
     paths:
-      - 'api/lambda/**'
+      - 'functions/lambda/audio-processing/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -26,10 +26,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      build-artifact: api-lambda-build-${{ github.run_number }}
+      build-artifact: audio-processing-lambda-build-${{ github.run_number }}
     defaults:
       run:
-        working-directory: ./api/lambda/
+        working-directory: ./functions/lambda/audio-processing/
 
     steps:
     - name: Checkout code
@@ -40,20 +40,20 @@ jobs:
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './api/lambda/package-lock.json'
+        cache-dependency-path: './functions/lambda/audio-processing/package-lock.json'
 
     - name: Install dependencies
       run: |
-        npm ci --production
+        npm ci
 
     - name: Run tests
       run: |
-        npm test --if-present
+        npm test
 
     - name: Create deployment package
       run: |
         # Create deployment zip similar to existing script but CI-friendly
-        zip -r api-lambda.zip . \
+        zip -r audio-processing-lambda.zip . \
           -x ".env*" \
           -x "test/*" \
           -x "*.md" \
@@ -61,20 +61,22 @@ jobs:
           -x "scripts/*" \
           -x ".git/*" \
           -x "node_modules/.cache/*" \
-          -x "dev-server.js"
+          -x "dev-server.js" \
+          -x "dev-start.js" \
+          -x "temp/*"
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: api-lambda-build-${{ github.run_number }}
-        path: ./api/lambda/api-lambda.zip
+        name: audio-processing-lambda-build-${{ github.run_number }}
+        path: ./functions/lambda/audio-processing/audio-processing-lambda.zip
 
   deploy-to-test:
     runs-on: ubuntu-latest
     needs: build
     environment:
-      name: api-lambda-test
-      url: ${{ vars.API_LAMBDA_TEST_URL }}
+      name: audio-processing-test
+      url: ${{ vars.AUDIO_PROCESSING_LAMBDA_TEST_URL }}
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
 
     steps:
@@ -93,47 +95,33 @@ jobs:
     - name: Deploy to Test Lambda
       run: |
         aws lambda update-function-code \
-          --function-name sterio-api-test \
-          --zip-file fileb://api-lambda.zip
+          --function-name sterio-audio-processor-test \
+          --zip-file fileb://audio-processing-lambda.zip
 
     - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
-          --function-name sterio-api-test \
+          --function-name sterio-audio-processor-test \
           --environment Variables="{
-            API_URL=${{ secrets.API_URL_TEST }},
             DB_HOST=${{ secrets.DB_HOST_TEST }},
-            DB_NAME=${{ secrets.DB_NAME }},
-            DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
-            DB_PORT=${{ secrets.DB_PORT }},
             DB_USER=${{ secrets.DB_USER }},
-            EMAIL=${{ secrets.EMAIL }},
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
-            FRONTEND_URL=${{ secrets.FRONTEND_URL_TEST }},
-            IPGEO_API_KEY=${{ secrets.IPGEO_API_KEY }},
-            JWT_SECRET=${{ secrets.JWT_SECRET }},
-            NODE_ENV=test,
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PORT=${{ secrets.DB_PORT }},
             R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_TEST }},
-            R2_BUCKET=${{ secrets.R2_BUCKET_TEST }},
-            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_TEST }},
-            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_TEST }},
             R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_TEST }},
-            SMTP_HOST=${{ secrets.SMTP_HOST }},
-            SMTP_PORT=${{ secrets.SMTP_PORT }},
-            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
-            STRIPE_BASIC_PRICE_ID=${{ secrets.STRIPE_BASIC_PRICE_ID_TEST }},
-            STRIPE_PREMIUM_PRICE_ID=${{ secrets.STRIPE_PREMIUM_PRICE_ID_TEST }},
-            STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_TEST }},
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_TEST }},
-            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_TEST }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_TEST }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_TEST }},
+            NODE_ENV=test
           }"
 
   deploy-to-prod:
     runs-on: ubuntu-latest
     needs: [build, deploy-to-test]
     environment:
-      name: api-lambda-prod
-      url: ${{ vars.API_LAMBDA_PROD_URL }}
+      name: audio-processing-prod
+      url: ${{ vars.AUDIO_PROCESSING_LAMBDA_PROD_URL }}
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
 
     steps:
@@ -152,44 +140,30 @@ jobs:
     - name: Deploy to Prod Lambda
       run: |
         aws lambda update-function-code \
-          --function-name sterio-api \
-          --zip-file fileb://api-lambda.zip
+          --function-name sterio-audio-processor \
+          --zip-file fileb://audio-processing-lambda.zip
 
     - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
-          --function-name sterio-api \
+          --function-name sterio-audio-processor \
           --environment Variables="{
-            API_URL=${{ secrets.API_URL_PROD }},
             DB_HOST=${{ secrets.DB_HOST_PROD }},
-            DB_NAME=${{ secrets.DB_NAME }},
-            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
-            DB_PORT=${{ secrets.DB_PORT }},
             DB_USER=${{ secrets.DB_USER }},
-            EMAIL=${{ secrets.EMAIL }},
-            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
-            FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }},
-            IPGEO_API_KEY=${{ secrets.IPGEO_API_KEY }},
-            JWT_SECRET=${{ secrets.JWT_SECRET }},
-            NODE_ENV=production,
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PORT=${{ secrets.DB_PORT }},
             R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_PROD }},
-            R2_BUCKET=${{ secrets.R2_BUCKET_PROD }},
-            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_PROD }},
-            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_PROD }},
             R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_PROD }},
-            SMTP_HOST=${{ secrets.SMTP_HOST }},
-            SMTP_PORT=${{ secrets.SMTP_PORT }},
-            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
-            STRIPE_BASIC_PRICE_ID=${{ secrets.STRIPE_BASIC_PRICE_ID_PROD }},
-            STRIPE_PREMIUM_PRICE_ID=${{ secrets.STRIPE_PREMIUM_PRICE_ID_PROD }},
-            STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }},
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }},
-            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_PROD }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_PROD }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_PROD }},
+            NODE_ENV=production
           }"
 
     - name: Create deployment tag
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git tag -a "api-lambda-v${{ github.run_number }}" -m "API Lambda deployment ${{ github.run_number }}"
-        git push origin "api-lambda-v${{ github.run_number }}"
+        git tag -a "audio-processing-lambda-v${{ github.run_number }}" -m "Audio Processing Lambda deployment ${{ github.run_number }}"
+        git push origin "audio-processing-lambda-v${{ github.run_number }}"
