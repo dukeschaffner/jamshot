@@ -246,18 +246,30 @@ const createApiMethods = (apiClient) => {
   const api = apiClient.api;
   // Track API methods
   const trackApi = {
-    getFeed: (type = 'for-you', page = 1) => 
+    getFeed: (type = 'for-you', page = 1) =>
       api.get(`/tracks/feed/${type}?page=${page}&limit=10`),
-    
+
     getTrack: (id, secret = null) => {
       const url = secret ? `/tracks/${id}?secret=${secret}` : `/tracks/${id}`;
       return api.get(url);
     },
-    
+
     likeTrack: (id) => api.post(`/tracks/${id}/like`),
-    
+
     unlikeTrack: (id) => api.delete(`/tracks/${id}/like`),
-    
+
+    // Upload initialization - get pre-signed S3 URL
+    initUpload: (filename, fileSize) => api.post('/tracks/upload/init', {
+      filename,
+      fileSize
+    }),
+
+    // Process upload after S3 upload is complete
+    processUpload: (uploadData) => api.post('/tracks/upload', uploadData),
+
+    // Get processing status
+    getProcessingStatus: (id) => api.get(`/tracks/${id}/status`),
+
     uploadTrack: (formData) => api.post('/tracks/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
