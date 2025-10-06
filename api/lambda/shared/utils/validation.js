@@ -8,7 +8,7 @@
  * @param {string} email - Email address to validate
  * @returns {boolean} Whether the email is valid
  */
-export const validateEmail = (email) => {
+const validateEmail = (email) => {
   if (!email || typeof email !== 'string') return false;
   
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,7 +20,7 @@ export const validateEmail = (email) => {
  * @param {string} username - Username to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateUsername = (username) => {
+const validateUsername = (username) => {
   if (!username || typeof username !== 'string') {
     return { valid: false, error: 'Username is required' };
   }
@@ -45,7 +45,7 @@ export const validateUsername = (username) => {
  * @param {string} password - Password to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validatePassword = (password) => {
+const validatePassword = (password) => {
   if (!password || typeof password !== 'string') {
     return { valid: false, error: 'Password is required' };
   }
@@ -83,7 +83,7 @@ export const validatePassword = (password) => {
  * @param {string} title - Track title to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateTrackTitle = (title) => {
+const validateTrackTitle = (title) => {
   if (!title || typeof title !== 'string') {
     return { valid: false, error: 'Track title is required' };
   }
@@ -106,7 +106,7 @@ export const validateTrackTitle = (title) => {
  * @param {string} content - Comment content to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateCommentContent = (content) => {
+const validateCommentContent = (content) => {
   if (!content || typeof content !== 'string') {
     return { valid: false, error: 'Comment content is required' };
   }
@@ -129,7 +129,7 @@ export const validateCommentContent = (content) => {
  * @param {number} bpm - BPM value to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateBPM = (bpm) => {
+const validateBPM = (bpm) => {
   if (typeof bpm !== 'number' || isNaN(bpm)) {
     return { valid: false, error: 'BPM must be a number' };
   }
@@ -150,7 +150,7 @@ export const validateBPM = (bpm) => {
  * @param {string} timeSignature - Time signature to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateTimeSignature = (timeSignature) => {
+const validateTimeSignature = (timeSignature) => {
   const validTimeSignatures = ['4/4', '3/4', '2/4', '6/8', '9/8', '12/8'];
   
   if (!timeSignature || typeof timeSignature !== 'string') {
@@ -169,7 +169,7 @@ export const validateTimeSignature = (timeSignature) => {
  * @param {number} duration - Duration in seconds
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateAudioDuration = (duration) => {
+const validateAudioDuration = (duration) => {
   if (typeof duration !== 'number' || isNaN(duration)) {
     return { valid: false, error: 'Duration must be a number' };
   }
@@ -190,7 +190,7 @@ export const validateAudioDuration = (duration) => {
  * @param {number} fileSize - File size in bytes
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateAudioFileSize = (fileSize) => {
+const validateAudioFileSize = (fileSize) => {
   if (typeof fileSize !== 'number' || isNaN(fileSize)) {
     return { valid: false, error: 'File size must be a number' };
   }
@@ -212,7 +212,7 @@ export const validateAudioFileSize = (fileSize) => {
  * @param {string} name - User name to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateName = (name) => {
+const validateName = (name) => {
   if (!name || typeof name !== 'string') {
     return { valid: false, error: 'Name is required' };
   }
@@ -236,7 +236,7 @@ export const validateName = (name) => {
  * @param {string} bio - User bio to validate
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateBio = (bio) => {
+const validateBio = (bio) => {
   if (!bio || typeof bio !== 'string') {
     return { valid: true }; // Bio is optional
   }
@@ -255,7 +255,7 @@ export const validateBio = (bio) => {
  * @param {string} dateOfBirth - Date of birth in YYYY-MM-DD format
  * @returns {Object} Validation result with valid boolean and error message
  */
-export const validateDateOfBirth = (dateOfBirth) => {
+const validateDateOfBirth = (dateOfBirth) => {
   if (!dateOfBirth || typeof dateOfBirth !== 'string') {
     return { valid: false, error: 'Date of birth is required' };
   }
@@ -298,7 +298,7 @@ export const validateDateOfBirth = (dateOfBirth) => {
  * @param {Object} validationRules - Validation rules for each field
  * @returns {Object} Validation result with valid boolean and field errors
  */
-export const validateForm = (formData, validationRules) => {
+const validateForm = (formData, validationRules) => {
   const errors = {};
   let isValid = true;
   
@@ -313,4 +313,19 @@ export const validateForm = (formData, validationRules) => {
   }
   
   return { valid: isValid, errors };
-}; 
+};
+module.exports = {
+  validateEmail,
+  validateUsername,
+  validatePassword,
+  validateTrackTitle,
+  validateCommentContent,
+  validateBPM,
+  validateTimeSignature,
+  validateAudioDuration,
+  validateAudioFileSize,
+  validateName,
+  validateBio,
+  validateDateOfBirth,
+  validateForm
+};
