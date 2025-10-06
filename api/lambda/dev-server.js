@@ -3,7 +3,7 @@ const app = require('./src/index');
 const PORT = process.env.PORT || 5001;
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Development server running on http://localhost:${PORT}`);
+  console.log(`🚀 Developmen server running on http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
