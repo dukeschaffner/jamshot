@@ -23,14 +23,24 @@ app.set('trust proxy', 1);
 
 // Handle API Gateway stage prefix stripping
 app.use((req, res, next) => {
-  // If the path starts with /test/, strip it (API Gateway stage prefix)
-  if (req.path.startsWith('/test/')) {
-    req.url = req.path.substring(5); // Remove '/test' prefix
-    req.path = req.url;
-  } else if (req.path === '/test') {
-    req.url = '/';
-    req.path = '/';
+  // Common stage prefixes to strip (API Gateway adds these)
+  const stages = ['test', 'prod', 'staging', 'dev'];
+
+  for (const stage of stages) {
+    const stagePrefix = `/${stage}`;
+    const stagePrefixSlash = `/${stage}/`;
+
+    if (req.path.startsWith(stagePrefixSlash)) {
+      req.url = req.path.substring(stagePrefixSlash.length - 1); // Remove stage prefix, keep leading slash
+      req.path = req.url;
+      break; // Only strip one stage prefix
+    } else if (req.path === stagePrefix) {
+      req.url = '/';
+      req.path = '/';
+      break; // Only strip one stage prefix
+    }
   }
+
   next();
 });
 
