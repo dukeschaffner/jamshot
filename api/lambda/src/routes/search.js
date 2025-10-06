@@ -3,14 +3,15 @@ const router = express.Router();
 const pool = require('../config/db');
 const { optionalAuthMiddleware } = require('../middleware/auth');
 const { searchLimiter } = require('../middleware/rateLimiting');
-const AWS = require('aws-sdk');
+const { S3Client } = require('@aws-sdk/client-s3');
 
-const s3 = new AWS.S3({
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
   endpoint: process.env.R2_ENDPOINT,
-  signatureVersion: 'v4',
 });
 
 // Apply optional auth middleware to all routes

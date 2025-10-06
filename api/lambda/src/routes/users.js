@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const AWS = require('aws-sdk');
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
-const { 
-  interactionLimiter, 
-  uploadLimiter, 
-  contentCreationLimiter 
+const {
+  interactionLimiter,
+  uploadLimiter,
+  contentCreationLimiter
 } = require('../middleware/rateLimiting');
 const multer = require('multer');
 const sharp = require('sharp');
@@ -14,12 +14,13 @@ const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils
 const bcrypt = require('bcryptjs');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const s3 = new AWS.S3({
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
   endpoint: process.env.R2_ENDPOINT,
-  signatureVersion: 'v4',
 });
 
 // Configure multer for memory storage
@@ -574,10 +575,10 @@ router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('i
     if (currentUser.rows[0]?.profile_pic_url) {
       const oldKey = currentUser.rows[0].profile_pic_url;
       try {
-        await s3.deleteObject({
+        await s3Client.send(new DeleteObjectCommand({
           Bucket: process.env.R2_BUCKET,
           Key: oldKey
-        }).promise();
+        }));
       } catch (err) {
         console.warn('Failed to delete old profile image:', err);
         // Continue with upload even if delete fails
@@ -598,12 +599,12 @@ router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('i
     const filename = `images/profile/${req.user.id}-${Date.now()}.jpg`;
 
     // Upload to R2
-    await s3.putObject({
+    await s3Client.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: filename,
       Body: processedImageBuffer,
       ContentType: 'image/jpeg'
-    }).promise();
+    }));
 
     // Get the S3 URL for the uploaded image
     const s3Url = `${process.env.R2_PUBLIC_URL}/${filename}`;
@@ -1130,10 +1131,10 @@ router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) =>
     if (user.profile_pic_url && user.profile_pic_url.includes('images/profile/')) {
       try {
         const profilePicKey = user.profile_pic_url.split('.com/')[1]; // Extract S3 key
-        await s3.deleteObject({
+        await s3Client.send(new DeleteObjectCommand({
           Bucket: process.env.R2_BUCKET,
           Key: profilePicKey
-        }).promise();
+        }));
         console.log(`Profile picture deleted from S3 for user ${userId}`);
       } catch (s3Error) {
         console.error('Error deleting profile picture from S3:', s3Error);

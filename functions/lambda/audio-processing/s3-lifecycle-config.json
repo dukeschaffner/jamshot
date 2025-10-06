@@ -1,0 +1,31 @@
+{
+  "Rules": [
+    {
+      "ID": "DeleteExpiredUploadTempFiles",
+      "Status": "Enabled",
+      "Prefix": "uploads/temp/",
+      "Expiration": {
+        "Days": 1
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 1
+      }
+    },
+    {
+      "ID": "DeleteExpiredTrackTempFiles",
+      "Status": "Enabled",
+      "Prefix": "temp/tracks/",
+      "Expiration": {
+        "Days": 7
+      }
+    },
+    {
+      "ID": "DeleteFailedProcessingFiles",
+      "Status": "Enabled",
+      "Prefix": "temp/failed/",
+      "Expiration": {
+        "Days": 30
+      }
+    }
+  ]
+}

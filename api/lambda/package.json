@@ -1,20 +1,19 @@
 {
-  "name": "api",
+  "name": "jamshot-api-lambda",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Jamshot API running on AWS Lambda using @codegenie/serverless-express",
+  "main": "handler.js",
   "scripts": {
-    "prestart": "node src/scripts/check-ffmpeg.js",
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node dev-server.js",
+    "dev": "node dev-server.js",
+    "lambda": "node handler.js",
+    "deploy": "serverless deploy"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
+    "@aws-sdk/client-eventbridge": "^3.758.0",
     "@aws-sdk/client-s3": "^3.758.0",
     "@aws-sdk/s3-request-presigner": "^3.758.0",
-    "aws-sdk": "^2.1692.0",
+    "@codegenie/serverless-express": "^4.17.0",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
@@ -23,7 +22,6 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.1",
     "express-slow-down": "^2.1.0",
-    "fluent-ffmpeg": "^2.1.3",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "music-metadata": "^11.0.0",
@@ -33,6 +31,8 @@
     "stripe": "^17.7.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "serverless": "^3.38.0",
+    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-offline": "^13.3.0"
   }
 }
