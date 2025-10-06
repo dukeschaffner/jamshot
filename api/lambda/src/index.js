@@ -21,6 +21,19 @@ const app = express();
 // Set to 1 to trust only the immediate proxy (API Gateway)
 app.set('trust proxy', 1);
 
+// Handle API Gateway stage prefix stripping
+app.use((req, res, next) => {
+  // If the path starts with /test/, strip it (API Gateway stage prefix)
+  if (req.path.startsWith('/test/')) {
+    req.url = req.path.substring(5); // Remove '/test' prefix
+    req.path = req.url;
+  } else if (req.path === '/test') {
+    req.url = '/';
+    req.path = '/';
+  }
+  next();
+});
+
 // Apply global rate limiting first (before CORS and other middleware)
 app.use(globalLimiter);
 app.use(speedLimiter);
@@ -91,7 +104,10 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/competitions', competitionRoutes);
 
 // Health check endpoint
-app.get('/', (req, res) => res.json({ status: 'ok', service: 'Sterio API', environment: process.env.NODE_ENV || 'development' }));
+app.get('/', (req, res) => {
+  console.log('Health check endpoint hit:', req.path, req.method);
+  res.json({ status: 'ok', service: 'Sterio API', environment: process.env.NODE_ENV || 'development' });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
