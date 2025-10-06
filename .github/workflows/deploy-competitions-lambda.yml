@@ -35,10 +35,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set up Node.js 18
+    - name: Set up Node.js 22
       uses: actions/setup-node@v3
       with:
-        node-version: '18'
+        node-version: '22'
         cache: 'npm'
         cache-dependency-path: './functions/lambda/competitions/package-lock.json'
 
@@ -95,21 +95,23 @@ jobs:
           --function-name sterio-competition-processor-test \
           --zip-file fileb://competitions-lambda.zip
 
-    # - name: Update Lambda configuration (if needed)
-    #   run: |
-    #     aws lambda update-function-configuration \
-    #       --function-name ${{ vars.COMPETITIONS_LAMBDA_FUNCTION_NAME_TEST }} \
-    #       --environment Variables="{
-    #         NODE_ENV=test,
-    #         DB_HOST=${{ secrets.DB_HOST_TEST }},
-    #         DB_USER=${{ secrets.DB_USER_TEST }},
-    #         DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
-    #         DB_NAME=${{ secrets.DB_NAME_TEST }},
-    #         STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_TEST }},
-    #         EMAIL_HOST=${{ secrets.EMAIL_HOST_TEST }},
-    #         EMAIL_USER=${{ secrets.EMAIL_USER_TEST }},
-    #         EMAIL_PASS=${{ secrets.EMAIL_PASS_TEST }}
-    #       }"
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-competition-processor-test \
+          --environment Variables="{
+            DB_HOST=${{ secrets.DB_HOST_TEST }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            EMAIL=${{ secrets.EMAIL }},
+            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            NODE_ENV=test,
+            SMTP_HOST=${{ secrets.SMTP_HOST }},
+            SMTP_PORT=${{ secrets.SMTP_PORT }},
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }}
+          }"
 
   deploy-to-prod:
     runs-on: ubuntu-latest
@@ -138,21 +140,23 @@ jobs:
           --function-name sterio-competition-processor \
           --zip-file fileb://competitions-lambda.zip
 
-    # - name: Update Lambda configuration (if needed)
-    #   run: |
-    #     aws lambda update-function-configuration \
-    #       --function-name ${{ vars.COMPETITIONS_LAMBDA_FUNCTION_NAME_PROD }} \
-    #       --environment Variables="{
-    #         NODE_ENV=production,
-    #         DB_HOST=${{ secrets.DB_HOST_PROD }},
-    #         DB_USER=${{ secrets.DB_USER_PROD }},
-    #         DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
-    #         DB_NAME=${{ secrets.DB_NAME_PROD }},
-    #         STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }},
-    #         EMAIL_HOST=${{ secrets.EMAIL_HOST_PROD }},
-    #         EMAIL_USER=${{ secrets.EMAIL_USER_PROD }},
-    #         EMAIL_PASS=${{ secrets.EMAIL_PASS_PROD }}
-    #       }"
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-competition-processor \
+          --environment Variables="{
+            DB_HOST=${{ secrets.DB_HOST_PROD }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            EMAIL=${{ secrets.EMAIL }},
+            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            NODE_ENV=production,
+            SMTP_HOST=${{ secrets.SMTP_HOST }},
+            SMTP_PORT=${{ secrets.SMTP_PORT }},
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }}
+          }"
 
     - name: Create deployment tag
       run: |
