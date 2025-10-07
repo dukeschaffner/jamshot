@@ -52,11 +52,29 @@ app.use(speedLimiter);
 // Special handling for Stripe webhook - must come before JSON parsing
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
-// JSON parsing middleware - needed for all environments including Lambda
-app.use(express.json({ limit: '50mb' }));
+// Conditional JSON parsing - only parse if body hasn't been pre-parsed by serverless-express
+app.use((req, res, next) => {
+  // If body is already an object (parsed by serverless-express), skip JSON parsing
+  if (typeof req.body === 'object' && req.body !== null) {
+    console.log('Body already parsed by serverless-express, skipping express.json()');
+    return next();
+  }
 
-// URL-encoded parsing middleware - needed for all environments including Lambda
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  // Otherwise, apply JSON parsing middleware
+  express.json({ limit: '50mb' })(req, res, next);
+});
+
+// Conditional URL-encoded parsing - only parse if body hasn't been pre-parsed by serverless-express
+app.use((req, res, next) => {
+  // If body is already an object (parsed by serverless-express), skip URL-encoded parsing
+  if (typeof req.body === 'object' && req.body !== null) {
+    console.log('Body already parsed by serverless-express, skipping express.urlencoded()');
+    return next();
+  }
+
+  // Otherwise, apply URL-encoded parsing middleware
+  express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
+});
 
 if (process.env.NODE_ENV === 'dev') {
   // CORS configuration for API Gateway
