@@ -54,6 +54,8 @@ app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Conditional JSON parsing - only parse if body hasn't been pre-parsed by serverless-express
 app.use((req, res, next) => {
+  console.log('Middleware - req.body before check:', JSON.stringify(req.body, null, 2));
+  console.log('Middleware - req.body type:', typeof req.body);
   // If body is already an object (parsed by serverless-express), skip JSON parsing
   if (typeof req.body === 'object' && req.body !== null) {
     console.log('Body already parsed by serverless-express, skipping express.json()');
