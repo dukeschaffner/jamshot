@@ -48,6 +48,32 @@ app.use((req, res, next) => {
 app.use(globalLimiter);
 app.use(speedLimiter);
 
+// Special handling for Stripe webhook - must come before JSON parsing
+// Use a more targeted approach for webhook body parsing
+app.use('/api/payments/webhook', (req, res, next) => {
+  if (req.headers['content-type'] === 'application/json') {
+    let data = '';
+    req.on('data', chunk => data += chunk);
+    req.on('end', () => {
+      req.rawBody = data;
+      try {
+        req.body = JSON.parse(data);
+      } catch (e) {
+        req.body = {};
+      }
+      next();
+    });
+  } else {
+    next();
+  }
+});
+
+// Regular JSON parsing for all other routes (increased limit for metadata)
+app.use(express.json({ limit: '50mb' }));
+
+// URL-encoded parsing for form data
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
 // CORS configuration for API Gateway
 const corsOptions = {
   origin: function (origin, callback) {
@@ -88,15 +114,6 @@ app.use(cors(corsOptions));
 
 // Cookie parser middleware (must come before CSRF)
 app.use(cookieParser());
-
-// Special handling for Stripe webhook - must come before JSON parsing
-app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-
-// Regular JSON parsing for all other routes (increased limit for metadata)
-app.use(express.json({ limit: '50mb' }));
-
-// URL-encoded parsing for form data
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Apply CSRF protection globally (after auth middleware in routes)
 app.use(csrfProtection);
