@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
-const mm = require('music-metadata');
+const { parseFile } = require('music-metadata');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
 const pool = require('../config/db');
@@ -354,7 +354,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   let duration;
 
   try {
-    const metadata = await mm.parseFile(localFilePath);
+    const metadata = await parseFile(localFilePath);
     duration = metadata.format.duration;
 
     // Validate track duration (max 5 minutes = 300 seconds)
