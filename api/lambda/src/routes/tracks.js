@@ -48,12 +48,13 @@ const eventBridgeClient = new EventBridgeClient({
 
 const router = express.Router();
 
+const tempDir = process.env.NODE_ENV !== 'dev' ? '/tmp' : path.join(__dirname, '../../temp');
+
 // Multer setup - Disk storage for large files
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
       // Ensure temp directory exists
-      const tempDir = path.join(__dirname, '../../temp');
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
@@ -245,7 +246,6 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   console.log('- Allow download:', allow_download !== 'false' ? 'Yes' : 'No');
 
   // Download file from S3 for validation
-  const tempDir = path.join(__dirname, '../../temp');
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
   const localFilePath = path.join(tempDir, `validation-${Date.now()}-${path.basename(s3Key)}`);
