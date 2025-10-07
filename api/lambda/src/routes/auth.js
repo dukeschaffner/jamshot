@@ -343,8 +343,10 @@ router.post('/resend-verification', emailVerificationLimiter, async (req, res) =
 
 // Request password reset
 router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
+  console.log('req.body:', JSON.stringify(req.body, null, 2));
+  console.log('req.body type:', typeof req.body);
   const { email } = req.body;
-  
+
   try {
     console.log('Forgot password request received for email:', email);
     // Find user by email
