@@ -3,6 +3,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { csrfProtection } = require('./middleware/csrf');
 const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting');
+const { bodyParser } = require('./middleware/bodyParser');
 const authRoutes = require('./routes/auth');
 const trackRoutes = require('./routes/tracks');
 const userRoutes = require('./routes/users');
@@ -45,70 +46,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// Logging middleware after stage stripping
-app.use((req, res, next) => {
-  console.log('After stage stripping middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-  next();
-});
-
 // Apply global rate limiting first (before CORS and other middleware)
 app.use(globalLimiter);
 app.use(speedLimiter);
 
-// Logging middleware after rate limiting
-app.use((req, res, next) => {
-  console.log('After rate limiting middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-  next();
-});
 
-// Special handling for Stripe webhook - must come before JSON parsing
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-
-// Logging middleware after Stripe webhook
-app.use((req, res, next) => {
-  console.log('After Stripe webhook middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-  next();
-});
-
-// Conditional JSON parsing - only parse if body hasn't been pre-parsed by serverless-express
-app.use((req, res, next) => {
-  console.log('Middleware - req.body before check:', JSON.stringify(req.body, null, 2));
-  console.log('Middleware - req.body type:', typeof req.body);
-  // If body is already an object (parsed by serverless-express), skip JSON parsing
-  if (typeof req.body === 'object' && req.body !== null) {
-    console.log('Body already parsed by serverless-express, skipping express.json()');
-    return next();
-  }
-
-  // Otherwise, apply JSON parsing middleware
-  express.json({ limit: '50mb' })(req, res, next);
-});
-
-// Logging middleware after JSON parsing
-app.use((req, res, next) => {
-  console.log('After JSON parsing middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-  next();
-});
-
-// Conditional URL-encoded parsing - only parse if body hasn't been pre-parsed by serverless-express
-app.use((req, res, next) => {
-  // If body is already an object (parsed by serverless-express), skip URL-encoded parsing
-  if (typeof req.body === 'object' && req.body !== null) {
-    console.log('Body already parsed by serverless-express, skipping express.urlencoded()');
-    return next();
-  }
-
-  // Otherwise, apply URL-encoded parsing middleware
-  express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
-});
-
-// Logging middleware after URL-encoded parsing
-app.use((req, res, next) => {
-  console.log('After URL-encoded parsing middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-  next();
-});
-
 if (process.env.NODE_ENV === 'dev') {
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  
   // CORS configuration for API Gateway
   const corsOptions = {
     origin: function (origin, callback) {
@@ -142,33 +89,17 @@ if (process.env.NODE_ENV === 'dev') {
   };
 
   app.use(cors(corsOptions));
-}
+} else {
+  // Body parser middleware to handle Buffer objects from API Gateway
+  app.use(bodyParser);
 
-// Logging middleware after CORS
-if (process.env.NODE_ENV === 'dev') {
-  app.use((req, res, next) => {
-    console.log('After CORS middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-    next();
-  });
 }
 
 // Cookie parser middleware (must come before CSRF)
 app.use(cookieParser());
 
-// Logging middleware after cookie parser
-app.use((req, res, next) => {
-  console.log('After cookie parser middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-  next();
-});
-
 // Apply CSRF protection globally (after auth middleware in routes)
 app.use(csrfProtection);
-
-// Logging middleware after CSRF protection
-app.use((req, res, next) => {
-  console.log('After CSRF protection middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
-  next();
-});
 
 // Routes
 app.use('/api/auth', authRoutes);
