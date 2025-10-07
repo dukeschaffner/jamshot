@@ -106,7 +106,7 @@ jobs:
           --function-name sterio-api-test \
           --environment Variables="{
             API_URL=${{ secrets.API_URL_TEST }},
-            API_GATEWAY_DOMAIN=${{ vars.API_GATEWAY_DOMAIN }},
+            API_GATEWAY_DOMAIN=${{ secrets.API_GATEWAY_DOMAIN }},
             DB_HOST=${{ secrets.DB_HOST_TEST }},
             DB_NAME=${{ secrets.DB_NAME }},
             DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
@@ -170,7 +170,7 @@ jobs:
           --function-name sterio-api \
           --environment Variables="{
             API_URL=${{ secrets.API_URL_PROD }},
-            API_GATEWAY_DOMAIN=${{ vars.API_GATEWAY_DOMAIN }},
+            API_GATEWAY_DOMAIN=${{ secrets.API_GATEWAY_DOMAIN }},
             DB_HOST=${{ secrets.DB_HOST_PROD }},
             DB_NAME=${{ secrets.DB_NAME }},
             DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
