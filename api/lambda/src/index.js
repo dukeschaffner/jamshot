@@ -80,26 +80,26 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // Allow local development
+    // Allow local development - return specific origin when using credentials
     if (origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'dev') {
-      return callback(null, true);
+      return callback(null, origin);
     }
 
-    // Allow any Vercel deployment under your project
+    // Allow any Vercel deployment under your project - return specific origin
     if (origin.startsWith('https://jamshot-') && origin.endsWith('-duke-schaffners-projects.vercel.app')) {
-      return callback(null, true);
+      return callback(null, origin);
     }
 
-    // Allow production domains
+    // Allow production domains - return specific origin
     if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com' ||
         origin === 'https://sterio.fm' ||
         origin === 'https://www.sterio.fm') {
-      return callback(null, true);
+      return callback(null, origin);
     }
 
-    // Allow API Gateway domain (when deployed)
+    // Allow API Gateway domain (when deployed) - return specific origin
     if (process.env.API_GATEWAY_DOMAIN && origin.includes(process.env.API_GATEWAY_DOMAIN)) {
-      return callback(null, true);
+      return callback(null, origin);
     }
 
     // Deny other origins
