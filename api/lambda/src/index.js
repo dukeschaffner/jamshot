@@ -45,12 +45,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// Logging middleware after stage stripping
+app.use((req, res, next) => {
+  console.log('After stage stripping middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+  next();
+});
+
 // Apply global rate limiting first (before CORS and other middleware)
 app.use(globalLimiter);
 app.use(speedLimiter);
 
+// Logging middleware after rate limiting
+app.use((req, res, next) => {
+  console.log('After rate limiting middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+  next();
+});
+
 // Special handling for Stripe webhook - must come before JSON parsing
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+// Logging middleware after Stripe webhook
+app.use((req, res, next) => {
+  console.log('After Stripe webhook middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+  next();
+});
 
 // Conditional JSON parsing - only parse if body hasn't been pre-parsed by serverless-express
 app.use((req, res, next) => {
@@ -66,6 +84,12 @@ app.use((req, res, next) => {
   express.json({ limit: '50mb' })(req, res, next);
 });
 
+// Logging middleware after JSON parsing
+app.use((req, res, next) => {
+  console.log('After JSON parsing middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+  next();
+});
+
 // Conditional URL-encoded parsing - only parse if body hasn't been pre-parsed by serverless-express
 app.use((req, res, next) => {
   // If body is already an object (parsed by serverless-express), skip URL-encoded parsing
@@ -76,6 +100,12 @@ app.use((req, res, next) => {
 
   // Otherwise, apply URL-encoded parsing middleware
   express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
+});
+
+// Logging middleware after URL-encoded parsing
+app.use((req, res, next) => {
+  console.log('After URL-encoded parsing middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+  next();
 });
 
 if (process.env.NODE_ENV === 'dev') {
@@ -114,11 +144,31 @@ if (process.env.NODE_ENV === 'dev') {
   app.use(cors(corsOptions));
 }
 
+// Logging middleware after CORS
+if (process.env.NODE_ENV === 'dev') {
+  app.use((req, res, next) => {
+    console.log('After CORS middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+    next();
+  });
+}
+
 // Cookie parser middleware (must come before CSRF)
 app.use(cookieParser());
 
+// Logging middleware after cookie parser
+app.use((req, res, next) => {
+  console.log('After cookie parser middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+  next();
+});
+
 // Apply CSRF protection globally (after auth middleware in routes)
 app.use(csrfProtection);
+
+// Logging middleware after CSRF protection
+app.use((req, res, next) => {
+  console.log('After CSRF protection middleware - req.body:', JSON.stringify(req.body), 'type:', typeof req.body);
+  next();
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
