@@ -5,6 +5,7 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;
 const mm = require('music-metadata');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
 const pool = require('../config/db');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 const { 
@@ -39,6 +40,11 @@ const { validateCompetitionEntry } = require('../../shared/utils/competition');
 require('dotenv').config;
 
 // Audio processing is now handled by the dedicated audio-processing lambda
+
+// Initialize EventBridge client for production audio processing triggers
+const eventBridgeClient = new EventBridgeClient({
+  region: process.env.AWS_REGION || 'us-east-2'
+});
 
 const router = express.Router();
 
@@ -534,6 +540,36 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     // Move S3 file to permanent temp location for processing
     const permanentTempKey = s3Key.replace('uploads/temp/', 'temp/tracks/');
     await moveS3File(s3Key, permanentTempKey);
+
+    // Emit EventBridge event to trigger audio processing (production only)
+    if (process.env.NODE_ENV !== 'dev') {
+      try {
+        const eventParams = {
+          Entries: [
+            {
+              Source: 'sterio.tracks',
+              DetailType: 'track_created',
+              Detail: JSON.stringify({
+                track_id: trackId,
+                user_id: userId,
+                s3_key: permanentTempKey,
+                created_at: new Date().toISOString()
+              }),
+              EventBusName: 'default'
+            }
+          ]
+        };
+
+        const eventCommand = new PutEventsCommand(eventParams);
+        await eventBridgeClient.send(eventCommand);
+        console.log(`✅ EventBridge event emitted for track ${trackId}`);
+      } catch (eventError) {
+        console.error('❌ Failed to emit EventBridge event:', eventError);
+        // Don't fail the upload, just log the error
+      }
+    } else {
+      console.log(`🔧 Skipping EventBridge event emission (dev mode) - track ${trackId} will be processed by local monitor`);
+    }
 
     res.status(201).json({
       ...result.rows[0],

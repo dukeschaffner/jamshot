@@ -55,7 +55,7 @@ const corsOptions = {
     if (!origin) return callback(null, true);
 
     // Allow local development
-    if (origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'test') {
+    if (origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'dev') {
       return callback(null, true);
     }
 
