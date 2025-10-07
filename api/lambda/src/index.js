@@ -82,9 +82,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Cookie parser middleware (must come before CSRF)
-app.use(cookieParser());
-
 // Special handling for Stripe webhook - must come before JSON parsing
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
@@ -93,6 +90,9 @@ app.use(express.json({ limit: '50mb' }));
 
 // URL-encoded parsing for form data
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Cookie parser middleware (must come before CSRF)
+app.use(cookieParser());
 
 // Apply CSRF protection globally (after auth middleware in routes)
 app.use(csrfProtection);
