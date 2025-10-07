@@ -5,6 +5,7 @@ const slowDown = require('express-slow-down');
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // Limit each IP to 1000 requests per windowMs
+  skip: (req) => req.method === 'OPTIONS', // Skip rate limiting for preflight requests
   message: {
     error: 'Too many requests from this IP',
     message: 'Please try again later',

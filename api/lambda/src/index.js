@@ -44,37 +44,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Apply global rate limiting first (before CORS and other middleware)
-app.use(globalLimiter);
-app.use(speedLimiter);
-
-// Special handling for Stripe webhook - must come before JSON parsing
-// Use a more targeted approach for webhook body parsing
-app.use('/api/payments/webhook', (req, res, next) => {
-  if (req.headers['content-type'] === 'application/json') {
-    let data = '';
-    req.on('data', chunk => data += chunk);
-    req.on('end', () => {
-      req.rawBody = data;
-      try {
-        req.body = JSON.parse(data);
-      } catch (e) {
-        req.body = {};
-      }
-      next();
-    });
-  } else {
-    next();
-  }
-});
-
-// Regular JSON parsing for all other routes (increased limit for metadata)
-app.use(express.json({ limit: '50mb' }));
-
-// URL-encoded parsing for form data
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// CORS configuration for API Gateway
+// CORS configuration for API Gateway - must come before rate limiting for OPTIONS requests
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -111,6 +81,36 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Apply global rate limiting after CORS
+app.use(globalLimiter);
+app.use(speedLimiter);
+
+// Special handling for Stripe webhook - must come before JSON parsing
+// Use a more targeted approach for webhook body parsing
+app.use('/api/payments/webhook', (req, res, next) => {
+  if (req.headers['content-type'] === 'application/json') {
+    let data = '';
+    req.on('data', chunk => data += chunk);
+    req.on('end', () => {
+      req.rawBody = data;
+      try {
+        req.body = JSON.parse(data);
+      } catch (e) {
+        req.body = {};
+      }
+      next();
+    });
+  } else {
+    next();
+  }
+});
+
+// Regular JSON parsing for all other routes (increased limit for metadata)
+app.use(express.json({ limit: '50mb' }));
+
+// URL-encoded parsing for form data
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Cookie parser middleware (must come before CSRF)
 app.use(cookieParser());
