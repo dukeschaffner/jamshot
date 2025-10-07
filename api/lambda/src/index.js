@@ -72,7 +72,7 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // Deny other origins
+    // Deny other origins.
     callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
