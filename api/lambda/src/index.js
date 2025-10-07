@@ -49,6 +49,15 @@ app.use((req, res, next) => {
 app.use(globalLimiter);
 app.use(speedLimiter);
 
+// Special handling for Stripe webhook - must come before JSON parsing
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+// JSON parsing middleware - needed for all environments including Lambda
+app.use(express.json({ limit: '50mb' }));
+
+// URL-encoded parsing middleware - needed for all environments including Lambda
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
 if (process.env.NODE_ENV === 'dev') {
   // CORS configuration for API Gateway
   const corsOptions = {
@@ -83,15 +92,6 @@ if (process.env.NODE_ENV === 'dev') {
   };
 
   app.use(cors(corsOptions));
-
-  // Special handling for Stripe webhook - must come before JSON parsing
-  app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-
-  // Conditional JSON parsing - only parse if body hasn't been pre-parsed by serverless-express
-  app.use(express.json({ limit: '50mb' }));
-
-  // Conditional URL-encoded parsing - only parse if body hasn't been pre-parsed by serverless-express
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 }
 
 // Cookie parser middleware (must come before CSRF)
