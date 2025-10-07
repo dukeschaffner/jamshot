@@ -346,6 +346,7 @@ router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
   const { email } = req.body;
   
   try {
+    console.log('Forgot password request received for email:', email);
     // Find user by email
     const result = await pool.query(
       'SELECT id, username, email FROM users WHERE email = $1',
@@ -353,7 +354,7 @@ router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
     );
     
     const user = result.rows[0];
-    
+    console.log('User found:', user);
     if (!user) {
       // Don't reveal that the email doesn't exist for security reasons
       return res.json({ message: 'If your email is registered, you will receive a password reset link' });
