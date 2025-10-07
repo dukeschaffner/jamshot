@@ -120,14 +120,32 @@ app.use(logBodyStreamStatus('After Stripe Webhook Handling'));
 // Log body stream status before JSON parsing
 app.use(logBodyStreamStatus('Before JSON Parsing'));
 
-// Regular JSON parsing for all other routes (increased limit for metadata)
-app.use(express.json({ limit: '50mb' }));
+// Conditional JSON parsing - only parse if body hasn't been pre-parsed by serverless-express
+app.use((req, res, next) => {
+  // If body is already an object (parsed by serverless-express), skip JSON parsing
+  if (typeof req.body === 'object' && req.body !== null) {
+    console.log('Body already parsed by serverless-express, skipping express.json()');
+    return next();
+  }
+
+  // Otherwise, apply JSON parsing middleware
+  express.json({ limit: '50mb' })(req, res, next);
+});
 
 // Log body stream status after JSON parsing
 app.use(logBodyStreamStatus('After JSON Parsing'));
 
-// URL-encoded parsing for form data
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Conditional URL-encoded parsing - only parse if body hasn't been pre-parsed by serverless-express
+app.use((req, res, next) => {
+  // If body is already an object (parsed by serverless-express), skip URL-encoded parsing
+  if (typeof req.body === 'object' && req.body !== null) {
+    console.log('Body already parsed by serverless-express, skipping express.urlencoded()');
+    return next();
+  }
+
+  // Otherwise, apply URL-encoded parsing middleware
+  express.urlencoded({ extended: true, limit: '50mb' })(req, res, next);
+});
 
 // Log body stream status after URL-encoded parsing
 app.use(logBodyStreamStatus('After URL-encoded Parsing'));
