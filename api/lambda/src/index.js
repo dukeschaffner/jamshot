@@ -44,32 +44,32 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration for API Gateway - must come before rate limiting for OPTIONS requests
+// Apply global rate limiting first (before CORS and other middleware)
+app.use(globalLimiter);
+app.use(speedLimiter);
+
+// CORS configuration for API Gateway
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // Allow local development - return specific origin when using credentials
+    // Allow local development
     if (origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'dev') {
-      return callback(null, origin);
+      return callback(null, true);
     }
 
-    // Allow any Vercel deployment under your project - return specific origin
-    if (origin.startsWith('https://jamshot-') && origin.endsWith('-duke-schaffners-projects.vercel.app')) {
-      return callback(null, origin);
-    }
 
-    // Allow production domains - return specific origin
+    // Allow production domains
     if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com' ||
         origin === 'https://sterio.fm' ||
         origin === 'https://www.sterio.fm') {
-      return callback(null, origin);
+      return callback(null, true);
     }
 
-    // Allow API Gateway domain (when deployed) - return specific origin
+    // Allow API Gateway domain (when deployed)
     if (process.env.API_GATEWAY_DOMAIN && origin.includes(process.env.API_GATEWAY_DOMAIN)) {
-      return callback(null, origin);
+      return callback(null, true);
     }
 
     // Deny other origins
@@ -82,38 +82,17 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Apply global rate limiting after CORS
-app.use(globalLimiter);
-app.use(speedLimiter);
+// Cookie parser middleware (must come before CSRF)
+app.use(cookieParser());
 
 // Special handling for Stripe webhook - must come before JSON parsing
-// Use a more targeted approach for webhook body parsing
-app.use('/api/payments/webhook', (req, res, next) => {
-  if (req.headers['content-type'] === 'application/json') {
-    let data = '';
-    req.on('data', chunk => data += chunk);
-    req.on('end', () => {
-      req.rawBody = data;
-      try {
-        req.body = JSON.parse(data);
-      } catch (e) {
-        req.body = {};
-      }
-      next();
-    });
-  } else {
-    next();
-  }
-});
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Regular JSON parsing for all other routes (increased limit for metadata)
 app.use(express.json({ limit: '50mb' }));
 
 // URL-encoded parsing for form data
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Cookie parser middleware (must come before CSRF)
-app.use(cookieParser());
 
 // Apply CSRF protection globally (after auth middleware in routes)
 app.use(csrfProtection);
