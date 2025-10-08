@@ -95,11 +95,19 @@ jobs:
           --function-name sterio-analytics-aggregator-test \
           --zip-file fileb://analytics-lambda.zip
 
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-analytics-aggregator-test
+
     - name: Deploy to Test Lambda - Cleanup
       run: |
         aws lambda update-function-code \
           --function-name sterio-analytics-cleanup-test \
           --zip-file fileb://analytics-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-analytics-cleanup-test
 
     - name: Update Lambda configuration - Aggregator
       run: |
@@ -154,11 +162,19 @@ jobs:
           --function-name sterio-analytics-aggregator \
           --zip-file fileb://analytics-lambda.zip
 
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-analytics-aggregator
+
     - name: Deploy to Prod Lambda - Cleanup
       run: |
         aws lambda update-function-code \
           --function-name sterio-analytics-cleanup \
           --zip-file fileb://analytics-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-analytics-cleanup
 
     - name: Update Lambda configuration - Aggregator
       run: |
