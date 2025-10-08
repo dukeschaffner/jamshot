@@ -5,6 +5,15 @@ const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || 'us-east-1'
 });
 
+// Determine which event bus to use based on environment
+const getEventBusName = () => {
+  const env = process.env.NODE_ENV;
+  if (env === 'production') return 'sterio-prod-events';
+  if (env === 'test') return 'sterio-test-events';
+  // Default to test for safety in unknown environments
+  return 'sterio-test-events';
+};
+
 /**
  * Schedule a competition end event to trigger the Lambda function
  * @param {string} competitionId - The competition ID
@@ -27,7 +36,7 @@ async function scheduleCompetitionEnd(competitionId, endDate, winnerSelectionMet
             scheduled_for: endDate.toISOString()
           }),
           Time: endDate,
-          EventBusName: 'default'
+          EventBusName: getEventBusName()
         }
       ]
     };
@@ -73,7 +82,7 @@ async function scheduleCuratedFollowup(competitionId, followupDate) {
             scheduled_for: followupDate.toISOString()
           }),
           Time: followupDate,
-          EventBusName: 'default'
+          EventBusName: getEventBusName()
         }
       ]
     };
@@ -135,7 +144,7 @@ async function triggerCompetitionEndNow(competitionId) {
             triggered_at: new Date().toISOString()
           }),
           Time: new Date(),
-          EventBusName: 'default'
+          EventBusName: getEventBusName()
         }
       ]
     };
