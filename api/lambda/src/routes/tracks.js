@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
-const { parseFile } = require('music-metadata');
+const mm = require('music-metadata');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
 const pool = require('../config/db');
@@ -38,6 +38,20 @@ const { getUserPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
 const { validateCompetitionEntry } = require('../../shared/utils/competition');
 require('dotenv').config;
+
+async function getParser() {
+  if (typeof mm.parseFile === 'function') {
+    // Local dev: parseFile available directly
+    return mm;
+  }
+
+  if (typeof mm.loadMusicMetadata === 'function') {
+    // Lambda / CJS environment: dynamically load
+    return await mm.loadMusicMetadata();
+  }
+
+  throw new Error('No parseFile or loadMusicMetadata found in music-metadata');
+}
 
 // Audio processing is now handled by the dedicated audio-processing lambda
 
@@ -354,29 +368,10 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   let duration;
 
   try {
-    console.log('🔍 Starting audio metadata parsing...');
-    console.log('📁 File path:', localFilePath);
-    console.log('📦 music-metadata package check:', typeof require('music-metadata'));
-
-    // Check if parseFile function exists
-    let musicMetadata;
-    musicMetadata = require('music-metadata');
-    console.log('🔧 parseFile function check:', typeof musicMetadata.parseFile);
-
-    if (typeof musicMetadata.parseFile !== 'function') {
-      console.error('❌ parseFile is not a function. Available exports:', Object.keys(musicMetadata));
-      throw new Error('parseFile function not found in music-metadata package');
-    }
-
-    if (musicMetadata) {
-      const metadata = await musicMetadata.parseFile(localFilePath);
-      console.log('✅ Metadata parsed successfully:', {
-        duration: metadata.format.duration,
-        sampleRate: metadata.format.sampleRate,
-        numberOfChannels: metadata.format.numberOfChannels
-      });
-      duration = metadata.format.duration;
-    }
+    const parser = await getParser();
+    console.log('🔧 parseFile function check:', typeof parser.parseFile);
+    const metadata = await parser.parseFile(localFilePath);
+    duration = metadata.format.duration;
 
     // Validate track duration (max 5 minutes = 300 seconds)
     if (duration > 5 * 60) {
