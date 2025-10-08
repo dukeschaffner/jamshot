@@ -40,7 +40,7 @@ CREATE TABLE tracks (
   user_id INT REFERENCES users(id) ON DELETE CASCADE, -- Who uploaded it
   title VARCHAR(100) NOT NULL,
   audio_url VARCHAR(1000) NOT NULL, -- S3 URL for the clip
-  combined_audio_url VARCHAR(1000) NOT NULL,
+  combined_audio_url VARCHAR(1000),
   duration FLOAT NOT NULL, -- Seconds, for UI display
   layer INT NOT NULL, -- 0-4 (max 5 collaborators)
   parent_track_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Null for originals, links to parent for versions

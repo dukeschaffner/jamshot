@@ -60,6 +60,15 @@ const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || 'us-east-2'
 });
 
+// Determine which event bus to use based on environment
+const getEventBusName = () => {
+  const env = process.env.NODE_ENV;
+  if (env === 'production') return 'sterio-prod-events';
+  if (env === 'test') return 'sterio-test-events';
+  // Default to test for safety in unknown environments
+  return 'sterio-test-events';
+};
+
 const router = express.Router();
 
 const tempDir = process.env.NODE_ENV !== 'dev' ? '/tmp' : path.join(__dirname, '../../temp');
@@ -369,7 +378,6 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
 
   try {
     const parser = await getParser();
-    console.log('🔧 parseFile function check:', typeof parser.parseFile);
     const metadata = await parser.parseFile(localFilePath);
     duration = metadata.format.duration;
 
@@ -577,7 +585,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
                 s3_key: permanentTempKey,
                 created_at: new Date().toISOString()
               }),
-              EventBusName: 'default'
+              EventBusName: getEventBusName()
             }
           ]
         };

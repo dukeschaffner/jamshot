@@ -2,6 +2,15 @@ const { pool } = require('../config/db');
 const AWS = require('aws-sdk');
 const nodemailer = require('nodemailer');
 
+// Determine which event bus to use based on environment
+const getEventBusName = () => {
+  const env = process.env.NODE_ENV;
+  if (env === 'production') return 'sterio-prod-events';
+  if (env === 'test') return 'sterio-test-events';
+  // Default to test for safety in unknown environments
+  return 'sterio-test-events';
+};
+
 if (!process.env.DB_HOST) {
   require('dotenv').config();
 }
@@ -541,7 +550,8 @@ class CompetitionProcessor {
               competition_id: competitionId,
               type: 'curated_followup'
             }),
-            ScheduleExpression: `at(${scheduleTime.toISOString().replace(/[:\-]/g, '').split('.')[0]})`
+            ScheduleExpression: `at(${scheduleTime.toISOString().replace(/[:\-]/g, '').split('.')[0]})`,
+            EventBusName: getEventBusName()
           }
         ]
       };
