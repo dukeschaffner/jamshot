@@ -15,7 +15,7 @@ const poolConfig = {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT || 5432,
-  ssl: process.env.NODE_ENV === 'production' || process.env.DB_SSL === 'true' ? {
+  ssl: process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test' || process.env.DB_SSL === 'true' ? {
     rejectUnauthorized: false,
     sslmode: 'require'
   } : false,
