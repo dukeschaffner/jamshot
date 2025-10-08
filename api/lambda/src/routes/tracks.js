@@ -354,14 +354,41 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   let duration;
 
   try {
-    const metadata = await parseFile(localFilePath);
-    duration = metadata.format.duration;
+    console.log('🔍 Starting audio metadata parsing...');
+    console.log('📁 File path:', localFilePath);
+    console.log('📦 music-metadata package check:', typeof require('music-metadata'));
+
+    // Check if parseFile function exists
+    let musicMetadata;
+    musicMetadata = require('music-metadata');
+    console.log('🔧 parseFile function check:', typeof musicMetadata.parseFile);
+
+    if (typeof musicMetadata.parseFile !== 'function') {
+      console.error('❌ parseFile is not a function. Available exports:', Object.keys(musicMetadata));
+      throw new Error('parseFile function not found in music-metadata package');
+    }
+
+    if (musicMetadata) {
+      const metadata = await musicMetadata.parseFile(localFilePath);
+      console.log('✅ Metadata parsed successfully:', {
+        duration: metadata.format.duration,
+        sampleRate: metadata.format.sampleRate,
+        numberOfChannels: metadata.format.numberOfChannels
+      });
+      duration = metadata.format.duration;
+    }
 
     // Validate track duration (max 5 minutes = 300 seconds)
     if (duration > 5 * 60) {
       return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 5 minutes' });
     }
   } catch (err) {
+    console.error('❌ Audio metadata parsing failed:', {
+      error: err.message,
+      stack: err.stack,
+      filePath: localFilePath,
+      fileExists: require('fs').existsSync(localFilePath)
+    });
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
   }
 
