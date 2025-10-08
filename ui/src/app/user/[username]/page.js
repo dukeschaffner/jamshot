@@ -357,6 +357,12 @@ export default function UserPage() {
                     <button className="pill-btn sm" onClick={() => setIsEditing(true)}>
                       Edit Profile
                     </button>
+                    <button 
+                      className="pill-btn sm gradient-btn" 
+                      onClick={() => router.push(`/user/${username}/analytics`)}
+                    >
+                      📊 Analytics
+                    </button>
                   </>
                 )}
               </div>
@@ -510,7 +516,7 @@ export default function UserPage() {
                 </p>
               </div>
             )
-          ) : (
+          ) : activeTab === 'liked' ? (
             likedTracks.length > 0 ? (
               likedTracks.map(track => (
                 <Track
@@ -532,7 +538,7 @@ export default function UserPage() {
                 </p>
               </div>
             )
-          )}
+          ) : null}
         </div>
       ) : null}
 

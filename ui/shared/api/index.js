@@ -246,18 +246,30 @@ const createApiMethods = (apiClient) => {
   const api = apiClient.api;
   // Track API methods
   const trackApi = {
-    getFeed: (type = 'for-you', page = 1) => 
+    getFeed: (type = 'for-you', page = 1) =>
       api.get(`/tracks/feed/${type}?page=${page}&limit=10`),
-    
+
     getTrack: (id, secret = null) => {
       const url = secret ? `/tracks/${id}?secret=${secret}` : `/tracks/${id}`;
       return api.get(url);
     },
-    
+
     likeTrack: (id) => api.post(`/tracks/${id}/like`),
-    
+
     unlikeTrack: (id) => api.delete(`/tracks/${id}/like`),
-    
+
+    // Upload initialization - get pre-signed S3 URL
+    initUpload: (filename, fileSize) => api.post('/tracks/upload/init', {
+      filename,
+      fileSize
+    }),
+
+    // Process upload after S3 upload is complete
+    processUpload: (uploadData) => api.post('/tracks/upload', uploadData),
+
+    // Get processing status
+    getProcessingStatus: (id) => api.get(`/tracks/${id}/status`),
+
     uploadTrack: (formData) => api.post('/tracks/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
@@ -400,6 +412,60 @@ const createApiMethods = (apiClient) => {
     updateTrackInstruments: (trackId, instrumentIds) => api.post(`/tags/track/${trackId}/instruments`, { instrumentIds }),
   };
 
+  // Analytics API methods
+  const analyticsApi = {
+    getTrackAnalytics: (trackId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/tracks/${trackId}?${queryParams.toString()}`);
+    },
+
+    getTrackStreams: (trackId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/tracks/${trackId}/streams?${queryParams.toString()}`);
+    },
+
+    getUserAnalytics: (username = 'me', params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      const endpoint = username === 'me' ? '/analytics/users/me' : `/analytics/users/${username}`;
+      return api.get(`${endpoint}?${queryParams.toString()}`);
+    },
+
+    getUserTrackAnalytics: (params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/users/me/tracks?${queryParams.toString()}`);
+    },
+
+    getPlatformAnalytics: (params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/analytics/platform?${queryParams.toString()}`);
+    },
+  };
+
   return {
     trackApi,
     userApi,
@@ -408,6 +474,7 @@ const createApiMethods = (apiClient) => {
     notificationApi,
     competitionApi,
     tagApi,
+    analyticsApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,

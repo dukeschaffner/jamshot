@@ -6,13 +6,18 @@ Both views should have a time window selector that applies to all graphs and tab
 handle no data case for all graphs and tables
 should be responsive and compatible with mobile devices
 
-Track View (accessible from tracks page (analytics tab) OR user analytics page analytics tab)
+new routes:
+- /user/username/analytics
+- /user/username/analytics/track/trackId
+
+Track View (accessible from tracks page (analytics tab) OR user analytics page (ie user selects track))
 Main view (line graph):
 - time window (x axis)
 - choose metric (y axis): plays, listeners, likes, comments, reposts, shares, collab count
 - filter by: Country (only plays and listeners can be filtered by country)
 
 Streams by User (only premium users can see this)
+- shows specific users and number of streams (list of users and number of streams, display avatar)
 
 Source of streams (bar graph):
 discovery method (x axis)
