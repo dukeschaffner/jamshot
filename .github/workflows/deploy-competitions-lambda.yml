@@ -95,6 +95,10 @@ jobs:
           --function-name sterio-competition-processor-test \
           --zip-file fileb://competitions-lambda.zip
 
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-competition-processor-test
+
     - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
@@ -139,6 +143,10 @@ jobs:
         aws lambda update-function-code \
           --function-name sterio-competition-processor \
           --zip-file fileb://competitions-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-competition-processor
 
     - name: Update Lambda configuration
       run: |

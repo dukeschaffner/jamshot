@@ -98,6 +98,10 @@ jobs:
           --function-name sterio-audio-processor-test \
           --zip-file fileb://audio-processing-lambda.zip
 
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-audio-processor-test
+
     - name: Update Lambda configuration
       run: |
         aws lambda update-function-configuration \
@@ -142,6 +146,10 @@ jobs:
         aws lambda update-function-code \
           --function-name sterio-audio-processor \
           --zip-file fileb://audio-processing-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-audio-processor
 
     - name: Update Lambda configuration
       run: |
