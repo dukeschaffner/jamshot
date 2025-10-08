@@ -46,6 +46,11 @@ jobs:
       run: |
         npm ci --production
 
+    - name: Verify music-metadata package
+      run: |
+        echo "Verifying music-metadata package installation..."
+        node -e "const mm = require('music-metadata'); console.log('✅ music-metadata exports:', Object.keys(mm)); console.log('✅ parseFile exists:', typeof mm.parseFile); if (typeof mm.parseFile !== 'function') { console.error('❌ parseFile is not a function!'); process.exit(1); } else { console.log('✅ parseFile function is available'); }"
+
     # - name: Run tests
     #   run: |
     #     npm test --if-present
