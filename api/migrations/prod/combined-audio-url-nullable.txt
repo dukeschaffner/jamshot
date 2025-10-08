@@ -1,0 +1,5 @@
+-- Make combined_audio_url column nullable in tracks table
+-- Date: 2025-10-08
+
+-- Allow combined_audio_url to be null for tracks that don't have combined audio yet
+ALTER TABLE tracks ALTER COLUMN combined_audio_url DROP NOT NULL;

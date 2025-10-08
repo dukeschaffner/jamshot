@@ -1,0 +1,210 @@
+name: Deploy API Lambda to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'api/lambda/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - prod
+      reason:
+        description: 'Reason for deployment'
+        required: false
+        default: 'Manual deployment'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build-artifact: api-lambda-build-${{ github.run_number }}
+    defaults:
+      run:
+        working-directory: ./api/lambda/
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js 22
+      uses: actions/setup-node@v3
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: './api/lambda/package-lock.json'
+
+    - name: Install dependencies
+      run: |
+        npm ci --production
+
+    - name: Verify music-metadata package
+      run: |
+        echo "Verifying music-metadata package installation..."
+        node -e "const mm = require('music-metadata'); console.log('✅ music-metadata exports:', Object.keys(mm)); console.log('✅ parseFile exists:', typeof mm.parseFile); if (typeof mm.parseFile !== 'function') { console.error('❌ parseFile is not a function!'); process.exit(1); } else { console.log('✅ parseFile function is available'); }"
+
+    # - name: Run tests
+    #   run: |
+    #     npm test --if-present
+
+    - name: Create deployment package
+      run: |
+        # Create deployment zip similar to existing script but CI-friendly
+        zip -r api-lambda.zip . \
+          -x ".env*" \
+          -x "test/*" \
+          -x "*.md" \
+          -x "package-lock.json" \
+          -x "scripts/*" \
+          -x ".git/*" \
+          -x "node_modules/.cache/*" \
+          -x "dev-server.js"
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-lambda-build-${{ github.run_number }}
+        path: ./api/lambda/api-lambda.zip
+
+  deploy-to-test:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: api-lambda-test
+      url: ${{ vars.API_LAMBDA_TEST_URL }}
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION_TEST || 'us-east-2' }}
+
+    - name: Deploy to Test Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-api-test \
+          --zip-file fileb://api-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-api-test
+
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-api-test \
+          --environment Variables="{
+            API_URL=${{ secrets.API_URL_TEST }},
+            API_GATEWAY_DOMAIN=${{ secrets.API_GATEWAY_DOMAIN }},
+            DB_HOST=${{ secrets.DB_HOST_TEST }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            EMAIL=${{ secrets.EMAIL }},
+            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            FRONTEND_URL=${{ secrets.FRONTEND_URL_TEST }},
+            IPGEO_API_KEY=${{ secrets.IPGEO_API_KEY }},
+            JWT_SECRET=${{ secrets.JWT_SECRET }},
+            NODE_ENV=test,
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_TEST }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_TEST }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_TEST }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_TEST }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_TEST }},
+            SMTP_HOST=${{ secrets.SMTP_HOST }},
+            SMTP_PORT=${{ secrets.SMTP_PORT }},
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
+            STRIPE_BASIC_PRICE_ID=${{ secrets.STRIPE_BASIC_PRICE_ID_TEST }},
+            STRIPE_PREMIUM_PRICE_ID=${{ secrets.STRIPE_PREMIUM_PRICE_ID_TEST }},
+            STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_TEST }},
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_TEST }},
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
+          }"
+
+  deploy-to-prod:
+    runs-on: ubuntu-latest
+    needs: [build, deploy-to-test]
+    environment:
+      name: api-lambda-prod
+      url: ${{ vars.API_LAMBDA_PROD_URL }}
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+        aws-region: ${{ vars.AWS_REGION_PROD || 'us-east-2' }}
+
+    - name: Deploy to Prod Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-api \
+          --zip-file fileb://api-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-api
+
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-api \
+          --environment Variables="{
+            API_URL=${{ secrets.API_URL_PROD }},
+            API_GATEWAY_DOMAIN=${{ secrets.API_GATEWAY_DOMAIN }},
+            DB_HOST=${{ secrets.DB_HOST_PROD }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            EMAIL=${{ secrets.EMAIL }},
+            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }},
+            IPGEO_API_KEY=${{ secrets.IPGEO_API_KEY }},
+            JWT_SECRET=${{ secrets.JWT_SECRET }},
+            NODE_ENV=production,
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_PROD }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_PROD }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_PROD }},
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL_PROD }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_PROD }},
+            SMTP_HOST=${{ secrets.SMTP_HOST }},
+            SMTP_PORT=${{ secrets.SMTP_PORT }},
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
+            STRIPE_BASIC_PRICE_ID=${{ secrets.STRIPE_BASIC_PRICE_ID_PROD }},
+            STRIPE_PREMIUM_PRICE_ID=${{ secrets.STRIPE_PREMIUM_PRICE_ID_PROD }},
+            STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }},
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }},
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}
+          }"
+
+    - name: Create deployment tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "api-lambda-v${{ github.run_number }}" -m "API Lambda deployment ${{ github.run_number }}"
+        git push origin "api-lambda-v${{ github.run_number }}"

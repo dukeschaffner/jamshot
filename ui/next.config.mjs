@@ -12,7 +12,7 @@ const nextConfig = {
   // assetPrefix: process.env.NODE_ENV === 'production' ? './' : '',
 
   images: {
-    domains: ['sterio-test.s3.us-east-2.amazonaws.com','sterio.s3.us-east-2.amazonaws.com'],
+    domains: ['pub-0b5b4b5c33744ae8907300ffc31c99c9.r2.dev', 'cdn-test.sterio.fm', 'cdn.sterio.fm'],
   },
 };
 

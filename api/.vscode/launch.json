@@ -4,12 +4,36 @@
       {
         "type": "node",
         "request": "launch",
-        "name": "Debug Node API",
+        "name": "Debug Lambda API (Local)",
         "skipFiles": ["<node_internals>/**"],
-        "program": "${workspaceFolder}/src/index.js",
+        "program": "${workspaceFolder}/lambda/dev-server.js",
         "runtimeArgs": ["--inspect"],
-        "envFile": "${workspaceFolder}/.env",
-        "console": "integratedTerminal"
+        "envFile": "${workspaceFolder}/lambda/.env",
+        "console": "integratedTerminal",
+        "cwd": "${workspaceFolder}/lambda"
+      },
+      {
+        "type": "node",
+        "request": "launch",
+        "name": "Run Lambda Handler Directly",
+        "skipFiles": ["<node_internals>/**"],
+        "program": "${workspaceFolder}/lambda/handler.js",
+        "args": ["test"],
+        "envFile": "${workspaceFolder}/lambda/.env",
+        "console": "integratedTerminal",
+        "cwd": "${workspaceFolder}/lambda"
+      },
+      {
+        "type": "node",
+        "request": "launch",
+        "name": "Debug Lambda with Serverless Offline",
+        "skipFiles": ["<node_internals>/**"],
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "dev"],
+        "envFile": "${workspaceFolder}/lambda/.env",
+        "console": "integratedTerminal",
+        "cwd": "${workspaceFolder}/lambda",
+        "outputCapture": "std"
       }
     ]
   }

@@ -14,7 +14,7 @@ npm run electron-dev
 This will:
 1. Start the Next.js development server
 2. Wait for the server to be ready
-3. Launch the Electron app
+3. Launch the Electron appp
 
 ### Production Build
 To build the desktop app for distribution:

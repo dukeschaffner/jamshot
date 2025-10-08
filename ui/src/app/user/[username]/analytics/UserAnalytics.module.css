@@ -1,0 +1,257 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.headerContent {
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.premiumNotice {
+  background: linear-gradient(135deg, var(--seafoam-light), var(--rustic-pink-light));
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  display: inline-block;
+}
+
+.premiumNotice p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.controls {
+  background-color: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.error {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.error h2 {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.error p {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 1rem;
+}
+
+.geographicSection {
+  background-color: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.geographicSection h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1.5rem 0;
+}
+
+.geographicGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.geographicCard {
+  background-color: var(--grey-1);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.geographicCard h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1rem 0;
+}
+
+.geographicList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.geographicItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.geographicItem:last-child {
+  border-bottom: none;
+}
+
+.country {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.count {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--seafoam);
+}
+
+.premiumFeatures {
+  background: linear-gradient(135deg, var(--grey-1), var(--seafoam-light));
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.premiumFeatures h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1rem 0;
+}
+
+.premiumFeatures ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem 0;
+  text-align: left;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.premiumFeatures li {
+  padding: 0.5rem 0;
+  color: var(--text-secondary);
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.premiumFeatures li::before {
+  content: '✨';
+  position: absolute;
+  left: 0;
+}
+
+/* Dark mode adjustments */
+body.dark-mode .controls,
+body.dark-mode .geographicSection {
+  background-color: var(--grey-1);
+  border-color: var(--grey-3);
+}
+
+body.dark-mode .geographicCard {
+  background-color: var(--grey-2);
+}
+
+body.dark-mode .geographicItem {
+  border-color: var(--grey-3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  .subtitle {
+    font-size: 1rem;
+  }
+  
+  .controls {
+    padding: 1.5rem;
+  }
+  
+  .geographicGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .geographicSection {
+    padding: 1.5rem;
+  }
+  
+  .geographicCard {
+    padding: 1rem;
+  }
+  
+  .premiumFeatures {
+    padding: 1.5rem;
+  }
+  
+  .premiumFeatures ul {
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0.5rem;
+  }
+  
+  .header {
+    margin-bottom: 2rem;
+  }
+  
+  .title {
+    font-size: 1.8rem;
+  }
+  
+  .controls {
+    padding: 1rem;
+  }
+  
+  .content {
+    gap: 1rem;
+  }
+  
+  .geographicSection,
+  .geographicCard,
+  .premiumFeatures {
+    padding: 1rem;
+  }
+}
