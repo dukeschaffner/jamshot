@@ -3,7 +3,8 @@ const app = require('./src/index');
 
 // Create serverless express instance with proper configuration
 const serverlessExpressInstance = serverlessExpress({
-  app
+  app,
+  shouldParseBody: false,
 });
 
 // Lambda handler function
@@ -14,8 +15,11 @@ exports.handler = async (event, context) => {
   console.log('Event body type:', typeof event.body);
   console.log('Event isBase64Encoded:', event.isBase64Encoded);
 
-  console.log('Event:', JSON.stringify(event, null, 2));
-  console.log('Context:', JSON.stringify(context, null, 2));
+  if (event.body && event.isBase64Encoded) {
+    event.body = Buffer.from(event.body, 'base64');
+  }
+
+  console.log('Event url:', event.url);
 
   return serverlessExpressInstance(event, context);
 };

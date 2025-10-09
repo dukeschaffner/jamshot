@@ -29,6 +29,7 @@ TODO (MVP)
 - production ready CICD for all infra
 - dont load any tracks that havent completed processing
 - r2 temp cleaning
+- stripe sunhertz logo
 
 
 
