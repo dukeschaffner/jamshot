@@ -89,7 +89,7 @@ if (process.env.NODE_ENV === 'dev') {
   };
 
   app.use(cors(corsOptions));
-} else {
+} else { // CORS configured in API Gateway
   // Body parser middleware to handle Buffer objects from API Gateway
   app.use(bodyParser);
 
