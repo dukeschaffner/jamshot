@@ -1,9 +1,16 @@
 /**
  * Body parser middleware for AWS Lambda/API Gateway
  * Handles Buffer objects that come from API Gateway and converts them to parsed JSON
+ * Skips routes that need raw body access (like Stripe webhooks)
  */
 const bodyParser = (req, res, next) => {
   try {
+    // Skip body parsing for routes that need raw body access
+    // Specifically, Stripe webhook needs raw body for signature verification
+    if (req.path === '/api/payments/webhook') {
+      return next();
+    }
+
     // Check if req.body is a Buffer (common in Lambda/API Gateway)
     if (req.body && Buffer.isBuffer(req.body)) {
       // Convert Buffer to string and parse as JSON
