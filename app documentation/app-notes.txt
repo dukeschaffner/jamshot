@@ -36,6 +36,7 @@ TODO (MVP)
 BUGS
 - when not following any users, sometimes it loads the popular feed but shows the following feed button selected
 - double check track plays recording correctly
+- audio url refresh endless cycle
 
 
 

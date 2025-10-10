@@ -53,47 +53,45 @@ app.use(speedLimiter);
 
 //app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
+// CORS configuration for API Gateway
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Allow local development
+    if (origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'dev') {
+      return callback(null, true);
+    }
+
+    // Allow production domains
+    if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com' ||
+        origin === 'https://sterio.fm' ||
+        origin === 'https://www.sterio.fm') {
+      return callback(null, true);
+    }
+
+    // Allow API Gateway domain (when deployed)
+    if (process.env.API_GATEWAY_DOMAIN && origin.includes(process.env.API_GATEWAY_DOMAIN)) {
+      return callback(null, true);
+    }
+
+    // Deny other origins.
+    callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
+  credentials: true // Allow cookies to be sent
+};
+
+app.use(cors(corsOptions));
+
 if (process.env.NODE_ENV === 'dev') {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  
-  // CORS configuration for API Gateway
-  const corsOptions = {
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-
-      // Allow local development
-      if (origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'dev') {
-        return callback(null, true);
-      }
-
-
-      // Allow production domains
-      if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com' ||
-          origin === 'https://sterio.fm' ||
-          origin === 'https://www.sterio.fm') {
-        return callback(null, true);
-      }
-
-      // Allow API Gateway domain (when deployed)
-      if (process.env.API_GATEWAY_DOMAIN && origin.includes(process.env.API_GATEWAY_DOMAIN)) {
-        return callback(null, true);
-      }
-
-      // Deny other origins.
-      callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
-    credentials: true // Allow cookies to be sent
-  };
-
-  app.use(cors(corsOptions));
 } else { // CORS configured in API Gateway
   // Body parser middleware to handle Buffer objects from API Gateway
   app.use(bodyParser);
-
 }
 
 // Cookie parser middleware (must come before CSRF)
