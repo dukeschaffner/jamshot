@@ -288,15 +288,30 @@ class AudioProcessor {
     return new Promise((resolve, reject) => {
       const ffmpegCommand = ffmpeg();
 
-      // Add all input files
+      // Build complex filter for volume adjustments and mixing
+      const filterParts = [];
+      const inputs = [];
+
       inputFiles.forEach((file, index) => {
         ffmpegCommand.input(file);
+        inputs.push(`[${index}:a]`); // Audio stream reference
 
-        // Apply gain if specified
+        // Apply gain if specified (not 1.0)
         if (gainValues && gainValues[index] !== undefined && gainValues[index] !== 1.0) {
-          ffmpegCommand.inputOptions([`-filter:${index} volume=${gainValues[index]}`]);
+          filterParts.push(`${inputs[index]}volume=${gainValues[index]}[a${index}]`);
+          inputs[index] = `[a${index}]`; // Update reference to filtered output
         }
       });
+
+      // Mix all inputs
+      const mixInputs = inputs.join('');
+      filterParts.push(`${mixInputs}amix=inputs=${inputFiles.length}:normalize=0[aout]`);
+
+      // Apply loudness normalization if specified
+      if (targetLufs !== null) {
+        const lra = 11; // Loudness Range (11 LU is typical for modern music)
+        filterParts.push(`[aout]loudnorm=I=${targetLufs}:LRA=${lra}:TP=${truePeak || -1}:measured_I=-23.0:measured_LRA=11.0:measured_TP=-1.0:measured_thresh=-30.0:offset=0.0:linear=true`);
+      }
 
       // Set up audio processing
       ffmpegCommand
@@ -305,12 +320,13 @@ class AudioProcessor {
         .audioFrequency(44100)
         .audioChannels(2);
 
-      // Apply loudness normalization if specified
-      if (targetLufs !== null) {
-        const lra = 11; // Loudness Range (11 LU is typical for modern music)
-        ffmpegCommand.audioFilters([
-          `loudnorm=I=${targetLufs}:LRA=${lra}:TP=${truePeak || -1}:measured_I=-23.0:measured_LRA=11.0:measured_TP=-1.0:measured_thresh=-30.0:offset=0.0:linear=true`
-        ]);
+      // Apply the complex filter
+      if (filterParts.length > 0) {
+        ffmpegCommand.complexFilter(filterParts);
+        if (targetLufs === null) {
+          // If no loudness normalization, map the mixed output directly
+          ffmpegCommand.outputOptions(['-map', '[aout]']);
+        }
       }
 
       ffmpegCommand
