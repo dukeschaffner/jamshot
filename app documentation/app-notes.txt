@@ -25,16 +25,15 @@ TODO (MVP)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
-- API infra solution
-- production ready CICD for all infra
 - dont load any tracks that havent completed processing
-- r2 temp cleaning
+- stripe sunhertz logo
 
 
 
 BUGS
 - when not following any users, sometimes it loads the popular feed but shows the following feed button selected
 - double check track plays recording correctly
+- audio url refresh endless cycle
 
 
 
@@ -50,6 +49,8 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- script to clean r2 files that dont have track in db
+- script to delete old tracks that never finished processing
 - looper/trim snap
 - recording while looping should auto create takes after each loop
 - files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
