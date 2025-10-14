@@ -559,6 +559,17 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
       // TODO: Implement voucher validation logic
       // For now, we'll skip fee calculation if voucher is provided
     }
+
+    // In dev and test environments, if voucher_code can be parsed as an integer,
+    // treat it as minutes and schedule competition end that many minutes from now
+    let finalEndDate = endDate;
+    if ((process.env.NODE_ENV === 'dev' || process.env.NODE_ENV === 'test') && voucher_code) {
+      const parsedMinutes = parseInt(voucher_code);
+      if (!isNaN(parsedMinutes) && parsedMinutes > 0) {
+        finalEndDate = new Date(now.getTime() + (parsedMinutes * 60 * 1000));
+        console.log(`Dev/Test environment: Setting competition end date to ${parsedMinutes} minutes from now (${finalEndDate.toISOString()})`);
+      }
+    }
     
     // If no fee required (voucher or premium user with no pinning), create competition immediately
     if (finalFee === 0) {
@@ -567,7 +578,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
           track_id, startdate, enddate, prize_amount, host_id,
           pinned, winner_selection_method, voucher_code
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [track_id, startDate, endDate, prizeAmount, userId, pinned, winner_selection_method, voucher_code]
+        [track_id, startDate, finalEndDate, prizeAmount, userId, pinned, winner_selection_method, voucher_code]
       );
 
       const competition = competitionResult.rows[0];
@@ -580,7 +591,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
 
       // Schedule the competition end event
       try {
-        await scheduleCompetitionEnd(competition.id, endDate, winner_selection_method);
+        await scheduleCompetitionEnd(competition.id, finalEndDate, winner_selection_method);
         console.log(`Competition end scheduled for ID: ${competition.id}`);
       } catch (scheduleError) {
         console.error('Error scheduling competition end:', scheduleError);
@@ -617,7 +628,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
         userId: userId,
         trackId: track_id,
         startdate: startDate.toISOString(),
-        enddate: endDate.toISOString(),
+        enddate: finalEndDate.toISOString(),
         prizeAmount: prizeAmount,
         winnerSelectionMethod: winner_selection_method,
         pinned: pinned,
