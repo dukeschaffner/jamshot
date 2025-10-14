@@ -2,8 +2,13 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const authMiddleware = (req, res, next) => {
+  // Skip authentication for OPTIONS requests (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   const token = req.header('Authorization')?.replace('Bearer ', '');
-  if (!token) return res.status(401).json({ 
+  if (!token) return res.status(401).json({
     error: 'No token provided',
     code: 'NO_TOKEN_PROVIDED'
   });
