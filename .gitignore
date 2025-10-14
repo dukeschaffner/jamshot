@@ -3,10 +3,7 @@
 */uploads
 
 # dependencies
-*/node_modules
-api/node_modules
-ui/node_modules
-/node_modules
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -47,3 +44,4 @@ yarn-error.log*
 next-env.d.ts
 
 *.zip
+.ignore/
