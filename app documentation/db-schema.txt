@@ -40,7 +40,7 @@ CREATE TABLE tracks (
   user_id INT REFERENCES users(id) ON DELETE CASCADE, -- Who uploaded it
   title VARCHAR(100) NOT NULL,
   audio_url VARCHAR(1000) NOT NULL, -- S3 URL for the clip
-  combined_audio_url VARCHAR(1000) NOT NULL,
+  combined_audio_url VARCHAR(1000),
   duration FLOAT NOT NULL, -- Seconds, for UI display
   layer INT NOT NULL, -- 0-4 (max 5 collaborators)
   parent_track_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Null for originals, links to parent for versions
@@ -54,7 +54,12 @@ CREATE TABLE tracks (
   allow_download BOOLEAN NOT NULL DEFAULT TRUE,
   is_competition_entry BOOLEAN NOT NULL DEFAULT FALSE,
   competition_id INT REFERENCES competitions(id) ON DELETE SET NULL -- used to indicate both competition entries and hosted competitions
+  processing_status TEXT DEFAULT 'completed' CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')),
+  processing_error TEXT
 );
+
+CREATE INDEX idx_tracks_processing_status ON tracks(processing_status);
+
 
 
 
