@@ -410,4 +410,97 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// Create test users endpoint (dev/test only)
+router.post('/create-test-users', async (req, res) => {
+  // Only allow in development or test environments
+  if (process.env.NODE_ENV !== 'dev' && process.env.NODE_ENV !== 'test') {
+    return res.status(403).json({ error: 'This endpoint is only available in development or test environments' });
+  }
+
+  try {
+    const testUsers = [
+      {
+        username: 'free',
+        email: 'free@s',
+        name: 'free user',
+        subscription_tier: 'free',
+        is_private: false
+      },
+      {
+        username: 'basic',
+        email: 'basic@s',
+        name: 'basic user',
+        subscription_tier: 'basic',
+        is_private: false
+      },
+      {
+        username: 'premium',
+        email: 'premium@s',
+        name: 'premium user',
+        subscription_tier: 'premium',
+        is_private: false
+      },
+      {
+        username: 'private',
+        email: 'private@s',
+        name: 'private user',
+        subscription_tier: 'free',
+        is_private: true
+      }
+    ];
+
+    const createdUsers = [];
+    const existingUsers = [];
+
+    for (const userData of testUsers) {
+      // Check if user already exists
+      const existingUser = await pool.query(
+        'SELECT id, username FROM users WHERE username = $1 OR email = $2',
+        [userData.username, userData.email]
+      );
+
+      if (existingUser.rows.length > 0) {
+        existingUsers.push(userData.username);
+        continue;
+      }
+
+      // Hash the password
+      const hashedPassword = await bcrypt.hash('1234', 10);
+
+      // Create the user
+      const result = await pool.query(
+        `INSERT INTO users (username, name, email, password_hash, email_verified, subscription_tier, is_private,
+         terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING id, username, email, subscription_tier, is_private`,
+        [
+          userData.username,
+          userData.name,
+          userData.email,
+          hashedPassword,
+          true, // email_verified
+          userData.subscription_tier,
+          userData.is_private,
+          true, // terms_accepted
+          true, // privacy_policy_accepted
+          new Date(), // policy_accepted_at
+          '1.0' // policy_version
+        ]
+      );
+
+      createdUsers.push(result.rows[0]);
+    }
+
+    res.status(201).json({
+      message: 'Test users creation completed',
+      created: createdUsers,
+      existing: existingUsers
+    });
+
+  } catch (err) {
+    console.error('Error creating test users:', err);
+    res.status(500).json({ error: 'Failed to create test users' });
+  }
+});
+
 module.exports = router;

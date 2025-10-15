@@ -2,6 +2,23 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+/**
+ * Get the appropriate email address based on environment
+ * @param {string} originalEmail - The original email address
+ * @returns {string} - The email address to use (TEST_EMAIL in dev/test, original in production)
+ */
+const getEmailAddress = (originalEmail) => {
+  const env = process.env.NODE_ENV;
+  const isDevOrTest = env === 'dev' || env === 'development' || env === 'test';
+  
+  if (isDevOrTest && process.env.TEST_EMAIL) {
+    console.log(`[EMAIL REDIRECT] ${originalEmail} -> ${process.env.TEST_EMAIL} (${env} environment)`);
+    return process.env.TEST_EMAIL;
+  }
+  
+  return originalEmail;
+};
+
 // Create a transporter using custom SMTP credentials
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST, // e.g., 'smtp.zoho.com' or your provider's SMTP host
@@ -34,7 +51,7 @@ const sendVerificationEmail = async (email, userId, username) => {
   // Email content
   const mailOptions = {
     from: process.env.EMAIL,
-    to: email,
+    to: getEmailAddress(email),
     subject: 'Verify your Sterio account',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -75,7 +92,7 @@ const sendPasswordResetEmail = async (email, userId, username) => {
   // Email content
   const mailOptions = {
     from: process.env.EMAIL,
-    to: email,
+    to: getEmailAddress(email),
     subject: 'Reset your Sterio password',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -108,7 +125,7 @@ const sendPasswordResetEmail = async (email, userId, username) => {
 const sendContactEmail = async ({ name, email, message }) => {
   const mailOptions = {
     from: process.env.EMAIL,
-    to: 'hello@sterio.fm',
+    to: getEmailAddress('hello@sterio.fm'),
     subject: `Contact Form Submission from ${name}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
