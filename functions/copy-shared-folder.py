@@ -285,6 +285,34 @@ def copy_shared_folder():
         if dirs_removed > 0:
             print(f"🗑️  Removed {dirs_removed} empty directories")
 
+        # Transform remaining JS files for ES6 exports (Mobile) - add export statements based on UI_EXPORTS
+        print(f"🔄 Transforming remaining JS files to ES6 for Mobile...")
+        for js_file in mobile_dest.rglob('*.js'):
+            if js_file.name == 'index.js' and js_file.parent == mobile_dest:
+                continue  # Skip the main index.js we'll generate
+
+            try:
+                with open(js_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Parse UI_EXPORTS from this file
+                ui_exports = parse_export_lists(js_file)['ui']
+
+                if ui_exports:
+                    # Add ES6 export statements for the UI exports
+                    content += f"\n\n// Auto-generated ES6 exports\nexport {{\n"
+                    for export_item in ui_exports:
+                        content += f"  {export_item},\n"
+                    content += "};\n"
+
+                    with open(js_file, 'w', encoding='utf-8') as f:
+                        f.write(content)
+
+                    print(f"✅ Added ES6 exports to {js_file.relative_to(mobile_dest)}")
+
+            except Exception as e:
+                print(f"⚠️  Warning: Could not transform {js_file}: {e}")
+
         # Generate mobile-specific index.js
         print(f"🔄 Generating mobile index.js...")
         index_content = generate_index_file(mobile_dest, export_lists['ui'], is_commonjs=False)
@@ -315,6 +343,34 @@ def copy_shared_folder():
         dirs_removed = remove_empty_directories(ui_dest)
         if dirs_removed > 0:
             print(f"🗑️  Removed {dirs_removed} empty directories")
+
+        # Transform remaining JS files for ES6 exports (UI) - add export statements based on UI_EXPORTS
+        print(f"🔄 Transforming remaining JS files to ES6 for UI...")
+        for js_file in ui_dest.rglob('*.js'):
+            if js_file.name == 'index.js' and js_file.parent == ui_dest:
+                continue  # Skip the main index.js we'll generate
+
+            try:
+                with open(js_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # Parse UI_EXPORTS from this file
+                ui_exports = parse_export_lists(js_file)['ui']
+
+                if ui_exports:
+                    # Add ES6 export statements for the UI exports
+                    content += f"\n\n// Auto-generated ES6 exports\nexport {{\n"
+                    for export_item in ui_exports:
+                        content += f"  {export_item},\n"
+                    content += "};\n"
+
+                    with open(js_file, 'w', encoding='utf-8') as f:
+                        f.write(content)
+
+                    print(f"✅ Added ES6 exports to {js_file.relative_to(ui_dest)}")
+
+            except Exception as e:
+                print(f"⚠️  Warning: Could not transform {js_file}: {e}")
 
         # Generate ui-specific index.js
         print(f"🔄 Generating ui index.js...")

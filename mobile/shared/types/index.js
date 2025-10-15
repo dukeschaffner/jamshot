@@ -46,3 +46,12 @@ const UI_EXPORTS = [
   FEED_TYPES,
   PRIVACY_TYPES
 ];
+
+
+// Auto-generated ES6 exports
+export {
+  AUDIO_CONSTANTS,
+  SUBSCRIPTION_TIERS,
+  FEED_TYPES,
+  PRIVACY_TYPES,
+};
