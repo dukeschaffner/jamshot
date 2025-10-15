@@ -35,7 +35,7 @@ const SUBSCRIPTION_PLANS = {
       max_recording_duration: 300 // 5 minutes in seconds
     },
     highlights: [
-      '1 upload per day',
+      '3 uploads per day',
       '25 total uploads',
     //   '5 minute recording limit',
       'Community features'

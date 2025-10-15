@@ -18,11 +18,11 @@ export default function Home() {
   const [error, setError] = useState('');
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [feedType, setFeedType] = useState('for-you'); // Options: 'for-you', 'following', 'popular'
+  const [feedType, setFeedType] = useState(null); // Options: 'following', 'popular'
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const observer = useRef();
   const TRACKS_PER_PAGE = 5;
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, isLoading } = useUser();
   const { isMobile } = useMobile();
   // Check if this is the first visit when component mounts
   useEffect(() => {
@@ -35,13 +35,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      setFeedType('following');
+    // Only set feed type after authentication check is complete
+    if (!isLoading) {
+      if (isAuthenticated) {
+        setFeedType('following');
+      } else {
+        setFeedType('popular');
+      }
     }
-    else {
-      setFeedType('popular');
-    }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isLoading]);
 
   const closeWelcomeDialog = () => {
     setShowWelcomeDialog(false);
@@ -90,13 +92,17 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setPage(1);
-    setTracks([]);
-    fetchTracks(1, feedType);
+    // Only fetch tracks when feed type is properly initialized
+    if (feedType) {
+      setPage(1);
+      setTracks([]);
+      fetchTracks(1, feedType);
+    }
   }, [feedType, fetchTracks]);
 
   useEffect(() => {
-    if (page > 1) {
+    // Only fetch additional pages when feed type is properly initialized
+    if (page > 1 && feedType) {
       fetchTracks(page, feedType);
     }
   }, [page, feedType, fetchTracks]);
@@ -199,12 +205,18 @@ export default function Home() {
           Check out the latest tracks from artists you follow and trending collaborations
         </p>
         
-        <CustomTabs
-          tabs={tabs}
-          activeTab={feedType}
-          onTabChange={handleFeedTypeChange}
-          variant="feed"
-        />
+        {feedType ? (
+          <CustomTabs
+            tabs={tabs}
+            activeTab={feedType}
+            onTabChange={handleFeedTypeChange}
+            variant="feed"
+          />
+        ) : (
+          <div className={styles.feedTabs}>
+            <div className={styles.loadingTabs}>Loading...</div>
+          </div>
+        )}
       </div>
 
       {/* Mobile Banner - Show sponsored competition above feed on mobile */}
