@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const pool = require('../config/db');
-const AnalyticsAggregator = require('../utils/analyticsAggregator');
 const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils');
 
 /**
@@ -602,45 +601,6 @@ router.get('/platform', authMiddleware, async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching platform analytics:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Manual trigger for analytics aggregation (admin only)
-router.post('/aggregate', authMiddleware, async (req, res) => {
-  try {
-    const { period, date } = req.body;
-    const userId = req.user.id;
-
-    // Check if user is admin
-    const adminQuery = `
-      SELECT subscription_tier, verified
-      FROM users 
-      WHERE id = $1
-    `;
-    const adminResult = await pool.query(adminQuery, [userId]);
-    const user = adminResult.rows[0];
-    
-    if (!user.verified && user.subscription_tier === 'free') {
-      return res.status(403).json({ error: 'Access denied. Analytics aggregation requires verification or premium subscription.' });
-    }
-
-    const aggregator = new AnalyticsAggregator();
-    
-    if (period) {
-      await aggregator.runPeriodAggregation(period, date ? new Date(date) : new Date());
-    } else {
-      await aggregator.runFullAggregation(date ? new Date(date) : new Date());
-    }
-
-    res.json({ 
-      message: 'Analytics aggregation completed successfully',
-      period: period || 'all',
-      date: date || new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Error triggering analytics aggregation:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -17,14 +17,17 @@ const SUBSCRIPTION_PLANS = {
     currency: 'USD',
     billing_period: null,
     features: {
-      uploads_per_day: 1,
+      uploads_per_day: 3,
       total_uploads: 25,
       private_tracks: false,
       recording_limit_minutes: 5,
       analytics: false,
+      analytics_streams_by_user: false,
       ads: true,
       free_samples_per_month: 0,
-      advanced_daw: false
+      advanced_daw: false,
+      host_competitions: false,
+      no_hosting_fees: false
     },
     limits: {
       daily_uploads: 1,
@@ -51,9 +54,12 @@ const SUBSCRIPTION_PLANS = {
       recording_limit_minutes: 5,
       private_tracks: true,
       analytics: true,
+      analytics_streams_by_user: false,
       ads: false,
       free_samples_per_month: 0,
-      advanced_daw: false
+      advanced_daw: false,
+      host_competitions: true,
+      no_hosting_fees: false
     },
     limits: {
       daily_uploads: 5,
@@ -64,7 +70,8 @@ const SUBSCRIPTION_PLANS = {
       '5 uploads per day',
       '60 total uploads',
       'Private tracks',
-    //   'Analytics dashboard',
+      'Analytics',
+      'Host competitions',
     //   'No ads'
     ]
   },
@@ -81,9 +88,12 @@ const SUBSCRIPTION_PLANS = {
       recording_limit_minutes: 10,
       private_tracks: true,
       analytics: true,
+      analytics_streams_by_user: true,
       ads: false,
       free_samples_per_month: 5,
-      advanced_daw: true
+      advanced_daw: true,
+      host_competitions: true,
+      no_hosting_fees: true
     },
     limits: {
       daily_uploads: 25,
@@ -97,7 +107,8 @@ const SUBSCRIPTION_PLANS = {
       'Private tracks',
     //   'Advanced DAW',
     //   '5 free samples per month',
-    //   'Analytics dashboard',
+      'Analytics ( + streams by user)',
+      'Host competitions (No hosting fees)',
     //   'No ads'
     ]
   }

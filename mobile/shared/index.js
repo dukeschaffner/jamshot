@@ -3,6 +3,7 @@
 import { createApiClient, createApiMethods } from './api/index.js';
 import { AUDIO_CONSTANTS, SUBSCRIPTION_TIERS, FEED_TYPES, PRIVACY_TYPES } from './types/index.js';
 import { formatDuration, formatDate, formatDateTime, formatCompetitionDateRange, formatTimeAgo, formatPlayCount, getLikeCountString, getCommentCountString, formatFollowerCount, formatFileSize, formatUsername, truncateText, capitalizeWords, posToTime, timeToPos, getCountryName, getCountryFlag } from './utils/formatting.js';
+import { validateDateOfBirth } from './utils/validation.js';
 
 export { createApiClient };
 export { createApiMethods };
@@ -27,3 +28,4 @@ export { posToTime };
 export { timeToPos };
 export { getCountryName };
 export { getCountryFlag };
+export { validateDateOfBirth };

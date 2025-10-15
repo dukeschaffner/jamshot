@@ -35,6 +35,9 @@ import {
   getCountryName,
   getCountryFlag
 } from './utils/formatting.js';
+import {
+  validateDateOfBirth
+} from './utils/validation.js';
 
 // Export lists for different platforms
 const API_EXPORTS = [
@@ -50,7 +53,8 @@ const API_EXPORTS = [
   compareTiers,
   getTierRank,
   isUpgrade,
-  isDowngrade
+  isDowngrade,
+  validateDateOfBirth
 ];
 const UI_EXPORTS = [
   // API utilities
@@ -78,5 +82,6 @@ const UI_EXPORTS = [
   posToTime,
   timeToPos,
   getCountryName,
-  getCountryFlag
+  getCountryFlag,
+  validateDateOfBirth
 ];
