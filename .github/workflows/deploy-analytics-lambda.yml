@@ -202,9 +202,9 @@ jobs:
             NODE_ENV=production
           }"
 
-    - name: Create deployment tag
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag -a "analytics-lambda-v${{ github.run_number }}" -m "Analytics Lambda deployment ${{ github.run_number }}"
-        git push origin "analytics-lambda-v${{ github.run_number }}"
+    # - name: Create deployment tag
+    #   run: |
+    #     git config --local user.email "action@github.com"
+    #     git config --local user.name "GitHub Action"
+    #     git tag -a "analytics-lambda-v${{ github.run_number }}" -m "Analytics Lambda deployment ${{ github.run_number }}"
+    #     git push origin "analytics-lambda-v${{ github.run_number }}"
