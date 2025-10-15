@@ -2,6 +2,23 @@ const { pool } = require('../config/db');
 const AWS = require('aws-sdk');
 const nodemailer = require('nodemailer');
 
+/**
+ * Get the appropriate email address based on environment
+ * @param {string} originalEmail - The original email address
+ * @returns {string} - The email address to use (TEST_EMAIL in dev/test, original in production)
+ */
+const getEmailAddress = (originalEmail) => {
+  const env = process.env.NODE_ENV;
+  const isDevOrTest = env === 'dev' || env === 'development' || env === 'test';
+  
+  if (isDevOrTest && process.env.TEST_EMAIL) {
+    console.log(`[EMAIL REDIRECT] ${originalEmail} -> ${process.env.TEST_EMAIL} (${env} environment)`);
+    return process.env.TEST_EMAIL;
+  }
+  
+  return originalEmail;
+};
+
 // Determine which event bus to use based on environment
 const getEventBusName = () => {
   const env = process.env.NODE_ENV;
@@ -599,7 +616,7 @@ class CompetitionProcessor {
 
     const mailOptions = {
       from: process.env.EMAIL,
-      to: winner.email,
+      to: getEmailAddress(winner.email),
       subject: '🎉 You won a competition on Jamshot!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -645,7 +662,7 @@ class CompetitionProcessor {
 
     const mailOptions = {
       from: process.env.EMAIL,
-      to: competition.host_email,
+      to: getEmailAddress(competition.host_email),
       subject: isBackupWinner 
         ? 'Competition winner selected automatically' 
         : 'Competition ended - Winner selected!',
@@ -675,7 +692,7 @@ class CompetitionProcessor {
 
     const mailOptions = {
       from: process.env.EMAIL,
-      to: competition.host_email,
+      to: getEmailAddress(competition.host_email),
       subject: 'Competition ended - No entries received',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -701,7 +718,7 @@ class CompetitionProcessor {
 
     const mailOptions = {
       from: process.env.EMAIL,
-      to: competition.host_email,
+      to: getEmailAddress(competition.host_email),
       subject: 'Competition ended - No winner selected',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

@@ -135,7 +135,8 @@ jobs:
             STRIPE_PREMIUM_PRICE_ID=${{ secrets.STRIPE_PREMIUM_PRICE_ID_TEST }},
             STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY_TEST }},
             STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_TEST }},
-            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
+            STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }},
+            TEST_EMAIL=${{ vars.TEST_EMAIL }}
           }"
 
   deploy-to-prod:
