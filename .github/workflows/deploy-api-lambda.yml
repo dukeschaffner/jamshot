@@ -202,9 +202,9 @@ jobs:
             STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}
           }"
 
-    - name: Create deployment tag
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag -a "api-lambda-v${{ github.run_number }}" -m "API Lambda deployment ${{ github.run_number }}"
-        git push origin "api-lambda-v${{ github.run_number }}"
+    # - name: Create deployment tag
+    #   run: |
+    #     git config --local user.email "action@github.com"
+    #     git config --local user.name "GitHub Action"
+    #     git tag -a "api-lambda-v${{ github.run_number }}" -m "API Lambda deployment ${{ github.run_number }}"
+    #     git push origin "api-lambda-v${{ github.run_number }}"

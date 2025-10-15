@@ -49,6 +49,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- if track is loop, allow collaborators to increase/set the number of loops in the collab
 - script to clean r2 files that dont have track in db
 - script to delete old tracks that never finished processing
 - looper/trim snap

@@ -166,9 +166,9 @@ jobs:
             SMTP_SECURE=${{ secrets.SMTP_SECURE }}
           }"
 
-    - name: Create deployment tag
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag -a "competitions-lambda-v${{ github.run_number }}" -m "Competitions Lambda deployment ${{ github.run_number }}"
-        git push origin "competitions-lambda-v${{ github.run_number }}"
+    # - name: Create deployment tag
+    #   run: |
+    #     git config --local user.email "action@github.com"
+    #     git config --local user.name "GitHub Action"
+    #     git tag -a "competitions-lambda-v${{ github.run_number }}" -m "Competitions Lambda deployment ${{ github.run_number }}"
+    #     git push origin "competitions-lambda-v${{ github.run_number }}"
