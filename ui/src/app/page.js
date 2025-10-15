@@ -24,6 +24,8 @@ export default function Home() {
   const TRACKS_PER_PAGE = 5;
   const { isAuthenticated, isLoading } = useUser();
   const { isMobile } = useMobile();
+  const [hasSponsoredCompetition, setHasSponsoredCompetition] = useState(false);
+
   // Check if this is the first visit when component mounts
   useEffect(() => {
     const hasVisitedBefore = localStorage.getItem('sterio_visited');
@@ -220,7 +222,7 @@ export default function Home() {
       </div>
 
       {/* Mobile Banner - Show sponsored competition above feed on mobile */}
-      {isMobile && (
+      {isMobile && hasSponsoredCompetition && (
         <SponsoredCompetition variant="banner" />
       )}
 
@@ -263,9 +265,12 @@ export default function Home() {
         </div>
         
         {/* Desktop Sidebar - Show sponsored competition on desktop */}
-        {!isMobile && (
+        {!isMobile && hasSponsoredCompetition && (
           <div className={styles.sidebar}>
-            <SponsoredCompetition variant="sidebar" />
+            <SponsoredCompetition 
+              variant="sidebar" 
+              setHasSponsoredCompetition={setHasSponsoredCompetition}
+            />
           </div>
         )}
       </div>

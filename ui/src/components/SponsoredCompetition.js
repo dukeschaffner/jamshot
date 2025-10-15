@@ -10,7 +10,8 @@ import styles from './SponsoredCompetition.module.css';
 
 export default function SponsoredCompetition({ 
   variant = 'sidebar', // 'sidebar', 'banner'
-  className = ''
+  className = '',
+  setHasSponsoredCompetition
 }) {
   const router = useRouter();
   const { isAuthenticated } = useUser();
@@ -23,15 +24,22 @@ export default function SponsoredCompetition({
   }, []);
 
   const loadSponsoredCompetition = async () => {
+    let hasSponsoredCompetition = false;
     try {
       setLoading(true);
       const response = await competitionApi.getSponsoredCompetition();
       setCompetition(response.data.competition);
+      if (response.data.competition) {
+        hasSponsoredCompetition = true;
+      }
     } catch (err) {
       console.error('Error loading sponsored competition:', err);
       setCompetition(null);
     } finally {
       setLoading(false);
+      if(setHasSponsoredCompetition) {
+        setHasSponsoredCompetition(hasSponsoredCompetition);
+      }
     }
   };
 
