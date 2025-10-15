@@ -1,5 +1,5 @@
 // Audio constants
-export const AUDIO_CONSTANTS = {
+const AUDIO_CONSTANTS = {
   MIN_BPM: 60,
   MAX_BPM: 200,
   DEFAULT_BPM: 120,
@@ -9,7 +9,7 @@ export const AUDIO_CONSTANTS = {
 };
 
 // Subscription tiers
-export const SUBSCRIPTION_TIERS = {
+const SUBSCRIPTION_TIERS = {
   FREE: 'free',
   BASIC: 'basic',
   PREMIUM: 'premium',
@@ -20,14 +20,37 @@ export const SUBSCRIPTION_TIERS = {
 // This is just a reference - actual limits should come from subscriptionConfig
 
 // Feed types
-export const FEED_TYPES = {
+const FEED_TYPES = {
   FOR_YOU: 'for-you',
   FOLLOWING: 'following',
   POPULAR: 'popular',
 };
 
 // Privacy constants
-export const PRIVACY_TYPES = {
+const PRIVACY_TYPES = {
   PUBLIC: 'public',
   PRIVATE: 'private',
+};
+
+// Export lists for different platforms
+const API_EXPORTS = [
+  AUDIO_CONSTANTS,
+  SUBSCRIPTION_TIERS,
+  FEED_TYPES,
+  PRIVACY_TYPES
+];
+
+const UI_EXPORTS = [
+  AUDIO_CONSTANTS,
+  SUBSCRIPTION_TIERS,
+  FEED_TYPES,
+  PRIVACY_TYPES
+];
+
+
+module.exports = {
+  AUDIO_CONSTANTS,
+  SUBSCRIPTION_TIERS,
+  FEED_TYPES,
+  PRIVACY_TYPES,
 };

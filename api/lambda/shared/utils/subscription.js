@@ -248,29 +248,50 @@ const formatLimitDisplay = (limit) => {
   return limit.toString();
 };
 
-// Export all subscription utilities
-
-module.exports = {
-  SUBSCRIPTION_PLANS,
+// Export lists for different platforms
+const API_EXPORTS = [
   SUBSCRIPTION_TIERS,
-  getTierUpgradeOptions,
-  canUserUpload,
+  SUBSCRIPTION_PLANS,
   createSubscriptionPlans,
-  getUserTier,
-  formatLimitDisplay,
   isValidTier,
   compareTiers,
+  getTierRank,
+  isUpgrade,
+  isDowngrade
+];
+
+const UI_EXPORTS = [
+  SUBSCRIPTION_TIERS,
+  SUBSCRIPTION_PLANS,
+  createSubscriptionPlans,
+  isValidTier,
+  compareTiers,
+  getTierRank,
   isUpgrade,
   isDowngrade,
-  getLimitsByTier,
-  getFeaturesByTier,
-  getTierRank,
+  getUserTier,
   getUserPlan,
-  getUserUploadLimit,
+  canUserUpload,
   canUserCreatePrivateTrack,
   canUserAccessAnalytics,
-  getUserRecordingLimit,
-  formatPrice,
   canUserAccessAdvancedDAW,
+  getUserUploadLimit,
+  getUserRecordingLimit,
   hasReachedTotalUploadLimit,
+  getFeaturesByTier,
+  getLimitsByTier,
+  getTierUpgradeOptions,
+  formatPrice,
+  formatLimitDisplay
+]; 
+
+module.exports = {
+  SUBSCRIPTION_TIERS,
+  SUBSCRIPTION_PLANS,
+  createSubscriptionPlans,
+  isValidTier,
+  compareTiers,
+  getTierRank,
+  isUpgrade,
+  isDowngrade,
 };

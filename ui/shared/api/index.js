@@ -482,4 +482,9 @@ const createApiMethods = (apiClient) => {
   };
 };
 
-export { createApiClient, createApiMethods }; 
+// Export lists for different platforms
+const API_EXPORTS = [];
+const UI_EXPORTS = [
+  createApiClient,
+  createApiMethods
+]; 

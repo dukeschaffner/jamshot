@@ -9,7 +9,7 @@
  * @param {number} precision - Precision of the duration (0-2) 0 is seconds, 1 is tenths, 2 is hundredths
  * @returns {string} Formatted duration string
  */
-export const formatDuration = (seconds, precision = 0) => {
+const formatDuration = (seconds, precision = 0) => {
   if (!seconds && seconds !== 0) return '0:00';
   
   if (precision === 0) {
@@ -31,7 +31,7 @@ export const formatDuration = (seconds, precision = 0) => {
  * @param {string} dateString - ISO date string
  * @returns {string} Formatted date string
  */
-export const formatDate = (dateString) => {
+const formatDate = (dateString) => {
   if (!dateString) return '';
 
   const date = new Date(dateString);
@@ -48,7 +48,7 @@ export const formatDate = (dateString) => {
  * @param {boolean} includeTime - Whether to include time in the format
  * @returns {string} Formatted datetime string in user's local timezone
  */
-export const formatDateTime = (dateString, includeTime = true) => {
+const formatDateTime = (dateString, includeTime = true) => {
   if (!dateString) return '';
 
   const date = new Date(dateString);
@@ -73,7 +73,7 @@ export const formatDateTime = (dateString, includeTime = true) => {
  * @param {string} endDate - ISO end date string (UTC)
  * @returns {string} Formatted date range string
  */
-export const formatCompetitionDateRange = (startDate, endDate) => {
+const formatCompetitionDateRange = (startDate, endDate) => {
   if (!startDate || !endDate) return '';
 
   const start = new Date(startDate);
@@ -103,7 +103,7 @@ export const formatCompetitionDateRange = (startDate, endDate) => {
  * @param {string} dateString - ISO date string
  * @returns {string} Formatted time ago string
  */
-export const formatTimeAgo = (dateString) => {
+const formatTimeAgo = (dateString) => {
   if (!dateString) return '';
   
   const now = new Date();
@@ -124,7 +124,7 @@ export const formatTimeAgo = (dateString) => {
  * @param {number} count - Play count
  * @returns {string} Formatted play count
  */
-export const formatPlayCount = (count) => {
+const formatPlayCount = (count) => {
   if (!count || count === 0) return '0';
   if (count < 1000) return count.toString();
   if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
@@ -136,7 +136,7 @@ export const formatPlayCount = (count) => {
  * @param {number} likeCount - Number of likes
  * @returns {string} Formatted like count
  */
-export const getLikeCountString = (likeCount) => {
+const getLikeCountString = (likeCount) => {
   if (likeCount === 0) return '0 likes';
   if (likeCount === 1) return '1 like';
   return `${Number(likeCount).toLocaleString()} likes`;
@@ -147,7 +147,7 @@ export const getLikeCountString = (likeCount) => {
  * @param {number} commentCount - Number of comments
  * @returns {string} Formatted comment count
  */
-export const getCommentCountString = (commentCount) => {
+const getCommentCountString = (commentCount) => {
   if (commentCount === 0) return '0 comments';
   if (commentCount === 1) return '1 comment';
   return `${Number(commentCount).toLocaleString()} comments`;
@@ -158,7 +158,7 @@ export const getCommentCountString = (commentCount) => {
  * @param {number} count - Follower count
  * @returns {string} Formatted follower count
  */
-export const formatFollowerCount = (count) => {
+const formatFollowerCount = (count) => {
   if (!count || count === 0) return '0';
   if (count < 1000) return count.toString();
   if (count < 1000000) return `${(count / 1000).toFixed(1)}K`;
@@ -170,7 +170,7 @@ export const formatFollowerCount = (count) => {
  * @param {number} bytes - File size in bytes
  * @returns {string} Formatted file size
  */
-export const formatFileSize = (bytes) => {
+const formatFileSize = (bytes) => {
   if (!bytes || bytes === 0) return '0 B';
   
   const k = 1024;
@@ -187,7 +187,7 @@ export const formatFileSize = (bytes) => {
  * @param {string} username - Username to format
  * @returns {string} Formatted username with @
  */
-export const formatUsername = (username) => {
+const formatUsername = (username) => {
   if (!username) return '';
   return `@${username}`;
 };
@@ -198,7 +198,7 @@ export const formatUsername = (username) => {
  * @param {number} maxLength - Maximum length
  * @returns {string} Truncated text
  */
-export const truncateText = (text, maxLength) => {
+const truncateText = (text, maxLength) => {
   if (!text || text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 };
@@ -208,7 +208,7 @@ export const truncateText = (text, maxLength) => {
  * @param {string} text - Text to capitalize
  * @returns {string} Capitalized text
  */
-export const capitalizeWords = (text) => {
+const capitalizeWords = (text) => {
   if (!text) return '';
   return text.replace(/\w\S*/g, (txt) => 
     txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
@@ -221,7 +221,7 @@ export const capitalizeWords = (text) => {
  * @param {number} duration - Total duration in seconds
  * @returns {number} Time in seconds
  */
-export const posToTime = (position, duration) => {
+const posToTime = (position, duration) => {
   return (position / 100) * duration;
 };
 
@@ -231,7 +231,7 @@ export const posToTime = (position, duration) => {
  * @param {number} duration - Total duration in seconds
  * @returns {number} Position as percentage (0-100)
  */
-export const timeToPos = (time, duration) => {
+const timeToPos = (time, duration) => {
   return (time / duration) * 100;
 };
 
@@ -240,7 +240,7 @@ export const timeToPos = (time, duration) => {
  * @param {string} countryCode - ISO country code (e.g., 'US', 'UK', 'CA')
  * @returns {string} Full country name or country code if not found
  */
-export const getCountryName = (countryCode) => {
+const getCountryName = (countryCode) => {
   const countryNames = {
     'US': 'United States',
     'UK': 'United Kingdom',
@@ -270,7 +270,7 @@ export const getCountryName = (countryCode) => {
  * @param {string} countryCode - ISO country code (e.g., 'US', 'UK', 'CA')
  * @returns {string} Flag emoji or globe emoji if not found
  */
-export const getCountryFlag = (countryCode) => {
+const getCountryFlag = (countryCode) => {
   const flagEmojis = {
     'US': '🇺🇸',
     'UK': '🇬🇧',
@@ -293,4 +293,26 @@ export const getCountryFlag = (countryCode) => {
   };
 
   return flagEmojis[countryCode] || '🌍';
-}; 
+};
+
+// Export lists for different platforms
+const API_EXPORTS = [];
+const UI_EXPORTS = [
+  formatDuration,
+  formatDate,
+  formatDateTime,
+  formatCompetitionDateRange,
+  formatTimeAgo,
+  formatPlayCount,
+  getLikeCountString,
+  getCommentCountString,
+  formatFollowerCount,
+  formatFileSize,
+  formatUsername,
+  truncateText,
+  capitalizeWords,
+  posToTime,
+  timeToPos,
+  getCountryName,
+  getCountryFlag
+]; 

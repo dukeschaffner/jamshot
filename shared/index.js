@@ -1,14 +1,82 @@
 /**
  * Shared utilities for Jamshot
- * Exports all shared functionality for web and mobile platforms
- * * Gets manually copied/synced between the web and mobile apps by a python script
+ * Gets manually copied/synced between the web and mobile apps by a python script
+ * Export lists define what gets exported to each platform
  */
 
-// API utilities
-export { createApiClient, createApiMethods } from './api/index.js';
+// Import all shared items
+import { createApiClient, createApiMethods } from './api/index.js';
+import { AUDIO_CONSTANTS, SUBSCRIPTION_TIERS, FEED_TYPES, PRIVACY_TYPES } from './types/index.js';
+import {
+  SUBSCRIPTION_PLANS,
+  createSubscriptionPlans,
+  isValidTier,
+  compareTiers,
+  getTierRank,
+  isUpgrade,
+  isDowngrade
+} from './utils/subscription.js';
+import {
+  formatDuration,
+  formatDate,
+  formatDateTime,
+  formatCompetitionDateRange,
+  formatTimeAgo,
+  formatPlayCount,
+  getLikeCountString,
+  getCommentCountString,
+  formatFollowerCount,
+  formatFileSize,
+  formatUsername,
+  truncateText,
+  capitalizeWords,
+  posToTime,
+  timeToPos,
+  getCountryName,
+  getCountryFlag
+} from './utils/formatting.js';
 
-// Types and constants
-export * from './types/index.js';
-
-// Formatting utilities
-export * from './utils/formatting.js';
+// Export lists for different platforms
+const API_EXPORTS = [
+  // Types and constants (available to all platforms)
+  AUDIO_CONSTANTS,
+  SUBSCRIPTION_TIERS,
+  FEED_TYPES,
+  PRIVACY_TYPES,
+  // Subscription utilities (available to API)
+  SUBSCRIPTION_PLANS,
+  createSubscriptionPlans,
+  isValidTier,
+  compareTiers,
+  getTierRank,
+  isUpgrade,
+  isDowngrade
+];
+const UI_EXPORTS = [
+  // API utilities
+  createApiClient,
+  createApiMethods,
+  // Types and constants
+  AUDIO_CONSTANTS,
+  SUBSCRIPTION_TIERS,
+  FEED_TYPES,
+  PRIVACY_TYPES,
+  // Formatting utilities
+  formatDuration,
+  formatDate,
+  formatDateTime,
+  formatCompetitionDateRange,
+  formatTimeAgo,
+  formatPlayCount,
+  getLikeCountString,
+  getCommentCountString,
+  formatFollowerCount,
+  formatFileSize,
+  formatUsername,
+  truncateText,
+  capitalizeWords,
+  posToTime,
+  timeToPos,
+  getCountryName,
+  getCountryFlag
+];

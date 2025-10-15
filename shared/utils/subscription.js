@@ -248,8 +248,19 @@ const formatLimitDisplay = (limit) => {
   return limit.toString();
 };
 
-// Export all subscription utilities
-export {
+// Export lists for different platforms
+const API_EXPORTS = [
+  SUBSCRIPTION_TIERS,
+  SUBSCRIPTION_PLANS,
+  createSubscriptionPlans,
+  isValidTier,
+  compareTiers,
+  getTierRank,
+  isUpgrade,
+  isDowngrade
+];
+
+const UI_EXPORTS = [
   SUBSCRIPTION_TIERS,
   SUBSCRIPTION_PLANS,
   createSubscriptionPlans,
@@ -272,4 +283,4 @@ export {
   getTierUpgradeOptions,
   formatPrice,
   formatLimitDisplay
-}; 
+]; 
