@@ -48,3 +48,8 @@ const API_EXPORTS = [
 const UI_EXPORTS = [
     validateDateOfBirth
 ]; 
+
+// Auto-generated ES6 exports
+export {
+  validateDateOfBirth,
+};

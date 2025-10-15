@@ -316,3 +316,24 @@ const UI_EXPORTS = [
   getCountryName,
   getCountryFlag
 ]; 
+
+// Auto-generated ES6 exports
+export {
+  formatDuration,
+  formatDate,
+  formatDateTime,
+  formatCompetitionDateRange,
+  formatTimeAgo,
+  formatPlayCount,
+  getLikeCountString,
+  getCommentCountString,
+  formatFollowerCount,
+  formatFileSize,
+  formatUsername,
+  truncateText,
+  capitalizeWords,
+  posToTime,
+  timeToPos,
+  getCountryName,
+  getCountryFlag,
+};

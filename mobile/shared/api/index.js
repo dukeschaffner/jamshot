@@ -488,3 +488,9 @@ const UI_EXPORTS = [
   createApiClient,
   createApiMethods
 ]; 
+
+// Auto-generated ES6 exports
+export {
+  createApiClient,
+  createApiMethods,
+};

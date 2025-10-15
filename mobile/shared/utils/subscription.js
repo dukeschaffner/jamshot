@@ -295,3 +295,29 @@ const UI_EXPORTS = [
   formatPrice,
   formatLimitDisplay
 ]; 
+
+// Auto-generated ES6 exports
+export {
+  SUBSCRIPTION_TIERS,
+  SUBSCRIPTION_PLANS,
+  createSubscriptionPlans,
+  isValidTier,
+  compareTiers,
+  getTierRank,
+  isUpgrade,
+  isDowngrade,
+  getUserTier,
+  getUserPlan,
+  canUserUpload,
+  canUserCreatePrivateTrack,
+  canUserAccessAnalytics,
+  canUserAccessAdvancedDAW,
+  getUserUploadLimit,
+  getUserRecordingLimit,
+  hasReachedTotalUploadLimit,
+  getFeaturesByTier,
+  getLimitsByTier,
+  getTierUpgradeOptions,
+  formatPrice,
+  formatLimitDisplay,
+};
