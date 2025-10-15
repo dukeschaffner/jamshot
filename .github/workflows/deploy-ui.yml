@@ -67,7 +67,7 @@ jobs:
       name: ui-test
       url: ${{ vars.UI_TEST_URL }}
     if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
-
+    steps:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -89,7 +89,7 @@ jobs:
       name: ui-prod
       url: ${{ vars.UI_PROD_URL }}
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
-
+    steps:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
