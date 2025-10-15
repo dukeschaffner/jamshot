@@ -1,0 +1,6 @@
+---
+description: When creating or updating shared code/logic
+alwaysApply: false
+---
+
+All shared code is/should be held in the root shared dir. After updating any logic in the folder, run copy-shared-folder.py to regenerate the shared logic in all the destination projects.

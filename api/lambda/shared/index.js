@@ -1,14 +1,18 @@
-/**
- * Shared utilities for Jamshot
- * Exports all shared functionality for web and mobile platforms
- * * Gets manually copied/synced between the web and mobile apps by a python script
- */
+// Auto-generated CommonJS exports for API/Lambda
 
-// API utilities
-export { createApiClient, createApiMethods } from './api/index.js';
+const { AUDIO_CONSTANTS, SUBSCRIPTION_TIERS, FEED_TYPES, PRIVACY_TYPES } = require('./types/index.js');
+const { SUBSCRIPTION_PLANS, createSubscriptionPlans, isValidTier, compareTiers, getTierRank, isUpgrade, isDowngrade } = require('./utils/subscription.js');
 
-// Types and constants
-export * from './types/index.js';
-
-// Formatting utilities
-export * from './utils/formatting.js';
+module.exports = {
+  AUDIO_CONSTANTS,
+  SUBSCRIPTION_TIERS,
+  FEED_TYPES,
+  PRIVACY_TYPES,
+  SUBSCRIPTION_PLANS,
+  createSubscriptionPlans,
+  isValidTier,
+  compareTiers,
+  getTierRank,
+  isUpgrade,
+  isDowngrade,
+};
