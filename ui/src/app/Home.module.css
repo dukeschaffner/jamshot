@@ -44,6 +44,16 @@
     gap: 12px;
     margin-bottom: 8px;
   }
+
+  .loadingTabs {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    background-color: var(--gray-light);
+    color: var(--text-secondary);
+    border: none;
+  }
   
   .feedTab {
     padding: 8px 16px;
