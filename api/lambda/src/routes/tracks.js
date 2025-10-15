@@ -36,7 +36,7 @@ const {
 } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
-const { validateCompetitionEntry } = require('../../shared/utils/competition');
+const { validateCompetitionEntry } = require('../utils/competition');
 require('dotenv').config;
 
 async function getParser() {
