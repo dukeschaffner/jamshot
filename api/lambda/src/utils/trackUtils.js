@@ -812,6 +812,7 @@ module.exports = {
   moveS3File,
   getTrackGenres,
   getTrackInstruments,
+  getTrackPrivacyClause,
   processTrack,
   downloadS3File,
   checkTrackAccess,
