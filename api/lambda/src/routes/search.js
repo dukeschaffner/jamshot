@@ -4,6 +4,7 @@ const pool = require('../config/db');
 const { optionalAuthMiddleware } = require('../middleware/auth');
 const { searchLimiter } = require('../middleware/rateLimiting');
 const { S3Client } = require('@aws-sdk/client-s3');
+const { getTrackPrivacyClause } = require('../utils/trackUtils');
 
 const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region
@@ -35,9 +36,11 @@ router.get('/', async (req, res) => {
     
     // If type is not specified or is 'tracks', search for tracks
     if (!type || type === 'all' || type === 'tracks') {
+      const privacyClause = getTrackPrivacyClause(!!userId, 1);
+
       const tracksQuery = `
         SELECT DISTINCT
-          t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, 
+          t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
           t.layer, t.parent_track_id, t.play_count, t.metronome_bpm, t.created_at,
           u.username, u.verified, u.profile_pic_url,
           t2.title AS original_title,
@@ -49,11 +52,14 @@ router.get('/', async (req, res) => {
         FROM tracks t
         LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
         LEFT JOIN users u ON t.user_id = u.id
-        WHERE 
-          t.title ILIKE $2 OR
-          u.username ILIKE $2
+        WHERE
+          (
+            t.title ILIKE $2 OR
+            u.username ILIKE $2
+          )
         AND t.processing_status = 'completed'
-        ORDER BY 
+        AND ${privacyClause}
+        ORDER BY
           title_match_order,
           t.created_at DESC
         LIMIT 20
