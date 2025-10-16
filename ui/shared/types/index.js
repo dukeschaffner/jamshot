@@ -15,9 +15,9 @@ const SUBSCRIPTION_TIERS = {
   PREMIUM: 'premium',
 };
 
-// Note: Upload limits are defined in shared/utils/subscription.js
+// Note: Upload limits are defined in subscriptionConfig.js
 // The web app uses a more complex structure with features and limits
-// This is just a reference - actual limits should come from subscription utils
+// This is just a reference - actual limits should come from subscriptionConfig
 
 // Feed types
 const FEED_TYPES = {

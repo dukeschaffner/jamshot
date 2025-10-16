@@ -23,6 +23,9 @@ const getEventBusName = () => {
 async function scheduleCompetitionEnd(competitionId, endDate, winnerSelectionMethod) {
   try {
     console.log(`Scheduling competition end for ID: ${competitionId} at ${endDate.toISOString()}`);
+    if( process.env.NODE_ENV === 'dev' ) {
+      return;
+    }
     
     // Create the scheduled event
     const params = {
