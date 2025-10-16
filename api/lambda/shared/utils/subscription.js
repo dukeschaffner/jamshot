@@ -35,7 +35,7 @@ const SUBSCRIPTION_PLANS = {
       max_recording_duration: 300 // 5 minutes in seconds
     },
     highlights: [
-      '1 upload per day',
+      '3 uploads per day',
       '25 total uploads',
     //   '5 minute recording limit',
       'Community features'
@@ -209,6 +209,11 @@ const canUserAccessAnalytics = (user) => {
   return plan.features.analytics;
 };
 
+const canUserAccessStreamsByUser = (user) => {
+  const plan = getUserPlan(user);
+  return plan.features.analytics_streams_by_user;
+};
+
 const canUserAccessAdvancedDAW = (user) => {
   const plan = getUserPlan(user);
   return plan.features.advanced_daw;
@@ -268,7 +273,20 @@ const API_EXPORTS = [
   compareTiers,
   getTierRank,
   isUpgrade,
-  isDowngrade
+  isDowngrade,
+  getUserTier,
+  getUserPlan,
+  canUserUpload,
+  canUserCreatePrivateTrack,
+  canUserAccessAnalytics,
+  canUserAccessStreamsByUser,
+  canUserAccessAdvancedDAW,
+  getUserUploadLimit,
+  getUserRecordingLimit,
+  hasReachedTotalUploadLimit,
+  getFeaturesByTier,
+  getLimitsByTier,
+  getTierUpgradeOptions
 ];
 
 const UI_EXPORTS = [
@@ -305,4 +323,17 @@ module.exports = {
   getTierRank,
   isUpgrade,
   isDowngrade,
+  getUserTier,
+  getUserPlan,
+  canUserUpload,
+  canUserCreatePrivateTrack,
+  canUserAccessAnalytics,
+  canUserAccessStreamsByUser,
+  canUserAccessAdvancedDAW,
+  getUserUploadLimit,
+  getUserRecordingLimit,
+  hasReachedTotalUploadLimit,
+  getFeaturesByTier,
+  getLimitsByTier,
+  getTierUpgradeOptions,
 };
