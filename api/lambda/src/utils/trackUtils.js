@@ -195,6 +195,7 @@ function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limit
     LEFT JOIN users u ON t.user_id = u.id
     LEFT JOIN users u2 ON t2.user_id = u2.id
     WHERE ${privacyClause}
+    AND t.processing_status = 'completed'
     ORDER BY like_count DESC, t.created_at DESC
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
   `;
@@ -214,7 +215,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       SELECT following_id FROM follows WHERE follower_id = $1
     ),
     followed_tracks AS (
-      SELECT 
+      SELECT
         ${getBaseTrackSelectQuery(true)},
         NULL::integer AS reposted_by_id,
         NULL::text AS reposted_by_username,
@@ -226,6 +227,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
+      AND t.processing_status = 'completed'
     ),
     reposted_tracks AS (
       SELECT 
@@ -242,6 +244,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
+      AND t.processing_status = 'completed'
     )
     SELECT * FROM (
       SELECT * FROM followed_tracks
@@ -279,6 +282,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       SELECT id FROM reposted_tracks
     )
     AND ${privacyClause}
+    AND t.processing_status = 'completed'
     ORDER BY like_count DESC
     LIMIT $${limitParamIndex}
   `;
@@ -301,6 +305,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
+      AND t.processing_status = 'completed'
     ),
     reposted_tracks AS (
       SELECT 
@@ -318,6 +323,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
+      AND t.processing_status = 'completed'
     ),
     popular_tracks AS (
       ${popularWithExclusions}
