@@ -806,12 +806,12 @@ router.get('/:id/related', async (req, res) => {
     if (parseInt(page) === 1) {
       // First, get the parent track if it exists
       let parentTrackQuery = `
-        SELECT 
+        SELECT
           ${baseQuery}
         FROM tracks t
         LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
         LEFT JOIN users u ON t.user_id = u.id
-        WHERE (t.id = (SELECT parent_track_id FROM tracks WHERE id = $1))
+        WHERE (t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)) AND t.processing_status = 'completed'
       `;
       
       const [parentTrackResult] = await Promise.all([
@@ -826,21 +826,21 @@ router.get('/:id/related', async (req, res) => {
     
     // Then get the child tracks with pagination
     let childTracksQuery = `
-      SELECT 
+      SELECT
         ${baseQuery}
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
-      WHERE t.parent_track_id = $1
+      WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
       ORDER BY t.created_at DESC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `;
     
     // Get the total count for pagination info
     let countQuery = `
-      SELECT COUNT(*) 
+      SELECT COUNT(*)
       FROM tracks
-      WHERE parent_track_id = $1
+      WHERE parent_track_id = $1 AND processing_status = 'completed'
     `;
     
     // Execute queries for child tracks and count
@@ -1335,24 +1335,19 @@ router.get('/search', async (req, res) => {
     `;
     
     const queryParams = [userId || null];
-    let whereClause = '';
-    
+    let whereClause = 't.processing_status = \'completed\'';
+
     if (genreId) {
-      whereClause += 'EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = t.id AND tg.genre_id = $2)';
+      whereClause += ' AND EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = t.id AND tg.genre_id = $2)';
       queryParams.push(genreId);
     }
-    
+
     if (instrumentId) {
-      if (whereClause) {
-        whereClause += ' AND ';
-      }
-      whereClause += 'EXISTS (SELECT 1 FROM track_instruments ti WHERE ti.track_id = t.id AND ti.instrument_id = $' + (queryParams.length + 1) + ')';
+      whereClause += ' AND EXISTS (SELECT 1 FROM track_instruments ti WHERE ti.track_id = t.id AND ti.instrument_id = $' + (queryParams.length + 1) + ')';
       queryParams.push(instrumentId);
     }
-    
-    if (whereClause) {
-      query += ' WHERE ' + whereClause;
-    }
+
+    query += ' WHERE ' + whereClause;
     
     query += ' ORDER BY t.created_at DESC';
     
@@ -1596,12 +1591,12 @@ router.get('/:id/tree', async (req, res) => {
       }
       
       const parentResult = await pool.query(`
-        SELECT 
+        SELECT
           ${baseQuery}
         FROM tracks t
         LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
         LEFT JOIN users u ON t.user_id = u.id
-        WHERE t.id = $1
+        WHERE t.id = $1 AND t.processing_status = 'completed'
       `, queryParams);
       
       if (parentResult.rows.length === 0) {
@@ -1780,7 +1775,7 @@ router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
       `SELECT t.*, u.username as username, u.profile_pic_url as user_profile_pic
        FROM tracks t
        JOIN users u ON t.user_id = u.id
-       WHERE t.id = $1`,
+       WHERE t.id = $1 AND t.processing_status = 'completed'`,
       [id]
     );
     
@@ -1824,7 +1819,7 @@ router.get('/:id/download', optionalAuthMiddleware, async (req, res) => {
       `SELECT t.*, u.username as username
        FROM tracks t
        JOIN users u ON t.user_id = u.id
-       WHERE t.id = $1`,
+       WHERE t.id = $1 AND t.processing_status = 'completed'`,
       [id]
     );
     

@@ -128,6 +128,7 @@ router.get('/:userId/tracks', async (req, res) => {
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id = $1
+      AND t.processing_status = 'completed'
       ORDER BY t.created_at DESC
     `, queryParams);
 
@@ -825,6 +826,7 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
       LEFT JOIN reposts ur ON t.id = ur.track_id AND ur.user_id = $2
       WHERE t.user_id = $1
+      AND t.processing_status = 'completed'
       ORDER BY t.created_at DESC
     `;
     
