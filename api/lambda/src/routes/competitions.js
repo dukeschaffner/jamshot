@@ -563,11 +563,13 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
     // In dev and test environments, if voucher_code can be parsed as an integer,
     // treat it as minutes and schedule competition end that many minutes from now
     let finalEndDate = endDate;
+    let finalStartDate = startDate;
     if ((process.env.NODE_ENV === 'dev' || process.env.NODE_ENV === 'test') && voucher_code) {
       const parsedMinutes = parseInt(voucher_code);
       if (!isNaN(parsedMinutes) && parsedMinutes > 0) {
         finalEndDate = new Date(now.getTime() + (parsedMinutes * 60 * 1000));
-        console.log(`Dev/Test environment: Setting competition end date to ${parsedMinutes} minutes from now (${finalEndDate.toISOString()})`);
+        finalStartDate = now;
+        console.log(`Dev/Test environment: Setting competition start date to now and end date to ${parsedMinutes} minutes from now (${finalEndDate.toISOString()})`);
       }
     }
     
@@ -578,7 +580,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
           track_id, startdate, enddate, prize_amount, host_id,
           pinned, winner_selection_method, voucher_code
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [track_id, startDate, finalEndDate, prizeAmount, userId, pinned, winner_selection_method, voucher_code]
+        [track_id, finalStartDate, finalEndDate, prizeAmount, userId, pinned, winner_selection_method, voucher_code]
       );
 
       const competition = competitionResult.rows[0];
@@ -627,7 +629,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
       metadata: {
         userId: userId,
         trackId: track_id,
-        startdate: startDate.toISOString(),
+        startdate: finalStartDate.toISOString(),
         enddate: finalEndDate.toISOString(),
         prizeAmount: prizeAmount,
         winnerSelectionMethod: winner_selection_method,
