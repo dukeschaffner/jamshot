@@ -42,11 +42,6 @@ export const UserProvider = ({ children }) => {
       setUser(response.data);
       const plan = getUserPlan(response.data);
       setUserPlan(plan);
-      console.log('User data from API:', {
-        subscription_tier: response.data.subscription_tier,
-        subscription_expires_at: response.data.subscription_expires_at
-      });
-      console.log('User plan:', plan);
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       setUser(null);
