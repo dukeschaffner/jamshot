@@ -26,12 +26,14 @@ TODO (MVP)
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
 - stripe sunhertz logo
+- add subscribe to mobile nav
 
 
 
 BUGS
 - double check track plays recording correctly
 - audio url refresh endless cycle
+- when following a private user from search, the status should change to 'requested' not 'following'
 
 
 
@@ -47,6 +49,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- requested instrument tags (ie i want collaborator to add drums)
 - search typeahead
 - if track is loop, allow collaborators to increase/set the number of loops in the collab
 - script to clean r2 files that dont have track in db

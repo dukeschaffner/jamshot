@@ -1128,7 +1128,8 @@ body.dark-mode .loading-more {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1144,32 +1145,41 @@ body.dark-mode .loading-more {
 }
 
 .modal-content {
-  background: white;
-  border-radius: 8px;
+  background: var(--background, #ffffff);
+  border-radius: 16px;
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  transform: translateY(20px);
+  transform: translateY(20px) scale(0.95);
   transition: transform 0.3s ease;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--grey-2, #e0e0e0);
 }
 
 .modal-overlay.active .modal-content {
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .modal-header {
-  padding: 1rem;
+  padding: 1.5rem 1.5rem 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--gray);
+  border-bottom: 1px solid var(--grey-2, #e0e0e0);
+  border-radius: 16px 16px 0 0;
 }
 
 .modal-header h2 {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text-primary, #171717);
+  margin: 0;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .close-btn {
@@ -1177,7 +1187,13 @@ body.dark-mode .loading-more {
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: var(--gray-dark);
+  color: var(--text-secondary, #555555);
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .crop-container {
@@ -1188,11 +1204,12 @@ body.dark-mode .loading-more {
 }
 
 .modal-footer {
-  padding: 1rem;
+  padding: 1.5rem;
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  border-top: 1px solid var(--gray);
+  border-top: 1px solid var(--grey-2, #e0e0e0);
+  border-radius: 0 0 16px 16px;
 }
 
 /* Add these styles to the appropriate sections of your CSS file */
@@ -1921,61 +1938,36 @@ body.dark-mode .tab.active {
   z-index: 1000;
 }
 
-/* Dark mode styles */
+/* Dark mode modal styles */
 body.dark-mode .modal-content {
   background: var(--dark-card-bg);
+  border-color: var(--dark-border-color);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-body.dark-mode .modal-header,
-body.dark-mode .modal-footer {
+body.dark-mode .modal-header {
+  background: linear-gradient(90deg, rgba(30, 30, 30, 0.8) 0%, rgba(30, 30, 30, 0.6) 100%);
   border-color: var(--dark-border-color);
 }
 
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
+body.dark-mode .modal-header h2 {
+  color: var(--dark-text-primary, #ffffff);
 }
 
-.modal-header {
-  padding: 1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--gray);
+body.dark-mode .modal-footer {
+  background: linear-gradient(90deg, rgba(30, 30, 30, 0.6) 0%, rgba(30, 30, 30, 0.8) 100%);
+  border-color: var(--dark-border-color);
 }
 
-.modal-header h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
+body.dark-mode .close-btn {
+  color: var(--dark-text-secondary);
 }
 
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--gray-dark);
+body.dark-mode .close-btn:hover {
+  color: var(--seafoam);
+  background-color: rgba(147, 233, 190, 0.1);
 }
 
-.crop-container {
-  padding: 1rem;
-  display: flex;
-  justify-content: center;
-  overflow: auto;
-}
-
-.modal-footer {
-  padding: 1rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  border-top: 1px solid var(--gray);
-}
 
 .privacy-notice-icon {
   font-size: 2.5rem;
