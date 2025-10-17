@@ -25,8 +25,8 @@ TODO (MVP)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
-- stripe sunhertz logo
 - add subscribe to mobile nav
+- only count track that completed processing in quotas
 
 
 

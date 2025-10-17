@@ -212,8 +212,9 @@ class Track {
       startOffset = earliestStart;
       exportDuration = latestEnd - earliestStart;
     } 
-    // Ensure the buffer is always at least 1 sample shorter than DAW duration
-    exportDuration = Math.max(0, AudioState.dawDuration - (1 / sampleRate));
+    else{
+      exportDuration = Math.max(0, AudioState.dawDuration - (1 / sampleRate));
+    }
     
     // Create the combined buffer
     const totalLength = Math.ceil(exportDuration * sampleRate);
