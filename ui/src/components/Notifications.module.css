@@ -232,36 +232,6 @@
     margin-top: 0.5rem;
   }
   
-  .notificationActions .acceptBtn,
-  .notificationActions .rejectBtn {
-    display: flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    transition: all 0.2s ease;
-  }
-  
-  .notificationActions .acceptBtn {
-    background-color: var(--p2);
-    color: white;
-  }
-  
-  .notificationActions .acceptBtn:hover {
-    background-color: var(--p1);
-  }
-  
-  .notificationActions .rejectBtn {
-    background-color: var(--gray);
-    color: var(--text-secondary);
-  }
-  
-  .notificationActions .rejectBtn:hover {
-    background-color: var(--red);
-    color: white;
-  }
-  
   .deleteBtn {
     color: var(--text-secondary);
     opacity: 0.5;

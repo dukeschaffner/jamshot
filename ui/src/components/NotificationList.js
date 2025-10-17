@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaBell, FaComment, FaHeart, FaMusic, FaRetweet, FaUserPlus, FaCheckCircle, FaTimesCircle, FaTrophy } from 'react-icons/fa';
 import api from '../lib/api';
@@ -16,6 +17,7 @@ export default function NotificationList({
   showLoadMore = true
 }) {
   const router = useRouter();
+  const [processedRequests, setProcessedRequests] = useState({}); // Track accepted/rejected follow requests by ID
 
   const handleNotificationClick = (notification) => {
     // Mark as read
@@ -58,7 +60,7 @@ export default function NotificationList({
   };
 
   const getNotificationText = (notification) => {
-    const { type, actor_username, track_title } = notification;
+    const { type, actor_username, track_title, id } = notification;
 
     switch (type) {
       case 'like':
@@ -70,6 +72,12 @@ export default function NotificationList({
       case 'repost':
         return `${actor_username} reposted your track "${track_title}"`;
       case 'follow_request':
+        const requestStatus = processedRequests[id];
+        if (requestStatus === 'accepted') {
+          return `${actor_username}'s follow request was accepted`;
+        } else if (requestStatus === 'rejected') {
+          return `${actor_username}'s follow request was rejected`;
+        }
         return `${actor_username} requested to follow you`;
       case 'competition_winner':
         return `🎉 You won a competition! Your prize will be paid out automatically via Stripe.`;
@@ -81,8 +89,11 @@ export default function NotificationList({
   const handleAcceptFollowRequest = async (notification) => {
     try {
       await api.post(`/users/follow-requests/${notification.follow_request_id}/accept`);
-      // Remove the notification from the list
-      deleteNotification(notification.id);
+      // Mark as accepted in local state
+      setProcessedRequests(prev => ({
+        ...prev,
+        [notification.id]: 'accepted'
+      }));
     } catch (err) {
       console.error('Failed to accept follow request:', err);
     }
@@ -91,8 +102,11 @@ export default function NotificationList({
   const handleRejectFollowRequest = async (notification) => {
     try {
       await api.post(`/users/follow-requests/${notification.follow_request_id}/reject`);
-      // Remove the notification from the list
-      deleteNotification(notification.id);
+      // Mark as rejected in local state
+      setProcessedRequests(prev => ({
+        ...prev,
+        [notification.id]: 'rejected'
+      }));
     } catch (err) {
       console.error('Failed to reject follow request:', err);
     }
@@ -134,14 +148,14 @@ export default function NotificationList({
               <p className={styles.notificationText}>{getNotificationText(notification)}</p>
               <TimeDisplay timestamp={notification.created_at} />
               
-              {notification.type === 'follow_request' && (
+              {notification.type === 'follow_request' && !processedRequests[notification.id] && (
                 <div className={styles.notificationActions}>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleAcceptFollowRequest(notification);
                     }}
-                    className={styles.acceptBtn}
+                    className="pill-btn green-btn sm"
                   >
                     <FaCheckCircle className="mr-1" /> Accept
                   </button>
@@ -150,7 +164,7 @@ export default function NotificationList({
                       e.stopPropagation();
                       handleRejectFollowRequest(notification);
                     }}
-                    className={styles.rejectBtn}
+                    className="pill-btn pink-btn sm"
                   >
                     <FaTimesCircle className="mr-1" /> Reject
                   </button>

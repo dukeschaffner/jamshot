@@ -235,7 +235,6 @@ function AboutContent() {
             <h3><FaHeart /> Supporter Benefits</h3>
             <ul>
               <li>Early access to new features</li>
-              <li>Supporter badge on your profile</li>
               <li>Priority support</li>
               <li>Influence on future development</li>
               <li>Our eternal gratitude!</li>

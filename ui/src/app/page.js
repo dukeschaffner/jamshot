@@ -157,7 +157,7 @@ export default function Home() {
             </div>
             <div className="modal-body" style={{ padding: '20px' }}>
               <div style={{ marginBottom: '24px', textAlign: 'center' }}>
-                <FaMusic style={{ fontSize: '48px', color: 'var(--primary-color)', marginBottom: '16px' }} />
+                <FaMusic style={{ fontSize: '48px', color: 'var(--primary-color)', marginBottom: '16px',  justifySelf: 'center'}} />
                 <p style={{ fontSize: '16px', marginBottom: '24px' }}>
                   sterio is a social platform where musicians can collaborate with each other!
                 </p>
@@ -191,7 +191,7 @@ export default function Home() {
             </div>
             <div className="modal-footer">
               <button 
-                className="save-btn"
+                className="pill-btn gradient-btn sm"
                 onClick={closeWelcomeDialog}
               >
                 Let&apos;s Go!
