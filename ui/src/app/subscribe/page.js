@@ -28,14 +28,27 @@ function SubscribeContent() {
   useEffect(() => {
     if (success === 'true') {
       setMessage({ type: 'success', text: `Successfully subscribed to ${tier}!` });
-      // Refresh user data to get updated subscription
-      if (refreshUser) refreshUser();
+      // Refresh user data to get updated subscription with retry logic
+      if (refreshUser) {
+        // Add a small delay before refreshing to allow backend changes to propagate
+        setTimeout(() => {
+          refreshUser();
+        }, 1000);
+      }
     } else if (canceled === 'true') {
       setMessage({ type: 'error', text: 'Subscription was canceled.' });
     }
   }, [success, canceled, tier, refreshUser]);
 
   const [message, setMessage] = useState(null);
+
+  // Helper function to refresh user data and subscription status together
+  const refreshUserAndSubscription = async () => {
+    if (refreshUser) {
+      await refreshUser();
+    }
+    // The useEffect below will automatically fetch subscription status when user changes
+  };
 
   // Fetch subscription status
   useEffect(() => {
@@ -91,31 +104,26 @@ function SubscribeContent() {
           throw new Error(error.message);
         }
       } else if (data.type === 'tier_change') {
-        // Immediate tier change - show success and refresh
+        // Immediate tier change - show success and refresh data
         setMessage({ type: 'success', text: data.message });
-        if (refreshUser) refreshUser();
-        
-        // Refresh subscription status
-        const statusResponse = await api.get('/payments/subscription-status');
-        setSubscriptionStatus(statusResponse.data);
+        // Refresh user data and subscription status after tier change
+        await refreshUserAndSubscription();
       } else if (data.type === 'reactivation') {
-        // Subscription reactivated - show success and refresh
+        // Subscription reactivated - show success and refresh data
         setMessage({ type: 'success', text: data.message });
-        if (refreshUser) refreshUser();
-        
-        // Refresh subscription status
-        const statusResponse = await api.get('/payments/subscription-status');
-        setSubscriptionStatus(statusResponse.data);
+        // Refresh user data and subscription status after reactivation
+        await refreshUserAndSubscription();
       } else if (data.type === 'downgrade_to_free') {
         // Downgrade to free - show message about end of period
         setMessage({ type: 'info', text: data.message });
-        
+
         // Refresh subscription status to show cancellation
         const statusResponse = await api.get('/payments/subscription-status');
         setSubscriptionStatus(statusResponse.data);
       } else {
         // Default handling for backward compatibility
         setMessage({ type: 'success', text: data.message || 'Subscription updated successfully' });
+        // Refresh user data for backward compatibility
         if (refreshUser) refreshUser();
       }
     } catch (error) {

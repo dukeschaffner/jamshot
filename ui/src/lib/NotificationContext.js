@@ -133,7 +133,7 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     // Wait for user loading to complete before making decisions
     if (userLoading) return;
-    
+
     if (isAuthenticated) {
       fetchNotifications();
     } else {
@@ -142,16 +142,16 @@ export function NotificationProvider({ children }) {
       setPagination(null);
       setLoading(false);
     }
-  }, [isAuthenticated, userLoading]);
+  }, [isAuthenticated]); // Only depend on authentication state, not loading state
 
   // Set up polling for unread count when authenticated
   useEffect(() => {
     if (!isAuthenticated || userLoading) return;
-    
+
     const interval = setInterval(fetchUnreadCount, 60000); // Poll every minute
-    
+
     return () => clearInterval(interval);
-  }, [isAuthenticated, userLoading]);
+  }, [isAuthenticated]); // Only depend on authentication state
 
   return (
     <NotificationContext.Provider
