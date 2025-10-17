@@ -34,6 +34,7 @@ BUGS
 - double check track plays recording correctly
 - audio url refresh endless cycle
 - when following a private user from search, the status should change to 'requested' not 'following'
+- Session ended error after long period (6 hrs) of inactivity
 
 
 

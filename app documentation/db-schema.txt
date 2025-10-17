@@ -103,8 +103,7 @@ CREATE TABLE follows (
 );
 
 
-CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost','follow_request', 'mention', 'competition_winner', 'competition_entry', 'competition_started', 'competition_ended');
-
+CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost', 'follow', 'follow_request', 'mention', 'competition_winner', 'competition_entry', 'competition_started', 'competition_ended');
 
 CREATE TABLE notifications (
   id SERIAL PRIMARY KEY,
