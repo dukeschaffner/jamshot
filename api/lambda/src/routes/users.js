@@ -970,7 +970,14 @@ router.post('/follow/username/:username', interactionLimiter, authMiddleware, as
         'INSERT INTO follows (follower_id, following_id) VALUES ($1, $2)',
         [followerId, followingId]
       );
-      
+
+      // Create notification for the target user
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, related_user_id)
+         VALUES ($1, 'follow', $2)`,
+        [followingId, followerId]
+      );
+
       return res.status(200).json({ message: 'Now following user' });
     }
   } catch (err) {

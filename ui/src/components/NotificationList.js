@@ -52,6 +52,8 @@ export default function NotificationList({
         return <FaRetweet className="text-purple-500" />;
       case 'follow_request':
         return <FaUserPlus className="text-indigo-500" />;
+      case 'follow':
+        return <FaUserPlus className="text-green-500" />;
       case 'competition_winner':
         return <FaTrophy className="text-yellow-500" />;
       default:
@@ -79,6 +81,8 @@ export default function NotificationList({
           return `${actor_username}'s follow request was rejected`;
         }
         return `${actor_username} requested to follow you`;
+      case 'follow':
+        return `${actor_username} started following you`;
       case 'competition_winner':
         return `🎉 You won a competition! Your prize will be paid out automatically via Stripe.`;
       default:
