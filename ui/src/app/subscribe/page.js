@@ -45,7 +45,10 @@ function SubscribeContent() {
   // Helper function to refresh user data and subscription status together
   const refreshUserAndSubscription = async () => {
     if (refreshUser) {
-      await refreshUser();
+      // Add a small delay before refreshing to allow backend changes to propagate
+      setTimeout(() => {
+        refreshUser();
+      }, 1000);
     }
     // The useEffect below will automatically fetch subscription status when user changes
   };
