@@ -40,7 +40,9 @@ export const UserProvider = ({ children }) => {
 
       const response = await api.get('/users/me');
       setUser(response.data);
-      setUserPlan(getUserPlan(response.data));
+      const plan = getUserPlan(response.data);
+      setUserPlan(plan);
+      console.log('User plan:', plan);
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       setUser(null);
