@@ -1368,29 +1368,47 @@ router.post('/:id/repost', interactionLimiter, authMiddleware, async (req, res) 
   const { id } = req.params;
   const userId = req.user.id;
   try {
-    // Check if track exists
-    const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
+    // Check if track exists and get track privacy info along with creator's account privacy
+    const trackCheck = await pool.query(`
+      SELECT t.user_id, t.is_private, u.is_private as creator_is_private
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      WHERE t.id = $1
+    `, [id]);
+
     if (trackCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Track not found' });
     }
-    
+
+    const track = trackCheck.rows[0];
+
     // Don't allow reposting your own track
-    if (trackCheck.rows[0].user_id === userId) {
+    if (track.user_id === userId) {
       return res.status(400).json({ error: 'Cannot repost your own track' });
     }
-    
+
+    // Don't allow reposting private tracks
+    if (track.is_private) {
+      return res.status(403).json({ error: 'Cannot repost private tracks' });
+    }
+
+    // Don't allow reposting tracks created by private accounts
+    if (track.creator_is_private) {
+      return res.status(403).json({ error: 'Cannot repost tracks from private accounts' });
+    }
+
     // Create repost
     await pool.query(
       'INSERT INTO reposts (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [userId, id]
     );
-    
+
     // Create notification for track owner
     await pool.query(
       'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-      [trackCheck.rows[0].user_id, 'repost', id]
+      [track.user_id, 'repost', id]
     );
-    
+
     res.status(200).json({ message: 'Track reposted successfully' });
   } catch (err) {
     console.error('Repost error:', err);

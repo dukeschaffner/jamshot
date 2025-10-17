@@ -121,7 +121,7 @@ router.get('/:userId/tracks', async (req, res) => {
     }
 
     const result = await pool.query(`
-      SELECT 
+      SELECT
         ${baseQuery}
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
@@ -129,6 +129,7 @@ router.get('/:userId/tracks', async (req, res) => {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
       ORDER BY t.created_at DESC
     `, queryParams);
 
@@ -449,7 +450,7 @@ router.get('/:userId/reposts', async (req, res) => {
     }
 
     const result = await pool.query(`
-      SELECT 
+      SELECT
         ${baseQuery},
         r.created_at as reposted_at,
         TRUE AS is_repost
@@ -459,6 +460,7 @@ router.get('/:userId/reposts', async (req, res) => {
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id = $1
+      AND t.is_private = FALSE
       ORDER BY r.created_at DESC
     `, queryParams);
 
@@ -827,6 +829,7 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       LEFT JOIN reposts ur ON t.id = ur.track_id AND ur.user_id = $2
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND (t.is_private = FALSE OR t.user_id = $2)
       ORDER BY t.created_at DESC
     `;
     
@@ -894,6 +897,7 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       LEFT JOIN tracks ot ON t.parent_track_id = ot.id
       LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
       WHERE r.user_id = $1
+      AND t.is_private = FALSE
       ORDER BY r.created_at DESC
     `;
     
@@ -1065,7 +1069,7 @@ router.get('/:username/liked', async (req, res) => {
     }
 
     const result = await pool.query(`
-      SELECT 
+      SELECT
         ${baseQuery},
         l.created_at as liked_at,
         TRUE AS is_liked_by_user
@@ -1075,6 +1079,7 @@ router.get('/:username/liked', async (req, res) => {
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE l.user_id = $1
+      AND t.is_private = FALSE
       ORDER BY l.created_at DESC
     `, queryParams);
 

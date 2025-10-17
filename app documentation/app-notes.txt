@@ -35,6 +35,8 @@ BUGS
 - audio url refresh endless cycle
 - when following a private user from search, the status should change to 'requested' not 'following'
 - Session ended error after long period (6 hrs) of inactivity
+- trim silence at end didnt work
+- private track loaded on users page (viewing as a different user)
 
 
 

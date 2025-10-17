@@ -75,14 +75,25 @@ export default function TrackMeta({
 
   const handleRepostToggle = async (e) => {
     e.stopPropagation();
-    
+
     if (isRepostInProgress) return;
-    
+
     if (!isAuthenticated) {
       alert('Please log in to repost tracks');
       return;
     }
-    
+
+    // Check if reposting is disabled for this track
+    if (track.is_private) {
+      alert('Cannot repost private tracks');
+      return;
+    }
+
+    if (track.creator_is_private) {
+      alert('Cannot repost tracks from private accounts');
+      return;
+    }
+
     setIsRepostInProgress(true);
     
     try {
@@ -167,11 +178,16 @@ export default function TrackMeta({
             </span>
         </div>
         <div className='meta-item'>
-            <button 
+            <button
                 className={`repost-btn ${isReposted ? 'active' : ''}`}
                 onClick={handleRepostToggle}
-                disabled={!isAuthenticated || isRepostInProgress}
-                title={isAuthenticated ? (isReposted ? 'Unrepost' : 'Repost') : 'Log in to repost tracks'}
+                disabled={!isAuthenticated || isRepostInProgress || track.is_private || track.creator_is_private}
+                title={
+                  !isAuthenticated ? 'Log in to repost tracks' :
+                  track.is_private ? 'Cannot repost private tracks' :
+                  track.creator_is_private ? 'Cannot repost tracks from private accounts' :
+                  isReposted ? 'Unrepost' : 'Repost'
+                }
             >
                 <FaRetweet />
             </button>
