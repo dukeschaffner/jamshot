@@ -80,9 +80,12 @@ body {
   color: var(--text-primary);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
-  padding: 0;
+  /* padding: 0; */
   box-sizing: border-box;
   transition: background-color 0.3s ease, color 0.3s ease;
+
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .text-primary{
@@ -371,20 +374,21 @@ body.dark-mode .search-box input:focus {
 @media (max-width: 768px) {
   
   .app-container {
-    grid-template-columns: 1fr;
+    display: flex;
+    /* grid-template-columns: 1fr;
     grid-template-areas:
         "main"
         "mobile-nav";
-    grid-template-rows: 1fr 70px;
+    grid-template-rows: 1fr 70px; */
     height: 100vh;
   }
   
   .app-container.player-visible {
-    grid-template-areas:
+    /* grid-template-areas:
         "main"
         "player"
         "mobile-nav";
-    grid-template-rows: 1fr 80px 70px;
+    grid-template-rows: 1fr 80px 70px; */
   }
   
   .navbar {
@@ -397,8 +401,13 @@ body.dark-mode .search-box input:focus {
   
   .main-content {
     padding: 10px;
-    height: unset !important;
+    height: calc(100vh - 70px);
+    width: 100%;
     overflow-y: auto;
+  }
+
+  .app-container.player-visible .main-content {
+    height: calc(100vh - 150px);
   }
   
   .global-player {
@@ -431,7 +440,7 @@ body.dark-mode .search-box input:focus {
 
 /* Mobile Navbar Styles */
 .mobile-navbar {
-    grid-area: mobile-nav;
+    /* grid-area: mobile-nav; */
     background-color: var(--background);
     border-top: 1px solid var(--grey-2);
     padding: 8px 0;
@@ -442,7 +451,7 @@ body.dark-mode .search-box input:focus {
     height: 70px;
     width: 100%;
     transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-    position: absolute;
+    position: fixed;
     bottom: 0px;
 }
 
