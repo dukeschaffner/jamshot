@@ -26,7 +26,7 @@ TODO (MVP)
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
 - add subscribe to mobile nav
-- only count track that completed processing in quotas
+- only count tracks that completed processing in quotas
 
 
 

@@ -161,8 +161,13 @@ export default function Home() {
                 <p style={{ fontSize: '16px', marginBottom: '24px' }}>
                   sterio is a social platform where musicians can collaborate with each other!
                 </p>
+                {isMobile && (
+                  <p style={{ fontSize: '14px', marginBottom: '16px', fontStyle: 'italic', color: 'var(--text-secondary)' }}>
+                    💻 For the full experience, try using sterio on desktop!
+                  </p>
+                )}
               </div>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px', borderRadius: '8px', backgroundColor: 'var(--bg-secondary, #f0f0f0)' }}>
                   <FaMicrophone style={{ fontSize: '32px', color: 'var(--primary-color)', marginBottom: '12px' }} />

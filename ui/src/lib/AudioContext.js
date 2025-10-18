@@ -175,6 +175,7 @@ export function AudioProvider({ children }) {
 
   // Function to refresh track URL and replay
   const handleExpiredUrl = useCallback(async () => {
+    return;
     if (!currentTrack || urlRefreshAttemptedRef.current) return;
     
     console.log('Track URL might be expired, attempting to refresh URL for:', currentTrack.id);
