@@ -54,33 +54,47 @@ function SearchContent() {
     }
   };
   
-  const handleFollowToggle = async (userId, isFollowing) => {
+  const handleFollowToggle = async (userId, isFollowing, hasRequestedToFollow = false) => {
     if (!isAuthenticated) {
       // Handle unauthenticated user
       return;
     }
-    
+
     // Prevent following yourself
     if (currentUser && userId === currentUser.id) {
       return;
     }
-    
+
     try {
       const user = searchResults.users.find(u => u.id === userId);
-      
-      if (isFollowing) {
+
+      if (isFollowing || hasRequestedToFollow) {
+        // Unfollow or cancel request
         await api.delete(`/users/follow/${userId}`);
         if (user) trackUserUnfollow(user.username);
       } else {
-        await api.post(`/users/follow/${userId}`);
+        // Follow or send request
+        const response = await api.post(`/users/follow/${userId}`);
         if (user) trackUserFollow(user.username);
+
+        // Check if this was a follow request (private user)
+        if (response.data.message === 'Follow request sent') {
+          // Update state to show requested status
+          setSearchResults(prev => ({
+            ...prev,
+            users: prev.users.map(user =>
+              user.id === userId ? { ...user, has_requested_to_follow: true } : user
+            )
+          }));
+          return;
+        }
       }
-      
-      // Update the user in the search results
+
+      // For unfollow or direct follow (public user), update is_following
       setSearchResults(prev => ({
         ...prev,
-        users: prev.users.map(user => 
-          user.id === userId ? { ...user, is_following: !isFollowing } : user
+        users: prev.users.map(user =>
+          user.id === userId ? { ...user, is_following: !isFollowing, has_requested_to_follow: false } : user
         )
       }));
     } catch (error) {
@@ -135,14 +149,19 @@ function SearchContent() {
             <div className="user-actions">
               {/* Only show follow button if user is not the current user */}
               {currentUser && user.id !== currentUser.id && (
-                <button 
-                  className={`follow-btn ${user.is_following ? 'following' : ''}`}
-                  onClick={() => handleFollowToggle(user.id, user.is_following)}
+                <button
+                  className={`follow-btn ${user.is_following ? 'following' : user.has_requested_to_follow ? 'requested' : ''}`}
+                  onClick={() => handleFollowToggle(user.id, user.is_following, user.has_requested_to_follow)}
                 >
                   {user.is_following ? (
                     <>
                       <FaUserCheck />
                       <span>Following</span>
+                    </>
+                  ) : user.has_requested_to_follow ? (
+                    <>
+                      <FaUserCheck />
+                      <span>Requested</span>
                     </>
                   ) : (
                     <>

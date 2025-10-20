@@ -108,12 +108,13 @@ router.get('/', async (req, res) => {
     // If type is not specified or is 'users', search for users
     if (!type || type === 'all' || type === 'users') {
       const usersQuery = `
-        SELECT 
-          u.id, u.username, u.profile_pic_url, u.verified, u.bio,
+        SELECT
+          u.id, u.username, u.profile_pic_url, u.verified, u.bio, u.is_private,
           (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS follower_count,
           (SELECT COUNT(*) FROM tracks WHERE user_id = u.id AND processing_status = 'completed') AS track_count,
           EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) AS is_following,
-          CASE WHEN u.username ILIKE $3 THEN 0 ELSE 1 END AS username_match_order
+          CASE WHEN EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = $1 AND target_id = u.id) THEN true ELSE false END AS has_requested_to_follow,
+          CASE WHEN u.username ILIKE $4 THEN 0 ELSE 1 END AS username_match_order
         FROM users u
         WHERE 
           u.username ILIKE $2 OR
@@ -125,8 +126,9 @@ router.get('/', async (req, res) => {
       `;
       
       const usersResult = await pool.query(usersQuery, [
-        userId || null, 
+        userId || null,
         `%${query}%`,
+        userId || null, // For has_requested_to_follow check
         `${query}%` // Exact start match gets higher priority
       ]);
       
