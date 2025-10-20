@@ -12,7 +12,9 @@ exports.handler = async (event, context) => {
   // Set callbackWaitsForEmptyEventLoop to false to prevent Lambda from waiting
   // for the event loop to be empty before returning
   context.callbackWaitsForEmptyEventLoop = false;
-  console.log('Event body:', event.body);
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    console.log('Event', JSON.stringify(event, null, 2));
+  }
 
   if (event.body && event.isBase64Encoded) {
     event.body = Buffer.from(event.body, 'base64');
