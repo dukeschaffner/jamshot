@@ -62,11 +62,24 @@ jobs:
           -x ".git/*" \
           -x "node_modules/.cache/*"
 
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
+    # TEMPORARY: Using S3 storage instead of GitHub artifacts
+    - name: Configure AWS credentials for S3 upload
+      uses: aws-actions/configure-aws-credentials@v2
       with:
-        name: competitions-lambda-build-${{ github.run_number }}
-        path: ./functions/lambda/competitions/competitions-lambda.zip
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Upload artifact to S3
+      run: |
+        aws s3 cp competitions-lambda.zip s3://sterio/lambda-artifacts/competitions-lambda-latest.zip --acl private
+
+    # COMMENTED OUT: Original GitHub artifact upload (uncomment to revert)
+    # - name: Upload build artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: competitions-lambda-build-${{ github.run_number }}
+    #     path: ./functions/lambda/competitions/competitions-lambda.zip
 
   deploy-to-test:
     runs-on: ubuntu-latest
@@ -77,10 +90,23 @@ jobs:
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
 
     steps:
-    - name: Download build artifact
-      uses: actions/download-artifact@v4
+    # TEMPORARY: Using S3 download instead of GitHub artifacts
+    - name: Configure AWS credentials for S3 download
+      uses: aws-actions/configure-aws-credentials@v2
       with:
-        name: ${{ needs.build.outputs.build-artifact }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Download artifact from S3
+      run: |
+        aws s3 cp s3://sterio/lambda-artifacts/competitions-lambda-latest.zip competitions-lambda.zip
+
+    # COMMENTED OUT: Original GitHub artifact download (uncomment to revert)
+    # - name: Download build artifact
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     name: ${{ needs.build.outputs.build-artifact }}
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
@@ -127,10 +153,23 @@ jobs:
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
 
     steps:
-    - name: Download build artifact
-      uses: actions/download-artifact@v4
+    # TEMPORARY: Using S3 download instead of GitHub artifacts
+    - name: Configure AWS credentials for S3 download
+      uses: aws-actions/configure-aws-credentials@v2
       with:
-        name: ${{ needs.build.outputs.build-artifact }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Download artifact from S3
+      run: |
+        aws s3 cp s3://sterio/lambda-artifacts/competitions-lambda-latest.zip competitions-lambda.zip
+
+    # COMMENTED OUT: Original GitHub artifact download (uncomment to revert)
+    # - name: Download build artifact
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     name: ${{ needs.build.outputs.build-artifact }}
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2

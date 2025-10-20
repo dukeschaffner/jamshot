@@ -227,8 +227,13 @@ router.post('/login', strictAuthLimiter, async (req, res) => {
 // Refresh token endpoint
 router.post('/refresh-token', authLimiter, async (req, res) => {
   const { refreshToken } = req.body;
+
+  const tempLog = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? true : false;
   
   if (!refreshToken) {
+    if (tempLog) {
+      console.error('Refresh token missing in request body');
+    }
     return res.status(400).json({ error: 'Refresh token is required' });
   }
   
@@ -240,6 +245,9 @@ router.post('/refresh-token', authLimiter, async (req, res) => {
     );
     
     if (tokenResult.rows.length === 0) {
+      if (tempLog) {
+        console.error('Invalid or expired refresh token');
+      }
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
     
@@ -258,6 +266,7 @@ router.post('/refresh-token', authLimiter, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+    console.error('Error refreshing token:', err);
   }
 });
 

@@ -11,8 +11,8 @@ const apiClient = createApiClient({
   }),
   removeToken: () => Cookies.remove('accessToken'),
   getRefreshToken: () => Cookies.get('refreshToken'),
-  setRefreshToken: (token) => Cookies.set('refreshToken', token, { 
-    expires: 7, // 7 days
+  setRefreshToken: (token) => Cookies.set('refreshToken', token, {
+    expires: 30, // 30 days - match server-side expiration
     sameSite: 'strict'
   }),
   removeRefreshToken: () => Cookies.remove('refreshToken'),
