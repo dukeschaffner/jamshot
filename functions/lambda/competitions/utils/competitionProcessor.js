@@ -95,7 +95,7 @@ class CompetitionProcessor {
     } else {
       // For curated competitions, determine backup winner and schedule 24hr follow-up
       backupWinner = await this.selectAutomatedWinner(entries);
-      await this.updateBackupWinner(competitionId, backupWinner.id);
+      await this.updateBackupWinner(competitionId, backupWinner.user_id);
       
       // Schedule 24hr follow-up Lambda
       await this.scheduleFollowUpLambda(competitionId);
@@ -309,7 +309,7 @@ class CompetitionProcessor {
       // Update competition with winner
       await client.query(
         'UPDATE competitions SET winner_id = $1, updated_at = NOW() WHERE id = $2',
-        [winner.id, competition.id]
+        [winner.user_id, competition.id]
       );
       
       // Send notifications (different types for backup vs regular winner)
