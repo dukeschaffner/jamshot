@@ -51,8 +51,6 @@ app.use(globalLimiter);
 app.use(speedLimiter);
 
 
-//app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-
 // CORS configuration for API Gateway
 const corsOptions = {
   origin: function (origin, callback) {
@@ -87,6 +85,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 if (process.env.NODE_ENV === 'dev') {
+  app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 } else { // CORS configured in API Gateway
