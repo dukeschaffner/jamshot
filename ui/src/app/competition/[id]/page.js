@@ -98,8 +98,8 @@ export default function CompetitionDetailPage() {
     setError('');
 
     try {
-      // Navigate to upload page with competition context
-      router.push(`/upload?competition=${competitionId}`);
+      // Navigate to track page with competition context
+      router.push(`/track/${competition.track.id}?competition=${competition.id}`);
     } catch (err) {
       console.error('Error entering competition:', err);
       setError('Failed to enter competition. Please try again.');
