@@ -40,11 +40,8 @@ function CreateCompetitionClient() {
       return;
     }
 
-    // Handle payment result
-    if (paymentResult === 'success') {
-      setPaymentStatus('success');
-      setSuccess('Competition created successfully! Payment completed.');
-    } else if (paymentResult === 'canceled') {
+    // Handle payment result (only for canceled payments now, since success goes directly to competitions)
+    if (paymentResult === 'canceled') {
       setPaymentStatus('canceled');
       setError('Payment was canceled. Competition creation failed.');
     }
@@ -161,7 +158,7 @@ function CreateCompetitionClient() {
         // Competition created without payment
         setSuccess('Competition created successfully!');
         setTimeout(() => {
-          router.push('/');
+          router.push(`/competition/${response.data.competition.id}`);
         }, 2000);
       }
     } catch (err) {
@@ -221,13 +218,6 @@ function CreateCompetitionClient() {
       </div>
 
       {/* Payment Status Messages */}
-      {paymentStatus === 'success' && (
-        <div className="payment-status success">
-          <FaCheckCircle style={{ marginRight: '8px' }} />
-          Competition created successfully! Payment completed.
-        </div>
-      )}
-      
       {paymentStatus === 'canceled' && (
         <div className="payment-status canceled">
           <FaExclamationTriangle style={{ marginRight: '8px' }} />
