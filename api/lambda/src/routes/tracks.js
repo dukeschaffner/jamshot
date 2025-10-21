@@ -457,7 +457,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       }
 
       // Validate competition entry only if user opted in and parent track exists
-      if (enter_competition === 'true') {
+      if (enter_competition == true) {
         // Check if parent track is associated with a competition
         const parentCompetitionCheck = await pool.query(
           'SELECT c.id FROM competitions c WHERE c.track_id = $1',

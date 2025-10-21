@@ -1,4 +1,5 @@
 RUNNING STRIPE: stripe listen --forward-to localhost:5001/api/payments/webhook
+RUNNING AUDIO PROCESSING DEV SERVER: node ./functions/lambda/audio-processing/dev-start.js
 
 
 TODO (MVP)
@@ -28,14 +29,16 @@ TODO (MVP)
 - only count tracks that completed processing in quotas
 
 
-
 BUGS
+- competition entries not loading on competition page (competition flags not set correctly)
 - double check track plays recording correctly
 - audio url refresh endless cycle
 - when following a private user from search, the status should change to 'requested' not 'following'
 - Session ended error after long period (6 hrs) of inactivity
 - trim silence at end didnt work
 - private track loaded on users page (viewing as a different user)
+- got generic error when trying to enter my own competition: Competition entry validation failed
+- parent artist not loading on track page
 
 
 
@@ -51,6 +54,12 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- competition: add entry count to table so that entries dont need to be loaded from the api
+- switch to minutes based quota
+- competition entry notification to host
+- make sure users cant make competition from private track.
+- make sure users cant convert competition track to private.
+- remove make this track private option if createcompetition = true
 - requested instrument tags (ie i want collaborator to add drums)
 - search typeahead
 - if track is loop, allow collaborators to increase/set the number of loops in the collab
