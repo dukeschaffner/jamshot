@@ -48,7 +48,7 @@ export default function CompetitionDetailPage() {
     try {
       setLoadingEntries(true);
       const response = await competitionApi.getCompetitionEntries(competitionId);
-      const entries = Array.isArray(response.data) ? response.data : [];
+      const entries = Array.isArray(response.data.data) ? response.data.data : [];
       setEntries(entries);
       
       // Check if current user has entered
