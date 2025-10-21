@@ -52,6 +52,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- competition: add entry count to table so that entries dont need to be loaded from the api
 - switch to minutes based quota
 - competition entry notification to host
 - make sure users cant make competition from private track.

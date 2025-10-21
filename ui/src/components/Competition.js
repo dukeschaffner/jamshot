@@ -48,7 +48,7 @@ export default function Competition({
       
       try {
         const response = await competitionApi.getCompetitionEntries(competition.id);
-        const entries = Array.isArray(response.data) ? response.data : [];
+        const entries = Array.isArray(response.data.data) ? response.data.data : [];
         
         // Check if current user has entered
         const userEntry = entries.find(entry => entry.user_id === currentUser?.id);
