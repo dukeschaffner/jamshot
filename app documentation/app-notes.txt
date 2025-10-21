@@ -37,6 +37,8 @@ BUGS
 - Session ended error after long period (6 hrs) of inactivity
 - trim silence at end didnt work
 - private track loaded on users page (viewing as a different user)
+- got generic error when trying to enter my own competition: Competition entry validation failed
+- parent artist not loading on track page
 
 
 
