@@ -617,7 +617,7 @@ class CompetitionProcessor {
     const mailOptions = {
       from: process.env.EMAIL,
       to: getEmailAddress(winner.email),
-      subject: '🎉 You won a competition on Jamshot!',
+      subject: '🎉 You won a competition on sterio.fm!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Congratulations ${winner.name || winner.username}!</h2>

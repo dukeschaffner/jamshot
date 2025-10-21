@@ -321,13 +321,13 @@ function CreateCompetitionClient() {
             </div>
           </div>
 
-          {/* Winner Selection */}
-          <div className={styles.formSection}>
+          {/* Winner Selection - Commented out for automated only */}
+          {/* <div className={styles.formSection}>
             <h3>
               <FaUsers style={{ marginRight: '8px' }} />
               Winner Selection
             </h3>
-            
+
             <div className={styles.formGroup}>
               <label>How should the winner be selected?</label>
               <div className={styles.radioGroup}>
@@ -357,10 +357,10 @@ function CreateCompetitionClient() {
                     <p>You manually review and select the best entry</p>
                   </div>
                 </label>
-              
+
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Additional Options */}
           <div className={styles.formSection}>
