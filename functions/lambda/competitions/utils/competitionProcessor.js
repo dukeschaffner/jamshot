@@ -33,7 +33,7 @@ if (!process.env.DB_HOST) {
 }
 
 // Create a transporter using custom SMTP credentials
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT, 10),
   secure: process.env.SMTP_SECURE === 'true',

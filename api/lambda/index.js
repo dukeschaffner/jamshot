@@ -15,7 +15,6 @@ exports.handler = async (event, context) => {
   if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
     let message = `
     Endpoint hit: ${event.rawPath}
-    Event: ${JSON.stringify(event, null, 2)}
     `;
     console.log(message);
   }
