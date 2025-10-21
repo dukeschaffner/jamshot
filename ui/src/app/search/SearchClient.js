@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import MiniTrack from '../../components/MiniTrack';
 import CustomTabs from '../../components/CustomTabs';
 import { trackUserFollow, trackUserUnfollow, trackSearch } from '../../lib/analytics';
-import { FaCheckCircle, FaUserPlus, FaUserCheck, FaSearch } from 'react-icons/fa';
+import { FaCheckCircle, FaSearch } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -68,13 +68,33 @@ function SearchContent() {
     try {
       const user = searchResults.users.find(u => u.id === userId);
 
-      if (isFollowing || hasRequestedToFollow) {
-        // Unfollow or cancel request
-        await api.delete(`/users/follow/${userId}`);
+      if (hasRequestedToFollow) {
+        // Cancel follow request
+        await api.delete(`/users/follow/username/${user.username}`);
         if (user) trackUserUnfollow(user.username);
+
+        // Update state to remove requested status
+        setSearchResults(prev => ({
+          ...prev,
+          users: prev.users.map(user =>
+            user.id === userId ? { ...user, has_requested_to_follow: false } : user
+          )
+        }));
+      } else if (isFollowing) {
+        // Unfollow existing follow
+        await api.delete(`/users/follow/username/${user.username}`);
+        if (user) trackUserUnfollow(user.username);
+
+        // Update state to remove following status
+        setSearchResults(prev => ({
+          ...prev,
+          users: prev.users.map(user =>
+            user.id === userId ? { ...user, is_following: false } : user
+          )
+        }));
       } else {
         // Follow or send request
-        const response = await api.post(`/users/follow/${userId}`);
+        const response = await api.post(`/users/follow/username/${user.username}`);
         if (user) trackUserFollow(user.username);
 
         // Check if this was a follow request (private user)
@@ -88,15 +108,15 @@ function SearchContent() {
           }));
           return;
         }
-      }
 
-      // For unfollow or direct follow (public user), update is_following
-      setSearchResults(prev => ({
-        ...prev,
-        users: prev.users.map(user =>
-          user.id === userId ? { ...user, is_following: !isFollowing, has_requested_to_follow: false } : user
-        )
-      }));
+        // For direct follow (public user), update is_following
+        setSearchResults(prev => ({
+          ...prev,
+          users: prev.users.map(user =>
+            user.id === userId ? { ...user, is_following: true, has_requested_to_follow: false } : user
+          )
+        }));
+      }
     } catch (error) {
       console.error('Error toggling follow:', error);
     }
@@ -153,22 +173,7 @@ function SearchContent() {
                   className={`follow-btn ${user.is_following ? 'following' : user.has_requested_to_follow ? 'requested' : ''}`}
                   onClick={() => handleFollowToggle(user.id, user.is_following, user.has_requested_to_follow)}
                 >
-                  {user.is_following ? (
-                    <>
-                      <FaUserCheck />
-                      <span>Following</span>
-                    </>
-                  ) : user.has_requested_to_follow ? (
-                    <>
-                      <FaUserCheck />
-                      <span>Requested</span>
-                    </>
-                  ) : (
-                    <>
-                      <FaUserPlus />
-                      <span>Follow</span>
-                    </>
-                  )}
+                  {user.is_following ? 'Following' : user.has_requested_to_follow ? 'Requested' : 'Follow'}
                 </button>
               )}
             </div>

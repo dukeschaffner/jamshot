@@ -413,6 +413,15 @@ async function handleCheckoutCompleted(session) {
             [competition.id, trackId]
           );
 
+          // Schedule the competition end event
+          try {
+            const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler');
+            await scheduleCompetitionEnd(competition.id, endDateUTC, winnerSelectionMethod);
+            console.log(`Competition end scheduled for ID: ${competition.id} after payment`);
+          } catch (scheduleError) {
+            console.error('Error scheduling competition end after payment:', scheduleError);
+          }
+
           console.log(`Competition created successfully after payment: ${competition.id}`);
         } catch (error) {
           console.error('Error creating competition after payment:', error);

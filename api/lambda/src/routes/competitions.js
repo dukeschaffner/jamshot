@@ -624,7 +624,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
         },
       ],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL}/competition/create?track=${track_id}&payment=success`,
+      success_url: `${process.env.FRONTEND_URL}/competitions`,
       cancel_url: `${process.env.FRONTEND_URL}/competition/create?track=${track_id}&payment=canceled`,
       metadata: {
         userId: userId,
