@@ -30,6 +30,7 @@ TODO (MVP)
 
 
 BUGS
+- competition entries not loading on competition page (competition flags not set correctly)
 - double check track plays recording correctly
 - audio url refresh endless cycle
 - when following a private user from search, the status should change to 'requested' not 'following'
@@ -51,6 +52,8 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- switch to minutes based quota
+- competition entry notification to host
 - make sure users cant make competition from private track.
 - make sure users cant convert competition track to private.
 - remove make this track private option if createcompetition = true
