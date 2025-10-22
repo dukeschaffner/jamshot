@@ -590,7 +590,7 @@ class CompetitionProcessor {
             <h3 style="color: #333; margin-top: 0;">💰 How to Collect Your Winnings</h3>
             <p>Congratulations on your win! To receive your prize money, you'll need to complete a quick payout setup process:</p>
             <ol style="color: #555;">
-              <li><strong>Contact our support team</strong> at <a href="mailto:support@sterio.fm" style="color: #6772E5; text-decoration: none;">support@sterio.fm</a> with your competition win details</li>
+              <li><strong>Contact our support team</strong> at <a href="mailto:hello@sterio.fm" style="color: #6772E5; text-decoration: none;">hello@sterio.fm</a> with your competition win details</li>
               <li>Our team will guide you through setting up your payout method</li>
               <li>Once verified, your prize will be transferred within 2-3 business days</li>
             </ol>
@@ -599,8 +599,8 @@ class CompetitionProcessor {
           ` : ''}
 
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
-            ${competition.prize_amount ? `<a href="mailto:support@sterio.fm?subject=Competition Win - Setup Payout&body=Hi, I won the competition for ${encodeURIComponent(competition.track_title)} and need help setting up my payout." style="background-color: #6772E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px;">Contact Support for Payout</a>` : ''}
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
+            ${competition.prize_amount ? `<a href="mailto:hello@sterio.fm?subject=Competition Win - Setup Payout&body=Hi, I won the competition for ${encodeURIComponent(competition.track_title)} and need help setting up my payout." style="background-color: #6772E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px;">Contact Support for Payout</a>` : ''}
           </div>
         </div>
       `
@@ -633,7 +633,7 @@ class CompetitionProcessor {
           <p><strong>Winner:</strong> ${winner.username} with "${winner.title}"</p>
           <p><strong>Total entries:</strong> ${allEntries.length}</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Results</a>
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Results</a>
           </div>
         </div>
       `
@@ -659,7 +659,7 @@ class CompetitionProcessor {
           <p>The competition for "${competition.track_title}" has ended.</p>
           <p>Unfortunately, no entries were received for this competition.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
           </div>
         </div>
       `
@@ -685,7 +685,7 @@ class CompetitionProcessor {
           <p>The competition for "${competition.track_title}" has ended.</p>
           <p>No winner could be determined automatically. Please contact support if you need assistance.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
           </div>
         </div>
       `
