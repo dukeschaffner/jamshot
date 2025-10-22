@@ -66,7 +66,7 @@ jobs:
     environment:
       name: ui-test
       url: ${{ vars.UI_TEST_URL }}
-    if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
     steps:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
