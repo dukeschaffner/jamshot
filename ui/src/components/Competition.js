@@ -48,7 +48,7 @@ export default function Competition({
       
       try {
         const response = await competitionApi.getCompetitionEntries(competition.id);
-        const entries = Array.isArray(response.data) ? response.data : [];
+        const entries = Array.isArray(response.data.data) ? response.data.data : [];
         
         // Check if current user has entered
         const userEntry = entries.find(entry => entry.user_id === currentUser?.id);
@@ -90,8 +90,8 @@ export default function Competition({
     setError('');
 
     try {
-      // Navigate to upload page with competition context
-      router.push(`/upload?competition=${competition.id}`);
+      // Navigate to track page with competition context
+      router.push(`/track/${competition.track.id}?competition=${competition.id}`);
     } catch (err) {
       console.error('Error entering competition:', err);
       setError('Failed to enter competition. Please try again.');
