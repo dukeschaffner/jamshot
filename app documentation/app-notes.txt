@@ -29,16 +29,13 @@ TODO (MVP)
 - only count tracks that completed processing in quotas
 
 
+
 BUGS
-- competition entries not loading on competition page (competition flags not set correctly)
 - double check track plays recording correctly
 - audio url refresh endless cycle
-- when following a private user from search, the status should change to 'requested' not 'following'
 - Session ended error after long period (6 hrs) of inactivity
-- trim silence at end didnt work
-- private track loaded on users page (viewing as a different user)
 - got generic error when trying to enter my own competition: Competition entry validation failed
-- parent artist not loading on track page
+
 
 
 
@@ -54,6 +51,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- correlation id for audio processing
 - competition: add entry count to table so that entries dont need to be loaded from the api
 - switch to minutes based quota
 - competition entry notification to host

@@ -727,10 +727,10 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
     let baseQuery;
     let queryParams;
     if (userId) {
-      baseQuery = getBaseTrackSelectQuery(true, 2, false);
+      baseQuery = getBaseTrackSelectQuery(true, 2, true);
       queryParams = [id, userId];
     } else {
-      baseQuery = getBaseTrackSelectQuery(false, 1, false);
+      baseQuery = getBaseTrackSelectQuery(false, 1, true);
       queryParams = [id];
     }
 
