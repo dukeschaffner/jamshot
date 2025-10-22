@@ -16,9 +16,8 @@ const CompetitionProcessor = require('./utils/competitionProcessor');
  */
 
 exports.handler = async (event, context) => {
-  console.log('🏆 Jamshot Competition Lambda Started');
-  console.log('Event:', JSON.stringify(event, null, 2));
-  console.log('Context:', JSON.stringify(context, null, 2));
+  let taskLog = "Competition Lambda Started";
+  taskLog += `\nEvent: ${JSON.stringify(event, null, 2)}`;
   
   const processor = new CompetitionProcessor();
   
@@ -31,16 +30,18 @@ exports.handler = async (event, context) => {
       throw new Error('competition_id is required in event');
     }
     
-    console.log(`📅 Processing competition: ${competitionId}`);
-    console.log(`🎯 Type: ${type}`);
+    taskLog += `\n📅 Processing competition: ${competitionId}`;
+    taskLog += `\n🎯 Type: ${type}`;
     
     let result;
     
     if (type === 'competition_end' || type === 'Competition Ended') {
-      console.log('🏁 Processing competition end...');
+      taskLog += `\n🏁 Processing competition end...`;
+      console.log(taskLog);
       result = await processor.processCompetitionEnd(competitionId);
     } else if (type === 'curated_followup' || type === 'Competition Follow-up') {
-      console.log('⏰ Processing curated competition follow-up...');
+      taskLog += `\n⏰ Processing curated competition follow-up...`;
+      console.log(taskLog);
       result = await processor.processCuratedFollowup(competitionId);
     } else {
       throw new Error(`Invalid type specified: ${type}. Valid options: competition_end, curated_followup`);
