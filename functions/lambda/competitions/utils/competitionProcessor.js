@@ -302,26 +302,26 @@ class CompetitionProcessor {
    */
   async processWinner(competition, winner, allEntries, isBackupWinner = false) {
     const client = await pool.connect();
-    
+
     try {
       await client.query('BEGIN');
-      
+
       // Update competition with winner
       await client.query(
         'UPDATE competitions SET winner_id = $1, updated_at = NOW() WHERE id = $2',
         [winner.user_id, competition.id]
       );
-      
+
       // Send notifications (different types for backup vs regular winner)
-      await this.sendWinnerNotifications(competition, winner, allEntries, isBackupWinner);
-      
+      await this.sendWinnerNotifications(competition, winner, allEntries, isBackupWinner, client);
+
       // Handle prize payout if it's a cash prize
       if (competition.prize_amount && competition.prize_amount > 0) {
-        await this.processPrizePayout(competition, winner);
+        await this.processPrizePayout(competition, winner, client);
       }
-      
+
       await client.query('COMMIT');
-      
+
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -377,10 +377,11 @@ class CompetitionProcessor {
    * @param {Object} winner - Winner details
    * @param {Array} allEntries - All competition entries
    * @param {boolean} isBackupWinner - Whether this is a backup winner (affects notification types)
+   * @param {Object} client - Optional database client to use for notifications
    */
-  async sendWinnerNotifications(competition, winner, allEntries, isBackupWinner = false) {
+  async sendWinnerNotifications(competition, winner, allEntries, isBackupWinner = false, client = null) {
     const notifications = [];
-    
+
     // Winner notification
     const winnerNotification = {
       type: 'competition_winner',
@@ -389,9 +390,9 @@ class CompetitionProcessor {
       relatedUserId: winner.user_id,
       competitionId: competition.id
     };
-    
+
     notifications.push(winnerNotification);
-    
+
     // Host notification
     if (competition.host_id) {
       const hostNotification = {
@@ -401,28 +402,33 @@ class CompetitionProcessor {
         relatedUserId: winner.user_id,
         competitionId: competition.id
       };
-      
+
       notifications.push(hostNotification);
     }
-    
-    // Send all notifications
-    await Promise.all(notifications.map(notification => this.sendNotification(notification)));
-    
+
+    // Send all notifications sequentially to avoid connection pool exhaustion
+    for (const notification of notifications) {
+      await this.sendNotification(notification, client);
+    }
+
     // Send email notifications
     await this.sendEmailNotifications(competition, winner, allEntries, isBackupWinner);
   }
   
   /**
    * Send notification to user
+   * @param {Object} notification - Notification data
+   * @param {Object} client - Optional database client to use instead of pool
    */
-  async sendNotification(notification) {
+  async sendNotification(notification, client = null) {
     try {
       const query = `
         INSERT INTO notifications (user_id, type, related_track_id, related_user_id, competition_id, created_at)
         VALUES ($1, $2, $3, $4, $5, NOW())
       `;
-      
-      await pool.query(query, [
+
+      const dbClient = client || pool;
+      await dbClient.query(query, [
         notification.userId,
         notification.type,
         notification.relatedTrackId || null,
@@ -469,83 +475,82 @@ class CompetitionProcessor {
   
   /**
    * Process prize payout via Stripe
+   * @param {Object} competition - Competition details
+   * @param {Object} winner - Winner details
+   * @param {Object} client - Optional database client to use instead of pool
    */
-  async processPrizePayout(competition, winner) {
-    try {
-      // Get winner's Stripe account details
-      const userResult = await pool.query(
-        'SELECT stripe_account_id, email, name FROM users WHERE id = $1',
-        [winner.user_id]
-      );
-      
-      const user = userResult.rows[0];
-      
-      let stripeAccountId = user.stripe_account_id;
-      
-      // Create Stripe Express account if user doesn't have one
-      if (!stripeAccountId) {
-        console.log(`Creating Stripe Express account for winner ${winner.user_id}`);
-        
-        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-        
-        // Create Express account
-        const account = await stripe.accounts.create({
-          type: 'express',
-          country: 'US', // Default to US - could be made configurable
-          email: user.email,
-          metadata: {
-            user_id: winner.user_id,
-            created_for: 'competition_payout'
-          }
-        });
-        
-        stripeAccountId = account.id;
-        
-        // Update user with new Stripe account ID
-        await pool.query(
-          'UPDATE users SET stripe_account_id = $1 WHERE id = $2',
-          [stripeAccountId, winner.user_id]
-        );
-        
-        console.log(`Created Stripe Express account ${stripeAccountId} for user ${winner.user_id}`);
-      }
-      
-      // Create Stripe transfer
+  async processPrizePayout(competition, winner, client = null) {
+    const dbClient = client || pool;
+
+    // Get winner's Stripe account details
+    const userResult = await dbClient.query(
+      'SELECT stripe_account_id, email, name FROM users WHERE id = $1',
+      [winner.user_id]
+    );
+
+    const user = userResult.rows[0];
+
+    let stripeAccountId = user.stripe_account_id;
+
+    // Create Stripe Express account if user doesn't have one
+    if (!stripeAccountId) {
+      console.log(`Creating Stripe Express account for winner ${winner.user_id}`);
+
       const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-      
-      const transfer = await stripe.transfers.create({
-        amount: competition.prize_amount,
-        currency: 'usd',
-        destination: stripeAccountId,
+
+      // Create Express account
+      const account = await stripe.accounts.create({
+        type: 'express',
+        country: 'US', // Default to US - could be made configurable
+        email: user.email,
         metadata: {
-          competition_id: competition.id,
-          winner_id: winner.user_id,
-          type: 'competition_prize'
+          user_id: winner.user_id,
+          created_for: 'competition_payout'
         }
       });
-      
-      console.log(`Prize payout processed: ${transfer.id}`);
-      
-      // Log payout in database
-      await pool.query(
-        `INSERT INTO payouts (user_id, amount, type, stripe_transfer_id, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [
-          winner.user_id,
-          competition.prize_amount,
-          'competition_prize',
-          transfer.id,
-          JSON.stringify({
-            competition_id: competition.id,
-            track_title: competition.track_title
-          })
-        ]
+
+      stripeAccountId = account.id;
+
+      // Update user with new Stripe account ID
+      await dbClient.query(
+        'UPDATE users SET stripe_account_id = $1 WHERE id = $2',
+        [stripeAccountId, winner.user_id]
       );
-      
-    } catch (error) {
-      console.error('Error processing prize payout:', error);
-      // TODO: Handle payout failures (retry logic, manual processing, etc.)
+
+      console.log(`Created Stripe Express account ${stripeAccountId} for user ${winner.user_id}`);
     }
+
+    // Create Stripe transfer
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+    const transfer = await stripe.transfers.create({
+      amount: competition.prize_amount,
+      currency: 'usd',
+      destination: stripeAccountId,
+      metadata: {
+        competition_id: competition.id,
+        winner_id: winner.user_id,
+        type: 'competition_prize'
+      }
+    });
+
+    console.log(`Prize payout processed: ${transfer.id}`);
+
+    // Log payout in database
+    await dbClient.query(
+      `INSERT INTO payouts (user_id, amount, type, stripe_transfer_id, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        winner.user_id,
+        competition.prize_amount,
+        'competition_prize',
+        transfer.id,
+        JSON.stringify({
+          competition_id: competition.id,
+          track_title: competition.track_title
+        })
+      ]
+    );
   }
   
   /**
