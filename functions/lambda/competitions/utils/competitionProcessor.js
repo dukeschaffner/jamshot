@@ -480,6 +480,12 @@ class CompetitionProcessor {
    * @param {Object} client - Optional database client to use instead of pool
    */
   async processPrizePayout(competition, winner, client = null) {
+    // Validate Stripe configuration
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+    }
+
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const dbClient = client || pool;
 
     // Get winner's Stripe account details
@@ -495,8 +501,6 @@ class CompetitionProcessor {
     // Create Stripe Express account if user doesn't have one
     if (!stripeAccountId) {
       console.log(`Creating Stripe Express account for winner ${winner.user_id}`);
-
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
       // Create Express account
       const account = await stripe.accounts.create({
@@ -521,7 +525,6 @@ class CompetitionProcessor {
     }
 
     // Create Stripe transfer
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
     const transfer = await stripe.transfers.create({
       amount: competition.prize_amount,
