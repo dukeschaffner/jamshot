@@ -482,75 +482,29 @@ class CompetitionProcessor {
   async processPrizePayout(competition, winner, client = null) {
     const dbClient = client || pool;
 
-    // Get winner's Stripe account details
-    const userResult = await dbClient.query(
-      'SELECT stripe_account_id, email, name FROM users WHERE id = $1',
-      [winner.user_id]
-    );
-
-    const user = userResult.rows[0];
-
-    let stripeAccountId = user.stripe_account_id;
-
-    // Create Stripe Express account if user doesn't have one
-    if (!stripeAccountId) {
-      console.log(`Creating Stripe Express account for winner ${winner.user_id}`);
-
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-
-      // Create Express account
-      const account = await stripe.accounts.create({
-        type: 'express',
-        country: 'US', // Default to US - could be made configurable
-        email: user.email,
-        metadata: {
-          user_id: winner.user_id,
-          created_for: 'competition_payout'
-        }
-      });
-
-      stripeAccountId = account.id;
-
-      // Update user with new Stripe account ID
-      await dbClient.query(
-        'UPDATE users SET stripe_account_id = $1 WHERE id = $2',
-        [stripeAccountId, winner.user_id]
-      );
-
-      console.log(`Created Stripe Express account ${stripeAccountId} for user ${winner.user_id}`);
-    }
-
-    // Create Stripe transfer
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-
-    const transfer = await stripe.transfers.create({
-      amount: competition.prize_amount,
-      currency: 'usd',
-      destination: stripeAccountId,
-      metadata: {
-        competition_id: competition.id,
-        winner_id: winner.user_id,
-        type: 'competition_prize'
-      }
-    });
-
-    console.log(`Prize payout processed: ${transfer.id}`);
-
-    // Log payout in database
+    // Log pending payout - will be processed manually by admin
+    // Use placeholder stripe_transfer_id since actual transfer happens later
     await dbClient.query(
       `INSERT INTO payouts (user_id, amount, type, stripe_transfer_id, metadata, created_at)
        VALUES ($1, $2, $3, $4, $5, NOW())`,
       [
         winner.user_id,
         competition.prize_amount,
-        'competition_prize',
-        transfer.id,
+        'competition_prize_pending_onboarding',
+        'PENDING_STRIPE_ONBOARDING', // Placeholder until actual transfer
         JSON.stringify({
           competition_id: competition.id,
-          track_title: competition.track_title
+          track_title: competition.track_title,
+          winner_username: winner.username,
+          winner_email: winner.email,
+          status: 'pending_onboarding',
+          reason: 'Winner needs to complete Stripe onboarding before payout can be processed',
+          requires_manual_processing: true
         })
       ]
     );
+
+    console.log(`Prize payout logged as pending for winner ${winner.user_id} - requires manual admin processing after Stripe onboarding`);
   }
   
   /**
@@ -634,19 +588,19 @@ class CompetitionProcessor {
           ${competition.prize_amount ? `
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h3 style="color: #333; margin-top: 0;">💰 How to Collect Your Winnings</h3>
-            <p>Your prize will be automatically transferred to your Stripe account within 2-3 business days. To ensure smooth payout:</p>
+            <p>Congratulations on your win! To receive your prize money, you'll need to complete a quick payout setup process:</p>
             <ol style="color: #555;">
-              <li>Visit your <a href="https://dashboard.stripe.com/" style="color: #6772E5; text-decoration: none;">Stripe Express dashboard</a></li>
-              <li>Complete your account setup if you haven't already</li>
-              <li>Add your bank account details for payouts</li>
+              <li><strong>Contact our support team</strong> at <a href="mailto:hello@sterio.fm" style="color: #6772E5; text-decoration: none;">hello@sterio.fm</a> with your competition win details</li>
+              <li>Our team will guide you through setting up your payout method</li>
+              <li>Once verified, your prize will be transferred within 2-3 business days</li>
             </ol>
-            <p style="margin-bottom: 0;"><em>If you don't have a Stripe account yet, one will be created for you automatically.</em></p>
+            <p style="margin-bottom: 0;"><em>Please allow 1-2 business days for our team to process your payout setup request.</em></p>
           </div>
           ` : ''}
 
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
-            ${competition.prize_amount ? `<a href="https://dashboard.stripe.com/" style="background-color: #6772E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px;">Set Up Payouts</a>` : ''}
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
+            ${competition.prize_amount ? `<a href="mailto:hello@sterio.fm?subject=Competition Win - Setup Payout&body=Hi, I won the competition for ${encodeURIComponent(competition.track_title)} and need help setting up my payout." style="background-color: #6772E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px;">Contact Support for Payout</a>` : ''}
           </div>
         </div>
       `
@@ -679,7 +633,7 @@ class CompetitionProcessor {
           <p><strong>Winner:</strong> ${winner.username} with "${winner.title}"</p>
           <p><strong>Total entries:</strong> ${allEntries.length}</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Results</a>
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Results</a>
           </div>
         </div>
       `
@@ -705,7 +659,7 @@ class CompetitionProcessor {
           <p>The competition for "${competition.track_title}" has ended.</p>
           <p>Unfortunately, no entries were received for this competition.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
           </div>
         </div>
       `
@@ -731,7 +685,7 @@ class CompetitionProcessor {
           <p>The competition for "${competition.track_title}" has ended.</p>
           <p>No winner could be determined automatically. Please contact support if you need assistance.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
+            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
           </div>
         </div>
       `

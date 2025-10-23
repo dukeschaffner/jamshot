@@ -51,6 +51,10 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
+- create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
+- auto stripe payout for competition winners
+- comp entries load as mini tracks
 - correlation id for audio processing
 - competition: add entry count to table so that entries dont need to be loaded from the api
 - switch to minutes based quota
