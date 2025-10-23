@@ -30,7 +30,7 @@ const SUBSCRIPTION_PLANS = {
       no_hosting_fees: false
     },
     limits: {
-      daily_uploads: 1,
+      daily_uploads: 3,
       max_total_uploads: 25,
       max_recording_duration: 300 // 5 minutes in seconds
     },
