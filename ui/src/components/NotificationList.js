@@ -34,6 +34,9 @@ export default function NotificationList({
     if (notification.type === 'competition_winner') {
       // Navigate to competition page (assuming we have competition pages)
       router.push(`/competition/${notification.competition_id}`);
+    } else if (notification.type === 'follow') {
+      // Navigate to the user profile who started following
+      router.push(`/user/${notification.actor_username}`);
     } else {
       // Navigate to the track
       router.push(`/track/${notification.related_track_id}`);

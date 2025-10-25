@@ -82,11 +82,12 @@ router.get('/', async (req, res) => {
             LIMIT 1
           )
           WHEN n.type = 'new_version' THEN (
-            SELECT user_id FROM tracks 
+            SELECT user_id FROM tracks
             WHERE parent_track_id = n.related_track_id
             ORDER BY created_at DESC
             LIMIT 1
           )
+          WHEN n.type = 'follow' THEN n.related_user_id
           ELSE NULL
         END
       ) = u_actor.id

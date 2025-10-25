@@ -483,12 +483,16 @@ class AudioEngine {
         if(playbackTime > AudioState.dawDuration) {
           if(AudioState.isRecording) {
             this.stopRecording();
+            AudioState.currentTime = 0;
+            playbackTime = 0;
           }
-          else {
+          else if(!AudioState.isLooping) {
+            console.log('stopping playback because we\'ve reached the end of the track and we\'re not looping');
             this.pause();
+            AudioState.currentTime = 0;
+            playbackTime = 0;
           }
-          AudioState.currentTime = 0;
-          playbackTime = 0;
+
         }
         else if(!AudioState.isCollab && AudioState.isRecording && playbackTime > AudioState.dawDuration - DAWConfig.singleTrackDAW.dawDurationExtensionLookahead) {
           AudioState.dawDuration = AudioState.dawDuration + 15;

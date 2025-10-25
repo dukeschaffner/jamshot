@@ -85,6 +85,7 @@ class ChunkScheduler {
    * Stop the chunk scheduler
    */
   stop() {
+    console.log('stopping chunk scheduler');
     if (this.schedulingInterval) {
       clearInterval(this.schedulingInterval);
       this.schedulingInterval = null;
@@ -116,6 +117,7 @@ class ChunkScheduler {
 
     // check if we've reached the end of the loop and if we have, clear the pending loop start time
     if(this.pendingLoopStartTime && playbackTime >= AudioState.loopEnd) {
+      console.log('reached the end of the loop: restarting loop');
 
       // For now, stop recording on loop end
       if(AudioState.isRecording) {
@@ -135,6 +137,7 @@ class ChunkScheduler {
     if(AudioState.isLooping && (AudioState.loopEnd - playbackTime < this.lookAheadWindow) && !this.pendingLoopStartTime) {
       needToSchedule = true;
       this.pendingLoopStartTime = AudioState.startTime + (AudioState.loopEnd - AudioState.currentTime);
+      console.log('scheduling loop start at', this.pendingLoopStartTime);
     }
     // If we haven't scheduled the loop start, and we're within the lookAheadWindow, schedule the next segment
     else if(!this.pendingLoopStartTime && (this.lastScheduledTime - playbackTime < this.lookAheadWindow)) {
