@@ -33,9 +33,10 @@ TODO (MVP)
 BUGS
 - double check track plays recording correctly
 - audio url refresh endless cycle
-- Session ended error after long period (6 hrs) of inactivity
+- Session ended error after long period (6 hrs) of inactivity (does this happen when it tries to refresh without internet access?)
 - got generic error when trying to enter my own competition: Competition entry validation failed
-
+- whole song looped ->  loop didnt work. audio didnt play when i tried to play again
+- looper on global player doesnt work.
 
 
 
@@ -51,6 +52,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- fix track titles in DAW
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
 - create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
 - auto stripe payout for competition winners
@@ -92,6 +94,7 @@ TODO (after beta testing)
 - @mentions
   - (prompt) add an @mentions system where users can tag other users in the track title, creating a notification for the user. start by searching the existing codebase, designing the business logic/rules around the system including edge cases (ie what happens when a user that is tagged in a post changes their username). be concise and dont write any code yet
 - ensure collab count accounts for ALL descendants of the track
+- audio plugin to drag files into a track or even just playback a given sterio track in time with the DAW transport
 
 
 
