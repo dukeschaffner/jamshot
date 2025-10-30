@@ -198,7 +198,8 @@ const createApiClient = (config = {}) => {
         console.log('Error refreshing token, clearing auth and redirecting to login');
         if (removeToken) await removeToken();
         if (removeRefreshToken) await removeRefreshToken();
-        if (setAuthError) setAuthError('Your session has expired. Please log in again');
+        if (setAuthError) setAuthError('Your session has expired. Please log in again. Error: ' + refreshError.message);
+        window.refreshError = refreshError;
         
         // Update the UserContext if callback is set
         if (refreshUserState) {
