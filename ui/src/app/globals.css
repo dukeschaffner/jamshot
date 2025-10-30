@@ -228,10 +228,19 @@ body.dark-mode .navbar {
   transition: color 0.3s ease;
 }
 
-.logo span {
+.logo-title {
   background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.beta-tag {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 4px;
+  vertical-align: super;
+  font-family: var(--font-sans);
 }
 
 .nav-links {

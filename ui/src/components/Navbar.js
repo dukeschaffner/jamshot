@@ -46,7 +46,8 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="logo">
         <Link href="/">
-          <span>sterio</span>
+          <span className="logo-title">sterio</span>
+          <span className="beta-tag">beta</span>
         </Link>
       </div>
       
