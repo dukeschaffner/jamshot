@@ -79,7 +79,7 @@ const SUBSCRIPTION_PLANS = {
   [SUBSCRIPTION_TIERS.PREMIUM]: {
     id: 'premium',
     name: 'Premium',
-    price: 19.99,
+    price: 12.99,
     currency: 'USD',
     billing_period: 'month',
     features: {
