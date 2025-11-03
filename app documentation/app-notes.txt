@@ -77,14 +77,11 @@ TODO (after beta testing)
 - list/sell samples in track
 - posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
 - Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
-- advanced DAW editor
 - content moderation
 - block users
 - profile banner image
-- undo redo (DAW)
 - global player audio level
 - invite people to collab on private tracks (groups)?
-- "add on" option where instead of adding layers, they can add audio before or after
 - paginate track, reposts, likes on user page
 - comment edit view
 - audio ads
@@ -96,6 +93,12 @@ TODO (after beta testing)
   - (prompt) add an @mentions system where users can tag other users in the track title, creating a notification for the user. start by searching the existing codebase, designing the business logic/rules around the system including edge cases (ie what happens when a user that is tagged in a post changes their username). be concise and dont write any code yet
 - ensure collab count accounts for ALL descendants of the track
 - audio plugin to drag files into a track or even just playback a given sterio track in time with the DAW transport
+- DAW phase 2:
+  - add "advanced" or "extension" DAW editor (load simple "layer" DAW by default, but allow user to load advanced DAW if they want)
+  - two collab types: layers and extensions
+  - advanced DAW and extension collabs paid features?
+  - allow users to specify which collab types they allow on their track?
+  - undo redo
 
 
 
