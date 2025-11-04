@@ -52,6 +52,7 @@ class AudioEngine {
     this.handleSeekEvent = this.handleSeekEvent.bind(this);
     this.handleTrackVolumeChange = this.handleTrackVolumeChange.bind(this);
     this.handleTrackSolo = this.handleTrackSolo.bind(this);
+    this.handleTrackMute = this.handleTrackMute.bind(this);
     this.handleMetronomeToggle = this.handleMetronomeToggle.bind(this);
     this.handleMetronomeBPMChange = this.handleMetronomeBPMChange.bind(this);
     this.handleMetronomeVolumeChange = this.handleMetronomeVolumeChange.bind(this);
@@ -107,6 +108,9 @@ class AudioEngine {
     
     // Listen for track solo events
     this.eventBus.on(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
+
+    // Listen for track mute events
+    this.eventBus.on(this.DAW_EVENTS.TRACK.MUTE, this.handleTrackMute);
     
     // Listen for metronome events
     this.eventBus.on(this.DAW_EVENTS.METRONOME.TOGGLE, this.handleMetronomeToggle);
@@ -350,7 +354,7 @@ class AudioEngine {
   handleTrackSolo(data) {
     const { trackId, isSolo } = data;
     const allTracks = this.trackManager.getAllTracks();
-    
+
     // If this track is being soloed, unsolo all other tracks first
     if (isSolo) {
       allTracks.forEach(track => {
@@ -359,16 +363,16 @@ class AudioEngine {
         }
       });
     }
-    
+
     // Set the solo state for the target track
     const targetTrack = this.trackManager.getTrack(trackId);
     if (targetTrack) {
       targetTrack.setSolo(isSolo);
     }
-    
+
     // Check if any track is solo'd
     const hasSoloTrack = allTracks.some(track => track.isSolo);
-    
+
     // Apply solo logic to all tracks
     allTracks.forEach(track => {
       if (hasSoloTrack) {
@@ -383,6 +387,19 @@ class AudioEngine {
         track.gainNode.gain.linearRampToValueAtTime(track.gain, this.context.currentTime + 0.05);
       }
     });
+  }
+
+  handleTrackMute(data) {
+    const { trackId, isMuted } = data;
+
+    // Set the mute state for the target track
+    const targetTrack = this.trackManager.getTrack(trackId);
+    if (targetTrack) {
+      // Apply mute logic - if muted, set gain to 0, otherwise set to track gain
+      const targetGain = isMuted ? 0 : targetTrack.gain;
+      targetTrack.gainNode.gain.setValueAtTime(targetGain, this.context.currentTime);
+      targetTrack.gainNode.gain.linearRampToValueAtTime(targetGain, this.context.currentTime + 0.05);
+    }
   }
   
   // Metronome event handlers
@@ -555,6 +572,7 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
       this.eventBus.off(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
+    this.eventBus.off(this.DAW_EVENTS.TRACK.MUTE, this.handleTrackMute);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TOGGLE, this.handleMetronomeToggle);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.COUNT_IN_TOGGLE, this.handleCountInToggle);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.BPM_CHANGE, this.handleMetronomeBPMChange);
