@@ -13,10 +13,6 @@ class Recorder {
     this.recordingProcessor = null;
     this.recordingStream = null;
     this.recordingLatency = 0; // Latency compensation in seconds
-  
-    
-    // User latency compensation setting
-    this.userLatencyCompensation = 0; // User-defined latency compensation in seconds
     
     // Playback tracking
     this.playbackStartTime = 0; // audioContextTime when playback started
@@ -29,13 +25,11 @@ class Recorder {
     this.handleRecorderMessage = this.handleRecorderMessage.bind(this);
     this.handlePlaybackStarted = this.handlePlaybackStarted.bind(this);
     this.handleAudioInputDeviceChange = this.handleAudioInputDeviceChange.bind(this);
-    this.handleLatencyCompensationChange = this.handleLatencyCompensationChange.bind(this);
     this.handleDeviceChange = this.handleDeviceChange.bind(this);
     
     // Set up event listeners
     this.eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
     this.eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleAudioInputDeviceChange);
-    this.eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, this.handleLatencyCompensationChange);
     
     // Set up device change detection
     this.setupDeviceChangeDetection();
@@ -78,11 +72,6 @@ class Recorder {
   handleAudioInputDeviceChange(data) {
     AudioState.selectedAudioInputDevice = data.deviceId;
     console.log('Audio input device changed to:', AudioState.selectedAudioInputDevice);
-  }
-  
-  handleLatencyCompensationChange(data) {
-    this.userLatencyCompensation = data.value || 0;
-    console.log('User latency compensation changed to:', this.userLatencyCompensation);
   }
   
   handlePlaybackStarted(data) {
@@ -235,9 +224,8 @@ class Recorder {
   calculateRecordingLatency() {
     // Estimate latency based on buffer size and sample rate
     const outputLatency = this.context.outputLatency;
-    const userCompensation = this.userLatencyCompensation;
+    const userCompensation = AudioState.userLatencyCompensation / 1000; // convert to seconds
     const totalLatency = outputLatency + userCompensation;
-    
     return totalLatency;
   }
   
@@ -293,7 +281,6 @@ class Recorder {
     // Remove event listeners
     this.eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
     this.eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleAudioInputDeviceChange);
-    this.eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, this.handleLatencyCompensationChange);
     if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
       navigator.mediaDevices.removeEventListener('devicechange', this.handleDeviceChange);
     }
