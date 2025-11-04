@@ -53,6 +53,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- dont save recording if stopped during count in.
 - fix track titles in DAW
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
 - create processing status "ready for processing". if status hasn't changed to processing in 15s, show error

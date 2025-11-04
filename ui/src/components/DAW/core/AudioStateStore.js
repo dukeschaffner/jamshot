@@ -37,7 +37,7 @@ class AudioStateStore {
     // this.playbackTime = 0;
     
     // this.selectedAudioInputDevice = null;
-    // this.userLatencyCompensation = 0;
+    this.userLatencyCompensation = DAWConfig.recording.defaultLatencyCompensation;
     
 
   }
