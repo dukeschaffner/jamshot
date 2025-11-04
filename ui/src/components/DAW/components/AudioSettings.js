@@ -32,6 +32,10 @@ export default function AudioSettings({
     }
   };
 
+  useEffect(() => {
+    AudioState.userLatencyCompensation = userLatencyCompensation;
+  }, [userLatencyCompensation]);
+
   // Fetch available audio input devices
   useEffect(() => {
     const configureAudioSettings = async () => {
