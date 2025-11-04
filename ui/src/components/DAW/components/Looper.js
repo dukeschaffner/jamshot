@@ -121,19 +121,16 @@ export default function Looper() {
   // Mouse down handlers
   const handleLeftMouseDown = (e) => {
     e.stopPropagation();
-    if (isPlaying || isRecording) return;
     setIsDraggingLeft(true);
   };
 
   const handleRightMouseDown = (e) => {
     e.stopPropagation();
-    if (isPlaying || isRecording) return;
     setIsDraggingRight(true);
   };
 
   const handleRegionMouseDown = (e) => {
     e.stopPropagation();
-    if (isPlaying || isRecording) return;
     setIsDraggingRegion(true);
     setDragStartX(e.clientX);
     setRegionWidth(looperRightPos - looperLeftPos);
@@ -223,10 +220,10 @@ export default function Looper() {
   ]);
 
   return (
-    <div 
-    className={`${styles.looper} ${!isLooping ? styles.disabled : ''}`} 
+    <div
+    className={`${styles.looper} ${!isLooping ? styles.disabled : ''}`}
     ref={looperRef}
-    style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%`, cursor: isPlaying || isRecording ? 'not-allowed' : 'grab' }}
+    style={{ left: `${looperLeftPos}%`, width: `${looperRightPos - looperLeftPos}%`, cursor: 'grab' }}
   >
     <div 
       className={`${styles.looperHandle} ${styles.left}`} 
