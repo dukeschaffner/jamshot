@@ -224,7 +224,7 @@ export default function GlobalPlayer() {
             
             {!isMobile && (
               <button
-                className={`${styles.controlButton} ${isLoopOn ? styles.active : ''}`}
+                className={`${styles.controlButton} ${styles.repeatButton} ${isLoopOn ? styles.active : ''}`}
                 onClick={toggleLoop}
                 title={isLoopOn ? "Loop On" : "Loop Off"}
               >
@@ -365,7 +365,7 @@ export default function GlobalPlayer() {
               </button>
               
               <button
-                className={`${styles.controlButton} ${isLoopOn ? styles.active : ''} ${styles.mobileControlButton}`}
+                className={`${styles.controlButton} ${styles.repeatButton} ${isLoopOn ? styles.active : ''} ${styles.mobileControlButton}`}
                 onClick={toggleLoop}
                 title={isLoopOn ? "Loop On" : "Loop Off"}
               >

@@ -146,6 +146,10 @@
     background-color: var(--rustic-pink);
     color: white;
   }
+
+  .repeatButton svg {
+    transform: scaleX(-1);
+  }
   
   .progressContainer {
     grid-area: progress;
