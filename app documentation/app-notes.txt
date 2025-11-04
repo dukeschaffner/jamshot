@@ -34,10 +34,7 @@ TODO (MVP)
 BUGS
 - double check track plays recording correctly
 - audio url refresh endless cycle
-- Session ended error after long period (6 hrs) of inactivity (does this happen when it tries to refresh without internet access?)
 - got generic error when trying to enter my own competition: Competition entry validation failed
-- whole song looped ->  after recording full length track, audio didnt play when i tried to play again
-- looper on global player doesnt work.
 
 
 
