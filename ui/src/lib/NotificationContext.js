@@ -53,12 +53,25 @@ export function NotificationProvider({ children }) {
       setUnreadCount(0);
       return;
     }
-    
+
+    // Prevent concurrent requests
+    if (fetchUnreadCount.isFetching) {
+      return;
+    }
+
+    fetchUnreadCount.isFetching = true;
+
     try {
       const response = await api.get('/notifications/count');
       setUnreadCount(response.data.count);
     } catch (err) {
       console.error('Failed to fetch notification count:', err);
+      // Don't reset isFetching on error to prevent rapid retry loops
+    } finally {
+      // Reset after a short delay to allow natural polling intervals
+      setTimeout(() => {
+        fetchUnreadCount.isFetching = false;
+      }, 5000); // Allow new requests after 5 seconds
     }
   };
 
@@ -148,9 +161,41 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     if (!isAuthenticated || userLoading) return;
 
-    const interval = setInterval(fetchUnreadCount, 60000); // Poll every minute
+    let interval;
+    let isVisible = true;
 
-    return () => clearInterval(interval);
+    const startPolling = () => {
+      if (interval) clearInterval(interval);
+      interval = setInterval(fetchUnreadCount, 60000); // Poll every minute
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isVisible = false;
+        stopPolling();
+      } else {
+        isVisible = true;
+        startPolling();
+      }
+    };
+
+    // Start polling initially
+    startPolling();
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopPolling();
+    };
   }, [isAuthenticated]); // Only depend on authentication state
 
   return (

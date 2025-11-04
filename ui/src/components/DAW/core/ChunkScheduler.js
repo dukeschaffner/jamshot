@@ -90,7 +90,7 @@ class ChunkScheduler {
       clearInterval(this.schedulingInterval);
       this.schedulingInterval = null;
     }
-    
+
     // Stop all active sources
     this.activeSources.forEach(source => {
       try {
@@ -102,7 +102,11 @@ class ChunkScheduler {
     });
     this.activeSources.clear();
     this.scheduledSegments.clear();
-    
+
+    // Reset loop state
+    this.pendingLoopStartTime = null;
+    this.lastScheduledTime = 0;
+
     eventBus.emit(DAW_EVENTS.SEGMENT.SCHEDULER_STOPPED);
   }
 
