@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { FaTrophy, FaCalendarAlt, FaDollarSign, FaUsers, FaClock, FaPlay, FaPause, FaExclamationTriangle, FaCheckCircle, FaArrowLeft, FaShareAlt, FaHeart, FaRegHeart, FaRetweet, FaCodeBranch, FaMusic, FaEye, FaComment } from 'react-icons/fa';
 import { competitionApi, trackApi } from '../../../lib/api';
 import { formatCompetitionDateRange } from '../../../../shared/utils/formatting';
 import Competition from '../../../components/Competition';
+import MiniTrack from '../../../components/MiniTrack';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import styles from './CompetitionDetail.module.css';
 
@@ -18,16 +19,20 @@ export default function CompetitionDetailPage() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingEntries, setLoadingEntries] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [entryStatus, setEntryStatus] = useState(null);
   const [isEntering, setIsEntering] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreEntries, setHasMoreEntries] = useState(true);
+  const ENTRIES_PER_PAGE = 20;
 
   const competitionId = params.id;
 
   useEffect(() => {
     if (competitionId) {
       loadCompetition();
-      loadEntries();
+      loadEntries(true);
     }
   }, [competitionId]);
 
@@ -44,27 +49,62 @@ export default function CompetitionDetailPage() {
     }
   };
 
-  const loadEntries = async () => {
+  const loadEntries = async (reset = false) => {
     try {
-      setLoadingEntries(true);
-      const response = await competitionApi.getCompetitionEntries(competitionId);
-      const entries = Array.isArray(response.data.data) ? response.data.data : [];
-      setEntries(entries);
-      
+      if (reset) {
+        setLoadingEntries(true);
+        setCurrentPage(1);
+        setHasMoreEntries(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const page = reset ? 1 : currentPage;
+      const response = await competitionApi.getCompetitionEntries(competitionId, page, ENTRIES_PER_PAGE);
+      const newEntries = Array.isArray(response.data.data) ? response.data.data : [];
+      const totalEntries = response.data.pagination?.total || 0;
+
+      if (reset) {
+        setEntries(newEntries);
+      } else {
+        setEntries(prev => [...prev, ...newEntries]);
+      }
+
+      // Update pagination state
+      const hasMore = response.data.pagination?.hasMore || false;
+      setHasMoreEntries(hasMore);
+
+      if (!reset) {
+        setCurrentPage(prev => prev + 1);
+      }
+
       // Check if current user has entered
       if (isAuthenticated && currentUser?.id) {
-        const userEntry = entries.find(entry => entry.user_id === currentUser.id);
+        const allEntries = reset ? newEntries : [...entries, ...newEntries];
+        const userEntry = allEntries.find(entry => entry.user_id === currentUser.id);
         setEntryStatus(userEntry ? 'entered' : 'not_entered');
       }
     } catch (err) {
       console.error('Error loading entries:', err);
       // Set default values on error
-      setEntries([]);
-      setEntryStatus('not_entered');
+      if (reset) {
+        setEntries([]);
+        setEntryStatus('not_entered');
+      }
     } finally {
-      setLoadingEntries(false);
+      if (reset) {
+        setLoadingEntries(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
   };
+
+  const loadMoreEntries = useCallback(() => {
+    if (!loadingMore && hasMoreEntries) {
+      loadEntries(false);
+    }
+  }, [loadingMore, hasMoreEntries, currentPage, entries]);
 
   const handleEnterCompetition = async () => {
     if (!isAuthenticated) {
@@ -311,10 +351,25 @@ export default function CompetitionDetailPage() {
       {(() => {
         const now = new Date();
         const startDate = new Date(competition.startdate);
+        const endDate = new Date(competition.enddate);
         const isUpcoming = now < startDate;
+        const isEnded = now > endDate;
+        const hasWinner = competition.winner_id;
 
         if (isUpcoming) {
           return null;
+        }
+
+        // Sort entries: winner first if competition is ended and has winner
+        let displayEntries = [...entries];
+        if (isEnded && hasWinner) {
+          const winnerEntry = displayEntries.find(entry => entry.id === competition.winner_id);
+          if (winnerEntry) {
+            displayEntries = [
+              winnerEntry,
+              ...displayEntries.filter(entry => entry.id !== competition.winner_id)
+            ];
+          }
         }
 
         return (
@@ -334,19 +389,41 @@ export default function CompetitionDetailPage() {
               </div>
             ) : (
               <div className={styles.entriesList}>
-                {entries.map((entry, index) => (
+                {displayEntries.map((entry, index) => (
                   <div key={entry.id} className={styles.entryItem}>
-                    <div className={styles.entryRank}>#{index + 1}</div>
-                    <div className={styles.entryTrack}>
-                      <span className={styles.entryTitle}>{entry.title}</span>
-                      <span className={styles.entryArtist}>by {entry.username}</span>
-                    </div>
-                    <div className={styles.entryStats}>
-                      <span>{entry.like_count || 0} likes</span>
-                      <span>{entry.play_count || 0} plays</span>
-                    </div>
+                    {isEnded && hasWinner && entry.id === competition.winner_id && (
+                      <div className={styles.winnerBadge}>
+                        <FaTrophy />
+                        WINNER
+                      </div>
+                    )}
+                    <MiniTrack
+                      track={entry}
+                      relatedTracks={displayEntries}
+                      view="competition"
+                    />
                   </div>
                 ))}
+
+                {/* Load more button or endless scroll trigger */}
+                {hasMoreEntries && (
+                  <div className={styles.loadMoreContainer}>
+                    {loadingMore ? (
+                      <div className={styles.loadingMore}>
+                        <LoadingSpinner />
+                        <p>Loading more entries...</p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={loadMoreEntries}
+                        className="pill-btn"
+                        disabled={loadingMore}
+                      >
+                        Load More Entries
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

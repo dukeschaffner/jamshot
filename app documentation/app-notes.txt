@@ -33,6 +33,7 @@ TODO (MVP)
 
 BUGS
 - double check track plays recording correctly
+  - full play didnt get marked as complete play
 - audio url refresh endless cycle
 - got generic error when trying to enter my own competition: Competition entry validation failed
 
