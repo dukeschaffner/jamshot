@@ -649,23 +649,26 @@ async function getStemChain(trackId) {
 
 
 
-  // Get audio URLs for all stems in the chain
+  // Get audio URLs and titles for all stems in the chain
   const stemIds = mixGains.stems.map(stem => stem.track_id);
   const stemsQuery = await pool.query(
-    'SELECT id, audio_url FROM tracks WHERE id = ANY($1)',
+    'SELECT id, audio_url, title FROM tracks WHERE id = ANY($1)',
     [stemIds]
   );
 
-  // Create lookup map for audio URLs
+  // Create lookup maps for audio URLs and titles
   const audioUrlMap = {};
+  const titleMap = {};
   stemsQuery.rows.forEach(row => {
     audioUrlMap[row.id] = row.audio_url;
+    titleMap[row.id] = row.title;
   });
 
   // Build complete stem information
   const stems = mixGains.stems.map(stem => ({
     track_id: stem.track_id,
     audio_url: audioUrlMap[stem.track_id],
+    title: titleMap[stem.track_id],
     gain: stem.gain,
     order: stem.order
   }));

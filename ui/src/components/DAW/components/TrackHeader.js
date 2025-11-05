@@ -186,7 +186,10 @@ export default function TrackHeader({
 
   // Generate display name for track
   const getTrackDisplayName = () => {
-    return track.name || 'Track ' + (track.id || 1);
+    if (track.id === 'recording-track') {
+      return 'Recording Track';
+    }
+    return track.title || 'Track ' + (track.id || 1);
   };
 
   return (

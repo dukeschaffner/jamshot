@@ -10,8 +10,6 @@ TODO (MVP)
 - yearly billing for subscriptions
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
-  - input monitoring
-  - actions during playback
   - handle sample rate mismatch (should input device determine sample rate?)
   - handle stereo input devices
   - handle if user blocked mic access
@@ -20,14 +18,10 @@ TODO (MVP)
 - display uploads left in nav?
 - on delete track, delete analytics for that track too (check and make sure this is working)
 - upgrade suggestions
-  - Profile (analytics + track count)
-  - Track (analytics)
-  - Upload form (private tracks + track count)
+  - Profile (track count)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
-- only count tracks that completed processing in quotas
-- analytics access control for free users + upgrade suggestions
 
 
 
@@ -52,11 +46,9 @@ RELEASE CHECKLIST
 
 TODO (after beta testing)
 - dont save recording if stopped during count in.
-- fix track titles in DAW
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
 - create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
 - auto stripe payout for competition winners
-- comp entries load as mini tracks
 - correlation id for audio processing
 - competition: add entry count to table so that entries dont need to be loaded from the api
 - switch to minutes based quota

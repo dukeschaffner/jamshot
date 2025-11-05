@@ -34,6 +34,7 @@ class TrackManager {
           buffer: buffer,
           gain: stem.gain,
           order: stem.order,
+          title: stem.title,
           name: `Stem ${index + 1} (Track ${stem.track_id})`
         };
       });
@@ -69,7 +70,7 @@ class TrackManager {
       trackId: stemData.id
     });
 
-    const track = new Track(stemData.id, this.audioContext);
+    const track = new Track(stemData.id, this.audioContext, [], stemData.title);
     track.setGain(stemData.gain);
     track.addRegion(bufferKey, null, null, null, 'stem-region');
 
@@ -91,7 +92,7 @@ class TrackManager {
       trackId: trackData.id
     });
 
-    const track = new Track(trackData.id, this.audioContext);
+    const track = new Track(trackData.id, this.audioContext, [], trackData.title);
     track.setGain(1.0);
     track.addRegion(bufferKey, null, null, null, regionName);
 
