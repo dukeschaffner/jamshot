@@ -271,3 +271,70 @@ body.dark-mode .premiumCard {
     font-size: 1.2rem;
   }
 }
+
+/* Upgrade prompt styles */
+.upgradePrompt {
+  margin-top: 2rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border: 2px dashed #dee2e6;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.upgradeContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.crownIcon {
+  font-size: 2rem;
+  color: #ffc107;
+  filter: drop-shadow(0 2px 4px rgba(255, 193, 7, 0.3));
+}
+
+.upgradeText h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.upgradeText p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.upgradeButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #ffc107, #ffb300);
+  color: #000;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
+}
+
+.upgradeButton:hover {
+  background: linear-gradient(135deg, #ffb300, #ff8f00);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+}
+
+.upgradeButton:active {
+  transform: translateY(0);
+}
+
+body.dark-mode .upgradePrompt {
+  background: linear-gradient(135deg, var(--grey-1), var(--grey-2));
+  border-color: var(--grey-3);
+}

@@ -6,7 +6,7 @@ import { audioBufferToWav } from '../../../lib/utils.js';
 import AudioState from './AudioStateStore.js';
 
 class Track {
-  constructor(id, context, regions = []) {
+  constructor(id, context, regions = [], title = null) {
     this.id = id;
     this.context = context;
     this.regions = regions; // Array of region objects
@@ -17,6 +17,7 @@ class Track {
 
     this.gain = 0.8;
     this.isSolo = false;
+    this.title = title; // Store track title
     
     // Configure analyzer for meter functionality
     this.analyzer.fftSize = 2048;
