@@ -62,6 +62,15 @@ class AudioEngine {
     this.handleLoopStart = this.handleLoopStart.bind(this);
     this.handleLoopBoundariesSet = this.handleLoopBoundariesSet.bind(this);
     this.handleDurationChange = this.handleDurationChange.bind(this);
+
+    // Input monitoring state
+    this.monitorStream = null;
+    this.monitorSource = null;
+    this.isMonitoring = false;
+
+    // Bind input monitoring handlers
+    this.handleInputDeviceChange = this.handleInputDeviceChange.bind(this);
+    this.handleMonitorToggle = this.handleMonitorToggle.bind(this);
   }
   
   async initialize(tm, metronomeBpm, timeSignature, metronomeOffset) {
@@ -102,6 +111,10 @@ class AudioEngine {
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
     this.eventBus.on(this.DAW_EVENTS.RECORDING.START, this.startRecording);
     this.eventBus.on(this.DAW_EVENTS.RECORDING.STOP, this.stopRecording);
+
+    // Listen for audio settings events (input monitoring)
+    this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
+    this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
     
     // Listen for track volume change events
     this.eventBus.on(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
@@ -317,8 +330,12 @@ class AudioEngine {
   }
 
   async startRecording() {
+    if (!this.isMonitoring) {
+      // Ensure monitoring is active and stream available for recorder reuse
+      try { await this.startInputMonitoring(); } catch (_) { /* ignore */ }
+    }
     if (this.recorder) {
-      await this.recorder.startRecording();
+      await this.recorder.startRecording(this.monitorStream || undefined);
     }
 
     // Auto-start playback when recording begins (if not already playing)
@@ -328,6 +345,56 @@ class AudioEngine {
         this.setCountIn(true);
       }
       this.play();
+    }
+  }
+
+  async startInputMonitoring() {
+    if (this.isMonitoring) return;
+    const constraints = {
+      audio: {
+        sampleRate: DAWConfig.audio.sampleRate,
+        channelCount: DAWConfig.audio.channels,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        ...(AudioState.selectedAudioInputDevice ? { deviceId: { exact: AudioState.selectedAudioInputDevice } } : {})
+      }
+    };
+    if (!this.monitorStream) {
+      this.monitorStream = await navigator.mediaDevices.getUserMedia(constraints);
+    }
+    this.monitorSource = this.context.createMediaStreamSource(this.monitorStream);
+    const recTrack = this.trackManager?.getTrack('recording-track');
+    if (recTrack && recTrack.gainNode) {
+      this.monitorSource.connect(recTrack.gainNode);
+    }
+    this.isMonitoring = true;
+    this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED);
+  }
+
+  stopInputMonitoring() {
+    if (!this.isMonitoring) return;
+    try {
+      if (this.monitorSource) this.monitorSource.disconnect();
+    } catch (_) { /* no-op */ }
+    // Keep stream alive for reuse; don't stop tracks so recorder can reuse
+    this.isMonitoring = false;
+    this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED);
+  }
+
+  handleInputDeviceChange(data) {
+    AudioState.selectedAudioInputDevice = data?.deviceId || null;
+    if (!this.isMonitoring) {
+      // Auto-start monitoring upon device selection
+      this.startInputMonitoring().catch(() => {});
+    }
+  }
+
+  handleMonitorToggle({ enabled } = {}) {
+    if (enabled) {
+      this.startInputMonitoring().catch(() => {});
+    } else {
+      this.stopInputMonitoring();
     }
   }
   
@@ -579,6 +646,8 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
+      this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
+      this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
       this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
       this.eventBus.off(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, this.handleDurationChange);
