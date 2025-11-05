@@ -24,7 +24,7 @@ export default function FAQPage() {
     {
       id: 'competition-winnings',
       question: 'How do I collect my competition winnings?',
-      answer: 'Competition winnings are paid out automatically via Stripe within 2-3 business days of winning. You\'ll receive an email notification when you win, and the prize amount will be transferred to your connected Stripe account. If you haven\'t set up payouts yet, visit your Stripe Express dashboard to complete your account setup and add your bank account details. If you don\'t have a Stripe account, one will be created for you automatically.'
+      answer: 'When you win a competition, you will receive an email with instructions on how to collect your prize. Follow the instructions in the email to collect your prize.'
     },
     {
       id: 'competition-rules',

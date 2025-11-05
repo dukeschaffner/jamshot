@@ -87,7 +87,7 @@ export default function NotificationList({
       case 'follow':
         return `${actor_username} started following you`;
       case 'competition_winner':
-        return `🎉 You won a competition! Your prize will be paid out automatically via Stripe.`;
+        return `🎉 You won a competition! Follow the instructions in the email to collect your prize.`;
       default:
         return `New activity on your track "${track_title}"`;
     }
