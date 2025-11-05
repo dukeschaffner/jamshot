@@ -28,7 +28,6 @@ TODO (MVP)
 BUGS
 - double check track plays recording correctly
   - full play didnt get marked as complete play
-- audio url refresh endless cycle
 - got generic error when trying to enter my own competition: Competition entry validation failed
 
 
@@ -41,6 +40,7 @@ RELEASE CHECKLIST
 - review terms and privacy policy - ensure all legal requirements are met
 - Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
 - VonGon partnership
+- upgrade neon
 
 
 
@@ -73,7 +73,6 @@ TODO (after beta testing)
 - profile banner image
 - global player audio level
 - invite people to collab on private tracks (groups)?
-- paginate track, reposts, likes on user page
 - comment edit view
 - audio ads
 - feed ads

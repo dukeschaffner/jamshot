@@ -82,6 +82,9 @@ router.get('/:userId', async (req, res) => {
 router.get('/:userId/tracks', async (req, res) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   
   try {
     // Check if the user account is private
@@ -104,9 +107,17 @@ router.get('/:userId/tracks', async (req, res) => {
         [currentUserId, userId]
       ) : { rows: [{ is_following: false }] };
       
-      // If not following, return empty array
+      // If not following, return empty array with pagination info
       if (!isFollowing.rows[0].is_following) {
-        return res.json([]);
+        return res.json({
+          tracks: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            hasMore: false
+          }
+        });
       }
     }
 
@@ -120,7 +131,16 @@ router.get('/:userId/tracks', async (req, res) => {
       queryParams = [userId];
     }
 
-    const result = await pool.query(`
+    // Count total tracks
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE t.user_id = $1
+      AND t.processing_status = 'completed'
+      AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
+    `;
+
+    const resultQuery = `
       SELECT
         ${baseQuery}
       FROM tracks t
@@ -131,12 +151,29 @@ router.get('/:userId/tracks', async (req, res) => {
       AND t.processing_status = 'completed'
       AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
       ORDER BY t.created_at DESC
-    `, queryParams);
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
+
+    const [countResult, result] = await Promise.all([
+      pool.query(countQuery, queryParams),
+      pool.query(resultQuery, [...queryParams, limit, offset])
+    ]);
 
     // Use the processTrack utility function to process all tracks
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, currentUserId)));
 
-    res.json(tracks);
+    const totalCount = parseInt(countResult.rows[0].total);
+    const hasMore = totalCount > offset + limit;
+
+    res.json({
+      tracks,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -411,6 +448,9 @@ router.get('/:userId/following', optionalAuthMiddleware, async (req, res) => {
 router.get('/:userId/reposts', async (req, res) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id; // Optional chaining in case user is not authenticated
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   
   try {
     // Check if the user account is private
@@ -433,9 +473,17 @@ router.get('/:userId/reposts', async (req, res) => {
         [currentUserId, userId]
       ) : { rows: [{ is_following: false }] };
       
-      // If not following, return empty array
+      // If not following, return empty array with pagination info
       if (!isFollowing.rows[0].is_following) {
-        return res.json([]);
+        return res.json({
+          tracks: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            hasMore: false
+          }
+        });
       }
     }
     
@@ -449,7 +497,16 @@ router.get('/:userId/reposts', async (req, res) => {
       queryParams = [userId];
     }
 
-    const result = await pool.query(`
+    // Count total reposts
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM reposts r
+      JOIN tracks t ON r.track_id = t.id
+      WHERE r.user_id = $1
+      AND t.is_private = FALSE
+    `;
+
+    const resultQuery = `
       SELECT
         ${baseQuery},
         r.created_at as reposted_at,
@@ -462,12 +519,29 @@ router.get('/:userId/reposts', async (req, res) => {
       WHERE r.user_id = $1
       AND t.is_private = FALSE
       ORDER BY r.created_at DESC
-    `, queryParams);
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
+
+    const [countResult, result] = await Promise.all([
+      pool.query(countQuery, [userId]),
+      pool.query(resultQuery, [...queryParams, limit, offset])
+    ]);
 
     // Use the processTrack utility function to process all tracks
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, currentUserId)));
 
-    res.json(tracks);
+    const totalCount = parseInt(countResult.rows[0].total);
+    const hasMore = totalCount > offset + limit;
+
+    res.json({
+      tracks,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore
+      }
+    });
   } catch (err) {
     console.error('Get reposts error:', err);
     res.status(500).json({ error: err.message });
@@ -778,6 +852,9 @@ router.get('/by-username/:username', async (req, res) => {
 router.get('/by-username/:username/tracks', async (req, res) => {
   const { username } = req.params;
   const currentUserId = req.user?.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   
   try {
     // First get the user ID from username
@@ -801,11 +878,28 @@ router.get('/by-username/:username/tracks', async (req, res) => {
         [currentUserId, userId]
       ) : { rows: [{ is_following: false }] };
       
-      // If not following, return empty array
+      // If not following, return empty array with pagination info
       if (!isFollowing.rows[0].is_following) {
-        return res.json([]);
+        return res.json({
+          tracks: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            hasMore: false
+          }
+        });
       }
     }
+    
+    // Count total tracks
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE t.user_id = $1
+      AND t.processing_status = 'completed'
+      AND (t.is_private = FALSE OR t.user_id = $2)
+    `;
     
     // Get tracks with additional info
     const tracksQuery = `
@@ -831,10 +925,26 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       AND t.processing_status = 'completed'
       AND (t.is_private = FALSE OR t.user_id = $2)
       ORDER BY t.created_at DESC
+      LIMIT $3 OFFSET $4
     `;
     
-    const tracksResult = await pool.query(tracksQuery, [userId, currentUserId || null]);
-    res.json(tracksResult.rows);
+    const [countResult, tracksResult] = await Promise.all([
+      pool.query(countQuery, [userId, currentUserId || null]),
+      pool.query(tracksQuery, [userId, currentUserId || null, limit, offset])
+    ]);
+    
+    const totalCount = parseInt(countResult.rows[0].total);
+    const hasMore = totalCount > offset + limit;
+    
+    res.json({
+      tracks: tracksResult.rows,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -844,6 +954,9 @@ router.get('/by-username/:username/tracks', async (req, res) => {
 router.get('/by-username/:username/reposts', async (req, res) => {
   const { username } = req.params;
   const currentUserId = req.user?.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   
   try {
     // First get the user ID from username
@@ -867,11 +980,28 @@ router.get('/by-username/:username/reposts', async (req, res) => {
         [currentUserId, userId]
       ) : { rows: [{ is_following: false }] };
       
-      // If not following, return empty array
+      // If not following, return empty array with pagination info
       if (!isFollowing.rows[0].is_following) {
-        return res.json([]);
+        return res.json({
+          tracks: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            hasMore: false
+          }
+        });
       }
     }
+    
+    // Count total reposts
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM reposts r
+      JOIN tracks t ON r.track_id = t.id
+      WHERE r.user_id = $1
+      AND t.is_private = FALSE
+    `;
     
     // Get reposts with additional info
     const repostsQuery = `
@@ -899,10 +1029,26 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       WHERE r.user_id = $1
       AND t.is_private = FALSE
       ORDER BY r.created_at DESC
+      LIMIT $3 OFFSET $4
     `;
     
-    const repostsResult = await pool.query(repostsQuery, [userId, currentUserId || null]);
-    res.json(repostsResult.rows);
+    const [countResult, repostsResult] = await Promise.all([
+      pool.query(countQuery, [userId]),
+      pool.query(repostsQuery, [userId, currentUserId || null, limit, offset])
+    ]);
+    
+    const totalCount = parseInt(countResult.rows[0].total);
+    const hasMore = totalCount > offset + limit;
+    
+    res.json({
+      tracks: repostsResult.rows,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1029,6 +1175,9 @@ router.delete('/follow/username/:username', authMiddleware, async (req, res) => 
 router.get('/:username/liked', async (req, res) => {
   const { username } = req.params;
   const currentUserId = req.user?.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
   
   try {
     // First get the user ID from username
@@ -1052,9 +1201,17 @@ router.get('/:username/liked', async (req, res) => {
         [currentUserId, userId]
       ) : { rows: [{ is_following: false }] };
       
-      // If not following, return empty array
+      // If not following, return empty array with pagination info
       if (!isFollowing.rows[0].is_following) {
-        return res.json([]);
+        return res.json({
+          tracks: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            hasMore: false
+          }
+        });
       }
     }
     
@@ -1068,7 +1225,16 @@ router.get('/:username/liked', async (req, res) => {
       queryParams = [userId];
     }
 
-    const result = await pool.query(`
+    // Count total liked tracks
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM likes l
+      JOIN tracks t ON l.track_id = t.id
+      WHERE l.user_id = $1
+      AND t.is_private = FALSE
+    `;
+
+    const resultQuery = `
       SELECT
         ${baseQuery},
         l.created_at as liked_at,
@@ -1081,12 +1247,29 @@ router.get('/:username/liked', async (req, res) => {
       WHERE l.user_id = $1
       AND t.is_private = FALSE
       ORDER BY l.created_at DESC
-    `, queryParams);
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
+
+    const [countResult, result] = await Promise.all([
+      pool.query(countQuery, [userId]),
+      pool.query(resultQuery, [...queryParams, limit, offset])
+    ]);
 
     // Use the processTrack utility function to process all tracks
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, currentUserId)));
 
-    res.json(tracks);
+    const totalCount = parseInt(countResult.rows[0].total);
+    const hasMore = totalCount > offset + limit;
+
+    res.json({
+      tracks,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
