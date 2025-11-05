@@ -26,6 +26,7 @@ class Recorder {
     this.handlePlaybackStarted = this.handlePlaybackStarted.bind(this);
     this.handleAudioInputDeviceChange = this.handleAudioInputDeviceChange.bind(this);
     this.handleDeviceChange = this.handleDeviceChange.bind(this);
+    this.ownsRecordingStream = false;
     
     // Set up event listeners
     this.eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
@@ -90,27 +91,34 @@ class Recorder {
     }
   }
   
-  async startRecording() {
+  async startRecording(stream) {
     if (AudioState.isRecording) return;
     
     try {
-      // Get microphone access with selected device if available
-      const audioConstraints = {
-        sampleRate: DAWConfig.audio.sampleRate,
-        channelCount: DAWConfig.audio.channels,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false
-      };
-      
-      // Add device selection if a device is selected
-      if (AudioState.selectedAudioInputDevice) {
-        audioConstraints.deviceId = { exact: AudioState.selectedAudioInputDevice };
+      // If a stream was provided (e.g. from input monitoring), reuse it
+      this.ownsRecordingStream = false;
+      if (stream) {
+        this.recordingStream = stream;
+      } else {
+        // Get microphone access with selected device if available
+        const audioConstraints = {
+          sampleRate: DAWConfig.audio.sampleRate,
+          channelCount: DAWConfig.audio.channels,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        };
+        
+        // Add device selection if a device is selected
+        if (AudioState.selectedAudioInputDevice) {
+          audioConstraints.deviceId = { exact: AudioState.selectedAudioInputDevice };
+        }
+        
+        this.recordingStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints
+        });
+        this.ownsRecordingStream = true;
       }
-      
-      this.recordingStream = await navigator.mediaDevices.getUserMedia({
-        audio: audioConstraints
-      });
       
       // Create recording processor
       this.recordingProcessor = new AudioWorkletNode(this.context, 'recorder-processor');
@@ -152,7 +160,7 @@ class Recorder {
     AudioState.isRecording = false;
     
     // Stop the media stream
-    if (this.recordingStream) {
+    if (this.recordingStream && this.ownsRecordingStream) {
       this.recordingStream.getTracks().forEach(track => track.stop());
       this.recordingStream = null;
     }

@@ -35,6 +35,9 @@ export const DAW_EVENTS = {
       LATENCY_COMPENSATION_CHANGE: 'audio:settings:latency:compensation:change',
       SNAP_TO_GRID_CHANGE: 'audio:settings:snap:to:grid:change',
       METRONOME_VOLUME_CHANGE: 'audio:settings:metronome:volume:change',
+      MONITOR_TOGGLE: 'audio:settings:monitor:toggle',
+      MONITOR_STARTED: 'audio:settings:monitor:started',
+      MONITOR_STOPPED: 'audio:settings:monitor:stopped'
     },
     
     // Metronome events
