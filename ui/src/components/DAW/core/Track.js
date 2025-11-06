@@ -23,9 +23,20 @@ class Track {
     this.analyzer.fftSize = 2048;
     this.analyzer.smoothingTimeConstant = 0.8;
     
-    // Connect gain node to analyzer, then analyzer to destination
-    this.gainNode.connect(this.analyzer);
-    this.analyzer.connect(this.context.destination);
+    // For recording track: create separate meter gain node for always-on input metering
+    // This allows input signal to be shown in meter even when monitoring is disabled
+    if (id === 'recording-track') {
+      this.meterGainNode = context.createGain();
+      this.meterGainNode.gain.value = this.gain;
+      // Connect meter gain node to analyzer (always active for metering)
+      this.meterGainNode.connect(this.analyzer);
+      this.gainNode.connect(this.analyzer);
+      this.gainNode.connect(this.context.destination);
+    }
+    else{
+      this.gainNode.connect(this.analyzer);
+      this.analyzer.connect(this.context.destination);
+    }
     
     // Calculate total duration from all regions
     this.duration = this.calculateTotalDuration();
@@ -110,6 +121,11 @@ class Track {
     this.gain = gain;
     this.gainNode.gain.setValueAtTime(gain, this.context.currentTime);
     this.gainNode.gain.linearRampToValueAtTime(gain, this.context.currentTime + 0.05);
+    // Sync meter gain node with track gain for recording track
+    if (this.meterGainNode) {
+      this.meterGainNode.gain.setValueAtTime(gain, this.context.currentTime);
+      this.meterGainNode.gain.linearRampToValueAtTime(gain, this.context.currentTime + 0.05);
+    }
   }
   
   setSolo(isSolo) {
@@ -156,6 +172,11 @@ class Track {
   // Get analyzer node for meter functionality
   getAnalyzer() {
     return this.analyzer;
+  }
+
+  // Get meter gain node for recording track (used for always-on input metering)
+  getMeterGainNode() {
+    return this.meterGainNode || null;
   }
 
   hasSilenceAtStart() {
@@ -263,6 +284,9 @@ class Track {
     //this.pause();
     if (this.gainNode) {
       this.gainNode.disconnect();
+    }
+    if (this.meterGainNode) {
+      this.meterGainNode.disconnect();
     }
     if (this.analyzer) {
       this.analyzer.disconnect();

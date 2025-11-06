@@ -1,0 +1,9 @@
+
+
+- login to sterio
+- view feed, liked, reposted tracks
+- when a track is selected for playback, it plays in the plugins global player
+- if track is selected and they start playback in DAW, the global player will sync the selected track playback with the DAW's transport state
+- user can record audio then drag region into the plugin to upload it as a collab
+- (if possible) record audio directly into the plugin
+- how to ensure recorded audio captures signal chain?
