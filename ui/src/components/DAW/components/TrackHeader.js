@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDAW } from '../DAWContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone, faHeadphones } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone } from '@fortawesome/free-solid-svg-icons';
 import styles from './TrackHeader.module.css';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
+import AudioState from '../core/AudioStateStore';
 
 export default function TrackHeader({
   track,
@@ -22,6 +23,22 @@ export default function TrackHeader({
 
   const [meterLevel, setMeterLevel] = useState(-60);
   const meterAnimationFrameRef = useRef(null);
+  const [hasInputDevice, setHasInputDevice] = useState(false);
+
+  // Listen for input device changes
+  useEffect(() => {
+    const checkInputDevice = () => {
+      setHasInputDevice(!!AudioState.selectedAudioInputDevice);
+    };
+    
+    checkInputDevice();
+    const handleDeviceChange = () => checkInputDevice();
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, handleDeviceChange);
+    
+    return () => {
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, handleDeviceChange);
+    };
+  }, []);
 
   // Initialize fader value from track gain
   useEffect(() => {
@@ -62,7 +79,13 @@ export default function TrackHeader({
         // Get analyzer from track
         const analyzer = track?.getAnalyzer();
         
-        if (analyzer && ((isPlaying && !isSolo) || (isMonitoring && track.id === 'recording-track'))) {
+        // For recording track: show meter when playing (not soloed), monitoring enabled, OR input device selected
+        // For other tracks: show meter when playing and not soloed
+        const isRecordingTrack = track.id === 'recording-track';
+        const shouldShowMeter = isPlaying ||
+          (isRecordingTrack && (isMonitoring || hasInputDevice));
+        
+        if (analyzer && shouldShowMeter) {
           const dataArray = new Uint8Array(analyzer.frequencyBinCount);
           analyzer.getByteFrequencyData(dataArray);
           
@@ -76,8 +99,8 @@ export default function TrackHeader({
           // Convert to dB (with a floor of -60dB)
           const db = rms > 0 ? 20 * Math.log10(rms) : -60;
           setMeterLevel(Math.max(-60, db));
-        } else if (!isPlaying && !(isMonitoring && track.id === 'recording-track')) {
-          // Gradually decrease level when not playing
+        } else if (!shouldShowMeter) {
+          // Gradually decrease level when not showing meter
           setMeterLevel(prevLevel => Math.max(-60, prevLevel - 3));
         }
       }
@@ -98,7 +121,7 @@ export default function TrackHeader({
         cancelAnimationFrame(meterAnimationFrameRef.current);
       }
     };
-  }, [track, isPlaying, isSolo]);
+  }, [track, isPlaying, isSolo, isMonitoring, hasInputDevice]);
 
   const handleFaderMouseDown = (e) => {
     e.stopPropagation();
@@ -198,32 +221,33 @@ export default function TrackHeader({
         {getTrackDisplayName()}
       </span>
 
-      <button
-        className={`${styles.muteButton} ${isMuted ? styles.active : ''}`}
-        onClick={handleMuteClick}
-        title="Mute track"
-      >
-        <span>M</span>
-      </button>
-
-      <button
-        className={`${styles.soloButton} ${isSolo ? styles.active : ''}`}
-        onClick={handleSoloClick}
-        title="Solo track"
-      >
-        <FontAwesomeIcon icon={faHeadphones} />
-        <span>Solo</span>
-      </button>
-      
-      {track.id === 'recording-track' && (
+      <div className={styles.buttonGroup}>
         <button
-          className={`${styles.soloButton} ${isMonitoring ? styles.active : ''}`}
-          onClick={handleMonitorClick}
-          title="Input Monitor"
+          className={`${styles.controlButton} ${isMuted ? `${styles.active} ${styles.muteActive}` : ''}`}
+          onClick={handleMuteClick}
+          title="Mute track"
         >
-          <span>Monitor</span>
+          <span>M</span>
         </button>
-      )}
+
+        <button
+          className={`${styles.controlButton} ${isSolo ? styles.active : ''}`}
+          onClick={handleSoloClick}
+          title="Solo track"
+        >
+          <span>S</span>
+        </button>
+        
+        {track.id === 'recording-track' && (
+          <button
+            className={`${styles.controlButton} ${isMonitoring ? styles.active : ''}`}
+            onClick={handleMonitorClick}
+            title="Input Monitor"
+          >
+            <FontAwesomeIcon icon={faMicrophone} />
+          </button>
+        )}
+      </div>
       
       {/* Audio Meter */}
       <div 

@@ -67,6 +67,7 @@ class AudioEngine {
     this.monitorStream = null;
     this.monitorSource = null;
     this.isMonitoring = false;
+    this.monitorMeterConnection = null; // Track connection to meterGainNode (always active)
 
     // Bind input monitoring handlers
     this.handleInputDeviceChange = this.handleInputDeviceChange.bind(this);
@@ -348,8 +349,8 @@ class AudioEngine {
     }
   }
 
-  async startInputMonitoring() {
-    if (this.isMonitoring) return;
+  async initializeInputMetering() {
+    // Create/get monitor source and stream for metering only (no monitoring output)
     const constraints = {
       audio: {
         sampleRate: DAWConfig.audio.sampleRate,
@@ -363,30 +364,142 @@ class AudioEngine {
     if (!this.monitorStream) {
       this.monitorStream = await navigator.mediaDevices.getUserMedia(constraints);
     }
-    this.monitorSource = this.context.createMediaStreamSource(this.monitorStream);
-    const recTrack = this.trackManager?.getTrack('recording-track');
-    if (recTrack && recTrack.gainNode) {
-      this.monitorSource.connect(recTrack.gainNode);
+    if (!this.monitorSource) {
+      this.monitorSource = this.context.createMediaStreamSource(this.monitorStream);
     }
-    this.isMonitoring = true;
-    this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED);
+    
+    const recTrack = this.trackManager?.getTrack('recording-track');
+    if (recTrack) {
+      // Connect to meterGainNode only (for metering, not monitoring output)
+      const meterGainNode = recTrack.getMeterGainNode();
+      if (meterGainNode && !this.monitorMeterConnection) {
+        try {
+          this.monitorSource.connect(meterGainNode);
+          this.monitorMeterConnection = true;
+        } catch (e) {
+          // Already connected, ignore
+        }
+      }
+    }
+  }
+
+  async startInputMonitoring() {
+    // Ensure input stream and source exist
+    if (!this.monitorStream || !this.monitorSource) {
+      await this.initializeInputMetering();
+    }
+    
+    const recTrack = this.trackManager?.getTrack('recording-track');
+    if (recTrack) {
+      // Disconnect from meterGainNode to avoid doubling signal in analyzer
+      const meterGainNode = recTrack.getMeterGainNode();
+      if (meterGainNode && this.monitorMeterConnection) {
+        try {
+          this.monitorSource.disconnect(meterGainNode);
+          this.monitorMeterConnection = false;
+        } catch (e) {
+          // Not connected, ignore
+        }
+      }
+      
+      // Connect to gainNode for monitoring output (this also feeds analyzer)
+      if (recTrack.gainNode) {
+        try {
+          this.monitorSource.connect(recTrack.gainNode);
+        } catch (e) {
+          // Already connected, ignore
+        }
+      }
+    }
+    
+    // Set monitoring state and emit event only if transitioning from disabled to enabled
+    if (!this.isMonitoring) {
+      this.isMonitoring = true;
+      this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED);
+    }
   }
 
   stopInputMonitoring() {
     if (!this.isMonitoring) return;
     try {
-      if (this.monitorSource) this.monitorSource.disconnect();
+      if (this.monitorSource) {
+        const recTrack = this.trackManager?.getTrack('recording-track');
+        if (recTrack) {
+          // Disconnect from gainNode (monitoring output)
+          if (recTrack.gainNode) {
+            try {
+              this.monitorSource.disconnect(recTrack.gainNode);
+            } catch (e) {
+              // Not connected, ignore
+            }
+          }
+          
+          // Reconnect to meterGainNode for metering (without monitoring output)
+          const meterGainNode = recTrack.getMeterGainNode();
+          if (meterGainNode && !this.monitorMeterConnection) {
+            try {
+              this.monitorSource.connect(meterGainNode);
+              this.monitorMeterConnection = true;
+            } catch (e) {
+              // Already connected, ignore
+            }
+          }
+        }
+      }
     } catch (_) { /* no-op */ }
     // Keep stream alive for reuse; don't stop tracks so recorder can reuse
+    // Meter connection remains active to show input signal in meter
     this.isMonitoring = false;
     this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED);
   }
 
-  handleInputDeviceChange(data) {
+  async handleInputDeviceChange(data) {
     AudioState.selectedAudioInputDevice = data?.deviceId || null;
-    if (!this.isMonitoring) {
-      // Auto-start monitoring upon device selection
-      this.startInputMonitoring().catch(() => {});
+    
+    // Store current monitoring state before switching devices
+    const wasMonitoring = this.isMonitoring;
+    
+    // If we have an existing monitor source, disconnect it before switching devices
+    if (this.monitorSource) {
+      try {
+        const recTrack = this.trackManager?.getTrack('recording-track');
+        if (recTrack) {
+          // Disconnect from both meter and monitor paths
+          const meterGainNode = recTrack.getMeterGainNode();
+          if (meterGainNode) {
+            try {
+              this.monitorSource.disconnect(meterGainNode);
+            } catch (e) {
+              // Not connected, ignore
+            }
+            this.monitorMeterConnection = false;
+          }
+          if (recTrack.gainNode) {
+            try {
+              this.monitorSource.disconnect(recTrack.gainNode);
+            } catch (e) {
+              // Not connected, ignore
+            }
+          }
+        }
+        // Stop old stream
+        if (this.monitorStream) {
+          this.monitorStream.getTracks().forEach(track => track.stop());
+          this.monitorStream = null;
+        }
+        this.monitorSource = null;
+        this.isMonitoring = false;
+      } catch (_) { /* no-op */ }
+    }
+    
+    // Initialize input metering with new device (meter-only, no monitoring)
+    if (data?.deviceId) {
+      await this.initializeInputMetering().catch(() => {});
+      
+      // If monitoring was enabled before device change, re-enable it
+      if (wasMonitoring) {
+        await this.startInputMonitoring().catch(() => {});
+      }
     }
   }
 

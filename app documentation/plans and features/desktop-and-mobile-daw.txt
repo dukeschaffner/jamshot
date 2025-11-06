@@ -1,0 +1,6 @@
+
+
+- create 1 audio engine using JUCE framework
+- React native ui will interact with the audio engine
+- desktop ui will interact with the audio engine
+- tracktion engine?
