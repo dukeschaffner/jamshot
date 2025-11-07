@@ -1,0 +1,772 @@
+/* Camp Create Form Styles */
+.campCreateContainer {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: calc(100vh - 80px);
+}
+
+.campFormContainer {
+  background-color: var(--background);
+  border-radius: 20px;
+  padding: 3rem;
+  box-shadow: 0 8px 30px var(--shadow);
+  transition: all 0.3s ease;
+  border: 1px solid var(--grey-2);
+}
+
+body.dark-mode .campFormContainer {
+  background-color: var(--grey-1);
+  box-shadow: 0 8px 30px var(--shadow);
+  border-color: var(--grey-3);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 2px solid transparent;
+  background: linear-gradient(var(--background), var(--background)) padding-box,
+              linear-gradient(90deg, var(--seafoam), var(--rustic-pink)) border-box;
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, var(--seafoam), var(--rustic-pink)) 1;
+}
+
+.headerIcon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 8px rgba(147, 233, 190, 0.3));
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 500;
+}
+
+.campForm {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.formSection {
+  padding-bottom: 2.5rem;
+  border-bottom: 2px solid var(--grey-1);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+body.dark-mode .formSection {
+  border-bottom-color: var(--grey-2);
+}
+
+.formSection:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.formSection h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: color 0.3s ease;
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+
+.formSection h3::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  border-radius: 2px;
+}
+
+.formSection h3 svg {
+  color: var(--seafoam);
+  filter: drop-shadow(0 2px 4px rgba(147, 233, 190, 0.3));
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formLabel {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.formInput {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--grey-2);
+  border-radius: 12px;
+  font-size: 1rem;
+  background-color: var(--background);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.formInput:focus {
+  outline: none;
+  border-color: var(--seafoam);
+  box-shadow: 0 0 0 4px rgba(147, 233, 190, 0.15);
+  transform: translateY(-1px);
+}
+
+body.dark-mode .formInput {
+  background-color: var(--grey-1);
+  border-color: var(--grey-3);
+}
+
+body.dark-mode .formInput:focus {
+  box-shadow: 0 0 0 4px rgba(147, 233, 190, 0.2);
+}
+
+.formInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.formHelp {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Pricing Options */
+.pricingOptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.pricingOption {
+  position: relative;
+  cursor: pointer;
+}
+
+.pricingOption input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pricingCard {
+  border: 3px solid var(--grey-2);
+  border-radius: 16px;
+  padding: 1.75rem;
+  transition: all 0.3s ease;
+  background-color: var(--background);
+  position: relative;
+  overflow: hidden;
+}
+
+.pricingCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pricingOption:hover .pricingCard {
+  border-color: var(--seafoam-light);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(147, 233, 190, 0.2);
+}
+
+.pricingOption input[type="radio"]:checked + .pricingCard {
+  border-color: var(--seafoam);
+  box-shadow: 0 8px 30px rgba(147, 233, 190, 0.3);
+  transform: translateY(-4px);
+  background: linear-gradient(135deg, 
+    var(--background) 0%, 
+    rgba(147, 233, 190, 0.05) 100%);
+}
+
+.pricingOption input[type="radio"]:checked + .pricingCard::before {
+  opacity: 1;
+}
+
+body.dark-mode .pricingCard {
+  background-color: var(--grey-1);
+  border-color: var(--grey-3);
+}
+
+body.dark-mode .pricingOption input[type="radio"]:checked + .pricingCard {
+  background: linear-gradient(135deg, 
+    var(--grey-1) 0%, 
+    rgba(147, 233, 190, 0.1) 100%);
+}
+
+.pricingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.pricingHeader h4 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.price {
+  font-size: 1.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pricingDescription {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* Payment Summary */
+.paymentSummary {
+  background: linear-gradient(135deg, var(--grey-1), rgba(147, 233, 190, 0.08));
+  border-radius: 16px;
+  padding: 2rem;
+  border: 2px solid var(--seafoam-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.paymentSummary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+}
+
+body.dark-mode .paymentSummary {
+  background: linear-gradient(135deg, var(--grey-2), rgba(147, 233, 190, 0.1));
+  border-color: var(--seafoam);
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--grey-2);
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.summaryItem:last-child {
+  border-bottom: none;
+}
+
+.summaryItem span:first-child {
+  color: var(--text-secondary);
+}
+
+.summaryItem span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+body.dark-mode .summaryItem {
+  border-bottom-color: var(--grey-3);
+}
+
+.summaryItem.total {
+  font-weight: 700;
+  font-size: 1.3rem;
+  border-top: 2px solid var(--grey-2);
+  margin-top: 0.75rem;
+  padding-top: 1.25rem;
+}
+
+.summaryItem.total span:last-child {
+  background: linear-gradient(135deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+}
+
+body.dark-mode .summaryItem.total {
+  border-top-color: var(--grey-3);
+}
+
+/* Messages */
+.message, .successMessage {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  border: 2px solid;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message {
+  background: linear-gradient(135deg, rgba(252, 50, 50, 0.1), rgba(252, 50, 50, 0.05));
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.successMessage {
+  background: linear-gradient(135deg, rgba(147, 233, 190, 0.15), rgba(147, 233, 190, 0.08));
+  border-color: var(--seafoam);
+  color: var(--seafoam-dark);
+}
+
+.messageIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+/* Form Actions */
+.formActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--grey-1);
+  transition: border-color 0.3s ease;
+}
+
+body.dark-mode .formActions {
+  border-top-color: var(--grey-2);
+}
+
+.cancelButton, .submitButton {
+  padding: 1rem 2.5rem;
+  border-radius: 28px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.cancelButton {
+  background-color: var(--grey-1);
+  color: var(--text-primary);
+  border: 2px solid var(--grey-2);
+}
+
+.cancelButton:hover:not(:disabled) {
+  background-color: var(--grey-2);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+body.dark-mode .cancelButton {
+  background-color: var(--grey-2);
+  border-color: var(--grey-3);
+}
+
+.submitButton {
+  background: linear-gradient(135deg, var(--seafoam), var(--rustic-pink));
+  color: white;
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.submitButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--seafoam-light), var(--rustic-pink-light));
+  transition: left 0.5s ease;
+}
+
+.submitButton:hover:not(:disabled)::before {
+  left: 0;
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(147, 233, 190, 0.4);
+}
+
+.submitButton > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cancelButton:disabled, .submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.loadingIcon {
+  animation: spin 1s linear infinite;
+}
+
+/* Authentication Required Message */
+.authRequired {
+  text-align: center;
+  padding: 5rem 2rem;
+  max-width: 600px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, 
+    rgba(147, 233, 190, 0.05), 
+    rgba(233, 169, 161, 0.05));
+  border-radius: 24px;
+  border: 2px solid var(--grey-1);
+}
+
+body.dark-mode .authRequired {
+  background: linear-gradient(135deg, 
+    rgba(147, 233, 190, 0.1), 
+    rgba(233, 169, 161, 0.1));
+  border-color: var(--grey-2);
+}
+
+.authIcon {
+  font-size: 5rem;
+  margin-bottom: 2rem;
+  background: linear-gradient(135deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 12px rgba(147, 233, 190, 0.3));
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.authRequired h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.authRequired p {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin-bottom: 2.5rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.loginButton {
+  padding: 1.25rem 3rem;
+  background: linear-gradient(135deg, var(--seafoam), var(--rustic-pink));
+  color: white;
+  border: none;
+  border-radius: 32px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 6px 20px rgba(147, 233, 190, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.loginButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--seafoam-light), var(--rustic-pink-light));
+  transition: left 0.5s ease;
+}
+
+.loginButton:hover::before {
+  left: 0;
+}
+
+.loginButton:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(147, 233, 190, 0.4);
+}
+
+.loginButton > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Loading state */
+.loading {
+  text-align: center;
+  padding: 4rem;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .campCreateContainer {
+    padding: 15px;
+  }
+
+  .campFormContainer {
+    padding: 2rem;
+    border-radius: 16px;
+  }
+
+  .header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .headerIcon {
+    font-size: 3rem;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  .header p {
+    font-size: 1rem;
+  }
+
+  .formSection h3 {
+    font-size: 1.3rem;
+  }
+
+  .pricingOptions {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .pricingCard {
+    padding: 1.5rem;
+  }
+
+  .paymentSummary {
+    padding: 1.5rem;
+  }
+
+  .summaryItem.total {
+    font-size: 1.2rem;
+  }
+
+  .formActions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .cancelButton, .submitButton {
+    width: 100%;
+    justify-content: center;
+    padding: 1rem 2rem;
+  }
+
+  .authRequired {
+    padding: 3rem 1.5rem;
+  }
+
+  .authIcon {
+    font-size: 4rem;
+  }
+
+  .authRequired h1 {
+    font-size: 2rem;
+  }
+
+  .authRequired p {
+    font-size: 1rem;
+  }
+
+  .loginButton {
+    padding: 1rem 2rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .campFormContainer {
+    padding: 1.5rem;
+    border-radius: 12px;
+  }
+
+  .header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+  }
+
+  .headerIcon {
+    font-size: 2.5rem;
+  }
+
+  .header h1 {
+    font-size: 1.75rem;
+  }
+
+  .header p {
+    font-size: 0.95rem;
+  }
+
+  .formSection {
+    padding-bottom: 2rem;
+  }
+
+  .formSection h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .formInput {
+    padding: 0.875rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .pricingCard {
+    padding: 1.25rem;
+  }
+
+  .pricingHeader h4 {
+    font-size: 1rem;
+  }
+
+  .price {
+    font-size: 1.5rem;
+  }
+
+  .pricingDescription {
+    font-size: 0.875rem;
+  }
+
+  .paymentSummary {
+    padding: 1.25rem;
+  }
+
+  .summaryItem {
+    font-size: 0.95rem;
+    padding: 0.75rem 0;
+  }
+
+  .summaryItem.total {
+    font-size: 1.15rem;
+  }
+
+  .message, .successMessage {
+    padding: 1rem 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  .messageIcon {
+    font-size: 1.25rem;
+  }
+
+  .cancelButton, .submitButton {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .authRequired {
+    padding: 2.5rem 1.25rem;
+    border-radius: 16px;
+  }
+
+  .authIcon {
+    font-size: 3.5rem;
+  }
+
+  .authRequired h1 {
+    font-size: 1.75rem;
+  }
+
+  .authRequired p {
+    font-size: 0.95rem;
+  }
+
+  .loginButton {
+    padding: 0.875rem 1.75rem;
+    font-size: 0.95rem;
+  }
+}

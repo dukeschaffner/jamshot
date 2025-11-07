@@ -53,6 +53,7 @@ const {
   competitionApi,
   tagApi,
   analyticsApi,
+  campApi,
   setRefreshUserState,
   getRefreshUserState,
 } = createApiMethods(apiClient);
@@ -69,6 +70,7 @@ export {
   competitionApi,
   tagApi,
   analyticsApi,
+  campApi,
   setRefreshUserState,
   getRefreshUserState,
 };

@@ -97,7 +97,7 @@ router.get('/created', apiEndpointLimiter, async (req, res) => {
     // Get session details from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
-    if (session.metadata.userId !== req.user.id) {
+    if (parseInt(session.metadata.userId) !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
