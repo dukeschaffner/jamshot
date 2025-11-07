@@ -611,3 +611,21 @@ CREATE TABLE payouts (
 -- Add index for payouts table
 CREATE INDEX idx_payouts_user_id ON payouts(user_id);
 CREATE INDEX idx_payouts_created_at ON payouts(created_at);
+
+
+
+
+-- Release Notes Table
+CREATE TABLE release_notes (
+  id SERIAL PRIMARY KEY,
+  version VARCHAR(20) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  show_toast_message BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  published_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX idx_release_notes_published_at ON release_notes(published_at DESC);
+CREATE INDEX idx_release_notes_show_toast ON release_notes(show_toast_message, published_at DESC) WHERE show_toast_message = TRUE;
+

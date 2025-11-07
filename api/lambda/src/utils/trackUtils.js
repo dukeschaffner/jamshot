@@ -816,7 +816,7 @@ function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
  */
 function parseTrackUploadBody(body) {
   // Parse initial body fields
-  const { title, parent_track_id, enter_competition = false, s3Key } = body;
+  const { title, parent_track_id, enter_competition = false, s3Key, camp_id, room_id, key } = body;
 
   const {
     genreIds,
@@ -888,7 +888,10 @@ function parseTrackUploadBody(body) {
     parsedTimeSignature,
     isPrivate,
     allowDownload,
-    parsedMetronomeOffset
+    parsedMetronomeOffset,
+    camp_id: camp_id ? parseInt(camp_id, 10) : null,
+    room_id: room_id ? parseInt(room_id, 10) : null,
+    key
   };
 }
 

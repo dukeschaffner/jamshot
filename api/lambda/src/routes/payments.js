@@ -370,7 +370,10 @@ async function handleCheckoutCompleted(session) {
     );
 
     // Handle different payment types
-    if (paymentType === 'competition_creation') {
+    if (paymentType === 'camp_creation') {
+      // Create camp after successful payment
+      await handleCampCreation(session);
+    } else if (paymentType === 'competition_creation') {
       // Create competition after successful payment
       const {
         trackId,
@@ -541,5 +544,42 @@ router.get('/history', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch payment history' });
   }
 });
+
+// Webhook helper functions
+async function handleCampCreation(session) {
+  const {
+    userId,
+    campName,
+    startDate,
+    endDate,
+    productVersion
+  } = session.metadata;
+
+  try {
+    // Generate unique camp code
+    const crypto = require('crypto');
+    const campCode = crypto.randomBytes(16).toString('hex');
+
+    // Create camp
+    const campResult = await db.query(
+      `INSERT INTO camps (name, start_date, end_date, created_by, product_version, camp_code, stripe_payment_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [campName, startDate, endDate, userId, productVersion, campCode, session.id]
+    );
+
+    // Add creator as admin to user_camps
+    await db.query(
+      `INSERT INTO user_camps (user_id, camp_id, role)
+       VALUES ($1, $2, 'admin')`,
+      [userId, campResult.rows[0].id]
+    );
+
+    console.log(`Camp "${campName}" created successfully for user ${userId} after payment ${session.id}`);
+  } catch (error) {
+    console.error('Error creating camp in webhook:', error);
+    throw error; // Re-throw to ensure webhook processing fails appropriately
+  }
+}
 
 module.exports = router; 

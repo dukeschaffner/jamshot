@@ -27,40 +27,43 @@ roles:
 
 -dashboard (/camp/{campId}):
     - user has access (user in users to camp table):
-        - header
-            - camp name
-            - camp start date
-            - camp end date
-            - camp settings (edit button) - admin only
+        - camp hasn't ended:
+            - header
                 - camp name
-                - add/remove users, assign roles/rooms (add button opens invite users modal)
-                - add/remove/update rooms
-            - invite button - opens invite users modal
-            - export button
-        - beat pool tab
-            - beats (list of beats in the pool) - beats are just track entities
-                - waveform
-                - title
-                - producer name
-                - bpm/key
-                - collab count
-                - "Start Idea" or "create" button -> track page
-            - sort by recency, bpm, key, usage
-            - add beat to pool - audio file upload only
-        - room tab (ie Room A) (if the user is assigned to a room, this tab will be shown)
-            - name
-            - tracks (list of tracks in the room)
-            - members (list of users in the room)
-                - admins can add/remove users from room here
-        - rooms tab
-            - room list (sidebar)
-                - room (same content as room tab)
-        - tracks tab (sort by recency, likes, filter by room, filter by beat?) - don't include beats in this list
-        - activity feed tab:
-            “User uploaded a beat”
-            “Room B created new idea”
-            “New topline added to Version 2”
-            “Version A3 liked by Room C”
+                - camp start date
+                - camp end date
+                - camp settings (edit button) - admin only
+                    - camp name
+                    - add/remove users, assign roles/rooms (add button opens invite users modal)
+                    - add/remove/update rooms
+                - invite button - opens invite users modal
+                - export button
+            - beat pool tab
+                - beats (list of beats in the pool) - beats are just track entities
+                    - waveform
+                    - title
+                    - producer name
+                    - bpm/key
+                    - collab count
+                    - "Start Idea" or "create" button -> track page (if camp is active)
+                - sort by recency, bpm, key, usage
+                - add beat to pool - audio file upload only
+            - room tab (ie Room A) (if the user is assigned to a room, this tab will be shown)
+                - name
+                - tracks (list of tracks in the room)
+                - members (list of users in the room)
+                    - admins can add/remove users from room here
+            - rooms tab
+                - room list (sidebar)
+                    - room (same content as room tab)
+            - tracks tab (sort by recency, likes, filter by room, filter by beat?) - don't include beats in this list
+            - activity feed tab:
+                “User uploaded a beat”
+                “Room B created new idea”
+                “New topline added to Version 2”
+                “Version A3 liked by Room C”
+        - camp has ended:
+            - show message "This camp has ended"
 
     - user does not have access:
         - parameter ?code={campCode} supplied?
@@ -77,7 +80,7 @@ roles:
 
 - invite users modal:
     - user search (search for users by username, name)
-        - dropdown list of user results with avatar, username, name, invite button (if they are not already in the camp)
+        - dropdown list of user results with avatar, username, name, invite button (if they are not already in the camp) -> disable and change to "invited" when invited
     - or copy invite link (links to /camp/{campId}?code={campCode})
 
 
@@ -86,6 +89,9 @@ validation/rules:
 - all camp tracks/beats marked as private. they should only be accessible to users in camp.
 - when a user builds on a beat, the resulting track should be marked with the user's room id
 - once a track has a room_id, all descendants should be marked with the same room_id, no matter the room_id of the user who added to the track
+- beat uploads allowed anytime during camp period (from creation date to end date)
+- track uploads only allowed after camp has started (after start_date)
+- camp user limits enforced based on product version (10, 25, 50, or 100 users)
 - camp endpoints
 - track upload ednpoint updates:
     - if camp_id supplied, then run camp validations
@@ -146,4 +152,8 @@ track:
 - camp export
     - tracks (name, likes, filename, comments, user)
     - ALL files
+
+- user invite notifications
+- camp cleanup
+- how to prevent abuse of beat uploads before camp has started
 </after_mvp>
