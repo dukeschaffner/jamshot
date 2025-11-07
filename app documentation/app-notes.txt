@@ -22,6 +22,8 @@ TODO (MVP)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
+- multi region tracks
+- update region during playback
 
 
 
@@ -45,6 +47,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- b2b model (churches, studios, etc)
 - dont save recording if stopped during count in.
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
 - create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
@@ -104,7 +107,7 @@ MONETIZATION
 - sponsored competitions from audio companies (best Sketch Cassette track)
 
 FREE
-- 1 Upload/day
+- 3 Upload/day
 - 25 total uploads
 - ads (post MVP)
 

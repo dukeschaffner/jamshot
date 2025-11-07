@@ -1,0 +1,27 @@
+
+
+B2B Model:
+- subscription with several premium subs for users in the organization
+
+
+clients:
+- churches
+- studios
+- schools
+- advertising agencies
+
+
+perks:
+- storage
+    - midi files
+    - lyrics
+- folder view
+    - ie Day 1, Day 2, etc for songwriting camps
+
+
+- team plan
+    - 10 users
+    - 25 users
+    - 50 users
+    - 100 users
+- "enterprise plan - contact us"
