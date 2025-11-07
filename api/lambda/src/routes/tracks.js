@@ -245,7 +245,10 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     parsedTimeSignature,
     isPrivate,
     allowDownload,
-    parsedMetronomeOffset
+    parsedMetronomeOffset,
+    camp_id,
+    room_id,
+    key
   } = parseTrackUploadBody(req.body);
 
   if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
@@ -412,6 +415,65 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       }
     }
 
+    // Camp/Room validation for songwriting camps
+    if (camp_id) {
+      // Validate camp exists, is active, and user is a member
+      const campResult = await pool.query(
+        'SELECT c.id, c.start_date, c.end_date, uc.role FROM camps c JOIN user_camps uc ON c.id = uc.camp_id WHERE c.id = $1 AND uc.user_id = $2',
+        [camp_id, userId]
+      );
+
+      if (campResult.rows.length === 0) {
+        return res.status(403).json({ error: 'You are not a member of this camp or the camp does not exist' });
+      }
+
+      const camp = campResult.rows[0];
+      const now = new Date();
+
+      // Check if camp is still active
+      if (now > new Date(camp.end_date)) {
+        return res.status(400).json({ error: 'This camp has ended' });
+      }
+
+      // All camp tracks/beats must be private
+      isPrivate = true;
+
+      if (parent_track_id) {
+        // This is a Track (collaboration on a beat) - camp must have started
+        if (now < new Date(camp.start_date)) {
+          return res.status(400).json({ error: 'Track uploads are not allowed until the camp has started' });
+        }
+
+        if (!room_id) {
+          return res.status(400).json({ error: 'Room ID is required when uploading tracks to a camp' });
+        }
+
+        // Validate room exists and belongs to this camp
+        const roomResult = await pool.query(
+          'SELECT id FROM rooms WHERE id = $1 AND camp_id = $2',
+          [room_id, camp_id]
+        );
+
+        if (roomResult.rows.length === 0) {
+          return res.status(400).json({ error: 'Room does not exist in this camp' });
+        }
+
+        // If parent track has a room_id, descendants must inherit it
+        const parentRoomCheck = await pool.query(
+          'SELECT room_id FROM tracks WHERE id = $1',
+          [parent_track_id]
+        );
+
+        if (parentRoomCheck.rows.length > 0 && parentRoomCheck.rows[0].room_id) {
+          room_id = parentRoomCheck.rows[0].room_id;
+        }
+      } else {
+        // This is a Beat upload - no room validation needed for beats
+        // Room assignment happens when someone starts an idea from a beat
+        room_id = null;
+      }
+    }
+
     // Phase 1: Insert track with placeholder mix_gains
     // Create a copy of stem chain without audio_url property for placeholder
     const stemChainToInsert = stemChain.map(stem => ({
@@ -425,8 +487,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
-        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing']
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, key]
     );
 
     const trackId = result.rows[0].id;

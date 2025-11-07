@@ -15,6 +15,7 @@ const contactRoutes = require('./routes/contact');
 const analyticsRoutes = require('./routes/analytics');
 const competitionRoutes = require('./routes/competitions');
 const releaseNotesRoutes = require('./routes/releaseNotes');
+const campRoutes = require('./routes/camps');
 require('dotenv').config();
 
 
@@ -112,6 +113,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/release-notes', releaseNotesRoutes);
+app.use('/api/camps', campRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
