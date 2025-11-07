@@ -26,6 +26,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [scrollLeft, setScrollLeft] = useState(0);
   const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
   const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -189,6 +190,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
       setTimeSignature(newTimeSignature);
     };
 
+    const handleMonitorStarted = () => setIsMonitoring(true);
+    const handleMonitorStopped = () => setIsMonitoring(false);
+
     const handleMetronomeOffsetChange = (data) => {
       const newOffset = data.offset;
       setMetronomeOffset(newOffset);
@@ -234,6 +238,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
     eventBus.on(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
     eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
     eventBus.on(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
 
     // Return cleanup function
     return () => {
@@ -251,6 +257,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
       eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
       eventBus.off(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
     };
   }, []); 
 
@@ -310,6 +318,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       tracksContainerWidth,
       setTracksContainerWidth,
       recordingTrackHasAudio,
+      isMonitoring,
     }}>
       {children}
     </DAWContext.Provider>

@@ -188,8 +188,8 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
     today.setHours(0, 0, 0, 0);
 
     const uploadCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2',
-      [userId, today]
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3',
+      [userId, today, 'completed']
     );
 
     const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
@@ -205,8 +205,8 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
 
     // Check total track limit
     const totalTrackCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1',
-      [userId]
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2',
+      [userId, 'completed']
     );
 
     const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
@@ -300,8 +300,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     subscription = getUserPlan(user);
     
     const uploadCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2',
-      [userId, today]
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3',
+      [userId, today, 'completed']
     );
     
     const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
@@ -322,8 +322,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   // Check if user has reached their total track limit (50 tracks maximum)
   try {
     const totalTrackCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1',
-      [userId]
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2',
+      [userId, 'completed']
     );
     
     const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);

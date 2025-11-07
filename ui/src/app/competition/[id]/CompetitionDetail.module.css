@@ -204,9 +204,7 @@
 }
 
 .entryItem {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  position: relative;
   padding: 16px;
   background: var(--grey-1);
   border-radius: 8px;
@@ -254,6 +252,47 @@
 .entryStats {
   display: flex;
   gap: 16px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.winnerBadge {
+  position: absolute;
+  top: -8px;
+  left: 16px;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  color: var(--text-primary);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 1;
+}
+
+.winnerBadge svg {
+  font-size: 0.8rem;
+}
+
+.loadMoreContainer {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.loadingMore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+
+.loadingMore p {
+  margin: 0;
   color: var(--text-secondary);
   font-size: 0.9rem;
 }

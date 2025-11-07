@@ -1,14 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { analyticsApi, userApi, trackApi } from '../../../../lib/api';
 import { useUser } from '../../../../contexts/UserContext';
+import { getUserTier, SUBSCRIPTION_TIERS } from '../../../../lib/subscriptionUtils';
 import { getCountryName, getCountryFlag } from '../../../../../shared/utils/formatting.js';
 import TimeSelector from '../../../../components/analytics/TimeSelector';
 import MetricSelector from '../../../../components/analytics/MetricSelector';
 import ChartJSAnalyticsChart from '../../../../components/analytics/ChartJSAnalyticsChart';
 import AnalyticsTable from '../../../../components/analytics/AnalyticsTable';
 import LoadingSpinner from '../../../../components/LoadingSpinner';
+import { FaCrown } from 'react-icons/fa';
 import styles from './UserAnalytics.module.css';
 
 export default function UserAnalyticsPage() {
@@ -30,6 +33,7 @@ export default function UserAnalyticsPage() {
 
   const username = params.username;
   const isOwnProfile = user?.username === username;
+  const isFreeTier = getUserTier(user) === SUBSCRIPTION_TIERS.FREE;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -46,10 +50,13 @@ export default function UserAnalyticsPage() {
   }, [isAuthenticated, isOwnProfile]);
 
   useEffect(() => {
-    if (user && isOwnProfile) {
+    if (user && isOwnProfile && !isFreeTier) {
       fetchAnalyticsData();
+    } else if (user && isOwnProfile && isFreeTier) {
+      // Free tier users don't need to fetch analytics data
+      setLoading(false);
     }
-  }, [user, timeRange, isOwnProfile]);
+  }, [user, timeRange, isOwnProfile, isFreeTier]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -214,104 +221,121 @@ export default function UserAnalyticsPage() {
         </div>
       </div>
 
-      <div className={styles.controls}>
-        <TimeSelector onTimeRangeChange={handleTimeRangeChange} />
-        <MetricSelector
-          selectedMetric={selectedMetric}
-          onMetricChange={handleMetricChange}
-          onFilterChange={handleFilterChange}
-          showCountryFilter={true}
-          availableCountries={geographicData}
-        />
-      </div>
-
-      <div className={styles.content}>
-        {loading ? (
-          <LoadingSpinner />
-        ) : (
-          <>
-            <ChartJSAnalyticsChart
-              data={analyticsData}
-              metric={selectedMetric}
-              title={getChartTitle()}
-              type="line"
-              color={getChartColor()}
-              height={300}
-              isDateBased={true}
-              timeRange={timeRange}
-              variant="user"
+      {isFreeTier ? (
+        <div className={styles.upgradePrompt}>
+          <div className={styles.upgradeContent}>
+            <FaCrown className={styles.crownIcon} />
+            <div className={styles.upgradeText}>
+              <h4>Upgrade to Get Access to Analytics</h4>
+              <p>Unlock detailed insights including charts, geographic data, track performance metrics, and more.</p>
+            </div>
+            <Link href="/subscribe" className={styles.upgradeButton}>
+              Upgrade to Premium
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className={styles.controls}>
+            <TimeSelector onTimeRangeChange={handleTimeRangeChange} />
+            <MetricSelector
+              selectedMetric={selectedMetric}
+              onMetricChange={handleMetricChange}
+              onFilterChange={handleFilterChange}
+              showCountryFilter={true}
+              availableCountries={geographicData}
             />
+          </div>
 
-            {/* Track Overview Table */}
-            <AnalyticsTable
-              data={tracksData}
-              title="Track Performance"
-              columns={trackTableColumns}
-              sortable={true}
-              searchable={true}
-              maxRows={20}
-            />
+          <div className={styles.content}>
+            {loading ? (
+              <LoadingSpinner />
+            ) : (
+              <>
+                <ChartJSAnalyticsChart
+                  data={analyticsData}
+                  metric={selectedMetric}
+                  title={getChartTitle()}
+                  type="line"
+                  color={getChartColor()}
+                  height={300}
+                  isDateBased={true}
+                  timeRange={timeRange}
+                  variant="user"
+                />
 
-            {/* Geographic Data */}
-            {(selectedMetric === 'plays' || selectedMetric === 'listeners') && geographicData.length > 0 && (
-              <div className={styles.geographicSection}>
-                <h3>Geographic Breakdown</h3>
-                <div className={styles.geographicGrid}>
-                  <div className={styles.geographicCard}>
-                    <h4>Top Countries</h4>
-                    <div className={styles.geographicList}>
-                      {geographicData
-                        .reduce((countries, location) => {
-                          const existing = countries.find(c => c.country_code === location.country_code);
-                          if (existing) {
-                            existing.plays += location.plays;
-                            existing.listeners += location.listeners;
-                          } else {
-                            countries.push({
-                              country: location.country,
-                              country_code: location.country_code,
-                              plays: location.plays,
-                              listeners: location.listeners
-                            });
-                          }
-                          return countries;
-                        }, [])
-                        .sort((a, b) => b.plays - a.plays)
-                        .slice(0, 10)
-                        .map((country, index) => (
-                          <div key={country.country_code} className={styles.geographicItem}>
-                            <span className={styles.country}>
-                              {getCountryFlag(country.country_code)} {country.country}
-                            </span>
-                            <span className={styles.count}>{country.plays.toLocaleString()}</span>
-                          </div>
-                        ))}
+                {/* Track Overview Table */}
+                <AnalyticsTable
+                  data={tracksData}
+                  title="Track Performance"
+                  columns={trackTableColumns}
+                  sortable={true}
+                  searchable={true}
+                  maxRows={20}
+                />
+
+                {/* Geographic Data */}
+                {(selectedMetric === 'plays' || selectedMetric === 'listeners') && geographicData.length > 0 && (
+                  <div className={styles.geographicSection}>
+                    <h3>Geographic Breakdown</h3>
+                    <div className={styles.geographicGrid}>
+                      <div className={styles.geographicCard}>
+                        <h4>Top Countries</h4>
+                        <div className={styles.geographicList}>
+                          {geographicData
+                            .reduce((countries, location) => {
+                              const existing = countries.find(c => c.country_code === location.country_code);
+                              if (existing) {
+                                existing.plays += location.plays;
+                                existing.listeners += location.listeners;
+                              } else {
+                                countries.push({
+                                  country: location.country,
+                                  country_code: location.country_code,
+                                  plays: location.plays,
+                                  listeners: location.listeners
+                                });
+                              }
+                              return countries;
+                            }, [])
+                            .sort((a, b) => b.plays - a.plays)
+                            .slice(0, 10)
+                            .map((country, index) => (
+                              <div key={country.country_code} className={styles.geographicItem}>
+                                <span className={styles.country}>
+                                  {getCountryFlag(country.country_code)} {country.country}
+                                </span>
+                                <span className={styles.count}>{country.plays.toLocaleString()}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+
+                      <div className={styles.geographicCard}>
+                        <h4>Top Cities</h4>
+                        <div className={styles.geographicList}>
+                          {geographicData
+                            .sort((a, b) => b.plays - a.plays)
+                            .slice(0, 10)
+                            .map((location, index) => (
+                              <div key={`${location.country_code}-${location.city}`} className={styles.geographicItem}>
+                                <span className={styles.country}>
+                                  {location.city}, {location.region}
+                                </span>
+                                <span className={styles.count}>{location.plays.toLocaleString()}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div className={styles.geographicCard}>
-                    <h4>Top Cities</h4>
-                    <div className={styles.geographicList}>
-                      {geographicData
-                        .sort((a, b) => b.plays - a.plays)
-                        .slice(0, 10)
-                        .map((location, index) => (
-                          <div key={`${location.country_code}-${location.city}`} className={styles.geographicItem}>
-                            <span className={styles.country}>
-                              {location.city}, {location.region}
-                            </span>
-                            <span className={styles.count}>{location.plays.toLocaleString()}</span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </>
             )}
-
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -20,6 +20,7 @@ export function AudioProvider({ children }) {
   const loadedTrackIdRef = useRef(null);
   const urlRefreshAttemptedRef = useRef(false); // Track if we've tried refreshing the URL
   const urlRefreshedRef = useRef(false); // Track if we've refreshed the URL
+  const handleTrackEndRef = useRef(null); // Ref to store current handleTrackEnd function
 
   // Refs for play counter and analytics
   const listeningTimeRef = useRef(0);
@@ -61,17 +62,22 @@ export function AudioProvider({ children }) {
 
   // Handle track end based on loop state
   const handleTrackEnd = useCallback(() => {
-    if (isLoopOn && playlist.length === 1) {
+    if (isLoopOn) {
       updatePlay();
 
-      // If loop is on and there's only one track, replay it
+      // If loop is on, replay the current track
       soundRef.current.play();
       // Reset play counter state for looped track
       listeningTimeRef.current = 0;
     } else {
       playNext(false);
     }
-  }, [isLoopOn, playlist.length, playNext]);
+  }, [isLoopOn, playNext]);
+
+  // Update the ref whenever handleTrackEnd changes
+  useEffect(() => {
+    handleTrackEndRef.current = handleTrackEnd;
+  }, [handleTrackEnd]);
 
   // Check and record initial play based on listening criteria
   const checkAndRecordPlay = useCallback(() => {
@@ -239,7 +245,7 @@ export function AudioProvider({ children }) {
         },
         onend: () => {
           console.log('Track ended, playing next');
-          handleTrackEnd();
+          handleTrackEndRef.current();
         },
         onseek: () => updateProgress(),
       });

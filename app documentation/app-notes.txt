@@ -10,8 +10,6 @@ TODO (MVP)
 - yearly billing for subscriptions
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
-  - input monitoring
-  - actions during playback
   - handle sample rate mismatch (should input device determine sample rate?)
   - handle stereo input devices
   - handle if user blocked mic access
@@ -20,24 +18,17 @@ TODO (MVP)
 - display uploads left in nav?
 - on delete track, delete analytics for that track too (check and make sure this is working)
 - upgrade suggestions
-  - Profile (analytics + track count)
-  - Track (analytics)
-  - Upload form (private tracks + track count)
+  - Profile (track count)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
-- only count tracks that completed processing in quotas
-- analytics access control for free users + upgrade suggestions
 
 
 
 BUGS
 - double check track plays recording correctly
-- audio url refresh endless cycle
-- Session ended error after long period (6 hrs) of inactivity (does this happen when it tries to refresh without internet access?)
+  - full play didnt get marked as complete play
 - got generic error when trying to enter my own competition: Competition entry validation failed
-- whole song looped ->  after recording full length track, audio didnt play when i tried to play again
-- looper on global player doesnt work.
 
 
 
@@ -49,16 +40,15 @@ RELEASE CHECKLIST
 - review terms and privacy policy - ensure all legal requirements are met
 - Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
 - VonGon partnership
+- upgrade neon
 
 
 
 TODO (after beta testing)
 - dont save recording if stopped during count in.
-- fix track titles in DAW
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
 - create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
 - auto stripe payout for competition winners
-- comp entries load as mini tracks
 - correlation id for audio processing
 - competition: add entry count to table so that entries dont need to be loaded from the api
 - switch to minutes based quota
@@ -82,8 +72,9 @@ TODO (after beta testing)
 - block users
 - profile banner image
 - global player audio level
+- notification settings (ie instagram)
+- rework edit user profile page (edit dialog should be its own page)
 - invite people to collab on private tracks (groups)?
-- paginate track, reposts, likes on user page
 - comment edit view
 - audio ads
 - feed ads
@@ -147,7 +138,7 @@ LEGAL
 About
 This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
 
-Tech Stack:
+Tech Stack/integrations:
 - Frontend: Next.js hosted on AWS Amplify
 - Backend: 
   - API: Express.js hosted on AWS Lambda (basic CRUD operations)
@@ -158,6 +149,8 @@ Tech Stack:
 - File Storage: Cloudflare R2 + Cloudflare CDN
 - Database: PostgreSQL hosted on NeonDB
 - Payments: Stripe
+- IPGeolocation (listener geolocation)
+
 alternatives:
 - Add a Redis caching layer to the database
 
@@ -171,12 +164,12 @@ Goals/VALUE
 
 Features
 - home feed with tracks/collabs posted by user's follows mixed with popular tracks
-  - click on a track to expand and see other collabs
+  - click on a track to expand and see collabs on that track
 - users will have profiles and can be verified artists. There will be a profile page with the user's tracks, picture, reposted tracks, liked tracks, follower count, etc
 - It will also work as a streaming service, were a user can pick a genre and just listen
   - tracks have genre and instrument tags to help accommodate this
 - strong interaction between artists/fans or smaller artists, as well as friend groups who want to quickly and easily share ideas. success likely determined by how many medium to large artist adopt and use the platform.
-
+- simple built in DAW that allows users to record audio and add it to a track as a collab
 
 
 

@@ -52,6 +52,7 @@ class AudioEngine {
     this.handleSeekEvent = this.handleSeekEvent.bind(this);
     this.handleTrackVolumeChange = this.handleTrackVolumeChange.bind(this);
     this.handleTrackSolo = this.handleTrackSolo.bind(this);
+    this.handleTrackMute = this.handleTrackMute.bind(this);
     this.handleMetronomeToggle = this.handleMetronomeToggle.bind(this);
     this.handleMetronomeBPMChange = this.handleMetronomeBPMChange.bind(this);
     this.handleMetronomeVolumeChange = this.handleMetronomeVolumeChange.bind(this);
@@ -61,6 +62,16 @@ class AudioEngine {
     this.handleLoopStart = this.handleLoopStart.bind(this);
     this.handleLoopBoundariesSet = this.handleLoopBoundariesSet.bind(this);
     this.handleDurationChange = this.handleDurationChange.bind(this);
+
+    // Input monitoring state
+    this.monitorStream = null;
+    this.monitorSource = null;
+    this.isMonitoring = false;
+    this.monitorMeterConnection = null; // Track connection to meterGainNode (always active)
+
+    // Bind input monitoring handlers
+    this.handleInputDeviceChange = this.handleInputDeviceChange.bind(this);
+    this.handleMonitorToggle = this.handleMonitorToggle.bind(this);
   }
   
   async initialize(tm, metronomeBpm, timeSignature, metronomeOffset) {
@@ -101,12 +112,19 @@ class AudioEngine {
     this.eventBus.on(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
     this.eventBus.on(this.DAW_EVENTS.RECORDING.START, this.startRecording);
     this.eventBus.on(this.DAW_EVENTS.RECORDING.STOP, this.stopRecording);
+
+    // Listen for audio settings events (input monitoring)
+    this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
+    this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
     
     // Listen for track volume change events
     this.eventBus.on(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
     
     // Listen for track solo events
     this.eventBus.on(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
+
+    // Listen for track mute events
+    this.eventBus.on(this.DAW_EVENTS.TRACK.MUTE, this.handleTrackMute);
     
     // Listen for metronome events
     this.eventBus.on(this.DAW_EVENTS.METRONOME.TOGGLE, this.handleMetronomeToggle);
@@ -313,8 +331,12 @@ class AudioEngine {
   }
 
   async startRecording() {
+    if (!this.isMonitoring) {
+      // Ensure monitoring is active and stream available for recorder reuse
+      try { await this.startInputMonitoring(); } catch (_) { /* ignore */ }
+    }
     if (this.recorder) {
-      await this.recorder.startRecording();
+      await this.recorder.startRecording(this.monitorStream || undefined);
     }
 
     // Auto-start playback when recording begins (if not already playing)
@@ -324,6 +346,168 @@ class AudioEngine {
         this.setCountIn(true);
       }
       this.play();
+    }
+  }
+
+  async initializeInputMetering() {
+    // Create/get monitor source and stream for metering only (no monitoring output)
+    const constraints = {
+      audio: {
+        sampleRate: DAWConfig.audio.sampleRate,
+        channelCount: DAWConfig.audio.channels,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        ...(AudioState.selectedAudioInputDevice ? { deviceId: { exact: AudioState.selectedAudioInputDevice } } : {})
+      }
+    };
+    if (!this.monitorStream) {
+      this.monitorStream = await navigator.mediaDevices.getUserMedia(constraints);
+    }
+    if (!this.monitorSource) {
+      this.monitorSource = this.context.createMediaStreamSource(this.monitorStream);
+    }
+    
+    const recTrack = this.trackManager?.getTrack('recording-track');
+    if (recTrack) {
+      // Connect to meterGainNode only (for metering, not monitoring output)
+      const meterGainNode = recTrack.getMeterGainNode();
+      if (meterGainNode && !this.monitorMeterConnection) {
+        try {
+          this.monitorSource.connect(meterGainNode);
+          this.monitorMeterConnection = true;
+        } catch (e) {
+          // Already connected, ignore
+        }
+      }
+    }
+  }
+
+  async startInputMonitoring() {
+    // Ensure input stream and source exist
+    if (!this.monitorStream || !this.monitorSource) {
+      await this.initializeInputMetering();
+    }
+    
+    const recTrack = this.trackManager?.getTrack('recording-track');
+    if (recTrack) {
+      // Disconnect from meterGainNode to avoid doubling signal in analyzer
+      const meterGainNode = recTrack.getMeterGainNode();
+      if (meterGainNode && this.monitorMeterConnection) {
+        try {
+          this.monitorSource.disconnect(meterGainNode);
+          this.monitorMeterConnection = false;
+        } catch (e) {
+          // Not connected, ignore
+        }
+      }
+      
+      // Connect to gainNode for monitoring output (this also feeds analyzer)
+      if (recTrack.gainNode) {
+        try {
+          this.monitorSource.connect(recTrack.gainNode);
+        } catch (e) {
+          // Already connected, ignore
+        }
+      }
+    }
+    
+    // Set monitoring state and emit event only if transitioning from disabled to enabled
+    if (!this.isMonitoring) {
+      this.isMonitoring = true;
+      this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED);
+    }
+  }
+
+  stopInputMonitoring() {
+    if (!this.isMonitoring) return;
+    try {
+      if (this.monitorSource) {
+        const recTrack = this.trackManager?.getTrack('recording-track');
+        if (recTrack) {
+          // Disconnect from gainNode (monitoring output)
+          if (recTrack.gainNode) {
+            try {
+              this.monitorSource.disconnect(recTrack.gainNode);
+            } catch (e) {
+              // Not connected, ignore
+            }
+          }
+          
+          // Reconnect to meterGainNode for metering (without monitoring output)
+          const meterGainNode = recTrack.getMeterGainNode();
+          if (meterGainNode && !this.monitorMeterConnection) {
+            try {
+              this.monitorSource.connect(meterGainNode);
+              this.monitorMeterConnection = true;
+            } catch (e) {
+              // Already connected, ignore
+            }
+          }
+        }
+      }
+    } catch (_) { /* no-op */ }
+    // Keep stream alive for reuse; don't stop tracks so recorder can reuse
+    // Meter connection remains active to show input signal in meter
+    this.isMonitoring = false;
+    this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED);
+  }
+
+  async handleInputDeviceChange(data) {
+    AudioState.selectedAudioInputDevice = data?.deviceId || null;
+    
+    // Store current monitoring state before switching devices
+    const wasMonitoring = this.isMonitoring;
+    
+    // If we have an existing monitor source, disconnect it before switching devices
+    if (this.monitorSource) {
+      try {
+        const recTrack = this.trackManager?.getTrack('recording-track');
+        if (recTrack) {
+          // Disconnect from both meter and monitor paths
+          const meterGainNode = recTrack.getMeterGainNode();
+          if (meterGainNode) {
+            try {
+              this.monitorSource.disconnect(meterGainNode);
+            } catch (e) {
+              // Not connected, ignore
+            }
+            this.monitorMeterConnection = false;
+          }
+          if (recTrack.gainNode) {
+            try {
+              this.monitorSource.disconnect(recTrack.gainNode);
+            } catch (e) {
+              // Not connected, ignore
+            }
+          }
+        }
+        // Stop old stream
+        if (this.monitorStream) {
+          this.monitorStream.getTracks().forEach(track => track.stop());
+          this.monitorStream = null;
+        }
+        this.monitorSource = null;
+        this.isMonitoring = false;
+      } catch (_) { /* no-op */ }
+    }
+    
+    // Initialize input metering with new device (meter-only, no monitoring)
+    if (data?.deviceId) {
+      await this.initializeInputMetering().catch(() => {});
+      
+      // If monitoring was enabled before device change, re-enable it
+      if (wasMonitoring) {
+        await this.startInputMonitoring().catch(() => {});
+      }
+    }
+  }
+
+  handleMonitorToggle({ enabled } = {}) {
+    if (enabled) {
+      this.startInputMonitoring().catch(() => {});
+    } else {
+      this.stopInputMonitoring();
     }
   }
   
@@ -350,7 +534,7 @@ class AudioEngine {
   handleTrackSolo(data) {
     const { trackId, isSolo } = data;
     const allTracks = this.trackManager.getAllTracks();
-    
+
     // If this track is being soloed, unsolo all other tracks first
     if (isSolo) {
       allTracks.forEach(track => {
@@ -359,16 +543,16 @@ class AudioEngine {
         }
       });
     }
-    
+
     // Set the solo state for the target track
     const targetTrack = this.trackManager.getTrack(trackId);
     if (targetTrack) {
       targetTrack.setSolo(isSolo);
     }
-    
+
     // Check if any track is solo'd
     const hasSoloTrack = allTracks.some(track => track.isSolo);
-    
+
     // Apply solo logic to all tracks
     allTracks.forEach(track => {
       if (hasSoloTrack) {
@@ -383,6 +567,19 @@ class AudioEngine {
         track.gainNode.gain.linearRampToValueAtTime(track.gain, this.context.currentTime + 0.05);
       }
     });
+  }
+
+  handleTrackMute(data) {
+    const { trackId, isMuted } = data;
+
+    // Set the mute state for the target track
+    const targetTrack = this.trackManager.getTrack(trackId);
+    if (targetTrack) {
+      // Apply mute logic - if muted, set gain to 0, otherwise set to track gain
+      const targetGain = isMuted ? 0 : targetTrack.gain;
+      targetTrack.gainNode.gain.setValueAtTime(targetGain, this.context.currentTime);
+      targetTrack.gainNode.gain.linearRampToValueAtTime(targetGain, this.context.currentTime + 0.05);
+    }
   }
   
   // Metronome event handlers
@@ -555,12 +752,15 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.TRANSPORT.SEEK, this.handleSeekEvent);
       this.eventBus.off(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.TRACK.SOLO, this.handleTrackSolo);
+    this.eventBus.off(this.DAW_EVENTS.TRACK.MUTE, this.handleTrackMute);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TOGGLE, this.handleMetronomeToggle);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.COUNT_IN_TOGGLE, this.handleCountInToggle);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.BPM_CHANGE, this.handleMetronomeBPMChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, this.handleTimeSignatureChange);
       this.eventBus.off(this.DAW_EVENTS.METRONOME.OFFSET_CHANGE, this.handleMetronomeOffsetChange);
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
+      this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
+      this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
       this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
       this.eventBus.off(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, this.handleDurationChange);
