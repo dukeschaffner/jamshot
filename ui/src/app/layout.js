@@ -11,6 +11,7 @@ import { initGA, trackPageView, trackSearch } from '../lib/analytics';
 import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';
 import GlobalPlayer from '../components/GlobalPlayer';
+import ReleaseNotesToast from '../components/ReleaseNotesToast';
 import api from '../lib/api';
 
 // This component will be rendered after providers are initialized
@@ -112,6 +113,9 @@ function AppContent({ children }) {
       
       {/* Global Player - only render when not on upload or track pages */}
       {!shouldHidePlayer && <GlobalPlayer />}
+      
+      {/* Release Notes Toast */}
+      <ReleaseNotesToast />
     </div>
   );
 }
