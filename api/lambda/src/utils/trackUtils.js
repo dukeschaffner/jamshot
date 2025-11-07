@@ -809,6 +809,89 @@ function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
   return { valid: true };
 }
 
+/**
+ * Parse and validate track upload body parameters
+ * @param {Object} body - The request body object
+ * @returns {Object} Parsed and validated track upload parameters
+ */
+function parseTrackUploadBody(body) {
+  // Parse initial body fields
+  const { title, parent_track_id, enter_competition = false, s3Key } = body;
+
+  const {
+    genreIds,
+    instrumentIds,
+    metronome_bpm,
+    stem_gains,
+    time_signature,
+    is_private,
+    allow_download,
+    metronome_offset
+  } = body;
+
+  // Parse genre and instrument IDs if they're provided as strings
+  const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
+  const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];
+  
+  // Parse metronome_bpm if provided
+  let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
+
+  // Parse stem gains array if provided
+  let parsedStemGains = null;
+  if (stem_gains) {
+    try {
+      parsedStemGains = typeof stem_gains === 'string' ? JSON.parse(stem_gains) : stem_gains;
+      if (!Array.isArray(parsedStemGains)) {
+        console.warn('stem_gains is not an array, ignoring');
+        parsedStemGains = null;
+      } else {
+        console.log('Parsed stem gains:', parsedStemGains);
+      }
+    } catch (error) {
+      console.warn('Failed to parse stem_gains:', error);
+      parsedStemGains = null;
+    }
+  }
+
+  // Use the provided time signature or default to 4/4
+  let parsedTimeSignature = time_signature || '4/4';
+  
+  // Parse the private flag (convert string 'true'/'false' to boolean if needed)
+  let isPrivate = is_private === 'true' || is_private === true;
+  
+  // Parse the allow_download flag (default to true if not provided)
+  let allowDownload = allow_download !== 'false' && allow_download !== false;
+
+  // Parse metronome offset (clamp between 0 and 1)
+  let parsedMetronomeOffset = metronome_offset ? Math.min(Math.max(parseFloat(metronome_offset), 0), 1) : 0;
+
+  // Log the parsed upload parameters
+  console.log('Upload processing request received:');
+  console.log('- Title:', title);
+  console.log('- Parent track ID:', parent_track_id || 'None (original track)');
+  console.log('- S3 Key:', s3Key);
+  console.log('- Stem gains:', parsedStemGains || 'Not provided');
+  console.log('- Time signature:', parsedTimeSignature);
+  console.log('- Metronome offset:', parsedMetronomeOffset);
+  console.log('- Private:', isPrivate ? 'Yes' : 'No');
+  console.log('- Allow download:', allowDownload ? 'Yes' : 'No');
+
+  return {
+    title,
+    parent_track_id,
+    enter_competition,
+    s3Key,
+    parsedGenreIds,
+    parsedInstrumentIds,
+    parsedMetronomeBpm,
+    parsedStemGains,
+    parsedTimeSignature,
+    isPrivate,
+    allowDownload,
+    parsedMetronomeOffset
+  };
+}
+
 module.exports = {
   s3Client,
   generateSignedUrl,
@@ -833,5 +916,6 @@ module.exports = {
   getStemChain,
   validateMixGains,
   calculateEffectiveGain,
-  validateAndUpdateStemChain
+  validateAndUpdateStemChain,
+  parseTrackUploadBody
 }; 

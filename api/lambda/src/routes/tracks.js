@@ -32,9 +32,10 @@ const {
   findAllDescendantTracks,
   deleteTrack,
   getStemChain,
-  validateAndUpdateStemChain
+  validateAndUpdateStemChain,
+  parseTrackUploadBody
 } = require('../utils/trackUtils');
-const { getUserPlan } = require('../utils/subscriptionUtils');
+const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
 const { validateCompetitionEntry } = require('../utils/competition');
 require('dotenv').config;
@@ -156,6 +157,14 @@ const handleMulterError = (error, req, res, next) => {
   next();
 };
 
+
+
+
+
+
+
+
+
 // Initialize upload by generating pre-signed S3 URL
 router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
   const { filename, fileSize } = req.body;
@@ -182,42 +191,17 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
 
     const user = userResult.rows[0];
     const subscription = getUserPlan(user);
-
-    // Check daily upload limit
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const uploadCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3',
-      [userId, today, 'completed']
-    );
-
-    const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
-
-    if (subscription.limits.daily_uploads !== -1 && dailyUploadCount >= subscription.limits.daily_uploads) {
-      return res.status(429).json({
-        error: 'Daily upload limit reached',
-        message: `You can only upload ${subscription.limits.daily_uploads} tracks per day. Upgrade your plan to increase your upload limit.`,
-        daily_count: dailyUploadCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
+  
+    // Check if user has reached their daily upload limit
+    const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
+    if (dailyQuotaCheck) {
+      return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
     }
-
-    // Check total track limit
-    const totalTrackCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2',
-      [userId, 'completed']
-    );
-
-    const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
-
-    if (subscription.limits.max_total_uploads !== -1 && totalTrackCount >= subscription.limits.max_total_uploads) {
-      return res.status(429).json({
-        error: 'Total track limit reached',
-        message: `You can only have ${subscription.limits.max_total_uploads} tracks maximum. Upgrade your plan to increase your track limit.`,
-        total_count: totalTrackCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
+  
+    // Check if user has reached their total track limit
+    const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
+    if (totalQuotaCheck) {
+      return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
     }
 
     // Generate filename base for consistent naming throughout the upload process
@@ -242,14 +226,27 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
 
 // Process upload after S3 upload is complete
 router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
-  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, stem_gains, time_signature, is_private, metronome_offset, allow_download, enter_competition = false, s3Key } = req.body;
   const userId = req.user.id;
   let layer = 0;
   let parentIsPrivate = false;
   let parentSecretToken = null;
-  let parsedMetronomeOffset = metronome_offset ? Math.min(Math.max(parseFloat(metronome_offset), 0), 1) : 0;
   let isCompetitionEntry = false;
   let competitionId = null;
+
+  let {
+    title,
+    parent_track_id,
+    enter_competition,
+    s3Key,
+    parsedGenreIds,
+    parsedInstrumentIds,
+    parsedMetronomeBpm,
+    parsedStemGains,
+    parsedTimeSignature,
+    isPrivate,
+    allowDownload,
+    parsedMetronomeOffset
+  } = parseTrackUploadBody(req.body);
 
   if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
 
@@ -257,16 +254,6 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   if (!s3Key.startsWith('uploads/temp/') || !s3Key.includes(`/${userId}/`)) {
     return res.status(400).json({ error: 'Invalid S3 key format' });
   }
-
-  console.log('Upload processing request received:');
-  console.log('- Title:', title);
-  console.log('- Parent track ID:', parent_track_id || 'None (original track)');
-  console.log('- S3 Key:', s3Key);
-  console.log('- Stem gains:', stem_gains || 'Not provided');
-  console.log('- Time signature:', time_signature || '4/4 (default)');
-  console.log('- Metronome offset:', parsedMetronomeOffset);
-  console.log('- Private:', is_private ? 'Yes' : 'No');
-  console.log('- Allow download:', allow_download !== 'false' ? 'Yes' : 'No');
 
   // Download file from S3 for validation
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -281,15 +268,11 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'Failed to access uploaded file. Please try uploading again.' });
   }
 
-  let subscription = null;
-  // Check if user has reached their daily upload limit (3 uploads per day)
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of the day
-
+    // Get user and subscription for quota checks and later use
     const userResult = await pool.query(
       'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
-      [req.user.id]
+      [userId]
     );
 
     if (userResult.rows.length === 0) {
@@ -297,82 +280,23 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     }
 
     const user = userResult.rows[0];
-    subscription = getUserPlan(user);
-    
-    const uploadCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3',
-      [userId, today, 'completed']
-    );
-    
-    const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
-    
-    if (subscription.limits.daily_uploads !== -1 && dailyUploadCount >= subscription.limits.daily_uploads) {
-      return res.status(429).json({ 
-        error: 'Daily upload limit reached',
-        message: `You can only upload ${subscription.limits.daily_uploads} tracks per day. Upgrade your plan to increase your upload limit.`,
-        daily_count: dailyUploadCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
+    const subscription = getUserPlan(user);
+
+    // Check if user has reached their daily upload limit
+    const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
+    if (dailyQuotaCheck) {
+      return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
+    }
+
+    // Check if user has reached their total track limit
+    const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
+    if (totalQuotaCheck) {
+      return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
     }
   } catch (err) {
-    console.error('Error checking upload limit:', err);
-    return res.status(500).json({ error: `Failed to check upload limit: ${err.message}` });
+    console.error('Error checking user subscription limits:', err);
+    return res.status(500).json({ error: `Failed to check user subscription limits` });
   }
-
-  // Check if user has reached their total track limit (50 tracks maximum)
-  try {
-    const totalTrackCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2',
-      [userId, 'completed']
-    );
-    
-    const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
-    
-    if (subscription.limits.max_total_uploads !== -1 && totalTrackCount >= subscription.limits.max_total_uploads) {
-      return res.status(429).json({ 
-        error: 'Total track limit reached',
-        message: `You can only have ${subscription.limits.max_total_uploads} tracks maximum. Upgrade your plan to increase your track limit.`,
-        total_count: totalTrackCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
-    }
-  } catch (err) {
-    console.error('Error checking total track limit:', err);
-    return res.status(500).json({ error: `Failed to check total track limit: ${err.message}` });
-  }
-
-  // Parse genre and instrument IDs if they're provided as strings
-  const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
-  const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];
-  
-  // Parse metronome_bpm if provided
-  let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
-
-  // Parse stem gains array if provided
-  let parsedStemGains = null;
-  if (stem_gains) {
-    try {
-      parsedStemGains = typeof stem_gains === 'string' ? JSON.parse(stem_gains) : stem_gains;
-      if (!Array.isArray(parsedStemGains)) {
-        console.warn('stem_gains is not an array, ignoring');
-        parsedStemGains = null;
-      } else {
-        console.log('Parsed stem gains:', parsedStemGains);
-      }
-    } catch (error) {
-      console.warn('Failed to parse stem_gains:', error);
-      parsedStemGains = null;
-    }
-  }
-
-  // Use the provided time signature or default to 4/4
-  let parsedTimeSignature = time_signature || '4/4';
-  
-  // Parse the private flag (convert string 'true'/'false' to boolean if needed)
-  let isPrivate = is_private === 'true' || is_private === true;
-  
-  // Parse the allow_download flag (default to true if not provided)
-  let allowDownload = allow_download !== 'false' && allow_download !== false;
 
   let duration;
 
@@ -413,8 +337,6 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
   }
 
-  // Extract filename base from the S3 key (format: uploads/temp/{userId}/{base}-temp.{ext})
-  const s3KeyParts = s3Key.split('/');
 
   // Set audio_url to the permanent temp S3 location for audio processing lambda
   // The lambda will extract the base and derive final URLs
