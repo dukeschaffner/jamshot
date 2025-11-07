@@ -1,15 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { analyticsApi, trackApi } from '../../../../../../lib/api';
 import { useUser } from '../../../../../../contexts/UserContext';
+import { getUserTier, SUBSCRIPTION_TIERS } from '../../../../../../lib/subscriptionUtils';
 import { getCountryName } from '../../../../../../../../shared/utils/formatting.js';
 import TimeSelector from '../../../../../../components/analytics/TimeSelector';
 import MetricSelector from '../../../../../../components/analytics/MetricSelector';
 import ChartJSAnalyticsChart from '../../../../../../components/analytics/ChartJSAnalyticsChart';
 import AnalyticsTable from '../../../../../../components/analytics/AnalyticsTable';
 import LoadingSpinner from '../../../../../../components/LoadingSpinner';
-import { FaArrowLeft, FaPlay, FaHeart, FaComment, FaShare } from 'react-icons/fa';
+import { FaArrowLeft, FaPlay, FaHeart, FaComment, FaShare, FaCrown } from 'react-icons/fa';
 import styles from './TrackAnalytics.module.css';
 
 export default function TrackAnalyticsPage() {
@@ -35,6 +37,7 @@ export default function TrackAnalyticsPage() {
 
   const { username, trackId } = params;
   const isOwnTrack = currentUser?.username === username;
+  const isFreeTier = getUserTier(currentUser) === SUBSCRIPTION_TIERS.FREE;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -44,10 +47,10 @@ export default function TrackAnalyticsPage() {
   }, [trackId, isAuthenticated]);
 
   useEffect(() => {
-    if (track) {
+    if (track && !isFreeTier) {
       fetchAnalyticsData();
     }
-  }, [track, timeRange]);
+  }, [track, timeRange, isFreeTier]);
 
   const fetchTrackData = async () => {
     try {
@@ -287,89 +290,106 @@ export default function TrackAnalyticsPage() {
         </div>
       </div>
 
-      <div className={styles.controls}>
-        <TimeSelector onTimeRangeChange={handleTimeRangeChange} />
-        <MetricSelector
-          selectedMetric={selectedMetric}
-          onMetricChange={handleMetricChange}
-          onFilterChange={handleFilterChange}
-          showCountryFilter={true}
-          availableCountries={geographicData}
-        />
-      </div>
+      {!isFreeTier && (
+        <div className={styles.controls}>
+          <TimeSelector onTimeRangeChange={handleTimeRangeChange} />
+          <MetricSelector
+            selectedMetric={selectedMetric}
+            onMetricChange={handleMetricChange}
+            onFilterChange={handleFilterChange}
+            showCountryFilter={true}
+            availableCountries={geographicData}
+          />
+        </div>
+      )}
 
-      <div className={styles.content}>
-        {loading ? (
-          <LoadingSpinner />
-        ) : (
-          <>
-            <ChartJSAnalyticsChart
-              data={analyticsData}
-              metric={selectedMetric}
-              title={getChartTitle()}
-              type="line"
-              color={getChartColor()}
-              height={300}
-              isDateBased={true}
-              timeRange={timeRange}
-              variant="track"
-            />
-
-            {/* Detailed Analytics */}
+      {isFreeTier ? (
+        <div className={styles.upgradePrompt}>
+          <div className={styles.upgradeContent}>
+            <FaCrown className={styles.crownIcon} />
+            <div className={styles.upgradeText}>
+              <h4>Upgrade to Get Access to Analytics</h4>
+              <p>Unlock detailed insights including charts, geographic data, age demographics, and more.</p>
+            </div>
+            <Link href="/subscribe" className={styles.upgradeButton}>
+              Upgrade to Premium
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.content}>
+          {loading ? (
+            <LoadingSpinner />
+          ) : (
             <>
-              {/* Streams by User */}
-              <AnalyticsTable
-                data={streamsData}
-                title="Streams by User"
-                columns={streamsTableColumns}
-                sortable={true}
-                maxRows={10}
-                hasDetailedAccess={hasDetailedAccess}
+              <ChartJSAnalyticsChart
+                data={analyticsData}
+                metric={selectedMetric}
+                title={getChartTitle()}
+                type="line"
+                color={getChartColor()}
+                height={300}
+                isDateBased={true}
+                timeRange={timeRange}
+                variant="track"
               />
 
-              {/* Discovery Methods */}
-              <div className={styles.analyticsGrid}>
-                <div className={styles.analyticsCard}>
-                  <ChartJSAnalyticsChart
-                    data={discoveryData.map(item => ({ period_start: item.method, [selectedMetric]: item.count }))}
-                    metric={selectedMetric}
-                    title="Source of Streams"
-                    type="bar"
-                    color="#86a699"
-                    height={250}
-                    isDateBased={false}
-                    variant="track"
-                  />
-                </div>
-                
-                <div className={styles.analyticsCard}>
-                  <ChartJSAnalyticsChart
-                    data={ageRangeData.map(item => ({ period_start: item.range, [selectedMetric]: item.count }))}
-                    metric={selectedMetric}
-                    title="Listeners by Age Range"
-                    type="bar"
-                    color="#E9A9A1"
-                    height={250}
-                    isDateBased={false}
-                    variant="track"
-                  />
-                </div>
-              </div>
+              {/* Detailed Analytics */}
+              <>
+                {/* Streams by User */}
+                <AnalyticsTable
+                  data={streamsData}
+                  title="Streams by User"
+                  columns={streamsTableColumns}
+                  sortable={true}
+                  maxRows={10}
+                  hasDetailedAccess={hasDetailedAccess}
+                />
 
-              {/* Geographic Data */}
-              <AnalyticsTable
-                data={geographicData}
-                title="Countries & Cities"
-                columns={geographicTableColumns}
-                sortable={true}
-                searchable={true}
-                maxRows={20}
-              />
+                {/* Discovery Methods */}
+                <div className={styles.analyticsGrid}>
+                  <div className={styles.analyticsCard}>
+                    <ChartJSAnalyticsChart
+                      data={discoveryData.map(item => ({ period_start: item.method, [selectedMetric]: item.count }))}
+                      metric={selectedMetric}
+                      title="Source of Streams"
+                      type="bar"
+                      color="#86a699"
+                      height={250}
+                      isDateBased={false}
+                      variant="track"
+                    />
+                  </div>
+                  
+                  <div className={styles.analyticsCard}>
+                    <ChartJSAnalyticsChart
+                      data={ageRangeData.map(item => ({ period_start: item.range, [selectedMetric]: item.count }))}
+                      metric={selectedMetric}
+                      title="Listeners by Age Range"
+                      type="bar"
+                      color="#E9A9A1"
+                      height={250}
+                      isDateBased={false}
+                      variant="track"
+                    />
+                  </div>
+                </div>
+
+                {/* Geographic Data */}
+                <AnalyticsTable
+                  data={geographicData}
+                  title="Countries & Cities"
+                  columns={geographicTableColumns}
+                  sortable={true}
+                  searchable={true}
+                  maxRows={20}
+                />
+              </>
+
             </>
-
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

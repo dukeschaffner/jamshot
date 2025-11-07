@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown } from 'react-icons/fa';
+import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper } from 'react-icons/fa';
 import { useMobile } from '../contexts/MobileContext';
 import { useUser } from '../contexts/UserContext';
 
@@ -80,6 +80,10 @@ export default function MoreDropdown() {
                   <FaCrown />
                   <span>Subscribe</span>
                 </Link>
+                <Link className="mobile-more-link" href="/release-notes" onClick={handleLinkClick}>
+                  <FaNewspaper />
+                  <span>Release Notes</span>
+                </Link>
                 <Link className="mobile-more-link" href="/about" onClick={handleLinkClick}>
                   <FaInfoCircle />
                   <span>About</span>
@@ -132,6 +136,7 @@ export default function MoreDropdown() {
           </div>
           <div className="notification-body">
             <Link className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</Link>
+            <Link className="nav-link" href="/release-notes" onClick={handleLinkClick}><FaNewspaper />Release Notes</Link>
             <Link className="nav-link" href="/about" onClick={handleLinkClick}><FaInfoCircle />About</Link>
             <Link className="nav-link" href="/faq" onClick={handleLinkClick}><FaQuestionCircle />FAQ</Link>
             <Link className="nav-link" href="/contact" onClick={handleLinkClick}><FaEnvelope />Contact</Link>

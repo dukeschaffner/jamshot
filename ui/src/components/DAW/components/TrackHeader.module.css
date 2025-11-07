@@ -5,7 +5,7 @@
   text-align: right;
   padding-inline: 12px;
   height: 100px;
-  margin-bottom: 16px;
+  margin-top: 16px;
   align-content: center;
   justify-items: end;
   display: flex;
@@ -24,34 +24,49 @@
   max-width: 100%;
 }
 
-.soloButton {
+.buttonGroup {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  gap: 6px;
+}
+
+.controlButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
   border: 1px solid var(--border-color, #e0e0e0);
   background-color: transparent;
   cursor: pointer;
   font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
   transition: all 0.2s ease;
   color: var(--text-secondary);
 }
 
-.soloButton:hover {
+.controlButton:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.soloButton.active {
+.controlButton.active {
   background-color: var(--seafoam, #34c759);
   color: white;
   border-color: var(--seafoam, #34c759);
 }
 
-.soloButton:disabled {
+.controlButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Mute button active state override */
+.controlButton.active.muteActive {
+  background-color: #ff3b30;
+  border-color: #ff3b30;
 }
 
 .recordingIndicator {
@@ -143,48 +158,9 @@
 }
 
 
-/* Mute button styles */
-.muteButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border-radius: 4px;
-  border: 1px solid var(--border-color, #e0e0e0);
-  background-color: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-  color: var(--text-secondary);
-}
-
-.muteButton:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.muteButton.active {
-  background-color: #ff3b30;
-  color: white;
-  border-color: #ff3b30;
-}
-
-.muteButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .soloButton span {
-    display: none;
-  }
-
-  .muteButton {
+  .controlButton {
     width: 20px;
     height: 20px;
     font-size: 10px;

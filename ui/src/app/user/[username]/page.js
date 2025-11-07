@@ -1,10 +1,11 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '../../../lib/api';
 import Track from '../../../components/Track';
 import CustomTabs from '../../../components/CustomTabs';
 import UserListModal from '../../../components/UserListModal';
+import LoadingSpinner from '../../../components/LoadingSpinner';
 import Cookies from 'js-cookie';
 import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
@@ -18,6 +19,15 @@ export default function UserPage() {
   const [tracks, setTracks] = useState([]);
   const [repostedTracks, setRepostedTracks] = useState([]);
   const [likedTracks, setLikedTracks] = useState([]);
+  const [tracksPage, setTracksPage] = useState(1);
+  const [repostsPage, setRepostsPage] = useState(1);
+  const [likedPage, setLikedPage] = useState(1);
+  const [hasMoreTracks, setHasMoreTracks] = useState(true);
+  const [hasMoreReposts, setHasMoreReposts] = useState(true);
+  const [hasMoreLiked, setHasMoreLiked] = useState(true);
+  const [loadingTracks, setLoadingTracks] = useState(false);
+  const [loadingReposts, setLoadingReposts] = useState(false);
+  const [loadingLiked, setLoadingLiked] = useState(false);
   const [stats, setStats] = useState({ 
     followers: 0, 
     following: 0, 
@@ -28,6 +38,10 @@ export default function UserPage() {
   const [userNotFound, setUserNotFound] = useState(false);
   const [expandedTrackId, setExpandedTrackId] = useState(null);
   const [activeTab, setActiveTab] = useState('tracks');
+  const tracksObserver = useRef();
+  const repostsObserver = useRef();
+  const likedObserver = useRef();
+  const TRACKS_PER_PAGE = 20;
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ 
@@ -47,14 +61,82 @@ export default function UserPage() {
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Fetch tracks for a specific tab
+  const fetchTracks = useCallback(async (pageNum, tabType) => {
+    if (!userProfile) return;
+    
+    try {
+      if (tabType === 'tracks') {
+        setLoadingTracks(true);
+      } else if (tabType === 'reposts') {
+        setLoadingReposts(true);
+      } else if (tabType === 'liked') {
+        setLoadingLiked(true);
+      }
+
+      let response;
+      if (tabType === 'tracks') {
+        response = await api.get(`/users/${userProfile.id}/tracks`, {
+          params: { page: pageNum, limit: TRACKS_PER_PAGE }
+        });
+      } else if (tabType === 'reposts') {
+        response = await api.get(`/users/${userProfile.id}/reposts`, {
+          params: { page: pageNum, limit: TRACKS_PER_PAGE }
+        });
+      } else if (tabType === 'liked') {
+        response = await api.get(`/users/${username}/liked`, {
+          params: { page: pageNum, limit: TRACKS_PER_PAGE }
+        });
+      }
+
+      const newTracks = response.data.tracks || response.data || [];
+      const pagination = response.data.pagination;
+      
+      if (pageNum === 1) {
+        if (tabType === 'tracks') {
+          setTracks(newTracks);
+        } else if (tabType === 'reposts') {
+          setRepostedTracks(newTracks);
+        } else if (tabType === 'liked') {
+          setLikedTracks(newTracks);
+        }
+      } else {
+        if (tabType === 'tracks') {
+          setTracks(prev => [...prev, ...newTracks]);
+        } else if (tabType === 'reposts') {
+          setRepostedTracks(prev => [...prev, ...newTracks]);
+        } else if (tabType === 'liked') {
+          setLikedTracks(prev => [...prev, ...newTracks]);
+        }
+      }
+
+      const hasMore = pagination?.hasMore ?? (newTracks.length === TRACKS_PER_PAGE);
+      if (tabType === 'tracks') {
+        setHasMoreTracks(hasMore);
+      } else if (tabType === 'reposts') {
+        setHasMoreReposts(hasMore);
+      } else if (tabType === 'liked') {
+        setHasMoreLiked(hasMore);
+      }
+    } catch (err) {
+      console.error(`Failed to fetch ${tabType}:`, err);
+    } finally {
+      if (tabType === 'tracks') {
+        setLoadingTracks(false);
+      } else if (tabType === 'reposts') {
+        setLoadingReposts(false);
+      } else if (tabType === 'liked') {
+        setLoadingLiked(false);
+      }
+    }
+  }, [userProfile, username, TRACKS_PER_PAGE]);
+
+  // Initial data fetch
   useEffect(() => {
     const fetchData = async () => {
       try {
         const user = await api.get(`/users/by-username/${username}`);
         const userId = user.data.id;
-        const tracks = await api.get(`/users/${userId}/tracks`);
-        const reposts = await api.get(`/users/${userId}/reposts`);
-        const liked = await api.get(`/users/${username}/liked`);
         const stats = await api.get(`/users/${userId}/stats`);
         setUserProfile(user.data);
         setIsPrivate(user.data.is_private);
@@ -63,9 +145,6 @@ export default function UserPage() {
           name: user.data.name || '',
           bio: user.data.bio || ''
         });
-        setTracks(tracks.data);
-        setRepostedTracks(reposts.data);
-        setLikedTracks(liked.data);
         setStats(stats.data);
         setUserNotFound(false);
         
@@ -81,6 +160,42 @@ export default function UserPage() {
     };
     fetchData();
   }, [username]);
+
+  // Fetch initial tracks when user profile is loaded
+  useEffect(() => {
+    if (userProfile) {
+      setTracksPage(1);
+      setRepostsPage(1);
+      setLikedPage(1);
+      setTracks([]);
+      setRepostedTracks([]);
+      setLikedTracks([]);
+      fetchTracks(1, 'tracks');
+      fetchTracks(1, 'reposts');
+      fetchTracks(1, 'liked');
+    }
+  }, [userProfile, fetchTracks]);
+
+  // Handle pagination for tracks
+  useEffect(() => {
+    if (tracksPage > 1 && userProfile) {
+      fetchTracks(tracksPage, 'tracks');
+    }
+  }, [tracksPage, userProfile, fetchTracks]);
+
+  // Handle pagination for reposts
+  useEffect(() => {
+    if (repostsPage > 1 && userProfile) {
+      fetchTracks(repostsPage, 'reposts');
+    }
+  }, [repostsPage, userProfile, fetchTracks]);
+
+  // Handle pagination for liked
+  useEffect(() => {
+    if (likedPage > 1 && userProfile) {
+      fetchTracks(likedPage, 'liked');
+    }
+  }, [likedPage, userProfile, fetchTracks]);
 
   useEffect(() => {
     setIsOwnProfile(isAuthenticated && currentUser?.id === userProfile?.id);
@@ -263,6 +378,46 @@ export default function UserPage() {
       setShowDeleteModal(false);
       setDeletePassword('');
     }
+  };
+
+  // Intersection Observer callbacks for infinite scroll
+  const lastTrackElementRef = useCallback(node => {
+    if (loadingTracks) return;
+    if (tracksObserver.current) tracksObserver.current.disconnect();
+    tracksObserver.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMoreTracks) {
+        setTracksPage(prevPage => prevPage + 1);
+      }
+    });
+    if (node) tracksObserver.current.observe(node);
+  }, [loadingTracks, hasMoreTracks]);
+
+  const lastRepostElementRef = useCallback(node => {
+    if (loadingReposts) return;
+    if (repostsObserver.current) repostsObserver.current.disconnect();
+    repostsObserver.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMoreReposts) {
+        setRepostsPage(prevPage => prevPage + 1);
+      }
+    });
+    if (node) repostsObserver.current.observe(node);
+  }, [loadingReposts, hasMoreReposts]);
+
+  const lastLikedElementRef = useCallback(node => {
+    if (loadingLiked) return;
+    if (likedObserver.current) likedObserver.current.disconnect();
+    likedObserver.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMoreLiked) {
+        setLikedPage(prevPage => prevPage + 1);
+      }
+    });
+    if (node) likedObserver.current.observe(node);
+  }, [loadingLiked, hasMoreLiked]);
+
+  // Reset pagination when tab changes
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setExpandedTrackId(null);
   };
 
   // Create tabs configuration
@@ -466,7 +621,7 @@ export default function UserPage() {
       <CustomTabs
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
       />
 
       {/* Show tracks only if not a private account or if authorized */}
@@ -474,16 +629,23 @@ export default function UserPage() {
         <div className={styles.tracksContainer}>
           {activeTab === 'tracks' ? (
             tracks.length > 0 ? (
-              tracks.map(track => (
-                <Track
-                  key={track.id}
-                  track={track}
-                  allTracks={tracks}
-                  setExpandedTrackId={setExpandedTrackId}
-                  expandedTrackId={expandedTrackId}
-                />
-              ))
-            ) : (
+              <>
+                {tracks.map((track, index) => (
+                  <div 
+                    key={track.id}
+                    ref={index === tracks.length - 1 ? lastTrackElementRef : null}
+                  >
+                    <Track
+                      track={track}
+                      allTracks={tracks}
+                      setExpandedTrackId={setExpandedTrackId}
+                      expandedTrackId={expandedTrackId}
+                    />
+                  </div>
+                ))}
+                {loadingTracks && <LoadingSpinner />}
+              </>
+            ) : !loadingTracks ? (
               <div className={styles.emptyState}>
                 <h3>No tracks yet</h3>
                 <p>
@@ -493,19 +655,26 @@ export default function UserPage() {
                   }
                 </p>
               </div>
-            )
+            ) : null
           ) : activeTab === 'reposts' ? (
             repostedTracks.length > 0 ? (
-              repostedTracks.map(track => (
-                <Track
-                  key={track.id}
-                  track={track}
-                  allTracks={repostedTracks}
-                  setExpandedTrackId={setExpandedTrackId}
-                  expandedTrackId={expandedTrackId}
-                />
-              ))
-            ) : (
+              <>
+                {repostedTracks.map((track, index) => (
+                  <div 
+                    key={track.id}
+                    ref={index === repostedTracks.length - 1 ? lastRepostElementRef : null}
+                  >
+                    <Track
+                      track={track}
+                      allTracks={repostedTracks}
+                      setExpandedTrackId={setExpandedTrackId}
+                      expandedTrackId={expandedTrackId}
+                    />
+                  </div>
+                ))}
+                {loadingReposts && <LoadingSpinner />}
+              </>
+            ) : !loadingReposts ? (
               <div className={styles.emptyState}>
                 <h3>No reposts yet</h3>
                 <p>
@@ -515,19 +684,26 @@ export default function UserPage() {
                   }
                 </p>
               </div>
-            )
+            ) : null
           ) : activeTab === 'liked' ? (
             likedTracks.length > 0 ? (
-              likedTracks.map(track => (
-                <Track
-                  key={track.id}
-                  track={track}
-                  allTracks={likedTracks}
-                  setExpandedTrackId={setExpandedTrackId}
-                  expandedTrackId={expandedTrackId}
-                />
-              ))
-            ) : (
+              <>
+                {likedTracks.map((track, index) => (
+                  <div 
+                    key={track.id}
+                    ref={index === likedTracks.length - 1 ? lastLikedElementRef : null}
+                  >
+                    <Track
+                      track={track}
+                      allTracks={likedTracks}
+                      setExpandedTrackId={setExpandedTrackId}
+                      expandedTrackId={expandedTrackId}
+                    />
+                  </div>
+                ))}
+                {loadingLiked && <LoadingSpinner />}
+              </>
+            ) : !loadingLiked ? (
               <div className={styles.emptyState}>
                 <h3>No liked tracks yet</h3>
                 <p>
@@ -537,7 +713,7 @@ export default function UserPage() {
                   }
                 </p>
               </div>
-            )
+            ) : null
           ) : null}
         </div>
       ) : null}
