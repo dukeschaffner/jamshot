@@ -1,7 +1,5 @@
 -- Songwriting Camps Feature Database Updates
 -- ==========================================
--- Note: Camps are created in the Stripe webhook after successful payment,
--- not immediately when the user submits the creation form.
 
 -- Create camps table
 CREATE TABLE camps (
@@ -43,8 +41,9 @@ CREATE TABLE user_rooms (
   user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   room_id INT REFERENCES rooms(id) ON DELETE CASCADE NOT NULL,
   assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (user_id, room_id) -- User can only be in each room once
+  UNIQUE (user_id, room_id), -- User can only be in each room once
   -- Note: Users can only be assigned to one room per camp (validated in application logic)
+  UNIQUE (user_id, (SELECT camp_id FROM rooms WHERE rooms.id = user_rooms.room_id)) -- Functional uniqueness constraint
 );
 
 -- Add camp and room columns to tracks table
@@ -53,7 +52,7 @@ ALTER TABLE tracks ADD COLUMN room_id INT REFERENCES rooms(id) ON DELETE CASCADE
 ALTER TABLE tracks ADD COLUMN key VARCHAR(10); -- Musical key (e.g., "C Major", "A Minor")
 
 -- Create indexes for performance
-CREATE INDEX idx_camps_created_by ON camps(created_by);
+CREATE INDEX idx_camps_admin_id ON camps(admin_id);
 CREATE INDEX idx_camps_start_date ON camps(start_date);
 CREATE INDEX idx_camps_end_date ON camps(end_date);
 CREATE INDEX idx_camps_camp_code ON camps(camp_code);

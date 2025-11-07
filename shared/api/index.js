@@ -525,6 +525,25 @@ const createApiMethods = (apiClient) => {
     },
   };
 
+  // Camp API methods
+  const campApi = {
+    createCamp: (campData) => api.post('/camps', campData),
+
+    getCamp: (campId) => api.get(`/camps/${campId}`),
+
+    getCampSuccess: (sessionId) => api.get(`/camps/created?session_id=${sessionId}`),
+
+    validateInviteCode: (code) => api.post('/camps/validate-code', { code }),
+
+    inviteUser: (campId, username) => api.post(`/camps/${campId}/invite`, { username }),
+
+    updateCamp: (campId, data) => api.put(`/camps/${campId}`, data),
+
+    createRoom: (campId, roomData) => api.post(`/camps/${campId}/rooms`, roomData),
+
+    addUserToRoom: (campId, roomId, userData) => api.put(`/camps/${campId}/rooms/${roomId}/users`, userData),
+  };
+
   return {
     trackApi,
     userApi,
@@ -534,6 +553,7 @@ const createApiMethods = (apiClient) => {
     competitionApi,
     tagApi,
     analyticsApi,
+    campApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,
