@@ -39,3 +39,6 @@ POST MVP:
     - 50 users
     - 100 users
 - "enterprise plan - contact us"
+
+- users in team get track quotas specifically for use within their team
+- users can hold personal subscriptions for personal use in addition to their team membership
