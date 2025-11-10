@@ -93,6 +93,15 @@ class Track {
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
       });
     }
+    else {
+      // Deactivate any active regions that are fully covered by the new region
+      this.regions.forEach(r => {
+        if (r.active && region.startTime <= r.startTime && region.endTime >= r.endTime) {
+          r.active = false;
+          eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
+        }
+      });
+    }
     this.regions.push(region);
     eventBus.emit(DAW_EVENTS.REGION.ADDED, { region, trackId: this.id });
     

@@ -34,7 +34,7 @@ const TransportControls = ({
   const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
   const bpmControlRef = useRef(null);
 
-  const { isCollab, recordingTrackHasAudio } = useDAW();
+  const { isCollab, recordingTrackHasAudio, recordingMode, setRecordingMode } = useDAW();
 
   const { isAuthenticated } = useUser();
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -221,6 +221,25 @@ const TransportControls = ({
         >
             <FontAwesomeIcon icon={isRecording ? faStop : faCircle}/>
         </button>
+        )}
+        {/* Recording Mode Toggle */}
+        {!isRecording && (
+          <div style={{ display: 'inline-flex', gap: '6px', marginLeft: '8px', alignItems: 'center' }}>
+            <button
+              className={`${styles.controlButton} ${recordingMode === 'take' ? styles.active : ''}`}
+              onClick={() => setRecordingMode('take')}
+              title="Recording Mode: New Take"
+            >
+              New Take
+            </button>
+            <button
+              className={`${styles.controlButton} ${recordingMode === 'region' ? styles.active : ''}`}
+              onClick={() => setRecordingMode('region')}
+              title="Recording Mode: Add Region"
+            >
+              Add Region
+            </button>
+          </div>
         )}
     
     {/* <button className="control-button">
