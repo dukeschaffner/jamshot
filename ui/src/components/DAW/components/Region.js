@@ -149,9 +149,108 @@ export default function Region({
         trackId: track.id
       });
     }
-    
+
     // Hide context menu
     setShowContextMenu(false);
+  };
+
+  // Check for overlaps with other regions and handle them
+  const handleRegionOverlaps = (draggedRegion, newStartTime, newEndTime) => {
+    if (!track || !track.regions) return;
+
+    const otherRegions = track.regions.filter(r => r.id !== draggedRegion.id && r.active);
+
+    otherRegions.forEach(otherRegion => {
+      // Check if there's any overlap
+      if (newStartTime < otherRegion.endTime && newEndTime > otherRegion.startTime) {
+        console.log('overlap detected - checking for complete overlap');
+        // Check if this is a complete overlap (dragged region eclipses the other region)
+        if (newStartTime <= otherRegion.startTime && newEndTime >= otherRegion.endTime) {
+          // Complete overlap - mark the other region as inactive
+          const updatedRegion = {
+            ...otherRegion,
+            active: false
+          };
+          console.log('complete overlap - marking other region as inactive', updatedRegion);
+          eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+            region: updatedRegion,
+            trackId: track.id
+          });
+        } else {
+          // Check if dragged region is completely contained within the other region
+          if (newStartTime > otherRegion.startTime && newEndTime < otherRegion.endTime) {
+
+            // Split the other region into two parts
+
+            // Create first region (before the dragged region)
+            const firstRegion = {
+              ...otherRegion,
+              startTime: otherRegion.startTime,
+              endTime: newStartTime,
+              offset: otherRegion.offset,
+              active: true
+            };
+
+            // Create second region (after the dragged region)
+            const secondRegion = {
+              ...otherRegion,
+              id: 'track-' + track.id + '-' + Math.random().toString(36).substring(2, 15),
+              startTime: newEndTime,
+              endTime: otherRegion.endTime,
+              offset: otherRegion.offset + (newEndTime - otherRegion.startTime),
+              active: true
+            };
+
+            // Add the two new regions
+            eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+              region: firstRegion,
+              trackId: track.id
+            });
+            eventBus.emit(DAW_EVENTS.REGION.ADD, {
+              region: secondRegion,
+              trackId: track.id
+            });
+          } else {
+            // Partial overlap - adjust the overlapped region
+            let updatedRegion = { ...otherRegion };
+
+            // Calculate overlap details
+            const overlapStart = Math.max(newStartTime, otherRegion.startTime);
+            const overlapEnd = Math.min(newEndTime, otherRegion.endTime);
+
+            // Check if the overlap affects the start or end of the other region
+            const affectsStart = overlapStart === otherRegion.startTime;
+            const affectsEnd = overlapEnd === otherRegion.endTime;
+
+            if (affectsStart && !affectsEnd) {
+              // Overlap affects only the start - trim from start
+              const timeCut = overlapEnd - overlapStart;
+              console.log('overlap affects only the start - trimming from start', timeCut);
+              updatedRegion.startTime = otherRegion.startTime + timeCut;
+              updatedRegion.offset = otherRegion.offset + timeCut;
+            } else if (affectsEnd && !affectsStart) {
+              // Overlap affects only the end - trim from end
+              const timeCut = overlapEnd - overlapStart;
+              console.log('overlap affects only the end - trimming from end', timeCut);
+              updatedRegion.endTime = otherRegion.endTime - timeCut;
+            }
+
+            // Only update if there are actual changes and the region still has positive duration
+            if ((updatedRegion.startTime !== otherRegion.startTime ||
+                 updatedRegion.endTime !== otherRegion.endTime ||
+                 updatedRegion.offset !== otherRegion.offset ||
+                 updatedRegion.active !== otherRegion.active) &&
+                (updatedRegion.active === false || updatedRegion.endTime > updatedRegion.startTime)) {
+
+              eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+                region: updatedRegion,
+                trackId: track.id
+              });
+            }
+          }
+        }
+      }
+    });
   };
 
   // Handle click outside context menu to close it
@@ -201,26 +300,29 @@ export default function Region({
     const handleMouseUp = (e) => {
       e.stopPropagation();
       setIsDraggingRegion(false);
-      
+
       // Update the region's start time based on new position
       if (track && bufferKey && duration && tracksContainerWidth) {
         const newStartTime = (regionLeftPos / 100) * duration;
         const regionDuration = endTime - startTime;
         const newEndTime = newStartTime + regionDuration;
-        
+
+        // Check for overlaps with other regions and handle them
+        handleRegionOverlaps(region, newStartTime, newEndTime);
+
         // Update the region in the track
         const updatedRegion = {
           ...region,
           startTime: newStartTime,
           endTime: newEndTime
         };
-        
+
         // Emit event to update the track manager
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
           region: updatedRegion,
           trackId: track.id
         });
-        
+
         // Update local state
         setStartTime(newStartTime);
         setEndTime(newEndTime);
