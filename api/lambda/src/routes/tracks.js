@@ -167,7 +167,7 @@ const handleMulterError = (error, req, res, next) => {
 
 // Initialize upload by generating pre-signed S3 URL
 router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
-  const { filename, fileSize } = req.body;
+  const { filename, fileSize, is_camp_track } = req.body;
   const userId = req.user.id;
 
   if (!filename || !fileSize) {
@@ -179,29 +179,32 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
   }
 
   try {
-    // Check user's subscription limits (but don't consume them yet)
-    const userResult = await pool.query(
-      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
-      [userId]
-    );
+    // Skip quota validations for camp tracks
+    if (!is_camp_track) {
+      // Check user's subscription limits (but don't consume them yet)
+      const userResult = await pool.query(
+        'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+        [userId]
+      );
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
-    const user = userResult.rows[0];
-    const subscription = getUserPlan(user);
-  
-    // Check if user has reached their daily upload limit
-    const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
-    if (dailyQuotaCheck) {
-      return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
-    }
-  
-    // Check if user has reached their total track limit
-    const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
-    if (totalQuotaCheck) {
-      return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
+      const user = userResult.rows[0];
+      const subscription = getUserPlan(user);
+
+      // Check if user has reached their daily upload limit
+      const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
+      if (dailyQuotaCheck) {
+        return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
+      }
+
+      // Check if user has reached their total track limit
+      const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
+      if (totalQuotaCheck) {
+        return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
+      }
     }
 
     // Generate filename base for consistent naming throughout the upload process
@@ -271,34 +274,36 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'Failed to access uploaded file. Please try uploading again.' });
   }
 
-  try {
-    // Get user and subscription for quota checks and later use
-    const userResult = await pool.query(
-      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
-      [userId]
-    );
+  if (!camp_id) { // Only check quotas for non-camp tracks
+    try {
+      // Get user and subscription for quota checks and later use
+      const userResult = await pool.query(
+        'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+        [userId]
+      );
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const user = userResult.rows[0];
+      const subscription = getUserPlan(user);
+
+      // Check if user has reached their daily upload limit
+      const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
+      if (dailyQuotaCheck) {
+        return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
+      }
+
+      // Check if user has reached their total track limit
+      const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
+      if (totalQuotaCheck) {
+        return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
+      }
+    } catch (err) {
+      console.error('Error checking user subscription limits:', err);
+      return res.status(500).json({ error: `Failed to check user subscription limits` });
     }
-
-    const user = userResult.rows[0];
-    const subscription = getUserPlan(user);
-
-    // Check if user has reached their daily upload limit
-    const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
-    if (dailyQuotaCheck) {
-      return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
-    }
-
-    // Check if user has reached their total track limit
-    const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
-    if (totalQuotaCheck) {
-      return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
-    }
-  } catch (err) {
-    console.error('Error checking user subscription limits:', err);
-    return res.status(500).json({ error: `Failed to check user subscription limits` });
   }
 
   let duration;
@@ -406,12 +411,14 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         }
       }
     } else {
-      // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, return an error
-      if (isPrivate && !subscription.features.private_tracks) {
-        return res.status(400).json({
-          error: 'Private tracks are not allowed for your subscription tier. Upgrade your plan to enable private tracks.',
-          upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-        });
+      // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, and a camp is not specified, return an error
+      if (!camp_id) {
+        if (isPrivate && !subscription.features.private_tracks) {
+          return res.status(400).json({
+            error: 'Private tracks are not allowed for your subscription tier. Upgrade your plan to enable private tracks.',
+            upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
+          });
+        }
       }
     }
 

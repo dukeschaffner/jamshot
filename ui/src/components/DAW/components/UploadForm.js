@@ -29,18 +29,20 @@ export default function UploadForm({
   const [isUploading, setIsUploading] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const createCompetition = searchParams.get('createCompetition') === 'true';
+  const campId = searchParams.get('camp_id');
+
   const [metronomeBpmInput, setMetronomeBpmInput] = useState(metronomeBpm.toString());
   const [timeSignatureInput, setTimeSignatureInput] = useState(timeSignature);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [allowDownload, setAllowDownload] = useState(true);
+  const [isPrivate, setIsPrivate] = useState(!!campId); // Default to true when camp_id is present
+  const [allowDownload, setAllowDownload] = useState(true); // Always true for camp uploads
   const [enterCompetition, setEnterCompetition] = useState(true); // Default to checked
   const [parentTrackModel, setParentTrackModel] = useState(null);
   const [processingStatus, setProcessingStatus] = useState(null); // 'processing', 'completed', 'failed'
   const [processingError, setProcessingError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0); // 0-100 for S3 upload progress
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const createCompetition = searchParams.get('createCompetition') === 'true';
 
   const [hasSilenceAtStart, setHasSilenceAtStart] = useState(false);
   const [hasSilenceAtEnd, setHasSilenceAtEnd] = useState(false);
@@ -143,7 +145,9 @@ export default function UploadForm({
       if (status.status === 'completed') {
         // Processing is done, redirect
         setTimeout(() => {
-          if (createCompetition) {
+          if (campId) {
+            router.push(`/camp/${campId}`);
+          } else if (createCompetition) {
             router.push(`/competition/create?track=${trackId}`);
           } else {
             router.push(`/track/${trackId}`);
@@ -231,7 +235,7 @@ export default function UploadForm({
       const blob = new Blob([buffer], { type: 'audio/wav' });
       const filename = 'recording.wav';
 
-      const initResponse = await trackApi.initUpload(filename, blob.size);
+      const initResponse = await trackApi.initUpload(filename, blob.size, !!campId);
       const { uploadUrl, key: s3Key } = initResponse.data;
 
       console.log('Upload initialized, S3 key:', s3Key);
@@ -254,6 +258,11 @@ export default function UploadForm({
         instrumentIds: selectedInstruments.length > 0 ? JSON.stringify(selectedInstruments) : undefined,
         allow_download: allowDownload
       };
+
+      // Add camp_id if present (for camp uploads)
+      if (campId) {
+        uploadData.camp_id = parseInt(campId);
+      }
 
       // Add collab specific data
       if (isCollab) {
@@ -446,8 +455,8 @@ export default function UploadForm({
           />
         </div>
         
-        {/* Privacy option - only show for non-collab tracks */}
-        {!isCollab && (
+        {/* Privacy option - only show for non-collab tracks and when not uploading to a camp */}
+        {!isCollab && !campId && (
           <>
             <div className="flex items-center space-x-2 mt-4">
               <input
@@ -463,7 +472,7 @@ export default function UploadForm({
                 <span className="ml-2 text-xs text-gray-500">(Only you will be able to see it)</span>
               </label>
             </div>
-            
+
             {isPrivate && (
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded flex items-start">
                 <FaInfoCircle className="text-blue-500 mt-1 mr-2 flex-shrink-0" />
@@ -502,21 +511,23 @@ export default function UploadForm({
           </div>
         )}
 
-        {/* Download permission - show for both regular tracks and collaborations */}
-        <div className="flex items-center space-x-2 mt-4">
-          <input
-            type="checkbox"
-            id="allowDownload"
-            checked={allowDownload}
-            onChange={(e) => setAllowDownload(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <label htmlFor="allowDownload" className="flex items-center text-sm">
-            <FaDownload className="mr-2 text-gray-600" />
-            Allow users to download this audio file
-            <span className="ml-2 text-xs text-gray-500">(Recommended for sharing)</span>
-          </label>
-        </div>
+        {/* Download permission - show for both regular tracks and collaborations, but not for camp uploads */}
+        {!campId && (
+          <div className="flex items-center space-x-2 mt-4">
+            <input
+              type="checkbox"
+              id="allowDownload"
+              checked={allowDownload}
+              onChange={(e) => setAllowDownload(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="allowDownload" className="flex items-center text-sm">
+              <FaDownload className="mr-2 text-gray-600" />
+              Allow users to download this audio file
+              <span className="ml-2 text-xs text-gray-500">(Recommended for sharing)</span>
+            </label>
+          </div>
+        )}
 
         {/* Competition entry - only show for collaborations with active competition */}
         {isCollab && hasActiveCompetition && (
@@ -535,8 +546,8 @@ export default function UploadForm({
             </label>
           </div>
         )}
-        
-        {!allowDownload && (
+
+        {!allowDownload && !campId && (
           <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded flex items-start">
             <FaInfoCircle className="text-green-500 mt-1 mr-2 flex-shrink-0" />
             <p className="text-sm text-gray-700">
