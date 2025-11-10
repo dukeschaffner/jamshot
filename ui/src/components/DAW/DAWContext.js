@@ -27,6 +27,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
   const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [recordingMode, setRecordingMode] = useState('take'); // 'take' | 'region'
+  const recordingModeRef = useRef('take');
+  useEffect(() => { recordingModeRef.current = recordingMode; }, [recordingMode]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -170,7 +173,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
       console.log('Recording stopped');
 
       const track = trackManagerRef.current.getTrack('recording-track');
-      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', true);
+      const overwriteTrack = recordingModeRef.current === 'take';
+      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack);
     };
     
     const handleRecordingError = (error) => {
@@ -319,6 +323,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
       setTracksContainerWidth,
       recordingTrackHasAudio,
       isMonitoring,
+      recordingMode,
+      setRecordingMode,
     }}>
       {children}
     </DAWContext.Provider>

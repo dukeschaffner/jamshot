@@ -1,6 +1,6 @@
 .region {
     height: 100%;
-    position: relative;
+    position: absolute;
     overflow: hidden;
     z-index: 5;
 }
