@@ -12,11 +12,25 @@ clients:
 
 
 perks:
+- shared upload pool?
+- team level analytics
+    - user activity
+    - track activity
+- team roles
+    - admin
+    - contributor
+    - viewer
 - storage
     - midi files
     - lyrics
 - folder view
-    - ie Day 1, Day 2, etc for songwriting camps
+    - move tracks between folders
+        - option to move all descendants of a track as well
+
+POST MVP:
+- lyric editor with AI suggestions
+
+
 
 
 - team plan

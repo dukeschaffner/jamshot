@@ -425,4 +425,238 @@ router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
   }
 });
 
+// Get beats in camp (tracks with no parent)
+router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
+  const campId = parseInt(req.params.id);
+  const { sort_by = 'recent', page = 1, limit = 20 } = req.query;
+  
+  try {
+    // Verify user has access to camp
+    const accessCheck = await pool.query(
+      'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
+      [req.user.id, campId]
+    );
+
+    if (accessCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'You are not a member of this camp' });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Determine sort order
+    let orderBy = 't.created_at DESC'; // default: recent
+    if (sort_by === 'bpm') {
+      orderBy = 't.metronome_bpm ASC';
+    } else if (sort_by === 'key') {
+      orderBy = 't.key ASC';
+    } else if (sort_by === 'usage') {
+      orderBy = 'collab_count DESC';
+    }
+
+    // Get beats (tracks with no parent_track_id and associated with camp)
+    const beatsQuery = `
+      SELECT 
+        t.id, t.user_id, t.title, t.audio_url, t.duration, t.metronome_bpm, 
+        t.time_signature, t.key, t.created_at,
+        u.username, u.verified, u.profile_pic_url,
+        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      WHERE t.camp_id = $2 AND t.parent_track_id IS NULL AND t.processing_status = 'completed'
+      ORDER BY ${orderBy}
+      LIMIT $3 OFFSET $4
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE t.camp_id = $1 AND t.parent_track_id IS NULL AND t.processing_status = 'completed'
+    `;
+
+    const [beatsResult, countResult] = await Promise.all([
+      pool.query(beatsQuery, [req.user.id, campId, limit, offset]),
+      pool.query(countQuery, [campId])
+    ]);
+
+    const total = parseInt(countResult.rows[0].total);
+    const hasMore = offset + beatsResult.rows.length < total;
+
+    res.json({
+      beats: beatsResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        hasMore
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching camp beats:', error);
+    res.status(500).json({ error: 'Failed to fetch beats' });
+  }
+});
+
+// Get tracks in camp (collabs on beats)
+router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
+  const campId = parseInt(req.params.id);
+  const { sort_by = 'recent', room_id, page = 1, limit = 20 } = req.query;
+  
+  try {
+    // Verify user has access to camp
+    const accessCheck = await pool.query(
+      'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
+      [req.user.id, campId]
+    );
+
+    if (accessCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'You are not a member of this camp' });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Determine sort order
+    let orderBy = 't.created_at DESC'; // default: recent
+    if (sort_by === 'likes') {
+      orderBy = 'like_count DESC';
+    }
+
+    // Build query with optional room filter
+    let whereClause = 't.camp_id = $2 AND t.parent_track_id IS NOT NULL AND t.processing_status = \'completed\'';
+    const queryParams = [req.user.id, campId];
+    let paramIndex = 3;
+
+    if (room_id) {
+      whereClause += ` AND t.room_id = $${paramIndex}`;
+      queryParams.push(parseInt(room_id));
+      paramIndex++;
+    }
+
+    queryParams.push(limit, offset);
+
+    const tracksQuery = `
+      SELECT 
+        t.id, t.user_id, t.title, t.audio_url, t.duration, t.parent_track_id,
+        t.room_id, t.layer, t.created_at,
+        u.username, u.verified, u.profile_pic_url,
+        r.name as room_name,
+        pt.title as parent_title,
+        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      LEFT JOIN rooms r ON t.room_id = r.id
+      LEFT JOIN tracks pt ON t.parent_track_id = pt.id
+      WHERE ${whereClause}
+      ORDER BY ${orderBy}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE ${whereClause.replace('$1', req.user.id.toString())}
+    `;
+
+    const [tracksResult, countResult] = await Promise.all([
+      pool.query(tracksQuery, queryParams),
+      pool.query(countQuery, room_id ? [campId, parseInt(room_id)] : [campId])
+    ]);
+
+    const total = parseInt(countResult.rows[0].total);
+    const hasMore = offset + tracksResult.rows.length < total;
+
+    res.json({
+      tracks: tracksResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        hasMore
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching camp tracks:', error);
+    res.status(500).json({ error: 'Failed to fetch tracks' });
+  }
+});
+
+// Get room tracks
+router.get('/:id/rooms/:roomId/tracks', apiEndpointLimiter, async (req, res) => {
+  const campId = parseInt(req.params.id);
+  const roomId = parseInt(req.params.roomId);
+  const { page = 1, limit = 20 } = req.query;
+  
+  try {
+    // Verify user has access to camp
+    const accessCheck = await pool.query(
+      'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
+      [req.user.id, campId]
+    );
+
+    if (accessCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'You are not a member of this camp' });
+    }
+
+    // Verify room belongs to camp
+    const roomCheck = await pool.query(
+      'SELECT id FROM rooms WHERE id = $1 AND camp_id = $2',
+      [roomId, campId]
+    );
+
+    if (roomCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Room not found in this camp' });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const tracksQuery = `
+      SELECT 
+        t.id, t.user_id, t.title, t.audio_url, t.duration, t.parent_track_id,
+        t.layer, t.created_at,
+        u.username, u.verified, u.profile_pic_url,
+        pt.title as parent_title,
+        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      LEFT JOIN tracks pt ON t.parent_track_id = pt.id
+      WHERE t.room_id = $2 AND t.processing_status = 'completed'
+      ORDER BY t.created_at DESC
+      LIMIT $3 OFFSET $4
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE t.room_id = $1 AND t.processing_status = 'completed'
+    `;
+
+    const [tracksResult, countResult] = await Promise.all([
+      pool.query(tracksQuery, [req.user.id, roomId, limit, offset]),
+      pool.query(countQuery, [roomId])
+    ]);
+
+    const total = parseInt(countResult.rows[0].total);
+    const hasMore = offset + tracksResult.rows.length < total;
+
+    res.json({
+      tracks: tracksResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        hasMore
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching room tracks:', error);
+    res.status(500).json({ error: 'Failed to fetch tracks' });
+  }
+});
+
 module.exports = router;

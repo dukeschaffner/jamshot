@@ -318,9 +318,10 @@ const createApiMethods = (apiClient) => {
     unlikeTrack: (id) => api.delete(`/tracks/${id}/like`),
 
     // Upload initialization - get pre-signed S3 URL
-    initUpload: (filename, fileSize) => api.post('/tracks/upload/init', {
+    initUpload: (filename, fileSize, isCampTrack = false) => api.post('/tracks/upload/init', {
       filename,
-      fileSize
+      fileSize,
+      is_camp_track: isCampTrack
     }),
 
     // Process upload after S3 upload is complete
@@ -542,6 +543,36 @@ const createApiMethods = (apiClient) => {
     createRoom: (campId, roomData) => api.post(`/camps/${campId}/rooms`, roomData),
 
     addUserToRoom: (campId, roomId, userData) => api.put(`/camps/${campId}/rooms/${roomId}/users`, userData),
+
+    getBeats: (campId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/beats?${queryParams.toString()}`);
+    },
+
+    getTracks: (campId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/tracks?${queryParams.toString()}`);
+    },
+
+    getRoomTracks: (campId, roomId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/rooms/${roomId}/tracks?${queryParams.toString()}`);
+    },
   };
 
   return {

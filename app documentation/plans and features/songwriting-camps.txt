@@ -156,4 +156,6 @@ track:
 - user invite notifications
 - camp cleanup
 - how to prevent abuse of beat uploads before camp has started
+- dont load camp tracks on your own user page
+- camp songs dont count toward quotas
 </after_mvp>
