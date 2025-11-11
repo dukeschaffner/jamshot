@@ -16,6 +16,9 @@ TODO (MVP)
   - handle sample rate mismatch (should input device determine sample rate?)
   - handle stereo input devices
   - handle if user blocked mic access
+  - region splitting
+  - region looping
+  - what to do with takes list?
 - how to page with tutorials
 - handle notification spamming
 - display uploads left in nav?
