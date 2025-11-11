@@ -7,6 +7,7 @@ import WaveformChunk from './waveform/WaveformChunk';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
+import DAWConfig from '../misc/DAWConfig';
 
 export default function Region({ 
   region,
@@ -16,8 +17,10 @@ export default function Region({
   tracksScrollContainerRef,
   readonly = false
 }) {
-  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth } = useDAW();
+  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines } = useDAW();
 
+
+  const musicGridLinesRef = useRef([]);
   const regionContainerRef = useRef(null);
   const waveformContainerRef = useRef(null);
   const [chunks, setChunks] = useState([]);
@@ -59,6 +62,10 @@ export default function Region({
   // Context menu state
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+
+  // Grid snapping state
+  const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
+  const tracksContainerWidthRef = useRef(0);
 
   const [shouldRender, setShouldRender] = useState(true); // whether to render the region
 
@@ -104,6 +111,64 @@ export default function Region({
       setRegionLeftPos(regionLeftPos);
     }
   }, [bufferKey, track, duration]);
+
+
+  useEffect(() => {
+    musicGridLinesRef.current = gridLines;
+  }, [gridLines]);
+
+  // Event listeners for grid updates
+  useEffect(() => {
+    const handleSnapToGridChange = (data) => {
+      setSnapToGridEnabled(data.snapToGridEnabled);
+    };
+
+    // Listen for grid snap toggle events
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    tracksContainerWidthRef.current = tracksContainerWidth;
+  }, [tracksContainerWidth]);
+
+  // Snap to grid function
+  const snapToGrid = (value) => {
+    if (snapToGridEnabled && duration && duration > 0) {
+      // If grid lines aren't generated yet, return the original value
+      if (!musicGridLinesRef.current || musicGridLinesRef.current.length === 0) {
+        return value;
+      }
+
+      // Find the closest grid line
+      let closestGridLine = value;
+      let minDistance = Infinity;
+
+      for (const gridLine of musicGridLinesRef.current) {
+        const distance = Math.abs(gridLine.position - value);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestGridLine = gridLine;
+        }
+      }
+
+      if(minDistance === Infinity) {
+        return value;
+      }
+
+      const distancePx = minDistance * tracksContainerWidthRef.current / 100;
+
+      // Only snap if the distance is less than the threshold
+      if (distancePx <= DAWConfig.ui.gridSnapThreshold) {
+        return closestGridLine.position;
+      }
+    }
+
+    return value;
+  };
 
   useEffect(() => {
     if (!buffer || !tracksContainerWidth || !duration) return;
@@ -294,7 +359,8 @@ export default function Region({
       }
       
       const newRegionLeftPos = boundedLeftPos / tracksContainerWidth * 100;
-      setRegionLeftPos(newRegionLeftPos);
+      const snappedRegionLeftPos = snapToGrid(newRegionLeftPos);
+      setRegionLeftPos(snappedRegionLeftPos);
     };
     
     const handleMouseUp = (e) => {
@@ -303,7 +369,9 @@ export default function Region({
 
       // Update the region's start time based on new position
       if (track && bufferKey && duration && tracksContainerWidth) {
-        const newStartTime = (regionLeftPos / 100) * duration;
+        // Use the snapped position for calculating the new start time
+        const snappedRegionLeftPos = snapToGrid(regionLeftPos);
+        const newStartTime = (snappedRegionLeftPos / 100) * duration;
         const regionDuration = endTime - startTime;
         const newEndTime = newStartTime + regionDuration;
 
@@ -437,7 +505,7 @@ export default function Region({
         const cropEndX = cropEndOverlayRef.current?.getBoundingClientRect().left;
         const cropBuffer = 5 * (regionRect.width / 100);
         let newCropX = 0;
-        
+
         if (e.clientX < regionRect.left || e.clientX < trackRect.left) {
           newCropX = Math.max(regionRect.left, trackRect.left);
         } else if (cropEndX && e.clientX > cropEndX - cropBuffer) {
@@ -447,7 +515,20 @@ export default function Region({
         }
 
         const relativePos = (newCropX - regionRect.left) / regionRect.width * 100;
-        setCropStartPercentage(relativePos);
+
+        // Apply grid snapping to crop start position
+        const regionCropDuration = regionCropWidth / 100 * duration;
+        const regionCropLeftTime = regionCropLeftPos / 100 * duration;
+        const proposedCropStartTime = regionCropLeftTime + (relativePos / 100) * regionCropDuration;
+        const proposedTrackPercentage = (proposedCropStartTime / duration) * 100;
+        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage);
+        const snappedCropStartTime = (snappedTrackPercentage / 100) * duration;
+
+        // Convert back to relative position within crop area
+        const snappedRelativePos = ((snappedCropStartTime - regionCropLeftTime) / regionCropDuration) * 100;
+        const clampedRelativePos = Math.max(0, Math.min(100, snappedRelativePos));
+
+        setCropStartPercentage(clampedRelativePos);
       }
       
       // Handle crop end dragging
@@ -455,7 +536,7 @@ export default function Region({
         const cropStartX = cropStartOverlayRef.current?.getBoundingClientRect().right;
         const buffer = 5 * (regionRect.width / 100);
         let newCropX = 0;
-        
+
         if (e.clientX > regionRect.right) {
           newCropX = regionRect.right;
         } else if (cropStartX && e.clientX < cropStartX + buffer) {
@@ -465,7 +546,20 @@ export default function Region({
         }
 
         const relativePos = (regionRect.right - newCropX) / regionRect.width * 100;
-        setCropEndPercentage(relativePos);
+
+        // Apply grid snapping to crop end position
+        const regionCropDuration = regionCropWidth / 100 * duration;
+        const regionCropLeftTime = regionCropLeftPos / 100 * duration;
+        const proposedCropEndTime = regionCropLeftTime + regionCropDuration - (relativePos / 100) * regionCropDuration;
+        const proposedTrackPercentage = (proposedCropEndTime / duration) * 100;
+        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage);
+        const snappedCropEndTime = (snappedTrackPercentage / 100) * duration;
+
+        // Convert back to relative position within crop area
+        const snappedRelativePos = ((regionCropLeftTime + regionCropDuration - snappedCropEndTime) / regionCropDuration) * 100;
+        const clampedRelativePos = Math.max(0, Math.min(100, snappedRelativePos));
+
+        setCropEndPercentage(clampedRelativePos);
       }
     };
     
@@ -485,13 +579,21 @@ export default function Region({
         if (isDraggingCropStart && cropStartPercentage >= 0) {
           const cropTime = (cropStartPercentage / 100) * regionCropDuration;
           newStartTime = regionCropLeftTime + cropTime;
+          // Snap the new start time to grid
+          const newStartTimePercentage = (newStartTime / duration) * 100;
+          const snappedStartPercentage = snapToGrid(newStartTimePercentage);
+          newStartTime = (snappedStartPercentage / 100) * duration;
           newOffset = offset + newStartTime - startTime;
         }
-        
+
         // If cropping from end, update end time
         if (isDraggingCropEnd && cropEndPercentage >= 0) {
           const cropTime = (cropEndPercentage / 100) * regionCropDuration;
           newEndTime = regionCropLeftTime + regionCropDuration - cropTime;
+          // Snap the new end time to grid
+          const newEndTimePercentage = (newEndTime / duration) * 100;
+          const snappedEndPercentage = snapToGrid(newEndTimePercentage);
+          newEndTime = (snappedEndPercentage / 100) * duration;
         }
         
         
@@ -528,7 +630,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, cropStartPercentage, cropEndPercentage, buffer, region]);
+  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, cropStartPercentage, cropEndPercentage, buffer, region, regionCropLeftPos, regionCropWidth]);
 
   // #endregion
 

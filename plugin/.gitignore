@@ -1,0 +1,118 @@
+# -------------------------------------------------
+# JUCE / Projucer
+# -------------------------------------------------
+# Projucer project files (keep the .jucer, ignore generated stuff)
+*.jucer
+!*.jucer                # keep the original .jucer you edit
+/Builds/
+CMakeLists.txt.user
+*.proj
+*.xcworkspace
+*.xcodeproj
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# -------------------------------------------------
+# Build directories & artefacts
+# -------------------------------------------------
+build/
+Builds/
+bin/
+obj/
+Debug/
+Release/
+x64/
+Win32/
+*.exe
+*.dll
+*.dylib
+*.so
+*.vst3/
+*.component/
+*.app/
+*.aaxplugin/
+
+# CMake cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# -------------------------------------------------
+# IDE / Editor junk
+# -------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.log
+
+# -------------------------------------------------
+# JUCE generated source (optional – keep if you edit)
+# -------------------------------------------------
+Source/JuceLibraryCode/
+JuceLibraryCode/
+!Source/JuceLibraryCode/JuceHeader.h   # keep the header you include
+
+# -------------------------------------------------
+# Secrets / credentials (NEVER commit!)
+# -------------------------------------------------
+.env
+*.pem
+*.key
+client_secret.json
+oauth.json
+config.json
+
+# -------------------------------------------------
+# Node / npm (if you ever add a tiny web UI)
+# -------------------------------------------------
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# -------------------------------------------------
+# Python / testing
+# -------------------------------------------------
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# -------------------------------------------------
+# macOS
+# -------------------------------------------------
+*.dSYM/
+*.dSYM/Contents/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# -------------------------------------------------
+# Windows
+# -------------------------------------------------
+*.suo
+*.user
+*.opensdf
+*.sdf
+ipch/
+*.ilk
+*.pdb
+*.ipch
+
+# -------------------------------------------------
+# Linux
+# -------------------------------------------------
+*.o
+*.a
+*.so.*
+*.gch

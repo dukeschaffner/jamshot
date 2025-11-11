@@ -1,5 +1,5 @@
 // ui/src/contexts/DAWContext.js
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import TrackManager from './core/TrackManager';
 import AudioEngine from './core/AudioEngine';
 import { eventBus } from './misc/EventBus';
@@ -28,6 +28,12 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [recordingMode, setRecordingMode] = useState('take'); // 'take' | 'region'
+  const [gridLines, setGridLines] = useState([]);
+
+  // Function for components to update grid lines
+  const updateGridLines = useCallback((newGridLines) => {
+    setGridLines(newGridLines);
+  }, []);
   const recordingModeRef = useRef('take');
   useEffect(() => { recordingModeRef.current = recordingMode; }, [recordingMode]);
 
@@ -40,6 +46,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   useEffect(() => {
     durationRef.current = duration;
   }, [duration]);
+
   
   useEffect(() => {
     const initializeDAW = async () => {
@@ -325,6 +332,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
       isMonitoring,
       recordingMode,
       setRecordingMode,
+      gridLines,
+      updateGridLines,
     }}>
       {children}
     </DAWContext.Provider>
