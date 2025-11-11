@@ -24,7 +24,7 @@ const DAWConfig = {
       updateInterval: 20, // ms
       meterUpdateInterval: 60, // ms
       zoomLevels: { min: 1, max: 10, step: 0.1 },
-      gridSnapThreshold: 0.1,
+      gridSnapThreshold: 5, // pixels
     },
     
     metronome: {

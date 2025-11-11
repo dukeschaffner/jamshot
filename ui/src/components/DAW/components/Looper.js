@@ -6,11 +6,12 @@ import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { timeToPos } from '../misc/DAWUtils';
+import DAWConfig from '../misc/DAWConfig';
 
 
 export default function Looper() {
 
-  const { isPlaying, isRecording, duration, metronomeBpm, tracksContainerWidth } = useDAW();
+  const { isPlaying, isRecording, duration, metronomeBpm, tracksContainerWidth, gridLines } = useDAW();
   
   const [isLooping, setIsLooping] = useState(false);
   // Internal state for dragging
@@ -35,8 +36,11 @@ export default function Looper() {
   const regionRef = useRef(null);
 
   // Grid snapping constants
-  const gridSnapThreshold = 5; // Threshold for grid snapping (Pixels)
   const tracksContainerWidthRef = useRef(0);
+
+  useEffect(() => {
+    musicGridLinesRef.current = gridLines;
+  }, [gridLines]);
 
   // Event listeners for grid updates
   useEffect(() => {
@@ -44,17 +48,11 @@ export default function Looper() {
       setSnapToGridEnabled(data.snapToGridEnabled);
     };
 
-    const handleGridLinesUpdate = (data) => {
-      musicGridLinesRef.current = data.gridLines || [];
-    };
-
-    // Listen for grid snap toggle events and grid lines updates
+    // Listen for grid snap toggle events
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
-    eventBus.on(DAW_EVENTS.GRID.LINES_UPDATE, handleGridLinesUpdate);
 
     return () => {
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
-      eventBus.off(DAW_EVENTS.GRID.LINES_UPDATE, handleGridLinesUpdate);
     };
   }, []);
 
@@ -70,7 +68,7 @@ export default function Looper() {
       if (!musicGridLinesRef.current || musicGridLinesRef.current.length === 0) {
         return value;
       }
-      
+
       // Find the closest grid line
       let closestGridLine = value;
       let minDistance = Infinity;
@@ -91,13 +89,13 @@ export default function Looper() {
       }
 
       const distancePx = minDistance * tracksContainerWidthRef.current / 100;
-      
+
       // Only snap if the distance is less than the threshold
-      if (distancePx <= gridSnapThreshold) {
+      if (distancePx <= DAWConfig.ui.gridSnapThreshold) {
         return closestGridLine.position;
       }
     }
-    
+
     return value;
   };
 
