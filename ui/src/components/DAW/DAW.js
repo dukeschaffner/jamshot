@@ -254,14 +254,11 @@ function DAWContent({ track}) {
                     <Playhead/>
                   </div>
                   
-                  {/* Project End Overlay - only show in collaboration mode */}
-                  {!isCollab && (
-                    <ProjectEndOverlay 
-                      containerRef={tracksAndTimelineRef}
-                      duration={duration}
-                      zoom={zoom}
-                    />
-                  )}
+                  <ProjectEndOverlay 
+                    containerRef={tracksAndTimelineRef}
+                    duration={duration}
+                    zoom={zoom}
+                  />
                 </div>
                 {zoom > 1 && (
                   <div className={styles.zoomIndicator}>
