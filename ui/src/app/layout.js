@@ -1,7 +1,37 @@
+import './globals.css';
+
+// Static metadata for the site
+export const metadata = {
+  title: 'Sterio - Collaborate on Music',
+  description: 'Create, collaborate, and share music with Sterio. Record layers, collaborate with artists, and build tracks together.',
+  keywords: ['music', 'collaboration', 'recording', 'music production', 'collaborative music'],
+  authors: [{ name: 'Sterio' }],
+  openGraph: {
+    title: 'Sterio - Collaborate on Music',
+    description: 'Create, collaborate, and share music with Sterio. Record layers, collaborate with artists, and build tracks together.',
+    url: 'https://sterio.fm',
+    siteName: 'Sterio',
+    type: 'website',
+    images: [
+      {
+        url: 'https://sterio.fm/next.svg',
+        width: 1200,
+        height: 630,
+        alt: 'Sterio - Collaborate on Music',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sterio - Collaborate on Music',
+    description: 'Create, collaborate, and share music with Sterio. Record layers, collaborate with artists, and build tracks together.',
+    images: ['https://sterio.fm/next.svg'],
+  },
+};
+
 'use client';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import './globals.css';
 import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
 import { UserProvider, useUser } from '../contexts/UserContext';
@@ -126,9 +156,8 @@ export default function RootLayout({ children }) {
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <link rel="icon" type="image/svg+xml" href="/next.svg" />
-        <title>sterio</title>
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1172686264367392"
-            crossorigin="anonymous"></script>
+            crossOrigin="anonymous"></script>
       </head>
       <body>
         <UserProvider>
