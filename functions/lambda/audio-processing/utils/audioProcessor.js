@@ -164,9 +164,11 @@ class AudioProcessor {
     // Get stem chain
     const stemChain = await this.getStemChain(track.id);
 
-    // Download all stems
+    // Download and render all stems
     const localFiles = [];
     const gainValues = [];
+    const renderedFiles = []; // Track rendered files for cleanup
+    const downloadedStemFiles = []; // Track original downloaded stem files for cleanup
 
     for (const stem of stemChain) {
       if (stem.track_id === 'recording' || stem.track_id === track.id) {
@@ -184,12 +186,25 @@ class AudioProcessor {
 
       try {
         await this.downloadS3File(stem.audio_url, stemLocalPath);
-        localFiles.push(stemLocalPath);
+        downloadedStemFiles.push(stemLocalPath); // Track for cleanup
+        
+        // Render the stem with regions if present
+        let renderedPath = stemLocalPath;
+        if (stem.regions && stem.regions.length > 0) {
+          console.log(`🎨 Rendering stem ${stem.track_id} with ${stem.regions.length} regions`);
+          renderedPath = path.join(this.tempDir, `rendered-stem-${stem.track_id}-${Date.now()}.mp3`);
+          await this.renderStemWithRegions(stemLocalPath, renderedPath, stem.regions);
+          renderedFiles.push(renderedPath); // Track for cleanup
+        }
+        
+        localFiles.push(renderedPath);
         gainValues.push(stem.gain);
       } catch (downloadError) {
         console.error(`Failed to download stem ${stem.track_id}:`, downloadError);
         // Clean up already downloaded files
         await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(() => {})));
+        await Promise.all(renderedFiles.map(f => fsPromises.unlink(f).catch(() => {})));
+        await Promise.all(downloadedStemFiles.map(f => fsPromises.unlink(f).catch(() => {})));
         throw new Error(`Failed to download stem audio file for track ${stem.track_id}`);
       }
     }
@@ -223,12 +238,88 @@ class AudioProcessor {
 
     await this.uploadToS3(rawPath, finalAudioUrl);
 
-    // Clean up temp files
+    // Clean up temp files (including rendered files and original downloaded stems)
     await Promise.all([
       ...localFiles.map(f => fsPromises.unlink(f).catch(() => {})),
+      ...renderedFiles.map(f => fsPromises.unlink(f).catch(() => {})),
+      ...downloadedStemFiles.map(f => fsPromises.unlink(f).catch(() => {})),
       fsPromises.unlink(combinedPath).catch(() => {}),
       fsPromises.unlink(rawPath).catch(() => {})
     ]);
+  }
+
+  /**
+   * Render a stem audio file with regions
+   * Creates a new audio file by extracting segments from the source file
+   * and placing them at their specified startTime positions
+   * 
+   * @param {string} inputPath - Path to the source audio file
+   * @param {string} outputPath - Path where the rendered file will be saved
+   * @param {Array} regions - Array of region objects with {startTime, endTime, offset}
+   * @returns {Promise<void>}
+   */
+  async renderStemWithRegions(inputPath, outputPath, regions) {
+    return new Promise((resolve, reject) => {
+      // Sort regions by startTime
+      const sortedRegions = [...regions].sort((a, b) => a.startTime - b.startTime);
+      
+      // Find the maximum endTime to determine output duration
+      const maxEndTime = Math.max(...sortedRegions.map(r => r.endTime));
+      
+      // Build FFmpeg command
+      const ffmpegCommand = ffmpeg();
+      
+      // Create filter complex to extract and place each region
+      const filterParts = [];
+      const inputLabels = [];
+      
+      // For each region, extract the segment and delay it to the correct position
+      sortedRegions.forEach((region, index) => {
+        // Extract segment: start at offset, duration is (endTime - startTime)
+        const segmentDuration = region.endTime - region.startTime;
+        const delayMs = Math.round(region.startTime * 1000); // Convert to milliseconds for adelay
+        
+        // Input the file with specific start time and duration
+        // Use inputOptions to seek and limit duration for this specific input
+        const input = ffmpegCommand.input(inputPath);
+        input.inputOptions([
+          `-ss`, region.offset.toString(),
+          `-t`, segmentDuration.toString()
+        ]);
+        
+        // Apply delay to place segment at correct position
+        // adelay expects delay in milliseconds, format: adelay=delay1|delay2 (for stereo)
+        const inputLabel = `[${index}:a]`;
+        const delayedLabel = `[delayed${index}]`;
+        filterParts.push(`${inputLabel}adelay=${delayMs}|${delayMs}${delayedLabel}`);
+        inputLabels.push(delayedLabel);
+      });
+      
+      // Mix all delayed segments together
+      const mixInputs = inputLabels.join('');
+      filterParts.push(`${mixInputs}amix=inputs=${inputLabels.length}:duration=longest:normalize=0[aout]`);
+      
+      // Trim to maxEndTime duration
+      filterParts.push(`[aout]atrim=0:${maxEndTime}[trimmed]`);
+      
+      // Set up audio processing
+      ffmpegCommand
+        .audioCodec('libmp3lame')
+        .audioBitrate('320k')
+        .audioFrequency(44100)
+        .audioChannels(2)
+        .complexFilter(filterParts)
+        .outputOptions(['-map', '[trimmed]'])
+        .on('end', () => {
+          console.log(`✅ Stem rendering completed: ${outputPath}`);
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error('❌ Stem rendering failed:', err);
+          reject(err);
+        })
+        .save(outputPath);
+    });
   }
 
   async processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl) {
@@ -400,7 +491,9 @@ class AudioProcessor {
         track_id: stem.track_id,
         gain: stem.gain,
         audio_url: audioUrl,
-        order: stem.order
+        order: stem.order,
+        // Include regions if present
+        ...(stem.regions && { regions: stem.regions })
       });
     }
 

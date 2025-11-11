@@ -244,7 +244,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     parsedGenreIds,
     parsedInstrumentIds,
     parsedMetronomeBpm,
-    parsedStemGains,
+    parsedStems,
     parsedTimeSignature,
     isPrivate,
     allowDownload,
@@ -332,17 +332,17 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     // Get the complete stem chain for mixing
     stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
 
-    // Validate stem chain and parsedStemGains
-    const validation = validateAndUpdateStemChain(stemChain, parsedStemGains);
+    // Validate stem chain and parsedStems
+    const validation = validateAndUpdateStemChain(stemChain, parsedStems);
     if (!validation.valid) {
       return res.status(400).json({
-        error: 'Invalid stem chain or stem gains',
+        error: 'Invalid stem chain or stems',
         message: validation.error
       });
     }
   } catch (err) {
-    console.error('Error validating stem chain and parsedStemGains:', err);
-    return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
+    console.error('Error validating stem chain and parsedStems:', err);
+    return res.status(500).json({ error: `Failed to validate stem chain and parsedStems: ${err.message}` });
   }
 
 
@@ -486,7 +486,9 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     const stemChainToInsert = stemChain.map(stem => ({
       track_id: stem.track_id,
       gain: stem.gain,
-      order: stem.order
+      order: stem.order,
+      // Include regions if present
+      ...(stem.regions && { regions: stem.regions })
     }));
 
     let mixGainsToInsert = {
