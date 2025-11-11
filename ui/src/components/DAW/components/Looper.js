@@ -5,7 +5,7 @@ import styles from './Looper.module.css';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
-import { timeToPos } from '../misc/DAWUtils';
+import { timeToPos, snapToGrid } from '../misc/DAWUtils';
 import DAWConfig from '../misc/DAWConfig';
 
 
@@ -61,44 +61,6 @@ export default function Looper() {
   }, [tracksContainerWidth]);
 
 
-  // Snap to grid function
-  const snapToGrid = (value) => {
-    if (snapToGridEnabled && metronomeBpm && duration && duration > 0) {
-      // If grid lines aren't generated yet, return the original value
-      if (!musicGridLinesRef.current || musicGridLinesRef.current.length === 0) {
-        return value;
-      }
-
-      // Find the closest grid line
-      let closestGridLine = value;
-      let minDistance = Infinity;
-
-      const secondsPerBeat = 60 / metronomeBpm;
-      const beatWidthPos = timeToPos(secondsPerBeat, duration);
-      
-      for (const gridLine of musicGridLinesRef.current) {
-        const distance = Math.abs(gridLine.position - value);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestGridLine = gridLine;
-        }
-      }
-
-      if(minDistance === Infinity) {
-        return value;
-      }
-
-      const distancePx = minDistance * tracksContainerWidthRef.current / 100;
-
-      // Only snap if the distance is less than the threshold
-      if (distancePx <= DAWConfig.ui.gridSnapThreshold) {
-        return closestGridLine.position;
-      }
-    }
-
-    return value;
-  };
-
   useEffect(() => {
     // Emit loop toggle event when enabling/disabling loop
     eventBus.emit(DAW_EVENTS.LOOP.TOGGLE, {
@@ -150,14 +112,14 @@ export default function Looper() {
       // Dragging left handle
       if (isDraggingLeft) {
         const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-        const snappedLeftPos = snapToGrid(newLeftPos);
+        const snappedLeftPos = snapToGrid(newLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         setLooperLeftPos(snappedLeftPos);
       }
 
       // Dragging right handle
       if (isDraggingRight) {
         const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-        const snappedRightPos = snapToGrid(newRightPos);
+        const snappedRightPos = snapToGrid(newRightPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         setLooperRightPos(snappedRightPos);
       }
 
@@ -182,8 +144,8 @@ export default function Looper() {
         }
 
         // Apply grid snapping
-        const snappedLeftPos = snapToGrid(newLeftPos);
-        const snappedRightPos = snapToGrid(newRightPos);
+        const snappedLeftPos = snapToGrid(newLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+        const snappedRightPos = snapToGrid(newRightPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
 
         setLooperLeftPos(snappedLeftPos);
         setLooperRightPos(snappedRightPos);

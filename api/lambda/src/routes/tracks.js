@@ -377,9 +377,9 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       parsedMetronomeOffset = parentTrack.metronome_offset || 0;
 
       // Validate that collaboration isn't longer than parent track
-      if (duration > parentDuration) {
-        return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
-      }
+      // if (duration > parentDuration) {
+      //   return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
+      // }
 
       layer = (parentTrack.layer ?? 0) + 1;
       if (layer > 4) {

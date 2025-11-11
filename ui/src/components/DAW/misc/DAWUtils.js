@@ -119,3 +119,47 @@ export function estimateFileSize(audioBuffer, format = 'wav') {
 export function getPlaybackTime(audioContext, startTime, currentTime) {
   return currentTime + (audioContext.currentTime - startTime);
 }
+
+/**
+ * Snaps a position value to the nearest grid line if within threshold
+ * @param {number} value - The position value to snap (percentage)
+ * @param {boolean} snapToGridEnabled - Whether snap to grid is enabled
+ * @param {number} duration - Duration of the audio/project
+ * @param {Array} gridLines - Array of grid line objects with position property
+ * @param {number} containerWidth - Width of the tracks container
+ * @param {number} snapThreshold - Pixel threshold for snapping
+ * @returns {number} - The snapped position or original value
+ */
+export function snapToGrid(value, snapToGridEnabled, duration, gridLines, containerWidth, snapThreshold) {
+  if (snapToGridEnabled && duration && duration > 0) {
+    // If grid lines aren't generated yet, return the original value
+    if (!gridLines || gridLines.length === 0) {
+      return value;
+    }
+
+    // Find the closest grid line
+    let closestGridLine = value;
+    let minDistance = Infinity;
+
+    for (const gridLine of gridLines) {
+      const distance = Math.abs(gridLine.position - value);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestGridLine = gridLine;
+      }
+    }
+
+    if (minDistance === Infinity) {
+      return value;
+    }
+
+    const distancePx = minDistance * containerWidth / 100;
+
+    // Only snap if the distance is less than the threshold
+    if (distancePx <= snapThreshold) {
+      return closestGridLine.position;
+    }
+  }
+
+  return value;
+}

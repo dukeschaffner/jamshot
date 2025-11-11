@@ -8,6 +8,7 @@ import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import DAWConfig from '../misc/DAWConfig';
+import { snapToGrid } from '../misc/DAWUtils';
 
 export default function Region({ 
   region,
@@ -135,40 +136,6 @@ export default function Region({
     tracksContainerWidthRef.current = tracksContainerWidth;
   }, [tracksContainerWidth]);
 
-  // Snap to grid function
-  const snapToGrid = (value) => {
-    if (snapToGridEnabled && duration && duration > 0) {
-      // If grid lines aren't generated yet, return the original value
-      if (!musicGridLinesRef.current || musicGridLinesRef.current.length === 0) {
-        return value;
-      }
-
-      // Find the closest grid line
-      let closestGridLine = value;
-      let minDistance = Infinity;
-
-      for (const gridLine of musicGridLinesRef.current) {
-        const distance = Math.abs(gridLine.position - value);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestGridLine = gridLine;
-        }
-      }
-
-      if(minDistance === Infinity) {
-        return value;
-      }
-
-      const distancePx = minDistance * tracksContainerWidthRef.current / 100;
-
-      // Only snap if the distance is less than the threshold
-      if (distancePx <= DAWConfig.ui.gridSnapThreshold) {
-        return closestGridLine.position;
-      }
-    }
-
-    return value;
-  };
 
   useEffect(() => {
     if (!buffer || !tracksContainerWidth || !duration) return;
@@ -184,7 +151,7 @@ export default function Region({
   const handleRegionMouseDown = (e) => {
     e.stopPropagation();
     // Only allow dragging if not playing or recording
-    if (isPlaying || isRecording || readonly) return;
+    if (isRecording) return;
     
     setIsDraggingRegion(true);
     setDragStartX(e.clientX);
@@ -197,7 +164,7 @@ export default function Region({
     e.preventDefault();
     e.stopPropagation();
     
-    if (isPlaying || isRecording || readonly) return;
+    if (isRecording || readonly) return;
     
     // Position context menu at mouse position
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
@@ -206,7 +173,7 @@ export default function Region({
 
   // Handle region deletion
   const handleRegionDelete = () => {
-    if (isPlaying || isRecording || readonly) return;
+    if (isRecording || readonly) return;
 
     if (track && region) {
       eventBus.emit(DAW_EVENTS.REGION.REMOVE, {
@@ -359,7 +326,7 @@ export default function Region({
       }
       
       const newRegionLeftPos = boundedLeftPos / tracksContainerWidth * 100;
-      const snappedRegionLeftPos = snapToGrid(newRegionLeftPos);
+      const snappedRegionLeftPos = snapToGrid(newRegionLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
       setRegionLeftPos(snappedRegionLeftPos);
     };
     
@@ -370,7 +337,7 @@ export default function Region({
       // Update the region's start time based on new position
       if (track && bufferKey && duration && tracksContainerWidth) {
         // Use the snapped position for calculating the new start time
-        const snappedRegionLeftPos = snapToGrid(regionLeftPos);
+        const snappedRegionLeftPos = snapToGrid(regionLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         const newStartTime = (snappedRegionLeftPos / 100) * duration;
         const regionDuration = endTime - startTime;
         const newEndTime = newStartTime + regionDuration;
@@ -521,7 +488,7 @@ export default function Region({
         const regionCropLeftTime = regionCropLeftPos / 100 * duration;
         const proposedCropStartTime = regionCropLeftTime + (relativePos / 100) * regionCropDuration;
         const proposedTrackPercentage = (proposedCropStartTime / duration) * 100;
-        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage);
+        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         const snappedCropStartTime = (snappedTrackPercentage / 100) * duration;
 
         // Convert back to relative position within crop area
@@ -552,7 +519,7 @@ export default function Region({
         const regionCropLeftTime = regionCropLeftPos / 100 * duration;
         const proposedCropEndTime = regionCropLeftTime + regionCropDuration - (relativePos / 100) * regionCropDuration;
         const proposedTrackPercentage = (proposedCropEndTime / duration) * 100;
-        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage);
+        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         const snappedCropEndTime = (snappedTrackPercentage / 100) * duration;
 
         // Convert back to relative position within crop area
@@ -581,7 +548,7 @@ export default function Region({
           newStartTime = regionCropLeftTime + cropTime;
           // Snap the new start time to grid
           const newStartTimePercentage = (newStartTime / duration) * 100;
-          const snappedStartPercentage = snapToGrid(newStartTimePercentage);
+          const snappedStartPercentage = snapToGrid(newStartTimePercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
           newStartTime = (snappedStartPercentage / 100) * duration;
           newOffset = offset + newStartTime - startTime;
         }
@@ -592,7 +559,7 @@ export default function Region({
           newEndTime = regionCropLeftTime + regionCropDuration - cropTime;
           // Snap the new end time to grid
           const newEndTimePercentage = (newEndTime / duration) * 100;
-          const snappedEndPercentage = snapToGrid(newEndTimePercentage);
+          const snappedEndPercentage = snapToGrid(newEndTimePercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
           newEndTime = (snappedEndPercentage / 100) * duration;
         }
         
@@ -693,7 +660,7 @@ export default function Region({
         width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : width}%`, 
         height: '100%',
         left: `${isDraggingCropStart || isDraggingCropEnd ? regionCropLeftPos : regionLeftPos}%`,
-        cursor: isPlaying || isRecording || readonly ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
+        cursor: isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
       }}
       ref={regionContainerRef}
       onMouseDown={handleRegionMouseDown}
