@@ -12,7 +12,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import TrackMeta from '@/components/TrackMeta';
 import './collaborate.css';
 import styles from '@/components/Track.module.css';
-import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop, FaUserPlus} from 'react-icons/fa';
+import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop} from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
 import { useMobile } from '../../../contexts/MobileContext';
 import DAW from '@/components/DAW/DAW';
@@ -33,7 +33,6 @@ function TrackContent() {
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
   const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
-  const [isInviteLinkCopied, setIsInviteLinkCopied] = useState(false);
 
   useEffect(() => {
     async function loadTrack() {
@@ -139,21 +138,6 @@ function TrackContent() {
         console.error('Failed to copy link:', err);
         alert('Failed to copy link to clipboard');
         setIsLinkCopied(false);
-      });
-  };
-
-  const handleCopyInviteLink = () => {
-    const currentUrl = window.location.href;
-    
-    navigator.clipboard.writeText(currentUrl)
-      .then(() => {
-        setIsInviteLinkCopied(true);
-        setTimeout(() => setIsInviteLinkCopied(false), 2000);
-      })
-      .catch(err => {
-        console.error('Failed to copy link:', err);
-        alert('Failed to copy link to clipboard');
-        setIsInviteLinkCopied(false);
       });
   };
 
@@ -275,15 +259,6 @@ function TrackContent() {
              <FaProjectDiagram className="explore-icon" />
              <span>Explore</span>
            </Link>
-           {isTrackOwner && !isPrivate && (
-             <button 
-               className="pill-btn"
-               onClick={handleCopyInviteLink}
-             >
-               <FaUserPlus className="explore-icon" />
-               <span>{isInviteLinkCopied ? 'Link Copied!' : 'Invite collaborators'}</span>
-             </button>
-           )}
          </div>
       </div>
       <CustomTabs

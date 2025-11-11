@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { FaCheckCircle, FaCampground, FaUsers, FaCalendarAlt, FaLink, FaShareAlt, FaExclamationTriangle, FaMusic, FaUpload, FaUserPlus, FaRocket } from 'react-icons/fa';
@@ -205,7 +205,7 @@ function CampCreatedClient() {
         </div>
 
         <div className={styles.nextSteps}>
-          <h3>What's Next?</h3>
+          <h3>What&apos;s Next?</h3>
           <div className={styles.stepsList}>
             <div className={styles.step}>
               <div className={styles.stepNumber}>1</div>
@@ -256,6 +256,15 @@ function CampCreatedClient() {
 
 export default function CampCreated() {
   return (
-    <CampCreatedClient />
+    <Suspense fallback={
+      <div className={styles.container}>
+        <div className={styles.loading}>
+          <FaCampground className={styles.loadingIcon} />
+          <p>Loading...</p>
+        </div>
+      </div>
+    }>
+      <CampCreatedClient />
+    </Suspense>
   );
 }
