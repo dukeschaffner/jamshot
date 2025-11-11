@@ -35,6 +35,7 @@ class TrackManager {
           gain: stem.gain,
           order: stem.order,
           title: stem.title,
+          regions: stem.regions || [],
           name: `Stem ${index + 1} (Track ${stem.track_id})`
         };
       });
@@ -72,7 +73,17 @@ class TrackManager {
 
     const track = new Track(stemData.id, this.audioContext, [], stemData.title);
     track.setGain(stemData.gain);
-    track.addRegion(bufferKey, null, null, null, 'stem-region');
+    
+    // Add regions if present, otherwise add a single region covering the full buffer
+    if (stemData.regions && stemData.regions.length > 0) {
+      // Add each region from the stem data
+      stemData.regions.forEach(region => {
+        track.addRegion(bufferKey, region.startTime, region.offset, region.endTime, 'stem-region');
+      });
+    } else {
+      // Default: add a single region covering the full buffer
+      track.addRegion(bufferKey, null, null, null, 'stem-region');
+    }
 
     this.tracks.set(stemData.id, track);
     return track;

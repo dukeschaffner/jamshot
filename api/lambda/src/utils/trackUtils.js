@@ -670,7 +670,9 @@ async function getStemChain(trackId) {
     audio_url: audioUrlMap[stem.track_id],
     title: titleMap[stem.track_id],
     gain: stem.gain,
-    order: stem.order
+    order: stem.order,
+    // Include regions if present
+    ...(stem.regions && { regions: stem.regions })
   }));
 
   // Sort by order to maintain proper sequence
@@ -711,18 +713,18 @@ function calculateEffectiveGain(trackId, mixGains) {
   return stem ? stem.gain : 1.0;
 }
 
-// Validate a stem chain for mixing and validate/update against provided stem gains
-function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
-  if (!stemChain || !parsedStemGains) {
-    return { valid: false, error: 'Stem chain and parsedStemGains are required' };
+// Validate a stem chain for mixing and validate/update against provided stems
+function validateAndUpdateStemChain(stemChain, parsedStems, maxStems = 10) {
+  if (!stemChain || !parsedStems) {
+    return { valid: false, error: 'Stem chain and parsedStems are required' };
   }
 
   if (!Array.isArray(stemChain)) {
     return { valid: false, error: 'Stem chain must be a non-empty array' };
   }
 
-  if (!Array.isArray(parsedStemGains) || parsedStemGains.length === 0) {
-    return { valid: false, error: 'parsedStemGains must be a non-empty array' };
+  if (!Array.isArray(parsedStems) || parsedStems.length === 0) {
+    return { valid: false, error: 'parsedStems must be a non-empty array' };
   }
 
   if (stemChain.length > maxStems) {
@@ -732,8 +734,8 @@ function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
     };
   }
 
-  if(parsedStemGains.length !== stemChain.length + 1) {
-    return { valid: false, error: 'parsedStemGains must have the same length as the stem chain plus one' };
+  if(parsedStems.length !== stemChain.length + 1) {
+    return { valid: false, error: 'parsedStems must have the same length as the stem chain plus one' };
   }
 
   for (let i = 0; i < stemChain.length; i++) {
@@ -763,46 +765,66 @@ function validateAndUpdateStemChain(stemChain, parsedStemGains, maxStems = 10) {
     return { valid: false, error: 'Duplicate track_ids found in stem chain' };
   }
 
-  // Check that all stem chain track_ids exist in parsedStemGains (except recording)
+  // Check that all stem chain track_ids exist in parsedStems (except recording)
   const stemChainTrackIds = stemChain.map(s => s.track_id);
-  const parsedStemGainsTrackIds = parsedStemGains.map(g => g.track_id);
+  const parsedStemsTrackIds = parsedStems.map(s => s.track_id);
 
-  // Check that all stem chain track_ids are present in parsedStemGains
+  // Check that all stem chain track_ids are present in parsedStems
   for (const trackId of stemChainTrackIds) {
-    if (!parsedStemGainsTrackIds.includes(trackId)) {
-      return { valid: false, error: `parsedStemGains is missing gain for track_id: ${trackId}` };
+    if (!parsedStemsTrackIds.includes(trackId)) {
+      return { valid: false, error: `parsedStems is missing entry for track_id: ${trackId}` };
     }
   }
 
-  // Check that parsedStemGains has the 'recording' entry
-  if (!parsedStemGainsTrackIds.includes('recording')) {
-    return { valid: false, error: 'parsedStemGains must include an entry with track_id: "recording"' };
+  // Check that parsedStems has the 'recording' entry
+  if (!parsedStemsTrackIds.includes('recording')) {
+    return { valid: false, error: 'parsedStems must include an entry with track_id: "recording"' };
   }
 
-  // Validate that all entries in parsedStemGains have valid gain values
-  for (const gainEntry of parsedStemGains) {
-    if (!gainEntry.track_id) {
-      return { valid: false, error: 'parsedStemGains entry missing track_id' };
+  // Validate that all entries in parsedStems have valid gain values and optional regions
+  for (const stemEntry of parsedStems) {
+    if (!stemEntry.track_id) {
+      return { valid: false, error: 'parsedStems entry missing track_id' };
     }
-    if (typeof gainEntry.gain !== 'number' || gainEntry.gain < 0 || gainEntry.gain > 2) {
-      return { valid: false, error: `Invalid gain value for track_id ${gainEntry.track_id}: ${gainEntry.gain}` };
+    if (typeof stemEntry.gain !== 'number' || stemEntry.gain < 0 || stemEntry.gain > 2) {
+      return { valid: false, error: `Invalid gain value for track_id ${stemEntry.track_id}: ${stemEntry.gain}` };
+    }
+    
+    // Validate regions if present (for non-recording tracks)
+    if (stemEntry.regions && Array.isArray(stemEntry.regions)) {
+      for (const region of stemEntry.regions) {
+        if (typeof region.startTime !== 'number' || region.startTime < 0) {
+          return { valid: false, error: `Invalid startTime in region for track_id ${stemEntry.track_id}` };
+        }
+        if (typeof region.endTime !== 'number' || region.endTime <= region.startTime) {
+          return { valid: false, error: `Invalid endTime in region for track_id ${stemEntry.track_id}` };
+        }
+        if (typeof region.offset !== 'number' || region.offset < 0) {
+          return { valid: false, error: `Invalid offset in region for track_id ${stemEntry.track_id}` };
+        }
+      }
     }
   }
 
-  // Update gain values in stemChain with values from parsedStemGains
+  // Update gain values and regions in stemChain with values from parsedStems
   for (let i = 0; i < stemChain.length; i++) {
     const stem = stemChain[i];
-    const matchingGainEntry = parsedStemGains.find(g => g.track_id === stem.track_id);
-    if (matchingGainEntry) {
-      stemChain[i].gain = matchingGainEntry.gain;
+    const matchingStemEntry = parsedStems.find(s => s.track_id === stem.track_id);
+    if (matchingStemEntry) {
+      stemChain[i].gain = matchingStemEntry.gain;
+      // Preserve regions if present
+      if (matchingStemEntry.regions) {
+        stemChain[i].regions = matchingStemEntry.regions;
+      }
     }
   }
 
-  // Add recording gain to the end of the stemChain
+  // Add recording stem to the end of the stemChain
+  const recordingStem = parsedStems.find(s => s.track_id === 'recording');
   stemChain.push({
     track_id: 'recording',
     audio_url: '',
-    gain: parsedStemGains.find(g => g.track_id === 'recording').gain,
+    gain: recordingStem.gain,
     order: stemChain.length
   });
 
@@ -822,7 +844,7 @@ function parseTrackUploadBody(body) {
     genreIds,
     instrumentIds,
     metronome_bpm,
-    stem_gains,
+    stems,
     time_signature,
     is_private,
     allow_download,
@@ -836,20 +858,20 @@ function parseTrackUploadBody(body) {
   // Parse metronome_bpm if provided
   let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
 
-  // Parse stem gains array if provided
-  let parsedStemGains = null;
-  if (stem_gains) {
+  // Parse stems array if provided
+  let parsedStems = null;
+  if (stems) {
     try {
-      parsedStemGains = typeof stem_gains === 'string' ? JSON.parse(stem_gains) : stem_gains;
-      if (!Array.isArray(parsedStemGains)) {
-        console.warn('stem_gains is not an array, ignoring');
-        parsedStemGains = null;
+      parsedStems = typeof stems === 'string' ? JSON.parse(stems) : stems;
+      if (!Array.isArray(parsedStems)) {
+        console.warn('stems is not an array, ignoring');
+        parsedStems = null;
       } else {
-        console.log('Parsed stem gains:', parsedStemGains);
+        console.log('Parsed stems:', parsedStems);
       }
     } catch (error) {
-      console.warn('Failed to parse stem_gains:', error);
-      parsedStemGains = null;
+      console.warn('Failed to parse stems:', error);
+      parsedStems = null;
     }
   }
 
@@ -870,7 +892,7 @@ function parseTrackUploadBody(body) {
   console.log('- Title:', title);
   console.log('- Parent track ID:', parent_track_id || 'None (original track)');
   console.log('- S3 Key:', s3Key);
-  console.log('- Stem gains:', parsedStemGains || 'Not provided');
+  console.log('- Stems:', parsedStems || 'Not provided');
   console.log('- Time signature:', parsedTimeSignature);
   console.log('- Metronome offset:', parsedMetronomeOffset);
   console.log('- Private:', isPrivate ? 'Yes' : 'No');
@@ -884,7 +906,7 @@ function parseTrackUploadBody(body) {
     parsedGenreIds,
     parsedInstrumentIds,
     parsedMetronomeBpm,
-    parsedStemGains,
+    parsedStems,
     parsedTimeSignature,
     isPrivate,
     allowDownload,
