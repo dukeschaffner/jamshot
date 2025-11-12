@@ -1,0 +1,8 @@
+/* Team-specific dashboard styles */
+/* Shared styles are in ../../../styles/Dashboard.module.css */
+
+/* Team-specific icon styling */
+.teamIcon {
+  font-size: 28px;
+  color: var(--seafoam);
+}

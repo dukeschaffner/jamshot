@@ -13,19 +13,20 @@ import {
   FaUpload, FaPlus, FaSearch
 } from 'react-icons/fa';
 import styles from './CampDashboard.module.css';
+import sharedStyles from '../../../styles/Dashboard.module.css';
 import BeatPoolTab from './components/BeatPoolTab';
 import MyRoomTab from './components/MyRoomTab';
 import RoomsTab from './components/RoomsTab';
 import TracksTab from './components/TracksTab';
 import ActivityTab from './components/ActivityTab';
-import InviteModal from './components/InviteModal';
+import InviteLinkModal from '../../../components/InviteLinkModal';
 import SettingsModal from './components/SettingsModal';
 
 export default function CampDashboard() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated } = useUser();
+  const { user, isAuthenticated, isLoading: userLoading } = useUser();
 
   const campId = parseInt(params.id);
   const inviteCode = searchParams.get('code');
@@ -40,7 +41,8 @@ export default function CampDashboard() {
   // Handle invite code validation on mount
   useEffect(() => {
     const validateInvite = async () => {
-      if (inviteCode && isAuthenticated) {
+      // Wait until user loading is complete before validating invite code
+      if (inviteCode && isAuthenticated && !userLoading) {
         try {
           const response = await campApi.validateInviteCode(inviteCode);
           if (response.data.valid) {
@@ -55,10 +57,15 @@ export default function CampDashboard() {
     };
 
     validateInvite();
-  }, [inviteCode, campId, isAuthenticated, router]);
+  }, [inviteCode, campId, isAuthenticated, userLoading, router]);
 
   // Fetch camp details
   const fetchCampDetails = async () => {
+    // Wait until user loading is complete before fetching camp details
+    if (userLoading) {
+      return;
+    }
+
     if (!isAuthenticated) {
       setIsLoading(false);
       return;
@@ -85,7 +92,7 @@ export default function CampDashboard() {
   useEffect(() => {
     fetchCampDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campId, isAuthenticated]);
+  }, [campId, isAuthenticated, userLoading]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -143,13 +150,19 @@ export default function CampDashboard() {
   };
 
   if (!isAuthenticated) {
+    // Build redirect URL with current path and query params
+    const currentPath = `/camp/${campId}`;
+    const redirectUrl = inviteCode 
+      ? `${currentPath}?code=${encodeURIComponent(inviteCode)}`
+      : currentPath;
+    
     return (
-      <div className={styles.container}>
-        <div className={styles.error}>
-          <FaCampground className={styles.errorIcon} />
+      <div className={sharedStyles.container}>
+        <div className={sharedStyles.error}>
+          <FaCampground className={sharedStyles.errorIcon} />
           <h1>Authentication Required</h1>
           <p>Please log in to view this camp</p>
-          <button onClick={() => router.push('/login')} className={styles.primaryButton}>
+          <button onClick={() => router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`)} className={sharedStyles.primaryButton}>
             Log In
           </button>
         </div>
@@ -159,7 +172,7 @@ export default function CampDashboard() {
 
   if (isLoading) {
     return (
-      <div className={styles.container}>
+      <div className={sharedStyles.container}>
         <LoadingSpinner />
       </div>
     );
@@ -167,11 +180,11 @@ export default function CampDashboard() {
 
   if (error || !camp) {
     return (
-      <div className={styles.container}>
-        <div className={styles.error}>
-          <FaCampground className={styles.errorIcon} />
+      <div className={sharedStyles.container}>
+        <div className={sharedStyles.error}>
+          <FaCampground className={sharedStyles.errorIcon} />
           <h1>{error || 'Camp Not Found'}</h1>
-          <button onClick={() => router.push('/camps')} className={styles.primaryButton}>
+          <button onClick={() => router.push('/camps')} className={sharedStyles.primaryButton}>
             Back to Camps
           </button>
         </div>
@@ -181,12 +194,12 @@ export default function CampDashboard() {
 
   if (isCampEnded()) {
     return (
-      <div className={styles.container}>
-        <div className={styles.error}>
-          <FaCampground className={styles.errorIcon} />
+      <div className={sharedStyles.container}>
+        <div className={sharedStyles.error}>
+          <FaCampground className={sharedStyles.errorIcon} />
           <h1>This Camp Has Ended</h1>
           <p>The camp ended on {formatDate(camp.end_date)}</p>
-          <button onClick={() => router.push('/camps')} className={styles.primaryButton}>
+          <button onClick={() => router.push('/camps')} className={sharedStyles.primaryButton}>
             Back to Camps
           </button>
         </div>
@@ -213,32 +226,32 @@ export default function CampDashboard() {
   );
 
   return (
-    <div className={styles.container}>
+    <div className={sharedStyles.container}>
       {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.headerTop}>
-          <div className={styles.campInfo}>
-            <div className={styles.campName}>
+      <div className={sharedStyles.header}>
+        <div className={sharedStyles.headerTop}>
+          <div className={sharedStyles.entityInfo}>
+            <div className={sharedStyles.entityName}>
               <FaCampground className={styles.campIcon} />
               <h1>{camp.name}</h1>
             </div>
-            <div className={styles.campMeta}>
-              <div className={styles.metaItem}>
+            <div className={sharedStyles.entityMeta}>
+              <div className={sharedStyles.metaItem}>
                 <FaCalendarAlt />
                 <span>{formatDate(camp.start_date)} - {formatDate(camp.end_date)}</span>
               </div>
-              <div className={styles.metaItem}>
+              <div className={sharedStyles.metaItem}>
                 <FaUsers />
                 <span>{camp.member_count || 0} / {getUserLimit()} members</span>
               </div>
             </div>
           </div>
 
-          <div className={styles.headerActions}>
+          <div className={sharedStyles.headerActions}>
             {isAdmin() && (
               <button 
                 onClick={handleSettingsClick}
-                className={styles.iconButton}
+                className={sharedStyles.iconButton}
                 title="Camp Settings"
               >
                 <FaCog />
@@ -247,7 +260,7 @@ export default function CampDashboard() {
             )}
             <button 
               onClick={handleInviteClick}
-              className={styles.iconButton}
+              className={sharedStyles.iconButton}
               title="Invite Users"
             >
               <FaUserPlus />
@@ -255,7 +268,7 @@ export default function CampDashboard() {
             </button>
             <button 
               onClick={handleExportClick}
-              className={styles.iconButton}
+              className={sharedStyles.iconButton}
               title="Export Camp"
             >
               <FaDownload />
@@ -273,7 +286,7 @@ export default function CampDashboard() {
       </div>
 
       {/* Tab Navigation */}
-      <div className={styles.tabsContainer}>
+      <div className={sharedStyles.tabsContainer}>
         <CustomTabs
           tabs={tabs}
           activeTab={activeTab}
@@ -282,7 +295,7 @@ export default function CampDashboard() {
       </div>
 
       {/* Tab Content */}
-      <div className={styles.content}>
+      <div className={sharedStyles.content}>
         {activeTab === 'beats' && <BeatPoolTab camp={camp} isActive={isCampActive()} />}
         {activeTab === 'my-room' && <MyRoomTab camp={camp} room={userRoom} isActive={isCampActive()} />}
         {activeTab === 'rooms' && <RoomsTab camp={camp} isAdmin={isAdmin()} onCampUpdate={fetchCampDetails} />}
@@ -292,8 +305,11 @@ export default function CampDashboard() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <InviteModal
-          camp={camp}
+        <InviteLinkModal
+          title="Invite to Camp"
+          entityType="camp"
+          entityId={camp.id}
+          inviteCode={camp.camp_code}
           onClose={() => setShowInviteModal(false)}
         />
       )}

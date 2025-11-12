@@ -18,6 +18,9 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const { login } = useUser();
 
+  // Get redirect URL from query params
+  const redirectUrl = searchParams.get('redirect');
+
   // Check for messages on component mount
   useEffect(() => {
     // Check if user just verified their email
@@ -44,8 +47,8 @@ function LoginContent() {
     setIsLoggingIn(true);
     
     try {
-      // Use the login function from UserContext
-      const result = await login(email, password);
+      // Use the login function from UserContext, passing redirect URL
+      const result = await login(email, password, redirectUrl);
       
       if (!result.success) {
         if (result.isEmailNotVerified) {

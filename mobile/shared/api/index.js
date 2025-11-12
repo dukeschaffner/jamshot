@@ -575,6 +575,49 @@ const createApiMethods = (apiClient) => {
     },
   };
 
+  // Team API methods
+  const teamApi = {
+    createTeam: (teamData) => api.post('/teams', teamData),
+
+    getTeam: (teamId) => api.get(`/teams/${teamId}`),
+
+    getTeamSuccess: (sessionId) => api.get(`/teams/created?session_id=${sessionId}`),
+
+    updateTeam: (teamId, data) => api.put(`/teams/${teamId}`, data),
+
+    inviteUser: (teamId, username) => api.post(`/teams/${teamId}/invite`, { username }),
+
+    getMembers: (teamId) => api.get(`/teams/${teamId}/members`),
+
+    getTracks: (teamId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/teams/${teamId}/tracks?${queryParams.toString()}`);
+    },
+
+    getFolders: (teamId) => api.get(`/teams/${teamId}/folders`),
+
+    createFolder: (teamId, folderData) => api.post(`/teams/${teamId}/folders`, folderData),
+
+    updateFolder: (teamId, folderId, data) => api.put(`/teams/${teamId}/folders/${folderId}`, data),
+
+    deleteFolder: (teamId, folderId) => api.delete(`/teams/${teamId}/folders/${folderId}`),
+
+    getFolderTracks: (teamId, folderId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/teams/${teamId}/folders/${folderId}/tracks?${queryParams.toString()}`);
+    },
+  };
+
   return {
     trackApi,
     userApi,
@@ -585,6 +628,7 @@ const createApiMethods = (apiClient) => {
     tagApi,
     analyticsApi,
     campApi,
+    teamApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,

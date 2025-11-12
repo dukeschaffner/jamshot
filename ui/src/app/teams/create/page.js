@@ -1,50 +1,63 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
-import { FaCampground, FaCalendarAlt, FaUsers, FaCreditCard, FaClock, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
-import { campApi } from '../../../lib/api';
+import { FaUsers, FaCreditCard, FaClock, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { teamApi } from '../../../lib/api';
+import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../../shared/utils/subscription';
 import sharedStyles from '../../../styles/SharedForm.module.css';
-import styles from './CampCreate.module.css';
+import styles from './TeamCreate.module.css';
 
-function CreateCampClient() {
+function CreateTeamClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated } = useUser();
+
+  // Helper to validate team product version
+  const isValidTeamProductVersion = (version) => {
+    return Object.values(TEAM_PRODUCT_VERSIONS).includes(version);
+  };
+
+  // Get plan version from URL query parameter, default to 25_users
+  const planFromUrl = searchParams.get('plan');
+  const defaultPlanVersion = planFromUrl && isValidTeamProductVersion(planFromUrl) && planFromUrl !== TEAM_PRODUCT_VERSIONS.ENTERPRISE
+    ? planFromUrl
+    : '25_users';
 
   // Form state
   const [formData, setFormData] = useState({
     name: '',
-    start_date: '',
-    product_version: '25_users' // Default to 25 users
+    product_version: defaultPlanVersion
   });
+
+  // Update product_version if plan query param changes
+  useEffect(() => {
+    if (planFromUrl && isValidTeamProductVersion(planFromUrl) && planFromUrl !== TEAM_PRODUCT_VERSIONS.ENTERPRISE) {
+      setFormData(prev => ({
+        ...prev,
+        product_version: planFromUrl
+      }));
+    }
+  }, [planFromUrl]);
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Pricing information
-  const pricing = {
-    '10_users': { name: 'Up to 10 Users', price: '$49', description: 'Indie-friendly; low-friction' },
-    '25_users': { name: 'Up to 25 Users', price: '$99', description: 'School programs, indie pro camps' },
-    '50_users': { name: 'Up to 50 Users', price: '$199', description: 'Publisher/label camps' },
-    '100_users': { name: 'Up to 100 Users', price: '$299', description: 'Large enterprise writing retreats' }
-  };
-
-  useEffect(() => {
-    // Don't redirect if not authenticated - let component handle it
-    if (!isAuthenticated) {
-      return;
-    }
-
-    // Set default start date to tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setFormData(prev => ({
-      ...prev,
-      start_date: tomorrow.toISOString().split('T')[0]
-    }));
-  }, [isAuthenticated, router]);
+  // Get available team plans (exclude enterprise as it requires custom pricing)
+  const availablePlans = useMemo(() => {
+    return Object.entries(TEAM_PLANS)
+      .filter(([version]) => version !== TEAM_PRODUCT_VERSIONS.ENTERPRISE)
+      .map(([version, plan]) => ({
+        version,
+        ...plan,
+        formattedPrice: formatPrice(plan.price),
+        uploadLimitText: plan.limits.daily_uploads === -1 
+          ? 'Unlimited uploads'
+          : `${plan.limits.daily_uploads}/day, ${plan.limits.max_total_uploads === -1 ? 'unlimited' : plan.limits.max_total_uploads.toLocaleString()} total`
+      }));
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -65,22 +78,14 @@ function CreateCampClient() {
     try {
       // Validate form
       if (!formData.name.trim()) {
-        throw new Error('Camp name is required');
+        throw new Error('Team name is required');
       }
 
-      if (!formData.start_date) {
-        throw new Error('Start date is required');
-      }
-
-      const startDate = new Date(formData.start_date);
-      const now = new Date();
-
-      if (startDate <= now) {
-        throw new Error('Start date must be in the future');
-      }
-
-      // Create camp checkout session
-      const response = await campApi.createCamp(formData);
+      // Create team checkout session
+      const response = await teamApi.createTeam({
+        name: formData.name,
+        product_version: formData.product_version
+      });
 
       if (response.data.sessionId && response.data.url) {
         // Redirect to Stripe checkout
@@ -89,8 +94,8 @@ function CreateCampClient() {
         throw new Error('Failed to create checkout session');
       }
     } catch (err) {
-      console.error('Error creating camp:', err);
-      setError(err.message || 'Failed to create camp. Please try again.');
+      console.error('Error creating team:', err);
+      setError(err.response?.data?.error || err.message || 'Failed to create team. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -98,13 +103,13 @@ function CreateCampClient() {
 
   if (!isAuthenticated) {
     return (
-      <div className={styles.campCreateContainer}>
+      <div className={styles.teamCreateContainer}>
         <div className={sharedStyles.authRequired}>
-          <FaCampground className={sharedStyles.authIcon} />
+          <FaUsers className={sharedStyles.authIcon} />
           <h1>Login Required</h1>
-          <p>You need to be logged in to create a songwriting camp.</p>
+          <p>You need to be logged in to create a team.</p>
           <button
-            onClick={() => router.push('/login?redirect=/camps/create')}
+            onClick={() => router.push('/login?redirect=/teams/create')}
             className={sharedStyles.loginButton}
           >
             Login to Continue
@@ -115,25 +120,25 @@ function CreateCampClient() {
   }
 
   return (
-    <div className={styles.campCreateContainer}>
+    <div className={styles.teamCreateContainer}>
       <div className={sharedStyles.formContainer}>
         <div className={sharedStyles.formHeader}>
-          <FaCampground className={sharedStyles.formHeaderIcon} />
-          <h1>Create Songwriting Camp</h1>
-          <p>Start your collaborative songwriting journey</p>
+          <FaUsers className={sharedStyles.formHeaderIcon} />
+          <h1>Create Team</h1>
+          <p>Start collaborating with your team</p>
         </div>
 
         <form onSubmit={handleSubmit} className={sharedStyles.form}>
-          {/* Camp Details Section */}
+          {/* Team Details Section */}
           <div className={sharedStyles.formSection}>
             <h3>
-              <FaCampground />
-              Camp Details
+              <FaUsers />
+              Team Details
             </h3>
 
             <div className={sharedStyles.formGroup}>
               <label htmlFor="name" className={sharedStyles.formLabel}>
-                Camp Name *
+                Team Name *
               </label>
               <input
                 type="text"
@@ -142,31 +147,10 @@ function CreateCampClient() {
                 value={formData.name}
                 onChange={handleInputChange}
                 className={sharedStyles.formInput}
-                placeholder="e.g., Summer Songwriting Retreat 2025"
+                placeholder="e.g., Acme Studios"
                 required
                 disabled={isLoading}
               />
-            </div>
-
-            <div className={sharedStyles.formGroup}>
-              <label htmlFor="start_date" className={sharedStyles.formLabel}>
-                <FaCalendarAlt />
-                Start Date *
-              </label>
-              <input
-                type="date"
-                id="start_date"
-                name="start_date"
-                value={formData.start_date}
-                onChange={handleInputChange}
-                className={sharedStyles.formInput}
-                min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                required
-                disabled={isLoading}
-              />
-              <small className={sharedStyles.formHelp}>
-                Your 7-day camp will start on this date and last exactly one week.
-              </small>
             </div>
           </div>
 
@@ -174,26 +158,34 @@ function CreateCampClient() {
           <div className={sharedStyles.formSection}>
             <h3>
               <FaUsers />
-              Camp Size & Pricing
+              Team Size & Pricing
             </h3>
 
             <div className={sharedStyles.pricingOptions}>
-              {Object.entries(pricing).map(([version, info]) => (
-                <label key={version} className={sharedStyles.pricingOption}>
+              {availablePlans.map((plan) => (
+                <label key={plan.version} className={sharedStyles.pricingOption}>
                   <input
                     type="radio"
                     name="product_version"
-                    value={version}
-                    checked={formData.product_version === version}
+                    value={plan.version}
+                    checked={formData.product_version === plan.version}
                     onChange={handleInputChange}
                     disabled={isLoading}
                   />
                   <div className={sharedStyles.pricingCard}>
                     <div className={sharedStyles.pricingHeader}>
-                      <h4>{info.name}</h4>
-                      <span className={sharedStyles.price}>{info.price}</span>
+                      <h4>{plan.name}</h4>
+                      <span className={sharedStyles.price}>{plan.formattedPrice}</span>
                     </div>
-                    <p className={sharedStyles.pricingDescription}>{info.description}</p>
+                    <div className={sharedStyles.pricingDescription}>
+                      {plan.highlights && plan.highlights.length > 0 && (
+                        <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.9rem', lineHeight: '1.6', listStyleType: 'disc' }}>
+                          {plan.highlights.map((highlight, idx) => (
+                            <li key={idx} style={{ marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>{highlight}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 </label>
               ))}
@@ -208,20 +200,16 @@ function CreateCampClient() {
             </h3>
             <div className={sharedStyles.paymentSummary}>
               <div className={sharedStyles.summaryItem}>
-                <span>Camp:</span>
-                <span>{formData.name || 'Untitled Camp'}</span>
+                <span>Team:</span>
+                <span>{formData.name || 'Untitled Team'}</span>
               </div>
               <div className={sharedStyles.summaryItem}>
-                <span>Duration:</span>
-                <span>7 days</span>
-              </div>
-              <div className={sharedStyles.summaryItem}>
-                <span>Size:</span>
-                <span>{pricing[formData.product_version]?.name}</span>
+                <span>Plan:</span>
+                <span>{TEAM_PLANS[formData.product_version]?.name || 'Unknown Plan'}</span>
               </div>
               <div className={`${sharedStyles.summaryItem} ${sharedStyles.total}`}>
-                <span>Total:</span>
-                <span>{pricing[formData.product_version]?.price}</span>
+                <span>Monthly Total:</span>
+                <span>{TEAM_PLANS[formData.product_version] ? formatPrice(TEAM_PLANS[formData.product_version].price) + '/month' : 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -254,12 +242,12 @@ function CreateCampClient() {
             <button
               type="submit"
               className={sharedStyles.submitButton}
-              disabled={isLoading || !formData.name.trim() || !formData.start_date}
+              disabled={isLoading || !formData.name.trim()}
             >
               {isLoading ? (
                 <>
                   <FaClock className={sharedStyles.loadingIcon} />
-                  Creating Camp...
+                  Creating Team...
                 </>
               ) : (
                 <>
@@ -275,8 +263,11 @@ function CreateCampClient() {
   );
 }
 
-export default function CreateCamp() {
+export default function CreateTeam() {
   return (
-    <CreateCampClient />
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>}>
+      <CreateTeamClient />
+    </Suspense>
   );
 }
+
