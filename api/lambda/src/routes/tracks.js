@@ -35,9 +35,10 @@ const {
   validateAndUpdateStemChain,
   parseTrackUploadBody
 } = require('../utils/trackUtils');
-const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota } = require('../utils/subscriptionUtils');
+const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
 const { validateCompetitionEntry } = require('../utils/competition');
+const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils');
 require('dotenv').config;
 
 async function getParser() {
@@ -251,6 +252,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     parsedMetronomeOffset,
     camp_id,
     room_id,
+    team_id,
+    folder_id,
     key
   } = parseTrackUploadBody(req.body);
 
@@ -480,6 +483,50 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         room_id = null;
       }
     }
+    else if (team_id) {
+      // Validate team access
+      const teamAccessValidation = await validateTeamAccess(team_id, userId);
+      if (!teamAccessValidation.valid) {
+        return res.status(403).json({ error: teamAccessValidation.error });
+      }
+
+      const team = teamAccessValidation.team;
+      // Get team plan once and reuse it for both quota checks
+      const teamPlan = getTeamPlan(team.product_version);
+      if (!teamPlan) {
+        return res.status(400).json({ error: 'Invalid team product version' });
+      }
+
+      // Check team upload quotas
+      try {
+        // Check if team has reached their daily upload limit
+        const teamDailyQuotaCheck = await checkTeamDailyUploadQuota(team_id, team, teamPlan);
+        if (teamDailyQuotaCheck) {
+          return res.status(teamDailyQuotaCheck.status).json(teamDailyQuotaCheck.body);
+        }
+
+        // Check if team has reached their total track limit
+        const teamTotalQuotaCheck = await checkTeamTotalUploadQuota(team_id, team, teamPlan);
+        if (teamTotalQuotaCheck) {
+          return res.status(teamTotalQuotaCheck.status).json(teamTotalQuotaCheck.body);
+        }
+      } catch (err) {
+        console.error('Error checking team upload quotas:', err);
+        return res.status(500).json({ error: 'Failed to check team upload quotas' });
+      }
+
+      // Validate folder access if folder_id is provided
+      // Pass team object to avoid redundant team access validation
+      if (folder_id) {
+        const folderValidation = await validateTeamFolderAccess(folder_id, team_id, userId, team);
+        if (!folderValidation.valid) {
+          return res.status(403).json({ error: folderValidation.error });
+        }
+      }
+
+      // Team tracks should be private by default
+      isPrivate = true;
+    }
 
     // Phase 1: Insert track with placeholder mix_gains
     // Create a copy of stem chain without audio_url property for placeholder
@@ -494,8 +541,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING *',
-        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, key]
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key]
     );
 
     const trackId = result.rows[0].id;
