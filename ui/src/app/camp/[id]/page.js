@@ -26,7 +26,7 @@ export default function CampDashboard() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated, isLoading: userLoading } = useUser();
+  const { user, isAuthenticated, isLoading: userLoading, refreshUser } = useUser();
 
   const campId = parseInt(params.id);
   const inviteCode = searchParams.get('code');
@@ -38,30 +38,9 @@ export default function CampDashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  // Handle invite code validation on mount
-  useEffect(() => {
-    const validateInvite = async () => {
-      // Wait until user loading is complete before validating invite code
-      if (inviteCode && isAuthenticated && !userLoading) {
-        try {
-          const response = await campApi.validateInviteCode(inviteCode);
-          if (response.data.valid) {
-            // Successfully joined, refresh to show dashboard without code in URL
-            router.replace(`/camp/${campId}`);
-          }
-        } catch (err) {
-          console.error('Error validating invite code:', err);
-          setError(err.response?.data?.error || 'Invalid invite code');
-        }
-      }
-    };
-
-    validateInvite();
-  }, [inviteCode, campId, isAuthenticated, userLoading, router]);
-
-  // Fetch camp details
+  // Fetch camp details - validates invite code first if code parameter exists
   const fetchCampDetails = async () => {
-    // Wait until user loading is complete before fetching camp details
+    // Wait until user loading is complete
     if (userLoading) {
       return;
     }
@@ -71,6 +50,36 @@ export default function CampDashboard() {
       return;
     }
 
+    // If there's an invite code, check if user is already a member first
+    if (inviteCode) {
+      // Check if user is already a member of this camp
+      const isAlreadyMember = user?.camps?.some(camp => camp.id === campId);
+      
+      if (isAlreadyMember) {
+        // User is already a member, just remove code from URL and fetch details
+        router.replace(`/camp/${campId}`);
+        // Continue to fetch details below
+      } else {
+        // User is not a member, validate the invite code
+        try {
+          const response = await campApi.validateInviteCode(inviteCode);
+          if (response.data.valid) {
+            // Successfully joined, refresh user context to update camps array
+            await refreshUser();
+            // Refresh to show dashboard without code in URL
+            router.replace(`/camp/${campId}`);
+            return;
+          }
+        } catch (err) {
+          console.error('Error validating invite code:', err);
+          setError(err.response?.data?.error || 'Invalid invite code');
+          setIsLoading(false);
+          return;
+        }
+      }
+    }
+
+    // Fetch camp details
     try {
       const response = await campApi.getCamp(campId);
       setCamp(response.data);
@@ -92,7 +101,7 @@ export default function CampDashboard() {
   useEffect(() => {
     fetchCampDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campId, isAuthenticated, userLoading]);
+  }, [campId, isAuthenticated, userLoading, inviteCode]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {

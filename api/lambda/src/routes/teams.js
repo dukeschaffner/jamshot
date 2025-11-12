@@ -136,6 +136,77 @@ router.get('/created', apiEndpointLimiter, async (req, res) => {
   }
 });
 
+// Validate team access via invite code
+router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
+  const { code } = req.body;
+
+  if (!code) {
+    return res.status(400).json({ error: 'Team code is required' });
+  }
+
+  try {
+    const teamResult = await pool.query(
+      `SELECT t.*, u.username as admin_username, u.name as admin_name
+       FROM teams t
+       JOIN team_members tm ON t.id = tm.team_id AND tm.role = 'admin'
+       JOIN users u ON tm.user_id = u.id
+       WHERE t.team_code = $1
+       LIMIT 1`,
+      [code]
+    );
+
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Invalid team code' });
+    }
+
+    const team = teamResult.rows[0];
+
+    // Check if team subscription is active
+    if (team.subscription_status !== 'active' && team.subscription_status !== 'trialing') {
+      return res.status(400).json({ error: 'This team subscription is not active' });
+    }
+
+    // Check if user is already a member
+    const membershipCheck = await pool.query(
+      'SELECT id FROM team_members WHERE user_id = $1 AND team_id = $2',
+      [req.user.id, team.id]
+    );
+
+    const isMember = membershipCheck.rows.length > 0;
+
+    if (isMember) {
+      res.json({
+        valid: true,
+        team,
+        is_member: true,
+        message: 'You are already a member of this team'
+      });
+    } else {
+      // Check if team has reached user limit
+      const userLimitCheck = await checkTeamUserLimit(team.id);
+      if (!userLimitCheck.valid) {
+        return res.status(400).json({ error: userLimitCheck.error });
+      }
+
+      // Add user to team
+      await pool.query(
+        'INSERT INTO team_members (user_id, team_id, role) VALUES ($1, $2, $3)',
+        [req.user.id, team.id, 'contributor']
+      );
+
+      res.json({
+        valid: true,
+        team,
+        is_member: false,
+        message: 'Successfully joined team'
+      });
+    }
+  } catch (error) {
+    console.error('Error validating team code:', error);
+    res.status(500).json({ error: 'Failed to validate team code' });
+  }
+});
+
 // Get team details with members and folders
 router.get('/:id', apiEndpointLimiter, async (req, res) => {
   try {
@@ -279,6 +350,50 @@ router.get('/:id/members', apiEndpointLimiter, async (req, res) => {
   } catch (error) {
     console.error('Error fetching team members:', error);
     res.status(500).json({ error: 'Failed to fetch team members' });
+  }
+});
+
+// Remove member from team (admin only)
+router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const userId = parseInt(req.params.userId);
+
+  try {
+    // Check if user is admin
+    const adminCheck = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
+      [req.user.id, teamId, 'admin']
+    );
+
+    if (adminCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Prevent removing yourself
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot remove yourself from the team' });
+    }
+
+    // Check if user is a member of the team
+    const memberCheck = await pool.query(
+      'SELECT id FROM team_members WHERE user_id = $1 AND team_id = $2',
+      [userId, teamId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User is not a member of this team' });
+    }
+
+    // Remove user from team
+    await pool.query(
+      'DELETE FROM team_members WHERE user_id = $1 AND team_id = $2',
+      [userId, teamId]
+    );
+
+    res.json({ message: 'Member removed successfully' });
+  } catch (error) {
+    console.error('Error removing team member:', error);
+    res.status(500).json({ error: 'Failed to remove member' });
   }
 });
 

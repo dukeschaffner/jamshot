@@ -1,0 +1,165 @@
+.userCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+  transition: all 0.2s ease;
+}
+
+.userCard:hover {
+  background: var(--grey-1);
+  border-color: var(--seafoam);
+}
+
+.userLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.userName {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userHandle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.roleBadge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.roleAdmin {
+  background: var(--rustic-pink-light);
+  color: var(--dark);
+}
+
+body.dark-mode .roleAdmin {
+  background: var(--rustic-pink);
+  color: var(--dark-text-primary);
+}
+
+.roleContributor {
+  background: var(--seafoam-light);
+  color: var(--dark);
+}
+
+body.dark-mode .roleContributor {
+  background: var(--seafoam);
+  color: var(--dark-text-primary);
+}
+
+.roleViewer {
+  background: var(--grey-2);
+  color: var(--text-secondary);
+}
+
+.removeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--grey-2);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.removeButton:hover:not(:disabled) {
+  background: var(--rustic-pink-light);
+  border-color: var(--rustic-pink);
+  color: var(--rustic-pink);
+}
+
+body.dark-mode .removeButton:hover:not(:disabled) {
+  background: rgba(233, 169, 161, 0.2);
+  border-color: var(--rustic-pink);
+  color: var(--rustic-pink);
+}
+
+.removeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.removeButton svg {
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .userCard {
+    padding: 12px;
+  }
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .userName {
+    font-size: 14px;
+  }
+
+  .userHandle {
+    font-size: 12px;
+  }
+
+  .roleBadge {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  .removeButton {
+    width: 28px;
+    height: 28px;
+  }
+}
+

@@ -6,6 +6,7 @@ import { teamApi } from '../../../lib/api';
 import CustomTabs from '../../../components/CustomTabs';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import InviteLinkModal from '../../../components/InviteLinkModal';
+import UserCard from '../../../components/UserCard';
 import { 
   FaUsers, FaCog, FaUserPlus, FaMusic, FaFolder, FaBell,
   FaExclamationTriangle
@@ -18,7 +19,7 @@ export default function TeamDashboard() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated, isLoading: userLoading } = useUser();
+  const { user, isAuthenticated, isLoading: userLoading, refreshUser } = useUser();
 
   const teamId = parseInt(params.id);
   const inviteCode = searchParams.get('code');
@@ -29,24 +30,11 @@ export default function TeamDashboard() {
   const [activeTab, setActiveTab] = useState('tracks');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState(null);
 
-  // Handle invite code validation on mount (TODO: implement validate-code endpoint)
-  useEffect(() => {
-    const validateInvite = async () => {
-      // Wait until user loading is complete before validating invite code
-      if (inviteCode && isAuthenticated && !userLoading) {
-        // TODO: Implement team code validation similar to camps
-        // For now, just remove the code from URL
-        router.replace(`/teams/${teamId}`);
-      }
-    };
-
-    validateInvite();
-  }, [inviteCode, teamId, isAuthenticated, userLoading, router]);
-
-  // Fetch team details
+  // Fetch team details - validates invite code first if code parameter exists
   const fetchTeamDetails = async () => {
-    // Wait until user loading is complete before fetching team details
+    // Wait until user loading is complete
     if (userLoading) {
       return;
     }
@@ -56,6 +44,36 @@ export default function TeamDashboard() {
       return;
     }
 
+    // If there's an invite code, check if user is already a member first
+    if (inviteCode) {
+      // Check if user is already a member of this team
+      const isAlreadyMember = user?.teams?.some(team => team.id === teamId);
+      
+      if (isAlreadyMember) {
+        // User is already a member, just remove code from URL and fetch details
+        router.replace(`/teams/${teamId}`);
+        // Continue to fetch details below
+      } else {
+        // User is not a member, validate the invite code
+        try {
+          const response = await teamApi.validateInviteCode(inviteCode);
+          if (response.data.valid) {
+            // Successfully joined, refresh user context to update teams array
+            await refreshUser();
+            // Refresh to show dashboard without code in URL
+            router.replace(`/teams/${teamId}`);
+            return;
+          }
+        } catch (err) {
+          console.error('Error validating invite code:', err);
+          setError(err.response?.data?.error || 'Invalid invite code');
+          setIsLoading(false);
+          return;
+        }
+      }
+    }
+
+    // Fetch team details
     try {
       const response = await teamApi.getTeam(teamId);
       setTeam(response.data);
@@ -77,7 +95,7 @@ export default function TeamDashboard() {
   useEffect(() => {
     fetchTeamDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId, isAuthenticated, userLoading]);
+  }, [teamId, isAuthenticated, userLoading, inviteCode]);
 
   const getUserLimit = () => {
     if (!team) return 'Unknown';
@@ -108,6 +126,24 @@ export default function TeamDashboard() {
 
   const handleSettingsClick = () => {
     setShowSettingsModal(true);
+  };
+
+  const handleRemoveMember = async (userId) => {
+    try {
+      setRemovingMemberId(userId);
+      await teamApi.removeMember(teamId, userId);
+      // Refresh team details to update members list
+      await fetchTeamDetails();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to remove member';
+      setError(errorMessage);
+      // Clear error after 5 seconds
+      setTimeout(() => setError(''), 5000);
+      throw error; // Re-throw so UserCard can handle it
+    } finally {
+      setRemovingMemberId(null);
+    }
   };
 
   if (!isAuthenticated) {
@@ -246,11 +282,28 @@ export default function TeamDashboard() {
         )}
         {activeTab === 'members' && (
           <div className={sharedStyles.tabContent}>
-            <div className={sharedStyles.emptyState}>
-              <FaUsers className={sharedStyles.emptyIcon} />
-              <h3>Members</h3>
-              <p>Team members will appear here</p>
-            </div>
+            {team.members && team.members.length > 0 ? (
+              <div className={sharedStyles.memberList}>
+                {team.members.map((member) => (
+                  <UserCard
+                    key={member.id}
+                    user={member}
+                    role={member.role}
+                    entityType="team"
+                    entityId={teamId}
+                    onRemove={handleRemoveMember}
+                    isRemoving={removingMemberId === member.id}
+                    isCurrentUserAdmin={isAdmin()}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className={sharedStyles.emptyState}>
+                <FaUsers className={sharedStyles.emptyIcon} />
+                <h3>Members</h3>
+                <p>No members yet. Invite users to join your team.</p>
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'folders' && (

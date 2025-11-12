@@ -207,8 +207,8 @@
 
 /* Member List */
 .memberList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -431,10 +431,6 @@
 
   .sortSelect {
     flex: 1;
-  }
-
-  .memberList {
-    grid-template-columns: 1fr;
   }
 
   .emptyState {

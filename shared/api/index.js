@@ -538,6 +538,8 @@ const createApiMethods = (apiClient) => {
 
     inviteUser: (campId, username) => api.post(`/camps/${campId}/invite`, { username }),
 
+    removeMember: (campId, userId) => api.delete(`/camps/${campId}/members/${userId}`),
+
     updateCamp: (campId, data) => api.put(`/camps/${campId}`, data),
 
     createRoom: (campId, roomData) => api.post(`/camps/${campId}/rooms`, roomData),
@@ -583,11 +585,15 @@ const createApiMethods = (apiClient) => {
 
     getTeamSuccess: (sessionId) => api.get(`/teams/created?session_id=${sessionId}`),
 
+    validateInviteCode: (code) => api.post('/teams/validate-code', { code }),
+
     updateTeam: (teamId, data) => api.put(`/teams/${teamId}`, data),
 
     inviteUser: (teamId, username) => api.post(`/teams/${teamId}/invite`, { username }),
 
     getMembers: (teamId) => api.get(`/teams/${teamId}/members`),
+
+    removeMember: (teamId, userId) => api.delete(`/teams/${teamId}/members/${userId}`),
 
     getTracks: (teamId, params = {}) => {
       const queryParams = new URLSearchParams();
