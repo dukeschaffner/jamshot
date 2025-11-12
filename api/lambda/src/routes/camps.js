@@ -281,6 +281,50 @@ router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
   }
 });
 
+// Remove member from camp (admin only)
+router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
+  const campId = parseInt(req.params.id);
+  const userId = parseInt(req.params.userId);
+
+  try {
+    // Check if user is admin
+    const adminCheck = await pool.query(
+      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
+      [req.user.id, campId, 'admin']
+    );
+
+    if (adminCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Prevent removing yourself
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot remove yourself from the camp' });
+    }
+
+    // Check if user is a member of the camp
+    const memberCheck = await pool.query(
+      'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
+      [userId, campId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User is not a member of this camp' });
+    }
+
+    // Remove user from camp (this will cascade delete from user_rooms)
+    await pool.query(
+      'DELETE FROM user_camps WHERE user_id = $1 AND camp_id = $2',
+      [userId, campId]
+    );
+
+    res.json({ message: 'Member removed successfully' });
+  } catch (error) {
+    console.error('Error removing camp member:', error);
+    res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
 // Add/remove user from room (admin only)
 router.put('/:id/rooms/:roomId/users', apiEndpointLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
