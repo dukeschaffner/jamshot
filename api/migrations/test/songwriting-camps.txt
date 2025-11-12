@@ -1,5 +1,7 @@
 -- Songwriting Camps Feature Database Updates
 -- ==========================================
+-- Note: Camps are created in the Stripe webhook after successful payment,
+-- not immediately when the user submits the creation form.
 
 -- Create camps table
 CREATE TABLE camps (

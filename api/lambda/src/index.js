@@ -16,6 +16,7 @@ const analyticsRoutes = require('./routes/analytics');
 const competitionRoutes = require('./routes/competitions');
 const releaseNotesRoutes = require('./routes/releaseNotes');
 const campRoutes = require('./routes/camps');
+const teamRoutes = require('./routes/teams');
 require('dotenv').config();
 
 
@@ -114,6 +115,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/release-notes', releaseNotesRoutes);
 app.use('/api/camps', campRoutes);
+app.use('/api/teams', teamRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {

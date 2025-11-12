@@ -1,0 +1,592 @@
+const express = require('express');
+const router = express.Router();
+const pool = require('../config/db');
+const { authMiddleware } = require('../middleware/auth');
+const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
+const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit } = require('../utils/teamUtils');
+const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils');
+const stripe = require('../config/stripe');
+
+// Apply auth middleware to all routes
+router.use(authMiddleware);
+
+// Create team checkout session (team will be created in webhook after successful subscription payment)
+router.post('/', contentCreationLimiter, async (req, res) => {
+  const { name, product_version } = req.body;
+
+  // Validate required fields
+  if (!name || !product_version) {
+    return res.status(400).json({ error: 'Team name and product version are required' });
+  }
+
+  // Validate product version using shared config
+  if (!isValidTeamProductVersion(product_version)) {
+    return res.status(400).json({ error: 'Invalid product version' });
+  }
+
+  // Get team plan from extended config (includes Stripe price IDs)
+  const teamPlan = TEAM_PLANS[product_version];
+  if (!teamPlan) {
+    return res.status(400).json({ error: 'Invalid product version' });
+  }
+
+  // Enterprise plan requires contact, no checkout session
+  if (product_version === TEAM_PRODUCT_VERSIONS.ENTERPRISE) {
+    return res.status(400).json({ error: 'Enterprise plan requires contacting sales. Please reach out for custom pricing.' });
+  }
+
+  // Check if Stripe price ID is configured
+  if (!teamPlan.stripe_price_id) {
+    return res.status(500).json({ error: 'Team plan not configured. Please contact support.' });
+  }
+
+  try {
+    // Get user from database to check for Stripe customer ID
+    const userResult = await pool.query(
+      'SELECT email, stripe_customer_id FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+    let customerId = user.stripe_customer_id;
+    
+    if (!customerId) {
+      // Create a new Stripe customer
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: req.user.id,
+        },
+      });
+      customerId = customer.id;
+      
+      // Update user with Stripe customer ID
+      await pool.query(
+        'UPDATE users SET stripe_customer_id = $1 WHERE id = $2',
+        [customerId, req.user.id]
+      );
+    }
+
+    // Create Stripe checkout session for subscription
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: teamPlan.stripe_price_id,
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      customer: customerId,
+      success_url: `${process.env.FRONTEND_URL}/team/created?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/teams`,
+      metadata: {
+        userId: req.user.id,
+        type: 'team_creation',
+        teamName: name,
+        productVersion: product_version,
+      },
+    });
+
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (error) {
+    console.error('Error creating team checkout session:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Get team creation success details
+router.get('/created', apiEndpointLimiter, async (req, res) => {
+  const { session_id } = req.query;
+
+  if (!session_id) {
+    return res.status(400).json({ error: 'Session ID is required' });
+  }
+
+  try {
+    // Get session details from Stripe
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    if (parseInt(session.metadata.userId) !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment not completed' });
+    }
+
+    // Find the team created for this session
+    const teamResult = await pool.query(
+      'SELECT id, name, product_version, subscription_status FROM teams WHERE stripe_subscription_id = $1 OR stripe_customer_id = $2 ORDER BY created_at DESC LIMIT 1',
+      [session.subscription || session.id, session.customer]
+    );
+
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Team not found. It may still be processing.' });
+    }
+
+    res.json(teamResult.rows[0]);
+  } catch (error) {
+    console.error('Error retrieving team creation details:', error);
+    res.status(500).json({ error: 'Failed to retrieve team details' });
+  }
+});
+
+// Get team details with members and folders
+router.get('/:id', apiEndpointLimiter, async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.id);
+
+    const teamDetails = await getTeamDetails(teamId, req.user.id);
+
+    if (!teamDetails.valid) {
+      return res.status(teamDetails.error === 'You are not a member of this team' ? 403 : 404)
+                 .json({ error: teamDetails.error });
+    }
+
+    res.json(teamDetails.team);
+  } catch (error) {
+    console.error('Error fetching team:', error);
+    res.status(500).json({ error: 'Failed to fetch team details' });
+  }
+});
+
+// Update team settings (admin only)
+router.put('/:id', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Team name is required' });
+  }
+
+  try {
+    // Check if user is admin
+    const adminCheck = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
+      [req.user.id, teamId, 'admin']
+    );
+
+    if (adminCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE teams SET name = $1 WHERE id = $2 RETURNING *',
+      [name, teamId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating team:', error);
+    res.status(500).json({ error: 'Failed to update team' });
+  }
+});
+
+// Invite user to team
+router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const { username } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+
+  try {
+    // Check if user is admin
+    const adminCheck = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
+      [req.user.id, teamId, 'admin']
+    );
+
+    if (adminCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Find user by username
+    const userResult = await pool.query(
+      'SELECT id, username, name FROM users WHERE username = $1',
+      [username]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const invitedUser = userResult.rows[0];
+
+    // Check if user is already in team
+    const existingMember = await pool.query(
+      'SELECT id FROM team_members WHERE user_id = $1 AND team_id = $2',
+      [invitedUser.id, teamId]
+    );
+
+    if (existingMember.rows.length > 0) {
+      return res.status(400).json({ error: 'User is already a member of this team' });
+    }
+
+    // Check if team has reached user limit
+    const userLimitCheck = await checkTeamUserLimit(teamId);
+    if (!userLimitCheck.valid) {
+      return res.status(400).json({ error: userLimitCheck.error });
+    }
+
+    // Add user to team
+    await pool.query(
+      'INSERT INTO team_members (user_id, team_id, role) VALUES ($1, $2, $3)',
+      [invitedUser.id, teamId, 'contributor']
+    );
+
+    res.json({
+      message: 'User invited successfully',
+      user: invitedUser
+    });
+  } catch (error) {
+    console.error('Error inviting user:', error);
+    res.status(500).json({ error: 'Failed to invite user' });
+  }
+});
+
+// Get team members list
+router.get('/:id/members', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+
+  try {
+    // Verify user has access to team
+    const accessCheck = await validateTeamAccess(teamId, req.user.id);
+    if (!accessCheck.valid) {
+      return res.status(403).json({ error: accessCheck.error });
+    }
+
+    const membersResult = await pool.query(
+      `SELECT tm.role, u.id, u.username, u.name, u.profile_pic_url, tm.joined_at
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.id
+       WHERE tm.team_id = $1
+       ORDER BY tm.joined_at`,
+      [teamId]
+    );
+
+    res.json({ members: membersResult.rows });
+  } catch (error) {
+    console.error('Error fetching team members:', error);
+    res.status(500).json({ error: 'Failed to fetch team members' });
+  }
+});
+
+// Get team tracks feed (paginated)
+router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const { sort_by = 'recent', page = 1, limit = 20 } = req.query;
+  
+  try {
+    // Verify user has access to team
+    const accessCheck = await validateTeamAccess(teamId, req.user.id);
+    if (!accessCheck.valid) {
+      return res.status(403).json({ error: accessCheck.error });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Determine sort order
+    let orderBy = 't.created_at DESC'; // default: recent
+    if (sort_by === 'bpm') {
+      orderBy = 't.metronome_bpm ASC';
+    } else if (sort_by === 'key') {
+      orderBy = 't.key ASC';
+    }
+
+    // Get tracks associated with team
+    const tracksQuery = `
+      SELECT 
+        t.id, t.user_id, t.title, t.audio_url, t.duration, t.metronome_bpm, 
+        t.time_signature, t.key, t.created_at, t.team_folder_id,
+        u.username, u.verified, u.profile_pic_url,
+        tf.name as folder_name,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      LEFT JOIN team_folders tf ON t.team_folder_id = tf.id
+      WHERE t.team_id = $2 AND t.processing_status = 'completed'
+      ORDER BY ${orderBy}
+      LIMIT $3 OFFSET $4
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE t.team_id = $1 AND t.processing_status = 'completed'
+    `;
+
+    const [tracksResult, countResult] = await Promise.all([
+      pool.query(tracksQuery, [req.user.id, teamId, limit, offset]),
+      pool.query(countQuery, [teamId])
+    ]);
+
+    const total = parseInt(countResult.rows[0].total);
+    const hasMore = offset + tracksResult.rows.length < total;
+
+    res.json({
+      tracks: tracksResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        hasMore
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching team tracks:', error);
+    res.status(500).json({ error: 'Failed to fetch tracks' });
+  }
+});
+
+// Get team folders list
+router.get('/:id/folders', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+
+  try {
+    // Verify user has access to team
+    const accessCheck = await validateTeamAccess(teamId, req.user.id);
+    if (!accessCheck.valid) {
+      return res.status(403).json({ error: accessCheck.error });
+    }
+
+    const foldersResult = await pool.query(
+      `SELECT tf.*, u.username as creator_username, u.name as creator_name,
+              (SELECT COUNT(*) FROM tracks WHERE team_folder_id = tf.id) as track_count
+       FROM team_folders tf
+       LEFT JOIN users u ON tf.created_by = u.id
+       WHERE tf.team_id = $1
+       ORDER BY tf.created_at`,
+      [teamId]
+    );
+
+    res.json({ folders: foldersResult.rows });
+  } catch (error) {
+    console.error('Error fetching team folders:', error);
+    res.status(500).json({ error: 'Failed to fetch folders' });
+  }
+});
+
+// Create folder (admin/contributor)
+router.post('/:id/folders', contentCreationLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const { name, parent_folder_id } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Folder name is required' });
+  }
+
+  try {
+    // Verify user has access and is admin or contributor
+    const accessCheck = await validateTeamAccess(teamId, req.user.id);
+    if (!accessCheck.valid) {
+      return res.status(403).json({ error: accessCheck.error });
+    }
+
+    if (accessCheck.team.user_role === 'viewer') {
+      return res.status(403).json({ error: 'Viewers cannot create folders' });
+    }
+
+    // If parent_folder_id is provided, validate it belongs to the team
+    if (parent_folder_id) {
+      const parentCheck = await pool.query(
+        'SELECT id FROM team_folders WHERE id = $1 AND team_id = $2',
+        [parent_folder_id, teamId]
+      );
+
+      if (parentCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Parent folder not found in this team' });
+      }
+    }
+
+    // Check if folder name already exists in this team and parent folder
+    const existingFolder = await pool.query(
+      'SELECT id FROM team_folders WHERE team_id = $1 AND name = $2 AND (parent_folder_id = $3 OR (parent_folder_id IS NULL AND $3 IS NULL))',
+      [teamId, name, parent_folder_id || null]
+    );
+
+    if (existingFolder.rows.length > 0) {
+      return res.status(400).json({ error: 'Folder name already exists in this location' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO team_folders (team_id, name, parent_folder_id, created_by)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [teamId, name, parent_folder_id || null, req.user.id]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating folder:', error);
+    res.status(500).json({ error: 'Failed to create folder' });
+  }
+});
+
+// Update folder name (admin/contributor)
+router.put('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const folderId = parseInt(req.params.folderId);
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Folder name is required' });
+  }
+
+  try {
+    // Validate folder access
+    const folderValidation = await validateTeamFolderAccess(folderId, teamId, req.user.id);
+    if (!folderValidation.valid) {
+      return res.status(403).json({ error: folderValidation.error });
+    }
+
+    if (folderValidation.team.user_role === 'viewer') {
+      return res.status(403).json({ error: 'Viewers cannot update folders' });
+    }
+
+    // Check if folder name already exists in this team and parent folder
+    const existingFolder = await pool.query(
+      'SELECT id FROM team_folders WHERE team_id = $1 AND name = $2 AND id != $3 AND (parent_folder_id = $4 OR (parent_folder_id IS NULL AND $4 IS NULL))',
+      [teamId, name, folderId, folderValidation.folder.parent_folder_id]
+    );
+
+    if (existingFolder.rows.length > 0) {
+      return res.status(400).json({ error: 'Folder name already exists in this location' });
+    }
+
+    const result = await pool.query(
+      'UPDATE team_folders SET name = $1 WHERE id = $2 RETURNING *',
+      [name, folderId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating folder:', error);
+    res.status(500).json({ error: 'Failed to update folder' });
+  }
+});
+
+// Delete folder (admin only)
+router.delete('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const folderId = parseInt(req.params.folderId);
+
+  try {
+    // Check if user is admin
+    const adminCheck = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
+      [req.user.id, teamId, 'admin']
+    );
+
+    if (adminCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Verify folder belongs to team
+    const folderCheck = await pool.query(
+      'SELECT id FROM team_folders WHERE id = $1 AND team_id = $2',
+      [folderId, teamId]
+    );
+
+    if (folderCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Folder not found in this team' });
+    }
+
+    // Check if folder has subfolders
+    const subfolderCheck = await pool.query(
+      'SELECT id FROM team_folders WHERE parent_folder_id = $1',
+      [folderId]
+    );
+
+    if (subfolderCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'Cannot delete folder with subfolders. Please delete subfolders first.' });
+    }
+
+    // Delete folder (cascade will handle tracks)
+    await pool.query(
+      'DELETE FROM team_folders WHERE id = $1',
+      [folderId]
+    );
+
+    res.json({ message: 'Folder deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting folder:', error);
+    res.status(500).json({ error: 'Failed to delete folder' });
+  }
+});
+
+// Get tracks in folder (paginated)
+router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const folderId = parseInt(req.params.folderId);
+  const { page = 1, limit = 20 } = req.query;
+  
+  try {
+    // Validate folder access
+    const folderValidation = await validateTeamFolderAccess(folderId, teamId, req.user.id);
+    if (!folderValidation.valid) {
+      return res.status(403).json({ error: folderValidation.error });
+    }
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const tracksQuery = `
+      SELECT 
+        t.id, t.user_id, t.title, t.audio_url, t.duration, t.metronome_bpm, 
+        t.time_signature, t.key, t.created_at,
+        u.username, u.verified, u.profile_pic_url,
+        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      WHERE t.team_folder_id = $2 AND t.processing_status = 'completed'
+      ORDER BY t.created_at DESC
+      LIMIT $3 OFFSET $4
+    `;
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE t.team_folder_id = $1 AND t.processing_status = 'completed'
+    `;
+
+    const [tracksResult, countResult] = await Promise.all([
+      pool.query(tracksQuery, [req.user.id, folderId, limit, offset]),
+      pool.query(countQuery, [folderId])
+    ]);
+
+    const total = parseInt(countResult.rows[0].total);
+    const hasMore = offset + tracksResult.rows.length < total;
+
+    res.json({
+      tracks: tracksResult.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        hasMore
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching folder tracks:', error);
+    res.status(500).json({ error: 'Failed to fetch tracks' });
+  }
+});
+
+module.exports = router;
+
