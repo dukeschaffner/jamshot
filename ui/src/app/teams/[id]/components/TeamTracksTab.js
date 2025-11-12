@@ -1,9 +1,10 @@
 'use client';
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { teamApi } from '../../../../lib/api';
 import Track from '../../../../components/Track';
 import InfiniteScrollContainer from '../../../../components/InfiniteScrollContainer';
-import { FaMusic } from 'react-icons/fa';
+import { FaMusic, FaUpload } from 'react-icons/fa';
 import sharedStyles from '../../../../styles/Dashboard.module.css';
 
 const TRACKS_PER_PAGE = 5;
@@ -49,6 +50,13 @@ function TeamTracksTab({ team }) {
 
   return (
     <div className={sharedStyles.tabContent}>
+      <div className={sharedStyles.tabHeader}>
+        <h2>Team Tracks</h2>
+        <Link href={`/upload?team_id=${team.id}`} className="pill-btn gradient-btn">
+          <FaUpload />
+          Upload Track
+        </Link>
+      </div>
       <InfiniteScrollContainer
         fetchData={fetchTracks}
         renderItem={renderTrack}

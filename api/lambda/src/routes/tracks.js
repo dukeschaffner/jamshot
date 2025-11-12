@@ -168,7 +168,7 @@ const handleMulterError = (error, req, res, next) => {
 
 // Initialize upload by generating pre-signed S3 URL
 router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
-  const { filename, fileSize, is_camp_track } = req.body;
+  const { filename, fileSize, is_camp_track, team_id } = req.body;
   const userId = req.user.id;
 
   if (!filename || !fileSize) {
@@ -180,8 +180,8 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
   }
 
   try {
-    // Skip quota validations for camp tracks
-    if (!is_camp_track) {
+    // Skip quota validations for camp tracks and team uploads
+    if (!is_camp_track && !team_id) {
       // Check user's subscription limits (but don't consume them yet)
       const userResult = await pool.query(
         'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
@@ -277,7 +277,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'Failed to access uploaded file. Please try uploading again.' });
   }
 
-  if (!camp_id) { // Only check quotas for non-camp tracks
+  // Skip quota validations for camp tracks and team uploads
+  if (!camp_id && !team_id) {
     try {
       // Get user and subscription for quota checks and later use
       const userResult = await pool.query(
