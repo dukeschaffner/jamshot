@@ -668,10 +668,14 @@ async function handleTeamCreation(session) {
       return;
     }
 
+    // Generate unique team code
+    const crypto = require('crypto');
+    const teamCode = crypto.randomBytes(16).toString('hex');
+
     // Create team
     const teamResult = await db.query(
-      `INSERT INTO teams (name, created_by, product_version, stripe_subscription_id, stripe_customer_id, subscription_status, subscription_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO teams (name, created_by, product_version, stripe_subscription_id, stripe_customer_id, subscription_status, subscription_expires_at, team_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         teamName,
@@ -680,7 +684,8 @@ async function handleTeamCreation(session) {
         subscriptionId,
         customerId,
         'active',
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Default to 30 days from now, will be updated by subscription.updated webhook
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now, will be updated by subscription.updated webhook
+        teamCode
       ]
     );
 

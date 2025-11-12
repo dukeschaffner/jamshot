@@ -2,56 +2,59 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
-import { FaCheckCircle, FaCampground, FaUsers, FaCalendarAlt, FaLink, FaShareAlt, FaExclamationTriangle, FaMusic, FaUpload, FaUserPlus, FaRocket } from 'react-icons/fa';
-import { campApi } from '../../../lib/api';
-import styles from './CampCreated.module.css';
+import { FaCheckCircle, FaUsers, FaExclamationTriangle, FaUserPlus, FaFolder, FaMusic, FaRocket, FaLink, FaShareAlt } from 'react-icons/fa';
+import { teamApi } from '../../../lib/api';
+import { TEAM_PLANS } from '../../../../shared/utils/subscription';
+import styles from './TeamCreated.module.css';
 import sharedStyles from '../../../styles/SuccessPage.module.css';
 
-function CampCreatedClient() {
+function TeamCreatedClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAuthenticated } = useUser();
 
-  const [camp, setCamp] = useState(null);
+  const [team, setTeam] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    const fetchCampDetails = async () => {
+    const fetchTeamDetails = async () => {
       if (!isAuthenticated || !sessionId) {
         setIsLoading(false);
         return;
       }
 
       try {
-        const response = await campApi.getCampSuccess(sessionId);
-        setCamp(response.data);
+        const response = await teamApi.getTeamSuccess(sessionId);
+        setTeam(response.data);
       } catch (err) {
-        console.error('Error fetching camp details:', err);
+        console.error('Error fetching team details:', err);
         if (err.response?.status === 404) {
-          setError('Camp not found. It may still be processing. Please check back in a few minutes.');
+          setError('Team not found. It may still be processing. Please check back in a few minutes.');
+        } else if (err.response?.status === 403) {
+          setError('Access denied. Please ensure you completed the checkout.');
         } else {
-          setError('Failed to load camp details. Please contact support if this persists.');
+          setError('Failed to load team details. Please contact support if this persists.');
         }
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchCampDetails();
+    fetchTeamDetails();
   }, [isAuthenticated, sessionId]);
 
-  const handleViewCamp = () => {
-    if (camp) {
-      router.push(`/camp/${camp.id}`);
+  const handleViewTeam = () => {
+    if (team) {
+      router.push(`/teams/${team.id}`);
     }
   };
 
   const handleShareInvite = () => {
-    if (camp) {
-      const inviteUrl = `${window.location.origin}/camp/${camp.id}?code=${camp.camp_code}`;
+    if (team) {
+      const inviteUrl = `${window.location.origin}/teams/${team.id}?code=${team.team_code}`;
       navigator.clipboard.writeText(inviteUrl).then(() => {
         // Could add a toast notification here
         alert('Invite link copied to clipboard!');
@@ -59,13 +62,16 @@ function CampCreatedClient() {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const getUserLimit = (productVersion) => {
+    const plan = TEAM_PLANS[productVersion];
+    if (!plan) return 'Unknown';
+    if (plan.limits.max_users === -1) return 'Unlimited';
+    return plan.limits.max_users;
+  };
+
+  const getPlanName = (productVersion) => {
+    const plan = TEAM_PLANS[productVersion];
+    return plan ? plan.name : 'Unknown Plan';
   };
 
   if (!isAuthenticated) {
@@ -80,8 +86,8 @@ function CampCreatedClient() {
     return (
       <div className={sharedStyles.container}>
         <div className={sharedStyles.loading}>
-          <FaCampground className={sharedStyles.loadingIcon} />
-          <p>Setting up your camp...</p>
+          <FaUsers className={sharedStyles.loadingIcon} />
+          <p>Setting up your team...</p>
         </div>
       </div>
     );
@@ -94,37 +100,31 @@ function CampCreatedClient() {
           <FaExclamationTriangle className={sharedStyles.errorIcon} />
           <h1>Payment Processing</h1>
           <p>{error}</p>
-          <button onClick={() => router.push('/camps')} className={sharedStyles.primaryButton}>
-            Back to Camps
+          <button onClick={() => router.push('/teams/create')} className={sharedStyles.primaryButton}>
+            Back to Create Team
           </button>
         </div>
       </div>
     );
   }
 
-  if (!camp) {
+  if (!team) {
     return (
       <div className={sharedStyles.container}>
         <div className={sharedStyles.error}>
           <FaExclamationTriangle className={sharedStyles.errorIcon} />
-          <h1>Camp Not Found</h1>
-          <p>Unable to find your camp details. Please contact support.</p>
-          <button onClick={() => router.push('/camps')} className={sharedStyles.primaryButton}>
-            Back to Camps
+          <h1>Team Not Found</h1>
+          <p>Unable to find your team details. Please contact support.</p>
+          <button onClick={() => router.push('/teams/create')} className={sharedStyles.primaryButton}>
+            Back to Create Team
           </button>
         </div>
       </div>
     );
   }
 
-  const userLimit = {
-    '10_users': 10,
-    '25_users': 25,
-    '50_users': 50,
-    '100_users': 100
-  };
-
-  const maxUsers = userLimit[camp.product_version] || 25;
+  const maxUsers = getUserLimit(team.product_version);
+  const planName = getPlanName(team.product_version);
 
   return (
     <div className={sharedStyles.container}>
@@ -133,22 +133,22 @@ function CampCreatedClient() {
           <div className={sharedStyles.successIconWrapper}>
             <FaCheckCircle className={sharedStyles.successIcon} />
           </div>
-          <h1>Camp Created Successfully!</h1>
-          <p>Your songwriting camp is ready to go</p>
+          <h1>Team Created Successfully!</h1>
+          <p>Your team is ready to collaborate</p>
         </div>
 
         <div className={sharedStyles.detailsSection}>
           <div className={sharedStyles.entityName}>
-            <FaCampground />
-            <h2>{camp.name}</h2>
+            <FaUsers />
+            <h2>{team.name}</h2>
           </div>
 
           <div className={sharedStyles.detailsGrid}>
             <div className={sharedStyles.detailItem}>
-              <FaCalendarAlt className={sharedStyles.detailIcon} />
+              <FaUsers className={sharedStyles.detailIcon} />
               <div>
-                <strong>Start Date</strong>
-                <p>{formatDate(camp.start_date)}</p>
+                <strong>Plan</strong>
+                <p>{planName}</p>
               </div>
             </div>
 
@@ -156,24 +156,24 @@ function CampCreatedClient() {
               <FaUsers className={sharedStyles.detailIcon} />
               <div>
                 <strong>Capacity</strong>
-                <p>Up to {maxUsers} collaborators</p>
+                <p>Up to {maxUsers} members</p>
               </div>
             </div>
 
             <div className={sharedStyles.detailItem}>
-              <FaCampground className={sharedStyles.detailIcon} />
+              <FaMusic className={sharedStyles.detailIcon} />
               <div>
-                <strong>Duration</strong>
-                <p>7 days</p>
+                <strong>Status</strong>
+                <p>{team.subscription_status === 'active' ? 'Active' : 'Processing'}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className={sharedStyles.actions}>
-          <button onClick={handleViewCamp} className={sharedStyles.primaryButton}>
-            <FaCampground />
-            View Camp Dashboard
+          <button onClick={handleViewTeam} className={sharedStyles.primaryButton}>
+            <FaUsers />
+            View Team Dashboard
           </button>
 
           <button onClick={handleShareInvite} className={sharedStyles.secondaryButton}>
@@ -185,12 +185,12 @@ function CampCreatedClient() {
         <div className={sharedStyles.inviteSection}>
           <div className={sharedStyles.inviteHeader}>
             <FaLink className={sharedStyles.inviteIcon} />
-            <h3>Invite Collaborators</h3>
+            <h3>Invite Team Members</h3>
           </div>
-          <p>Share this link with musicians, producers, and writers you want to collaborate with:</p>
+          <p>Share this link with collaborators you want to add to your team:</p>
           <div className={sharedStyles.inviteLink}>
             <code>
-              {`${window.location.origin}/camp/${camp.id}?code=${camp.camp_code}`}
+              {`${window.location.origin}/teams/${team.id}?code=${team.team_code}`}
             </code>
             <button
               onClick={handleShareInvite}
@@ -201,7 +201,7 @@ function CampCreatedClient() {
             </button>
           </div>
           <p className={sharedStyles.inviteNote}>
-            Anyone with this link can join your camp. You can also invite specific users from your camp dashboard.
+            Anyone with this link can join your team. You can also invite specific users from your team dashboard.
           </p>
         </div>
 
@@ -211,31 +211,31 @@ function CampCreatedClient() {
             <div className={sharedStyles.step}>
               <div className={sharedStyles.stepNumber}>1</div>
               <div className={sharedStyles.stepIcon}>
-                <FaCampground />
+                <FaUserPlus />
               </div>
               <div className={sharedStyles.stepContent}>
-                <strong>Add Rooms</strong>
-                <p>Create focused spaces for different aspects of your project (vocals, beats, production, etc.)</p>
+                <strong>Invite Team Members</strong>
+                <p>Add collaborators to your team from the team dashboard</p>
               </div>
             </div>
             <div className={sharedStyles.step}>
               <div className={sharedStyles.stepNumber}>2</div>
               <div className={sharedStyles.stepIcon}>
-                <FaUpload />
+                <FaFolder />
               </div>
               <div className={sharedStyles.stepContent}>
-                <strong>Upload Beats</strong>
-                <p>Share your initial beats or backing tracks to get the collaboration started</p>
+                <strong>Organize with Folders</strong>
+                <p>Create folders to organize your team&apos;s tracks</p>
               </div>
             </div>
             <div className={sharedStyles.step}>
               <div className={sharedStyles.stepNumber}>3</div>
               <div className={sharedStyles.stepIcon}>
-                <FaUserPlus />
+                <FaMusic />
               </div>
               <div className={sharedStyles.stepContent}>
-                <strong>Invite Team</strong>
-                <p>Bring in producers, vocalists, and other creatives</p>
+                <strong>Upload Tracks</strong>
+                <p>Start uploading tracks to your team&apos;s shared pool</p>
               </div>
             </div>
             <div className={sharedStyles.step}>
@@ -244,8 +244,8 @@ function CampCreatedClient() {
                 <FaRocket />
               </div>
               <div className={sharedStyles.stepContent}>
-                <strong>Start Creating</strong>
-                <p>Once everyone joins, begin layering tracks and building your song together</p>
+                <strong>Start Collaborating</strong>
+                <p>Begin working together on your music projects</p>
               </div>
             </div>
           </div>
@@ -255,17 +255,18 @@ function CampCreatedClient() {
   );
 }
 
-export default function CampCreated() {
+export default function TeamCreated() {
   return (
     <Suspense fallback={
       <div className={sharedStyles.container}>
         <div className={sharedStyles.loading}>
-          <FaCampground className={sharedStyles.loadingIcon} />
+          <FaUsers className={sharedStyles.loadingIcon} />
           <p>Loading...</p>
         </div>
       </div>
     }>
-      <CampCreatedClient />
+      <TeamCreatedClient />
     </Suspense>
   );
 }
+

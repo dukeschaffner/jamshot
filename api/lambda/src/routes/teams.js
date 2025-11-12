@@ -121,7 +121,7 @@ router.get('/created', apiEndpointLimiter, async (req, res) => {
 
     // Find the team created for this session
     const teamResult = await pool.query(
-      'SELECT id, name, product_version, subscription_status FROM teams WHERE stripe_subscription_id = $1 OR stripe_customer_id = $2 ORDER BY created_at DESC LIMIT 1',
+      'SELECT id, name, product_version, subscription_status, team_code FROM teams WHERE stripe_subscription_id = $1 OR stripe_customer_id = $2 ORDER BY created_at DESC LIMIT 1',
       [session.subscription || session.id, session.customer]
     );
 

@@ -52,7 +52,7 @@ export const UserProvider = ({ children }) => {
   };
 
   // Login function
-  const login = async (email, password) => {
+  const login = async (email, password, redirectUrl = null) => {
     try {
       const response = await authApi.login(email, password);
       
@@ -74,8 +74,9 @@ export const UserProvider = ({ children }) => {
       // Fetch user data
       await fetchUserData();
       
-      // Redirect to home page on successful login
-      router.push('/');
+      // Redirect to provided URL or home page on successful login
+      const destination = redirectUrl || '/';
+      router.push(destination);
       
       return { success: true };
     } catch (err) {

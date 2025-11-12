@@ -13,6 +13,7 @@ CREATE TABLE teams (
   stripe_customer_id VARCHAR(255), -- Stripe customer ID
   subscription_status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (subscription_status IN ('active', 'canceled', 'past_due', 'unpaid', 'trialing')),
   subscription_expires_at TIMESTAMP, -- For tracking subscription end date
+  team_code VARCHAR(64) UNIQUE NOT NULL, -- For invite links
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -50,6 +51,7 @@ CREATE INDEX idx_teams_product_version ON teams(product_version);
 CREATE INDEX idx_teams_subscription_status ON teams(subscription_status);
 CREATE INDEX idx_teams_stripe_subscription_id ON teams(stripe_subscription_id);
 CREATE INDEX idx_teams_stripe_customer_id ON teams(stripe_customer_id);
+CREATE INDEX idx_teams_team_code ON teams(team_code);
 
 CREATE INDEX idx_team_members_user_id ON team_members(user_id);
 CREATE INDEX idx_team_members_team_id ON team_members(team_id);

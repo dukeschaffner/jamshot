@@ -1,5 +1,5 @@
-/* Camp Create Page Specific Styles */
-.campCreateContainer {
+/* Team Create Page Specific Styles */
+.teamCreateContainer {
   max-width: 900px;
   margin: 0 auto;
   padding: 20px;
@@ -8,13 +8,14 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .campCreateContainer {
+  .teamCreateContainer {
     padding: 15px;
   }
 }
 
 @media (max-width: 480px) {
-  .campCreateContainer {
+  .teamCreateContainer {
     padding: 15px;
   }
 }
+

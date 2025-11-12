@@ -1,3 +1,6 @@
 -- B2B Teams Feature Migration
 -- See: api/migrations/test/b2b-teams.txt
 
+-- Add team_code column to teams table (for existing installations)
+-- See: api/migrations/test/add-team-code.txt
+

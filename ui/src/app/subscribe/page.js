@@ -375,12 +375,21 @@ function SubscribeContent() {
               </div>
 
               <div className={styles.planFooter}>
-                <Link
-                  href="/teams/create"
-                  className={`${styles.subscribeButton} ${plan.id === 'enterprise' ? styles.premiumButton : ''}`}
-                >
-                  Create Team
-                </Link>
+                {plan.id === 'enterprise' ? (
+                  <Link
+                    href="/contact"
+                    className={`${styles.subscribeButton} ${styles.premiumButton}`}
+                  >
+                    Contact Us
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/teams/create?plan=${plan.id}`}
+                    className={styles.subscribeButton}
+                  >
+                    Create Team
+                  </Link>
+                )}
               </div>
             </div>
           ))
