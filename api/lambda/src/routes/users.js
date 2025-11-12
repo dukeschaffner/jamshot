@@ -65,13 +65,14 @@ router.get('/me', authMiddleware, async (req, res) => {
       [req.user.id]
     );
     
-    // Fetch active teams the user belongs to
+    // Fetch active teams the user belongs to (not expired)
     const teamsResult = await pool.query(
       `SELECT t.id, t.name, t.team_code, tm.role
        FROM teams t
        JOIN team_members tm ON t.id = tm.team_id
        WHERE tm.user_id = $1 
          AND (t.subscription_status = 'active' OR t.subscription_status = 'trialing')
+         AND (t.subscription_expires_at IS NULL OR t.subscription_expires_at > NOW())
        ORDER BY t.created_at DESC`,
       [req.user.id]
     );

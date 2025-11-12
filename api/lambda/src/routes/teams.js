@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
-const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit } = require('../utils/teamUtils');
+const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired } = require('../utils/teamUtils');
 const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils');
 const stripe = require('../config/stripe');
 
@@ -164,6 +164,11 @@ router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
     // Check if team subscription is active
     if (team.subscription_status !== 'active' && team.subscription_status !== 'trialing') {
       return res.status(400).json({ error: 'This team subscription is not active' });
+    }
+
+    // Check if subscription has expired
+    if (isTeamSubscriptionExpired(team)) {
+      return res.status(400).json({ error: 'This team subscription has expired' });
     }
 
     // Check if user is already a member

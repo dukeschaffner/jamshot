@@ -7,6 +7,7 @@ import CustomTabs from '../../../components/CustomTabs';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import InviteLinkModal from '../../../components/InviteLinkModal';
 import UserCard from '../../../components/UserCard';
+import TeamTracksTab from './components/TeamTracksTab';
 import { 
   FaUsers, FaCog, FaUserPlus, FaMusic, FaFolder, FaBell,
   FaExclamationTriangle
@@ -271,15 +272,7 @@ export default function TeamDashboard() {
 
       {/* Tab Content */}
       <div className={sharedStyles.content}>
-        {activeTab === 'tracks' && (
-          <div className={sharedStyles.tabContent}>
-            <div className={sharedStyles.emptyState}>
-              <FaMusic className={sharedStyles.emptyIcon} />
-              <h3>Tracks</h3>
-              <p>Team tracks will appear here</p>
-            </div>
-          </div>
-        )}
+        {activeTab === 'tracks' && <TeamTracksTab team={team} />}
         {activeTab === 'members' && (
           <div className={sharedStyles.tabContent}>
             {team.members && team.members.length > 0 ? (
