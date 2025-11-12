@@ -68,14 +68,25 @@ async function validateTeamAccess(teamId, userId) {
  * @param {number} folderId - Folder ID to validate
  * @param {number} teamId - Team ID the folder should belong to
  * @param {number} userId - User ID to check membership
+ * @param {object} team - Optional team object from previous validation (to avoid redundant DB call)
  * @returns {Object} Validation result
  */
-async function validateTeamFolderAccess(folderId, teamId, userId) {
+async function validateTeamFolderAccess(folderId, teamId, userId, team = null) {
   try {
-    // First validate team access
-    const teamValidation = await validateTeamAccess(teamId, userId);
-    if (!teamValidation.valid) {
-      return teamValidation;
+    // Validate team access if team object not provided
+    let teamValidation;
+    if (team) {
+      // If team object is provided, create validation result object
+      teamValidation = {
+        valid: true,
+        team: team
+      };
+    } else {
+      // Otherwise, validate team access
+      teamValidation = await validateTeamAccess(teamId, userId);
+      if (!teamValidation.valid) {
+        return teamValidation;
+      }
     }
 
     // Check if folder exists and belongs to team
