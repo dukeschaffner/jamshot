@@ -33,6 +33,7 @@ export default function UploadForm({
   const searchParams = useSearchParams();
   const createCompetition = searchParams.get('createCompetition') === 'true';
   const campId = searchParams.get('camp_id');
+  const teamId = searchParams.get('team_id');
 
   const [metronomeBpmInput, setMetronomeBpmInput] = useState(metronomeBpm.toString());
   const [timeSignatureInput, setTimeSignatureInput] = useState(timeSignature);
@@ -147,6 +148,8 @@ export default function UploadForm({
         setTimeout(() => {
           if (campId) {
             router.push(`/camp/${campId}`);
+          } else if (teamId) {
+            router.push(`/teams/${teamId}`);
           } else if (createCompetition) {
             router.push(`/competition/create?track=${trackId}`);
           } else {
@@ -166,7 +169,7 @@ export default function UploadForm({
       setError('Failed to check processing status');
       setIsUploading(false);
     }
-  }, [createCompetition, router]);
+  }, [createCompetition, teamId, campId, router]);
 
   // Upload file directly to S3
   const uploadToS3 = async (uploadUrl, file) => {
@@ -235,7 +238,7 @@ export default function UploadForm({
       const blob = new Blob([buffer], { type: 'audio/wav' });
       const filename = 'recording.wav';
 
-      const initResponse = await trackApi.initUpload(filename, blob.size, !!campId);
+      const initResponse = await trackApi.initUpload(filename, blob.size, !!campId, teamId ? parseInt(teamId) : null);
       const { uploadUrl, key: s3Key } = initResponse.data;
 
       console.log('Upload initialized, S3 key:', s3Key);
@@ -262,6 +265,9 @@ export default function UploadForm({
       // Add camp_id if present (for camp uploads)
       if (campId) {
         uploadData.camp_id = parseInt(campId);
+      }
+      else if (teamId) {
+        uploadData.team_id = parseInt(teamId);
       }
 
       // Add collab specific data
@@ -456,7 +462,7 @@ export default function UploadForm({
         </div>
         
         {/* Privacy option - only show for non-collab tracks and when not uploading to a camp */}
-        {!isCollab && !campId && (
+        {!isCollab && !campId && !teamId && (
           <>
             <div className="flex items-center space-x-2 mt-4">
               <input

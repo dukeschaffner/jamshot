@@ -318,11 +318,17 @@ const createApiMethods = (apiClient) => {
     unlikeTrack: (id) => api.delete(`/tracks/${id}/like`),
 
     // Upload initialization - get pre-signed S3 URL
-    initUpload: (filename, fileSize, isCampTrack = false) => api.post('/tracks/upload/init', {
-      filename,
-      fileSize,
-      is_camp_track: isCampTrack
-    }),
+    initUpload: (filename, fileSize, isCampTrack = false, teamId = null) => {
+      const body = {
+        filename,
+        fileSize,
+        is_camp_track: isCampTrack
+      };
+      if (teamId) {
+        body.team_id = teamId;
+      }
+      return api.post('/tracks/upload/init', body);
+    },
 
     // Process upload after S3 upload is complete
     processUpload: (uploadData) => api.post('/tracks/upload', uploadData),

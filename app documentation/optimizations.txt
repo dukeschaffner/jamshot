@@ -4,6 +4,9 @@ TRACKS:
 - move old/cold tracks to a different s3 bucket
 
 
+CAMPS:
+- ensure collabs on a camp track belong to the same camp
 
 TEAMS:
 - Cleanup team data x days/months after subscription is canceled
+- ensure collabs on a team track belong to the same team

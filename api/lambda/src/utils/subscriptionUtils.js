@@ -106,7 +106,7 @@ async function checkDailyUploadQuota(userId, user = null, subscription = null) {
     today.setHours(0, 0, 0, 0);
 
     const uploadCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3',
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3 AND camp_id IS NULL AND team_id IS NULL',
       [userId, today, 'completed']
     );
 
@@ -167,7 +167,7 @@ async function checkTotalUploadQuota(userId, user = null, subscription = null) {
 
     // Check total track limit
     const totalTrackCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2',
+      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2 AND camp_id IS NULL AND team_id IS NULL',
       [userId, 'completed']
     );
 
