@@ -3,6 +3,8 @@
 
 const {
   SUBSCRIPTION_TIERS,
+  TEAM_PRODUCT_VERSIONS,
+  TEAM_PLANS,
   createSubscriptionPlans,
   getUserTier,
   getUserPlan,
@@ -17,7 +19,9 @@ const {
   getFeaturesByTier,
   getLimitsByTier,
   isValidTier,
-  getTierUpgradeOptions
+  getTierUpgradeOptions,
+  getTeamPlan,
+  isValidTeamProductVersion
 } = require('../../shared/utils/subscription');
 
 const pool = require('../config/db');
@@ -37,6 +41,34 @@ const API_PLAN_EXTENSIONS = {
 
 // Create subscription plans with API extensions
 const SUBSCRIPTION_PLANS_EXTENDED = createSubscriptionPlans(API_PLAN_EXTENSIONS);
+
+// API-specific team plan extensions (Stripe price IDs)
+const API_TEAM_PLAN_EXTENSIONS = {
+  [TEAM_PRODUCT_VERSIONS.TEN_USERS]: {
+    stripe_price_id: process.env.STRIPE_TEAM_10_USERS_PRICE_ID
+  },
+  [TEAM_PRODUCT_VERSIONS.TWENTY_FIVE_USERS]: {
+    stripe_price_id: process.env.STRIPE_TEAM_25_USERS_PRICE_ID
+  },
+  [TEAM_PRODUCT_VERSIONS.FIFTY_USERS]: {
+    stripe_price_id: process.env.STRIPE_TEAM_50_USERS_PRICE_ID
+  },
+  [TEAM_PRODUCT_VERSIONS.ONE_HUNDRED_USERS]: {
+    stripe_price_id: process.env.STRIPE_TEAM_100_USERS_PRICE_ID
+  },
+  [TEAM_PRODUCT_VERSIONS.ENTERPRISE]: {
+    stripe_price_id: null // Custom pricing, no Stripe price ID
+  }
+};
+
+// Create extended team plans with Stripe price IDs
+const TEAM_PLANS_EXTENDED = {};
+for (const [version, basePlan] of Object.entries(TEAM_PLANS)) {
+  TEAM_PLANS_EXTENDED[version] = {
+    ...basePlan,
+    ...(API_TEAM_PLAN_EXTENSIONS[version] || {})
+  };
+}
 
 /**
  * Check if user has reached their daily upload quota
@@ -187,5 +219,11 @@ module.exports = {
 
   // Quota check functions
   checkDailyUploadQuota,
-  checkTotalUploadQuota
+  checkTotalUploadQuota,
+
+  // Team plan exports
+  TEAM_PRODUCT_VERSIONS,
+  TEAM_PLANS: TEAM_PLANS_EXTENDED,
+  getTeamPlan,
+  isValidTeamProductVersion
 };
