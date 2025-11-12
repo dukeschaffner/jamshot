@@ -2,6 +2,20 @@ const pool = require('../config/db');
 const { getTeamPlan } = require('../../shared/utils/subscription');
 
 /**
+ * Check if team subscription is expired
+ * @param {Object} team - Team object with subscription_expires_at
+ * @returns {boolean} True if subscription is expired
+ */
+function isTeamSubscriptionExpired(team) {
+  if (!team.subscription_expires_at) {
+    return false; // If no expiration date, assume not expired (could be enterprise or legacy)
+  }
+  const expiresAt = new Date(team.subscription_expires_at);
+  const now = new Date();
+  return expiresAt < now;
+}
+
+/**
  * Validate user's access to a team
  * @param {number} teamId - Team ID to validate
  * @param {number} userId - User ID to check
@@ -26,6 +40,11 @@ async function validateTeamAccess(teamId, userId) {
     // Check if team subscription is active
     if (team.subscription_status !== 'active' && team.subscription_status !== 'trialing') {
       return { valid: false, error: 'Team subscription is not active' };
+    }
+
+    // Check if subscription has expired
+    if (isTeamSubscriptionExpired(team)) {
+      return { valid: false, error: 'Team subscription has expired' };
     }
 
     return {
@@ -213,6 +232,7 @@ module.exports = {
   validateTeamAccess,
   validateTeamFolderAccess,
   getTeamDetails,
-  checkTeamUserLimit
+  checkTeamUserLimit,
+  isTeamSubscriptionExpired
 };
 

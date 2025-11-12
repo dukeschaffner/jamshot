@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '../lib/api';
 import Track from '../components/Track';
-import LoadingSpinner from '../components/LoadingSpinner';
+import InfiniteScrollContainer from '../components/InfiniteScrollContainer';
 import CustomTabs from '../components/CustomTabs';
 import SponsoredCompetition from '../components/SponsoredCompetition';
 import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
@@ -12,15 +12,9 @@ import { trackWelcomeDialogClose, trackFeedChange, trackTrackExpand } from '../l
 import styles from './Home.module.css';
 
 export default function Home() {
-  const [tracks, setTracks] = useState([]);
   const [expandedTrackId, setExpandedTrackId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [hasMore, setHasMore] = useState(true);
-  const [page, setPage] = useState(1);
   const [feedType, setFeedType] = useState(null); // Options: 'following', 'popular'
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
-  const observer = useRef();
   const TRACKS_PER_PAGE = 5;
   const { isAuthenticated, isLoading } = useUser();
   const { isMobile } = useMobile();
@@ -52,62 +46,26 @@ export default function Home() {
     trackWelcomeDialogClose();
   };
 
-  const lastTrackElementRef = useCallback(node => {
-    if (loading) return;
-    if (observer.current) observer.current.disconnect();
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage(prevPage => prevPage + 1);
+  const fetchTracks = useCallback(async (pageNum) => {
+    // feedType is passed via dependencies, so it will be current when this is called
+    // But we check it anyway for safety
+    if (!feedType) {
+      return [];
+    }
+    
+    // Call the appropriate endpoint based on feedType
+    const endpoint = `/tracks/feed/${feedType}`;
+    
+    const response = await api.get(endpoint, {
+      params: {
+        page: pageNum,
+        limit: TRACKS_PER_PAGE
       }
     });
-    if (node) observer.current.observe(node);
-  }, [loading, hasMore]);
-
-  const fetchTracks = useCallback(async (pageNum, feedTypeValue) => {
-    try {
-      setLoading(true);
-      
-      // Call the appropriate endpoint based on feedType
-      const endpoint = `/tracks/feed/${feedTypeValue}`;
-      
-      const response = await api.get(endpoint, {
-        params: {
-          page: pageNum,
-          limit: TRACKS_PER_PAGE
-        }
-      });
-      
-      if (pageNum === 1) {
-        setTracks(response.data);
-      } else {
-        setTracks(prevTracks => [...prevTracks, ...response.data]);
-      }
-      
-      setHasMore(response.data.length === TRACKS_PER_PAGE);
-      setError('');
-    } catch (err) {
-      console.error('Failed to fetch tracks:', err);
-      setError('Failed to load tracks. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Only fetch tracks when feed type is properly initialized
-    if (feedType) {
-      setPage(1);
-      setTracks([]);
-      fetchTracks(1, feedType);
-    }
-  }, [feedType, fetchTracks]);
-
-  useEffect(() => {
-    // Only fetch additional pages when feed type is properly initialized
-    if (page > 1 && feedType) {
-      fetchTracks(page, feedType);
-    }
-  }, [page, feedType, fetchTracks]);
+    
+    // API returns array directly, InfiniteScrollContainer handles it
+    return response.data;
+  }, [feedType]);
 
   const handleFeedTypeChange = (newFeedType) => {
     if (newFeedType !== feedType) {
@@ -118,15 +76,26 @@ export default function Home() {
   };
 
   // Enhanced track expansion handler with analytics
-  const handleTrackExpansion = (trackId) => {
+  const handleTrackExpansion = useCallback((trackId, allTracks) => {
     if (expandedTrackId !== trackId) {
-      const track = tracks.find(t => t.id === trackId);
+      const track = allTracks?.find(t => t.id === trackId);
       if (track) {
         trackTrackExpand(trackId, track.title, track.username);
       }
     }
-    setExpandedTrackId(expandedTrackId === trackId ? null : trackId);
-  };
+    setExpandedTrackId(prev => prev === trackId ? null : trackId);
+  }, [expandedTrackId]);
+
+  const renderTrack = useCallback((track, index, tracks) => {
+    return (
+      <Track
+        track={track}
+        allTracks={tracks}
+        expandedTrackId={expandedTrackId}
+        setExpandedTrackId={(trackId) => handleTrackExpansion(trackId, tracks)}
+      />
+    );
+  }, [expandedTrackId, handleTrackExpansion]);
 
   // Create tabs configuration
   const tabs = [
@@ -230,41 +199,36 @@ export default function Home() {
       {isMobile && hasSponsoredCompetition && (
         <SponsoredCompetition variant="banner" />
       )}
-
-      {error && <p className={styles.errorMessage}>{error}</p>}
       
       {/* Desktop Layout - Feed with Sidebar */}
       <div className={styles.homeLayout}>
         <div className={styles.feedContent}>
           <div className={styles.feed}>
-        {tracks.length === 0 && !loading ? (
-          <div className={styles.emptyFeed}>
-            <p>
-              {feedType === 'following' 
-                ? "You're not following any artists yet. Follow some artists to see their tracks here!"
-                : "No tracks available. Check back later or try a different feed type."}
-            </p>
-          </div>
-        ) : (
-          <div className={styles.trackList}>
-            {tracks.map((track, index) => (
-              <div 
-                key={track.id} 
-                ref={index === tracks.length - 1 ? lastTrackElementRef : null}
-              >
-                <Track
-                  track={track}
-                  allTracks={tracks}
-                  expandedTrackId={expandedTrackId}
-                  setExpandedTrackId={handleTrackExpansion}
-                />
+            {feedType ? (
+              <InfiniteScrollContainer
+                fetchData={fetchTracks}
+                renderItem={renderTrack}
+                emptyState={
+                  <div className={styles.emptyFeed}>
+                    <p>
+                      {feedType === 'following' 
+                        ? "You're not following any artists yet. Follow some artists to see their tracks here!"
+                        : "No tracks available. Check back later or try a different feed type."}
+                    </p>
+                  </div>
+                }
+                errorState={(error) => (
+                  <p className={styles.errorMessage}>{error}</p>
+                )}
+                className={styles.trackList}
+                itemsPerPage={TRACKS_PER_PAGE}
+                dependencies={[feedType]}
+                resetOnDependenciesChange={true}
+              />
+            ) : (
+              <div className={styles.emptyFeed}>
+                <p>Loading feed...</p>
               </div>
-            ))}
-          </div>
-        )}
-        
-            {loading && (
-              <LoadingSpinner />
             )}
           </div>
         </div>
