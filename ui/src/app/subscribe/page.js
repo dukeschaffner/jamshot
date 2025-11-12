@@ -2,11 +2,12 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useUser } from '@/contexts/UserContext';
-import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@/lib/subscriptionUtils';
+import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, TEAM_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@/lib/subscriptionUtils';
 import api from '@/lib/api';
 import { loadStripe } from '@stripe/stripe-js';
 import { FaCheck, FaTimes, FaCrown, FaStar } from 'react-icons/fa';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import styles from './Subscribe.module.css';
 
 // Initialize Stripe
@@ -19,6 +20,7 @@ function SubscribeContent() {
   const [loading, setLoading] = useState({});
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [subscriptionType, setSubscriptionType] = useState('individual'); // 'individual' or 'team'
 
   // Check for success/cancel messages
   const success = searchParams.get('success');
@@ -267,55 +269,122 @@ function SubscribeContent() {
         </div>
       )}
 
+      {/* Subscription Type Toggle */}
+      <div className={styles.subscriptionTypeToggle}>
+        <button
+          className={`${styles.toggleButton} ${subscriptionType === 'individual' ? styles.activeToggle : ''}`}
+          onClick={() => setSubscriptionType('individual')}
+        >
+          Individual
+        </button>
+        <button
+          className={`${styles.toggleButton} ${subscriptionType === 'team' ? styles.activeToggle : ''}`}
+          onClick={() => setSubscriptionType('team')}
+        >
+          Team
+        </button>
+      </div>
+
       <div className={styles.plansGrid}>
-        {Object.values(SUBSCRIPTION_PLANS).map((plan) => (
-          <div 
-            key={plan.id} 
-            className={`${styles.planCard} ${userPlan.id === plan.id ? styles.currentPlan : ''} ${plan.id === SUBSCRIPTION_TIERS.PREMIUM ? styles.featured : ''}`}
-          >
-            {plan.id === SUBSCRIPTION_TIERS.PREMIUM && (
-              <div className={styles.popularBadge}>
-                <FaCrown /> Most Popular
-              </div>
-            )}
-            
-            <div className={styles.planHeader}>
-              <h3 className={styles.planName}>
-                {plan.name}
-                {plan.id === SUBSCRIPTION_TIERS.PREMIUM && <FaStar className={styles.starIcon} />}
-              </h3>
-              <div className={styles.planPrice}>
-                {plan.price === 0 ? (
-                  <span className={styles.freePrice}>Free</span>
-                ) : (
-                  <>
-                    <span className={styles.price}>{formatPrice(plan.price)}</span>
-                    <span className={styles.period}>/{plan.billing_period}</span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.planFeatures}>
-              {plan.highlights.map((highlight, index) => (
-                <div key={index} className={styles.feature}>
-                  <FaCheck className={styles.featureCheck} />
-                  <span>{highlight}</span>
+        {subscriptionType === 'individual' ? (
+          // Individual Subscription Plans
+          Object.values(SUBSCRIPTION_PLANS).map((plan) => (
+            <div 
+              key={plan.id} 
+              className={`${styles.planCard} ${userPlan.id === plan.id ? styles.currentPlan : ''} ${plan.id === SUBSCRIPTION_TIERS.PREMIUM ? styles.featured : ''}`}
+            >
+              {plan.id === SUBSCRIPTION_TIERS.PREMIUM && (
+                <div className={styles.popularBadge}>
+                  <FaCrown /> Most Popular
                 </div>
-              ))}
-            </div>
+              )}
+              
+              <div className={styles.planHeader}>
+                <h3 className={styles.planName}>
+                  {plan.name}
+                  {plan.id === SUBSCRIPTION_TIERS.PREMIUM && <FaStar className={styles.starIcon} />}
+                </h3>
+                <div className={styles.planPrice}>
+                  {plan.price === 0 ? (
+                    <span className={styles.freePrice}>Free</span>
+                  ) : (
+                    <>
+                      <span className={styles.price}>{formatPrice(plan.price)}</span>
+                      <span className={styles.period}>/{plan.billing_period}</span>
+                    </>
+                  )}
+                </div>
+              </div>
 
-            <div className={styles.planFooter}>
-              <button
-                onClick={() => handleSubscribe(plan.id)}
-                disabled={isPlanDisabled(plan) || loading[plan.id]}
-                className={`${styles.subscribeButton} ${userPlan.id === plan.id ? styles.currentButton : ''} ${plan.id === SUBSCRIPTION_TIERS.PREMIUM ? styles.premiumButton : ''}`}
-              >
-                {loading[plan.id] ? 'Processing...' : getPlanButtonText(plan)}
-              </button>
+              <div className={styles.planFeatures}>
+                {plan.highlights.map((highlight, index) => (
+                  <div key={index} className={styles.feature}>
+                    <FaCheck className={styles.featureCheck} />
+                    <span>{highlight}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className={styles.planFooter}>
+                <button
+                  onClick={() => handleSubscribe(plan.id)}
+                  disabled={isPlanDisabled(plan) || loading[plan.id]}
+                  className={`${styles.subscribeButton} ${userPlan.id === plan.id ? styles.currentButton : ''} ${plan.id === SUBSCRIPTION_TIERS.PREMIUM ? styles.premiumButton : ''}`}
+                >
+                  {loading[plan.id] ? 'Processing...' : getPlanButtonText(plan)}
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          // Team Subscription Plans
+          Object.values(TEAM_PLANS).map((plan) => (
+            <div 
+              key={plan.id} 
+              className={`${styles.planCard} ${plan.id === 'enterprise' ? styles.featured : ''}`}
+            >
+              {plan.id === 'enterprise' && (
+                <div className={styles.popularBadge}>
+                  <FaCrown /> Enterprise
+                </div>
+              )}
+              
+              <div className={styles.planHeader}>
+                <h3 className={styles.planName}>
+                  {plan.name}
+                </h3>
+                <div className={styles.planPrice}>
+                  {plan.price === null ? (
+                    <span className={styles.freePrice}>Custom</span>
+                  ) : (
+                    <>
+                      <span className={styles.price}>{formatPrice(plan.price)}</span>
+                      <span className={styles.period}>/{plan.billing_period}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className={styles.planFeatures}>
+                {plan.highlights.map((highlight, index) => (
+                  <div key={index} className={styles.feature}>
+                    <FaCheck className={styles.featureCheck} />
+                    <span>{highlight}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className={styles.planFooter}>
+                <Link
+                  href="/teams/create"
+                  className={`${styles.subscribeButton} ${plan.id === 'enterprise' ? styles.premiumButton : ''}`}
+                >
+                  Create Team
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className={styles.faq}>
