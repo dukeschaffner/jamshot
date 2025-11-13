@@ -6,7 +6,13 @@ TRACKS:
 
 CAMPS:
 - ensure collabs on a camp track belong to the same camp
+- add camp invite notifications
 
 TEAMS:
 - Cleanup team data x days/months after subscription is canceled
 - ensure collabs on a team track belong to the same team
+- add user invite notifications
+
+
+NOTIFICATIONS:
+- don't poll for notifications if user already has unread notifications

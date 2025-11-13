@@ -9,6 +9,8 @@ import InviteLinkModal from '../../../components/InviteLinkModal';
 import TeamSettingsModal from '../../../components/TeamSettingsModal';
 import UserCard from '../../../components/UserCard';
 import TeamTracksTab from './components/TeamTracksTab';
+import TeamFoldersTab from './components/TeamFoldersTab';
+import FolderView from './components/FolderView';
 import { 
   FaUsers, FaCog, FaUserPlus, FaMusic, FaFolder, FaBell,
   FaExclamationTriangle
@@ -25,6 +27,7 @@ export default function TeamDashboard() {
 
   const teamId = parseInt(params.id);
   const inviteCode = searchParams.get('code');
+  const folderId = searchParams.get('folderId');
 
   const [team, setTeam] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -210,6 +213,17 @@ export default function TeamDashboard() {
   const planName = getPlanName();
   const memberCount = team.members?.length || 0;
 
+  // If folderId is present, show folder view instead of dashboard
+  if (folderId) {
+    return (
+      <div className={sharedStyles.container}>
+        <div className={sharedStyles.content}>
+          <FolderView team={team} folderId={folderId} />
+        </div>
+      </div>
+    );
+  }
+
   // Build tabs array
   const tabs = [
     { key: 'tracks', label: 'Tracks' },
@@ -300,15 +314,7 @@ export default function TeamDashboard() {
             )}
           </div>
         )}
-        {activeTab === 'folders' && (
-          <div className={sharedStyles.tabContent}>
-            <div className={sharedStyles.emptyState}>
-              <FaFolder className={sharedStyles.emptyIcon} />
-              <h3>Folders</h3>
-              <p>Team folders will appear here</p>
-            </div>
-          </div>
-        )}
+        {activeTab === 'folders' && <TeamFoldersTab team={team} />}
       </div>
 
       {/* Invite Modal */}
