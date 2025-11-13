@@ -51,9 +51,9 @@ router.post('/', contentCreationLimiter, async (req, res) => {
   }
 
   try {
-    // Get user from database to check for Stripe customer ID
+    // Get user from database to get email
     const userResult = await pool.query(
-      'SELECT email, stripe_customer_id FROM users WHERE id = $1',
+      'SELECT email FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -62,24 +62,17 @@ router.post('/', contentCreationLimiter, async (req, res) => {
     }
 
     const user = userResult.rows[0];
-    let customerId = user.stripe_customer_id;
     
-    if (!customerId) {
-      // Create a new Stripe customer
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          userId: req.user.id,
-        },
-      });
-      customerId = customer.id;
-      
-      // Update user with Stripe customer ID
-      await pool.query(
-        'UPDATE users SET stripe_customer_id = $1 WHERE id = $2',
-        [customerId, req.user.id]
-      );
-    }
+    // Create a new Stripe customer for this team
+    // Each team gets its own customer to prevent balance carryover from previous subscriptions
+    const customer = await stripe.customers.create({
+      email: user.email,
+      metadata: {
+        userId: req.user.id,
+        teamName: name,
+        productVersion: product_version,
+      },
+    });
 
     // Create Stripe checkout session for subscription
     const session = await stripe.checkout.sessions.create({
@@ -91,7 +84,7 @@ router.post('/', contentCreationLimiter, async (req, res) => {
         },
       ],
       mode: 'subscription',
-      customer: customerId,
+      customer: customer.id,
       success_url: `${process.env.FRONTEND_URL}/team/created?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/teams`,
       metadata: {
