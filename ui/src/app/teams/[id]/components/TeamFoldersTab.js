@@ -45,11 +45,11 @@ function TeamFoldersTab({ team }) {
   };
 
   const isAdmin = () => {
-    return team?.user_role === 'admin';
+    return team?.user_role === 'admin' || team?.user_role === 'owner';
   };
 
   const isContributor = () => {
-    return team?.user_role === 'contributor' || team?.user_role === 'admin';
+    return team?.user_role === 'contributor' || team?.user_role === 'admin' || team?.user_role === 'owner';
   };
 
   if (isLoading) {

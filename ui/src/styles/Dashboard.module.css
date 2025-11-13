@@ -10,11 +10,11 @@
 
 /* Header Styles */
 .header {
-  background: var(--grey-1);
+  /* background: var(--grey-1);
   border-radius: 12px;
   padding: 24px;
-  margin-bottom: 24px;
-  border: 1px solid var(--grey-2);
+  border: 1px solid var(--grey-2); */
+  margin-bottom: 16px;
 }
 
 .headerTop {
@@ -34,7 +34,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .entityName h1 {
@@ -119,14 +119,14 @@
 
 /* Content Area */
 .content {
-  background: var(--grey-1);
-  border-radius: 12px;
-  border: 1px solid var(--grey-2);
+  /* background: var(--grey-1); */
+  /* border-radius: 12px; */
+  /* border: 1px solid var(--grey-2); */
   min-height: 500px;
 }
 
 .tabContent {
-  padding: 24px;
+  /* padding: 24px; */
 }
 
 .tabHeader {
@@ -135,7 +135,7 @@
   align-items: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 2px solid var(--grey-2);
+  /* border-bottom: 2px solid var(--grey-2); */
   flex-wrap: wrap;
   gap: 16px;
 }
