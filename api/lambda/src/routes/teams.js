@@ -5,6 +5,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
 const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired } = require('../utils/teamUtils');
 const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils');
+const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
 const stripe = require('../config/stripe');
 
 // Helper function to check if user is team admin
@@ -433,17 +434,18 @@ router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
       orderBy = 't.key ASC';
     }
 
-    // Get tracks associated with team
+    // Get tracks associated with team using standardized track query
+    const baseQuery = getBaseTrackSelectQuery(true, 1, true);
     const tracksQuery = `
       SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.duration, t.metronome_bpm, 
-        t.time_signature, t.key, t.created_at, t.team_folder_id,
-        u.username, u.verified, u.profile_pic_url,
-        tf.name as folder_name,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+        ${baseQuery},
+        t.team_folder_id,
+        t.key,
+        tf.name as folder_name
       FROM tracks t
-      JOIN users u ON t.user_id = u.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       LEFT JOIN team_folders tf ON t.team_folder_id = tf.id
       WHERE t.team_id = $2 AND t.processing_status = 'completed'
       ORDER BY ${orderBy}
@@ -461,11 +463,14 @@ router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
       pool.query(countQuery, [teamId])
     ]);
 
+    // Process tracks using the same utility function as tracks.js
+    const tracks = await Promise.all(tracksResult.rows.map(track => processTrack(track, req.user.id)));
+
     const total = parseInt(countResult.rows[0].total);
-    const hasMore = offset + tracksResult.rows.length < total;
+    const hasMore = offset + tracks.length < total;
 
     res.json({
-      tracks: tracksResult.rows,
+      tracks,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -674,15 +679,17 @@ router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res)
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    // Get tracks in folder using standardized track query
+    const baseQuery = getBaseTrackSelectQuery(true, 1, true);
     const tracksQuery = `
       SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.duration, t.metronome_bpm, 
-        t.time_signature, t.key, t.created_at,
-        u.username, u.verified, u.profile_pic_url,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+        ${baseQuery},
+        t.team_folder_id,
+        t.key
       FROM tracks t
-      JOIN users u ON t.user_id = u.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.team_folder_id = $2 AND t.processing_status = 'completed'
       ORDER BY t.created_at DESC
       LIMIT $3 OFFSET $4
@@ -699,11 +706,14 @@ router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res)
       pool.query(countQuery, [folderId])
     ]);
 
+    // Process tracks using the same utility function as tracks.js
+    const tracks = await Promise.all(tracksResult.rows.map(track => processTrack(track, req.user.id)));
+
     const total = parseInt(countResult.rows[0].total);
-    const hasMore = offset + tracksResult.rows.length < total;
+    const hasMore = offset + tracks.length < total;
 
     res.json({
-      tracks: tracksResult.rows,
+      tracks,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
