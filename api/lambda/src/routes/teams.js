@@ -360,7 +360,7 @@ router.get('/:id/members', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Update member role (owner only, can demote admin to contributor)
+// Update member role (owner/admin can change roles, but admins cannot demote admins)
 router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
   const userId = parseInt(req.params.userId);
@@ -376,10 +376,12 @@ router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) =
   }
 
   try {
-    // Check if user is owner
+    // Check if user is owner or admin
     const isOwner = await checkTeamOwner(teamId, req.user.id);
-    if (!isOwner) {
-      return res.status(403).json({ error: 'Owner access required' });
+    const isAdmin = await checkTeamAdmin(teamId, req.user.id);
+    
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
     }
 
     // Prevent changing your own role
@@ -399,19 +401,19 @@ router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) =
 
     const currentRole = memberCheck.rows[0].role;
 
-    // Only allow demoting admin to contributor (owner requirement)
-    if (currentRole === 'admin' && role !== 'contributor') {
-      return res.status(400).json({ error: 'Can only demote admin to contributor' });
-    }
-
     // Prevent promoting to owner (owner role is set only at team creation)
     if (role === 'owner') {
       return res.status(400).json({ error: 'Cannot assign owner role' });
     }
 
-    // Prevent demoting owner
+    // Prevent changing owner role
     if (currentRole === 'owner') {
       return res.status(400).json({ error: 'Cannot change owner role' });
+    }
+
+    // Admins cannot demote other admins
+    if (!isOwner && isAdmin && currentRole === 'admin' && role !== 'admin') {
+      return res.status(403).json({ error: 'Admins cannot demote other admins' });
     }
 
     // Update role
@@ -840,15 +842,15 @@ router.patch('/:id/tracks/:trackId/folder', apiEndpointLimiter, async (req, res)
   }
 });
 
-// Get team subscription status (admin/owner only)
+// Get team subscription status (owner only)
 router.get('/:id/subscription-status', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
 
   try {
-    // Check if user is admin or owner
-    const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
-    if (!isAdminOrOwner) {
-      return res.status(403).json({ error: 'Admin or owner access required' });
+    // Check if user is owner
+    const isOwner = await checkTeamOwner(teamId, req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Owner access required' });
     }
 
     // Get team subscription details

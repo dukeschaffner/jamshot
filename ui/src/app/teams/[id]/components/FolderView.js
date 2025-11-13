@@ -138,7 +138,7 @@ function FolderView({ team, folderId }) {
             <div>
               <h2 className={styles.folderViewTitle}>{folder.name}</h2>
               <p className={styles.folderViewSubtitle}>
-                {folder.track_count || 0} {folder.track_count === 1 ? 'track' : 'tracks'}
+                {folder.track_count || 0} {Number(folder.track_count) === 1 ? 'track' : 'tracks'}
               </p>
             </div>
           </div>

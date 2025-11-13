@@ -33,18 +33,20 @@ const isTeamDowngrade = (fromVersion, toVersion) => {
   return compareTeamVersions(toVersion, fromVersion) < 0;
 };
 
-function TeamSettingsModal({ team, onClose, onTeamUpdated }) {
+function TeamSettingsModal({ team, onClose, onTeamUpdated, userRole }) {
   const [teamName, setTeamName] = useState(team?.name || '');
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [loading, setLoading] = useState({});
   const [message, setMessage] = useState(null);
   const [savingName, setSavingName] = useState(false);
+  
+  const isOwner = userRole === 'owner';
 
-  // Fetch subscription status
+  // Fetch subscription status (only for owners)
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
-      if (!team?.id) {
+      if (!team?.id || !isOwner) {
         setStatusLoading(false);
         return;
       }
@@ -60,7 +62,7 @@ function TeamSettingsModal({ team, onClose, onTeamUpdated }) {
     };
 
     fetchSubscriptionStatus();
-  }, [team?.id]);
+  }, [team?.id, isOwner]);
 
   const handleSaveName = async () => {
     if (!teamName.trim() || teamName === team.name) {
@@ -251,13 +253,14 @@ function TeamSettingsModal({ team, onClose, onTeamUpdated }) {
             </div>
           </div>
 
-          {/* Subscription Management Section */}
-          <div className={styles.section}>
-            <h3>Subscription Management</h3>
-            
-            {statusLoading ? (
-              <div className={styles.loading}>Loading subscription status...</div>
-            ) : subscriptionStatus && currentPlan ? (
+          {/* Subscription Management Section - Owner Only */}
+          {isOwner && (
+            <div className={styles.section}>
+              <h3>Subscription Management</h3>
+              
+              {statusLoading ? (
+                <div className={styles.loading}>Loading subscription status...</div>
+              ) : subscriptionStatus && currentPlan ? (
               <>
                 <div className={styles.currentStatus}>
                   <div className={styles.statusCard}>
@@ -344,10 +347,11 @@ function TeamSettingsModal({ team, onClose, onTeamUpdated }) {
                   ))}
                 </div>
               </>
-            ) : (
-              <div className={styles.error}>Unable to load subscription status</div>
-            )}
-          </div>
+              ) : (
+                <div className={styles.error}>Unable to load subscription status</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

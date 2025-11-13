@@ -122,7 +122,11 @@ export default function TeamDashboard() {
   };
 
   const isAdmin = () => {
-    return team?.user_role === 'admin';
+    return team?.user_role === 'admin' || team?.user_role === 'owner';
+  };
+
+  const isOwner = () => {
+    return team?.user_role === 'owner';
   };
 
   const handleInviteClick = () => {
@@ -148,6 +152,15 @@ export default function TeamDashboard() {
       throw error; // Re-throw so UserCard can handle it
     } finally {
       setRemovingMemberId(null);
+    }
+  };
+
+  const handleRoleUpdate = async (userId, newRole) => {
+    try {
+      // Refresh team details to update members list with new role
+      await fetchTeamDetails();
+    } catch (error) {
+      console.error('Error refreshing team after role update:', error);
     }
   };
 
@@ -254,7 +267,7 @@ export default function TeamDashboard() {
           </div>
 
           <div className={sharedStyles.headerActions}>
-            {isAdmin() && (
+            {(isAdmin() || isOwner()) && (
               <button 
                 onClick={handleSettingsClick}
                 className={sharedStyles.iconButton}
@@ -264,14 +277,16 @@ export default function TeamDashboard() {
                 <span>Settings</span>
               </button>
             )}
-            <button 
-              onClick={handleInviteClick}
-              className={sharedStyles.iconButton}
-              title="Invite Members"
-            >
-              <FaUserPlus />
-              <span>Invite</span>
-            </button>
+            {(isAdmin() || isOwner()) && (
+              <button 
+                onClick={handleInviteClick}
+                className={sharedStyles.iconButton}
+                title="Invite Members"
+              >
+                <FaUserPlus />
+                <span>Invite</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -300,8 +315,10 @@ export default function TeamDashboard() {
                     entityType="team"
                     entityId={teamId}
                     onRemove={handleRemoveMember}
+                    onRoleUpdate={handleRoleUpdate}
                     isRemoving={removingMemberId === member.id}
                     isCurrentUserAdmin={isAdmin()}
+                    isCurrentUserOwner={isOwner()}
                   />
                 ))}
               </div>
@@ -329,9 +346,10 @@ export default function TeamDashboard() {
       )}
 
       {/* Settings Modal */}
-      {showSettingsModal && isAdmin() && team && (
+      {showSettingsModal && (isAdmin() || isOwner()) && team && (
         <TeamSettingsModal
           team={team}
+          userRole={team.user_role}
           onClose={() => setShowSettingsModal(false)}
           onTeamUpdated={fetchTeamDetails}
         />

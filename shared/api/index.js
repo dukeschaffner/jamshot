@@ -601,6 +601,8 @@ const createApiMethods = (apiClient) => {
 
     removeMember: (teamId, userId) => api.delete(`/teams/${teamId}/members/${userId}`),
 
+    updateMemberRole: (teamId, userId, role) => api.patch(`/teams/${teamId}/members/${userId}/role`, { role }),
+
     getTracks: (teamId, params = {}) => {
       const queryParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
