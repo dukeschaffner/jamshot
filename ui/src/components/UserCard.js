@@ -114,7 +114,7 @@ export default function UserCard({
 
     // Owners can change any role to any role (except owner)
     // Admins can change any role to any role (except demoting admins)
-    return ['admin', 'contributor', 'viewer'];
+    return ['admin', 'contributor'];
   };
 
   const availableRoles = getAvailableRoles();

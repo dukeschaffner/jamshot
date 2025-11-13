@@ -236,6 +236,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   let parentSecretToken = null;
   let isCompetitionEntry = false;
   let competitionId = null;
+  let parentTrack = null;
 
   let {
     title,
@@ -359,14 +360,14 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   try {
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
         return res.status(400).json({ error: 'Parent track not found' });
       }
 
-      const parentTrack = parentResult.rows[0];
+      parentTrack = parentResult.rows[0];
       const parentDuration = parentTrack.duration;
 
       // Store parent privacy status and secret token
@@ -484,7 +485,16 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         room_id = null;
       }
     }
-    else if (team_id) {
+    else if (team_id || (parent_track_id && parentTrack && parentTrack.team_id)) {
+      // Inherit team_id and team_folder_id from parent track for collaborations
+      if (parent_track_id && parentTrack && parentTrack.team_id) {
+        team_id = parentTrack.team_id;
+        // Inherit folder_id from parent if parent has one
+        if (parentTrack.team_folder_id) {
+          folder_id = parentTrack.team_folder_id;
+        }
+      }
+
       // Validate team access
       const teamAccessValidation = await validateTeamAccess(team_id, userId);
       if (!teamAccessValidation.valid) {
