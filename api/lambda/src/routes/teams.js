@@ -446,14 +446,27 @@ router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Cannot remove yourself from the team' });
     }
 
-    // Check if user is a member of the team
+    // Check if user is a member of the team and get their role
     const memberCheck = await pool.query(
-      'SELECT id FROM team_members WHERE user_id = $1 AND team_id = $2',
+      'SELECT id, role FROM team_members WHERE user_id = $1 AND team_id = $2',
       [userId, teamId]
     );
 
     if (memberCheck.rows.length === 0) {
       return res.status(404).json({ error: 'User is not a member of this team' });
+    }
+
+    const targetMemberRole = memberCheck.rows[0].role;
+
+    // Prevent removing the owner
+    if (targetMemberRole === 'owner') {
+      return res.status(403).json({ error: 'Cannot remove the team owner' });
+    }
+
+    // Prevent admins (non-owners) from removing other admins
+    const isCurrentUserOwner = await checkTeamOwner(teamId, req.user.id);
+    if (!isCurrentUserOwner && targetMemberRole === 'admin') {
+      return res.status(403).json({ error: 'Admins cannot remove other admins from the team' });
     }
 
     // Remove user from team
