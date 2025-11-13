@@ -36,9 +36,10 @@ function TeamTracksTab({ team }) {
         allTracks={tracks}
         expandedTrackId={expandedTrackId}
         setExpandedTrackId={handleTrackExpansion}
+        teamContext={{ teamId: team.id, folderId: track.team_folder_id || null, userRole: team.user_role }}
       />
     );
-  }, [expandedTrackId, handleTrackExpansion]);
+  }, [expandedTrackId, handleTrackExpansion, team.id, team.user_role]);
 
   const emptyState = (
     <div className={sharedStyles.emptyState}>

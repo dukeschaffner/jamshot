@@ -183,6 +183,44 @@ async function getTeamDetails(teamId, userId) {
 }
 
 /**
+ * Check if user is team owner
+ * @param {number} teamId - Team ID
+ * @param {number} userId - User ID
+ * @returns {Promise<boolean>} True if user is owner
+ */
+async function checkTeamOwner(teamId, userId) {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
+      [userId, teamId, 'owner']
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking team owner:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if user is team admin or owner (owner has all admin permissions)
+ * @param {number} teamId - Team ID
+ * @param {number} userId - User ID
+ * @returns {Promise<boolean>} True if user is admin or owner
+ */
+async function checkTeamAdminOrOwner(teamId, userId) {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role IN (\'admin\', \'owner\')',
+      [userId, teamId]
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking team admin/owner:', error);
+    return false;
+  }
+}
+
+/**
  * Check if team has reached its user limit based on product version
  * @param {number} teamId - Team ID to check
  * @returns {Object} Validation result with limit info
@@ -244,6 +282,8 @@ module.exports = {
   validateTeamFolderAccess,
   getTeamDetails,
   checkTeamUserLimit,
-  isTeamSubscriptionExpired
+  isTeamSubscriptionExpired,
+  checkTeamOwner,
+  checkTeamAdminOrOwner
 };
 

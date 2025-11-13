@@ -2,3 +2,5 @@
 - handle moving tracks in and out of folders
 - handle deleting folders (option to delete all tracks in folder or orphan the tracks)
 - manage user roles within a team
+- teams page to view all teams the user is a member of
+    - maybe if user is only a member of one team, redirect to that team's dashboard page

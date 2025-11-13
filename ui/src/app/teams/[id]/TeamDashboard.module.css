@@ -327,3 +327,95 @@
   gap: 12px;
   flex-wrap: wrap;
 }
+
+/* Move Track Modal Styles */
+.moveTrackInfo {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--grey-1);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+}
+
+.moveTrackInfo p {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.moveTrackInfo p:last-child {
+  margin-bottom: 0;
+}
+
+.currentFolderInfo {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.folderSelection {
+  margin-top: 0;
+}
+
+.folderLabel {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.folderOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.folderOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--grey-1);
+  border: 2px solid var(--grey-2);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.folderOption:hover:not(:disabled) {
+  border-color: var(--seafoam);
+  background: var(--seafoam-light);
+}
+
+.folderOption:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.folderOptionSelected {
+  border-color: var(--seafoam);
+  background: var(--seafoam-light);
+  color: var(--seafoam-dark);
+}
+
+.folderOption svg {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.folderOption span {
+  flex: 1;
+}
+
+.currentLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}

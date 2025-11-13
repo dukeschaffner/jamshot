@@ -1200,6 +1200,10 @@ body.dark-mode .loading-more {
   background-clip: text;
 }
 
+.modal-body {
+  padding: 1.5rem;
+}
+
 .close-btn {
   background: none;
   border: none;

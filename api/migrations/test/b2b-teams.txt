@@ -23,7 +23,7 @@ CREATE TABLE team_members (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   team_id INT REFERENCES teams(id) ON DELETE CASCADE NOT NULL,
-  role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'contributor', 'viewer')) DEFAULT 'contributor',
+  role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'contributor', 'viewer', 'owner')) DEFAULT 'contributor',
   joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, team_id) -- User can only be in each team once
 );
