@@ -13,7 +13,7 @@ import TeamFoldersTab from './components/TeamFoldersTab';
 import FolderView from './components/FolderView';
 import { 
   FaUsers, FaCog, FaUserPlus, FaMusic, FaFolder, FaBell,
-  FaExclamationTriangle
+  FaExclamationTriangle, FaExternalLinkAlt
 } from 'react-icons/fa';
 import styles from './TeamDashboard.module.css';
 import sharedStyles from '../../../styles/Dashboard.module.css';
@@ -241,7 +241,14 @@ export default function TeamDashboard() {
   const tabs = [
     { key: 'tracks', label: 'Tracks' },
     { key: 'members', label: 'Members' },
-    { key: 'folders', label: 'Folders' }
+    { key: 'folders', label: 'Folders' },
+    { 
+      key: 'learn-more', 
+      label: 'Learn More',
+      icon: <FaExternalLinkAlt />,
+      externalLink: '/teams/about',
+      onExternalClick: () => router.push('/teams/about')
+    }
   ];
 
   return (
