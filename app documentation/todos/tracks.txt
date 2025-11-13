@@ -1,0 +1,3 @@
+- add ... button that opens dropdown menu with 
+    - delete track
+    - view analytics

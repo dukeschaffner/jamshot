@@ -1,0 +1,4 @@
+- handle assigning folders to collab tracks
+- handle moving tracks in and out of folders
+- handle deleting folders (option to delete all tracks in folder or orphan the tracks)
+- manage user roles within a team

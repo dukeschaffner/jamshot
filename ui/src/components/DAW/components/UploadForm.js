@@ -34,6 +34,7 @@ export default function UploadForm({
   const createCompetition = searchParams.get('createCompetition') === 'true';
   const campId = searchParams.get('camp_id');
   const teamId = searchParams.get('team_id');
+  const folderId = searchParams.get('folder_id');
 
   const [metronomeBpmInput, setMetronomeBpmInput] = useState(metronomeBpm.toString());
   const [timeSignatureInput, setTimeSignatureInput] = useState(timeSignature);
@@ -268,6 +269,11 @@ export default function UploadForm({
       }
       else if (teamId) {
         uploadData.team_id = parseInt(teamId);
+      }
+
+      // Add folder_id if present
+      if (folderId) {
+        uploadData.folder_id = parseInt(folderId);
       }
 
       // Add collab specific data
