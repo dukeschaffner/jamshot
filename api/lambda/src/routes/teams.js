@@ -7,6 +7,15 @@ const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamU
 const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils');
 const stripe = require('../config/stripe');
 
+// Helper function to check if user is team admin
+async function checkTeamAdmin(teamId, userId) {
+  const adminCheck = await pool.query(
+    'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
+    [userId, teamId, 'admin']
+  );
+  return adminCheck.rows.length > 0;
+}
+
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
@@ -705,6 +714,225 @@ router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res)
   } catch (error) {
     console.error('Error fetching folder tracks:', error);
     res.status(500).json({ error: 'Failed to fetch tracks' });
+  }
+});
+
+// Get team subscription status (admin only)
+router.get('/:id/subscription-status', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+
+  try {
+    // Check if user is admin
+    const isAdmin = await checkTeamAdmin(teamId, req.user.id);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Get team subscription details
+    const teamResult = await pool.query(
+      'SELECT product_version, subscription_status, subscription_expires_at, stripe_subscription_id, stripe_customer_id FROM teams WHERE id = $1',
+      [teamId]
+    );
+
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    const team = teamResult.rows[0];
+    
+    let subscriptionStatus = {
+      product_version: team.product_version,
+      subscription_status: team.subscription_status,
+      expires_at: team.subscription_expires_at,
+      is_active: false,
+      cancel_at_period_end: false
+    };
+
+    if (team.stripe_subscription_id) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(team.stripe_subscription_id);
+        subscriptionStatus.is_active = subscription.status === 'active' || subscription.status === 'trialing';
+        subscriptionStatus.cancel_at_period_end = subscription.cancel_at_period_end;
+        subscriptionStatus.current_period_end = new Date(subscription.current_period_end * 1000);
+      } catch (error) {
+        console.error('Error retrieving subscription from Stripe:', error);
+      }
+    }
+
+    res.json(subscriptionStatus);
+  } catch (error) {
+    console.error('Error getting team subscription status:', error);
+    res.status(500).json({ error: 'Failed to get subscription status' });
+  }
+});
+
+// Modify team subscription (upgrade/downgrade) - admin only
+router.post('/:id/modify-subscription', contentCreationLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const { product_version: newProductVersion } = req.body;
+
+  try {
+    // Check if user is admin
+    const isAdmin = await checkTeamAdmin(teamId, req.user.id);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    if (!newProductVersion || !isValidTeamProductVersion(newProductVersion)) {
+      return res.status(400).json({ error: 'Invalid product version' });
+    }
+
+    // Get team details
+    const teamResult = await pool.query(
+      'SELECT product_version, stripe_subscription_id, stripe_customer_id FROM teams WHERE id = $1',
+      [teamId]
+    );
+
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    const team = teamResult.rows[0];
+
+    // Enterprise plan requires contact, cannot be changed via API
+    if (newProductVersion === TEAM_PRODUCT_VERSIONS.ENTERPRISE) {
+      return res.status(400).json({ error: 'Enterprise plan requires contacting sales. Please reach out for custom pricing.' });
+    }
+
+    // If team doesn't have an existing subscription, create a new one
+    if (!team.stripe_subscription_id) {
+      const newPlan = TEAM_PLANS[newProductVersion];
+      if (!newPlan.stripe_price_id) {
+        return res.status(400).json({ error: 'Team plan not configured' });
+      }
+
+      // Create checkout session for new subscription
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: newPlan.stripe_price_id,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        customer: team.stripe_customer_id,
+        success_url: `${process.env.FRONTEND_URL}/teams/${teamId}?subscription=success`,
+        cancel_url: `${process.env.FRONTEND_URL}/teams/${teamId}`,
+        metadata: {
+          userId: req.user.id,
+          type: 'team_subscription_modify',
+          teamId: teamId.toString(),
+          productVersion: newProductVersion,
+        },
+      });
+
+      return res.json({ 
+        type: 'checkout_session',
+        id: session.id,
+        url: session.url
+      });
+    }
+
+    // Get current subscription details
+    const subscription = await stripe.subscriptions.retrieve(team.stripe_subscription_id);
+
+    // Handle reactivation of canceled subscription
+    if (subscription.cancel_at_period_end) {
+      const currentPriceId = subscription.items.data[0]?.price?.id;
+      const newPlan = TEAM_PLANS[newProductVersion];
+      
+      if (currentPriceId === newPlan.stripe_price_id) {
+        await stripe.subscriptions.update(team.stripe_subscription_id, {
+          cancel_at_period_end: false,
+        });
+        
+        return res.json({ 
+          message: `Successfully reactivated your ${newPlan.name} subscription`,
+          type: 'reactivation'
+        });
+      }
+    }
+
+    // Handle product version change between paid plans
+    const newPlan = TEAM_PLANS[newProductVersion];
+    if (!newPlan.stripe_price_id) {
+      return res.status(400).json({ error: 'Team plan not configured' });
+    }
+
+    // Update subscription with new price - Stripe handles proration automatically
+    const updatedSubscription = await stripe.subscriptions.update(team.stripe_subscription_id, {
+      items: [{
+        id: subscription.items.data[0].id,
+        price: newPlan.stripe_price_id,
+      }],
+      cancel_at_period_end: false, // Ensure subscription is not set to cancel
+      proration_behavior: 'always_invoice', // Handle proration for immediate changes
+    });
+
+    // Update team record immediately (webhook will also update, but this ensures consistency)
+    await pool.query(
+      `UPDATE teams SET 
+       product_version = $1, 
+       subscription_expires_at = $2
+       WHERE id = $3`,
+      [
+        newProductVersion,
+        new Date(updatedSubscription.current_period_end * 1000),
+        teamId
+      ]
+    );
+
+    res.json({ 
+      message: `Successfully switched to ${newPlan.name}`,
+      type: 'tier_change',
+      newProductVersion: newProductVersion
+    });
+
+  } catch (error) {
+    console.error('Error modifying team subscription:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to modify subscription'
+    });
+  }
+});
+
+// Cancel team subscription (admin only)
+router.post('/:id/cancel-subscription', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+
+  try {
+    // Check if user is admin
+    const isAdmin = await checkTeamAdmin(teamId, req.user.id);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Get team subscription details
+    const teamResult = await pool.query(
+      'SELECT stripe_subscription_id FROM teams WHERE id = $1',
+      [teamId]
+    );
+
+    if (teamResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Team not found' });
+    }
+
+    const team = teamResult.rows[0];
+
+    if (!team.stripe_subscription_id) {
+      return res.status(400).json({ error: 'Team does not have an active subscription' });
+    }
+
+    // Cancel the subscription at period end
+    await stripe.subscriptions.update(team.stripe_subscription_id, {
+      cancel_at_period_end: true,
+    });
+
+    res.json({ message: 'Subscription will be canceled at the end of the current period' });
+  } catch (error) {
+    console.error('Error canceling team subscription:', error);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 });
 

@@ -25,5 +25,6 @@ export {
   getTierUpgradeOptions,
   formatPrice,
   formatLimitDisplay,
+  TEAM_PRODUCT_VERSIONS,
   TEAM_PLANS
 } from '../../shared/utils/subscription.js'; 
