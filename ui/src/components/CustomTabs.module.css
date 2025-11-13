@@ -1,0 +1,12 @@
+.tabIcon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  font-size: 0.85em;
+}
+
+.externalTab {
+  display: inline-flex;
+  align-items: center;
+}
+

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import styles from '../app/Home.module.css';
+import tabStyles from './CustomTabs.module.css';
 
 export default function CustomTabs({ 
   tabs, 
@@ -22,14 +22,28 @@ export default function CustomTabs({
     }
   };
 
-  const getTabClass = (isActive) => {
+  const getTabClass = (isActive, isExternal) => {
+    const baseClass = isExternal ? tabStyles.externalTab : '';
     switch (variant) {
       case 'feed':
-        return `${styles.feedTab} ${isActive ? `${styles.active}` : ''}`;
+        return `${styles.feedTab} ${isActive ? `${styles.active}` : ''} ${baseClass}`;
       case 'track':
-        return `track-tab ${isActive ? 'active' : ''}`;
+        return `track-tab ${isActive ? 'active' : ''} ${baseClass}`;
       default:
-        return `tab ${isActive ? 'active' : ''}`;
+        return `tab ${isActive ? 'active' : ''} ${baseClass}`;
+    }
+  };
+
+  const handleTabClick = (tab) => {
+    if (tab.externalLink) {
+      // Handle external link navigation
+      if (tab.onExternalClick) {
+        tab.onExternalClick();
+      } else if (typeof window !== 'undefined') {
+        window.location.href = tab.externalLink;
+      }
+    } else {
+      onTabChange(tab.key);
     }
   };
 
@@ -38,10 +52,11 @@ export default function CustomTabs({
       {tabs.map((tab) => (
         <button
           key={tab.key}
-          className={getTabClass(activeTab === tab.key)}
-          onClick={() => onTabChange(tab.key)}
+          className={getTabClass(activeTab === tab.key, !!tab.externalLink)}
+          onClick={() => handleTabClick(tab)}
           disabled={tab.disabled}
         >
+          {tab.icon && <span className={tabStyles.tabIcon}>{tab.icon}</span>}
           {tab.label}
         </button>
       ))}
