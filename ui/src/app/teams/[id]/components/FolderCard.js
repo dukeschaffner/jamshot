@@ -13,7 +13,7 @@ function FolderCard({ folder, onClick }) {
         <div className={styles.folderCardMeta}>
           <span className={styles.folderCardTrackCount}>
             <FaMusic />
-            {folder.track_count || 0} {folder.track_count === 1 ? 'track' : 'tracks'}
+            {folder.track_count || 0} {Number(folder.track_count) === 1 ? 'track' : 'tracks'}
           </span>
           {folder.creator_name && (
             <span className={styles.folderCardCreator}>

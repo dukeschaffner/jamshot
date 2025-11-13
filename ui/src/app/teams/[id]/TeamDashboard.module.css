@@ -36,6 +36,7 @@
 .folderCardIcon {
   display: flex;
   align-items: center;
+  align-self: center;
   justify-content: center;
   width: 48px;
   height: 48px;
@@ -51,7 +52,6 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .folderCardName {
