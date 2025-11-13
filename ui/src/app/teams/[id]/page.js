@@ -6,6 +6,7 @@ import { teamApi } from '../../../lib/api';
 import CustomTabs from '../../../components/CustomTabs';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import InviteLinkModal from '../../../components/InviteLinkModal';
+import TeamSettingsModal from '../../../components/TeamSettingsModal';
 import UserCard from '../../../components/UserCard';
 import TeamTracksTab from './components/TeamTracksTab';
 import { 
@@ -321,17 +322,13 @@ export default function TeamDashboard() {
         />
       )}
 
-      {/* Settings Modal - TODO: Implement */}
-      {showSettingsModal && isAdmin() && (
-        <div className={sharedStyles.modalOverlay} onClick={() => setShowSettingsModal(false)}>
-          <div className={sharedStyles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2>Team Settings</h2>
-            <p>Settings modal coming soon</p>
-            <button onClick={() => setShowSettingsModal(false)} className={sharedStyles.primaryButton}>
-              Close
-            </button>
-          </div>
-        </div>
+      {/* Settings Modal */}
+      {showSettingsModal && isAdmin() && team && (
+        <TeamSettingsModal
+          team={team}
+          onClose={() => setShowSettingsModal(false)}
+          onTeamUpdated={fetchTeamDetails}
+        />
       )}
     </div>
   );

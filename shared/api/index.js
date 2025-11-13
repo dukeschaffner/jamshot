@@ -628,6 +628,12 @@ const createApiMethods = (apiClient) => {
       });
       return api.get(`/teams/${teamId}/folders/${folderId}/tracks?${queryParams.toString()}`);
     },
+
+    getSubscriptionStatus: (teamId) => api.get(`/teams/${teamId}/subscription-status`),
+
+    modifySubscription: (teamId, productVersion) => api.post(`/teams/${teamId}/modify-subscription`, { product_version: productVersion }),
+
+    cancelSubscription: (teamId) => api.post(`/teams/${teamId}/cancel-subscription`),
   };
 
   return {
