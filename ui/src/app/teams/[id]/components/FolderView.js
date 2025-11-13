@@ -76,7 +76,7 @@ function FolderView({ team, folderId }) {
   };
 
   const isContributor = () => {
-    return team?.user_role === 'contributor' || team?.user_role === 'admin';
+    return team?.user_role === 'contributor' || team?.user_role === 'admin' || team?.user_role === 'owner';
   };
 
   if (isLoadingFolder) {

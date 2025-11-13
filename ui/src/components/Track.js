@@ -418,7 +418,7 @@ export default function Track(
           </button>
           
           {/* Actions menu (ellipses button) - shows if user owns track or is in team context */}
-          {(currentUser?.id === track.user_id || (teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin'))) && (
+          {(currentUser?.id === track.user_id || (teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner'))) && (
             <div className={styles.trackActionsMenu} ref={actionsMenuRef}>
               <button 
                 className="pill-btn sm"
@@ -449,7 +449,7 @@ export default function Track(
                   )}
                   
                   {/* Move to folder option (team context only) */}
-                  {teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin') && (
+                  {teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner') && (
                     <button
                       className={styles.actionMenuItem}
                       onClick={(e) => {
