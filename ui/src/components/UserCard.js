@@ -174,7 +174,10 @@ export default function UserCard({
               {getRoleDisplay(currentRole)}
             </span>
           )}
-          {(isCurrentUserAdmin || isCurrentUserOwner) && user.id !== currentUser?.id && (
+          {(isCurrentUserAdmin || isCurrentUserOwner) && 
+           user.id !== currentUser?.id && 
+           currentRole !== 'owner' && 
+           !(isCurrentUserAdmin && !isCurrentUserOwner && currentRole === 'admin') && (
             <button
               onClick={handleRemoveClick}
               className={styles.removeButton}
