@@ -629,6 +629,8 @@ const createApiMethods = (apiClient) => {
       return api.get(`/teams/${teamId}/folders/${folderId}/tracks?${queryParams.toString()}`);
     },
 
+    moveTrack: (teamId, trackId, data) => api.patch(`/teams/${teamId}/tracks/${trackId}/folder`, data),
+
     getSubscriptionStatus: (teamId) => api.get(`/teams/${teamId}/subscription-status`),
 
     modifySubscription: (teamId, productVersion) => api.post(`/teams/${teamId}/modify-subscription`, { product_version: productVersion }),

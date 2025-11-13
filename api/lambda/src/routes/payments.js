@@ -689,10 +689,10 @@ async function handleTeamCreation(session) {
       ]
     );
 
-    // Add creator as admin to team_members
+    // Add creator as owner to team_members
     await db.query(
       `INSERT INTO team_members (user_id, team_id, role)
-       VALUES ($1, $2, 'admin')`,
+       VALUES ($1, $2, 'owner')`,
       [userId, teamResult.rows[0].id]
     );
 

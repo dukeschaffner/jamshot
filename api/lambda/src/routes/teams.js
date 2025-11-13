@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
-const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired } = require('../utils/teamUtils');
+const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired, checkTeamOwner, checkTeamAdminOrOwner } = require('../utils/teamUtils');
 const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils');
 const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
 const stripe = require('../config/stripe');
@@ -158,7 +158,7 @@ router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
     const teamResult = await pool.query(
       `SELECT t.*, u.username as admin_username, u.name as admin_name
        FROM teams t
-       JOIN team_members tm ON t.id = tm.team_id AND tm.role = 'admin'
+       JOIN team_members tm ON t.id = tm.team_id AND tm.role IN ('admin', 'owner')
        JOIN users u ON tm.user_id = u.id
        WHERE t.team_code = $1
        LIMIT 1`,
@@ -241,7 +241,7 @@ router.get('/:id', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Update team settings (admin only)
+// Update team settings (admin/owner only)
 router.put('/:id', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
   const { name } = req.body;
@@ -251,14 +251,10 @@ router.put('/:id', apiEndpointLimiter, async (req, res) => {
   }
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
-      [req.user.id, teamId, 'admin']
-    );
-
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     const result = await pool.query(
@@ -287,14 +283,10 @@ router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
   }
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
-      [req.user.id, teamId, 'admin']
-    );
-
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Find user by username
@@ -368,20 +360,83 @@ router.get('/:id/members', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Remove member from team (admin only)
+// Update member role (owner only, can demote admin to contributor)
+router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const userId = parseInt(req.params.userId);
+  const { role } = req.body;
+
+  if (!role) {
+    return res.status(400).json({ error: 'Role is required' });
+  }
+
+  // Validate role
+  if (!['admin', 'contributor', 'viewer'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role. Must be admin, contributor, or viewer' });
+  }
+
+  try {
+    // Check if user is owner
+    const isOwner = await checkTeamOwner(teamId, req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Owner access required' });
+    }
+
+    // Prevent changing your own role
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot change your own role' });
+    }
+
+    // Check if user is a member of the team
+    const memberCheck = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2',
+      [userId, teamId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User is not a member of this team' });
+    }
+
+    const currentRole = memberCheck.rows[0].role;
+
+    // Only allow demoting admin to contributor (owner requirement)
+    if (currentRole === 'admin' && role !== 'contributor') {
+      return res.status(400).json({ error: 'Can only demote admin to contributor' });
+    }
+
+    // Prevent promoting to owner (owner role is set only at team creation)
+    if (role === 'owner') {
+      return res.status(400).json({ error: 'Cannot assign owner role' });
+    }
+
+    // Prevent demoting owner
+    if (currentRole === 'owner') {
+      return res.status(400).json({ error: 'Cannot change owner role' });
+    }
+
+    // Update role
+    await pool.query(
+      'UPDATE team_members SET role = $1 WHERE user_id = $2 AND team_id = $3',
+      [role, userId, teamId]
+    );
+
+    res.json({ message: 'Member role updated successfully' });
+  } catch (error) {
+    console.error('Error updating member role:', error);
+    res.status(500).json({ error: 'Failed to update member role' });
+  }
+});
+
+// Remove member from team (admin/owner only)
 router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
   const userId = parseInt(req.params.userId);
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
-      [req.user.id, teamId, 'admin']
-    );
-
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Prevent removing yourself
@@ -615,20 +670,16 @@ router.put('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Delete folder (admin only)
+// Delete folder (admin/owner only)
 router.delete('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
   const folderId = parseInt(req.params.folderId);
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2 AND role = $3',
-      [req.user.id, teamId, 'admin']
-    );
-
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Verify folder belongs to team
@@ -727,15 +778,77 @@ router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res)
   }
 });
 
-// Get team subscription status (admin only)
+// Move track to folder (admin/contributor)
+router.patch('/:id/tracks/:trackId/folder', apiEndpointLimiter, async (req, res) => {
+  const teamId = parseInt(req.params.id);
+  const trackId = parseInt(req.params.trackId);
+  const { folder_id } = req.body;
+
+  try {
+    // Verify user has access to team
+    const accessCheck = await validateTeamAccess(teamId, req.user.id);
+    if (!accessCheck.valid) {
+      return res.status(403).json({ error: accessCheck.error });
+    }
+
+    // Check if user is contributor or admin
+    const memberCheck = await pool.query(
+      'SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2',
+      [req.user.id, teamId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'You are not a member of this team' });
+    }
+
+    const userRole = memberCheck.rows[0].role;
+    if (userRole !== 'admin' && userRole !== 'contributor' && userRole !== 'owner') {
+      return res.status(403).json({ error: 'Only contributors, admins, and owners can move tracks' });
+    }
+
+    // Verify track belongs to team
+    const trackCheck = await pool.query(
+      'SELECT id, team_id, team_folder_id FROM tracks WHERE id = $1 AND team_id = $2',
+      [trackId, teamId]
+    );
+
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found or does not belong to this team' });
+    }
+
+    // If folder_id is provided, validate folder access
+    if (folder_id !== null && folder_id !== undefined) {
+      const folderValidation = await validateTeamFolderAccess(folder_id, teamId, req.user.id);
+      if (!folderValidation.valid) {
+        return res.status(403).json({ error: folderValidation.error });
+      }
+    }
+
+    // Update track's folder
+    await pool.query(
+      'UPDATE tracks SET team_folder_id = $1 WHERE id = $2',
+      [folder_id || null, trackId]
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Track moved successfully'
+    });
+  } catch (error) {
+    console.error('Error moving track:', error);
+    res.status(500).json({ error: 'Failed to move track' });
+  }
+});
+
+// Get team subscription status (admin/owner only)
 router.get('/:id/subscription-status', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
 
   try {
-    // Check if user is admin
-    const isAdmin = await checkTeamAdmin(teamId, req.user.id);
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Get team subscription details
@@ -776,16 +889,16 @@ router.get('/:id/subscription-status', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Modify team subscription (upgrade/downgrade) - admin only
+// Modify team subscription (upgrade/downgrade) - owner only
 router.post('/:id/modify-subscription', contentCreationLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
   const { product_version: newProductVersion } = req.body;
 
   try {
-    // Check if user is admin
-    const isAdmin = await checkTeamAdmin(teamId, req.user.id);
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is owner
+    const isOwner = await checkTeamOwner(teamId, req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Owner access required' });
     }
 
     if (!newProductVersion || !isValidTeamProductVersion(newProductVersion)) {
@@ -907,15 +1020,15 @@ router.post('/:id/modify-subscription', contentCreationLimiter, async (req, res)
   }
 });
 
-// Cancel team subscription (admin only)
+// Cancel team subscription (owner only)
 router.post('/:id/cancel-subscription', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
 
   try {
-    // Check if user is admin
-    const isAdmin = await checkTeamAdmin(teamId, req.user.id);
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is owner
+    const isOwner = await checkTeamOwner(teamId, req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Owner access required' });
     }
 
     // Get team subscription details

@@ -1,15 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaTimes, FaRocket } from 'react-icons/fa';
 import api from '@/lib/api';
-import styles from './ReleaseNotesToast.module.css';
+import { useToast } from '../lib/ToastContext';
 
 export default function ReleaseNotesToast() {
-  const [showToast, setShowToast] = useState(false);
   const [latestRelease, setLatestRelease] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [toastId, setToastId] = useState(null);
   const router = useRouter();
+  const { showToast, dismissToast } = useToast();
 
   useEffect(() => {
     const checkForNewRelease = async () => {
@@ -24,7 +24,22 @@ export default function ReleaseNotesToast() {
           // Show toast if there's a new release and user hasn't seen it
           if (!lastViewedVersion || latestVersion > lastViewedVersion) {
             setLatestRelease(response.data);
-            setShowToast(true);
+            
+            const id = showToast({
+              variant: 'release',
+              title: 'New Update Available!',
+              message: `${response.data.title} - v${response.data.version}`,
+              duration: 0, // Don't auto-dismiss
+              action: true,
+              actionLabel: 'View',
+              onAction: () => {
+                localStorage.setItem('sterio_last_viewed_release_version', response.data.version);
+                dismissToast(id);
+                router.push('/release-notes');
+              },
+            });
+            
+            setToastId(id);
           }
         }
       } catch (err) {
@@ -39,61 +54,14 @@ export default function ReleaseNotesToast() {
       checkForNewRelease();
     }, 1000);
 
-    return () => clearTimeout(timer);
-  }, []);
+    return () => {
+      clearTimeout(timer);
+      if (toastId) {
+        dismissToast(toastId);
+      }
+    };
+  }, [showToast, dismissToast, router, toastId]);
 
-  const handleDismiss = () => {
-    if (latestRelease) {
-      // Update localStorage to current version
-      localStorage.setItem('sterio_last_viewed_release_version', latestRelease.version);
-    }
-    setShowToast(false);
-  };
-
-  const handleClick = () => {
-    if (latestRelease) {
-      // Update localStorage to current version
-      localStorage.setItem('sterio_last_viewed_release_version', latestRelease.version);
-    }
-    setShowToast(false);
-    router.push('/release-notes');
-  };
-
-  if (loading || !showToast || !latestRelease) {
-    return null;
-  }
-
-  return (
-    <div className={styles.toastContainer}>
-      <div className={styles.toast}>
-        <div className={styles.toastContent}>
-          <div className={styles.toastIcon}>
-            <FaRocket />
-          </div>
-          <div className={styles.toastText}>
-            <div className={styles.toastTitle}>New Update Available!</div>
-            <div className={styles.toastMessage}>
-              {latestRelease.title} - v{latestRelease.version}
-            </div>
-          </div>
-        </div>
-        <div className={styles.toastActions}>
-          <button 
-            onClick={handleClick}
-            className={styles.viewButton}
-          >
-            View
-          </button>
-          <button 
-            onClick={handleDismiss}
-            className={styles.dismissButton}
-            aria-label="Dismiss"
-          >
-            <FaTimes />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
 

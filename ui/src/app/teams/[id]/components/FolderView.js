@@ -66,9 +66,10 @@ function FolderView({ team, folderId }) {
         allTracks={tracks}
         expandedTrackId={expandedTrackId}
         setExpandedTrackId={handleTrackExpansion}
+        teamContext={{ teamId: team.id, folderId: parseInt(folderId), userRole: team.user_role }}
       />
     );
-  }, [expandedTrackId, handleTrackExpansion]);
+  }, [expandedTrackId, handleTrackExpansion, team.id, team.user_role, folderId]);
 
   const handleBackToDashboard = () => {
     router.push(`/teams/${team.id}`);

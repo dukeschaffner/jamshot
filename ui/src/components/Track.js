@@ -8,13 +8,15 @@ import LoadingSpinner from './LoadingSpinner';
 import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
 import { useUser } from '../contexts/UserContext';
 import styles from './Track.module.css';
 import { useMobile } from '../contexts/MobileContext';
+import { useToast } from '../lib/ToastContext';
+import MoveTrackModal from './teams/MoveTrackModal';
 export default function Track(
     { track, 
       allTracks, 
@@ -26,7 +28,8 @@ export default function Track(
       competition, // Competition data when in competition view
       entryStatus, // User's entry status in competition
       onEnterCompetition, // Callback for entering competition
-      isEntering // Loading state for entering competition
+      isEntering, // Loading state for entering competition
+      teamContext // { teamId, folderId, userRole } - for team folder management
     }
   ) 
 {
@@ -44,6 +47,26 @@ export default function Track(
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTracks, setTotalTracks] = useState(0);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const actionsMenuRef = useRef(null);
+  const { showSuccess, showError } = useToast();
+
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setShowActionsMenu(false);
+      }
+    }
+
+    if (showActionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showActionsMenu]);
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
@@ -394,18 +417,53 @@ export default function Track(
             {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
           </button>
           
-          {/* Analytics button for track owners */}
-          {currentUser?.id === track.user_id && (
-            <button 
-              className="pill-btn green-btn sm" 
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/user/${track.artist?.username || currentUser.username}/analytics/track/${track.id}`);
-              }}
-              title="View analytics"
-            >
-              📊 Analytics
-            </button>
+          {/* Actions menu (ellipses button) - shows if user owns track or is in team context */}
+          {(currentUser?.id === track.user_id || (teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin'))) && (
+            <div className={styles.trackActionsMenu} ref={actionsMenuRef}>
+              <button 
+                className="pill-btn sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowActionsMenu(!showActionsMenu);
+                }}
+                title="More actions"
+                style={{ background: 'var(--grey-1)', color: 'var(--text-primary)', border: '1px solid var(--grey-2)', paddingInline: '8px' }}
+              >
+                <FaEllipsisV style={{ margin: '0px' }}/>
+              </button>
+              
+              {showActionsMenu && (
+                <div className={styles.actionsDropdown}>
+                  {/* Analytics option for track owners */}
+                  {currentUser?.id === track.user_id && (
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowActionsMenu(false);
+                        router.push(`/user/${track.artist?.username || currentUser.username}/analytics/track/${track.id}`);
+                      }}
+                    >
+                      📊 Analytics
+                    </button>
+                  )}
+                  
+                  {/* Move to folder option (team context only) */}
+                  {teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin') && (
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowActionsMenu(false);
+                        setShowMoveModal(true);
+                      }}
+                    >
+                      <FaFolderOpen /> Move to Folder
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           
           {/* Competition view button */}
@@ -508,6 +566,21 @@ export default function Track(
             </div>
           )}
         </div>
+      )}
+      
+      {/* Move Track Modal */}
+      {showMoveModal && teamContext && (
+        <MoveTrackModal
+          teamId={teamContext.teamId}
+          track={track}
+          currentFolderId={track.team_folder_id || teamContext.folderId || null}
+          onClose={() => setShowMoveModal(false)}
+          onSuccess={() => {
+            setShowMoveModal(false);
+            // Refresh the page to show updated folder
+            window.location.reload();
+          }}
+        />
       )}
     </div>
   );

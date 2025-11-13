@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
+import { ToastProvider } from '../lib/ToastContext';
 import { UserProvider, useUser } from '../contexts/UserContext';
 import { MobileProvider } from '../contexts/MobileContext';
 import { NavigationGuardProvider } from 'next-navigation-guard';
@@ -126,13 +127,15 @@ export default function ClientLayout({ children }) {
     <UserProvider>
       <MobileProvider>
         <AudioProvider>
-          <NotificationProvider>
-            <NavigationGuardProvider>
-              <AppContent>
-                {children}
-              </AppContent>
-            </NavigationGuardProvider>
-          </NotificationProvider>
+          <ToastProvider>
+            <NotificationProvider>
+              <NavigationGuardProvider>
+                <AppContent>
+                  {children}
+                </AppContent>
+              </NavigationGuardProvider>
+            </NotificationProvider>
+          </ToastProvider>
         </AudioProvider>
       </MobileProvider>
     </UserProvider>
