@@ -213,7 +213,7 @@ export default function TeamDashboard() {
         <div className={sharedStyles.error}>
           <FaUsers className={sharedStyles.errorIcon} />
           <h1>Team Subscription Inactive</h1>
-          <p>This team's subscription is not currently active. Please contact the team admin.</p>
+          <p>This team&apos;s subscription is not currently active. Please contact the team admin.</p>
           <button onClick={() => router.push('/teams/create')} className={sharedStyles.primaryButton}>
             Back to Teams
           </button>
