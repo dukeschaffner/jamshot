@@ -288,6 +288,33 @@
   color: var(--seafoam);
 }
 
+.deleteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--grey-1);
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.deleteButton:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .folderViewTitleSection {
   display: flex;
   align-items: flex-start;

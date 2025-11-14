@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { teamApi } from '../../../../lib/api';
 import Track from '../../../../components/Track';
 import InfiniteScrollContainer from '../../../../components/InfiniteScrollContainer';
-import { FaArrowLeft, FaFolder, FaMusic, FaUpload, FaPlus } from 'react-icons/fa';
+import ConfirmationDialog from '../../../../components/ConfirmationDialog';
+import { useToast } from '../../../../lib/ToastContext';
+import { FaArrowLeft, FaFolder, FaMusic, FaUpload, FaPlus, FaTrash } from 'react-icons/fa';
 import sharedStyles from '../../../../styles/Dashboard.module.css';
 import styles from '../TeamDashboard.module.css';
 
@@ -13,9 +15,12 @@ const TRACKS_PER_PAGE = 5;
 
 function FolderView({ team, folderId }) {
   const router = useRouter();
+  const { showSuccess, showError } = useToast();
   const [folder, setFolder] = useState(null);
   const [isLoadingFolder, setIsLoadingFolder] = useState(true);
   const [expandedTrackId, setExpandedTrackId] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch folder details
   useEffect(() => {
@@ -77,6 +82,30 @@ function FolderView({ team, folderId }) {
 
   const isContributor = () => {
     return team?.user_role === 'contributor' || team?.user_role === 'admin' || team?.user_role === 'owner';
+  };
+
+  const isAdminOrOwner = () => {
+    return team?.user_role === 'admin' || team?.user_role === 'owner';
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await teamApi.deleteFolder(team.id, parseInt(folderId));
+      showSuccess('Folder Deleted', 'The folder has been deleted successfully. Tracks have been preserved.');
+      router.push(`/teams/${team.id}`);
+    } catch (err) {
+      console.error('Error deleting folder:', err);
+      const errorMessage = err.response?.data?.error || 'Failed to delete folder';
+      showError('Delete Failed', errorMessage);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
   };
 
   if (isLoadingFolder) {
@@ -143,8 +172,8 @@ function FolderView({ team, folderId }) {
             </div>
           </div>
         </div>
-        {isContributor() && (
-          <div className={styles.folderViewActions}>
+        <div className={styles.folderViewActions}>
+          {isContributor() && (
             <Link 
               href={`/upload?team_id=${team.id}&folder_id=${folderId}`}
               className={sharedStyles.primaryButton}
@@ -152,8 +181,18 @@ function FolderView({ team, folderId }) {
               <FaUpload />
               Upload Track
             </Link>
-          </div>
-        )}
+          )}
+          {isAdminOrOwner() && (
+            <button
+              onClick={handleDeleteClick}
+              className={styles.deleteButton}
+              title="Delete Folder"
+              disabled={isDeleting}
+            >
+              <FaTrash />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tracks List */}
@@ -164,6 +203,18 @@ function FolderView({ team, folderId }) {
         className={sharedStyles.trackList}
         itemsPerPage={TRACKS_PER_PAGE}
         dependencies={[team.id, folderId]}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Folder"
+        message={`Are you sure you want to delete "${folder?.name}"? The folder will be deleted, but all tracks will be preserved and moved out of folders.`}
+        confirmText="Delete Folder"
+        cancelText="Cancel"
+        variant="danger"
       />
     </div>
   );
