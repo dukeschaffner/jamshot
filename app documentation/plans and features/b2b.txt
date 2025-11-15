@@ -1,0 +1,74 @@
+
+
+B2B Model:
+- subscription with several premium subs for users in the organization
+
+
+clients:
+- churches
+- studios
+- schools
+- advertising agencies
+
+
+perks:
+- shared upload pool?
+- team level analytics
+    - user activity
+    - track activity
+- team roles
+    - admin
+    - contributor
+    - viewer
+- storage
+    - midi files
+    - lyrics
+- folder view
+    - move tracks between folders
+        - option to move all descendants of a track as well
+
+POST MVP:
+- lyric editor with AI suggestions
+
+
+
+
+- team plan
+    - 10 users
+    - 25 users
+    - 50 users
+    - 100 users
+- "enterprise plan - contact us"
+
+- users in team get track quotas specifically for use within their team
+- users can hold personal subscriptions for personal use in addition to their team membership
+
+ROLES:
+- admin
+- contributor
+- viewer
+
+
+---------------------------------PAGES:---------------------------------
+Team Create Page:
+    - form
+        - team name
+        - product version (10 users, 25 users, 50 users, 100 users)
+        - checkout with stripe, create team obj on successful payment and redirect to team dashboard page
+Team Dashboard:
+- header
+    - team name
+    - settings button (opens settings modal)
+    - invite button (opens invite modal)
+- tabs (header and tabs layout should be similar to track page)
+    - tracks (feed of all team tracks sorted by recency - should be similar to home feed w/ infinite scroll)
+    - folders (list of all team folders)
+    - members (list of all team members)
+
+
+---------------------------------components:---------------------------------
+invite modal  - reuse camp invite modal - might need to move to shared components
+settings modal - edit team name
+folder - simple rectangle with folder icon and folder name
+    - on click should open folder view - feed of tracks in the folder (again should be similar to home feed w/ infinite scroll)
+

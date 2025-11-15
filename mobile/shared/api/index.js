@@ -46,6 +46,10 @@ const createApiClient = (config = {}) => {
   let isRefreshing = false;
   // Queue of failed requests to retry after token refresh
   let failedQueue = [];
+  // Refresh retry state
+  let refreshRetryCount = 0;
+  const MAX_REFRESH_RETRIES = 3;
+  const REFRESH_RETRY_DELAY = 1000; // Start with 1 second
 
   // Process the queue of failed requests
   const processQueue = (error, token = null) => {
@@ -56,8 +60,55 @@ const createApiClient = (config = {}) => {
         prom.resolve(token);
       }
     });
-    
+
     failedQueue = [];
+  };
+
+  // Check if error is retryable (network errors, not auth errors)
+  const isRetryableError = (error) => {
+    // Network errors, timeouts, connection issues
+    if (error.code === 'ECONNABORTED' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      return true;
+    }
+    // Network timeout
+    if (error.message && error.message.includes('timeout')) {
+      return true;
+    }
+    // 5xx server errors (but not 401/403 which indicate auth issues)
+    if (error.response && error.response.status >= 500) {
+      return true;
+    }
+    return false;
+  };
+
+  // Sleep utility for retry delays
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Attempt token refresh with retry logic
+  const attemptTokenRefresh = async (refreshToken) => {
+    try {
+      const response = await axios.post(
+        `${config.baseURL || process.env.API_URL}/auth/refresh-token`,
+        { refreshToken }
+      );
+
+      // Reset retry count on success
+      refreshRetryCount = 0;
+      return response;
+    } catch (error) {
+      // If this is a retryable error and we haven't exceeded max retries
+      if (isRetryableError(error) && refreshRetryCount < MAX_REFRESH_RETRIES) {
+        refreshRetryCount++;
+        const delay = REFRESH_RETRY_DELAY * Math.pow(2, refreshRetryCount - 1); // Exponential backoff
+        console.log(`Token refresh failed (attempt ${refreshRetryCount}/${MAX_REFRESH_RETRIES}), retrying in ${delay}ms...`, error.message);
+
+        await sleep(delay);
+        return attemptTokenRefresh(refreshToken); // Recursive retry
+      }
+
+      // If not retryable or exceeded retries, throw the error
+      throw error;
+    }
   };
 
   // Request interceptor for authentication
@@ -162,11 +213,8 @@ const createApiClient = (config = {}) => {
           return Promise.reject(error);
         }
         
-        // Try to get a new access token
-        const response = await axios.post(
-          `${config.baseURL || process.env.API_URL}/auth/refresh-token`,
-          { refreshToken }
-        );
+        // Try to get a new access token with retry logic
+        const response = await attemptTokenRefresh(refreshToken);
         
         const { accessToken } = response.data;
         
@@ -191,25 +239,36 @@ const createApiClient = (config = {}) => {
         // Retry the original request
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh token is invalid or expired
-        processQueue(refreshError, null);
-        
-        // Clear auth and redirect to login
-        console.log('Error refreshing token, clearing auth and redirecting to login');
-        if (removeToken) await removeToken();
-        if (removeRefreshToken) await removeRefreshToken();
-        if (setAuthError) setAuthError('Your session has expired. Please log in again');
-        
-        // Update the UserContext if callback is set
-        if (refreshUserState) {
-          refreshUserState();
+        // Check if this is specifically an invalid/expired refresh token error
+        const isInvalidTokenError = refreshError.response?.data?.error === 'Invalid or expired refresh token';
+
+        if (isInvalidTokenError) {
+          // Only logout for explicit invalid/expired token errors
+          processQueue(refreshError, null);
+
+          console.log('Refresh token is invalid or expired, clearing auth and redirecting to login');
+          if (removeToken) await removeToken();
+          if (removeRefreshToken) await removeRefreshToken();
+          if (setAuthError) setAuthError('Your session has expired. Please log in again.');
+          window.refreshError = refreshError;
+
+          // Update the UserContext if callback is set
+          if (refreshUserState) {
+            refreshUserState();
+          }
+
+          if (redirectToLogin) {
+            redirectToLogin();
+          }
+
+          return Promise.reject(refreshError);
+        } else {
+          // For other errors (network issues, server errors, etc.), don't logout
+          // Just reject the original request and let it fail gracefully
+          console.log('Token refresh failed due to non-auth error, keeping user logged in:', refreshError.message);
+          processQueue(refreshError, null);
+          return Promise.reject(refreshError);
         }
-        
-        if (redirectToLogin) {
-          redirectToLogin();
-        }
-        
-        return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
@@ -259,10 +318,17 @@ const createApiMethods = (apiClient) => {
     unlikeTrack: (id) => api.delete(`/tracks/${id}/like`),
 
     // Upload initialization - get pre-signed S3 URL
-    initUpload: (filename, fileSize) => api.post('/tracks/upload/init', {
-      filename,
-      fileSize
-    }),
+    initUpload: (filename, fileSize, isCampTrack = false, teamId = null) => {
+      const body = {
+        filename,
+        fileSize,
+        is_camp_track: isCampTrack
+      };
+      if (teamId) {
+        body.team_id = teamId;
+      }
+      return api.post('/tracks/upload/init', body);
+    },
 
     // Process upload after S3 upload is complete
     processUpload: (uploadData) => api.post('/tracks/upload', uploadData),
@@ -466,6 +532,114 @@ const createApiMethods = (apiClient) => {
     },
   };
 
+  // Camp API methods
+  const campApi = {
+    createCamp: (campData) => api.post('/camps', campData),
+
+    getCamp: (campId) => api.get(`/camps/${campId}`),
+
+    getCampSuccess: (sessionId) => api.get(`/camps/created?session_id=${sessionId}`),
+
+    validateInviteCode: (code) => api.post('/camps/validate-code', { code }),
+
+    inviteUser: (campId, username) => api.post(`/camps/${campId}/invite`, { username }),
+
+    removeMember: (campId, userId) => api.delete(`/camps/${campId}/members/${userId}`),
+
+    updateCamp: (campId, data) => api.put(`/camps/${campId}`, data),
+
+    createRoom: (campId, roomData) => api.post(`/camps/${campId}/rooms`, roomData),
+
+    addUserToRoom: (campId, roomId, userData) => api.put(`/camps/${campId}/rooms/${roomId}/users`, userData),
+
+    getBeats: (campId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/beats?${queryParams.toString()}`);
+    },
+
+    getTracks: (campId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/tracks?${queryParams.toString()}`);
+    },
+
+    getRoomTracks: (campId, roomId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/rooms/${roomId}/tracks?${queryParams.toString()}`);
+    },
+  };
+
+  // Team API methods
+  const teamApi = {
+    createTeam: (teamData) => api.post('/teams', teamData),
+
+    getTeam: (teamId) => api.get(`/teams/${teamId}`),
+
+    getTeamSuccess: (sessionId) => api.get(`/teams/created?session_id=${sessionId}`),
+
+    validateInviteCode: (code) => api.post('/teams/validate-code', { code }),
+
+    updateTeam: (teamId, data) => api.put(`/teams/${teamId}`, data),
+
+    inviteUser: (teamId, username) => api.post(`/teams/${teamId}/invite`, { username }),
+
+    getMembers: (teamId) => api.get(`/teams/${teamId}/members`),
+
+    removeMember: (teamId, userId) => api.delete(`/teams/${teamId}/members/${userId}`),
+
+    updateMemberRole: (teamId, userId, role) => api.patch(`/teams/${teamId}/members/${userId}/role`, { role }),
+
+    getTracks: (teamId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/teams/${teamId}/tracks?${queryParams.toString()}`);
+    },
+
+    getFolders: (teamId) => api.get(`/teams/${teamId}/folders`),
+
+    createFolder: (teamId, folderData) => api.post(`/teams/${teamId}/folders`, folderData),
+
+    updateFolder: (teamId, folderId, data) => api.put(`/teams/${teamId}/folders/${folderId}`, data),
+
+    deleteFolder: (teamId, folderId) => api.delete(`/teams/${teamId}/folders/${folderId}`),
+
+    getFolderTracks: (teamId, folderId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/teams/${teamId}/folders/${folderId}/tracks?${queryParams.toString()}`);
+    },
+
+    moveTrack: (teamId, trackId, data) => api.patch(`/teams/${teamId}/tracks/${trackId}/folder`, data),
+
+    getSubscriptionStatus: (teamId) => api.get(`/teams/${teamId}/subscription-status`),
+
+    modifySubscription: (teamId, productVersion) => api.post(`/teams/${teamId}/modify-subscription`, { product_version: productVersion }),
+
+    cancelSubscription: (teamId) => api.post(`/teams/${teamId}/cancel-subscription`),
+  };
+
   return {
     trackApi,
     userApi,
@@ -475,6 +649,8 @@ const createApiMethods = (apiClient) => {
     competitionApi,
     tagApi,
     analyticsApi,
+    campApi,
+    teamApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,

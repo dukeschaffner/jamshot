@@ -1,0 +1,317 @@
+/* Camp-specific dashboard styles */
+/* Shared styles are in ../../../styles/Dashboard.module.css */
+
+/* Camp-specific icon styling */
+.campIcon {
+  font-size: 28px;
+  color: var(--seafoam);
+}
+
+/* Camp status banner */
+.campStatus {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--seafoam-light);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--s2);
+  font-weight: 500;
+}
+
+.campStatus svg {
+  font-size: 18px;
+}
+
+/* Camp-specific lists */
+.beatList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* Room Content */
+.roomContent {
+  display: grid;
+  gap: 32px;
+}
+
+.roomSection {
+  background: var(--background);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid var(--grey-2);
+}
+
+.roomSection h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+}
+
+/* Rooms List */
+.roomsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.roomCard {
+  background: var(--background);
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid var(--grey-2);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.roomCard:hover {
+  border-color: var(--seafoam);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.roomCard.selected {
+  border-color: var(--seafoam);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.roomCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.roomCardHeader h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.roomMemberCount {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.roomMemberCount svg {
+  font-size: 14px;
+}
+
+.roomCardContent {
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.roomMembersPreview h4,
+.roomTracksPreview h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.memberAvatarList {
+  display: flex;
+  gap: -8px;
+  align-items: center;
+}
+
+.memberAvatarSmall {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--background);
+  object-fit: cover;
+  margin-right: -8px;
+}
+
+.moreMembers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--grey-2);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  border: 2px solid var(--background);
+  margin-left: 4px;
+}
+
+.trackPreviewList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trackPreviewItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--grey-1);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.trackPreviewItem svg {
+  color: var(--seafoam);
+  font-size: 12px;
+}
+
+.trackPreviewItem span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.noTracks {
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+  margin: 0;
+}
+
+/* Activity List */
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activityItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.activityItem:hover {
+  border-color: var(--seafoam);
+  background: var(--grey-1);
+}
+
+.activityIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--grey-1);
+  color: var(--seafoam);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.activityContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.activityText {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.activityUser {
+  font-weight: 600;
+  color: var(--seafoam);
+}
+
+.activityTitle {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.activityTime {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Settings Modal Styles */
+.settingsSection {
+  margin-bottom: 20px;
+}
+
+.settingsSection label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.settingsInput {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--grey-1);
+  border: 1px solid var(--grey-2);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.settingsInput:focus {
+  outline: none;
+  border-color: var(--seafoam);
+}
+
+/* Form Styles */
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.helpText {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.errorMessage {
+  padding: 12px;
+  background: rgba(252, 50, 50, 0.1);
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  color: var(--red);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .beatList,
+  .roomsList {
+    grid-template-columns: 1fr;
+  }
+}

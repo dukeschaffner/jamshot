@@ -1,5 +1,8 @@
-RUNNING STRIPE: stripe listen --forward-to localhost:5001/api/payments/webhook
-RUNNING AUDIO PROCESSING DEV SERVER: node ./functions/lambda/audio-processing/dev-start.js
+RUNNING STRIPE: 
+stripe listen --forward-to localhost:5001/api/payments/webhook
+
+RUNNING AUDIO PROCESSING DEV SERVER: 
+node ./functions/lambda/audio-processing/dev-start.js
 
 
 TODO (MVP)
@@ -22,6 +25,8 @@ TODO (MVP)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
+- multi region tracks
+- update region during playback
 
 
 
@@ -45,6 +50,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- b2b model (churches, studios, etc)
 - dont save recording if stopped during count in.
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
 - create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
@@ -95,44 +101,6 @@ TODO (after beta testing)
 
 
 
-MONETIZATION
-- ads
-- premium subscription
-- selling samples
-- streaming revenue from published collabs
-- pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
-- sponsored competitions from audio companies (best Sketch Cassette track)
-
-FREE
-- 1 Upload/day
-- 25 total uploads
-- ads (post MVP)
-
-BASIC - 4.99/month
-- 5 Uploads/day
-- 60 total uploads
-- private tracks
-- analytics (post MVP)
-- no ads (post MVP)
-
-PREMIUM - 19.99/month
-- 25 uploads/day
-- unlimited total uploads
-- private tracks
-- no ads (post MVP)
-- 5 free samples/month (post MVP)
-- analytics (post MVP)
-- advanced DAW (post MVP)
-
-eventually:
-- selling samples
-- longer recording limit (5 minutes for free, 10 minutes for premium)
-
-
-
-LEGAL
-- option to allow others to 'steal' (use) the track?
-- splitting royalties if song uploaded
 
 
 About
@@ -190,3 +158,44 @@ Collabs:
 - all collabs on a private track should share the same secret key
 - track CANNOT go from public to private if it has collabs
 - as a result, collaborating artists have no control over the privacy status of their track
+
+
+
+MONETIZATION
+- ads
+- premium subscription
+- selling samples
+- streaming revenue from published collabs
+- pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
+- sponsored competitions from audio companies (best Sketch Cassette track)
+
+FREE
+- 3 Upload/day
+- 25 total uploads
+- ads (post MVP)
+
+BASIC - 4.99/month
+- 5 Uploads/day
+- 60 total uploads
+- private tracks
+- analytics (post MVP)
+- no ads (post MVP)
+
+PREMIUM - 12.99/month
+- 25 uploads/day
+- unlimited total uploads
+- private tracks
+- no ads (post MVP)
+- 5 free samples/month (post MVP)
+- analytics (post MVP)
+- advanced DAW (post MVP)
+
+eventually:
+- selling samples
+- longer recording limit (5 minutes for free, 10 minutes for premium)
+
+
+
+LEGAL
+- option to allow others to 'steal' (use) the track?
+- splitting royalties if song uploaded

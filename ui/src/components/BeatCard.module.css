@@ -1,0 +1,221 @@
+.beatCard {
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+  overflow: hidden;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.beatCard:hover {
+  border-color: var(--seafoam);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.beatWaveform {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  background: var(--grey-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.waveformPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--grey-3);
+  font-size: 48px;
+  opacity: 0.3;
+}
+
+.playButton {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--seafoam);
+  border: none;
+  color: var(--s2);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.playButton.visible {
+  opacity: 1;
+}
+
+.playButton:hover {
+  background: var(--seafoam-dark);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.playButton:active {
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+.beatInfo {
+  padding: 16px;
+}
+
+.beatHeader {
+  margin-bottom: 12px;
+}
+
+.beatTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.beatTitle:hover {
+  color: var(--seafoam);
+}
+
+.beatMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.metaItem:hover {
+  color: var(--seafoam);
+}
+
+.metaItem svg {
+  font-size: 12px;
+}
+
+.verified {
+  color: var(--seafoam);
+  font-size: 12px;
+}
+
+.metaRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metaChip {
+  padding: 4px 10px;
+  background: var(--grey-1);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.metaStats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--grey-2);
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.statItem svg {
+  font-size: 12px;
+}
+
+.startButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--seafoam);
+  color: var(--s2);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.startButton:hover {
+  background: var(--seafoam-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
+.startButton:active {
+  transform: translateY(0);
+}
+
+.startButton svg {
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .beatWaveform {
+    height: 120px;
+  }
+
+  .playButton {
+    width: 50px;
+    height: 50px;
+    font-size: 16px;
+  }
+
+  .beatInfo {
+    padding: 12px;
+  }
+
+  .beatTitle {
+    font-size: 14px;
+  }
+
+  .metaItem,
+  .statItem {
+    font-size: 12px;
+  }
+
+  .startButton {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+}
+

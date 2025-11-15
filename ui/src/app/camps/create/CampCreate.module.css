@@ -1,0 +1,20 @@
+/* Camp Create Page Specific Styles */
+.campCreateContainer {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: calc(100vh - 80px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .campCreateContainer {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .campCreateContainer {
+    padding: 15px;
+  }
+}

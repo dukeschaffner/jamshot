@@ -1,0 +1,161 @@
+
+
+---------------------------------songwriting camps:---------------------------------
+file, track, idea tracking, facilitation, organization, and management
+
+roles:
+- admin
+- contributor
+
+
+-----------------------------Pages/components:-----------------------------
+
+-landing page (/camps or whatever makes the most sense)
+    - hero section
+    - features section
+    - pricing section + link to camp creation page (autopopulate product version based on url params)
+    - contact us section (link to contact page)
+
+
+-camp creation page (/camps/create):
+    - form
+        - camp name
+        - start date or start now option
+        - for now end date is 7 days from start date
+        - product version (10 users, 25 users, 50 users, 100 users)
+        - checkout with stripe, create camp obj on successful payment and redirect to camp dashboard page
+
+-dashboard (/camp/{campId}):
+    - user has access (user in users to camp table):
+        - camp hasn't ended:
+            - header
+                - camp name
+                - camp start date
+                - camp end date
+                - camp settings (edit button) - admin only
+                    - camp name
+                    - add/remove users, assign roles/rooms (add button opens invite users modal)
+                    - add/remove/update rooms
+                - invite button - opens invite users modal
+                - export button
+            - beat pool tab
+                - beats (list of beats in the pool) - beats are just track entities
+                    - waveform
+                    - title
+                    - producer name
+                    - bpm/key
+                    - collab count
+                    - "Start Idea" or "create" button -> track page (if camp is active)
+                - sort by recency, bpm, key, usage
+                - add beat to pool - audio file upload only
+            - room tab (ie Room A) (if the user is assigned to a room, this tab will be shown)
+                - name
+                - tracks (list of tracks in the room)
+                - members (list of users in the room)
+                    - admins can add/remove users from room here
+            - rooms tab
+                - room list (sidebar)
+                    - room (same content as room tab)
+            - tracks tab (sort by recency, likes, filter by room, filter by beat?) - don't include beats in this list
+            - activity feed tab:
+                “User uploaded a beat”
+                “Room B created new idea”
+                “New topline added to Version 2”
+                “Version A3 liked by Room C”
+        - camp has ended:
+            - show message "This camp has ended"
+
+    - user does not have access:
+        - parameter ?code={campCode} supplied?
+            - yes -> if the code is valid, the user will be added to the camp if not already in camp, and redirected to the camp dashboard page
+            - no -> show message "Invalid camp code"
+        - show message "You do not have access to this camp"
+
+- /camp/{campId}/track/{trackId}:
+    - very similar to /track/{trackId} page, but with the following differences:
+        - header shows room name
+        - reuse upload form from /track/{trackId} page but with specific "camp" variant
+            - reuse track upload endpoint with camp, room logic
+
+
+- invite users modal:
+    - user search (search for users by username, name)
+        - dropdown list of user results with avatar, username, name, invite button (if they are not already in the camp) -> disable and change to "invited" when invited
+    - or copy invite link (links to /camp/{campId}?code={campCode})
+
+
+validation/rules:
+- user can only be assigned to one room at a time
+- all camp tracks/beats marked as private. they should only be accessible to users in camp.
+- when a user builds on a beat, the resulting track should be marked with the user's room id
+- once a track has a room_id, all descendants should be marked with the same room_id, no matter the room_id of the user who added to the track
+- beat uploads allowed anytime during camp period (from creation date to end date)
+- track uploads only allowed after camp has started (after start_date)
+- camp user limits enforced based on product version (10, 25, 50, or 100 users)
+- camp endpoints
+- track upload ednpoint updates:
+    - if camp_id supplied, then run camp validations
+    - if parent_track_id supplied, then upload is a Track
+        - ensure camp exists, is active, and user is a member of the camp
+        - ensure room_id supplied and room exists
+        - bypass private track check
+    - if no parent_track_id supplied, then upload is a Beat
+        - ensure camp exists, hasn't ended, and user is a member of the camp (can upload )
+
+
+database changes:
+- add rooms table
+- add camps table
+- user to camp many-to-many relationship
+- user to room many-to-many relationship
+track:
+    - room_id
+    - camp_id?
+    - key
+
+
+- unlimited uploads during camp (maybe hidden daily limit that shouldn't be hit unless user is abusing the system?)
+
+
+- 7 day songwriting camp pass?
+| Seats               | Price    | Notes                             |
+| ------------------- | -------- | --------------------------------- |
+| **Up to 10 users**  | **$49**  | Indie-friendly; low-friction      |
+| **Up to 25 users**  | **$99** | School programs, indie pro camps  |
+| **Up to 50 users**  | **$199** | Publisher/label camps             |
+| **Up to 100 users** | **$299** | Large enterprise writing retreats |
+
+
+
+
+
+
+
+
+
+
+<after_mvp>
+- DAW changes:
+    - track length should not be limited by parent track
+    - parent track should be loopable/editable, not fixed
+    - no layer limits?
+    - remove ancestor track (maybe keep db reference, just hide it in the ui)?
+
+- contribution tracker/split sheet generator:
+    -Stores:
+        -Audio contributions
+        -Metadata
+        -Percent suggestions
+        -Notes
+    - At the end of the camp → auto-generate a split sheet.
+
+- camp export
+    - tracks (name, likes, filename, comments, user)
+    - ALL files
+
+- user invite notifications
+- camp cleanup
+- how to prevent abuse of beat uploads before camp has started
+- dont load camp tracks on your own user page
+- camp songs dont count toward quotas
+</after_mvp>

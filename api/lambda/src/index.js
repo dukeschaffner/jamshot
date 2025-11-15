@@ -15,6 +15,8 @@ const contactRoutes = require('./routes/contact');
 const analyticsRoutes = require('./routes/analytics');
 const competitionRoutes = require('./routes/competitions');
 const releaseNotesRoutes = require('./routes/releaseNotes');
+const campRoutes = require('./routes/camps');
+const teamRoutes = require('./routes/teams');
 require('dotenv').config();
 
 
@@ -78,7 +80,7 @@ const corsOptions = {
     // Deny other origins.
     callback(new Error('Not allowed by CORS'));
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
   credentials: true // Allow cookies to be sent
 };
@@ -112,6 +114,8 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/competitions', competitionRoutes);
 app.use('/api/release-notes', releaseNotesRoutes);
+app.use('/api/camps', campRoutes);
+app.use('/api/teams', teamRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {

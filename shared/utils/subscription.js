@@ -114,6 +114,136 @@ const SUBSCRIPTION_PLANS = {
   }
 };
 
+// Team Subscription Plan Constants
+const TEAM_PRODUCT_VERSIONS = {
+  TEN_USERS: '10_users',
+  TWENTY_FIVE_USERS: '25_users',
+  FIFTY_USERS: '50_users',
+  ONE_HUNDRED_USERS: '100_users',
+  ENTERPRISE: 'enterprise'
+};
+
+// Team Subscription Plan Definitions
+const TEAM_PLANS = {
+  [TEAM_PRODUCT_VERSIONS.TEN_USERS]: {
+    id: '10_users',
+    name: 'Team Plan (Up to 10 users)',
+    price: 49.00,
+    currency: 'USD',
+    billing_period: 'month',
+    max_users: 10,
+    features: {
+      ads: false
+    },
+    limits: {
+      max_users: 10,
+      daily_uploads: 100,
+      max_total_uploads: 1000
+    },
+    highlights: [
+      'Up to 10 team members',
+      'Private tracks',
+      'Team Dashboard + Track Folders',
+      'Shared upload pool (100/day, 1,000 total)',
+      'No ads'
+    ]
+  },
+  [TEAM_PRODUCT_VERSIONS.TWENTY_FIVE_USERS]: {
+    id: '25_users',
+    name: 'Team Plan (Up to 25 users)',
+    price: 99.00,
+    currency: 'USD',
+    billing_period: 'month',
+    max_users: 25,
+    features: {
+      ads: false
+    },
+    limits: {
+      max_users: 25,
+      daily_uploads: 250,
+      max_total_uploads: 2500
+    },
+    highlights: [
+      'Up to 25 team members',
+      'Private tracks',
+      'Team Dashboard + Track Folders',
+      'Shared upload pool (250/day, 2,500 total)',
+      'No ads'
+    ]
+  },
+  [TEAM_PRODUCT_VERSIONS.FIFTY_USERS]: {
+    id: '50_users',
+    name: 'Team Plan (Up to 50 users)',
+    price: 199.00,
+    amount_cents: 19900,
+    currency: 'USD',
+    billing_period: 'month',
+    max_users: 50,
+    features: {
+      ads: false
+    },
+    limits: {
+      max_users: 50,
+      daily_uploads: 500,
+      max_total_uploads: 5000
+    },
+    highlights: [
+      'Up to 50 team members',
+      'Private tracks',
+      'Team Dashboard + Track Folders',
+      'Shared upload pool (500/day, 5,000 total)',
+      'No ads'
+    ]
+  },
+  [TEAM_PRODUCT_VERSIONS.ONE_HUNDRED_USERS]: {
+    id: '100_users',
+    name: 'Team Plan (Up to 100 users)',
+    price: 299.00,
+    amount_cents: 29900,
+    currency: 'USD',
+    billing_period: 'month',
+    max_users: 100,
+    features: {
+      ads: false
+    },
+    limits: {
+      max_users: 100,
+      daily_uploads: 1000,
+      max_total_uploads: 10000
+    },
+    highlights: [
+      'Up to 100 team members',
+      'Private tracks',
+      'Team Dashboard + Track Folders',
+      'Shared upload pool (1000/day, 10,000 total)',
+      'No ads'
+    ]
+  },
+  [TEAM_PRODUCT_VERSIONS.ENTERPRISE]: {
+    id: 'enterprise',
+    name: 'Enterprise Plan',
+    price: null, // Custom pricing
+    amount_cents: null,
+    currency: 'USD',
+    billing_period: 'month',
+    max_users: -1, // Unlimited
+    features: {
+      ads: false,
+    },
+    limits: {
+      max_users: -1, // Unlimited
+      daily_uploads: -1, // Unlimited
+      max_total_uploads: -1, // Unlimited
+    },
+    highlights: [
+      'Private tracks',
+      'Team Dashboard + Track Folders',
+      'No ads',
+      'Contact us for pricing'
+    ]
+  }
+};
+
 // Helper function to extend plans with environment-specific data
 const createSubscriptionPlans = (extensions = {}) => {
   const plans = {};
@@ -264,6 +394,18 @@ const formatLimitDisplay = (limit) => {
   return limit.toString();
 };
 
+
+
+// Validate team product version
+const isValidTeamProductVersion = (version) => {
+  return Object.values(TEAM_PRODUCT_VERSIONS).includes(version);
+};
+
+// Get team plan by product version
+const getTeamPlan = (productVersion) => {
+  return TEAM_PLANS[productVersion] || null;
+};
+
 // Export lists for different platforms
 const API_EXPORTS = [
   SUBSCRIPTION_TIERS,
@@ -286,7 +428,11 @@ const API_EXPORTS = [
   hasReachedTotalUploadLimit,
   getFeaturesByTier,
   getLimitsByTier,
-  getTierUpgradeOptions
+  getTierUpgradeOptions,
+  TEAM_PRODUCT_VERSIONS,
+  TEAM_PLANS,
+  isValidTeamProductVersion,
+  getTeamPlan
 ];
 
 const UI_EXPORTS = [
@@ -311,5 +457,7 @@ const UI_EXPORTS = [
   getLimitsByTier,
   getTierUpgradeOptions,
   formatPrice,
-  formatLimitDisplay
-]; 
+  formatLimitDisplay,
+  TEAM_PRODUCT_VERSIONS,
+  TEAM_PLANS
+];
