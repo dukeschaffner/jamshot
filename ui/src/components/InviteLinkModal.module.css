@@ -1,0 +1,54 @@
+.inviteSection {
+  margin-bottom: 24px;
+}
+
+.inviteSection h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.inviteSection p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.inviteLinkBox {
+  display: flex;
+  gap: 8px;
+}
+
+.inviteLinkInput {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--grey-1);
+  border: 1px solid var(--grey-2);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: monospace;
+}
+
+.copyButton {
+  padding: 10px 20px;
+  background: var(--seafoam);
+  color: var(--s2);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.copyButton:hover {
+  background: var(--seafoam-dark);
+}
+
+.copyButton:active {
+  transform: translateY(1px);
+}
+

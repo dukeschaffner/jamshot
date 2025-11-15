@@ -44,16 +44,44 @@ router.use(optionalAuthMiddleware);
 // Get current user details
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const result = await pool.query(
+    const userResult = await pool.query(
       'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
       [req.user.id]
     );
     
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    res.json(result.rows[0]);
+    const user = userResult.rows[0];
+    
+    // Fetch camps the user belongs to
+    const campsResult = await pool.query(
+      `SELECT c.id, c.name, c.camp_code, uc.role
+       FROM camps c
+       JOIN user_camps uc ON c.id = uc.camp_id
+       WHERE uc.user_id = $1
+       ORDER BY c.created_at DESC`,
+      [req.user.id]
+    );
+    
+    // Fetch active teams the user belongs to (not expired)
+    const teamsResult = await pool.query(
+      `SELECT t.id, t.name, t.team_code, tm.role
+       FROM teams t
+       JOIN team_members tm ON t.id = tm.team_id
+       WHERE tm.user_id = $1 
+         AND (t.subscription_status = 'active' OR t.subscription_status = 'trialing')
+         AND (t.subscription_expires_at IS NULL OR t.subscription_expires_at > NOW())
+       ORDER BY t.created_at DESC`,
+      [req.user.id]
+    );
+    
+    // Add camps and teams to user object
+    user.camps = campsResult.rows;
+    user.teams = teamsResult.rows;
+    
+    res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

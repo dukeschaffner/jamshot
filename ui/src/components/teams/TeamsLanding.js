@@ -1,0 +1,134 @@
+'use client';
+import { useRouter } from 'next/navigation';
+import { FaUsers, FaFolder, FaLock, FaChartLine, FaCheckCircle, FaArrowRight } from 'react-icons/fa';
+import { useUser } from '../../contexts/UserContext';
+import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../shared/utils/subscription';
+import styles from './TeamsLanding.module.css';
+
+export default function TeamsLanding({ showBackButton = false, onBack }) {
+  const router = useRouter();
+  const { isAuthenticated } = useUser();
+
+  const handleCreateTeam = () => {
+    if (isAuthenticated) {
+      router.push('/teams/create');
+    } else {
+      router.push(`/login?redirect=${encodeURIComponent('/teams/create')}`);
+    }
+  };
+
+  // Get available team plans (exclude enterprise)
+  const availablePlans = Object.entries(TEAM_PLANS)
+    .filter(([version]) => version !== TEAM_PRODUCT_VERSIONS.ENTERPRISE)
+    .map(([version, plan]) => ({
+      version,
+      ...plan,
+      formattedPrice: formatPrice(plan.price),
+    }));
+
+  const features = [
+    {
+      icon: <FaUsers />,
+      title: 'Collaborate with Your Team',
+      description: 'Invite team members and work together on tracks in a shared workspace.'
+    },
+    {
+      icon: <FaFolder />,
+      title: 'Organize with Folders',
+      description: 'Create folders to organize team tracks and keep projects structured.'
+    },
+    {
+      icon: <FaLock />,
+      title: 'Private Team Tracks',
+      description: 'All team tracks are private by default, visible only to team members.'
+    },
+    {
+      icon: <FaChartLine />,
+      title: 'Shared Upload Pool',
+      description: 'Team members share upload limits, making collaboration seamless.'
+    }
+  ];
+
+  return (
+    <div className={styles.landingContainer}>
+      {showBackButton && onBack && (
+        <button onClick={onBack} className={styles.backButton}>
+          ← Back to Teams
+        </button>
+      )}
+
+      {/* Hero Section */}
+      <div className={styles.hero}>
+        <div className={styles.heroIcon}>
+          <FaUsers />
+        </div>
+        <h1 className={styles.heroTitle}>Teams</h1>
+        <p className={styles.heroSubtitle}>
+          Collaborate with your team on music projects. Share tracks, organize folders, and work together seamlessly.
+        </p>
+        <button onClick={handleCreateTeam} className={styles.ctaButton}>
+          Create Team
+          <FaArrowRight />
+        </button>
+      </div>
+
+      {/* Features Section */}
+      <div className={styles.featuresSection}>
+        <h2 className={styles.sectionTitle}>Everything You Need to Collaborate</h2>
+        <div className={styles.featuresGrid}>
+          {features.map((feature, idx) => (
+            <div key={idx} className={styles.featureCard}>
+              <div className={styles.featureIcon}>{feature.icon}</div>
+              <h3 className={styles.featureTitle}>{feature.title}</h3>
+              <p className={styles.featureDescription}>{feature.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pricing Section */}
+      <div className={styles.pricingSection}>
+        <h2 className={styles.sectionTitle}>Simple, Transparent Pricing</h2>
+        <p className={styles.sectionSubtitle}>Choose the plan that fits your team size</p>
+        <div className={styles.pricingGrid}>
+          {availablePlans.map((plan) => (
+            <div key={plan.version} className={styles.pricingCard}>
+              <div className={styles.pricingHeader}>
+                <h3 className={styles.pricingName}>{plan.name}</h3>
+                <div className={styles.pricingPrice}>
+                  <span className={styles.priceAmount}>{plan.formattedPrice}</span>
+                  <span className={styles.pricePeriod}>/month</span>
+                </div>
+              </div>
+              <div className={styles.pricingFeatures}>
+                {plan.highlights.map((highlight, idx) => (
+                  <div key={idx} className={styles.pricingFeature}>
+                    <FaCheckCircle className={styles.checkIcon} />
+                    <span>{highlight}</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => router.push(`/teams/create?plan=${plan.version}`)}
+                className={styles.pricingButton}
+              >
+                Get Started
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className={styles.finalCta}>
+        <h2 className={styles.ctaTitle}>Ready to Get Started?</h2>
+        <p className={styles.ctaSubtitle}>Create your team today and start collaborating</p>
+        <button onClick={handleCreateTeam} className={styles.ctaButton}>
+          Create Team
+          <FaArrowRight />
+        </button>
+      </div>
+    </div>
+  );
+}
+

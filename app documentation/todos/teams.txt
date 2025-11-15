@@ -1,0 +1,4 @@
+
+- handle deleting folders (option to delete all tracks in folder or orphan the tracks)
+- teams page to view all teams the user is a member of
+    - maybe if user is only a member of one team, redirect to that team's dashboard page

@@ -1,0 +1,255 @@
+.userCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--background);
+  border-radius: 8px;
+  border: 1px solid var(--grey-2);
+  transition: all 0.2s ease;
+}
+
+.userCard:hover {
+  background: var(--grey-1);
+  border-color: var(--seafoam);
+}
+
+.userLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.userName {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userHandle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.roleBadge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.roleOwner {
+  background: var(--dark);
+  color: var(--background);
+}
+
+body.dark-mode .roleOwner {
+  background: var(--text-primary);
+  color: var(--background);
+}
+
+.roleAdmin {
+  background: var(--rustic-pink-light);
+  color: var(--dark);
+}
+
+body.dark-mode .roleAdmin {
+  background: var(--rustic-pink);
+  color: var(--dark-text-primary);
+}
+
+.roleContributor {
+  background: var(--seafoam-light);
+  color: var(--dark);
+}
+
+body.dark-mode .roleContributor {
+  background: var(--seafoam);
+  color: var(--dark-text-primary);
+}
+
+.roleViewer {
+  background: var(--grey-2);
+  color: var(--text-secondary);
+}
+
+.roleDropdownContainer {
+  position: relative;
+}
+
+.roleDropdownButton {
+  cursor: pointer;
+  user-select: none;
+}
+
+.roleDropdownButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.roleDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 140px;
+  overflow: hidden;
+}
+
+body.dark-mode .roleDropdown {
+  background: var(--dark);
+  border-color: var(--grey-2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.roleDropdownItem {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.roleDropdownItem:hover:not(:disabled) {
+  background: var(--grey-1);
+}
+
+body.dark-mode .roleDropdownItem:hover:not(:disabled) {
+  background: var(--grey-2);
+}
+
+.roleDropdownItemActive {
+  background: var(--seafoam-light);
+  color: var(--dark);
+  font-weight: 600;
+}
+
+body.dark-mode .roleDropdownItemActive {
+  background: var(--seafoam);
+  color: var(--dark-text-primary);
+}
+
+.roleDropdownItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.roleDropdownOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: transparent;
+}
+
+.removeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--grey-2);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.removeButton:hover:not(:disabled) {
+  background: var(--rustic-pink-light);
+  border-color: var(--rustic-pink);
+  color: var(--rustic-pink);
+}
+
+body.dark-mode .removeButton:hover:not(:disabled) {
+  background: rgba(233, 169, 161, 0.2);
+  border-color: var(--rustic-pink);
+  color: var(--rustic-pink);
+}
+
+.removeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.removeButton svg {
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .userCard {
+    padding: 12px;
+  }
+
+  .avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .userName {
+    font-size: 14px;
+  }
+
+  .userHandle {
+    font-size: 12px;
+  }
+
+  .roleBadge {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  .removeButton {
+    width: 28px;
+    height: 28px;
+  }
+}
+

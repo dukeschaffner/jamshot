@@ -370,7 +370,10 @@ async function handleCheckoutCompleted(session) {
     );
 
     // Handle different payment types
-    if (paymentType === 'competition_creation') {
+    if (paymentType === 'camp_creation') {
+      // Create camp after successful payment
+      await handleCampCreation(session);
+    } else if (paymentType === 'competition_creation') {
       // Create competition after successful payment
       const {
         trackId,
@@ -439,13 +442,58 @@ async function handleCheckoutCompleted(session) {
     }
   } else if (session.mode === 'subscription') {
     // Subscription checkout completed
-    console.log(`Subscription checkout completed for session ${session.id}`);
+    const userId = session.metadata.userId;
+    const paymentType = session.metadata.type;
+    
+    if (!userId) {
+      console.error('No user ID found in session metadata');
+      return;
+    }
+
+    // Handle different subscription types
+    if (paymentType === 'team_creation') {
+      // Create team after successful subscription checkout
+      await handleTeamCreation(session);
+    } else {
+      // User subscription (handled by customer.subscription.updated)
+      console.log(`Subscription checkout completed for session ${session.id}`);
+    }
   }
 }
 
 async function handleSubscriptionUpdated(subscription) {
   const customerId = subscription.customer;
   
+  // Check if this is a team subscription
+  const teamResult = await db.query(
+    'SELECT id FROM teams WHERE stripe_subscription_id = $1 OR stripe_customer_id = $2',
+    [subscription.id, customerId]
+  );
+
+  if (teamResult.rows.length > 0) {
+    // Update team subscription status
+    const status = subscription.status === 'active' ? 'active' : 
+                   subscription.status === 'trialing' ? 'trialing' :
+                   subscription.status === 'past_due' ? 'past_due' :
+                   subscription.status === 'unpaid' ? 'unpaid' : 'canceled';
+
+    await db.query(
+      `UPDATE teams SET 
+       subscription_status = $1,
+       subscription_expires_at = $2
+       WHERE stripe_subscription_id = $3 OR stripe_customer_id = $4`,
+      [
+        status,
+        new Date(subscription.current_period_end * 1000),
+        subscription.id,
+        customerId
+      ]
+    );
+
+    console.log(`Team subscription updated: ${subscription.id}, status: ${status}`);
+    return;
+  }
+
   // Find user by Stripe customer ID
   const userResult = await db.query(
     'SELECT id FROM users WHERE stripe_customer_id = $1',
@@ -491,6 +539,30 @@ async function handleSubscriptionUpdated(subscription) {
 async function handleSubscriptionDeleted(subscription) {
   const customerId = subscription.customer;
   
+  // Check if this is a team subscription
+  const teamResult = await db.query(
+    'SELECT id FROM teams WHERE stripe_subscription_id = $1 OR stripe_customer_id = $2',
+    [subscription.id, customerId]
+  );
+
+  if (teamResult.rows.length > 0) {
+    // Update team subscription status to canceled
+    await db.query(
+      `UPDATE teams SET 
+       subscription_status = 'canceled',
+       subscription_expires_at = $1
+       WHERE stripe_subscription_id = $2 OR stripe_customer_id = $3`,
+      [
+        new Date(subscription.canceled_at * 1000),
+        subscription.id,
+        customerId
+      ]
+    );
+
+    console.log(`Team subscription canceled: ${subscription.id}`);
+    return;
+  }
+
   // Find user by Stripe customer ID
   const userResult = await db.query(
     'SELECT id FROM users WHERE stripe_customer_id = $1',
@@ -541,5 +613,94 @@ router.get('/history', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch payment history' });
   }
 });
+
+// Webhook helper functions
+async function handleCampCreation(session) {
+  const {
+    userId,
+    campName,
+    startDate,
+    endDate,
+    productVersion
+  } = session.metadata;
+
+  try {
+    // Generate unique camp code
+    const crypto = require('crypto');
+    const campCode = crypto.randomBytes(16).toString('hex');
+
+    // Create camp
+    const campResult = await db.query(
+      `INSERT INTO camps (name, start_date, end_date, created_by, product_version, camp_code, stripe_payment_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [campName, startDate, endDate, userId, productVersion, campCode, session.id]
+    );
+
+    // Add creator as admin to user_camps
+    await db.query(
+      `INSERT INTO user_camps (user_id, camp_id, role)
+       VALUES ($1, $2, 'admin')`,
+      [userId, campResult.rows[0].id]
+    );
+
+    console.log(`Camp "${campName}" created successfully for user ${userId} after payment ${session.id}`);
+  } catch (error) {
+    console.error('Error creating camp in webhook:', error);
+    throw error; // Re-throw to ensure webhook processing fails appropriately
+  }
+}
+
+async function handleTeamCreation(session) {
+  const {
+    userId,
+    teamName,
+    productVersion
+  } = session.metadata;
+
+  try {
+    // Get subscription ID from session (for subscription mode)
+    const subscriptionId = session.subscription;
+    const customerId = session.customer;
+
+    if (!subscriptionId) {
+      console.error('No subscription ID found in session');
+      return;
+    }
+
+    // Generate unique team code
+    const crypto = require('crypto');
+    const teamCode = crypto.randomBytes(16).toString('hex');
+
+    // Create team
+    const teamResult = await db.query(
+      `INSERT INTO teams (name, created_by, product_version, stripe_subscription_id, stripe_customer_id, subscription_status, subscription_expires_at, team_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        teamName,
+        userId,
+        productVersion,
+        subscriptionId,
+        customerId,
+        'active',
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now, will be updated by subscription.updated webhook
+        teamCode
+      ]
+    );
+
+    // Add creator as owner to team_members
+    await db.query(
+      `INSERT INTO team_members (user_id, team_id, role)
+       VALUES ($1, $2, 'owner')`,
+      [userId, teamResult.rows[0].id]
+    );
+
+    console.log(`Team "${teamName}" created successfully for user ${userId} after subscription ${subscriptionId}`);
+  } catch (error) {
+    console.error('Error creating team in webhook:', error);
+    throw error; // Re-throw to ensure webhook processing fails appropriately
+  }
+}
 
 module.exports = router; 

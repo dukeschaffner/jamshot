@@ -32,11 +32,13 @@ const {
   findAllDescendantTracks,
   deleteTrack,
   getStemChain,
-  validateAndUpdateStemChain
+  validateAndUpdateStemChain,
+  parseTrackUploadBody
 } = require('../utils/trackUtils');
-const { getUserPlan } = require('../utils/subscriptionUtils');
+const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils');
 const { getGeolocationData } = require('../utils/geolocation');
 const { validateCompetitionEntry } = require('../utils/competition');
+const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils');
 require('dotenv').config;
 
 async function getParser() {
@@ -156,9 +158,17 @@ const handleMulterError = (error, req, res, next) => {
   next();
 };
 
+
+
+
+
+
+
+
+
 // Initialize upload by generating pre-signed S3 URL
 router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
-  const { filename, fileSize } = req.body;
+  const { filename, fileSize, is_camp_track, team_id } = req.body;
   const userId = req.user.id;
 
   if (!filename || !fileSize) {
@@ -170,54 +180,32 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
   }
 
   try {
-    // Check user's subscription limits (but don't consume them yet)
-    const userResult = await pool.query(
-      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
-      [userId]
-    );
+    // Skip quota validations for camp tracks and team uploads
+    if (!is_camp_track && !team_id) {
+      // Check user's subscription limits (but don't consume them yet)
+      const userResult = await pool.query(
+        'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+        [userId]
+      );
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
-    const user = userResult.rows[0];
-    const subscription = getUserPlan(user);
+      const user = userResult.rows[0];
+      const subscription = getUserPlan(user);
 
-    // Check daily upload limit
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      // Check if user has reached their daily upload limit
+      const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
+      if (dailyQuotaCheck) {
+        return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
+      }
 
-    const uploadCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3',
-      [userId, today, 'completed']
-    );
-
-    const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
-
-    if (subscription.limits.daily_uploads !== -1 && dailyUploadCount >= subscription.limits.daily_uploads) {
-      return res.status(429).json({
-        error: 'Daily upload limit reached',
-        message: `You can only upload ${subscription.limits.daily_uploads} tracks per day. Upgrade your plan to increase your upload limit.`,
-        daily_count: dailyUploadCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
-    }
-
-    // Check total track limit
-    const totalTrackCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2',
-      [userId, 'completed']
-    );
-
-    const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
-
-    if (subscription.limits.max_total_uploads !== -1 && totalTrackCount >= subscription.limits.max_total_uploads) {
-      return res.status(429).json({
-        error: 'Total track limit reached',
-        message: `You can only have ${subscription.limits.max_total_uploads} tracks maximum. Upgrade your plan to increase your track limit.`,
-        total_count: totalTrackCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
+      // Check if user has reached their total track limit
+      const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
+      if (totalQuotaCheck) {
+        return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
+      }
     }
 
     // Generate filename base for consistent naming throughout the upload process
@@ -242,14 +230,33 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
 
 // Process upload after S3 upload is complete
 router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
-  let { title, parent_track_id, genreIds, instrumentIds, metronome_bpm, stem_gains, time_signature, is_private, metronome_offset, allow_download, enter_competition = false, s3Key } = req.body;
   const userId = req.user.id;
   let layer = 0;
   let parentIsPrivate = false;
   let parentSecretToken = null;
-  let parsedMetronomeOffset = metronome_offset ? Math.min(Math.max(parseFloat(metronome_offset), 0), 1) : 0;
   let isCompetitionEntry = false;
   let competitionId = null;
+  let parentTrack = null;
+
+  let {
+    title,
+    parent_track_id,
+    enter_competition,
+    s3Key,
+    parsedGenreIds,
+    parsedInstrumentIds,
+    parsedMetronomeBpm,
+    parsedStemGains,
+    parsedTimeSignature,
+    isPrivate,
+    allowDownload,
+    parsedMetronomeOffset,
+    camp_id,
+    room_id,
+    team_id,
+    folder_id,
+    key
+  } = parseTrackUploadBody(req.body);
 
   if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
 
@@ -257,16 +264,6 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   if (!s3Key.startsWith('uploads/temp/') || !s3Key.includes(`/${userId}/`)) {
     return res.status(400).json({ error: 'Invalid S3 key format' });
   }
-
-  console.log('Upload processing request received:');
-  console.log('- Title:', title);
-  console.log('- Parent track ID:', parent_track_id || 'None (original track)');
-  console.log('- S3 Key:', s3Key);
-  console.log('- Stem gains:', stem_gains || 'Not provided');
-  console.log('- Time signature:', time_signature || '4/4 (default)');
-  console.log('- Metronome offset:', parsedMetronomeOffset);
-  console.log('- Private:', is_private ? 'Yes' : 'No');
-  console.log('- Allow download:', allow_download !== 'false' ? 'Yes' : 'No');
 
   // Download file from S3 for validation
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -281,98 +278,38 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'Failed to access uploaded file. Please try uploading again.' });
   }
 
-  let subscription = null;
-  // Check if user has reached their daily upload limit (3 uploads per day)
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of the day
-
-    const userResult = await pool.query(
-      'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
-      [req.user.id]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const user = userResult.rows[0];
-    subscription = getUserPlan(user);
-    
-    const uploadCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3',
-      [userId, today, 'completed']
-    );
-    
-    const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
-    
-    if (subscription.limits.daily_uploads !== -1 && dailyUploadCount >= subscription.limits.daily_uploads) {
-      return res.status(429).json({ 
-        error: 'Daily upload limit reached',
-        message: `You can only upload ${subscription.limits.daily_uploads} tracks per day. Upgrade your plan to increase your upload limit.`,
-        daily_count: dailyUploadCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
-    }
-  } catch (err) {
-    console.error('Error checking upload limit:', err);
-    return res.status(500).json({ error: `Failed to check upload limit: ${err.message}` });
-  }
-
-  // Check if user has reached their total track limit (50 tracks maximum)
-  try {
-    const totalTrackCountResult = await pool.query(
-      'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2',
-      [userId, 'completed']
-    );
-    
-    const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
-    
-    if (subscription.limits.max_total_uploads !== -1 && totalTrackCount >= subscription.limits.max_total_uploads) {
-      return res.status(429).json({ 
-        error: 'Total track limit reached',
-        message: `You can only have ${subscription.limits.max_total_uploads} tracks maximum. Upgrade your plan to increase your track limit.`,
-        total_count: totalTrackCount,
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
-    }
-  } catch (err) {
-    console.error('Error checking total track limit:', err);
-    return res.status(500).json({ error: `Failed to check total track limit: ${err.message}` });
-  }
-
-  // Parse genre and instrument IDs if they're provided as strings
-  const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
-  const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];
-  
-  // Parse metronome_bpm if provided
-  let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
-
-  // Parse stem gains array if provided
-  let parsedStemGains = null;
-  if (stem_gains) {
+  // Skip quota validations for camp tracks and team uploads
+  if (!camp_id && !team_id) {
     try {
-      parsedStemGains = typeof stem_gains === 'string' ? JSON.parse(stem_gains) : stem_gains;
-      if (!Array.isArray(parsedStemGains)) {
-        console.warn('stem_gains is not an array, ignoring');
-        parsedStemGains = null;
-      } else {
-        console.log('Parsed stem gains:', parsedStemGains);
+      // Get user and subscription for quota checks and later use
+      const userResult = await pool.query(
+        'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
       }
-    } catch (error) {
-      console.warn('Failed to parse stem_gains:', error);
-      parsedStemGains = null;
+
+      const user = userResult.rows[0];
+      const subscription = getUserPlan(user);
+
+      // Check if user has reached their daily upload limit
+      const dailyQuotaCheck = await checkDailyUploadQuota(userId, user, subscription);
+      if (dailyQuotaCheck) {
+        return res.status(dailyQuotaCheck.status).json(dailyQuotaCheck.body);
+      }
+
+      // Check if user has reached their total track limit
+      const totalQuotaCheck = await checkTotalUploadQuota(userId, user, subscription);
+      if (totalQuotaCheck) {
+        return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
+      }
+    } catch (err) {
+      console.error('Error checking user subscription limits:', err);
+      return res.status(500).json({ error: `Failed to check user subscription limits` });
     }
   }
-
-  // Use the provided time signature or default to 4/4
-  let parsedTimeSignature = time_signature || '4/4';
-  
-  // Parse the private flag (convert string 'true'/'false' to boolean if needed)
-  let isPrivate = is_private === 'true' || is_private === true;
-  
-  // Parse the allow_download flag (default to true if not provided)
-  let allowDownload = allow_download !== 'false' && allow_download !== false;
 
   let duration;
 
@@ -413,8 +350,6 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
   }
 
-  // Extract filename base from the S3 key (format: uploads/temp/{userId}/{base}-temp.{ext})
-  const s3KeyParts = s3Key.split('/');
 
   // Set audio_url to the permanent temp S3 location for audio processing lambda
   // The lambda will extract the base and derive final URLs
@@ -425,14 +360,14 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   try {
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
         return res.status(400).json({ error: 'Parent track not found' });
       }
 
-      const parentTrack = parentResult.rows[0];
+      parentTrack = parentResult.rows[0];
       const parentDuration = parentTrack.duration;
 
       // Store parent privacy status and secret token
@@ -481,13 +416,127 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         }
       }
     } else {
-      // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, return an error
-      if (isPrivate && !subscription.features.private_tracks) {
-        return res.status(400).json({
-          error: 'Private tracks are not allowed for your subscription tier. Upgrade your plan to enable private tracks.',
-          upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-        });
+      // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, and a camp is not specified, return an error
+      if (!camp_id) {
+        if (isPrivate && !subscription.features.private_tracks) {
+          return res.status(400).json({
+            error: 'Private tracks are not allowed for your subscription tier. Upgrade your plan to enable private tracks.',
+            upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
+          });
+        }
       }
+    }
+
+    // Camp/Room validation for songwriting camps
+    if (camp_id) {
+      // Validate camp exists, is active, and user is a member
+      const campResult = await pool.query(
+        'SELECT c.id, c.start_date, c.end_date, uc.role FROM camps c JOIN user_camps uc ON c.id = uc.camp_id WHERE c.id = $1 AND uc.user_id = $2',
+        [camp_id, userId]
+      );
+
+      if (campResult.rows.length === 0) {
+        return res.status(403).json({ error: 'You are not a member of this camp or the camp does not exist' });
+      }
+
+      const camp = campResult.rows[0];
+      const now = new Date();
+
+      // Check if camp is still active
+      if (now > new Date(camp.end_date)) {
+        return res.status(400).json({ error: 'This camp has ended' });
+      }
+
+      // All camp tracks/beats must be private
+      isPrivate = true;
+
+      if (parent_track_id) {
+        // This is a Track (collaboration on a beat) - camp must have started
+        if (now < new Date(camp.start_date)) {
+          return res.status(400).json({ error: 'Track uploads are not allowed until the camp has started' });
+        }
+
+        if (!room_id) {
+          return res.status(400).json({ error: 'Room ID is required when uploading tracks to a camp' });
+        }
+
+        // Validate room exists and belongs to this camp
+        const roomResult = await pool.query(
+          'SELECT id FROM rooms WHERE id = $1 AND camp_id = $2',
+          [room_id, camp_id]
+        );
+
+        if (roomResult.rows.length === 0) {
+          return res.status(400).json({ error: 'Room does not exist in this camp' });
+        }
+
+        // If parent track has a room_id, descendants must inherit it
+        const parentRoomCheck = await pool.query(
+          'SELECT room_id FROM tracks WHERE id = $1',
+          [parent_track_id]
+        );
+
+        if (parentRoomCheck.rows.length > 0 && parentRoomCheck.rows[0].room_id) {
+          room_id = parentRoomCheck.rows[0].room_id;
+        }
+      } else {
+        // This is a Beat upload - no room validation needed for beats
+        // Room assignment happens when someone starts an idea from a beat
+        room_id = null;
+      }
+    }
+    else if (team_id || (parent_track_id && parentTrack && parentTrack.team_id)) {
+      // Inherit team_id and team_folder_id from parent track for collaborations
+      if (parent_track_id && parentTrack && parentTrack.team_id) {
+        team_id = parentTrack.team_id;
+        // Inherit folder_id from parent if parent has one
+        if (parentTrack.team_folder_id) {
+          folder_id = parentTrack.team_folder_id;
+        }
+      }
+
+      // Validate team access
+      const teamAccessValidation = await validateTeamAccess(team_id, userId);
+      if (!teamAccessValidation.valid) {
+        return res.status(403).json({ error: teamAccessValidation.error });
+      }
+
+      const team = teamAccessValidation.team;
+      // Get team plan once and reuse it for both quota checks
+      const teamPlan = getTeamPlan(team.product_version);
+      if (!teamPlan) {
+        return res.status(400).json({ error: 'Invalid team product version' });
+      }
+
+      // Check team upload quotas
+      try {
+        // Check if team has reached their daily upload limit
+        const teamDailyQuotaCheck = await checkTeamDailyUploadQuota(team_id, team, teamPlan);
+        if (teamDailyQuotaCheck) {
+          return res.status(teamDailyQuotaCheck.status).json(teamDailyQuotaCheck.body);
+        }
+
+        // Check if team has reached their total track limit
+        const teamTotalQuotaCheck = await checkTeamTotalUploadQuota(team_id, team, teamPlan);
+        if (teamTotalQuotaCheck) {
+          return res.status(teamTotalQuotaCheck.status).json(teamTotalQuotaCheck.body);
+        }
+      } catch (err) {
+        console.error('Error checking team upload quotas:', err);
+        return res.status(500).json({ error: 'Failed to check team upload quotas' });
+      }
+
+      // Validate folder access if folder_id is provided
+      // Pass team object to avoid redundant team access validation
+      if (folder_id) {
+        const folderValidation = await validateTeamFolderAccess(folder_id, team_id, userId, team);
+        if (!folderValidation.valid) {
+          return res.status(403).json({ error: folderValidation.error });
+        }
+      }
+
+      // Team tracks should be private by default
+      isPrivate = true;
     }
 
     // Phase 1: Insert track with placeholder mix_gains
@@ -503,8 +552,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *',
-        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing']
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key]
     );
 
     const trackId = result.rows[0].id;

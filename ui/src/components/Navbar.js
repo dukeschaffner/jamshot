@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FaHome, FaUpload, FaSearch, FaSun, FaMoon, FaTrophy } from 'react-icons/fa';
+import { FaHome, FaUpload, FaSearch, FaSun, FaMoon, FaTrophy, FaUsers } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 import { useMobile } from '../contexts/MobileContext';
 import { trackSearch } from '../lib/analytics';
@@ -42,6 +42,17 @@ export default function Navbar() {
     }
   };
 
+  // Get teams link URL based on user state
+  const getTeamsLink = () => {
+    if (!isAuthenticated || !user?.teams || user.teams.length === 0) {
+      return '/teams'; // Landing page
+    } else if (user.teams.length === 1) {
+      return `/teams/${user.teams[0].id}`; // Direct to team dashboard
+    } else {
+      return '/teams'; // List page
+    }
+  };
+
   return (
     <nav className="navbar">
       <div className="logo">
@@ -76,6 +87,14 @@ export default function Navbar() {
         <Link href="/competitions" className={`nav-link ${pathname === '/competitions' ? 'active' : ''}`}>
           <FaTrophy />
           Competitions
+        </Link>
+        
+        <Link 
+          href={getTeamsLink()} 
+          className={`nav-link ${pathname.startsWith('/teams') ? 'active' : ''}`}
+        >
+          <FaUsers />
+          Teams
         </Link>
         
         {isAuthenticated && (

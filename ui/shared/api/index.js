@@ -318,10 +318,17 @@ const createApiMethods = (apiClient) => {
     unlikeTrack: (id) => api.delete(`/tracks/${id}/like`),
 
     // Upload initialization - get pre-signed S3 URL
-    initUpload: (filename, fileSize) => api.post('/tracks/upload/init', {
-      filename,
-      fileSize
-    }),
+    initUpload: (filename, fileSize, isCampTrack = false, teamId = null) => {
+      const body = {
+        filename,
+        fileSize,
+        is_camp_track: isCampTrack
+      };
+      if (teamId) {
+        body.team_id = teamId;
+      }
+      return api.post('/tracks/upload/init', body);
+    },
 
     // Process upload after S3 upload is complete
     processUpload: (uploadData) => api.post('/tracks/upload', uploadData),
@@ -525,6 +532,114 @@ const createApiMethods = (apiClient) => {
     },
   };
 
+  // Camp API methods
+  const campApi = {
+    createCamp: (campData) => api.post('/camps', campData),
+
+    getCamp: (campId) => api.get(`/camps/${campId}`),
+
+    getCampSuccess: (sessionId) => api.get(`/camps/created?session_id=${sessionId}`),
+
+    validateInviteCode: (code) => api.post('/camps/validate-code', { code }),
+
+    inviteUser: (campId, username) => api.post(`/camps/${campId}/invite`, { username }),
+
+    removeMember: (campId, userId) => api.delete(`/camps/${campId}/members/${userId}`),
+
+    updateCamp: (campId, data) => api.put(`/camps/${campId}`, data),
+
+    createRoom: (campId, roomData) => api.post(`/camps/${campId}/rooms`, roomData),
+
+    addUserToRoom: (campId, roomId, userData) => api.put(`/camps/${campId}/rooms/${roomId}/users`, userData),
+
+    getBeats: (campId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/beats?${queryParams.toString()}`);
+    },
+
+    getTracks: (campId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/tracks?${queryParams.toString()}`);
+    },
+
+    getRoomTracks: (campId, roomId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/camps/${campId}/rooms/${roomId}/tracks?${queryParams.toString()}`);
+    },
+  };
+
+  // Team API methods
+  const teamApi = {
+    createTeam: (teamData) => api.post('/teams', teamData),
+
+    getTeam: (teamId) => api.get(`/teams/${teamId}`),
+
+    getTeamSuccess: (sessionId) => api.get(`/teams/created?session_id=${sessionId}`),
+
+    validateInviteCode: (code) => api.post('/teams/validate-code', { code }),
+
+    updateTeam: (teamId, data) => api.put(`/teams/${teamId}`, data),
+
+    inviteUser: (teamId, username) => api.post(`/teams/${teamId}/invite`, { username }),
+
+    getMembers: (teamId) => api.get(`/teams/${teamId}/members`),
+
+    removeMember: (teamId, userId) => api.delete(`/teams/${teamId}/members/${userId}`),
+
+    updateMemberRole: (teamId, userId, role) => api.patch(`/teams/${teamId}/members/${userId}/role`, { role }),
+
+    getTracks: (teamId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/teams/${teamId}/tracks?${queryParams.toString()}`);
+    },
+
+    getFolders: (teamId) => api.get(`/teams/${teamId}/folders`),
+
+    createFolder: (teamId, folderData) => api.post(`/teams/${teamId}/folders`, folderData),
+
+    updateFolder: (teamId, folderId, data) => api.put(`/teams/${teamId}/folders/${folderId}`, data),
+
+    deleteFolder: (teamId, folderId) => api.delete(`/teams/${teamId}/folders/${folderId}`),
+
+    getFolderTracks: (teamId, folderId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/teams/${teamId}/folders/${folderId}/tracks?${queryParams.toString()}`);
+    },
+
+    moveTrack: (teamId, trackId, data) => api.patch(`/teams/${teamId}/tracks/${trackId}/folder`, data),
+
+    getSubscriptionStatus: (teamId) => api.get(`/teams/${teamId}/subscription-status`),
+
+    modifySubscription: (teamId, productVersion) => api.post(`/teams/${teamId}/modify-subscription`, { product_version: productVersion }),
+
+    cancelSubscription: (teamId) => api.post(`/teams/${teamId}/cancel-subscription`),
+  };
+
   return {
     trackApi,
     userApi,
@@ -534,6 +649,8 @@ const createApiMethods = (apiClient) => {
     competitionApi,
     tagApi,
     analyticsApi,
+    campApi,
+    teamApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,
