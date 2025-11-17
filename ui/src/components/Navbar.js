@@ -58,7 +58,6 @@ export default function Navbar() {
       <div className="logo">
         <Link href="/">
           <span className="logo-title">sterio</span>
-          <span className="beta-tag">beta</span>
         </Link>
       </div>
       
