@@ -1,4 +1,12 @@
 
 - handle deleting folders (option to delete all tracks in folder or orphan the tracks)
+- file storage (s3) - upload files to track (lyrics, midi files, etc.). view files by track, track and ancestors, or folder
+- waveform visualization
+- show folder on track component in team dashboard -> tracks tab
+- option for user to leave team
+- maybe a welcome to team pop up
 - teams page to view all teams the user is a member of
     - maybe if user is only a member of one team, redirect to that team's dashboard page
+
+
+https://dev.d3cx888lrkmdbn.amplifyapp.com/teams/1?code=0d159b71aba22afeead307da213d23bc

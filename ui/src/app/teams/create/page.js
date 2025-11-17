@@ -5,13 +5,14 @@ import { useUser } from '../../../contexts/UserContext';
 import { FaUsers, FaCreditCard, FaClock, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { teamApi } from '../../../lib/api';
 import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../../shared/utils/subscription';
+import LoadingSpinner from '../../../components/LoadingSpinner';
 import sharedStyles from '../../../styles/SharedForm.module.css';
 import styles from './TeamCreate.module.css';
 
 function CreateTeamClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated } = useUser();
+  const { user, isAuthenticated, isLoading: isUserLoading } = useUser();
 
   // Helper to validate team product version
   const isValidTeamProductVersion = (version) => {
@@ -41,7 +42,7 @@ function CreateTeamClient() {
   }, [planFromUrl]);
 
   // UI state
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -71,7 +72,7 @@ function CreateTeamClient() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
     setError('');
     setSuccess('');
 
@@ -97,9 +98,18 @@ function CreateTeamClient() {
       console.error('Error creating team:', err);
       setError(err.response?.data?.error || err.message || 'Failed to create team. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  // Show loading while checking auth
+  if (isUserLoading) {
+    return (
+      <div className={styles.teamCreateContainer}>
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -149,7 +159,7 @@ function CreateTeamClient() {
                 className={sharedStyles.formInput}
                 placeholder="e.g., Acme Studios"
                 required
-                disabled={isLoading}
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -170,7 +180,7 @@ function CreateTeamClient() {
                     value={plan.version}
                     checked={formData.product_version === plan.version}
                     onChange={handleInputChange}
-                    disabled={isLoading}
+                    disabled={isSubmitting}
                   />
                   <div className={sharedStyles.pricingCard}>
                     <div className={sharedStyles.pricingHeader}>
@@ -235,16 +245,16 @@ function CreateTeamClient() {
               type="button"
               onClick={() => router.back()}
               className={sharedStyles.cancelButton}
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className={sharedStyles.submitButton}
-              disabled={isLoading || !formData.name.trim()}
+              disabled={isSubmitting || !formData.name.trim()}
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <FaClock className={sharedStyles.loadingIcon} />
                   Creating Team...
