@@ -234,15 +234,6 @@ body.dark-mode .navbar {
   -webkit-text-fill-color: transparent;
 }
 
-.beta-tag {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 400;
-  margin-left: 4px;
-  vertical-align: super;
-  font-family: var(--font-sans);
-}
-
 .nav-links {
   display: flex;
   flex-direction: column;
