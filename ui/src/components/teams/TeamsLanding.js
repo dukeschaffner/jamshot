@@ -1,5 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import { useRef, useEffect } from 'react';
 import { FaUsers, FaFolder, FaLock, FaChartLine, FaCheckCircle, FaArrowRight } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext';
 import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../shared/utils/subscription';
