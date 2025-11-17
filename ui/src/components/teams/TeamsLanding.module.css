@@ -301,6 +301,10 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .landingContainer {
+    padding: 0px;
+  }
+
   .heroTitle {
     font-size: 36px;
   }
