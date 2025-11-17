@@ -38,7 +38,7 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
     {
       icon: <FaUsers />,
       title: 'Collaborate with Your Team',
-      description: 'Invite team members and work together on tracks in a shared workspace.'
+      description: 'Asynchronous and effortless collaboration. Invite team members and work together on tracks in a shared workspace.'
     },
     {
       icon: <FaFolder />,
@@ -72,7 +72,7 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
         </div>
         <h1 className={styles.heroTitle}>Teams</h1>
         <p className={styles.heroSubtitle}>
-          Collaborate with your team on music projects. Share tracks, organize folders, and work together seamlessly.
+          Collaborate with your team on music projects. Asynchronous and effortless—share tracks, organize folders, and work together seamlessly.
         </p>
         <button onClick={handleCreateTeam} className={styles.ctaButton}>
           Create Team
@@ -97,7 +97,7 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
       {/* How It Works Section */}
       <div className={styles.howItWorksSection}>
         <h2 className={styles.sectionTitle}>How It Works</h2>
-        <p className={styles.sectionSubtitle}>Organize your team&apos;s tracks with an intuitive folder system</p>
+        <p className={styles.sectionSubtitle}>Organize your team&apos;s tracks and collaborate seamlessly</p>
         <div className={styles.screenshotsContainer}>
           <div className={styles.screenshotCard}>
             <Image
@@ -126,6 +126,21 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
               <h3 className={styles.screenshotTitle}>View Tracks in Context</h3>
               <p className={styles.screenshotDescription}>
                 Open any folder to see all tracks organized within it. Upload tracks directly to folders and keep your projects structured.
+              </p>
+            </div>
+          </div>
+          <div className={styles.screenshotCard}>
+            <Image
+              src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/DAW-collaboration.png`}
+              alt="Simple collaborative DAW interface showing multi-track recording and collaboration"
+              className={styles.screenshot}
+              width={800}
+              height={600}
+            />
+            <div className={styles.screenshotCaption}>
+              <h3 className={styles.screenshotTitle}>Collaborate with the Simple DAW</h3>
+              <p className={styles.screenshotDescription}>
+                Use our built-in DAW to record, layer tracks, and collaborate asynchronously and effortlessly with your team. Upload audio files or record directly, all within your team workspace.
               </p>
             </div>
           </div>
