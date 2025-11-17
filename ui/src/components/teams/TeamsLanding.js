@@ -1,5 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import { useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { FaUsers, FaFolder, FaLock, FaChartLine, FaCheckCircle, FaArrowRight } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext';
 import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../shared/utils/subscription';
@@ -9,8 +11,14 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
   const router = useRouter();
   const { isAuthenticated } = useUser();
 
+  const isAuthenticatedRef = useRef(isAuthenticated);
+
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
   const handleCreateTeam = () => {
-    if (isAuthenticated) {
+    if (isAuthenticatedRef.current) {
       router.push('/teams/create');
     } else {
       router.push(`/login?redirect=${encodeURIComponent('/teams/create')}`);
@@ -30,7 +38,7 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
     {
       icon: <FaUsers />,
       title: 'Collaborate with Your Team',
-      description: 'Invite team members and work together on tracks in a shared workspace.'
+      description: 'Asynchronous and effortless collaboration. Invite team members and work together on tracks in a shared workspace.'
     },
     {
       icon: <FaFolder />,
@@ -64,7 +72,7 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
         </div>
         <h1 className={styles.heroTitle}>Teams</h1>
         <p className={styles.heroSubtitle}>
-          Collaborate with your team on music projects. Share tracks, organize folders, and work together seamlessly.
+          Collaborate with your team on music projects. Asynchronous and effortless—share tracks, organize folders, and work together seamlessly.
         </p>
         <button onClick={handleCreateTeam} className={styles.ctaButton}>
           Create Team
@@ -83,6 +91,59 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
               <p className={styles.featureDescription}>{feature.description}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* How It Works Section */}
+      <div className={styles.howItWorksSection}>
+        <h2 className={styles.sectionTitle}>How It Works</h2>
+        <p className={styles.sectionSubtitle}>Organize your team&apos;s tracks and collaborate seamlessly</p>
+        <div className={styles.screenshotsContainer}>
+          <div className={styles.screenshotCard}>
+            <Image
+              src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/team-folders.png`}
+              alt="Team folders view showing organized project folders"
+              className={styles.screenshot}
+              width={800}
+              height={600}
+            />
+            <div className={styles.screenshotCaption}>
+              <h3 className={styles.screenshotTitle}>Organize Projects with Folders</h3>
+              <p className={styles.screenshotDescription}>
+                Create folders to organize your team&apos;s tracks by project, album, or any structure that works for your workflow.
+              </p>
+            </div>
+          </div>
+          <div className={styles.screenshotCard}>
+            <Image
+              src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/team-folder.png`}
+              alt="Inside a team folder showing tracks organized within a project"
+              className={styles.screenshot}
+              width={800}
+              height={600}
+            />
+            <div className={styles.screenshotCaption}>
+              <h3 className={styles.screenshotTitle}>View Tracks in Context</h3>
+              <p className={styles.screenshotDescription}>
+                Open any folder to see all tracks organized within it. Upload tracks directly to folders and keep your projects structured.
+              </p>
+            </div>
+          </div>
+          <div className={styles.screenshotCard}>
+            <Image
+              src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/DAW-collaboration.png`}
+              alt="Simple collaborative DAW interface showing multi-track recording and collaboration"
+              className={styles.screenshot}
+              width={800}
+              height={600}
+            />
+            <div className={styles.screenshotCaption}>
+              <h3 className={styles.screenshotTitle}>Collaborate with the Simple DAW</h3>
+              <p className={styles.screenshotDescription}>
+                Use our built-in DAW to record, layer tracks, and collaborate asynchronously and effortlessly with your team. Upload audio files or record directly, all within your team workspace.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
