@@ -133,6 +133,57 @@
   margin: 0;
 }
 
+/* How It Works Section */
+.howItWorksSection {
+  margin-bottom: 80px;
+}
+
+.screenshotsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 32px;
+  margin-top: 48px;
+}
+
+.screenshotCard {
+  background: var(--grey-1);
+  border-radius: 12px;
+  border: 1px solid var(--grey-2);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.screenshotCard:hover {
+  border-color: var(--seafoam);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.screenshot {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.screenshotCaption {
+  padding: 24px;
+}
+
+.screenshotTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.screenshotDescription {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
 /* Pricing Section */
 .pricingSection {
   margin-bottom: 80px;
@@ -265,6 +316,11 @@
   .featuresGrid,
   .pricingGrid {
     grid-template-columns: 1fr;
+  }
+
+  .screenshotsContainer {
+    grid-template-columns: 1fr;
+    gap: 24px;
   }
 
   .ctaTitle {
