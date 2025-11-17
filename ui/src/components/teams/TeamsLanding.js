@@ -93,6 +93,40 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
         </div>
       </div>
 
+      {/* How It Works Section */}
+      <div className={styles.howItWorksSection}>
+        <h2 className={styles.sectionTitle}>How It Works</h2>
+        <p className={styles.sectionSubtitle}>Organize your team's tracks with an intuitive folder system</p>
+        <div className={styles.screenshotsContainer}>
+          <div className={styles.screenshotCard}>
+            <img
+              src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/team-folders.png`}
+              alt="Team folders view showing organized project folders"
+              className={styles.screenshot}
+            />
+            <div className={styles.screenshotCaption}>
+              <h3 className={styles.screenshotTitle}>Organize Projects with Folders</h3>
+              <p className={styles.screenshotDescription}>
+                Create folders to organize your team's tracks by project, album, or any structure that works for your workflow.
+              </p>
+            </div>
+          </div>
+          <div className={styles.screenshotCard}>
+            <img
+              src={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/team-folder.png`}
+              alt="Inside a team folder showing tracks organized within a project"
+              className={styles.screenshot}
+            />
+            <div className={styles.screenshotCaption}>
+              <h3 className={styles.screenshotTitle}>View Tracks in Context</h3>
+              <p className={styles.screenshotDescription}>
+                Open any folder to see all tracks organized within it. Upload tracks directly to folders and keep your projects structured.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Pricing Section */}
       <div className={styles.pricingSection}>
         <h2 className={styles.sectionTitle}>Simple, Transparent Pricing</h2>
