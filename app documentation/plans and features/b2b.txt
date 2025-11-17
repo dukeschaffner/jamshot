@@ -11,24 +11,25 @@ clients:
 - advertising agencies
 
 
-perks:
+perks (MVP):
 - shared upload pool?
-- team level analytics
-    - user activity
-    - track activity
+
 - team roles
     - admin
     - contributor
     - viewer
-- storage
-    - midi files
-    - lyrics
 - folder view
     - move tracks between folders
         - option to move all descendants of a track as well
 
-POST MVP:
+PERKS POST MVP:
 - lyric editor with AI suggestions
+- team level analytics
+    - user activity
+    - track activity
+- storage
+    - midi files
+    - lyrics
 
 
 
