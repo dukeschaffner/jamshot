@@ -9,8 +9,14 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
   const router = useRouter();
   const { isAuthenticated } = useUser();
 
+  const isAuthenticatedRef = useRef(isAuthenticated);
+
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
   const handleCreateTeam = () => {
-    if (isAuthenticated) {
+    if (isAuthenticatedRef.current) {
       router.push('/teams/create');
     } else {
       router.push(`/login?redirect=${encodeURIComponent('/teams/create')}`);
