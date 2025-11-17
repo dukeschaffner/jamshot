@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db');
 const crypto = require('crypto');
+const { validateCampAccess } = require('./campUtils');
+const { validateTeamAccess } = require('./teamUtils');
 
 // Cloudflare R2 setup
 const s3Client = new S3Client({
@@ -449,6 +451,7 @@ function generateStandardTrackFilename(type = 'raw', base = null) {
 async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   const trackCheck = await pool.query(
     `SELECT t.id, t.user_id, t.is_private, t.secret_token, t.parent_track_id, 
+            t.camp_id, t.team_id,
             p.is_private as parent_is_private, p.secret_token as parent_secret_token
      FROM tracks t
      LEFT JOIN tracks p ON t.parent_track_id = p.id
@@ -462,7 +465,29 @@ async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   
   const track = trackCheck.rows[0];
   
-  if (track.is_private) {
+  // Check camp access if track belongs to a camp
+  if (track.camp_id) {
+    if (!userId) {
+      return { hasAccess: false, error: 'Authentication required to access camp tracks', status: 401 };
+    }
+    
+    const campValidation = await validateCampAccess(track.camp_id, userId);
+    if (!campValidation.valid) {
+      return { hasAccess: false, error: campValidation.error, status: 403 };
+    }
+  }
+  // Check team access if track belongs to a team
+  else if (track.team_id) {
+    if (!userId) {
+      return { hasAccess: false, error: 'Authentication required to access team tracks', status: 401 };
+    }
+    
+    const teamValidation = await validateTeamAccess(track.team_id, userId);
+    if (!teamValidation.valid) {
+      return { hasAccess: false, error: teamValidation.error, status: 403 };
+    }
+  }
+  else if (track.is_private) {
     const isOwner = userId && track.user_id === userId;
     
     // Check if the provided secret token matches any in the track lineage

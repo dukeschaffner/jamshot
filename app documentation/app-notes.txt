@@ -34,6 +34,7 @@ BUGS
 - double check track plays recording correctly
   - full play didnt get marked as complete play
 - got generic error when trying to enter my own competition: Competition entry validation failed
+- release notes infinite loop
 
 
 
