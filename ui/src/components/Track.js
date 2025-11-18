@@ -288,7 +288,22 @@ export default function Track(
       onEnterCompetition();
     } else {
       // Fallback to normal track navigation
-      router.push(`/track/${track.id}`);
+      let url = `/track/${track.id}`;
+      const params = new URLSearchParams();
+      
+      // Include camp_id or team_id, but not both (prioritize camp_id)
+      if (campContext?.campId) {
+        params.append('camp_id', campContext.campId);
+      } else if (teamContext?.teamId) {
+        params.append('team_id', teamContext.teamId);
+      }
+      
+      // Append params to URL if any exist
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      router.push(url);
     }
   };
 
@@ -500,7 +515,22 @@ export default function Track(
               className="pill-btn pink-btn sm" 
               onClick={(e) => {
                 e.stopPropagation();
-                router.push(`/track/${track.id}`);
+                let url = `/track/${track.id}`;
+                const params = new URLSearchParams();
+                
+                // Include camp_id or team_id, but not both (prioritize camp_id)
+                if (campContext?.campId) {
+                  params.append('camp_id', campContext.campId);
+                } else if (teamContext?.teamId) {
+                  params.append('team_id', teamContext.teamId);
+                }
+                
+                // Append params to URL if any exist
+                if (params.toString()) {
+                  url += `?${params.toString()}`;
+                }
+                
+                router.push(url);
               }}
             >
               {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}

@@ -360,7 +360,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   try {
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id, room_id FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -450,18 +450,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       // All camp tracks/beats must be private
       isPrivate = true;
 
-      if (parent_track_id) {
-        // This is a Track (collaboration on a beat) - camp must have started
-        if (now < new Date(camp.start_date)) {
-          return res.status(400).json({ error: 'Track uploads are not allowed until the camp has started' });
-        }
-
-        room_id = room_id || parentTrack?.room_id;
-        if (!room_id) {
-          return res.status(400).json({ error: 'Room ID is required when uploading tracks to a camp' });
-        }
-
-        // Validate room exists and belongs to this camp
+      // Validate room exists and belongs to this camp
+      if (room_id) {
         const roomResult = await pool.query(
           'SELECT id FROM rooms WHERE id = $1 AND camp_id = $2',
           [room_id, camp_id]
@@ -469,6 +459,13 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
 
         if (roomResult.rows.length === 0) {
           return res.status(400).json({ error: 'Room does not exist in this camp' });
+        }
+      }
+
+      if (parent_track_id) {
+        // This is a Track (collaboration on a beat) - camp must have started
+        if (now < new Date(camp.start_date)) {
+          return res.status(400).json({ error: 'Track uploads are not allowed until the camp has started' });
         }
 
         // If parent track has a room_id, descendants must inherit it
@@ -480,10 +477,19 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         if (parentRoomCheck.rows.length > 0 && parentRoomCheck.rows[0].room_id) {
           room_id = parentRoomCheck.rows[0].room_id;
         }
+
+        if (!room_id) { // no room_id provided and parent track has no room_id, use user's current room_id
+          const userRoomResult = await pool.query(
+            'SELECT room_id FROM user_rooms WHERE user_id = $1 AND camp_id = $2',
+            [userId, camp_id]
+          );
+          if (userRoomResult.rows.length > 0) {
+            room_id = userRoomResult.rows[0].room_id;
+          }
+        }
       } else {
         // This is a Beat upload - no room validation needed for beats
-        // Room assignment happens when someone starts an idea from a beat
-        room_id = null;
+        // Room assignment happens when someone starts an idea from a beat or uploads track to room
       }
     }
     else if (team_id || (parent_track_id && parentTrack && parentTrack.team_id)) {
