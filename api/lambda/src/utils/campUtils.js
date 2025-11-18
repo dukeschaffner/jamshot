@@ -122,7 +122,7 @@ async function getCampDetails(campId, userId) {
       [campId]
     );
 
-    // Get rooms with members (including role from user_camps)
+    // Get rooms with members (including role from user_camps) and track_count
     const roomsResult = await pool.query(
       `SELECT r.*,
               json_agg(
@@ -134,7 +134,8 @@ async function getCampDetails(campId, userId) {
                   'role', uc.role,
                   'room_id', r.id
                 )
-              ) FILTER (WHERE u.id IS NOT NULL) as members
+              ) FILTER (WHERE u.id IS NOT NULL) as members,
+              (SELECT COUNT(*) FROM tracks WHERE room_id = r.id AND processing_status = 'completed') as track_count
        FROM rooms r
        LEFT JOIN user_rooms ur ON r.id = ur.room_id
        LEFT JOIN users u ON ur.user_id = u.id
@@ -148,13 +149,19 @@ async function getCampDetails(campId, userId) {
     // Get user limit information
     const userLimitInfo = await checkCampUserLimit(campId);
 
+    // Convert track_count to number for each room
+    const roomsWithTrackCount = roomsResult.rows.map(room => ({
+      ...room,
+      track_count: parseInt(room.track_count) || 0
+    }));
+
     return {
       valid: true,
       camp: {
         ...camp,
         user_role: accessValidation.camp.user_role,
         members: membersResult.rows,
-        rooms: roomsResult.rows,
+        rooms: roomsWithTrackCount,
         user_limit: {
           current_users: userLimitInfo.current_users,
           max_users: userLimitInfo.max_users,
