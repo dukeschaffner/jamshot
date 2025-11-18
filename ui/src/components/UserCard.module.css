@@ -187,6 +187,102 @@ body.dark-mode .roleDropdownItemActive {
   background: transparent;
 }
 
+.roomBadge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: var(--grey-2);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.roomDropdownContainer {
+  position: relative;
+}
+
+.roomDropdownButton {
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid var(--grey-2);
+  background: var(--grey-2);
+  color: var(--text-secondary);
+}
+
+body.dark-mode .roomDropdownButton {
+  background: var(--grey-2);
+  color: var(--text-secondary);
+  border-color: var(--grey-2);
+}
+
+.roomDropdownButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.roomDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 140px;
+  overflow: hidden;
+}
+
+body.dark-mode .roomDropdown {
+  background: var(--dark);
+  border-color: var(--grey-2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.roomDropdownItem {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roomDropdownItem:hover:not(:disabled) {
+  background: var(--grey-1);
+}
+
+body.dark-mode .roomDropdownItem:hover:not(:disabled) {
+  background: var(--grey-2);
+}
+
+.roomDropdownItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.roomDropdownOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: transparent;
+}
+
 .removeButton {
   display: flex;
   align-items: center;

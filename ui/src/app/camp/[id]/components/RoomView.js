@@ -27,30 +27,31 @@ function RoomView({ camp, roomId }) {
   const [removingMemberId, setRemovingMemberId] = useState(null);
 
   // Fetch room details
-  useEffect(() => {
-    const fetchRoom = async () => {
-      try {
-        setIsLoadingRoom(true);
-        const response = await campApi.getCamp(camp.id);
-        const foundRoom = response.data.rooms?.find(r => r.id === parseInt(roomId));
-        if (foundRoom) {
-          setRoom(foundRoom);
-        } else {
-          // Room not found, redirect back to dashboard
-          router.replace(`/camp/${camp.id}`);
-        }
-      } catch (err) {
-        console.error('Error fetching room:', err);
+  const fetchRoom = async () => {
+    try {
+      setIsLoadingRoom(true);
+      const response = await campApi.getCamp(camp.id);
+      const foundRoom = response.data.rooms?.find(r => r.id === parseInt(roomId));
+      if (foundRoom) {
+        setRoom(foundRoom);
+      } else {
+        // Room not found, redirect back to dashboard
         router.replace(`/camp/${camp.id}`);
-      } finally {
-        setIsLoadingRoom(false);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching room:', err);
+      router.replace(`/camp/${camp.id}`);
+    } finally {
+      setIsLoadingRoom(false);
+    }
+  };
 
+  useEffect(() => {
     if (camp?.id && roomId) {
       fetchRoom();
     }
-  }, [camp?.id, roomId, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camp?.id, roomId]);
 
   const fetchTracks = useCallback(async (pageNum) => {
     const response = await campApi.getRoomTracks(camp.id, parseInt(roomId), {
@@ -116,11 +117,7 @@ function RoomView({ camp, roomId }) {
       setRemovingMemberId(userId);
       await campApi.removeMember(camp.id, userId);
       // Refresh room details
-      const response = await campApi.getCamp(camp.id);
-      const foundRoom = response.data.rooms?.find(r => r.id === parseInt(roomId));
-      if (foundRoom) {
-        setRoom(foundRoom);
-      }
+      await fetchRoom();
     } catch (error) {
       console.error('Error removing member:', error);
       const errorMessage = error.response?.data?.error || 'Failed to remove member';
@@ -133,10 +130,19 @@ function RoomView({ camp, roomId }) {
 
   const handleRoleUpdate = async (userId, newRole) => {
     try {
-      // Refresh camp details to update members list with new role
-      await fetchCampDetails();
+      // Refresh room details to update members list with new role
+      await fetchRoom();
     } catch (error) {
-      console.error('Error refreshing camp after role update:', error);
+      console.error('Error refreshing room after role update:', error);
+    }
+  };
+
+  const handleRoomUpdate = async (userId, newRoomId) => {
+    try {
+      // Refresh room details to update members list with new room assignment
+      await fetchRoom();
+    } catch (error) {
+      console.error('Error refreshing room after room update:', error);
     }
   };
 
@@ -259,6 +265,8 @@ function RoomView({ camp, roomId }) {
             removingMemberId={removingMemberId}
             isCurrentUserAdmin={isAdmin()}
             isCurrentUserOwner={isOwner()}
+            campRooms={camp.rooms || []}
+            onRoomUpdate={handleRoomUpdate}
             emptyMessage="No members in this room yet."
           />
         )}

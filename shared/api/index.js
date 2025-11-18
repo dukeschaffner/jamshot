@@ -550,6 +550,8 @@ const createApiMethods = (apiClient) => {
 
     createRoom: (campId, roomData) => api.post(`/camps/${campId}/rooms`, roomData),
 
+    deleteRoom: (campId, roomId) => api.delete(`/camps/${campId}/rooms/${roomId}`),
+
     addUserToRoom: (campId, roomId, userData) => api.put(`/camps/${campId}/rooms/${roomId}/users`, userData),
 
     getBeats: (campId, params = {}) => {

@@ -211,6 +211,42 @@ router.post('/:id/rooms', contentCreationLimiter, async (req, res) => {
   }
 });
 
+// Delete room (admin/owner only)
+router.delete('/:id/rooms/:roomId', apiEndpointLimiter, async (req, res) => {
+  const campId = parseInt(req.params.id);
+  const roomId = parseInt(req.params.roomId);
+
+  try {
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
+
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
+    }
+
+    // Verify room belongs to camp
+    const roomCheck = await pool.query(
+      'SELECT id FROM rooms WHERE id = $1 AND camp_id = $2',
+      [roomId, campId]
+    );
+
+    if (roomCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Delete room (this will cascade delete user_rooms entries)
+    await pool.query(
+      'DELETE FROM rooms WHERE id = $1 AND camp_id = $2',
+      [roomId, campId]
+    );
+
+    res.json({ message: 'Room deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting room:', error);
+    res.status(500).json({ error: 'Failed to delete room' });
+  }
+});
+
 // Invite user to camp
 router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
