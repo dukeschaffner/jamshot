@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { FaTimes } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
-import { teamApi } from '../lib/api';
+import { teamApi, campApi } from '../lib/api';
 import ConfirmationDialog from './ConfirmationDialog';
 import styles from './UserCard.module.css';
 
@@ -69,14 +69,18 @@ export default function UserCard({
   };
 
   const handleRoleChange = async (newRole) => {
-    if (newRole === currentRole || entityType !== 'team') {
+    if (newRole === currentRole || (entityType !== 'team' && entityType !== 'camp')) {
       setShowRoleDropdown(false);
       return;
     }
 
     setIsUpdatingRole(true);
     try {
-      await teamApi.updateMemberRole(entityId, user.id, newRole);
+      if (entityType === 'team') {
+        await teamApi.updateMemberRole(entityId, user.id, newRole);
+      } else if (entityType === 'camp') {
+        await campApi.updateMemberRole(entityId, user.id, newRole);
+      }
       setCurrentRole(newRole);
       setShowRoleDropdown(false);
       if (onRoleUpdate) {
@@ -92,8 +96,8 @@ export default function UserCard({
   };
 
   const getAvailableRoles = () => {
-    // Only owners and admins can change roles (for teams)
-    if ((!isCurrentUserOwner && !isCurrentUserAdmin) || entityType !== 'team') {
+    // Only owners and admins can change roles (for teams and camps)
+    if ((!isCurrentUserOwner && !isCurrentUserAdmin) || (entityType !== 'team' && entityType !== 'camp')) {
       return [];
     }
 
@@ -120,7 +124,7 @@ export default function UserCard({
   const availableRoles = getAvailableRoles();
   // Filter out current role from available roles (no point showing dropdown if only current role is available)
   const rolesToShow = availableRoles.filter(role => role !== currentRole);
-  const canChangeRole = (isCurrentUserOwner || isCurrentUserAdmin) && entityType === 'team' && user.id !== currentUser?.id && currentRole !== 'owner' && rolesToShow.length > 0;
+  const canChangeRole = (isCurrentUserOwner || isCurrentUserAdmin) && (entityType === 'team' || entityType === 'camp') && user.id !== currentUser?.id && currentRole !== 'owner' && rolesToShow.length > 0;
 
   return (
     <>

@@ -164,6 +164,44 @@ async function getCampDetails(campId, userId) {
 }
 
 /**
+ * Check if user is camp owner
+ * @param {number} campId - Camp ID
+ * @param {number} userId - User ID
+ * @returns {Promise<boolean>} True if user is owner
+ */
+async function checkCampOwner(campId, userId) {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
+      [userId, campId, 'owner']
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking camp owner:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if user is camp admin or owner (owner has all admin permissions)
+ * @param {number} campId - Camp ID
+ * @param {number} userId - User ID
+ * @returns {Promise<boolean>} True if user is admin or owner
+ */
+async function checkCampAdminOrOwner(campId, userId) {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role IN (\'admin\', \'owner\')',
+      [userId, campId]
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking camp admin/owner:', error);
+    return false;
+  }
+}
+
+/**
  * Check if camp has reached its user limit based on product version
  * @param {number} campId - Camp ID to check
  * @returns {Object} Validation result with limit info
@@ -218,5 +256,7 @@ module.exports = {
   validateCampAccess,
   validateRoomAccess,
   getCampDetails,
-  checkCampUserLimit
+  checkCampUserLimit,
+  checkCampOwner,
+  checkCampAdminOrOwner
 };

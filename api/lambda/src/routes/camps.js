@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
-const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit } = require('../utils/campUtils');
+const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils');
 const crypto = require('crypto');
 const stripe = require('../config/stripe');
 
@@ -141,20 +141,17 @@ router.get('/:id', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Update camp settings (admin only)
+// Update camp settings (admin/owner only)
 router.put('/:id', apiEndpointLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
   const { name } = req.body;
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
-      [req.user.id, campId, 'admin']
-    );
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     const result = await pool.query(
@@ -173,7 +170,7 @@ router.put('/:id', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Create a room in the camp (admin only)
+// Create a room in the camp (admin/owner only)
 router.post('/:id/rooms', contentCreationLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
   const { name } = req.body;
@@ -183,14 +180,11 @@ router.post('/:id/rooms', contentCreationLimiter, async (req, res) => {
   }
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
-      [req.user.id, campId, 'admin']
-    );
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Check if room name already exists in this camp
@@ -227,14 +221,11 @@ router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
   }
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
-      [req.user.id, campId, 'admin']
-    );
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Find user by username
@@ -281,20 +272,85 @@ router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Remove member from camp (admin only)
+// Update member role (owner/admin can change roles, but admins cannot demote admins)
+router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) => {
+  const campId = parseInt(req.params.id);
+  const userId = parseInt(req.params.userId);
+  const { role } = req.body;
+
+  if (!role) {
+    return res.status(400).json({ error: 'Role is required' });
+  }
+
+  // Validate role
+  if (!['admin', 'contributor'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role. Must be admin or contributor' });
+  }
+
+  try {
+    // Check if user is owner or admin
+    const isOwner = await checkCampOwner(campId, req.user.id);
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
+    
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Owner or admin access required' });
+    }
+
+    // Prevent changing your own role
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot change your own role' });
+    }
+
+    // Check if user is a member of the camp
+    const memberCheck = await pool.query(
+      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2',
+      [userId, campId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User is not a member of this camp' });
+    }
+
+    const currentRole = memberCheck.rows[0].role;
+
+    // Prevent promoting to owner (owner role is set only at camp creation)
+    if (role === 'owner') {
+      return res.status(400).json({ error: 'Cannot assign owner role' });
+    }
+
+    // Prevent changing owner role
+    if (currentRole === 'owner') {
+      return res.status(400).json({ error: 'Cannot change owner role' });
+    }
+
+    // Admins cannot demote other admins
+    if (!isOwner && currentRole === 'admin' && role !== 'admin') {
+      return res.status(403).json({ error: 'Admins cannot demote other admins' });
+    }
+
+    // Update role
+    await pool.query(
+      'UPDATE user_camps SET role = $1 WHERE user_id = $2 AND camp_id = $3',
+      [role, userId, campId]
+    );
+
+    res.json({ message: 'Member role updated successfully' });
+  } catch (error) {
+    console.error('Error updating camp member role:', error);
+    res.status(500).json({ error: 'Failed to update member role' });
+  }
+});
+
+// Remove member from camp (admin/owner only)
 router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
   const userId = parseInt(req.params.userId);
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
-      [req.user.id, campId, 'admin']
-    );
-
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Prevent removing yourself
@@ -302,14 +358,27 @@ router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Cannot remove yourself from the camp' });
     }
 
-    // Check if user is a member of the camp
+    // Check if user is a member of the camp and get their role
     const memberCheck = await pool.query(
-      'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
+      'SELECT id, role FROM user_camps WHERE user_id = $1 AND camp_id = $2',
       [userId, campId]
     );
 
     if (memberCheck.rows.length === 0) {
       return res.status(404).json({ error: 'User is not a member of this camp' });
+    }
+
+    const targetMemberRole = memberCheck.rows[0].role;
+
+    // Prevent removing the owner
+    if (targetMemberRole === 'owner') {
+      return res.status(403).json({ error: 'Cannot remove the camp owner' });
+    }
+
+    // Prevent admins (non-owners) from removing other admins
+    const isCurrentUserOwner = await checkCampOwner(campId, req.user.id);
+    if (!isCurrentUserOwner && targetMemberRole === 'admin') {
+      return res.status(403).json({ error: 'Admins cannot remove other admins from the camp' });
     }
 
     // Remove user from camp (this will cascade delete from user_rooms)
@@ -325,7 +394,7 @@ router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-// Add/remove user from room (admin only)
+// Add/remove user from room (admin/owner only)
 router.put('/:id/rooms/:roomId/users', apiEndpointLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
   const roomId = parseInt(req.params.roomId);
@@ -336,14 +405,11 @@ router.put('/:id/rooms/:roomId/users', apiEndpointLimiter, async (req, res) => {
   }
 
   try {
-    // Check if user is admin
-    const adminCheck = await pool.query(
-      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
-      [req.user.id, campId, 'admin']
-    );
+    // Check if user is admin or owner
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
-    if (adminCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin access required' });
+    if (!isAdminOrOwner) {
+      return res.status(403).json({ error: 'Admin or owner access required' });
     }
 
     // Verify room belongs to camp

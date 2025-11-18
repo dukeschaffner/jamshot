@@ -84,7 +84,11 @@ function RoomView({ camp, roomId }) {
   };
 
   const isAdmin = () => {
-    return camp?.user_role === 'admin';
+    return camp?.user_role === 'admin' || camp?.user_role === 'owner';
+  };
+
+  const isOwner = () => {
+    return camp?.user_role === 'owner';
   };
 
   const handleDeleteClick = () => {
@@ -128,8 +132,12 @@ function RoomView({ camp, roomId }) {
   };
 
   const handleRoleUpdate = async (userId, newRole) => {
-    // For camps, roles are not changeable like teams
-    // This is a placeholder for consistency
+    try {
+      // Refresh camp details to update members list with new role
+      await fetchCampDetails();
+    } catch (error) {
+      console.error('Error refreshing camp after role update:', error);
+    }
   };
 
   if (isLoadingRoom) {
@@ -250,7 +258,7 @@ function RoomView({ camp, roomId }) {
             onRoleUpdate={handleRoleUpdate}
             removingMemberId={removingMemberId}
             isCurrentUserAdmin={isAdmin()}
-            isCurrentUserOwner={false}
+            isCurrentUserOwner={isOwner()}
             emptyMessage="No members in this room yet."
           />
         )}

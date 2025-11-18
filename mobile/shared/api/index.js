@@ -581,6 +581,8 @@ const createApiMethods = (apiClient) => {
       });
       return api.get(`/camps/${campId}/rooms/${roomId}/tracks?${queryParams.toString()}`);
     },
+
+    updateMemberRole: (campId, userId, role) => api.patch(`/camps/${campId}/members/${userId}/role`, { role }),
   };
 
   // Team API methods
