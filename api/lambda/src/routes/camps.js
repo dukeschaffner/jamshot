@@ -600,7 +600,7 @@ router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
       orderBy = 'collab_count DESC';
     }
 
-    // Get beats (tracks with no parent_track_id and associated with camp) using standardized track query
+    // Get beats (tracks with no parent_track_id, no room_id, and associated with camp) using standardized track query
     const baseQuery = getBaseTrackSelectQuery(true, 1, true);
     const beatsQuery = `
       SELECT 
@@ -610,7 +610,7 @@ router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users u2 ON t2.user_id = u2.id
-      WHERE t.camp_id = $2 AND t.parent_track_id IS NULL AND t.processing_status = 'completed'
+      WHERE t.camp_id = $2 AND t.parent_track_id IS NULL AND t.room_id IS NULL AND t.processing_status = 'completed'
       ORDER BY ${orderBy}
       LIMIT $3 OFFSET $4
     `;
@@ -618,7 +618,7 @@ router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
     const countQuery = `
       SELECT COUNT(*) as total
       FROM tracks t
-      WHERE t.camp_id = $1 AND t.parent_track_id IS NULL AND t.processing_status = 'completed'
+      WHERE t.camp_id = $1 AND t.parent_track_id IS NULL AND t.room_id IS NULL AND t.processing_status = 'completed'
     `;
 
     const [beatsResult, countResult] = await Promise.all([
@@ -672,7 +672,7 @@ router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
     }
 
     // Build query with optional room filter
-    let whereClause = 't.camp_id = $2 AND t.parent_track_id IS NOT NULL AND t.processing_status = \'completed\'';
+    let whereClause = 't.camp_id = $2 AND (t.parent_track_id IS NOT NULL OR t.room_id IS NOT NULL) AND t.processing_status = \'completed\'';
     const queryParams = [req.user.id, campId];
     let paramIndex = 3;
 
