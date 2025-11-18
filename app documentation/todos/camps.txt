@@ -1,2 +1,3 @@
 - double check timestamps (handle timzones)
 - update ui to not allow recording on beat until camp starts
+- ensure beats are tracks with no parent AND no room_id
