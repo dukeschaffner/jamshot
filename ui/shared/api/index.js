@@ -584,6 +584,8 @@ const createApiMethods = (apiClient) => {
       return api.get(`/camps/${campId}/rooms/${roomId}/tracks?${queryParams.toString()}`);
     },
 
+    moveTrackToRoom: (campId, trackId, data) => api.patch(`/camps/${campId}/tracks/${trackId}/room`, data),
+
     updateMemberRole: (campId, userId, role) => api.patch(`/camps/${campId}/members/${userId}/role`, { role }),
   };
 

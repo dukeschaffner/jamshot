@@ -36,9 +36,13 @@ function BeatPoolTab({ camp, isActive }) {
         allTracks={tracks}
         expandedTrackId={expandedTrackId}
         setExpandedTrackId={handleTrackExpansion}
+        campContext={{
+          campId: camp.id,
+          userRole: camp.user_role
+        }}
       />
     );
-  }, [expandedTrackId, handleTrackExpansion]);
+  }, [expandedTrackId, handleTrackExpansion, camp]);
 
   const emptyState = (
     <div className={sharedStyles.emptyState}>

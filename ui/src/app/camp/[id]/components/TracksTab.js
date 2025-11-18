@@ -3,7 +3,7 @@ import { campApi } from '../../../../lib/api';
 import LoadingSpinner from '../../../../components/LoadingSpinner';
 import MiniTrack from '../../../../components/MiniTrack';
 import { FaMusic } from 'react-icons/fa';
-import styles from '../CampDashboard.module.css';
+import sharedStyles from '../../../../styles/Dashboard.module.css';
 
 function TracksTab({ camp }) {
   const [tracks, setTracks] = useState([]);
@@ -42,14 +42,14 @@ function TracksTab({ camp }) {
   }
 
   return (
-    <div className={styles.tabContent}>
-      <div className={styles.tabHeader}>
+    <div className={sharedStyles.tabContent}>
+      <div className={sharedStyles.tabHeader}>
         <h2>All Tracks</h2>
-        <div className={styles.tabActions}>
+        <div className={sharedStyles.tabActions}>
           <select
             value={filterRoom}
             onChange={(e) => setFilterRoom(e.target.value)}
-            className={styles.sortSelect}
+            className={sharedStyles.sortSelect}
           >
             <option value="all">All Rooms</option>
             {camp.rooms?.map(room => (
@@ -59,7 +59,7 @@ function TracksTab({ camp }) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className={styles.sortSelect}
+            className={sharedStyles.sortSelect}
           >
             <option value="recent">Most Recent</option>
             <option value="likes">Most Liked</option>
@@ -68,13 +68,13 @@ function TracksTab({ camp }) {
       </div>
 
       {tracks.length === 0 ? (
-        <div className={styles.emptyState}>
-          <FaMusic className={styles.emptyIcon} />
+        <div className={sharedStyles.emptyState}>
+          <FaMusic className={sharedStyles.emptyIcon} />
           <h3>No Tracks Yet</h3>
           <p>Start building on beats from the Beat Pool!</p>
         </div>
       ) : (
-        <div className={styles.trackList}>
+        <div className={sharedStyles.trackList}>
           {tracks.map(track => (
             <MiniTrack key={track.id} track={track} />
           ))}
