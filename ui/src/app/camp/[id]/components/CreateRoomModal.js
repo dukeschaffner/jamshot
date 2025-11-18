@@ -1,6 +1,8 @@
+'use client';
 import { useState } from 'react';
 import { campApi } from '../../../../lib/api';
-import { FaTimes } from 'react-icons/fa';
+import { FaTimes, FaDoorOpen } from 'react-icons/fa';
+import sharedStyles from '../../../../styles/Dashboard.module.css';
 import styles from '../CampDashboard.module.css';
 
 function CreateRoomModal({ campId, onClose, onSuccess }) {
@@ -21,6 +23,7 @@ function CreateRoomModal({ campId, onClose, onSuccess }) {
       setError('');
       const response = await campApi.createRoom(campId, { name: roomName.trim() });
       onSuccess(response.data);
+      onClose();
     } catch (err) {
       console.error('Error creating room:', err);
       setError(err.response?.data?.error || 'Failed to create room');
@@ -30,20 +33,19 @@ function CreateRoomModal({ campId, onClose, onSuccess }) {
   };
 
   return (
-    <div className="modal-overlay active" onClick={(e) => {
-      if (e.target.className === 'modal-overlay active') {
-        onClose();
-      }
-    }}>
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2 className="modal-title">Create Room</h2>
-          <button onClick={onClose} className="modal-close">
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.createModalContent} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <div className={styles.modalHeaderLeft}>
+            <FaDoorOpen className={styles.modalRoomIcon} />
+            <h2 className={styles.modalTitle}>Create Room</h2>
+          </div>
+          <button onClick={onClose} className={styles.modalCloseButton}>
             <FaTimes />
           </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+          <div className={styles.modalBody}>
             {error && (
               <div className={styles.errorMessage}>{error}</div>
             )}
@@ -53,29 +55,33 @@ function CreateRoomModal({ campId, onClose, onSuccess }) {
                 id="roomName"
                 type="text"
                 value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
+                onChange={(e) => {
+                  setRoomName(e.target.value);
+                  setError('');
+                }}
                 placeholder="e.g., Vocals, Beats, Production"
                 className={styles.settingsInput}
                 disabled={isCreating}
                 autoFocus
+                maxLength={100}
               />
               <p className={styles.helpText}>
                 Create focused spaces for different aspects of your project
               </p>
             </div>
           </div>
-          <div className="modal-footer">
+          <div className={styles.modalFooter}>
             <button
               type="button"
               onClick={onClose}
-              className={styles.secondaryButton}
+              className={sharedStyles.secondaryButton}
               disabled={isCreating}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className={styles.primaryButton}
+              className={sharedStyles.primaryButton}
               disabled={isCreating || !roomName.trim()}
             >
               {isCreating ? 'Creating...' : 'Create Room'}

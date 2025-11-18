@@ -5,7 +5,6 @@ import { useUser } from '../../../contexts/UserContext';
 import { campApi } from '../../../lib/api';
 import CustomTabs from '../../../components/CustomTabs';
 import LoadingSpinner from '../../../components/LoadingSpinner';
-import BeatCard from '../../../components/BeatCard';
 import MiniTrack from '../../../components/MiniTrack';
 import { 
   FaCampground, FaCalendarAlt, FaUsers, FaCog, FaUserPlus, 
@@ -19,6 +18,8 @@ import MyRoomTab from './components/MyRoomTab';
 import RoomsTab from './components/RoomsTab';
 import TracksTab from './components/TracksTab';
 import ActivityTab from './components/ActivityTab';
+import RoomView from './components/RoomView';
+import MembersTab from '../../../components/MembersTab';
 import InviteLinkModal from '../../../components/InviteLinkModal';
 import SettingsModal from './components/SettingsModal';
 
@@ -30,6 +31,7 @@ export default function CampDashboard() {
 
   const campId = parseInt(params.id);
   const inviteCode = searchParams.get('code');
+  const roomId = searchParams.get('roomId');
 
   const [camp, setCamp] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +39,7 @@ export default function CampDashboard() {
   const [activeTab, setActiveTab] = useState('beats');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState(null);
 
   // Fetch camp details - validates invite code first if code parameter exists
   const fetchCampDetails = async () => {
@@ -158,6 +161,35 @@ export default function CampDashboard() {
     alert('Export functionality coming soon!');
   };
 
+  const handleRemoveMember = async (userId) => {
+    try {
+      setRemovingMemberId(userId);
+      await campApi.removeMember(campId, userId);
+      // Refresh camp details to update members list
+      await fetchCampDetails();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to remove member';
+      setError(errorMessage);
+      // Clear error after 5 seconds
+      setTimeout(() => setError(''), 5000);
+      throw error; // Re-throw so UserCard can handle it
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
+  const handleRoleUpdate = async (userId, newRole) => {
+    // For camps, roles are not changeable like teams
+    // This is a placeholder for consistency
+    try {
+      // Refresh camp details to update members list
+      await fetchCampDetails();
+    } catch (error) {
+      console.error('Error refreshing camp after role update:', error);
+    }
+  };
+
   if (!isAuthenticated) {
     // Build redirect URL with current path and query params
     const currentPath = `/camp/${campId}`;
@@ -218,6 +250,17 @@ export default function CampDashboard() {
 
   const userRoom = getUserRoom();
 
+  // If roomId is present, show room view instead of dashboard
+  if (roomId && camp) {
+    return (
+      <div className={sharedStyles.container}>
+        <div className={sharedStyles.content}>
+          <RoomView camp={camp} roomId={roomId} />
+        </div>
+      </div>
+    );
+  }
+
   // Build tabs array
   const tabs = [
     { key: 'beats', label: 'Beat Pool' },
@@ -231,6 +274,7 @@ export default function CampDashboard() {
   tabs.push(
     { key: 'rooms', label: 'Rooms' },
     { key: 'tracks', label: 'Tracks' },
+    { key: 'members', label: 'Members' },
     { key: 'activity', label: 'Activity' }
   );
 
@@ -251,7 +295,7 @@ export default function CampDashboard() {
               </div>
               <div className={sharedStyles.metaItem}>
                 <FaUsers />
-                <span>{camp.member_count || 0} / {getUserLimit()} members</span>
+                <span>{camp.members?.length || camp.user_limit?.current_users || 0} / {getUserLimit()} members</span>
               </div>
             </div>
           </div>
@@ -309,6 +353,19 @@ export default function CampDashboard() {
         {activeTab === 'my-room' && <MyRoomTab camp={camp} room={userRoom} isActive={isCampActive()} />}
         {activeTab === 'rooms' && <RoomsTab camp={camp} isAdmin={isAdmin()} onCampUpdate={fetchCampDetails} />}
         {activeTab === 'tracks' && <TracksTab camp={camp} />}
+        {activeTab === 'members' && (
+          <MembersTab
+            members={camp.members}
+            entityType="camp"
+            entityId={campId}
+            onRemove={handleRemoveMember}
+            onRoleUpdate={handleRoleUpdate}
+            removingMemberId={removingMemberId}
+            isCurrentUserAdmin={isAdmin()}
+            isCurrentUserOwner={false}
+            emptyMessage="No members yet. Invite users to join your camp."
+          />
+        )}
         {activeTab === 'activity' && <ActivityTab camp={camp} />}
       </div>
 

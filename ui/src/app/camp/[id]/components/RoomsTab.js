@@ -1,42 +1,45 @@
+'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import RoomCard from './RoomCard';
 import CreateRoomModal from './CreateRoomModal';
 import { FaDoorOpen, FaPlus } from 'react-icons/fa';
+import sharedStyles from '../../../../styles/Dashboard.module.css';
 import styles from '../CampDashboard.module.css';
 
 function RoomsTab({ camp, isAdmin, onCampUpdate }) {
+  const router = useRouter();
   const [showCreateRoom, setShowCreateRoom] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState(null);
 
   const handleCreateRoom = () => {
     setShowCreateRoom(true);
   };
 
   const handleRoomClick = (room) => {
-    setSelectedRoom(selectedRoom?.id === room.id ? null : room);
+    router.push(`/camp/${camp.id}?roomId=${room.id}`);
   };
 
   return (
-    <div className={styles.tabContent}>
-      <div className={styles.tabHeader}>
+    <div className={sharedStyles.tabContent}>
+      <div className={sharedStyles.tabHeader}>
         <h2>All Rooms</h2>
         {isAdmin && (
-          <button onClick={handleCreateRoom} className={styles.primaryButton}>
+          <button onClick={handleCreateRoom} className={sharedStyles.primaryButton}>
             <FaPlus />
-            <span>Create Room</span>
+            Create Room
           </button>
         )}
       </div>
 
       {!camp.rooms || camp.rooms.length === 0 ? (
-        <div className={styles.emptyState}>
-          <FaDoorOpen className={styles.emptyIcon} />
+        <div className={sharedStyles.emptyState}>
+          <FaDoorOpen className={sharedStyles.emptyIcon} />
           <h3>No Rooms Yet</h3>
           <p>Create rooms to organize your camp members and tracks</p>
           {isAdmin && (
-            <button onClick={handleCreateRoom} className={styles.primaryButton}>
+            <button onClick={handleCreateRoom} className={sharedStyles.primaryButton}>
               <FaPlus />
-              <span>Create First Room</span>
+              Create First Room
             </button>
           )}
         </div>
@@ -46,8 +49,6 @@ function RoomsTab({ camp, isAdmin, onCampUpdate }) {
             <RoomCard
               key={room.id}
               room={room}
-              campId={camp.id}
-              isSelected={selectedRoom?.id === room.id}
               onClick={() => handleRoomClick(room)}
             />
           ))}
