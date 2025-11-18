@@ -1,1 +1,2 @@
 - double check timestamps (handle timzones)
+- update ui to not allow recording on beat until camp starts

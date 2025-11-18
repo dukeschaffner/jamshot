@@ -27,6 +27,7 @@ TODO (MVP)
   - indicate number of comp wins on user page (or by their username display)
 - multi region tracks
 - update region during playback
+- camps/teams - remove repost button from track component. make sure liked camp/team songs dont show up in user likes (maybe unless they are viewing their own page?)
 
 
 
