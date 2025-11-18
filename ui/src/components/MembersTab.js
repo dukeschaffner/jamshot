@@ -12,6 +12,8 @@ export default function MembersTab({
   removingMemberId,
   isCurrentUserAdmin = false,
   isCurrentUserOwner = false,
+  campRooms = [], // Array of rooms for camp variant
+  onRoomUpdate, // Callback for room updates in camp variant
   emptyMessage = 'No members yet. Invite users to join.'
 }) {
   if (!members || members.length === 0) {
@@ -41,6 +43,9 @@ export default function MembersTab({
             isRemoving={removingMemberId === member.id}
             isCurrentUserAdmin={isCurrentUserAdmin}
             isCurrentUserOwner={isCurrentUserOwner}
+            currentRoomId={member.room_id}
+            onRoomUpdate={onRoomUpdate}
+            campRooms={campRooms}
           />
         ))}
       </div>

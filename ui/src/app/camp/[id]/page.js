@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { campApi } from '../../../lib/api';
@@ -14,7 +14,6 @@ import {
 import styles from './CampDashboard.module.css';
 import sharedStyles from '../../../styles/Dashboard.module.css';
 import BeatPoolTab from './components/BeatPoolTab';
-import MyRoomTab from './components/MyRoomTab';
 import RoomsTab from './components/RoomsTab';
 import TracksTab from './components/TracksTab';
 import ActivityTab from './components/ActivityTab';
@@ -40,6 +39,7 @@ export default function CampDashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState(null);
+  const prevRoomIdRef = useRef(roomId);
 
   // Fetch camp details - validates invite code first if code parameter exists
   const fetchCampDetails = async () => {
@@ -106,6 +106,17 @@ export default function CampDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campId, isAuthenticated, userLoading, inviteCode]);
 
+  // Refresh camp details when navigating back from room view (roomId changes from a value to null)
+  useEffect(() => {
+    const prevRoomId = prevRoomIdRef.current;
+    // If we had a roomId before and now we don't, we navigated back from room view
+    if (prevRoomId && !roomId && camp) {
+      fetchCampDetails();
+    }
+    prevRoomIdRef.current = roomId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -150,6 +161,15 @@ export default function CampDashboard() {
     return camp?.rooms?.find(room => 
       room.members?.some(member => member.id === user?.id)
     );
+  };
+
+  const handleTabChange = (tabKey) => {
+    // If clicking on user's room tab, navigate to room view instead
+    if (tabKey === 'my-room' && userRoom) {
+      router.push(`/camp/${campId}?roomId=${userRoom.id}`);
+      return;
+    }
+    setActiveTab(tabKey);
   };
 
   const handleInviteClick = () => {
@@ -345,14 +365,13 @@ export default function CampDashboard() {
         <CustomTabs
           tabs={tabs}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
         />
       </div>
 
       {/* Tab Content */}
       <div className={sharedStyles.content}>
         {activeTab === 'beats' && <BeatPoolTab camp={camp} isActive={isCampActive()} />}
-        {activeTab === 'my-room' && <MyRoomTab camp={camp} room={userRoom} isActive={isCampActive()} />}
         {activeTab === 'rooms' && <RoomsTab camp={camp} isAdmin={isAdmin()} onCampUpdate={fetchCampDetails} />}
         {activeTab === 'tracks' && <TracksTab camp={camp} />}
         {activeTab === 'members' && (
@@ -365,6 +384,8 @@ export default function CampDashboard() {
             removingMemberId={removingMemberId}
             isCurrentUserAdmin={isAdmin()}
             isCurrentUserOwner={isOwner()}
+            campRooms={camp.rooms || []}
+            onRoomUpdate={handleRoleUpdate} // Reuse the same callback for now
             emptyMessage="No members yet. Invite users to join your camp."
           />
         )}
