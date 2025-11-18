@@ -360,7 +360,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
   try {
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id, room_id FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -456,6 +456,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
           return res.status(400).json({ error: 'Track uploads are not allowed until the camp has started' });
         }
 
+        room_id = room_id || parentTrack?.room_id;
         if (!room_id) {
           return res.status(400).json({ error: 'Room ID is required when uploading tracks to a camp' });
         }

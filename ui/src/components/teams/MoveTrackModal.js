@@ -1,54 +1,79 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { teamApi } from '../../lib/api';
+import { teamApi, campApi } from '../../lib/api';
 import { useToast } from '../../lib/ToastContext';
-import { FaTimes, FaFolder } from 'react-icons/fa';
+import { FaTimes, FaFolder, FaDoorOpen } from 'react-icons/fa';
 import sharedStyles from '../../styles/Dashboard.module.css';
 import styles from '../../app/teams/[id]/TeamDashboard.module.css';
 
-function MoveTrackModal({ teamId, track, currentFolderId, onClose, onSuccess }) {
-  const [folders, setFolders] = useState([]);
+/**
+ * Generic modal for moving tracks to folders (teams) or rooms (camps)
+ * @param {string} type - 'folder' or 'room'
+ * @param {number} teamId - Required if type is 'folder'
+ * @param {number} campId - Required if type is 'room'
+ * @param {Object} track - Track object to move
+ * @param {number} currentId - Current folder_id or room_id
+ * @param {Function} onClose - Callback when modal closes
+ * @param {Function} onSuccess - Callback when move succeeds
+ */
+function MoveTrackModal({ type, teamId, campId, track, currentId, onClose, onSuccess }) {
+  const [items, setItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedFolderId, setSelectedFolderId] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [isMoving, setIsMoving] = useState(false);
   const [error, setError] = useState('');
   const { showSuccess, showError } = useToast();
 
+  const isFolder = type === 'folder';
+  const isRoom = type === 'room';
+
   useEffect(() => {
-    const fetchFolders = async () => {
+    const fetchItems = async () => {
       try {
         setIsLoading(true);
-        const response = await teamApi.getFolders(teamId);
-        setFolders(response.data.folders || []);
-        // Initialize selected folder to current folder (so user can see current state)
-        setSelectedFolderId(currentFolderId || null);
+        if (isFolder && teamId) {
+          const response = await teamApi.getFolders(teamId);
+          setItems(response.data.folders || []);
+          setSelectedId(currentId || null);
+        } else if (isRoom && campId) {
+          // Fetch camp to get rooms
+          const response = await campApi.getCamp(campId);
+          setItems(response.data.rooms || []);
+          setSelectedId(currentId || null);
+        }
       } catch (err) {
-        console.error('Error fetching folders:', err);
-        setError('Failed to load folders');
+        console.error(`Error fetching ${isFolder ? 'folders' : 'rooms'}:`, err);
+        setError(`Failed to load ${isFolder ? 'folders' : 'rooms'}`);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (teamId) {
-      fetchFolders();
+    if ((isFolder && teamId) || (isRoom && campId)) {
+      fetchItems();
     }
-  }, [teamId, currentFolderId]);
+  }, [type, teamId, campId, currentId, isFolder, isRoom]);
 
   const handleMove = async () => {
     try {
       setIsMoving(true);
       setError('');
       
-      await teamApi.moveTrack(teamId, track.id, {
-        folder_id: selectedFolderId || null
-      });
+      if (isFolder && teamId) {
+        await teamApi.moveTrack(teamId, track.id, {
+          folder_id: selectedId || null
+        });
+      } else if (isRoom && campId) {
+        await campApi.moveTrackToRoom(campId, track.id, {
+          room_id: selectedId || null
+        });
+      }
 
-      const destinationFolder = selectedFolderId 
-        ? folders.find(f => f.id === selectedFolderId)?.name || 'folder'
-        : 'Unorganized';
+      const destinationName = selectedId 
+        ? items.find(item => item.id === selectedId)?.name || (isFolder ? 'folder' : 'room')
+        : (isFolder ? 'Unorganized' : 'No Room');
       
-      showSuccess('Track Moved', `Track moved to ${destinationFolder} successfully`);
+      showSuccess('Track Moved', `Track moved to ${destinationName} successfully`);
       
       if (onSuccess) {
         onSuccess();
@@ -64,14 +89,19 @@ function MoveTrackModal({ teamId, track, currentFolderId, onClose, onSuccess }) 
     }
   };
 
-  const currentFolder = folders.find(f => f.id === currentFolderId);
+  const currentItem = items.find(item => item.id === currentId);
+
+  const Icon = isFolder ? FaFolder : FaDoorOpen;
+  const emptyLabel = isFolder ? 'Unorganized (No folder)' : 'No Room';
+  const loadingText = isFolder ? 'Loading folders...' : 'Loading rooms...';
+  const selectLabel = isFolder ? 'Select destination folder:' : 'Select destination room:';
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={styles.createModalContent} onClick={(e) => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <div className={styles.modalHeaderLeft}>
-            <FaFolder className={styles.modalFolderIcon} />
+            <Icon className={styles.modalFolderIcon} />
             <h2 className={styles.modalTitle}>Move Track</h2>
           </div>
           <button 
@@ -86,9 +116,9 @@ function MoveTrackModal({ teamId, track, currentFolderId, onClose, onSuccess }) 
         <div className={styles.modalBody}>
           <div className={styles.moveTrackInfo}>
             <p><strong>{track?.title}</strong></p>
-            {currentFolder && (
+            {currentItem && (
               <p className={styles.currentFolderInfo}>
-                Currently in: <strong>{currentFolder.name}</strong>
+                Currently in: <strong>{currentItem.name}</strong>
               </p>
             )}
           </div>
@@ -101,31 +131,31 @@ function MoveTrackModal({ teamId, track, currentFolderId, onClose, onSuccess }) 
 
           {isLoading ? (
             <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              <p>Loading folders...</p>
+              <p>{loadingText}</p>
             </div>
           ) : (
             <div className={styles.folderSelection}>
-              <label className={styles.folderLabel}>Select destination folder:</label>
+              <label className={styles.folderLabel}>{selectLabel}</label>
               
               <div className={styles.folderOptions}>
                 <button
-                  className={`${styles.folderOption} ${selectedFolderId === null ? styles.folderOptionSelected : ''}`}
-                  onClick={() => setSelectedFolderId(null)}
+                  className={`${styles.folderOption} ${selectedId === null ? styles.folderOptionSelected : ''}`}
+                  onClick={() => setSelectedId(null)}
                 >
-                  <FaFolder />
-                  <span>Unorganized (No folder)</span>
+                  <Icon />
+                  <span>{emptyLabel}</span>
                 </button>
 
-                {folders.map(folder => (
+                {items.map(item => (
                   <button
-                    key={folder.id}
-                    className={`${styles.folderOption} ${selectedFolderId === folder.id ? styles.folderOptionSelected : ''}`}
-                    onClick={() => setSelectedFolderId(folder.id)}
-                    disabled={folder.id === currentFolderId}
+                    key={item.id}
+                    className={`${styles.folderOption} ${selectedId === item.id ? styles.folderOptionSelected : ''}`}
+                    onClick={() => setSelectedId(item.id)}
+                    disabled={item.id === currentId}
                   >
-                    <FaFolder />
-                    <span>{folder.name}</span>
-                    {folder.id === currentFolderId && (
+                    <Icon />
+                    <span>{item.name}</span>
+                    {item.id === currentId && (
                       <span className={styles.currentLabel}>(Current)</span>
                     )}
                   </button>
@@ -146,7 +176,7 @@ function MoveTrackModal({ teamId, track, currentFolderId, onClose, onSuccess }) 
           <button
             className={sharedStyles.primaryButton}
             onClick={handleMove}
-            disabled={isMoving || isLoading || selectedFolderId === currentFolderId}
+            disabled={isMoving || isLoading || selectedId === currentId}
           >
             {isMoving ? 'Moving...' : 'Move Track'}
           </button>

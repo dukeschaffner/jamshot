@@ -4,6 +4,7 @@ const pool = require('../config/db');
 const { authMiddleware } = require('../middleware/auth');
 const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
 const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils');
+const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
 const crypto = require('crypto');
 const stripe = require('../config/stripe');
 
@@ -599,17 +600,16 @@ router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
       orderBy = 'collab_count DESC';
     }
 
-    // Get beats (tracks with no parent_track_id and associated with camp)
+    // Get beats (tracks with no parent_track_id and associated with camp) using standardized track query
+    const baseQuery = getBaseTrackSelectQuery(true, 1, true);
     const beatsQuery = `
       SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.duration, t.metronome_bpm, 
-        t.time_signature, t.key, t.created_at,
-        u.username, u.verified, u.profile_pic_url,
-        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+        ${baseQuery},
+        t.key
       FROM tracks t
-      JOIN users u ON t.user_id = u.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.camp_id = $2 AND t.parent_track_id IS NULL AND t.processing_status = 'completed'
       ORDER BY ${orderBy}
       LIMIT $3 OFFSET $4
@@ -626,11 +626,14 @@ router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
       pool.query(countQuery, [campId])
     ]);
 
+    // Process beats using the same utility function as tracks.js
+    const beats = await Promise.all(beatsResult.rows.map(beat => processTrack(beat, req.user.id)));
+
     const total = parseInt(countResult.rows[0].total);
-    const hasMore = offset + beatsResult.rows.length < total;
+    const hasMore = offset + beats.length < total;
 
     res.json({
-      beats: beatsResult.rows,
+      beats,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -681,42 +684,53 @@ router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
 
     queryParams.push(limit, offset);
 
+    // Get tracks using standardized track query
+    const baseQuery = getBaseTrackSelectQuery(true, 1, true);
     const tracksQuery = `
       SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.duration, t.parent_track_id,
-        t.room_id, t.layer, t.created_at,
-        u.username, u.verified, u.profile_pic_url,
-        r.name as room_name,
-        pt.title as parent_title,
-        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+        ${baseQuery},
+        t.room_id,
+        r.name as room_name
       FROM tracks t
-      JOIN users u ON t.user_id = u.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       LEFT JOIN rooms r ON t.room_id = r.id
-      LEFT JOIN tracks pt ON t.parent_track_id = pt.id
       WHERE ${whereClause}
       ORDER BY ${orderBy}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
+    // Build count query params matching the whereClause structure
+    // whereClause uses $2 for campId and $3 for roomId (if present)
+    // Count query needs $1 for campId and $2 for roomId (if present)
+    const countParams = [campId];
+    if (room_id) {
+      countParams.push(parseInt(room_id));
+    }
+
+    // Adjust parameter placeholders: $2 -> $1, $3 -> $2
+    const countWhereClause = whereClause.replace(/\$2/g, '$1').replace(/\$3/g, '$2');
+
     const countQuery = `
       SELECT COUNT(*) as total
       FROM tracks t
-      WHERE ${whereClause.replace('$1', req.user.id.toString())}
+      WHERE ${countWhereClause}
     `;
 
     const [tracksResult, countResult] = await Promise.all([
       pool.query(tracksQuery, queryParams),
-      pool.query(countQuery, room_id ? [campId, parseInt(room_id)] : [campId])
+      pool.query(countQuery, countParams)
     ]);
 
+    // Process tracks using the same utility function as tracks.js
+    const tracks = await Promise.all(tracksResult.rows.map(track => processTrack(track, req.user.id)));
+
     const total = parseInt(countResult.rows[0].total);
-    const hasMore = offset + tracksResult.rows.length < total;
+    const hasMore = offset + tracks.length < total;
 
     res.json({
-      tracks: tracksResult.rows,
+      tracks,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -759,18 +773,15 @@ router.get('/:id/rooms/:roomId/tracks', apiEndpointLimiter, async (req, res) => 
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    // Get room tracks using standardized track query
+    const baseQuery = getBaseTrackSelectQuery(true, 1, true);
     const tracksQuery = `
       SELECT 
-        t.id, t.user_id, t.title, t.audio_url, t.duration, t.parent_track_id,
-        t.layer, t.created_at,
-        u.username, u.verified, u.profile_pic_url,
-        pt.title as parent_title,
-        (SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = t.id) AS collab_count,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked
+        ${baseQuery}
       FROM tracks t
-      JOIN users u ON t.user_id = u.id
-      LEFT JOIN tracks pt ON t.parent_track_id = pt.id
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.room_id = $2 AND t.processing_status = 'completed'
       ORDER BY t.created_at DESC
       LIMIT $3 OFFSET $4
@@ -787,11 +798,14 @@ router.get('/:id/rooms/:roomId/tracks', apiEndpointLimiter, async (req, res) => 
       pool.query(countQuery, [roomId])
     ]);
 
+    // Process tracks using the same utility function as tracks.js
+    const tracks = await Promise.all(tracksResult.rows.map(track => processTrack(track, req.user.id)));
+
     const total = parseInt(countResult.rows[0].total);
-    const hasMore = offset + tracksResult.rows.length < total;
+    const hasMore = offset + tracks.length < total;
 
     res.json({
-      tracks: tracksResult.rows,
+      tracks,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -802,6 +816,70 @@ router.get('/:id/rooms/:roomId/tracks', apiEndpointLimiter, async (req, res) => 
   } catch (error) {
     console.error('Error fetching room tracks:', error);
     res.status(500).json({ error: 'Failed to fetch tracks' });
+  }
+});
+
+// Move track to room (camp member only, for non-beat tracks)
+router.patch('/:id/tracks/:trackId/room', apiEndpointLimiter, async (req, res) => {
+  const campId = parseInt(req.params.id);
+  const trackId = parseInt(req.params.trackId);
+  const { room_id } = req.body;
+
+  try {
+    // Verify user has access to camp
+    const accessCheck = await validateCampAccess(campId, req.user.id);
+    if (!accessCheck.valid) {
+      return res.status(403).json({ error: accessCheck.error });
+    }
+
+    // Verify track belongs to camp and is a non-beat track (has parent_track_id)
+    const trackCheck = await pool.query(
+      'SELECT id, camp_id, room_id, parent_track_id, user_id FROM tracks WHERE id = $1 AND camp_id = $2',
+      [trackId, campId]
+    );
+
+    if (trackCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found or does not belong to this camp' });
+    }
+
+    const track = trackCheck.rows[0];
+
+    // Only allow moving non-beat tracks (tracks with parent_track_id)
+    if (!track.parent_track_id) {
+      return res.status(400).json({ error: 'Cannot move beat tracks to rooms. Only collaboration tracks can be moved.' });
+    }
+
+    // Verify user owns the track or is admin/owner
+    const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
+    if (track.user_id !== req.user.id && !isAdminOrOwner) {
+      return res.status(403).json({ error: 'You can only move your own tracks unless you are an admin or owner' });
+    }
+
+    // If room_id is provided, validate room belongs to camp
+    if (room_id !== null && room_id !== undefined) {
+      const roomCheck = await pool.query(
+        'SELECT id FROM rooms WHERE id = $1 AND camp_id = $2',
+        [room_id, campId]
+      );
+
+      if (roomCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Room not found in this camp' });
+      }
+    }
+
+    // Update track's room
+    await pool.query(
+      'UPDATE tracks SET room_id = $1 WHERE id = $2',
+      [room_id || null, trackId]
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Track moved successfully'
+    });
+  } catch (error) {
+    console.error('Error moving track to room:', error);
+    res.status(500).json({ error: 'Failed to move track' });
   }
 });
 

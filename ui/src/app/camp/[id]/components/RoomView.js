@@ -76,9 +76,14 @@ function RoomView({ camp, roomId }) {
         allTracks={tracks}
         expandedTrackId={expandedTrackId}
         setExpandedTrackId={handleTrackExpansion}
+        campContext={{
+          campId: camp.id,
+          roomId: parseInt(roomId),
+          userRole: camp.user_role
+        }}
       />
     );
-  }, [expandedTrackId, handleTrackExpansion]);
+  }, [expandedTrackId, handleTrackExpansion, camp, roomId]);
 
   const handleBackToDashboard = () => {
     router.push(`/camp/${camp.id}`);
