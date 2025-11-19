@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper } from 'react-icons/fa';
+import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper, FaCampground } from 'react-icons/fa';
 import { useMobile } from '../contexts/MobileContext';
 import { useUser } from '../contexts/UserContext';
 
@@ -11,7 +11,18 @@ export default function MoreDropdown() {
   const dropdownRef = useRef(null);
   const router = useRouter();
   const { isMobile } = useMobile();
-  const { isAuthenticated, logout } = useUser();
+  const { user, isAuthenticated, logout } = useUser();
+
+  // Get camps link URL based on user state
+  const getCampsLink = () => {
+    if (!isAuthenticated || !user?.camps || user.camps.length === 0) {
+      return '/camps'; // Landing page
+    } else if (user.camps.length === 1) {
+      return `/camp/${user.camps[0].id}`; // Direct to camp dashboard
+    } else {
+      return '/camps'; // List page
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -76,6 +87,10 @@ export default function MoreDropdown() {
                 </button>
               </div>
               <div className="mobile-more-modal-body">
+                <Link className="mobile-more-link" href={getCampsLink()} onClick={handleLinkClick}>
+                  <FaCampground />
+                  <span>Camps</span>
+                </Link>
                 <Link className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
                   <FaCrown />
                   <span>Subscribe</span>
@@ -135,6 +150,7 @@ export default function MoreDropdown() {
           <div className="more-dropdown-header">
           </div>
           <div className="notification-body">
+            <Link className="nav-link" href={getCampsLink()} onClick={handleLinkClick}><FaCampground />Camps</Link>
             <Link className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</Link>
             <Link className="nav-link" href="/release-notes" onClick={handleLinkClick}><FaNewspaper />Release Notes</Link>
             <Link className="nav-link" href="/about" onClick={handleLinkClick}><FaInfoCircle />About</Link>

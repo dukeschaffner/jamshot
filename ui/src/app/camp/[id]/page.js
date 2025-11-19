@@ -9,7 +9,7 @@ import MiniTrack from '../../../components/MiniTrack';
 import { 
   FaCampground, FaCalendarAlt, FaUsers, FaCog, FaUserPlus, 
   FaDownload, FaMusic, FaDoorOpen, FaStream, FaBell, FaTimes,
-  FaUpload, FaPlus, FaSearch
+  FaUpload, FaPlus, FaSearch, FaExternalLinkAlt
 } from 'react-icons/fa';
 import styles from './CampDashboard.module.css';
 import sharedStyles from '../../../styles/Dashboard.module.css';
@@ -297,7 +297,14 @@ export default function CampDashboard() {
     { key: 'rooms', label: 'Rooms' },
     { key: 'tracks', label: 'Tracks' },
     { key: 'members', label: 'Members' },
-    { key: 'activity', label: 'Activity' }
+    { key: 'activity', label: 'Activity' },
+    { 
+      key: 'learn-more', 
+      label: 'Learn More',
+      icon: <FaExternalLinkAlt />,
+      externalLink: '/camps/about',
+      onExternalClick: () => router.push('/camps/about')
+    }
   );
 
   return (
