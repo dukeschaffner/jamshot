@@ -1,0 +1,184 @@
+.campsListContainer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.headerInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.headerIcon {
+  font-size: 32px;
+  color: var(--seafoam);
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.headerActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.createButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.createButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(147, 233, 190, 0.4);
+}
+
+.learnMoreLink {
+  padding: 10px 16px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.learnMoreLink:hover {
+  color: var(--text-primary);
+  border-color: var(--seafoam);
+  background: var(--grey-1);
+}
+
+.campsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.campCard {
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.campCard:hover {
+  border-color: var(--seafoam);
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.campCardContent {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.campIcon {
+  font-size: 32px;
+  color: var(--seafoam);
+  flex-shrink: 0;
+}
+
+.campInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.campName {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.campMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campRole {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  background: var(--grey-1);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.campArrow {
+  color: var(--text-secondary);
+  font-size: 18px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.campCard:hover .campArrow {
+  transform: translateX(4px);
+  color: var(--seafoam);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .headerContent {
+    flex-direction: column;
+  }
+
+  .headerActions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .createButton,
+  .learnMoreLink {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .campsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
