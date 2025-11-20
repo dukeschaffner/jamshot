@@ -106,12 +106,27 @@ export default function Region({
       setOffset(region.offset);
       const regionWidth = (region.endTime - region.startTime) / duration;
       setWidth(regionWidth);
-      
+
       // Set initial region position
       const regionLeftPos = region.startTime / duration * 100;
       setRegionLeftPos(regionLeftPos);
     }
   }, [bufferKey, track, duration]);
+
+  // Update local state when region prop changes (e.g., when trimmed by another region)
+  useEffect(() => {
+    if (!region || !duration) return;
+
+    setStartTime(region.startTime);
+    setEndTime(region.endTime);
+    setOffset(region.offset);
+    const regionWidth = (region.endTime - region.startTime) / duration;
+    setWidth(regionWidth);
+
+    // Update region position
+    const regionLeftPos = region.startTime / duration * 100;
+    setRegionLeftPos(regionLeftPos);
+  }, [region, duration]);
 
 
   useEffect(() => {

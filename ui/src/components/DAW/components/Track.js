@@ -191,8 +191,49 @@ const Track = ({
 
   return (
     <div className={styles.track} ref={trackRef}>
-        {/* Recording indicator - shown during recording */}
-        {isRecording && !track.readonly && recordingWidth > 0 ? (
+        {/* Always show regions when they exist */}
+        {regions.length > 0 ? (
+          regions.map((region, index) => (
+            region.active && (
+              <Region 
+                key={index}
+                region={region}
+                bufferKey={region.key} 
+                trackRef={trackRef} 
+                track={track} 
+                tracksScrollContainerRef={tracksScrollContainerRef}
+                readonly={track.readonly}
+              />
+            )
+          ))
+        ) : (
+          !isRecording && (
+            <div 
+              className={`${styles.emptyTrack} ${isDragOver ? styles.dragOver : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                document.getElementById(`audio-file-input-${track.id}`).click();
+              }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="empty-message">
+                <FontAwesomeIcon icon={faCloudUploadAlt} />
+                <span>Upload audio file or start recording</span>
+                <input 
+                  type="file" 
+                  id={`audio-file-input-${track.id}`}
+                  className={styles.fileUploadInput} 
+                  accept="audio/*"
+                  onChange={handleFileChange}
+                />
+              </div>
+            </div>
+          )
+        )}
+        {/* Recording indicator - shown as overlay during recording */}
+        {isRecording && !track.readonly && recordingWidth > 0 && (
           <div 
             className={styles.recordingIndicator}
             style={{
@@ -200,47 +241,6 @@ const Track = ({
               width: `${recordingWidth}%`
             }}
           />
-        ) : (
-          <>
-            {regions.length > 0 ? (
-              regions.map((region, index) => (
-                region.active && (
-                  <Region 
-                    key={index}
-                    region={region}
-                    bufferKey={region.key} 
-                    trackRef={trackRef} 
-                    track={track} 
-                    tracksScrollContainerRef={tracksScrollContainerRef}
-                    readonly={track.readonly}
-                  />
-                )
-              ))
-            ) : (
-              <div 
-                className={`${styles.emptyTrack} ${isDragOver ? styles.dragOver : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  document.getElementById(`audio-file-input-${track.id}`).click();
-                }}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <div className="empty-message">
-                  <FontAwesomeIcon icon={faCloudUploadAlt} />
-                  <span>Upload audio file or start recording</span>
-                  <input 
-                    type="file" 
-                    id={`audio-file-input-${track.id}`}
-                    className={styles.fileUploadInput} 
-                    accept="audio/*"
-                    onChange={handleFileChange}
-                  />
-                </div>
-              </div>
-            )}
-          </>
         )}
     </div>
   );

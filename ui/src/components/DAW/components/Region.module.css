@@ -12,6 +12,11 @@
     z-index: 100;
 }
 
+/* Region cropping styles */
+.region.cropping {
+    z-index: 200;
+}
+
 .region:not(.dragging):not(.cropping) {
     cursor: grab;
 }
