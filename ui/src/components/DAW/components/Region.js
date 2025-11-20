@@ -8,7 +8,7 @@ import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import DAWConfig from '../misc/DAWConfig';
-import { snapToGrid } from '../misc/DAWUtils';
+import { snapToGrid, handleRegionOverlaps } from '../misc/DAWUtils';
 
 export default function Region({ 
   region,
@@ -59,6 +59,7 @@ export default function Region({
   // Region dragging state
   const [isDraggingRegion, setIsDraggingRegion] = useState(false);
   const [regionStartPosBeforeDrag, setRegionStartPosBeforeDrag] = useState(0);
+  const hasDraggedRef = useRef(false);
 
   // Context menu state
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -169,6 +170,7 @@ export default function Region({
     if (isRecording) return;
     
     setIsDraggingRegion(true);
+    hasDraggedRef.current = false;
     setDragStartX(e.clientX);
     const regionLeftPixels = regionLeftPos * tracksContainerWidth / 100;
     setRegionStartPosBeforeDrag(regionLeftPixels);
@@ -201,104 +203,6 @@ export default function Region({
     setShowContextMenu(false);
   };
 
-  // Check for overlaps with other regions and handle them
-  const handleRegionOverlaps = (draggedRegion, newStartTime, newEndTime) => {
-    if (!track || !track.regions) return;
-
-    const otherRegions = track.regions.filter(r => r.id !== draggedRegion.id && r.active);
-
-    otherRegions.forEach(otherRegion => {
-      // Check if there's any overlap
-      if (newStartTime < otherRegion.endTime && newEndTime > otherRegion.startTime) {
-        console.log('overlap detected - checking for complete overlap');
-        // Check if this is a complete overlap (dragged region eclipses the other region)
-        if (newStartTime <= otherRegion.startTime && newEndTime >= otherRegion.endTime) {
-          // Complete overlap - mark the other region as inactive
-          const updatedRegion = {
-            ...otherRegion,
-            active: false
-          };
-          console.log('complete overlap - marking other region as inactive', updatedRegion);
-          eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
-            region: updatedRegion,
-            trackId: track.id
-          });
-        } else {
-          // Check if dragged region is completely contained within the other region
-          if (newStartTime > otherRegion.startTime && newEndTime < otherRegion.endTime) {
-
-            // Split the other region into two parts
-
-            // Create first region (before the dragged region)
-            const firstRegion = {
-              ...otherRegion,
-              startTime: otherRegion.startTime,
-              endTime: newStartTime,
-              offset: otherRegion.offset,
-              active: true
-            };
-
-            // Create second region (after the dragged region)
-            const secondRegion = {
-              ...otherRegion,
-              id: 'track-' + track.id + '-' + Math.random().toString(36).substring(2, 15),
-              startTime: newEndTime,
-              endTime: otherRegion.endTime,
-              offset: otherRegion.offset + (newEndTime - otherRegion.startTime),
-              active: true
-            };
-
-            // Add the two new regions
-            eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
-              region: firstRegion,
-              trackId: track.id
-            });
-            eventBus.emit(DAW_EVENTS.REGION.ADD, {
-              region: secondRegion,
-              trackId: track.id
-            });
-          } else {
-            // Partial overlap - adjust the overlapped region
-            let updatedRegion = { ...otherRegion };
-
-            // Calculate overlap details
-            const overlapStart = Math.max(newStartTime, otherRegion.startTime);
-            const overlapEnd = Math.min(newEndTime, otherRegion.endTime);
-
-            // Check if the overlap affects the start or end of the other region
-            const affectsStart = overlapStart === otherRegion.startTime;
-            const affectsEnd = overlapEnd === otherRegion.endTime;
-
-            if (affectsStart && !affectsEnd) {
-              // Overlap affects only the start - trim from start
-              const timeCut = overlapEnd - overlapStart;
-              console.log('overlap affects only the start - trimming from start', timeCut);
-              updatedRegion.startTime = otherRegion.startTime + timeCut;
-              updatedRegion.offset = otherRegion.offset + timeCut;
-            } else if (affectsEnd && !affectsStart) {
-              // Overlap affects only the end - trim from end
-              const timeCut = overlapEnd - overlapStart;
-              console.log('overlap affects only the end - trimming from end', timeCut);
-              updatedRegion.endTime = otherRegion.endTime - timeCut;
-            }
-
-            // Only update if there are actual changes and the region still has positive duration
-            if ((updatedRegion.startTime !== otherRegion.startTime ||
-                 updatedRegion.endTime !== otherRegion.endTime ||
-                 updatedRegion.offset !== otherRegion.offset ||
-                 updatedRegion.active !== otherRegion.active) &&
-                (updatedRegion.active === false || updatedRegion.endTime > updatedRegion.startTime)) {
-
-              eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
-                region: updatedRegion,
-                trackId: track.id
-              });
-            }
-          }
-        }
-      }
-    });
-  };
 
   // Handle click outside context menu to close it
   useEffect(() => {
@@ -320,6 +224,12 @@ export default function Region({
     const handleMouseMove = (e) => {
       if (!isDraggingRegion) return;
       const deltaX = e.clientX - dragStartX;
+      
+      // Track that the mouse has moved (dragged)
+      if (Math.abs(deltaX) > 1) {
+        hasDraggedRef.current = true;
+      }
+      
       const newLeftPos = regionStartPosBeforeDrag + deltaX;
       
       // Get the tracks scroll container bounds
@@ -347,10 +257,12 @@ export default function Region({
     
     const handleMouseUp = (e) => {
       e.stopPropagation();
+      const wasDragging = hasDraggedRef.current;
       setIsDraggingRegion(false);
+      hasDraggedRef.current = false;
 
-      // Update the region's start time based on new position
-      if (track && bufferKey && duration && tracksContainerWidth) {
+      // Only update the region's start time if it was actually dragged
+      if (wasDragging && track && bufferKey && duration && tracksContainerWidth) {
         // Use the snapped position for calculating the new start time
         const snappedRegionLeftPos = snapToGrid(regionLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         const newStartTime = (snappedRegionLeftPos / 100) * duration;
@@ -358,7 +270,7 @@ export default function Region({
         const newEndTime = newStartTime + regionDuration;
 
         // Check for overlaps with other regions and handle them
-        handleRegionOverlaps(region, newStartTime, newEndTime);
+        handleRegionOverlaps(track, region.id, newStartTime, newEndTime, track.id, eventBus, DAW_EVENTS);
 
         // Update the region in the track
         const updatedRegion = {
@@ -388,7 +300,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime]);
+  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, snapToGridEnabled]);
 
   // #endregion
 
@@ -578,6 +490,9 @@ export default function Region({
           newEndTime = (snappedEndPercentage / 100) * duration;
         }
         
+        
+        // Check for overlaps with other regions and handle them
+        handleRegionOverlaps(track, region.id, newStartTime, newEndTime, track.id, eventBus, DAW_EVENTS);
         
         // Update the region in the track 
         const updatedRegion = {

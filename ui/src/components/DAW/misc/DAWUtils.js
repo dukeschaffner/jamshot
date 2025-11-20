@@ -121,6 +121,113 @@ export function getPlaybackTime(audioContext, startTime, currentTime) {
 }
 
 /**
+ * Handles region overlaps when a region is added or updated
+ * @param {Object} track - The track object containing regions
+ * @param {string|null} regionId - The ID of the region being added/updated (null for new regions)
+ * @param {number} newStartTime - The new start time of the region
+ * @param {number} newEndTime - The new end time of the region
+ * @param {string} trackId - The ID of the track (for emitting events)
+ * @param {Object} eventBus - The event bus instance for emitting events
+ * @param {Object} DAW_EVENTS - The DAW events constants
+ */
+export function handleRegionOverlaps(track, regionId, newStartTime, newEndTime, trackId, eventBus, DAW_EVENTS) {
+  if (!track || !track.regions) return;
+
+  const otherRegions = track.regions.filter(r => r.id !== regionId && r.active);
+
+  otherRegions.forEach(otherRegion => {
+    // Check if there's any overlap
+    if (newStartTime < otherRegion.endTime && newEndTime > otherRegion.startTime) {
+      console.log('overlap detected - checking for complete overlap');
+      // Check if this is a complete overlap (new region eclipses the other region)
+      if (newStartTime <= otherRegion.startTime && newEndTime >= otherRegion.endTime) {
+        // Complete overlap - mark the other region as inactive
+        const updatedRegion = {
+          ...otherRegion,
+          active: false
+        };
+        console.log('complete overlap - marking other region as inactive', updatedRegion);
+        eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+          region: updatedRegion,
+          trackId: trackId
+        });
+      } else {
+        // Check if new region is completely contained within the other region
+        if (newStartTime > otherRegion.startTime && newEndTime < otherRegion.endTime) {
+          // Split the other region into two parts
+
+          // Create first region (before the new region)
+          const firstRegion = {
+            ...otherRegion,
+            startTime: otherRegion.startTime,
+            endTime: newStartTime,
+            offset: otherRegion.offset,
+            active: true
+          };
+
+          // Create second region (after the new region)
+          const secondRegion = {
+            ...otherRegion,
+            id: 'track-' + trackId + '-' + Math.random().toString(36).substring(2, 15),
+            startTime: newEndTime,
+            endTime: otherRegion.endTime,
+            offset: otherRegion.offset + (newEndTime - otherRegion.startTime),
+            active: true
+          };
+
+          // Add the two new regions
+          eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+            region: firstRegion,
+            trackId: trackId
+          });
+          eventBus.emit(DAW_EVENTS.REGION.ADD, {
+            region: secondRegion,
+            trackId: trackId
+          });
+        } else {
+          // Partial overlap - adjust the overlapped region
+          let updatedRegion = { ...otherRegion };
+
+          // Calculate overlap details
+          const overlapStart = Math.max(newStartTime, otherRegion.startTime);
+          const overlapEnd = Math.min(newEndTime, otherRegion.endTime);
+
+          // Check if the overlap affects the start or end of the other region
+          const affectsStart = overlapStart === otherRegion.startTime;
+          const affectsEnd = overlapEnd === otherRegion.endTime;
+
+          if (affectsStart && !affectsEnd) {
+            // Overlap affects only the start - trim from start
+            const timeCut = overlapEnd - overlapStart;
+            console.log('overlap affects only the start - trimming from start', timeCut);
+            updatedRegion.startTime = otherRegion.startTime + timeCut;
+            updatedRegion.offset = otherRegion.offset + timeCut;
+          } else if (affectsEnd && !affectsStart) {
+            // Overlap affects only the end - trim from end
+            const timeCut = overlapEnd - overlapStart;
+            console.log('overlap affects only the end - trimming from end', timeCut);
+            updatedRegion.endTime = otherRegion.endTime - timeCut;
+          }
+
+          // Only update if there are actual changes and the region still has positive duration
+          if ((updatedRegion.startTime !== otherRegion.startTime ||
+               updatedRegion.endTime !== otherRegion.endTime ||
+               updatedRegion.offset !== otherRegion.offset ||
+               updatedRegion.active !== otherRegion.active) &&
+              (updatedRegion.active === false || updatedRegion.endTime > updatedRegion.startTime)) {
+
+            eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+              region: updatedRegion,
+              trackId: trackId
+            });
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
  * Snaps a position value to the nearest grid line if within threshold
  * @param {number} value - The position value to snap (percentage)
  * @param {boolean} snapToGridEnabled - Whether snap to grid is enabled
