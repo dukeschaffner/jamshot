@@ -4,6 +4,7 @@ import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import { audioBufferToWav } from '../../../lib/utils.js';
 import AudioState from './AudioStateStore.js';
+import { handleRegionOverlaps } from '../misc/DAWUtils.js';
 
 class Track {
   constructor(id, context, regions = [], title = null) {
@@ -94,13 +95,8 @@ class Track {
       });
     }
     else {
-      // Deactivate any active regions that are fully covered by the new region
-      this.regions.forEach(r => {
-        if (r.active && region.startTime <= r.startTime && region.endTime >= r.endTime) {
-          r.active = false;
-          eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
-        }
-      });
+      // Handle overlaps with existing regions before adding the new region
+      handleRegionOverlaps(this, null, region.startTime, region.endTime, this.id, eventBus, DAW_EVENTS);
     }
     this.regions.push(region);
     eventBus.emit(DAW_EVENTS.REGION.ADDED, { region, trackId: this.id });
