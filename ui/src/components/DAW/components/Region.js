@@ -105,7 +105,7 @@ export default function Region({
       setStartTime(region.startTime);
       setEndTime(region.endTime);
       setOffset(region.offset);
-      const regionWidth = (region.endTime - region.startTime) / duration;
+      const regionWidth = (region.endTime - region.startTime) / duration * 100;
       setWidth(regionWidth);
 
       // Set initial region position
@@ -121,7 +121,7 @@ export default function Region({
     setStartTime(region.startTime);
     setEndTime(region.endTime);
     setOffset(region.offset);
-    const regionWidth = (region.endTime - region.startTime) / duration;
+    const regionWidth = (region.endTime - region.startTime) / duration * 100;
     setWidth(regionWidth);
 
     // Update region position
