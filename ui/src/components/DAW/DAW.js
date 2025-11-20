@@ -273,8 +273,6 @@ function DAWContent({ track}) {
               zoom={zoom}
               onZoomChange={setZoomLevel}
             />
-          {/* Takes Component */}
-          <Takes />
         </div>
       </div>
 

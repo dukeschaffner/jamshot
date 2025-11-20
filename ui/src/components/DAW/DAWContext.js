@@ -27,7 +27,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
   const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
-  const [recordingMode, setRecordingMode] = useState('take'); // 'take' | 'region'
+  const [recordingMode, setRecordingMode] = useState('region'); // 'take' | 'region'
   const [gridLines, setGridLines] = useState([]);
 
   // Function for components to update grid lines
@@ -115,6 +115,14 @@ export function DAWProvider({ children, trackData, isCollab }) {
         if(metronomeOffset) {
           setMetronomeOffset(metronomeOffset);
         }
+
+
+        // when in dev env, save objects to window for debugging
+        if(process.env.NODE_ENV === 'development') {
+          window.trackManager = tm;
+          window.audioEngine = ae;
+        }
+
       } catch (err) {
         setError(err.message);
       } finally {
