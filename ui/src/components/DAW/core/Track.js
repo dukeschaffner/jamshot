@@ -14,7 +14,7 @@ class Track {
     this.gainNode = context.createGain();
     this.analyzer = context.createAnalyser();
     this.sources = new Set();
-    this.readonly = id != 'recording-track';
+    this.isRecordingTrack = id === 'recording-track';
 
     this.gain = 0.8;
     this.isSolo = false;
@@ -118,7 +118,7 @@ class Track {
     if (this.regions.length === 0) return 0;
     
     return Math.max(
-      ...this.regions.map(region => region.startTime + region.duration)
+      ...this.regions.map(region => region.endTime)
     );
   }
 
@@ -149,6 +149,32 @@ class Track {
 
   getActiveRegions() {
     return this.regions.filter(region => region.active);
+  }
+
+  /**
+   * Get regions formatted for upload, filtering out regions that start after
+   * the DAW duration and clamping regions that extend beyond it.
+   * @returns {Array} Array of region objects with { startTime, endTime, offset }
+   */
+  getRegionsForUpload() {
+    const activeRegions = this.getActiveRegions();
+    const dawDuration = AudioState.dawDuration;
+    
+    return activeRegions
+      .filter(region => {
+        // Filter out regions that start after the project end
+        return region.startTime < dawDuration;
+      })
+      .map(region => {
+        // Clamp regions that start before project end but end after project end
+        const clampedEndTime = Math.min(region.endTime, dawDuration);
+        
+        return {
+          startTime: region.startTime,
+          endTime: clampedEndTime,
+          offset: region.offset
+        };
+      });
   }
   
   // Get regions with buffer data for ChunkScheduler
@@ -229,15 +255,18 @@ class Track {
     let startOffset = 0;
     
     if (trimSilence) {
-      // Find the earliest start time and latest end time of active regions
-      const startTimes = regionsWithBuffers.map(region => region.startTime);
+      // Find the latest end time of active regions
       const endTimes = regionsWithBuffers.map(region => region.endTime);
-      
-      const earliestStart = Math.min(...startTimes);
       const latestEnd = Math.max(...endTimes);
       
-      startOffset = earliestStart;
-      exportDuration = latestEnd - earliestStart;
+      // Only trim silence at end when applicable (if there's silence at the end)
+      if (this.hasSilenceAtEnd()) {
+        exportDuration = latestEnd;
+      } else {
+        exportDuration = Math.max(0, AudioState.dawDuration - (1 / sampleRate));
+      }
+      // Don't trim silence at start - always start from 0
+      startOffset = 0;
     } 
     else{
       exportDuration = Math.max(0, AudioState.dawDuration - (1 / sampleRate));

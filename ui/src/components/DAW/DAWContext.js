@@ -141,9 +141,21 @@ export function DAWProvider({ children, trackData, isCollab }) {
 
   useEffect(() => {
     if (tracks.length > 0) {
-      const trackDuration = tracks[0].duration;
-      // Set a default duration of 90 seconds for empty tracks or tracks with 0 duration
-      setDuration(trackDuration > 0 ? trackDuration : DAWConfig.project.defaultDuration);
+      // Find the latest region end time from all tracks
+      let latestEndTime = 0;
+      
+      tracks.forEach(track => {
+        if (track.regions && track.regions.length > 0) {
+          track.regions.forEach(region => {
+            if (region.endTime && region.endTime > latestEndTime) {
+              latestEndTime = region.endTime;
+            }
+          });
+        }
+      });
+      
+      // Set a default duration of 90 seconds if no regions found or latest end time is 0
+      setDuration(latestEndTime > 0 ? latestEndTime : DAWConfig.project.defaultDuration);
     } else {
       // Default duration when no tracks exist
       setDuration(DAWConfig.project.defaultDuration);

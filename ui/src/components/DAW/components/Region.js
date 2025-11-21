@@ -17,7 +17,7 @@ export default function Region({
   trackRef,
   track,
   tracksScrollContainerRef,
-  readonly = false
+  isRecordingTrack = false
 }) {
   const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines, selectedRegionId, selectedTrackId, selectRegion, clearSelection, copyRegion, pasteRegion, clipboard } = useDAW();
 
@@ -185,7 +185,7 @@ export default function Region({
     e.preventDefault();
     e.stopPropagation();
     
-    if (isRecording || readonly) return;
+    if (isRecording) return;
     
     // Position context menu at mouse position
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
@@ -194,9 +194,17 @@ export default function Region({
 
   // Handle region deletion
   const handleRegionDelete = () => {
-    if (isRecording || readonly) return;
-
-    if (track && region) {
+    if (isRecording) return;
+    
+    // Prevent deletion if this is the only region left in a non-recording track
+    if (track && region && !isRecordingTrack) {
+      const activeRegions = track.getActiveRegions();
+      if (activeRegions.length <= 1) {
+        // Don't allow deletion of the last region in non-recording tracks
+        setShowContextMenu(false);
+        return;
+      }
+      
       eventBus.emit(DAW_EVENTS.REGION.REMOVE, {
         region: region,
         trackId: track.id
@@ -209,7 +217,7 @@ export default function Region({
 
   // Handle copy region
   const handleRegionCopy = () => {
-    if (isRecording || readonly) return;
+    if (isRecording) return;
     
     selectRegion(region.id, track.id);
     copyRegion();
@@ -218,7 +226,7 @@ export default function Region({
 
   // Handle paste region
   const handleRegionPaste = () => {
-    if (isRecording || readonly) return;
+    if (isRecording) return;
     
     if (clipboard && clipboard.trackId === track.id) {
       pasteRegion();
@@ -231,6 +239,9 @@ export default function Region({
   
   // Check if paste is available for this track
   const canPaste = clipboard && clipboard.trackId === track.id;
+  
+  // Check if delete should be shown (hide if it's the last region in a non-recording track)
+  const canDelete = isRecordingTrack || (track && track.getActiveRegions().length > 1);
 
 
   // Handle click outside context menu to close it
@@ -369,7 +380,6 @@ export default function Region({
 
   // Handle mouse down on crop start handle
   const handleCropStartMouseDown = (e) => {
-    if (readonly) return;
     e.stopPropagation();
     setIsDraggingCropStart(true);
     setDragStartX(e.clientX);
@@ -377,7 +387,6 @@ export default function Region({
 
   // Handle mouse down on crop end handle
   const handleCropEndMouseDown = (e) => {
-    if (readonly) return;
     e.stopPropagation();
     setIsDraggingCropEnd(true);
     setDragStartX(e.clientX);
@@ -385,7 +394,8 @@ export default function Region({
 
   // Check if mouse is hovering near edges to show crop handles
   const handleWaveformMouseMove = (e) => {
-    if (!regionContainerRef.current || readonly) return;
+    // Allow trimming for non-recording tracks (isRecordingTrack is false)
+    if (!regionContainerRef.current) return;
     
     const rect = regionContainerRef.current.getBoundingClientRect();
     const leftEdgeZone = rect.left + 15; // 15px from left edge
@@ -660,7 +670,7 @@ export default function Region({
         </div>
       </div>
       {/* Crop handles */}
-      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && !readonly && (
+      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && (
       <>
         <div 
           className={`${styles.cropHandle} ${styles.cropHandleLeft}`}
@@ -703,24 +713,26 @@ export default function Region({
       >
         <button 
           onClick={handleRegionCopy}
-          disabled={isRecording || readonly}
+          disabled={isRecording}
         >
           Copy Region
         </button>
         {canPaste && (
           <button 
             onClick={handleRegionPaste}
-            disabled={isRecording || readonly}
+            disabled={isRecording}
           >
             Paste Region
           </button>
         )}
-        <button 
-          onClick={handleRegionDelete}
-          style={{ color: '#ff3b30' }}
-        >
-          Delete Region
-        </button>
+        {canDelete && (
+          <button 
+            onClick={handleRegionDelete}
+            style={{ color: '#ff3b30' }}
+          >
+            Delete Region
+          </button>
+        )}
       </div>
     )}
     </div>
