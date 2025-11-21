@@ -30,6 +30,7 @@ TODO (MVP)
   - indicate number of comp wins on user page (or by their username display)
 - multi region tracks
 - update region during playback
+- what if project end is dragged before parent stem region ends?
 
 
 
@@ -37,6 +38,7 @@ BUGS
 - double check track plays recording correctly
   - full play didnt get marked as complete play
 - got generic error when trying to enter my own competition: Competition entry validation failed
+- short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
 
 
 

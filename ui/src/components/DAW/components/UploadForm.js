@@ -239,15 +239,12 @@ export default function UploadForm({
           gain: track.gain
         };
         
-        // For non-recording tracks, add regions with startTime, endTime, and offset
+        // For non-recording tracks (parent stems), save all region information 
+        // (startTime, endTime, offset) so regions can be reconstructed when the collab track is opened
         if (track.id !== 'recording-track') {
-          const activeRegions = track.getActiveRegions();
-          if (activeRegions.length > 0) {
-            stemData.regions = activeRegions.map(region => ({
-              startTime: region.startTime,
-              endTime: region.endTime,
-              offset: region.offset
-            }));
+          const regionsForUpload = track.getRegionsForUpload();
+          if (regionsForUpload.length > 0) {
+            stemData.regions = regionsForUpload;
           }
         }
         

@@ -137,6 +137,14 @@ function DAWContent({ track}) {
           e.preventDefault();
           const track = trackManagerRef.current.getTrack(selectedTrackId);
           if (track) {
+            // Prevent deletion if this is the only region left in a non-recording track
+            if (!track.isRecordingTrack) {
+              const activeRegions = track.getActiveRegions();
+              if (activeRegions.length <= 1) {
+                return; // Don't allow deletion of the last region
+              }
+            }
+            
             const region = track.regions.find(r => r.id === selectedRegionId);
             if (region) {
               eventBus.emit(DAW_EVENTS.REGION.REMOVE, {

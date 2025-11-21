@@ -88,7 +88,7 @@ const Track = ({
 
   // Update recording width when recording and playhead position changes
   useEffect(() => {
-    if (!track.readonly && isRecording && duration > 0) {
+    if (track.isRecordingTrack && isRecording && duration > 0) {
       const currentPos = (playheadLocation.time / duration) * 100;
       const indicatorWidth = currentPos - recordingStartPos;
       setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
@@ -211,7 +211,7 @@ const Track = ({
     e.preventDefault();
     e.stopPropagation();
     
-    if (isRecording || track.readonly) return;
+    if (isRecording) return;
     
     // Calculate time position based on click location
     // Find the tracksAndTimelineContainer parent to match timeline calculation
@@ -237,7 +237,7 @@ const Track = ({
 
   // Handle paste from context menu
   const handleTrackPaste = () => {
-    if (isRecording || track.readonly) return;
+    if (isRecording) return;
     
     if (clipboard && clipboard.trackId === track.id) {
       // Use pasteTime if available (from right-click position), otherwise use playhead
@@ -282,7 +282,7 @@ const Track = ({
                 trackRef={trackRef} 
                 track={track} 
                 tracksScrollContainerRef={tracksScrollContainerRef}
-                readonly={track.readonly}
+                isRecordingTrack={track.isRecordingTrack}
               />
             )
           ))
@@ -313,7 +313,7 @@ const Track = ({
           )
         )}
         {/* Recording indicator - shown as overlay during recording */}
-        {isRecording && !track.readonly && recordingWidth > 0 && (
+        {isRecording && track.isRecordingTrack && recordingWidth > 0 && (
           <div 
             className={styles.recordingIndicator}
             style={{
@@ -336,7 +336,7 @@ const Track = ({
             {canPaste && (
               <button 
                 onClick={handleTrackPaste}
-                disabled={isRecording || track.readonly}
+                disabled={isRecording}
               >
                 Paste Region
               </button>
