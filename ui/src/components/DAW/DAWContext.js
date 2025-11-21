@@ -29,6 +29,11 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [recordingMode, setRecordingMode] = useState('region'); // 'take' | 'region'
   const [gridLines, setGridLines] = useState([]);
+  
+  // Region selection and clipboard state
+  const [selectedRegionId, setSelectedRegionId] = useState(null);
+  const [selectedTrackId, setSelectedTrackId] = useState(null);
+  const [clipboard, setClipboard] = useState(null); // { region, trackId, bufferKey }
 
   // Function for components to update grid lines
   const updateGridLines = useCallback((newGridLines) => {
@@ -157,6 +162,78 @@ export function DAWProvider({ children, trackData, isCollab }) {
     };
   }, []);
 
+  // Region selection handlers (defined before useEffect that uses them)
+  const selectRegion = useCallback((regionId, trackId) => {
+    setSelectedRegionId(regionId);
+    setSelectedTrackId(trackId);
+    eventBus.emit(DAW_EVENTS.REGION.SELECT, { regionId, trackId });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedRegionId(null);
+    setSelectedTrackId(null);
+  }, []);
+
+  // Copy handler
+  const copyRegion = useCallback(() => {
+    if (!selectedRegionId || !selectedTrackId || !trackManagerRef.current) {
+      return false;
+    }
+
+    const track = trackManagerRef.current.getTrack(selectedTrackId);
+    if (!track) {
+      return false;
+    }
+
+    const region = track.regions.find(r => r.id === selectedRegionId);
+    if (!region) {
+      return false;
+    }
+
+    setClipboard({
+      region: { ...region },
+      trackId: selectedTrackId,
+      bufferKey: region.key
+    });
+
+    return true;
+  }, [selectedRegionId, selectedTrackId]);
+
+  // Paste handler
+  const pasteRegion = useCallback((pasteTime = null) => {
+    if (!clipboard || !trackManagerRef.current) {
+      return false;
+    }
+
+    const { region, trackId, bufferKey } = clipboard;
+    
+    // Get the track that the region was copied from (regions can only be pasted to the same track)
+    const targetTrack = trackManagerRef.current.getTrack(trackId);
+    if (!targetTrack) {
+      return false;
+    }
+
+    // Paste at specified time (from right-click) or playhead position
+    const newStartTime = pasteTime !== null ? pasteTime : playheadLocation.time;
+    const regionDuration = region.endTime - region.startTime;
+    let newEndTime = newStartTime + regionDuration;
+
+    // If pasted region extends past project end, cut it to end at project end
+    if (newEndTime > durationRef.current) {
+      newEndTime = durationRef.current;
+    }
+
+    targetTrack.addRegion(
+      bufferKey,
+      newStartTime,
+      region.offset,
+      newEndTime,
+      region.name
+    );
+
+    return true;
+  }, [clipboard, playheadLocation]);
+
   useEffect(() => {
     // Listen for transport events
     const handlePlaybackStarted = () => {
@@ -237,6 +314,14 @@ export function DAWProvider({ children, trackData, isCollab }) {
         setRecordingTrackHasAudio(false);
       }
     };
+
+    const handleRegionRemoved = (data) => {
+      // Clear selection if the removed region was selected
+      if (selectedRegionId === data.region.id && selectedTrackId === data.trackId) {
+        clearSelection();
+      }
+      handleRegionsUpdated(data);
+    };
     
     const handleDurationChange = (data) => {
       setDuration(data.duration);
@@ -255,7 +340,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
     eventBus.on(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
     eventBus.on(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
     eventBus.on(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
-    eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
+    eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionRemoved);
     eventBus.on(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
@@ -274,12 +359,12 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
       eventBus.off(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
       eventBus.off(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
-      eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
+      eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionRemoved);
       eventBus.off(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
     };
-  }, []); 
+  }, [selectedRegionId, selectedTrackId, clearSelection]); 
 
   const recordPlay = async () => {
     if (!trackData || !isCollab || playRecordedRef.current) return;
@@ -342,6 +427,13 @@ export function DAWProvider({ children, trackData, isCollab }) {
       setRecordingMode,
       gridLines,
       updateGridLines,
+      selectedRegionId,
+      selectedTrackId,
+      selectRegion,
+      clearSelection,
+      copyRegion,
+      pasteRegion,
+      clipboard,
     }}>
       {children}
     </DAWContext.Provider>
