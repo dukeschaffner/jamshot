@@ -50,6 +50,7 @@ function DAWContent({ track}) {
     selectedTrackId,
     copyRegion,
     pasteRegion,
+    repeatRegion,
     clipboard,
     clearSelection,
   } = useDAW();
@@ -106,17 +107,6 @@ function DAWContent({ track}) {
         e.preventDefault();
         eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: 0 });
       }
-      // Handle 'r' key for recording
-      else if (e.code === 'KeyR' || e.key === 'r' || e.key === 'R') {
-        e.preventDefault();
-        if (isRecording) {
-          // Stop recording if currently recording
-          eventBus.emit(DAW_EVENTS.RECORDING.STOP);
-        } else {
-          // Start recording if not currently recording
-          eventBus.emit(DAW_EVENTS.RECORDING.START);
-        }
-      }
       // Handle Cmd/Ctrl+C for copy
       else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyC' || e.key === 'c' || e.key === 'C')) {
         if (selectedRegionId && !isRecording) {
@@ -129,6 +119,24 @@ function DAWContent({ track}) {
         if (clipboard && !isRecording) {
           e.preventDefault();
           pasteRegion();
+        }
+      }
+      // Handle Cmd/Ctrl+R for repeat region
+      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
+        if (selectedRegionId && !isRecording) {
+          e.preventDefault();
+          repeatRegion();
+        }
+      }
+      // Handle 'r' key for recording (only when no modifiers are pressed)
+      else if (!e.metaKey && !e.ctrlKey && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        if (isRecording) {
+          // Stop recording if currently recording
+          eventBus.emit(DAW_EVENTS.RECORDING.STOP);
+        } else {
+          // Start recording if not currently recording
+          eventBus.emit(DAW_EVENTS.RECORDING.START);
         }
       }
       // Handle Delete/Backspace key for deleting selected region
@@ -164,7 +172,7 @@ function DAWContent({ track}) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion]); // Include dependencies
 
   const handleTimelineClick = (e) => {
     e.stopPropagation();
@@ -174,6 +182,40 @@ function DAWContent({ track}) {
     eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: time });
     // Clear selection when clicking on timeline
     clearSelection();
+  };
+
+  // Handle right-click on timeline for context menu
+  const handleTimelineContextMenu = (e) => {
+    // Don't show timeline context menu if clicking on a region or track
+    let target = e.target;
+    while (target && target !== e.currentTarget) {
+      if (target.className && typeof target.className === 'string' && 
+          (target.className.includes('region') || target.className.includes('Region') ||
+           target.className.includes('track') || target.className.includes('Track'))) {
+        return;
+      }
+      target = target.parentElement;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isRecording) return;
+    
+    // Calculate time position based on click location
+    if (tracksAndTimelineRef.current) {
+      const rect = tracksAndTimelineRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const timePosition = (clickX / rect.width) * duration;
+      setTimelinePasteTime(Math.max(0, Math.min(timePosition, duration)));
+    }
+    
+    // Emit event to close other context menus
+    eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'timeline' });
+    
+    // Position context menu at mouse position
+    setTimelineContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowTimelineContextMenu(true);
   };
 
   // Handle paste from timeline context menu (pastes to the track that was copied from)
@@ -202,6 +244,22 @@ function DAWContent({ track}) {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [showTimelineContextMenu]);
+
+  // Listen for other context menus opening and close this one
+  useEffect(() => {
+    const handleOtherContextMenuOpen = (data) => {
+      // Close this context menu if another one opens (unless it's this same one)
+      if (data.source !== 'timeline') {
+        setShowTimelineContextMenu(false);
+      }
+    };
+
+    eventBus.on(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+    };
+  }, []);
 
   const handleMetronomeOffsetChange = (newOffset) => {
     eventBus.emit(DAW_EVENTS.METRONOME.OFFSET_CHANGE, { offset: newOffset });
@@ -309,6 +367,7 @@ function DAWContent({ track}) {
                   className={styles.tracksAndTimelineContainer}
                   ref={tracksAndTimelineRef}
                   onClick={handleTimelineClick}
+                  onContextMenu={handleTimelineContextMenu}
                   style={{
                     width: `${Math.max(100, zoom * 100)}%`,
                     minWidth: `${Math.max(100, zoom * 100)}%`,

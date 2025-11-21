@@ -27,9 +27,8 @@
 
 /* Selected region styling */
 .region.selected {
-    outline: 2px solid #007AFF;
-    outline-offset: -2px;
-    z-index: 6;
+  outline: 2px solid var(--seafoam);
+  border-radius: 5px;
 }
 
 .region.selected:not(.dragging):not(.cropping) {

@@ -103,6 +103,9 @@ class Track {
     
 
     this.duration = this.calculateTotalDuration();
+    
+    // Return the created region so callers can use it (e.g., for selection)
+    return region;
   }
 
   addRegionFromBuffer(buffer, startTime = null, offset = null, endTime = null, name = '') {

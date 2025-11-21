@@ -246,6 +246,54 @@ export function DAWProvider({ children, trackData, isCollab }) {
     return true;
   }, [clipboard, playheadLocation]);
 
+  // Repeat handler - duplicates a region immediately after it
+  const repeatRegion = useCallback(() => {
+    if (!selectedRegionId || !selectedTrackId || !trackManagerRef.current) {
+      return false;
+    }
+
+    const track = trackManagerRef.current.getTrack(selectedTrackId);
+    if (!track) {
+      return false;
+    }
+
+    const region = track.regions.find(r => r.id === selectedRegionId);
+    if (!region) {
+      return false;
+    }
+
+    // Calculate the new start time (immediately after the region ends)
+    const newStartTime = region.endTime;
+    const regionDuration = region.endTime - region.startTime;
+    let newEndTime = newStartTime + regionDuration;
+
+    // If repeated region extends past project end, cut it to end at project end
+    if (newEndTime > durationRef.current) {
+      newEndTime = durationRef.current;
+    }
+
+    // Don't add if the new start time is beyond the project duration
+    if (newStartTime >= durationRef.current) {
+      return false;
+    }
+
+    // Add the repeated region and get the newly created region
+    const newRegion = track.addRegion(
+      region.key,
+      newStartTime,
+      region.offset,
+      newEndTime,
+      region.name
+    );
+
+    // Select the newly created region so the next Ctrl+R will repeat it
+    if (newRegion) {
+      selectRegion(newRegion.id, selectedTrackId);
+    }
+
+    return true;
+  }, [selectedRegionId, selectedTrackId, selectRegion]);
+
   useEffect(() => {
     // Listen for transport events
     const handlePlaybackStarted = () => {
@@ -445,6 +493,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       clearSelection,
       copyRegion,
       pasteRegion,
+      repeatRegion,
       clipboard,
     }}>
       {children}
