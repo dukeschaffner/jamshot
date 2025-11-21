@@ -1,6 +1,7 @@
 'use client';
 
 import styles from './Region.module.css';
+import contextMenuStyles from './ContextMenu.module.css';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
 import WaveformChunk from './waveform/WaveformChunk';
@@ -18,7 +19,7 @@ export default function Region({
   tracksScrollContainerRef,
   readonly = false
 }) {
-  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines } = useDAW();
+  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines, selectedRegionId, selectedTrackId, selectRegion, clearSelection, copyRegion, pasteRegion, clipboard } = useDAW();
 
 
   const musicGridLinesRef = useRef([]);
@@ -169,6 +170,9 @@ export default function Region({
     // Only allow dragging if not playing or recording
     if (isRecording) return;
     
+    // Select region immediately on left click
+    selectRegion(region.id, track.id);
+    
     setIsDraggingRegion(true);
     hasDraggedRef.current = false;
     setDragStartX(e.clientX);
@@ -202,6 +206,31 @@ export default function Region({
     // Hide context menu
     setShowContextMenu(false);
   };
+
+  // Handle copy region
+  const handleRegionCopy = () => {
+    if (isRecording || readonly) return;
+    
+    selectRegion(region.id, track.id);
+    copyRegion();
+    setShowContextMenu(false);
+  };
+
+  // Handle paste region
+  const handleRegionPaste = () => {
+    if (isRecording || readonly) return;
+    
+    if (clipboard && clipboard.trackId === track.id) {
+      pasteRegion();
+    }
+    setShowContextMenu(false);
+  };
+
+  // Check if this region is selected
+  const isSelected = selectedRegionId === region.id && selectedTrackId === track.id;
+  
+  // Check if paste is available for this track
+  const canPaste = clipboard && clipboard.trackId === track.id;
 
 
   // Handle click outside context menu to close it
@@ -300,7 +329,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, snapToGridEnabled]);
+  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, snapToGridEnabled, selectRegion]);
 
   // #endregion
 
@@ -585,7 +614,7 @@ export default function Region({
 
   return (
     <div 
-      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''}`} 
+      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''} ${isSelected ? styles.selected : ''}`} 
       style={{ 
         width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : width}%`, 
         height: '100%',
@@ -665,13 +694,27 @@ export default function Region({
     {/* Context Menu */}
     {showContextMenu && (
       <div 
-        className={styles.contextMenu} 
+        className={contextMenuStyles.contextMenu} 
         style={{ 
           top: `${contextMenuPosition.y}px`, 
           left: `${contextMenuPosition.x}px`
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        <button 
+          onClick={handleRegionCopy}
+          disabled={isRecording || readonly}
+        >
+          Copy Region
+        </button>
+        {canPaste && (
+          <button 
+            onClick={handleRegionPaste}
+            disabled={isRecording || readonly}
+          >
+            Paste Region
+          </button>
+        )}
         <button 
           onClick={handleRegionDelete}
           style={{ color: '#ff3b30' }}
