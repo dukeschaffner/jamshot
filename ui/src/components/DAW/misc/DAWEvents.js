@@ -96,7 +96,9 @@ export const DAW_EVENTS = {
       LOOP_DRAG_START: 'ui:loop:drag:start',
       LOOP_DRAG_END: 'ui:loop:drag:end',
       ZOOM_CHANGE: 'ui:zoom:change',
-      VIEW_CHANGE: 'ui:view:change'
+      VIEW_CHANGE: 'ui:view:change',
+      CONTEXT_MENU_OPEN: 'ui:context_menu:open',
+      CONTEXT_MENU_CLOSE: 'ui:context_menu:close'
     },
     
     // Audio engine events

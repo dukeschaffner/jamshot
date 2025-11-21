@@ -230,6 +230,9 @@ const Track = ({
       }
     }
     
+    // Emit event to close other context menus
+    eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'track' });
+    
     // Position context menu at mouse position
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
@@ -264,6 +267,22 @@ const Track = ({
       document.removeEventListener('click', handleClickOutside);
     };
   }, [showContextMenu]);
+
+  // Listen for other context menus opening and close this one
+  useEffect(() => {
+    const handleOtherContextMenuOpen = (data) => {
+      // Close this context menu if another one opens (unless it's this same one)
+      if (data.source !== 'track') {
+        setShowContextMenu(false);
+      }
+    };
+
+    eventBus.on(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+    };
+  }, []);
 
   return (
     <div 

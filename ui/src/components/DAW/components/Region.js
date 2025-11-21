@@ -19,7 +19,7 @@ export default function Region({
   tracksScrollContainerRef,
   isRecordingTrack = false
 }) {
-  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines, selectedRegionId, selectedTrackId, selectRegion, clearSelection, copyRegion, pasteRegion, clipboard } = useDAW();
+  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines, selectedRegionId, selectedTrackId, selectRegion, clearSelection, copyRegion, pasteRegion, repeatRegion, clipboard, trackManagerRef } = useDAW();
 
 
   const musicGridLinesRef = useRef([]);
@@ -187,6 +187,9 @@ export default function Region({
     
     if (isRecording) return;
     
+    // Emit event to close other context menus (including other regions)
+    eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'region', regionId: region.id });
+    
     // Position context menu at mouse position
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
@@ -234,6 +237,53 @@ export default function Region({
     setShowContextMenu(false);
   };
 
+  // Handle repeat region
+  const handleRegionRepeat = () => {
+    if (isRecording) return;
+    
+    // Select the region first if not already selected
+    if (!isSelected) {
+      selectRegion(region.id, track.id);
+    }
+    
+    // Calculate the new start time (immediately after the region ends)
+    const newStartTime = region.endTime;
+    const regionDuration = region.endTime - region.startTime;
+    let newEndTime = newStartTime + regionDuration;
+
+    // If repeated region extends past project end, cut it to end at project end
+    if (newEndTime > duration) {
+      newEndTime = duration;
+    }
+
+    // Don't add if the new start time is beyond the project duration
+    if (newStartTime >= duration) {
+      setShowContextMenu(false);
+      return;
+    }
+
+    // Add the repeated region directly using track manager
+    if (trackManagerRef && trackManagerRef.current) {
+      const trackInstance = trackManagerRef.current.getTrack(track.id);
+      if (trackInstance) {
+        const newRegion = trackInstance.addRegion(
+          region.key,
+          newStartTime,
+          region.offset,
+          newEndTime,
+          region.name
+        );
+        
+        // Select the newly created region so the next Ctrl+R will repeat it
+        if (newRegion) {
+          selectRegion(newRegion.id, track.id);
+        }
+      }
+    }
+    
+    setShowContextMenu(false);
+  };
+
   // Check if this region is selected
   const isSelected = selectedRegionId === region.id && selectedTrackId === track.id;
   
@@ -258,6 +308,28 @@ export default function Region({
       document.removeEventListener('click', handleClickOutside);
     };
   }, [showContextMenu]);
+
+  // Listen for other context menus opening and close this one
+  useEffect(() => {
+    const handleOtherContextMenuOpen = (data) => {
+      // Close this context menu if another one opens
+      // If it's a region context menu, only keep it open if it's for this same region
+      if (data.source === 'region') {
+        if (data.regionId !== region.id) {
+          setShowContextMenu(false);
+        }
+      } else {
+        // Close for any non-region context menu (track, timeline, etc.)
+        setShowContextMenu(false);
+      }
+    };
+
+    eventBus.on(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+    };
+  }, [region.id]);
 
   // Mouse event handlers for region dragging
   useEffect(() => {
@@ -632,6 +704,7 @@ export default function Region({
         cursor: isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
       }}
       ref={regionContainerRef}
+      onClick={e => e.stopPropagation()}
       onMouseDown={handleRegionMouseDown}
       onMouseMove={handleWaveformMouseMove}
       onMouseLeave={handleWaveformMouseLeave}
@@ -725,6 +798,12 @@ export default function Region({
             Paste Region
           </button>
         )}
+        <button 
+          onClick={handleRegionRepeat}
+          disabled={isRecording}
+        >
+          Add Repeat ({navigator.platform.toLowerCase().includes('mac') ? 'Cmd+R' : 'Ctrl+R'})
+        </button>
         {canDelete && (
           <button 
             onClick={handleRegionDelete}
