@@ -6,7 +6,9 @@ import {
   faStop, 
   faCircle, 
   faDrum, 
-  faCog 
+  faCog,
+  faUndo,
+  faRedo
 } from '@fortawesome/free-solid-svg-icons';
 import CountInIcon from '../misc/CountInIcon';
 import AudioSettings from './AudioSettings';
@@ -34,7 +36,7 @@ const TransportControls = ({
   const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
   const bpmControlRef = useRef(null);
 
-  const { isCollab, recordingTrackHasAudio} = useDAW();
+  const { isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo} = useDAW();
 
   const { isAuthenticated } = useUser();
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -289,6 +291,22 @@ const TransportControls = ({
         </button>
         )}
     </div>
+    <button 
+        className={`${styles.controlButton} ${!canUndo ? styles.disabled : ''}`}
+        onClick={undo}
+        disabled={!canUndo}
+        title="Undo (Ctrl+Z)"
+    >
+        <FontAwesomeIcon icon={faUndo} />
+    </button>
+    <button 
+        className={`${styles.controlButton} ${!canRedo ? styles.disabled : ''}`}
+        onClick={redo}
+        disabled={!canRedo}
+        title="Redo (Ctrl+Shift+Z)"
+    >
+        <FontAwesomeIcon icon={faRedo} />
+    </button>
     <button 
         className={styles.controlButton + ' ' + styles.settings}
         onClick={() => setShowAudioSettingsModal(true)}
