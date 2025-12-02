@@ -19,6 +19,8 @@ TODO (MVP)
   - region splitting
   - region looping
   - what to do with takes list?
+  - snap strenth
+  - playhead snap
 - how to page with tutorials
 - handle notification spamming
 - display uploads left in nav?
@@ -39,6 +41,8 @@ BUGS
   - full play didnt get marked as complete play
 - got generic error when trying to enter my own competition: Competition entry validation failed
 - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
+- context menu displaying underneath the region on the below track
+- context menu displays multiple times when clicking on different tracks
 
 
 

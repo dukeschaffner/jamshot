@@ -7,6 +7,7 @@ import { DAW_EVENTS } from './misc/DAWEvents';
 import api from '@/lib/api';
 import DAWConfig from './misc/DAWConfig';
 import AudioState from './core/AudioStateStore';
+import { undoManager } from './core/UndoManager';
 
 const DAWContext = createContext();
 
@@ -34,6 +35,12 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [selectedRegionId, setSelectedRegionId] = useState(null);
   const [selectedTrackId, setSelectedTrackId] = useState(null);
   const [clipboard, setClipboard] = useState(null); // { region, trackId, bufferKey }
+
+  // Undo/Redo state
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [undoDescription, setUndoDescription] = useState(null);
+  const [redoDescription, setRedoDescription] = useState(null);
 
   // Function for components to update grid lines
   const updateGridLines = useCallback((newGridLines) => {
@@ -71,6 +78,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
         }
 
         AudioState.reset();
+        undoManager.clear(); // Clear undo history when initializing DAW
+        undoManager.init(); // Initialize undo manager event listeners
         
         // Initialize audio context
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -171,6 +180,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       if (trackManagerRef.current) {
         trackManagerRef.current.destroy();
       }
+      undoManager.destroy();
     };
   }, []);
 
@@ -240,7 +250,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
       newStartTime,
       region.offset,
       newEndTime,
-      region.name
+      region.name,
+      false, // overwriteTrack
+      true   // recordUndo - record this for undo/redo
     );
 
     return true;
@@ -283,7 +295,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
       newStartTime,
       region.offset,
       newEndTime,
-      region.name
+      region.name,
+      false, // overwriteTrack
+      true   // recordUndo - record this for undo/redo
     );
 
     // Select the newly created region so the next Ctrl+R will repeat it
@@ -293,6 +307,22 @@ export function DAWProvider({ children, trackData, isCollab }) {
 
     return true;
   }, [selectedRegionId, selectedTrackId, selectRegion]);
+
+  // Undo handler
+  const undo = useCallback(() => {
+    if (!trackManagerRef.current) {
+      return false;
+    }
+    return undoManager.undo(trackManagerRef.current);
+  }, []);
+
+  // Redo handler
+  const redo = useCallback(() => {
+    if (!trackManagerRef.current) {
+      return false;
+    }
+    return undoManager.redo(trackManagerRef.current);
+  }, []);
 
   useEffect(() => {
     // Listen for transport events
@@ -326,7 +356,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
 
       const track = trackManagerRef.current.getTrack('recording-track');
       const overwriteTrack = recordingModeRef.current === 'take';
-      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack);
+      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true);
     };
     
     const handleRecordingError = (error) => {
@@ -386,6 +416,14 @@ export function DAWProvider({ children, trackData, isCollab }) {
     const handleDurationChange = (data) => {
       setDuration(data.duration);
     };
+
+    // Undo/Redo state change handler
+    const handleUndoStateChange = (data) => {
+      setCanUndo(data.canUndo);
+      setCanRedo(data.canRedo);
+      setUndoDescription(data.undoDescription);
+      setRedoDescription(data.redoDescription);
+    };
     
     // Register event listeners
     eventBus.on(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
@@ -404,6 +442,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
     eventBus.on(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
+    eventBus.on(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
 
     // Return cleanup function
     return () => {
@@ -423,6 +462,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
+      eventBus.off(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
     };
   }, [selectedRegionId, selectedTrackId, clearSelection]); 
 
@@ -495,6 +535,13 @@ export function DAWProvider({ children, trackData, isCollab }) {
       pasteRegion,
       repeatRegion,
       clipboard,
+      // Undo/Redo
+      canUndo,
+      canRedo,
+      undoDescription,
+      redoDescription,
+      undo,
+      redo,
     }}>
       {children}
     </DAWContext.Provider>

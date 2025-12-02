@@ -5,6 +5,7 @@ import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import { audioBufferToWav } from '../../../lib/utils.js';
 import AudioState from './AudioStateStore.js';
 import { handleRegionOverlaps } from '../misc/DAWUtils.js';
+import { COMMAND_TYPES } from './UndoManager.js';
 
 class Track {
   constructor(id, context, regions = [], title = null) {
@@ -53,19 +54,51 @@ class Track {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
       this.regions = this.regions.map(r => r.id === data.region.id ? data.region : r);
-      eventBus.emit(DAW_EVENTS.REGION.UPDATED, { region: data.region, trackId: this.id });
+      console.log('Track - handleRegionUpdate', data);
+      // Forward the action metadata if present (for undo/redo)
+      eventBus.emit(DAW_EVENTS.REGION.UPDATED, { 
+        region: data.region, 
+        trackId: this.id,
+        ...(data.action && { action: data.action })
+      });
     }
   }
 
   handleRegionRemove(data) {
     if (data.trackId === this.id) {
+      // Find the region before removing to capture state for undo
+      const regionToRemove = this.regions.find(r => r.id === data.region.id);
+      
       this.regions = this.regions.filter(r => r.id !== data.region.id);
-      eventBus.emit(DAW_EVENTS.REGION.REMOVED, { region: data.region, trackId: this.id });
+      
+      // Emit REGION.REMOVED with optional action metadata for undo
+      // Skip undo for recording track to avoid undo pollution
+      eventBus.emit(DAW_EVENTS.REGION.REMOVED, { 
+        region: data.region, 
+        trackId: this.id,
+        ...(regionToRemove && {
+          action: {
+            canUndo: true,
+            type: COMMAND_TYPES.REGION_REMOVE,
+            before: {
+              startTime: regionToRemove.startTime,
+              endTime: regionToRemove.endTime,
+              offset: regionToRemove.offset,
+              key: regionToRemove.key,
+              duration: regionToRemove.duration,
+              active: regionToRemove.active,
+              name: regionToRemove.name
+            },
+            description: 'Delete Region'
+          }
+        })
+      });
     }
   }
   
   // Region structure: { key, startTime, duration, name }
-  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false) {
+  // @param {boolean} recordUndo - Whether to record this operation for undo (default: false)
+  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false) {
     const duration = bufferRegistry.getMetadata(bufferKey)?.duration || 0;
     startTime = startTime || 0;
     offset = offset || 0;
@@ -99,8 +132,19 @@ class Track {
       handleRegionOverlaps(this, null, region.startTime, region.endTime, this.id, eventBus, DAW_EVENTS);
     }
     this.regions.push(region);
-    eventBus.emit(DAW_EVENTS.REGION.ADDED, { region, trackId: this.id });
     
+    // Emit REGION.ADDED with optional action metadata for undo
+    eventBus.emit(DAW_EVENTS.REGION.ADDED, { 
+      region, 
+      trackId: this.id,
+      ...(recordUndo && {
+        action: {
+          canUndo: true,
+          type: COMMAND_TYPES.REGION_ADD,
+          description: 'Add Region'
+        }
+      })
+    });
 
     this.duration = this.calculateTotalDuration();
     
@@ -108,12 +152,12 @@ class Track {
     return region;
   }
 
-  addRegionFromBuffer(buffer, startTime = null, offset = null, endTime = null, name = '') {
+  addRegionFromBuffer(buffer, startTime = null, offset = null, endTime = null, name = '', recordUndo = false) {
     const regionName = name || 'Region';
     const bufferKey = bufferRegistry.generateBufferKey(this.id, regionName);
     bufferRegistry.storeBuffer(bufferKey, buffer);
 
-    this.addRegion(bufferKey, startTime, offset, endTime, regionName);
+    this.addRegion(bufferKey, startTime, offset, endTime, regionName, false, recordUndo);
     return bufferKey;
   }
   

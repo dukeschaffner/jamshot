@@ -142,5 +142,14 @@ export const DAW_EVENTS = {
       NETWORK: 'error:network',
       PERMISSION: 'error:permission',
       GENERIC: 'error:generic'
+    },
+
+    // Undo/Redo events
+    UNDO: {
+      RECORD: 'undo:record',
+      UNDO: 'undo:undo',
+      REDO: 'undo:redo',
+      STATE_CHANGE: 'undo:state:change',
+      CLEAR: 'undo:clear'
     }
   };

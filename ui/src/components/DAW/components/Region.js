@@ -10,6 +10,7 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import DAWConfig from '../misc/DAWConfig';
 import { snapToGrid, handleRegionOverlaps } from '../misc/DAWUtils';
+import { COMMAND_TYPES } from '../core/UndoManager';
 
 export default function Region({ 
   region,
@@ -61,6 +62,9 @@ export default function Region({
   const [isDraggingRegion, setIsDraggingRegion] = useState(false);
   const [regionStartPosBeforeDrag, setRegionStartPosBeforeDrag] = useState(0);
   const hasDraggedRef = useRef(false);
+
+  // Store original state for undo tracking
+  const originalStateRef = useRef(null);
 
   // Context menu state
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -173,6 +177,17 @@ export default function Region({
     // Select region immediately on left click
     selectRegion(region.id, track.id);
     
+    // Capture original state for undo
+    originalStateRef.current = {
+      startTime: region.startTime,
+      endTime: region.endTime,
+      offset: region.offset,
+      key: region.key,
+      duration: region.duration,
+      active: region.active,
+      name: region.name
+    };
+    
     setIsDraggingRegion(true);
     hasDraggedRef.current = false;
     setDragStartX(e.clientX);
@@ -200,12 +215,14 @@ export default function Region({
     if (isRecording) return;
     
     // Prevent deletion if this is the only region left in a non-recording track
-    if (track && region && !isRecordingTrack) {
+    if (track && region) {
+      if(!isRecordingTrack) {
       const activeRegions = track.getActiveRegions();
-      if (activeRegions.length <= 1) {
-        // Don't allow deletion of the last region in non-recording tracks
-        setShowContextMenu(false);
-        return;
+        if (activeRegions.length <= 1) {
+          // Don't allow deletion of the last region in non-recording tracks
+          setShowContextMenu(false);
+          return;
+        }
       }
       
       eventBus.emit(DAW_EVENTS.REGION.REMOVE, {
@@ -271,7 +288,9 @@ export default function Region({
           newStartTime,
           region.offset,
           newEndTime,
-          region.name
+          region.name,
+          false, // overwriteTrack
+          true   // recordUndo - record this for undo/redo
         );
         
         // Select the newly created region so the next Ctrl+R will repeat it
@@ -391,16 +410,32 @@ export default function Region({
           endTime: newEndTime
         };
 
-        // Emit event to update the track manager
+        // Build action metadata for undo if position actually changed
+        const shouldRecordUndo = originalStateRef.current && 
+            (originalStateRef.current.startTime !== newStartTime || 
+             originalStateRef.current.endTime !== newEndTime);
+
+        // Emit event to update the track manager (with optional undo action metadata)
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
           region: updatedRegion,
-          trackId: track.id
+          trackId: track.id,
+          ...(shouldRecordUndo && {
+            action: {
+              canUndo: true,
+              type: COMMAND_TYPES.REGION_MOVE,
+              before: { ...originalStateRef.current },
+              description: 'Move Region'
+            }
+          })
         });
 
         // Update local state
         setStartTime(newStartTime);
         setEndTime(newEndTime);
       }
+      
+      // Clear original state reference
+      originalStateRef.current = null;
     };
     
     if (isDraggingRegion) {
@@ -453,6 +488,18 @@ export default function Region({
   // Handle mouse down on crop start handle
   const handleCropStartMouseDown = (e) => {
     e.stopPropagation();
+    
+    // Capture original state for undo
+    originalStateRef.current = {
+      startTime: region.startTime,
+      endTime: region.endTime,
+      offset: region.offset,
+      key: region.key,
+      duration: region.duration,
+      active: region.active,
+      name: region.name
+    };
+    
     setIsDraggingCropStart(true);
     setDragStartX(e.clientX);
   };
@@ -460,6 +507,18 @@ export default function Region({
   // Handle mouse down on crop end handle
   const handleCropEndMouseDown = (e) => {
     e.stopPropagation();
+    
+    // Capture original state for undo
+    originalStateRef.current = {
+      startTime: region.startTime,
+      endTime: region.endTime,
+      offset: region.offset,
+      key: region.key,
+      duration: region.duration,
+      active: region.active,
+      name: region.name
+    };
+    
     setIsDraggingCropEnd(true);
     setDragStartX(e.clientX);
   };
@@ -613,10 +672,24 @@ export default function Region({
           offset: newOffset
         };
         
-        // Emit event to update the track manager
+        // Build action metadata for undo if crop actually changed something
+        const shouldRecordUndo = originalStateRef.current && 
+            (originalStateRef.current.startTime !== newStartTime || 
+             originalStateRef.current.endTime !== newEndTime ||
+             originalStateRef.current.offset !== newOffset);
+        
+        // Emit event to update the track manager (with optional undo action metadata)
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
           region: updatedRegion,
-          trackId: track.id
+          trackId: track.id,
+          ...(shouldRecordUndo && {
+            action: {
+              canUndo: true,
+              type: COMMAND_TYPES.REGION_CROP,
+              before: { ...originalStateRef.current },
+              description: 'Crop Region'
+            }
+          })
         });
         
         // Update local state
@@ -627,6 +700,9 @@ export default function Region({
 
       setIsDraggingCropStart(false);
       setIsDraggingCropEnd(false);
+      
+      // Clear original state reference
+      originalStateRef.current = null;
     };
     
     if (isDraggingCropStart || isDraggingCropEnd) {
