@@ -109,6 +109,22 @@
     color: var(--dark-text-primary);
   }
 
+  .controlButton:disabled,
+  .controlButton.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .controlButton:disabled:hover,
+  .controlButton.disabled:hover {
+    color: var(--text-secondary);
+  }
+
+  body.dark-mode .controlButton:disabled:hover,
+  body.dark-mode .controlButton.disabled:hover {
+    color: var(--text-secondary);
+  }
+
 
 .controlButton.playPause {
     width: 36px;
