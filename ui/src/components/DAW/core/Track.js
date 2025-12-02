@@ -4,6 +4,8 @@ import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import { audioBufferToWav } from '../../../lib/utils.js';
 import AudioState from './AudioStateStore.js';
+import { handleRegionOverlaps } from '../misc/DAWUtils.js';
+import { COMMAND_TYPES } from './UndoManager.js';
 
 class Track {
   constructor(id, context, regions = [], title = null) {
@@ -13,7 +15,7 @@ class Track {
     this.gainNode = context.createGain();
     this.analyzer = context.createAnalyser();
     this.sources = new Set();
-    this.readonly = id != 'recording-track';
+    this.isRecordingTrack = id === 'recording-track';
 
     this.gain = 0.8;
     this.isSolo = false;
@@ -52,19 +54,51 @@ class Track {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
       this.regions = this.regions.map(r => r.id === data.region.id ? data.region : r);
-      eventBus.emit(DAW_EVENTS.REGION.UPDATED, { region: data.region, trackId: this.id });
+      console.log('Track - handleRegionUpdate', data);
+      // Forward the action metadata if present (for undo/redo)
+      eventBus.emit(DAW_EVENTS.REGION.UPDATED, { 
+        region: data.region, 
+        trackId: this.id,
+        ...(data.action && { action: data.action })
+      });
     }
   }
 
   handleRegionRemove(data) {
     if (data.trackId === this.id) {
+      // Find the region before removing to capture state for undo
+      const regionToRemove = this.regions.find(r => r.id === data.region.id);
+      
       this.regions = this.regions.filter(r => r.id !== data.region.id);
-      eventBus.emit(DAW_EVENTS.REGION.REMOVED, { region: data.region, trackId: this.id });
+      
+      // Emit REGION.REMOVED with optional action metadata for undo
+      // Skip undo for recording track to avoid undo pollution
+      eventBus.emit(DAW_EVENTS.REGION.REMOVED, { 
+        region: data.region, 
+        trackId: this.id,
+        ...(regionToRemove && {
+          action: {
+            canUndo: true,
+            type: COMMAND_TYPES.REGION_REMOVE,
+            before: {
+              startTime: regionToRemove.startTime,
+              endTime: regionToRemove.endTime,
+              offset: regionToRemove.offset,
+              key: regionToRemove.key,
+              duration: regionToRemove.duration,
+              active: regionToRemove.active,
+              name: regionToRemove.name
+            },
+            description: 'Delete Region'
+          }
+        })
+      });
     }
   }
   
   // Region structure: { key, startTime, duration, name }
-  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false) {
+  // @param {boolean} recordUndo - Whether to record this operation for undo (default: false)
+  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false) {
     const duration = bufferRegistry.getMetadata(bufferKey)?.duration || 0;
     startTime = startTime || 0;
     offset = offset || 0;
@@ -93,19 +127,37 @@ class Track {
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
       });
     }
+    else {
+      // Handle overlaps with existing regions before adding the new region
+      handleRegionOverlaps(this, null, region.startTime, region.endTime, this.id, eventBus, DAW_EVENTS);
+    }
     this.regions.push(region);
-    eventBus.emit(DAW_EVENTS.REGION.ADDED, { region, trackId: this.id });
     
+    // Emit REGION.ADDED with optional action metadata for undo
+    eventBus.emit(DAW_EVENTS.REGION.ADDED, { 
+      region, 
+      trackId: this.id,
+      ...(recordUndo && {
+        action: {
+          canUndo: true,
+          type: COMMAND_TYPES.REGION_ADD,
+          description: 'Add Region'
+        }
+      })
+    });
 
     this.duration = this.calculateTotalDuration();
+    
+    // Return the created region so callers can use it (e.g., for selection)
+    return region;
   }
 
-  addRegionFromBuffer(buffer, startTime = null, offset = null, endTime = null, name = '') {
+  addRegionFromBuffer(buffer, startTime = null, offset = null, endTime = null, name = '', recordUndo = false) {
     const regionName = name || 'Region';
     const bufferKey = bufferRegistry.generateBufferKey(this.id, regionName);
     bufferRegistry.storeBuffer(bufferKey, buffer);
 
-    this.addRegion(bufferKey, startTime, offset, endTime, regionName);
+    this.addRegion(bufferKey, startTime, offset, endTime, regionName, false, recordUndo);
     return bufferKey;
   }
   
@@ -113,7 +165,7 @@ class Track {
     if (this.regions.length === 0) return 0;
     
     return Math.max(
-      ...this.regions.map(region => region.startTime + region.duration)
+      ...this.regions.map(region => region.endTime)
     );
   }
 
@@ -144,6 +196,32 @@ class Track {
 
   getActiveRegions() {
     return this.regions.filter(region => region.active);
+  }
+
+  /**
+   * Get regions formatted for upload, filtering out regions that start after
+   * the DAW duration and clamping regions that extend beyond it.
+   * @returns {Array} Array of region objects with { startTime, endTime, offset }
+   */
+  getRegionsForUpload() {
+    const activeRegions = this.getActiveRegions();
+    const dawDuration = AudioState.dawDuration;
+    
+    return activeRegions
+      .filter(region => {
+        // Filter out regions that start after the project end
+        return region.startTime < dawDuration;
+      })
+      .map(region => {
+        // Clamp regions that start before project end but end after project end
+        const clampedEndTime = Math.min(region.endTime, dawDuration);
+        
+        return {
+          startTime: region.startTime,
+          endTime: clampedEndTime,
+          offset: region.offset
+        };
+      });
   }
   
   // Get regions with buffer data for ChunkScheduler
@@ -224,15 +302,18 @@ class Track {
     let startOffset = 0;
     
     if (trimSilence) {
-      // Find the earliest start time and latest end time of active regions
-      const startTimes = regionsWithBuffers.map(region => region.startTime);
+      // Find the latest end time of active regions
       const endTimes = regionsWithBuffers.map(region => region.endTime);
-      
-      const earliestStart = Math.min(...startTimes);
       const latestEnd = Math.max(...endTimes);
       
-      startOffset = earliestStart;
-      exportDuration = latestEnd - earliestStart;
+      // Only trim silence at end when applicable (if there's silence at the end)
+      if (this.hasSilenceAtEnd()) {
+        exportDuration = latestEnd;
+      } else {
+        exportDuration = Math.max(0, AudioState.dawDuration - (1 / sampleRate));
+      }
+      // Don't trim silence at start - always start from 0
+      startOffset = 0;
     } 
     else{
       exportDuration = Math.max(0, AudioState.dawDuration - (1 / sampleRate));

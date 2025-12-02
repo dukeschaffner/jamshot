@@ -1,6 +1,6 @@
 .region {
     height: 100%;
-    position: relative;
+    position: absolute;
     overflow: hidden;
     z-index: 5;
 }
@@ -12,12 +12,27 @@
     z-index: 100;
 }
 
+/* Region cropping styles */
+.region.cropping {
+    z-index: 200;
+}
+
 .region:not(.dragging):not(.cropping) {
     cursor: grab;
 }
 
 .region:not(.dragging):not(.cropping):hover {
     cursor: grab;
+}
+
+/* Selected region styling */
+.region.selected {
+  outline: 2px solid var(--seafoam);
+  border-radius: 5px;
+}
+
+.region.selected:not(.dragging):not(.cropping) {
+    box-shadow: 0 0 0 1px rgba(0, 122, 255, 0.3);
 }
 
 .waveformContainer {
@@ -128,34 +143,3 @@
   cursor: col-resize;
 }
 
-/* Context menu styling */
-.contextMenu {
-  position: fixed;
-  z-index: 1000;
-  background: white;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-  border-radius: 4px;
-  padding: 8px 0;
-  min-width: 120px;
-  border: 1px solid #e0e0e0;
-}
-
-.contextMenu button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px 16px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s ease;
-}
-
-.contextMenu button:hover {
-  background-color: #f0f0f0;
-}
-
-.contextMenu button:active {
-  background-color: #e0e0e0;
-}
