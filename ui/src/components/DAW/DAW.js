@@ -53,6 +53,10 @@ function DAWContent({ track}) {
     repeatRegion,
     clipboard,
     clearSelection,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
   } = useDAW();
 
   const [saved, setSaved] = useState(false);
@@ -106,6 +110,30 @@ function DAWContent({ track}) {
       else if (e.code === 'Enter' || e.key === 'Enter') {
         e.preventDefault();
         eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: 0 });
+      }
+      // Handle Cmd/Ctrl+Z for undo (with shift for redo)
+      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
+        if (!isRecording) {
+          e.preventDefault();
+          if (e.shiftKey) {
+            // Cmd/Ctrl+Shift+Z for redo
+            if (canRedo) {
+              redo();
+            }
+          } else {
+            // Cmd/Ctrl+Z for undo
+            if (canUndo) {
+              undo();
+            }
+          }
+        }
+      }
+      // Handle Cmd/Ctrl+Y for redo (alternative)
+      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y')) {
+        if (!isRecording && canRedo) {
+          e.preventDefault();
+          redo();
+        }
       }
       // Handle Cmd/Ctrl+C for copy
       else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyC' || e.key === 'c' || e.key === 'C')) {
@@ -172,7 +200,7 @@ function DAWContent({ track}) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo]); // Include dependencies
 
   const handleTimelineClick = (e) => {
     e.stopPropagation();
