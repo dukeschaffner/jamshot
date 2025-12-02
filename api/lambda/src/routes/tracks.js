@@ -480,7 +480,10 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
 
         if (!room_id) { // no room_id provided and parent track has no room_id, use user's current room_id
           const userRoomResult = await pool.query(
-            'SELECT room_id FROM user_rooms WHERE user_id = $1 AND camp_id = $2',
+            `SELECT ur.room_id 
+             FROM user_rooms ur
+             JOIN rooms r ON ur.room_id = r.id
+             WHERE ur.user_id = $1 AND r.camp_id = $2`,
             [userId, camp_id]
           );
           if (userRoomResult.rows.length > 0) {
