@@ -589,6 +589,11 @@ const createApiMethods = (apiClient) => {
     updateMemberRole: (campId, userId, role) => api.patch(`/camps/${campId}/members/${userId}/role`, { role }),
   };
 
+  // Group API methods (predefined landing pages)
+  const groupApi = {
+    logVisit: (group_name, type) => api.post('/groups/visit', { group_name, type })
+  };
+
   // Team API methods
   const teamApi = {
     createTeam: (teamData) => api.post('/teams', teamData),
@@ -657,6 +662,7 @@ const createApiMethods = (apiClient) => {
     analyticsApi,
     campApi,
     teamApi,
+    groupApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,
