@@ -331,9 +331,8 @@ class AudioEngine {
   }
 
   async startRecording() {
-    if (!this.isMonitoring) {
-      // Ensure monitoring is active and stream available for recorder reuse
-      try { await this.startInputMonitoring(); } catch (_) { /* ignore */ }
+    if (!this.monitorStream || !this.monitorSource) {
+      await this.initializeInputMetering();
     }
     if (this.recorder) {
       await this.recorder.startRecording(this.monitorStream || undefined);

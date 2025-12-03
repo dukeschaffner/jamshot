@@ -1,86 +1,74 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+'use client';
+import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { campApi } from '../../../../lib/api';
-import LoadingSpinner from '../../../../components/LoadingSpinner';
-import BeatCard from '../../../../components/BeatCard';
-import { FaUpload, FaMusic } from 'react-icons/fa';
-import styles from '../CampDashboard.module.css';
+import Track from '../../../../components/Track';
+import InfiniteScrollContainer from '../../../../components/InfiniteScrollContainer';
+import { FaMusic, FaUpload } from 'react-icons/fa';
+import sharedStyles from '../../../../styles/Dashboard.module.css';
+
+const BEATS_PER_PAGE = 5;
 
 function BeatPoolTab({ camp, isActive }) {
-  const router = useRouter();
-  const [beats, setBeats] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sortBy, setSortBy] = useState('recent');
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [expandedTrackId, setExpandedTrackId] = useState(null);
 
-  useEffect(() => {
-    const fetchBeats = async () => {
-      try {
-        setIsLoading(true);
-        const response = await campApi.getBeats(camp.id, {
-          sort_by: sortBy,
-          page: 1,
-          limit: 50
-        });
-        setBeats(response.data.beats);
-      } catch (err) {
-        console.error('Error fetching beats:', err);
-      } finally {
-        setIsLoading(false);
-      }
+  const fetchBeats = useCallback(async (pageNum) => {
+    const response = await campApi.getBeats(camp.id, {
+      page: pageNum,
+      limit: BEATS_PER_PAGE,
+      sort_by: 'recent'
+    });
+    
+    return {
+      items: response.data.beats,
+      pagination: response.data.pagination
     };
+  }, [camp.id]);
 
-    fetchBeats();
-  }, [camp.id, sortBy]);
+  const handleTrackExpansion = useCallback((trackId) => {
+    setExpandedTrackId(prev => prev === trackId ? null : trackId);
+  }, []);
 
-  const handleAddBeat = () => {
-    // Navigate to upload page with camp context
-    router.push(`/upload?camp_id=${camp.id}`);
-  };
+  const renderTrack = useCallback((track, index, tracks) => {
+    return (
+      <Track
+        track={track}
+        allTracks={tracks}
+        expandedTrackId={expandedTrackId}
+        setExpandedTrackId={handleTrackExpansion}
+        campContext={{
+          campId: camp.id,
+          userRole: camp.user_role
+        }}
+      />
+    );
+  }, [expandedTrackId, handleTrackExpansion, camp]);
 
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
+  const emptyState = (
+    <div className={sharedStyles.emptyState}>
+      <FaMusic className={sharedStyles.emptyIcon} />
+      <h3>No Beats Yet</h3>
+      <p>Upload your first beat to get the collaboration started!</p>
+    </div>
+  );
 
   return (
-    <div className={styles.tabContent}>
-      <div className={styles.tabHeader}>
+    <div className={sharedStyles.tabContent}>
+      <div className={sharedStyles.tabHeader}>
         <h2>Beat Pool</h2>
-        <div className={styles.tabActions}>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className={styles.sortSelect}
-          >
-            <option value="recent">Most Recent</option>
-            <option value="bpm">BPM</option>
-            <option value="key">Key</option>
-            <option value="usage">Most Used</option>
-          </select>
-          <button onClick={handleAddBeat} className={styles.primaryButton}>
-            <FaUpload />
-            <span>Add Beat</span>
-          </button>
-        </div>
+        <Link href={`/upload?camp_id=${camp.id}`} className="pill-btn gradient-btn">
+          <FaUpload />
+          Add Beat
+        </Link>
       </div>
-
-      {beats.length === 0 ? (
-        <div className={styles.emptyState}>
-          <FaMusic className={styles.emptyIcon} />
-          <h3>No Beats Yet</h3>
-          <p>Upload your first beat to get the collaboration started!</p>
-          <button onClick={handleAddBeat} className={styles.primaryButton}>
-            <FaUpload />
-            <span>Upload Beat</span>
-          </button>
-        </div>
-      ) : (
-        <div className={styles.beatList}>
-          {beats.map(beat => (
-            <BeatCard key={beat.id} beat={beat} campId={camp.id} />
-          ))}
-        </div>
-      )}
+      <InfiniteScrollContainer
+        fetchData={fetchBeats}
+        renderItem={renderTrack}
+        emptyState={emptyState}
+        className={sharedStyles.trackList}
+        itemsPerPage={BEATS_PER_PAGE}
+        dependencies={[camp.id]}
+      />
     </div>
   );
 }

@@ -246,7 +246,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     parsedGenreIds,
     parsedInstrumentIds,
     parsedMetronomeBpm,
-    parsedStemGains,
+    parsedStems,
     parsedTimeSignature,
     isPrivate,
     allowDownload,
@@ -337,17 +337,17 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     // Get the complete stem chain for mixing
     stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
 
-    // Validate stem chain and parsedStemGains
-    const validation = validateAndUpdateStemChain(stemChain, parsedStemGains);
+    // Validate stem chain and parsedStems
+    const validation = validateAndUpdateStemChain(stemChain, parsedStems);
     if (!validation.valid) {
       return res.status(400).json({
-        error: 'Invalid stem chain or stem gains',
+        error: 'Invalid stem chain or stems',
         message: validation.error
       });
     }
   } catch (err) {
-    console.error('Error validating stem chain and parsedStemGains:', err);
-    return res.status(500).json({ error: `Failed to validate stem chain and parsedStemGains: ${err.message}` });
+    console.error('Error validating stem chain and parsedStems:', err);
+    return res.status(500).json({ error: `Failed to validate stem chain and parsedStems: ${err.message}` });
   }
 
 
@@ -382,9 +382,9 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       parsedMetronomeOffset = parentTrack.metronome_offset || 0;
 
       // Validate that collaboration isn't longer than parent track
-      if (duration > parentDuration) {
-        return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
-      }
+      // if (duration > parentDuration) {
+      //   return res.status(400).json({ error: 'Collaboration track cannot be longer than the original track' });
+      // }
 
       layer = (parentTrack.layer ?? 0) + 1;
       if (layer > 4) {
@@ -450,17 +450,8 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       // All camp tracks/beats must be private
       isPrivate = true;
 
-      if (parent_track_id) {
-        // This is a Track (collaboration on a beat) - camp must have started
-        if (now < new Date(camp.start_date)) {
-          return res.status(400).json({ error: 'Track uploads are not allowed until the camp has started' });
-        }
-
-        if (!room_id) {
-          return res.status(400).json({ error: 'Room ID is required when uploading tracks to a camp' });
-        }
-
-        // Validate room exists and belongs to this camp
+      // Validate room exists and belongs to this camp
+      if (room_id) {
         const roomResult = await pool.query(
           'SELECT id FROM rooms WHERE id = $1 AND camp_id = $2',
           [room_id, camp_id]
@@ -468,6 +459,13 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
 
         if (roomResult.rows.length === 0) {
           return res.status(400).json({ error: 'Room does not exist in this camp' });
+        }
+      }
+
+      if (parent_track_id) {
+        // This is a Track (collaboration on a beat) - camp must have started
+        if (now < new Date(camp.start_date)) {
+          return res.status(400).json({ error: 'Track uploads are not allowed until the camp has started' });
         }
 
         // If parent track has a room_id, descendants must inherit it
@@ -479,10 +477,22 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         if (parentRoomCheck.rows.length > 0 && parentRoomCheck.rows[0].room_id) {
           room_id = parentRoomCheck.rows[0].room_id;
         }
+
+        if (!room_id) { // no room_id provided and parent track has no room_id, use user's current room_id
+          const userRoomResult = await pool.query(
+            `SELECT ur.room_id 
+             FROM user_rooms ur
+             JOIN rooms r ON ur.room_id = r.id
+             WHERE ur.user_id = $1 AND r.camp_id = $2`,
+            [userId, camp_id]
+          );
+          if (userRoomResult.rows.length > 0) {
+            room_id = userRoomResult.rows[0].room_id;
+          }
+        }
       } else {
         // This is a Beat upload - no room validation needed for beats
-        // Room assignment happens when someone starts an idea from a beat
-        room_id = null;
+        // Room assignment happens when someone starts an idea from a beat or uploads track to room
       }
     }
     else if (team_id || (parent_track_id && parentTrack && parentTrack.team_id)) {
@@ -544,7 +554,9 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     const stemChainToInsert = stemChain.map(stem => ({
       track_id: stem.track_id,
       gain: stem.gain,
-      order: stem.order
+      order: stem.order,
+      // Include regions if present
+      ...(stem.regions && { regions: stem.regions })
     }));
 
     let mixGainsToInsert = {

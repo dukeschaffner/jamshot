@@ -5,12 +5,13 @@ import styles from './Looper.module.css';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
-import { timeToPos } from '../misc/DAWUtils';
+import { timeToPos, snapToGrid } from '../misc/DAWUtils';
+import DAWConfig from '../misc/DAWConfig';
 
 
 export default function Looper() {
 
-  const { isPlaying, isRecording, duration, metronomeBpm, tracksContainerWidth } = useDAW();
+  const { isPlaying, isRecording, duration, metronomeBpm, tracksContainerWidth, gridLines } = useDAW();
   
   const [isLooping, setIsLooping] = useState(false);
   // Internal state for dragging
@@ -35,8 +36,11 @@ export default function Looper() {
   const regionRef = useRef(null);
 
   // Grid snapping constants
-  const gridSnapThreshold = 5; // Threshold for grid snapping (Pixels)
   const tracksContainerWidthRef = useRef(0);
+
+  useEffect(() => {
+    musicGridLinesRef.current = gridLines;
+  }, [gridLines]);
 
   // Event listeners for grid updates
   useEffect(() => {
@@ -44,17 +48,11 @@ export default function Looper() {
       setSnapToGridEnabled(data.snapToGridEnabled);
     };
 
-    const handleGridLinesUpdate = (data) => {
-      musicGridLinesRef.current = data.gridLines || [];
-    };
-
-    // Listen for grid snap toggle events and grid lines updates
+    // Listen for grid snap toggle events
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
-    eventBus.on(DAW_EVENTS.GRID.LINES_UPDATE, handleGridLinesUpdate);
 
     return () => {
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
-      eventBus.off(DAW_EVENTS.GRID.LINES_UPDATE, handleGridLinesUpdate);
     };
   }, []);
 
@@ -62,44 +60,6 @@ export default function Looper() {
     tracksContainerWidthRef.current = tracksContainerWidth;
   }, [tracksContainerWidth]);
 
-
-  // Snap to grid function
-  const snapToGrid = (value) => {
-    if (snapToGridEnabled && metronomeBpm && duration && duration > 0) {
-      // If grid lines aren't generated yet, return the original value
-      if (!musicGridLinesRef.current || musicGridLinesRef.current.length === 0) {
-        return value;
-      }
-      
-      // Find the closest grid line
-      let closestGridLine = value;
-      let minDistance = Infinity;
-
-      const secondsPerBeat = 60 / metronomeBpm;
-      const beatWidthPos = timeToPos(secondsPerBeat, duration);
-      
-      for (const gridLine of musicGridLinesRef.current) {
-        const distance = Math.abs(gridLine.position - value);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestGridLine = gridLine;
-        }
-      }
-
-      if(minDistance === Infinity) {
-        return value;
-      }
-
-      const distancePx = minDistance * tracksContainerWidthRef.current / 100;
-      
-      // Only snap if the distance is less than the threshold
-      if (distancePx <= gridSnapThreshold) {
-        return closestGridLine.position;
-      }
-    }
-    
-    return value;
-  };
 
   useEffect(() => {
     // Emit loop toggle event when enabling/disabling loop
@@ -152,14 +112,14 @@ export default function Looper() {
       // Dragging left handle
       if (isDraggingLeft) {
         const newLeftPos = Math.max(0, Math.min(looperRightPos - 5, mousePos));
-        const snappedLeftPos = snapToGrid(newLeftPos);
+        const snappedLeftPos = snapToGrid(newLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         setLooperLeftPos(snappedLeftPos);
       }
 
       // Dragging right handle
       if (isDraggingRight) {
         const newRightPos = Math.max(looperLeftPos + 5, Math.min(100, mousePos));
-        const snappedRightPos = snapToGrid(newRightPos);
+        const snappedRightPos = snapToGrid(newRightPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
         setLooperRightPos(snappedRightPos);
       }
 
@@ -184,8 +144,8 @@ export default function Looper() {
         }
 
         // Apply grid snapping
-        const snappedLeftPos = snapToGrid(newLeftPos);
-        const snappedRightPos = snapToGrid(newRightPos);
+        const snappedLeftPos = snapToGrid(newLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+        const snappedRightPos = snapToGrid(newRightPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
 
         setLooperLeftPos(snappedLeftPos);
         setLooperRightPos(snappedRightPos);

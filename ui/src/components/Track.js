@@ -8,7 +8,7 @@ import LoadingSpinner from './LoadingSpinner';
 import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen } from 'react-icons/fa';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
@@ -29,7 +29,8 @@ export default function Track(
       entryStatus, // User's entry status in competition
       onEnterCompetition, // Callback for entering competition
       isEntering, // Loading state for entering competition
-      teamContext // { teamId, folderId, userRole } - for team folder management
+      teamContext, // { teamId, folderId, userRole } - for team folder management
+      campContext // { campId, roomId, userRole } - for camp room management
     }
   ) 
 {
@@ -48,6 +49,7 @@ export default function Track(
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTracks, setTotalTracks] = useState(0);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [moveModalType, setMoveModalType] = useState(null); // 'folder' or 'room'
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const actionsMenuRef = useRef(null);
   const { showSuccess, showError } = useToast();
@@ -286,7 +288,22 @@ export default function Track(
       onEnterCompetition();
     } else {
       // Fallback to normal track navigation
-      router.push(`/track/${track.id}`);
+      let url = `/track/${track.id}`;
+      const params = new URLSearchParams();
+      
+      // Include camp_id or team_id, but not both (prioritize camp_id)
+      if (campContext?.campId) {
+        params.append('camp_id', campContext.campId);
+      } else if (teamContext?.teamId) {
+        params.append('team_id', teamContext.teamId);
+      }
+      
+      // Append params to URL if any exist
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      router.push(url);
     }
   };
 
@@ -417,8 +434,10 @@ export default function Track(
             {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
           </button>
           
-          {/* Actions menu (ellipses button) - shows if user owns track or is in team context */}
-          {(currentUser?.id === track.user_id || (teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner'))) && (
+          {/* Actions menu (ellipses button) - shows if user owns track or is in team/camp context */}
+          {(currentUser?.id === track.user_id || 
+            (teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner')) ||
+            (campContext && (campContext.userRole === 'admin' || campContext.userRole === 'owner' || currentUser?.id === track.user_id))) && (
             <div className={styles.trackActionsMenu} ref={actionsMenuRef}>
               <button 
                 className="pill-btn sm"
@@ -455,10 +474,26 @@ export default function Track(
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowActionsMenu(false);
+                        setMoveModalType('folder');
                         setShowMoveModal(true);
                       }}
                     >
                       <FaFolderOpen /> Move to Folder
+                    </button>
+                  )}
+                  
+                  {/* Move to room option (camp context only, for non-beat tracks) */}
+                  {campContext && track.parent_track_id && (campContext.userRole === 'admin' || campContext.userRole === 'owner' || currentUser?.id === track.user_id) && (
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowActionsMenu(false);
+                        setMoveModalType('room');
+                        setShowMoveModal(true);
+                      }}
+                    >
+                      <FaDoorOpen /> Move to Room
                     </button>
                   )}
                 </div>
@@ -480,7 +515,22 @@ export default function Track(
               className="pill-btn pink-btn sm" 
               onClick={(e) => {
                 e.stopPropagation();
-                router.push(`/track/${track.id}`);
+                let url = `/track/${track.id}`;
+                const params = new URLSearchParams();
+                
+                // Include camp_id or team_id, but not both (prioritize camp_id)
+                if (campContext?.campId) {
+                  params.append('camp_id', campContext.campId);
+                } else if (teamContext?.teamId) {
+                  params.append('team_id', teamContext.teamId);
+                }
+                
+                // Append params to URL if any exist
+                if (params.toString()) {
+                  url += `?${params.toString()}`;
+                }
+                
+                router.push(url);
               }}
             >
               {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
@@ -569,15 +619,25 @@ export default function Track(
       )}
       
       {/* Move Track Modal */}
-      {showMoveModal && teamContext && (
+      {showMoveModal && moveModalType && (
         <MoveTrackModal
-          teamId={teamContext.teamId}
+          type={moveModalType}
+          teamId={moveModalType === 'folder' ? teamContext?.teamId : undefined}
+          campId={moveModalType === 'room' ? campContext?.campId : undefined}
           track={track}
-          currentFolderId={track.team_folder_id || teamContext.folderId || null}
-          onClose={() => setShowMoveModal(false)}
+          currentId={
+            moveModalType === 'folder' 
+              ? (track.team_folder_id || teamContext?.folderId || null)
+              : (track.room_id || campContext?.roomId || null)
+          }
+          onClose={() => {
+            setShowMoveModal(false);
+            setMoveModalType(null);
+          }}
           onSuccess={() => {
             setShowMoveModal(false);
-            // Refresh the page to show updated folder
+            setMoveModalType(null);
+            // Refresh the page to show updated folder/room
             window.location.reload();
           }}
         />

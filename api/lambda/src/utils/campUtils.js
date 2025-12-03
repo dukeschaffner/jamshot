@@ -110,17 +110,19 @@ async function getCampDetails(campId, userId) {
 
     const camp = campResult.rows[0];
 
-    // Get camp members
+    // Get camp members with their room assignments
     const membersResult = await pool.query(
-      `SELECT uc.role, u.id, u.username, u.name, u.profile_pic_url
+      `SELECT uc.role, u.id, u.username, u.name, u.profile_pic_url, r.id as room_id
        FROM user_camps uc
        JOIN users u ON uc.user_id = u.id
+       LEFT JOIN user_rooms ur ON u.id = ur.user_id
+       LEFT JOIN rooms r ON ur.room_id = r.id AND r.camp_id = $1
        WHERE uc.camp_id = $1
        ORDER BY uc.joined_at`,
       [campId]
     );
 
-    // Get rooms with members
+    // Get rooms with members (including role from user_camps) and track_count
     const roomsResult = await pool.query(
       `SELECT r.*,
               json_agg(
@@ -128,12 +130,16 @@ async function getCampDetails(campId, userId) {
                   'id', u.id,
                   'username', u.username,
                   'name', u.name,
-                  'profile_pic_url', u.profile_pic_url
+                  'profile_pic_url', u.profile_pic_url,
+                  'role', uc.role,
+                  'room_id', r.id
                 )
-              ) FILTER (WHERE u.id IS NOT NULL) as members
+              ) FILTER (WHERE u.id IS NOT NULL) as members,
+              (SELECT COUNT(*) FROM tracks WHERE room_id = r.id AND processing_status = 'completed') as track_count
        FROM rooms r
        LEFT JOIN user_rooms ur ON r.id = ur.room_id
        LEFT JOIN users u ON ur.user_id = u.id
+       LEFT JOIN user_camps uc ON u.id = uc.user_id AND uc.camp_id = $1
        WHERE r.camp_id = $1
        GROUP BY r.id
        ORDER BY r.created_at`,
@@ -143,13 +149,19 @@ async function getCampDetails(campId, userId) {
     // Get user limit information
     const userLimitInfo = await checkCampUserLimit(campId);
 
+    // Convert track_count to number for each room
+    const roomsWithTrackCount = roomsResult.rows.map(room => ({
+      ...room,
+      track_count: parseInt(room.track_count) || 0
+    }));
+
     return {
       valid: true,
       camp: {
         ...camp,
         user_role: accessValidation.camp.user_role,
         members: membersResult.rows,
-        rooms: roomsResult.rows,
+        rooms: roomsWithTrackCount,
         user_limit: {
           current_users: userLimitInfo.current_users,
           max_users: userLimitInfo.max_users,
@@ -160,6 +172,44 @@ async function getCampDetails(campId, userId) {
   } catch (error) {
     console.error('Error getting camp details:', error);
     return { valid: false, error: 'Failed to get camp details' };
+  }
+}
+
+/**
+ * Check if user is camp owner
+ * @param {number} campId - Camp ID
+ * @param {number} userId - User ID
+ * @returns {Promise<boolean>} True if user is owner
+ */
+async function checkCampOwner(campId, userId) {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role = $3',
+      [userId, campId, 'owner']
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking camp owner:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if user is camp admin or owner (owner has all admin permissions)
+ * @param {number} campId - Camp ID
+ * @param {number} userId - User ID
+ * @returns {Promise<boolean>} True if user is admin or owner
+ */
+async function checkCampAdminOrOwner(campId, userId) {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM user_camps WHERE user_id = $1 AND camp_id = $2 AND role IN (\'admin\', \'owner\')',
+      [userId, campId]
+    );
+    return result.rows.length > 0;
+  } catch (error) {
+    console.error('Error checking camp admin/owner:', error);
+    return false;
   }
 }
 
@@ -218,5 +268,7 @@ module.exports = {
   validateCampAccess,
   validateRoomAccess,
   getCampDetails,
-  checkCampUserLimit
+  checkCampUserLimit,
+  checkCampOwner,
+  checkCampAdminOrOwner
 };

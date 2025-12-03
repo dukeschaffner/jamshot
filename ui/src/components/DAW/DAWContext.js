@@ -1,5 +1,5 @@
 // ui/src/contexts/DAWContext.js
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import TrackManager from './core/TrackManager';
 import AudioEngine from './core/AudioEngine';
 import { eventBus } from './misc/EventBus';
@@ -7,6 +7,7 @@ import { DAW_EVENTS } from './misc/DAWEvents';
 import api from '@/lib/api';
 import DAWConfig from './misc/DAWConfig';
 import AudioState from './core/AudioStateStore';
+import { undoManager } from './core/UndoManager';
 
 const DAWContext = createContext();
 
@@ -27,6 +28,26 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
   const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [recordingMode, setRecordingMode] = useState('region'); // 'take' | 'region'
+  const [gridLines, setGridLines] = useState([]);
+  
+  // Region selection and clipboard state
+  const [selectedRegionId, setSelectedRegionId] = useState(null);
+  const [selectedTrackId, setSelectedTrackId] = useState(null);
+  const [clipboard, setClipboard] = useState(null); // { region, trackId, bufferKey }
+
+  // Undo/Redo state
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [undoDescription, setUndoDescription] = useState(null);
+  const [redoDescription, setRedoDescription] = useState(null);
+
+  // Function for components to update grid lines
+  const updateGridLines = useCallback((newGridLines) => {
+    setGridLines(newGridLines);
+  }, []);
+  const recordingModeRef = useRef('take');
+  useEffect(() => { recordingModeRef.current = recordingMode; }, [recordingMode]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -37,6 +58,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   useEffect(() => {
     durationRef.current = duration;
   }, [duration]);
+
   
   useEffect(() => {
     const initializeDAW = async () => {
@@ -56,6 +78,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
         }
 
         AudioState.reset();
+        undoManager.clear(); // Clear undo history when initializing DAW
+        undoManager.init(); // Initialize undo manager event listeners
         
         // Initialize audio context
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -105,6 +129,14 @@ export function DAWProvider({ children, trackData, isCollab }) {
         if(metronomeOffset) {
           setMetronomeOffset(metronomeOffset);
         }
+
+
+        // when in dev env, save objects to window for debugging
+        if(process.env.NODE_ENV === 'development') {
+          window.trackManager = tm;
+          window.audioEngine = ae;
+        }
+
       } catch (err) {
         setError(err.message);
       } finally {
@@ -118,9 +150,21 @@ export function DAWProvider({ children, trackData, isCollab }) {
 
   useEffect(() => {
     if (tracks.length > 0) {
-      const trackDuration = tracks[0].duration;
-      // Set a default duration of 90 seconds for empty tracks or tracks with 0 duration
-      setDuration(trackDuration > 0 ? trackDuration : DAWConfig.project.defaultDuration);
+      // Find the latest region end time from all tracks
+      let latestEndTime = 0;
+      
+      tracks.forEach(track => {
+        if (track.regions && track.regions.length > 0) {
+          track.regions.forEach(region => {
+            if (region.endTime && region.endTime > latestEndTime) {
+              latestEndTime = region.endTime;
+            }
+          });
+        }
+      });
+      
+      // Set a default duration of 90 seconds if no regions found or latest end time is 0
+      setDuration(latestEndTime > 0 ? latestEndTime : DAWConfig.project.defaultDuration);
     } else {
       // Default duration when no tracks exist
       setDuration(DAWConfig.project.defaultDuration);
@@ -136,7 +180,148 @@ export function DAWProvider({ children, trackData, isCollab }) {
       if (trackManagerRef.current) {
         trackManagerRef.current.destroy();
       }
+      undoManager.destroy();
     };
+  }, []);
+
+  // Region selection handlers (defined before useEffect that uses them)
+  const selectRegion = useCallback((regionId, trackId) => {
+    setSelectedRegionId(regionId);
+    setSelectedTrackId(trackId);
+    eventBus.emit(DAW_EVENTS.REGION.SELECT, { regionId, trackId });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedRegionId(null);
+    setSelectedTrackId(null);
+  }, []);
+
+  // Copy handler
+  const copyRegion = useCallback(() => {
+    if (!selectedRegionId || !selectedTrackId || !trackManagerRef.current) {
+      return false;
+    }
+
+    const track = trackManagerRef.current.getTrack(selectedTrackId);
+    if (!track) {
+      return false;
+    }
+
+    const region = track.regions.find(r => r.id === selectedRegionId);
+    if (!region) {
+      return false;
+    }
+
+    setClipboard({
+      region: { ...region },
+      trackId: selectedTrackId,
+      bufferKey: region.key
+    });
+
+    return true;
+  }, [selectedRegionId, selectedTrackId]);
+
+  // Paste handler
+  const pasteRegion = useCallback((pasteTime = null) => {
+    if (!clipboard || !trackManagerRef.current) {
+      return false;
+    }
+
+    const { region, trackId, bufferKey } = clipboard;
+    
+    // Get the track that the region was copied from (regions can only be pasted to the same track)
+    const targetTrack = trackManagerRef.current.getTrack(trackId);
+    if (!targetTrack) {
+      return false;
+    }
+
+    // Paste at specified time (from right-click) or playhead position
+    const newStartTime = pasteTime !== null ? pasteTime : playheadLocation.time;
+    const regionDuration = region.endTime - region.startTime;
+    let newEndTime = newStartTime + regionDuration;
+
+    // If pasted region extends past project end, cut it to end at project end
+    if (newEndTime > durationRef.current) {
+      newEndTime = durationRef.current;
+    }
+
+    targetTrack.addRegion(
+      bufferKey,
+      newStartTime,
+      region.offset,
+      newEndTime,
+      region.name,
+      false, // overwriteTrack
+      true   // recordUndo - record this for undo/redo
+    );
+
+    return true;
+  }, [clipboard, playheadLocation]);
+
+  // Repeat handler - duplicates a region immediately after it
+  const repeatRegion = useCallback(() => {
+    if (!selectedRegionId || !selectedTrackId || !trackManagerRef.current) {
+      return false;
+    }
+
+    const track = trackManagerRef.current.getTrack(selectedTrackId);
+    if (!track) {
+      return false;
+    }
+
+    const region = track.regions.find(r => r.id === selectedRegionId);
+    if (!region) {
+      return false;
+    }
+
+    // Calculate the new start time (immediately after the region ends)
+    const newStartTime = region.endTime;
+    const regionDuration = region.endTime - region.startTime;
+    let newEndTime = newStartTime + regionDuration;
+
+    // If repeated region extends past project end, cut it to end at project end
+    if (newEndTime > durationRef.current) {
+      newEndTime = durationRef.current;
+    }
+
+    // Don't add if the new start time is beyond the project duration
+    if (newStartTime >= durationRef.current) {
+      return false;
+    }
+
+    // Add the repeated region and get the newly created region
+    const newRegion = track.addRegion(
+      region.key,
+      newStartTime,
+      region.offset,
+      newEndTime,
+      region.name,
+      false, // overwriteTrack
+      true   // recordUndo - record this for undo/redo
+    );
+
+    // Select the newly created region so the next Ctrl+R will repeat it
+    if (newRegion) {
+      selectRegion(newRegion.id, selectedTrackId);
+    }
+
+    return true;
+  }, [selectedRegionId, selectedTrackId, selectRegion]);
+
+  // Undo handler
+  const undo = useCallback(() => {
+    if (!trackManagerRef.current) {
+      return false;
+    }
+    return undoManager.undo(trackManagerRef.current);
+  }, []);
+
+  // Redo handler
+  const redo = useCallback(() => {
+    if (!trackManagerRef.current) {
+      return false;
+    }
+    return undoManager.redo(trackManagerRef.current);
   }, []);
 
   useEffect(() => {
@@ -170,7 +355,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
       console.log('Recording stopped');
 
       const track = trackManagerRef.current.getTrack('recording-track');
-      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', true);
+      const overwriteTrack = recordingModeRef.current === 'take';
+      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true);
     };
     
     const handleRecordingError = (error) => {
@@ -218,9 +404,25 @@ export function DAWProvider({ children, trackData, isCollab }) {
         setRecordingTrackHasAudio(false);
       }
     };
+
+    const handleRegionRemoved = (data) => {
+      // Clear selection if the removed region was selected
+      if (selectedRegionId === data.region.id && selectedTrackId === data.trackId) {
+        clearSelection();
+      }
+      handleRegionsUpdated(data);
+    };
     
     const handleDurationChange = (data) => {
       setDuration(data.duration);
+    };
+
+    // Undo/Redo state change handler
+    const handleUndoStateChange = (data) => {
+      setCanUndo(data.canUndo);
+      setCanRedo(data.canRedo);
+      setUndoDescription(data.undoDescription);
+      setRedoDescription(data.redoDescription);
     };
     
     // Register event listeners
@@ -236,10 +438,11 @@ export function DAWProvider({ children, trackData, isCollab }) {
     eventBus.on(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
     eventBus.on(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
     eventBus.on(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
-    eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
+    eventBus.on(DAW_EVENTS.REGION.REMOVED, handleRegionRemoved);
     eventBus.on(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
+    eventBus.on(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
 
     // Return cleanup function
     return () => {
@@ -255,12 +458,13 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
       eventBus.off(DAW_EVENTS.TRANSPORT.SEEK, handleSeek);
       eventBus.off(DAW_EVENTS.REGION.ADDED, handleRegionsUpdated);
-      eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionsUpdated);
+      eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionRemoved);
       eventBus.off(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
+      eventBus.off(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
     };
-  }, []); 
+  }, [selectedRegionId, selectedTrackId, clearSelection]); 
 
   const recordPlay = async () => {
     if (!trackData || !isCollab || playRecordedRef.current) return;
@@ -319,6 +523,25 @@ export function DAWProvider({ children, trackData, isCollab }) {
       setTracksContainerWidth,
       recordingTrackHasAudio,
       isMonitoring,
+      recordingMode,
+      setRecordingMode,
+      gridLines,
+      updateGridLines,
+      selectedRegionId,
+      selectedTrackId,
+      selectRegion,
+      clearSelection,
+      copyRegion,
+      pasteRegion,
+      repeatRegion,
+      clipboard,
+      // Undo/Redo
+      canUndo,
+      canRedo,
+      undoDescription,
+      redoDescription,
+      undo,
+      redo,
     }}>
       {children}
     </DAWContext.Provider>

@@ -756,7 +756,7 @@ CREATE TABLE user_camps (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   camp_id INT REFERENCES camps(id) ON DELETE CASCADE NOT NULL,
-  role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'contributor')) DEFAULT 'contributor',
+  role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'contributor', 'owner')) DEFAULT 'contributor',
   joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, camp_id) -- User can only be in each camp once
 );
