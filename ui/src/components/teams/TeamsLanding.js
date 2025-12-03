@@ -1,14 +1,19 @@
 'use client';
-import { FaUsers, FaFolder, FaLock, FaChartLine } from 'react-icons/fa';
+import { FaUsers, FaFolder, FaLock, FaChartLine, FaDownload, FaMusic } from 'react-icons/fa';
 import LandingPage from '../shared/LandingPage';
 import { TEAM_PRODUCT_VERSIONS } from '../../../shared/utils/subscription';
 
 export default function TeamsLanding({ showBackButton = false, onBack }) {
   const features = [
     {
+      icon: <FaMusic />,
+      title: 'A New Approach to Collaborative Songwriting',
+      description: 'Think social media, but instead of sharing text-based posts and comments, you can share your ideas or comments through music, leading to truly inspired and organic collaboration.'
+    },
+    {
       icon: <FaUsers />,
-      title: 'Collaborate with Your Team',
-      description: 'Asynchronous and effortless collaboration. Invite team members and work together on tracks in a shared workspace.'
+      title: 'Invite Your Team',
+      description: 'Invite your team members to asynchronously collaborate on tracks in a shared workspace. All contributions are timestamped and credited to the contributor.'
     },
     {
       icon: <FaFolder />,
@@ -24,6 +29,11 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
       icon: <FaChartLine />,
       title: 'Shared Upload Pool',
       description: 'Team members share upload limits, making collaboration seamless.'
+    },
+    {
+      icon: <FaDownload />,
+      title: 'Export Stems',
+      description: 'When a track gains momentum, export the stems to use in your DAW to turn the idea into a full song.'
     }
   ];
 
@@ -38,7 +48,7 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
       image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/team-folder.png`,
       alt: 'Inside a team folder showing tracks organized within a project',
       title: 'View Tracks in Context',
-      description: 'Open any folder to see all tracks organized within it. Upload tracks directly to folders and keep your projects structured.'
+      description: 'Open any folder to see all tracks organized within it. Expand any track to see all its collaborators and their contributions. Upload tracks directly to folders and keep your projects structured.'
     },
     {
       image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/DAW-collaboration.png`,
@@ -52,7 +62,7 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
     <LandingPage
       title="Teams"
       icon={FaUsers}
-      subtitle="Collaborate with your team on music projects. Asynchronous and effortless—share tracks, organize folders, and work together seamlessly."
+      subtitle="Streamline your collaborative writing process. Asynchronous and effortless—share tracks, organize folders, and seamlessly build on each other's ideas."
       ctaText="Create Team"
       createRoute="/teams/create"
       showBackButton={showBackButton}

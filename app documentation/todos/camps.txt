@@ -4,3 +4,4 @@
 - allow camp version upgrade to allow more users
 - key field
 - camp ended screen
+- camp/song export with contributor list + split sheet generator
