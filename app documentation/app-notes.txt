@@ -206,6 +206,19 @@ eventually:
 - longer recording limit (5 minutes for free, 10 minutes for premium)
 
 
+Teams:
+- subscription feature that allows groups of users to collaborate on tracks in a private, shared workspace.
+- 10, 25, 50, 100 user plans (shared upload pool for team members)
+- includes a dashbaord with track feed, folders, and members
+- users can export stems from tracks to use in their DAW to turn the idea into a full song
+
+Camps:
+- feature that allows groups of users to collaborate on tracks in a private, shared workspace for a 1 week writing camp.
+- 10, 25, 50, 100 user plans (shared upload pool for camp members)
+- includes a dashboard with beat pool, rooms, tracks, and activity feed
+- users can export stems from tracks to use in their DAW to turn the idea into a full song
+
+
 
 LEGAL
 - option to allow others to 'steal' (use) the track?

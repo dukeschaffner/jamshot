@@ -46,6 +46,7 @@
     "date-fns": "^4.1.0",
     "howler": "^2.2.4",
     "js-cookie": "^3.0.5",
+    "jszip": "^3.10.1",
     "next": "15.2.0",
     "next-navigation-guard": "^0.1.2",
     "prop-types": "^15.8.1",
