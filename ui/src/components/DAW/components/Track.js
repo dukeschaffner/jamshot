@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import styles from './Track.module.css';
+import contextMenuStyles from './ContextMenu.module.css';
 import Region from './Region';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
@@ -23,7 +24,12 @@ const Track = ({
   const [recordingWidth, setRecordingWidth] = useState(0);
   
   // Get DAW context for recording state and playhead position
-  const { isRecording, playheadLocation, duration, isCollab } = useDAW();
+  const { isRecording, playheadLocation, duration, isCollab, clipboard, pasteRegion, tracksContainerWidth } = useDAW();
+  
+  // Context menu state
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [pasteTime, setPasteTime] = useState(null);
 
   const durationRef = useRef(duration);
 
@@ -82,7 +88,7 @@ const Track = ({
 
   // Update recording width when recording and playhead position changes
   useEffect(() => {
-    if (!track.readonly && isRecording && duration > 0) {
+    if (track.isRecordingTrack && isRecording && duration > 0) {
       const currentPos = (playheadLocation.time / duration) * 100;
       const indicatorWidth = currentPos - recordingStartPos;
       setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
@@ -189,10 +195,144 @@ const Track = ({
     }
   };
 
+  // Handle right-click on track for context menu
+  const handleTrackContextMenu = (e) => {
+    // Don't show track context menu if clicking on a region (regions handle their own)
+    // Check if the click target or its parents have region-related classes
+    let target = e.target;
+    while (target && target !== e.currentTarget) {
+      if (target.className && typeof target.className === 'string' && 
+          (target.className.includes('region') || target.className.includes('Region'))) {
+        return;
+      }
+      target = target.parentElement;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isRecording) return;
+    
+    // Calculate time position based on click location
+    // Find the tracksAndTimelineContainer parent to match timeline calculation
+    if (trackRef.current && duration > 0 && tracksScrollContainerRef && tracksScrollContainerRef.current) {
+      // Find the tracksAndTimelineContainer by traversing up the DOM
+      let container = trackRef.current.parentElement;
+      while (container && !container.className?.toString().includes('tracksAndTimelineContainer')) {
+        container = container.parentElement;
+      }
+      
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const timePosition = (clickX / rect.width) * duration;
+        setPasteTime(Math.max(0, Math.min(timePosition, duration)));
+      }
+    }
+    
+    // Emit event to close other context menus
+    eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'track' });
+    
+    // Position context menu at mouse position
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowContextMenu(true);
+  };
+
+  // Handle paste from context menu
+  const handleTrackPaste = () => {
+    if (isRecording) return;
+    
+    if (clipboard && clipboard.trackId === track.id) {
+      // Use pasteTime if available (from right-click position), otherwise use playhead
+      pasteRegion(pasteTime !== null ? pasteTime : undefined);
+    }
+    setShowContextMenu(false);
+    setPasteTime(null);
+  };
+
+  // Check if paste is available for this track
+  const canPaste = clipboard && clipboard.trackId === track.id;
+
+  // Handle click outside context menu to close it
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowContextMenu(false);
+    };
+    
+    if (showContextMenu) {
+      document.addEventListener('click', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [showContextMenu]);
+
+  // Listen for other context menus opening and close this one
+  useEffect(() => {
+    const handleOtherContextMenuOpen = (data) => {
+      // Close this context menu if another one opens (unless it's this same one)
+      if (data.source !== 'track') {
+        setShowContextMenu(false);
+      }
+    };
+
+    eventBus.on(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+    };
+  }, []);
+
   return (
-    <div className={styles.track} ref={trackRef}>
-        {/* Recording indicator - shown during recording */}
-        {isRecording && !track.readonly && recordingWidth > 0 ? (
+    <div 
+      className={styles.track} 
+      ref={trackRef}
+      onContextMenu={handleTrackContextMenu}
+    >
+        {/* Always show regions when they exist */}
+        {regions.length > 0 ? (
+          regions.map((region, index) => (
+            region.active && (
+              <Region 
+                key={index}
+                region={region}
+                bufferKey={region.key} 
+                trackRef={trackRef} 
+                track={track} 
+                tracksScrollContainerRef={tracksScrollContainerRef}
+                isRecordingTrack={track.isRecordingTrack}
+              />
+            )
+          ))
+        ) : (
+          !isRecording && (
+            <div 
+              className={`${styles.emptyTrack} ${isDragOver ? styles.dragOver : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                document.getElementById(`audio-file-input-${track.id}`).click();
+              }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="empty-message">
+                <FontAwesomeIcon icon={faCloudUploadAlt} />
+                <span>Upload audio file or start recording</span>
+                <input 
+                  type="file" 
+                  id={`audio-file-input-${track.id}`}
+                  className={styles.fileUploadInput} 
+                  accept="audio/*"
+                  onChange={handleFileChange}
+                />
+              </div>
+            </div>
+          )
+        )}
+        {/* Recording indicator - shown as overlay during recording */}
+        {isRecording && track.isRecordingTrack && recordingWidth > 0 && (
           <div 
             className={styles.recordingIndicator}
             style={{
@@ -200,47 +340,27 @@ const Track = ({
               width: `${recordingWidth}%`
             }}
           />
-        ) : (
-          <>
-            {regions.length > 0 ? (
-              regions.map((region, index) => (
-                region.active && (
-                  <Region 
-                    key={index}
-                    region={region}
-                    bufferKey={region.key} 
-                    trackRef={trackRef} 
-                    track={track} 
-                    tracksScrollContainerRef={tracksScrollContainerRef}
-                    readonly={track.readonly}
-                  />
-                )
-              ))
-            ) : (
-              <div 
-                className={`${styles.emptyTrack} ${isDragOver ? styles.dragOver : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  document.getElementById(`audio-file-input-${track.id}`).click();
-                }}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
+        )}
+        
+        {/* Track Context Menu */}
+        {showContextMenu && (
+          <div 
+            className={contextMenuStyles.contextMenu} 
+            style={{ 
+              top: `${contextMenuPosition.y}px`, 
+              left: `${contextMenuPosition.x}px`
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {canPaste && (
+              <button 
+                onClick={handleTrackPaste}
+                disabled={isRecording}
               >
-                <div className="empty-message">
-                  <FontAwesomeIcon icon={faCloudUploadAlt} />
-                  <span>Upload audio file or start recording</span>
-                  <input 
-                    type="file" 
-                    id={`audio-file-input-${track.id}`}
-                    className={styles.fileUploadInput} 
-                    accept="audio/*"
-                    onChange={handleFileChange}
-                  />
-                </div>
-              </div>
+                Paste Region
+              </button>
             )}
-          </>
+          </div>
         )}
     </div>
   );

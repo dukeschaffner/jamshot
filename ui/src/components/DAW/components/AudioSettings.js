@@ -235,7 +235,7 @@ export default function AudioSettings({
               </label>
             </div>
             <p className={styles.helpText}>
-              When enabled, looper will snap to grid lines for more precise looping.
+              When enabled, looper and track regions will snap to grid lines while dragging.
             </p>
           </div>
         </div>

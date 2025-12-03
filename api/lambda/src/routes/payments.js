@@ -637,10 +637,10 @@ async function handleCampCreation(session) {
       [campName, startDate, endDate, userId, productVersion, campCode, session.id]
     );
 
-    // Add creator as admin to user_camps
+    // Add creator as owner to user_camps
     await db.query(
       `INSERT INTO user_camps (user_id, camp_id, role)
-       VALUES ($1, $2, 'admin')`,
+       VALUES ($1, $2, 'owner')`,
       [userId, campResult.rows[0].id]
     );
 

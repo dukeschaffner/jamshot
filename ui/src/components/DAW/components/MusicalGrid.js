@@ -7,7 +7,7 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 
 function MusicalGrid() {
-  const { isPlaying, metronomeOffset, timeSignature, metronomeBpm, duration, tracksContainerWidth } = useDAW();
+  const { isPlaying, metronomeOffset, timeSignature, metronomeBpm, duration, tracksContainerWidth, gridLines, updateGridLines } = useDAW();
 
   const [isDraggingOffset, setIsDraggingOffset] = useState(false);
   const offsetHandleRef = useRef(null);
@@ -21,72 +21,68 @@ function MusicalGrid() {
   const offsetSeconds = metronomeOffset * secondsPerMeasure;
   const offsetPosition = (offsetSeconds / duration) * 100;
 
-  const [gridLines, setGridLines] = useState([]);
-
   const height = 500;
   const minBeatPixelWidth = 10;
 
   // Generate musical grid lines
   useEffect(() => {
-  const generateGridLines = () => {
-    if(!timeSignature || !metronomeBpm || !duration || !secondsPerMeasure || !tracksContainerWidth) return [];
-    
-    const gridLines = [];
-    const offsetSeconds = metronomeOffset * secondsPerMeasure;
-    
-    // Calculate how many measures fit in the track
-    const totalMeasures = Math.ceil((duration - offsetSeconds) / secondsPerMeasure);
-    
-    // Generate measure lines (strong grid lines)
-    for (let measure = 0; measure <= totalMeasures; measure++) {
-      const measureTime = measure * secondsPerMeasure + offsetSeconds;
-      if (measureTime <= duration) {
-        const position = (measureTime / duration) * 100;
-        gridLines.push({
-          type: 'measure',
-          position,
-          time: measureTime,
-          measure: measure + 1
-        });
-      }
-    }
+    const generateGridLines = () => {
+      if(!timeSignature || !metronomeBpm || !duration || !secondsPerMeasure || !tracksContainerWidth) return [];
 
-    // If the beat pixel width is less than the minimum beat pixel width, 
-    // return only the measure lines
-    const beatPixelWidth = secondsPerBeat / duration * tracksContainerWidth;
-    if (beatPixelWidth < minBeatPixelWidth) {
-      return gridLines;
-    }
+      const gridLines = [];
+      const offsetSeconds = metronomeOffset * secondsPerMeasure;
 
-    // Calculate beat positions
-    const startBeat = beatsPerMeasure - Math.floor(offsetSeconds / secondsPerBeat);
-    const startBeatOffset = offsetSeconds % secondsPerBeat;
-    const endBeat = startBeat + Math.floor((duration - startBeatOffset) / secondsPerBeat);
-    
-    // Generate beat lines (weaker grid lines)
-    for (let beat = startBeat; beat <= endBeat; beat++) {
-      // Skip beats that fall on measure boundaries (already covered by measure lines)
-      if (beat % beatsPerMeasure !== 0) {
-        const beatTime = (beat - startBeat) * secondsPerBeat + startBeatOffset;
-        if (beatTime <= duration) {
-          const position = (beatTime / duration) * 100;
+      // Calculate how many measures fit in the track
+      const totalMeasures = Math.ceil((duration - offsetSeconds) / secondsPerMeasure);
+
+      // Generate measure lines (strong grid lines)
+      for (let measure = 0; measure <= totalMeasures; measure++) {
+        const measureTime = measure * secondsPerMeasure + offsetSeconds;
+        if (measureTime <= duration) {
+          const position = (measureTime / duration) * 100;
           gridLines.push({
-            type: 'beat',
+            type: 'measure',
             position,
-            time: beatTime,
-            beat: (beat % beatsPerMeasure) + 1
+            time: measureTime,
+            measure: measure + 1
           });
         }
       }
-    }
+
+      // If the beat pixel width is less than the minimum beat pixel width,
+      // return only the measure lines
+      const beatPixelWidth = secondsPerBeat / duration * tracksContainerWidth;
+      if (beatPixelWidth < minBeatPixelWidth) {
+        return gridLines;
+      }
+
+      // Calculate beat positions
+      const startBeat = beatsPerMeasure - Math.floor(offsetSeconds / secondsPerBeat);
+      const startBeatOffset = offsetSeconds % secondsPerBeat;
+      const endBeat = startBeat + Math.floor((duration - startBeatOffset) / secondsPerBeat);
+
+      // Generate beat lines (weaker grid lines)
+      for (let beat = startBeat; beat <= endBeat; beat++) {
+        // Skip beats that fall on measure boundaries (already covered by measure lines)
+        if (beat % beatsPerMeasure !== 0) {
+          const beatTime = (beat - startBeat) * secondsPerBeat + startBeatOffset;
+          if (beatTime <= duration) {
+            const position = (beatTime / duration) * 100;
+            gridLines.push({
+              type: 'beat',
+              position,
+              time: beatTime,
+              beat: (beat % beatsPerMeasure) + 1
+            });
+          }
+        }
+      }
       return gridLines;
     };
 
     const newGridLines = generateGridLines();
-    setGridLines(newGridLines);
-    
-    eventBus.emit(DAW_EVENTS.GRID.LINES_UPDATE, { gridLines: newGridLines });
-  }, [metronomeBpm, timeSignature, metronomeOffset, duration, secondsPerMeasure, tracksContainerWidth]);
+    updateGridLines(newGridLines);
+  }, [metronomeBpm, timeSignature, metronomeOffset, duration, secondsPerMeasure, tracksContainerWidth, updateGridLines]);
 
   // Handle metronome offset dragging
   const handleOffsetMouseDown = (e) => {

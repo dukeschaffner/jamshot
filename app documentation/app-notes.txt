@@ -16,6 +16,11 @@ TODO (MVP)
   - handle sample rate mismatch (should input device determine sample rate?)
   - handle stereo input devices
   - handle if user blocked mic access
+  - region splitting
+  - region looping
+  - what to do with takes list?
+  - snap strenth
+  - playhead snap
 - how to page with tutorials
 - handle notification spamming
 - display uploads left in nav?
@@ -25,8 +30,10 @@ TODO (MVP)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
-- multi region tracks
 - update region during playback
+- camps/teams - remove repost button from track component. make sure liked camp/team songs dont show up in user likes (maybe unless they are viewing their own page?)
+- what if project end is dragged before parent stem region ends?
+- export stems button on track ellipsis menu
 
 
 
@@ -35,6 +42,9 @@ BUGS
   - full play didnt get marked as complete play
 - got generic error when trying to enter my own competition: Competition entry validation failed
 - release notes infinite loop
+- short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
+- context menu displaying underneath the region on the below track
+- daw sometimes gets initialized twice (causes undo/redo bug)
 
 
 

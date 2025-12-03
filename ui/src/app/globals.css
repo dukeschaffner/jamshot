@@ -1911,7 +1911,6 @@ body.dark-mode .notification-panel {
 
 .custom-tabs {
   display: flex;
-  gap: 1rem;
   border-bottom: 1px solid var(--grey-2);
 }
 

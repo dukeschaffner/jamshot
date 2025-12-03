@@ -1,12 +1,16 @@
 'use client';
 
 import styles from './Region.module.css';
+import contextMenuStyles from './ContextMenu.module.css';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
 import WaveformChunk from './waveform/WaveformChunk';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
+import DAWConfig from '../misc/DAWConfig';
+import { snapToGrid, handleRegionOverlaps } from '../misc/DAWUtils';
+import { COMMAND_TYPES } from '../core/UndoManager';
 
 export default function Region({ 
   region,
@@ -14,10 +18,12 @@ export default function Region({
   trackRef,
   track,
   tracksScrollContainerRef,
-  readonly = false
+  isRecordingTrack = false
 }) {
-  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth } = useDAW();
+  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines, selectedRegionId, selectedTrackId, selectRegion, clearSelection, copyRegion, pasteRegion, repeatRegion, clipboard, trackManagerRef } = useDAW();
 
+
+  const musicGridLinesRef = useRef([]);
   const regionContainerRef = useRef(null);
   const waveformContainerRef = useRef(null);
   const [chunks, setChunks] = useState([]);
@@ -55,10 +61,18 @@ export default function Region({
   // Region dragging state
   const [isDraggingRegion, setIsDraggingRegion] = useState(false);
   const [regionStartPosBeforeDrag, setRegionStartPosBeforeDrag] = useState(0);
+  const hasDraggedRef = useRef(false);
+
+  // Store original state for undo tracking
+  const originalStateRef = useRef(null);
 
   // Context menu state
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+
+  // Grid snapping state
+  const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
+  const tracksContainerWidthRef = useRef(0);
 
   const [shouldRender, setShouldRender] = useState(true); // whether to render the region
 
@@ -96,14 +110,53 @@ export default function Region({
       setStartTime(region.startTime);
       setEndTime(region.endTime);
       setOffset(region.offset);
-      const regionWidth = (region.endTime - region.startTime) / duration;
+      const regionWidth = (region.endTime - region.startTime) / duration * 100;
       setWidth(regionWidth);
-      
+
       // Set initial region position
       const regionLeftPos = region.startTime / duration * 100;
       setRegionLeftPos(regionLeftPos);
     }
   }, [bufferKey, track, duration]);
+
+  // Update local state when region prop changes (e.g., when trimmed by another region)
+  useEffect(() => {
+    if (!region || !duration) return;
+
+    setStartTime(region.startTime);
+    setEndTime(region.endTime);
+    setOffset(region.offset);
+    const regionWidth = (region.endTime - region.startTime) / duration * 100;
+    setWidth(regionWidth);
+
+    // Update region position
+    const regionLeftPos = region.startTime / duration * 100;
+    setRegionLeftPos(regionLeftPos);
+  }, [region, duration]);
+
+
+  useEffect(() => {
+    musicGridLinesRef.current = gridLines;
+  }, [gridLines]);
+
+  // Event listeners for grid updates
+  useEffect(() => {
+    const handleSnapToGridChange = (data) => {
+      setSnapToGridEnabled(data.snapToGridEnabled);
+    };
+
+    // Listen for grid snap toggle events
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, handleSnapToGridChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    tracksContainerWidthRef.current = tracksContainerWidth;
+  }, [tracksContainerWidth]);
+
 
   useEffect(() => {
     if (!buffer || !tracksContainerWidth || !duration) return;
@@ -119,9 +172,24 @@ export default function Region({
   const handleRegionMouseDown = (e) => {
     e.stopPropagation();
     // Only allow dragging if not playing or recording
-    if (isPlaying || isRecording || readonly) return;
+    if (isRecording) return;
+    
+    // Select region immediately on left click
+    selectRegion(region.id, track.id);
+    
+    // Capture original state for undo
+    originalStateRef.current = {
+      startTime: region.startTime,
+      endTime: region.endTime,
+      offset: region.offset,
+      key: region.key,
+      duration: region.duration,
+      active: region.active,
+      name: region.name
+    };
     
     setIsDraggingRegion(true);
+    hasDraggedRef.current = false;
     setDragStartX(e.clientX);
     const regionLeftPixels = regionLeftPos * tracksContainerWidth / 100;
     setRegionStartPosBeforeDrag(regionLeftPixels);
@@ -132,7 +200,10 @@ export default function Region({
     e.preventDefault();
     e.stopPropagation();
     
-    if (isPlaying || isRecording || readonly) return;
+    if (isRecording) return;
+    
+    // Emit event to close other context menus (including other regions)
+    eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'region', regionId: region.id });
     
     // Position context menu at mouse position
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
@@ -141,18 +212,106 @@ export default function Region({
 
   // Handle region deletion
   const handleRegionDelete = () => {
-    if (isPlaying || isRecording || readonly) return;
-
+    if (isRecording) return;
+    
+    // Prevent deletion if this is the only region left in a non-recording track
     if (track && region) {
+      if(!isRecordingTrack) {
+      const activeRegions = track.getActiveRegions();
+        if (activeRegions.length <= 1) {
+          // Don't allow deletion of the last region in non-recording tracks
+          setShowContextMenu(false);
+          return;
+        }
+      }
+      
       eventBus.emit(DAW_EVENTS.REGION.REMOVE, {
         region: region,
         trackId: track.id
       });
     }
-    
+
     // Hide context menu
     setShowContextMenu(false);
   };
+
+  // Handle copy region
+  const handleRegionCopy = () => {
+    if (isRecording) return;
+    
+    selectRegion(region.id, track.id);
+    copyRegion();
+    setShowContextMenu(false);
+  };
+
+  // Handle paste region
+  const handleRegionPaste = () => {
+    if (isRecording) return;
+    
+    if (clipboard && clipboard.trackId === track.id) {
+      pasteRegion();
+    }
+    setShowContextMenu(false);
+  };
+
+  // Handle repeat region
+  const handleRegionRepeat = () => {
+    if (isRecording) return;
+    
+    // Select the region first if not already selected
+    if (!isSelected) {
+      selectRegion(region.id, track.id);
+    }
+    
+    // Calculate the new start time (immediately after the region ends)
+    const newStartTime = region.endTime;
+    const regionDuration = region.endTime - region.startTime;
+    let newEndTime = newStartTime + regionDuration;
+
+    // If repeated region extends past project end, cut it to end at project end
+    if (newEndTime > duration) {
+      newEndTime = duration;
+    }
+
+    // Don't add if the new start time is beyond the project duration
+    if (newStartTime >= duration) {
+      setShowContextMenu(false);
+      return;
+    }
+
+    // Add the repeated region directly using track manager
+    if (trackManagerRef && trackManagerRef.current) {
+      const trackInstance = trackManagerRef.current.getTrack(track.id);
+      if (trackInstance) {
+        const newRegion = trackInstance.addRegion(
+          region.key,
+          newStartTime,
+          region.offset,
+          newEndTime,
+          region.name,
+          false, // overwriteTrack
+          true   // recordUndo - record this for undo/redo
+        );
+        
+        // Select the newly created region so the next Ctrl+R will repeat it
+        if (newRegion) {
+          selectRegion(newRegion.id, track.id);
+        }
+      }
+    }
+    
+    setShowContextMenu(false);
+  };
+
+  // Check if this region is selected
+  const isSelected = selectedRegionId === region.id && selectedTrackId === track.id;
+  
+  // Check if paste is available for this track
+  const canPaste = clipboard && clipboard.trackId === track.id;
+  
+  // Check if delete should be shown (hide if it's the last region in a non-recording track)
+  const canDelete = isRecordingTrack || (track && track.getActiveRegions().length > 1);
+
 
   // Handle click outside context menu to close it
   useEffect(() => {
@@ -169,11 +328,39 @@ export default function Region({
     };
   }, [showContextMenu]);
 
+  // Listen for other context menus opening and close this one
+  useEffect(() => {
+    const handleOtherContextMenuOpen = (data) => {
+      // Close this context menu if another one opens
+      // If it's a region context menu, only keep it open if it's for this same region
+      if (data.source === 'region') {
+        if (data.regionId !== region.id) {
+          setShowContextMenu(false);
+        }
+      } else {
+        // Close for any non-region context menu (track, timeline, etc.)
+        setShowContextMenu(false);
+      }
+    };
+
+    eventBus.on(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
+    };
+  }, [region.id]);
+
   // Mouse event handlers for region dragging
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDraggingRegion) return;
       const deltaX = e.clientX - dragStartX;
+      
+      // Track that the mouse has moved (dragged)
+      if (Math.abs(deltaX) > 1) {
+        hasDraggedRef.current = true;
+      }
+      
       const newLeftPos = regionStartPosBeforeDrag + deltaX;
       
       // Get the tracks scroll container bounds
@@ -195,36 +382,60 @@ export default function Region({
       }
       
       const newRegionLeftPos = boundedLeftPos / tracksContainerWidth * 100;
-      setRegionLeftPos(newRegionLeftPos);
+      const snappedRegionLeftPos = snapToGrid(newRegionLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+      setRegionLeftPos(snappedRegionLeftPos);
     };
     
     const handleMouseUp = (e) => {
       e.stopPropagation();
+      const wasDragging = hasDraggedRef.current;
       setIsDraggingRegion(false);
-      
-      // Update the region's start time based on new position
-      if (track && bufferKey && duration && tracksContainerWidth) {
-        const newStartTime = (regionLeftPos / 100) * duration;
+      hasDraggedRef.current = false;
+
+      // Only update the region's start time if it was actually dragged
+      if (wasDragging && track && bufferKey && duration && tracksContainerWidth) {
+        // Use the snapped position for calculating the new start time
+        const snappedRegionLeftPos = snapToGrid(regionLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+        const newStartTime = (snappedRegionLeftPos / 100) * duration;
         const regionDuration = endTime - startTime;
         const newEndTime = newStartTime + regionDuration;
-        
+
+        // Check for overlaps with other regions and handle them
+        handleRegionOverlaps(track, region.id, newStartTime, newEndTime, track.id, eventBus, DAW_EVENTS);
+
         // Update the region in the track
         const updatedRegion = {
           ...region,
           startTime: newStartTime,
           endTime: newEndTime
         };
-        
-        // Emit event to update the track manager
+
+        // Build action metadata for undo if position actually changed
+        const shouldRecordUndo = originalStateRef.current && 
+            (originalStateRef.current.startTime !== newStartTime || 
+             originalStateRef.current.endTime !== newEndTime);
+
+        // Emit event to update the track manager (with optional undo action metadata)
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
           region: updatedRegion,
-          trackId: track.id
+          trackId: track.id,
+          ...(shouldRecordUndo && {
+            action: {
+              canUndo: true,
+              type: COMMAND_TYPES.REGION_MOVE,
+              before: { ...originalStateRef.current },
+              description: 'Move Region'
+            }
+          })
         });
-        
+
         // Update local state
         setStartTime(newStartTime);
         setEndTime(newEndTime);
       }
+      
+      // Clear original state reference
+      originalStateRef.current = null;
     };
     
     if (isDraggingRegion) {
@@ -236,7 +447,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime]);
+  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, snapToGridEnabled, selectRegion]);
 
   // #endregion
 
@@ -276,23 +487,46 @@ export default function Region({
 
   // Handle mouse down on crop start handle
   const handleCropStartMouseDown = (e) => {
-    if (readonly) return;
     e.stopPropagation();
+    
+    // Capture original state for undo
+    originalStateRef.current = {
+      startTime: region.startTime,
+      endTime: region.endTime,
+      offset: region.offset,
+      key: region.key,
+      duration: region.duration,
+      active: region.active,
+      name: region.name
+    };
+    
     setIsDraggingCropStart(true);
     setDragStartX(e.clientX);
   };
 
   // Handle mouse down on crop end handle
   const handleCropEndMouseDown = (e) => {
-    if (readonly) return;
     e.stopPropagation();
+    
+    // Capture original state for undo
+    originalStateRef.current = {
+      startTime: region.startTime,
+      endTime: region.endTime,
+      offset: region.offset,
+      key: region.key,
+      duration: region.duration,
+      active: region.active,
+      name: region.name
+    };
+    
     setIsDraggingCropEnd(true);
     setDragStartX(e.clientX);
   };
 
   // Check if mouse is hovering near edges to show crop handles
   const handleWaveformMouseMove = (e) => {
-    if (!regionContainerRef.current || readonly) return;
+    // Allow trimming for non-recording tracks (isRecordingTrack is false)
+    if (!regionContainerRef.current) return;
     
     const rect = regionContainerRef.current.getBoundingClientRect();
     const leftEdgeZone = rect.left + 15; // 15px from left edge
@@ -335,7 +569,7 @@ export default function Region({
         const cropEndX = cropEndOverlayRef.current?.getBoundingClientRect().left;
         const cropBuffer = 5 * (regionRect.width / 100);
         let newCropX = 0;
-        
+
         if (e.clientX < regionRect.left || e.clientX < trackRect.left) {
           newCropX = Math.max(regionRect.left, trackRect.left);
         } else if (cropEndX && e.clientX > cropEndX - cropBuffer) {
@@ -345,7 +579,20 @@ export default function Region({
         }
 
         const relativePos = (newCropX - regionRect.left) / regionRect.width * 100;
-        setCropStartPercentage(relativePos);
+
+        // Apply grid snapping to crop start position
+        const regionCropDuration = regionCropWidth / 100 * duration;
+        const regionCropLeftTime = regionCropLeftPos / 100 * duration;
+        const proposedCropStartTime = regionCropLeftTime + (relativePos / 100) * regionCropDuration;
+        const proposedTrackPercentage = (proposedCropStartTime / duration) * 100;
+        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+        const snappedCropStartTime = (snappedTrackPercentage / 100) * duration;
+
+        // Convert back to relative position within crop area
+        const snappedRelativePos = ((snappedCropStartTime - regionCropLeftTime) / regionCropDuration) * 100;
+        const clampedRelativePos = Math.max(0, Math.min(100, snappedRelativePos));
+
+        setCropStartPercentage(clampedRelativePos);
       }
       
       // Handle crop end dragging
@@ -353,7 +600,7 @@ export default function Region({
         const cropStartX = cropStartOverlayRef.current?.getBoundingClientRect().right;
         const buffer = 5 * (regionRect.width / 100);
         let newCropX = 0;
-        
+
         if (e.clientX > regionRect.right) {
           newCropX = regionRect.right;
         } else if (cropStartX && e.clientX < cropStartX + buffer) {
@@ -363,7 +610,20 @@ export default function Region({
         }
 
         const relativePos = (regionRect.right - newCropX) / regionRect.width * 100;
-        setCropEndPercentage(relativePos);
+
+        // Apply grid snapping to crop end position
+        const regionCropDuration = regionCropWidth / 100 * duration;
+        const regionCropLeftTime = regionCropLeftPos / 100 * duration;
+        const proposedCropEndTime = regionCropLeftTime + regionCropDuration - (relativePos / 100) * regionCropDuration;
+        const proposedTrackPercentage = (proposedCropEndTime / duration) * 100;
+        const snappedTrackPercentage = snapToGrid(proposedTrackPercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+        const snappedCropEndTime = (snappedTrackPercentage / 100) * duration;
+
+        // Convert back to relative position within crop area
+        const snappedRelativePos = ((regionCropLeftTime + regionCropDuration - snappedCropEndTime) / regionCropDuration) * 100;
+        const clampedRelativePos = Math.max(0, Math.min(100, snappedRelativePos));
+
+        setCropEndPercentage(clampedRelativePos);
       }
     };
     
@@ -383,15 +643,26 @@ export default function Region({
         if (isDraggingCropStart && cropStartPercentage >= 0) {
           const cropTime = (cropStartPercentage / 100) * regionCropDuration;
           newStartTime = regionCropLeftTime + cropTime;
+          // Snap the new start time to grid
+          const newStartTimePercentage = (newStartTime / duration) * 100;
+          const snappedStartPercentage = snapToGrid(newStartTimePercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+          newStartTime = (snappedStartPercentage / 100) * duration;
           newOffset = offset + newStartTime - startTime;
         }
-        
+
         // If cropping from end, update end time
         if (isDraggingCropEnd && cropEndPercentage >= 0) {
           const cropTime = (cropEndPercentage / 100) * regionCropDuration;
           newEndTime = regionCropLeftTime + regionCropDuration - cropTime;
+          // Snap the new end time to grid
+          const newEndTimePercentage = (newEndTime / duration) * 100;
+          const snappedEndPercentage = snapToGrid(newEndTimePercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+          newEndTime = (snappedEndPercentage / 100) * duration;
         }
         
+        
+        // Check for overlaps with other regions and handle them
+        handleRegionOverlaps(track, region.id, newStartTime, newEndTime, track.id, eventBus, DAW_EVENTS);
         
         // Update the region in the track 
         const updatedRegion = {
@@ -401,10 +672,24 @@ export default function Region({
           offset: newOffset
         };
         
-        // Emit event to update the track manager
+        // Build action metadata for undo if crop actually changed something
+        const shouldRecordUndo = originalStateRef.current && 
+            (originalStateRef.current.startTime !== newStartTime || 
+             originalStateRef.current.endTime !== newEndTime ||
+             originalStateRef.current.offset !== newOffset);
+        
+        // Emit event to update the track manager (with optional undo action metadata)
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
           region: updatedRegion,
-          trackId: track.id
+          trackId: track.id,
+          ...(shouldRecordUndo && {
+            action: {
+              canUndo: true,
+              type: COMMAND_TYPES.REGION_CROP,
+              before: { ...originalStateRef.current },
+              description: 'Crop Region'
+            }
+          })
         });
         
         // Update local state
@@ -415,6 +700,9 @@ export default function Region({
 
       setIsDraggingCropStart(false);
       setIsDraggingCropEnd(false);
+      
+      // Clear original state reference
+      originalStateRef.current = null;
     };
     
     if (isDraggingCropStart || isDraggingCropEnd) {
@@ -426,7 +714,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, cropStartPercentage, cropEndPercentage, buffer, region]);
+  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, cropStartPercentage, cropEndPercentage, buffer, region, regionCropLeftPos, regionCropWidth]);
 
   // #endregion
 
@@ -484,14 +772,15 @@ export default function Region({
 
   return (
     <div 
-      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''}`} 
+      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''} ${isSelected ? styles.selected : ''}`} 
       style={{ 
         width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : width}%`, 
         height: '100%',
         left: `${isDraggingCropStart || isDraggingCropEnd ? regionCropLeftPos : regionLeftPos}%`,
-        cursor: isPlaying || isRecording || readonly ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
+        cursor: isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
       }}
       ref={regionContainerRef}
+      onClick={e => e.stopPropagation()}
       onMouseDown={handleRegionMouseDown}
       onMouseMove={handleWaveformMouseMove}
       onMouseLeave={handleWaveformMouseLeave}
@@ -530,7 +819,7 @@ export default function Region({
         </div>
       </div>
       {/* Crop handles */}
-      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && !readonly && (
+      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && (
       <>
         <div 
           className={`${styles.cropHandle} ${styles.cropHandleLeft}`}
@@ -564,7 +853,7 @@ export default function Region({
     {/* Context Menu */}
     {showContextMenu && (
       <div 
-        className={styles.contextMenu} 
+        className={contextMenuStyles.contextMenu} 
         style={{ 
           top: `${contextMenuPosition.y}px`, 
           left: `${contextMenuPosition.x}px`
@@ -572,11 +861,33 @@ export default function Region({
         onClick={(e) => e.stopPropagation()}
       >
         <button 
-          onClick={handleRegionDelete}
-          style={{ color: '#ff3b30' }}
+          onClick={handleRegionCopy}
+          disabled={isRecording}
         >
-          Delete Region
+          Copy Region
         </button>
+        {canPaste && (
+          <button 
+            onClick={handleRegionPaste}
+            disabled={isRecording}
+          >
+            Paste Region
+          </button>
+        )}
+        <button 
+          onClick={handleRegionRepeat}
+          disabled={isRecording}
+        >
+          Add Repeat ({navigator.platform.toLowerCase().includes('mac') ? 'Cmd+R' : 'Ctrl+R'})
+        </button>
+        {canDelete && (
+          <button 
+            onClick={handleRegionDelete}
+            style={{ color: '#ff3b30' }}
+          >
+            Delete Region
+          </button>
+        )}
       </div>
     )}
     </div>
