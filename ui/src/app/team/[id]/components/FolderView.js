@@ -33,11 +33,11 @@ function FolderView({ team, folderId }) {
           setFolder(foundFolder);
         } else {
           // Folder not found, redirect back to dashboard
-          router.replace(`/teams/${team.id}`);
+          router.replace(`/team/${team.id}`);
         }
       } catch (err) {
         console.error('Error fetching folder:', err);
-        router.replace(`/teams/${team.id}`);
+        router.replace(`/team/${team.id}`);
       } finally {
         setIsLoadingFolder(false);
       }
@@ -77,7 +77,7 @@ function FolderView({ team, folderId }) {
   }, [expandedTrackId, handleTrackExpansion, team.id, team.user_role, folderId]);
 
   const handleBackToDashboard = () => {
-    router.push(`/teams/${team.id}`);
+    router.push(`/team/${team.id}`);
   };
 
   const isContributor = () => {
@@ -97,7 +97,7 @@ function FolderView({ team, folderId }) {
     try {
       await teamApi.deleteFolder(team.id, parseInt(folderId));
       showSuccess('Folder Deleted', 'The folder has been deleted successfully. Tracks have been preserved.');
-      router.push(`/teams/${team.id}`);
+      router.push(`/team/${team.id}`);
     } catch (err) {
       console.error('Error deleting folder:', err);
       const errorMessage = err.response?.data?.error || 'Failed to delete folder';

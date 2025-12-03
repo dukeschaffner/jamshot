@@ -36,7 +36,7 @@ function TeamFoldersTab({ team }) {
   }, [team?.id]);
 
   const handleFolderClick = (folder) => {
-    router.push(`/teams/${team.id}?folderId=${folder.id}`);
+    router.push(`/team/${team.id}?folderId=${folder.id}`);
   };
 
   const handleCreateSuccess = (newFolder) => {
