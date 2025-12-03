@@ -136,7 +136,7 @@ export default function UploadForm({
           if (campId) {
             router.push(`/camp/${campId}`);
           } else if (teamId) {
-            router.push(`/teams/${teamId}`);
+            router.push(`/team/${teamId}`);
           } else if (createCompetition) {
             router.push(`/competition/create?track=${trackId}`);
           } else {

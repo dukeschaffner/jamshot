@@ -17,7 +17,7 @@ export default function TeamsPage() {
 
     // If authenticated and has exactly 1 team, redirect to that team's dashboard
     if (isAuthenticated && user?.teams?.length === 1) {
-      router.replace(`/teams/${user.teams[0].id}`);
+      router.replace(`/team/${user.teams[0].id}`);
     }
   }, [isAuthenticated, isLoading, user, router]);
 

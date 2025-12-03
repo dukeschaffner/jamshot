@@ -50,7 +50,7 @@ export default function TeamsList({ teams }) {
           <div
             key={team.id}
             className={styles.teamCard}
-            onClick={() => router.push(`/teams/${team.id}`)}
+            onClick={() => router.push(`/team/${team.id}`)}
           >
             <div className={styles.teamCardContent}>
               <div className={styles.teamIcon}>
