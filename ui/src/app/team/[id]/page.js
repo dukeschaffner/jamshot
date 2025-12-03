@@ -56,7 +56,7 @@ export default function TeamDashboard() {
       
       if (isAlreadyMember) {
         // User is already a member, just remove code from URL and fetch details
-        router.replace(`/teams/${teamId}`);
+        router.replace(`/team/${teamId}`);
         // Continue to fetch details below
       } else {
         // User is not a member, validate the invite code
@@ -66,7 +66,7 @@ export default function TeamDashboard() {
             // Successfully joined, refresh user context to update teams array
             await refreshUser();
             // Refresh to show dashboard without code in URL
-            router.replace(`/teams/${teamId}`);
+            router.replace(`/team/${teamId}`);
             return;
           }
         } catch (err) {
@@ -166,7 +166,7 @@ export default function TeamDashboard() {
 
   if (!isAuthenticated) {
     // Build redirect URL with current path and query params
-    const currentPath = `/teams/${teamId}`;
+    const currentPath = `/team/${teamId}`;
     const redirectUrl = inviteCode 
       ? `${currentPath}?code=${encodeURIComponent(inviteCode)}`
       : currentPath;

@@ -48,13 +48,13 @@ function TeamCreatedClient() {
 
   const handleViewTeam = () => {
     if (team) {
-      router.push(`/teams/${team.id}`);
+      router.push(`/team/${team.id}`);
     }
   };
 
   const handleShareInvite = () => {
     if (team) {
-      const inviteUrl = `${window.location.origin}/teams/${team.id}?code=${team.team_code}`;
+      const inviteUrl = `${window.location.origin}/team/${team.id}?code=${team.team_code}`;
       navigator.clipboard.writeText(inviteUrl).then(() => {
         // Could add a toast notification here
         alert('Invite link copied to clipboard!');
@@ -190,7 +190,7 @@ function TeamCreatedClient() {
           <p>Share this link with collaborators you want to add to your team:</p>
           <div className={sharedStyles.inviteLink}>
             <code>
-              {`${window.location.origin}/teams/${team.id}?code=${team.team_code}`}
+              {`${window.location.origin}/team/${team.id}?code=${team.team_code}`}
             </code>
             <button
               onClick={handleShareInvite}

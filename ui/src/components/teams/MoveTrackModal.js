@@ -4,7 +4,7 @@ import { teamApi, campApi } from '../../lib/api';
 import { useToast } from '../../lib/ToastContext';
 import { FaTimes, FaFolder, FaDoorOpen } from 'react-icons/fa';
 import sharedStyles from '../../styles/Dashboard.module.css';
-import styles from '../../app/teams/[id]/TeamDashboard.module.css';
+import styles from '../../app/team/[id]/TeamDashboard.module.css';
 
 /**
  * Generic modal for moving tracks to folders (teams) or rooms (camps)

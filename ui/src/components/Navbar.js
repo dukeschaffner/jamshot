@@ -47,7 +47,7 @@ export default function Navbar() {
     if (!isAuthenticated || !user?.teams || user.teams.length === 0) {
       return '/teams'; // Landing page
     } else if (user.teams.length === 1) {
-      return `/teams/${user.teams[0].id}`; // Direct to team dashboard
+      return `/team/${user.teams[0].id}`; // Direct to team dashboard
     } else {
       return '/teams'; // List page
     }
