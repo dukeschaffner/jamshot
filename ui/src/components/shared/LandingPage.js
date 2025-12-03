@@ -2,7 +2,8 @@
 import { useRouter } from 'next/navigation';
 import { useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { FaCheckCircle, FaArrowRight } from 'react-icons/fa';
+import { FaCheckCircle, FaArrowRight, FaExternalLinkAlt } from 'react-icons/fa';
+import Link from 'next/link';
 import { useUser } from '../../contexts/UserContext';
 import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../shared/utils/subscription';
 import styles from './LandingPage.module.css';
@@ -19,7 +20,8 @@ export default function LandingPage({
   screenshots,
   planFilter = (plans) => plans.filter(([version]) => version !== TEAM_PRODUCT_VERSIONS.ENTERPRISE),
   customPlans = null, // If provided, use these instead of TEAM_PLANS
-  pricePeriod = '/month' // Default to monthly, can be overridden (e.g., 'one-time')
+  pricePeriod = '/month', // Default to monthly, can be overridden (e.g., 'one-time')
+  alternativeLink = null // Optional: { text, href } for cross-linking to other product
 }) {
   const router = useRouter();
   const { isAuthenticated } = useUser();
@@ -153,6 +155,15 @@ export default function LandingPage({
               </div>
             ))}
           </div>
+          {alternativeLink && (
+            <div className={styles.alternativeLinkSection}>
+              <p className={styles.alternativeLinkText}>{alternativeLink.text}</p>
+              <Link href={alternativeLink.href} className={styles.alternativeLink}>
+                {alternativeLink.linkText}
+                <FaExternalLinkAlt />
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
