@@ -8,7 +8,8 @@ import LoadingSpinner from './LoadingSpinner';
 import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen, FaFileArchive } from 'react-icons/fa';
+import JSZip from 'jszip';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
 import CommentSection from './CommentSection';
@@ -51,6 +52,7 @@ export default function Track(
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [moveModalType, setMoveModalType] = useState(null); // 'folder' or 'room'
   const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [isExportingStems, setIsExportingStems] = useState(false);
   const actionsMenuRef = useRef(null);
   const { showSuccess, showError } = useToast();
 
@@ -213,6 +215,79 @@ export default function Track(
         alert('Failed to copy link to clipboard');
         setIsLinkCopied(false);
       });
+  };
+
+  const handleExportStems = async (e) => {
+    e.stopPropagation();
+    setShowActionsMenu(false);
+    
+    if (isExportingStems) return;
+    setIsExportingStems(true);
+    
+    try {
+      // Fetch stems data from the API
+      const stemsResponse = await api.get(`/tracks/${track.id}/stems`);
+      const stems = stemsResponse.data;
+      
+      if (!stems || stems.length === 0) {
+        showError('No stems available for this track');
+        return;
+      }
+      
+      // Create a new ZIP file
+      const zip = new JSZip();
+      
+      // Download each stem and add to ZIP
+      for (let i = 0; i < stems.length; i++) {
+        const stem = stems[i];
+        try {
+          // Fetch the audio file
+          const audioResponse = await fetch(stem.audio_url);
+          if (!audioResponse.ok) {
+            throw new Error(`Failed to fetch stem: ${stem.title}`);
+          }
+          
+          const audioBlob = await audioResponse.blob();
+          
+          // Determine file extension from URL or default to .mp3
+          const urlPath = new URL(stem.audio_url).pathname;
+          const extension = urlPath.match(/\.(mp3|wav|m4a|webm|ogg)$/i)?.[0] || '.mp3';
+          
+          // Create a safe filename
+          const safeTitle = (stem.title || `Stem ${i + 1}`).replace(/[^a-z0-9\s\-\_]/gi, '').trim();
+          const filename = `${String(i + 1).padStart(2, '0')} - ${safeTitle}${extension}`;
+          
+          zip.file(filename, audioBlob);
+        } catch (stemError) {
+          console.error(`Error fetching stem ${stem.title}:`, stemError);
+          // Continue with other stems even if one fails
+        }
+      }
+      
+      // Generate the ZIP file
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      
+      // Create download link
+      const safeTrackTitle = track.title.replace(/[^a-z0-9\s\-\_]/gi, '').trim();
+      const zipFilename = `${safeTrackTitle} - Stems.zip`;
+      
+      const downloadLink = document.createElement('a');
+      downloadLink.href = URL.createObjectURL(zipBlob);
+      downloadLink.download = zipFilename;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      // Clean up the object URL
+      URL.revokeObjectURL(downloadLink.href);
+      
+      showSuccess('Stems exported successfully!');
+    } catch (err) {
+      console.error('Error exporting stems:', err);
+      showError('Failed to export stems. Please try again.');
+    } finally {
+      setIsExportingStems(false);
+    }
   };
 
   const navigateToUserProfile = (e) => {
@@ -494,6 +569,17 @@ export default function Track(
                       }}
                     >
                       <FaDoorOpen /> Move to Room
+                    </button>
+                  )}
+                  
+                  {/* Export Stems option (camp or team context only) */}
+                  {(campContext || teamContext) && (
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={handleExportStems}
+                      disabled={isExportingStems}
+                    >
+                      <FaFileArchive /> {isExportingStems ? 'Exporting...' : 'Export Stems'}
                     </button>
                   )}
                 </div>
