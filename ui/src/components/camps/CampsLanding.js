@@ -132,6 +132,11 @@ export default function CampsLanding({ showBackButton = false, onBack }) {
       screenshots={screenshots}
       customPlans={campPlans}
       pricePeriod="one-time"
+      alternativeLink={{
+        text: "Need ongoing collaboration with a monthly subscription?",
+        linkText: "Check out Teams",
+        href: "/teams/about"
+      }}
     />
   );
 }
