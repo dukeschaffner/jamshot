@@ -70,6 +70,11 @@ export default function TeamsLanding({ showBackButton = false, onBack }) {
       features={features}
       screenshots={screenshots}
       planFilter={(plans) => plans.filter(([version]) => version !== TEAM_PRODUCT_VERSIONS.ENTERPRISE)}
+      alternativeLink={{
+        text: "Not looking for a monthly subscription? Need these features for a short time frame?",
+        linkText: "Check out Songwriting Camps",
+        href: "/camps/about"
+      }}
     />
   );
 }
