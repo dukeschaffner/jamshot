@@ -1,13 +1,18 @@
 'use client';
-import { FaCampground, FaFolder, FaLock, FaChartLine } from 'react-icons/fa';
+import { FaCampground, FaFolder, FaLock, FaChartLine, FaMusic, FaDownload } from 'react-icons/fa';
 import LandingPage from '../shared/LandingPage';
 
 export default function CampsLanding({ showBackButton = false, onBack }) {
   const features = [
     {
+      icon: <FaMusic />,
+      title: 'A New Approach to Collaborative Songwriting',
+      description: 'Think social media, but instead of sharing text-based posts and comments, you can share your ideas or comments through music, leading to truly inspired and organic collaboration.'
+    },
+    {
       icon: <FaCampground />,
       title: 'Collaborate with Your Camp',
-      description: 'Asynchronous and effortless collaboration. Invite camp members and work together on tracks in a shared workspace.'
+      description: 'Asynchronous and effortless collaboration. Invite camp members and work together on tracks in a shared workspace. All contributions are timestamped and credited to the contributor.'
     },
     {
       icon: <FaFolder />,
@@ -23,18 +28,29 @@ export default function CampsLanding({ showBackButton = false, onBack }) {
       icon: <FaChartLine />,
       title: 'Shared Upload Pool',
       description: 'Camp members share upload limits, making collaboration seamless.'
+    },
+    {
+      icon: <FaDownload />,
+      title: 'Export Stems',
+      description: 'When a track gains momentum, export the stems to use in your DAW to turn the idea into a full song.'
     }
   ];
 
   const screenshots = [
     {
-      image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/team-folders.png`,
+      image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/camp-beat-pool.png`,
+      alt: 'Beat pool view showing available beats',
+      title: 'Beat Pool',
+      description: 'Upload beats to the beat pool to share with your camp. Other camp members can add their ideas to the beats that resonate with them.'
+    },
+    {
+      image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/camp-rooms.png`,
       alt: 'Camp rooms view showing organized project rooms',
       title: 'Organize Projects with Rooms',
       description: 'Create rooms to organize your camp\'s tracks by project, album, or any structure that works for your workflow.'
     },
     {
-      image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/team-folder.png`,
+      image: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/images/static/camp-room.png`,
       alt: 'Inside a camp room showing tracks organized within a project',
       title: 'View Tracks in Context',
       description: 'Open any room to see all tracks organized within it. Upload tracks directly to rooms and keep your projects structured.'
@@ -107,7 +123,7 @@ export default function CampsLanding({ showBackButton = false, onBack }) {
     <LandingPage
       title="Songwriting Camps"
       icon={FaCampground}
-      subtitle="Collaborate with your camp on music projects. Asynchronous and effortless—share tracks, organize rooms, and work together seamlessly."
+      subtitle="Streamline your collaborative writing process. Asynchronous and effortless—share tracks, organize rooms, and seamlessly build on each other's ideas."
       ctaText="Create Camp"
       createRoute="/camps/create"
       showBackButton={showBackButton}

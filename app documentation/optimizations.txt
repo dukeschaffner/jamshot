@@ -2,6 +2,7 @@
 
 TRACKS:
 - move old/cold tracks to a different s3 bucket
+- camp/team track stem export: zip file should include folder with raw stems and a folder with rendered stems (in case the stems were chopped/rearranged)
 
 
 CAMPS:
