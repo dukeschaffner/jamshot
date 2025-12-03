@@ -299,6 +299,35 @@
   margin: 0 0 32px 0;
 }
 
+/* Alternative Link Section */
+.alternativeLinkSection {
+  text-align: center;
+  padding: 32px 20px;
+  margin-bottom: 40px;
+}
+
+.alternativeLinkText {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.alternativeLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--seafoam);
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.alternativeLink:hover {
+  color: var(--seafoam-dark);
+  text-decoration: underline;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .landingContainer {
