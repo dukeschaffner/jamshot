@@ -8,7 +8,7 @@ function InviteLinkModal({ title, entityType, entityId, inviteCode, onClose }) {
 
   useEffect(() => {
     if (entityId && inviteCode) {
-      const path = entityType === 'team' ? 'teams' : 'camp';
+      const path = entityType === 'team' ? 'team' : 'camp';
       const link = `${window.location.origin}/${path}/${entityId}?code=${inviteCode}`;
       setInviteLink(link);
     }
