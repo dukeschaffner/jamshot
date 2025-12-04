@@ -1,50 +1,77 @@
-# Welcome to your Expo app 👋
+# Jamshot Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native mobile app built with Expo for the Jamshot music collaboration platform.
 
-## Get started
+## Getting Started
 
-1. Install dependencies
+### Prerequisites
 
-   ```bash
-   npm install
-   ```
+- Node.js (v18 or higher)
+- npm or yarn
+- Expo CLI (`npm install -g expo-cli`)
 
-2. Start the app
+### Installation
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+1. Install dependencies:
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Start the development server:
+```bash
+npm start
+```
 
-## Learn more
+3. Run on iOS simulator:
+```bash
+npm run ios
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+4. Run on Android emulator:
+```bash
+npm run android
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Project Structure
 
-## Join the community
+```
+mobile/
+├── app/                    # Expo Router app directory
+│   ├── (tabs)/            # Tab navigation screens
+│   │   ├── index.js      # Home feed screen
+│   │   ├── search.js     # Search screen (placeholder)
+│   │   ├── record.js     # Record screen (placeholder)
+│   │   └── profile.js    # Profile screen (placeholder)
+│   └── _layout.js        # Root layout
+├── components/            # Reusable components
+│   ├── Track.js          # Track component
+│   └── TrackMeta.js       # Track metadata component
+├── lib/                   # Utilities and helpers
+│   └── api.js            # API client setup
+└── shared/                # Shared code with web app
+    ├── api/              # API client factory
+    ├── types/            # Type definitions
+    └── utils/            # Utility functions
+```
 
-Join our community of developers creating universal apps.
+## Features
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **Home Feed**: Browse tracks from Following or Popular feeds
+- **Track Component**: Display track info with play/pause, likes, reposts, and collabs
+- **Navigation**: Bottom tab navigation (Home, Search, Record, Profile)
+
+## Environment Variables
+
+Create a `.env` file in the mobile directory:
+
+```
+EXPO_PUBLIC_API_URL=https://your-api-url.com/api
+```
+
+## Development Notes
+
+- Uses Expo Router for file-based routing
+- API client is shared with web app via `shared/api`
+- Styling follows the web app's design system (seafoam green, rustic pink)
+- Placeholder screens are ready for future implementation
+
