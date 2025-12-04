@@ -1,15 +1,21 @@
-import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TrackMeta from './TrackMeta';
 import { colors } from '../styles/global';
+import { useAudio } from '../contexts/AudioContext';
 
 export default function Track({ track }) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { currentTrack, isPlaying, playTrack, togglePlayPause, setDiscoveryMethod } = useAudio();
+  const isCurrentTrack = currentTrack?.id === track.id;
 
-  const handlePlayToggle = () => {
-    setIsPlaying(!isPlaying);
-    // TODO: Implement audio playback
+  const handlePlayToggle = (e) => {
+    e.stopPropagation();
+    if (isCurrentTrack) {
+      togglePlayPause();
+    } else {
+      setDiscoveryMethod('feed');
+      playTrack(track, []);
+    }
   };
 
   const handlePress = () => {
@@ -27,7 +33,7 @@ export default function Track({ track }) {
           activeOpacity={0.8}
         >
           <Ionicons
-            name={isPlaying ? 'pause' : 'play'}
+            name={isCurrentTrack && isPlaying ? 'pause' : 'play'}
             size={24}
             color={colors.white}
           />
