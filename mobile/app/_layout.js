@@ -8,6 +8,13 @@ export default function RootLayout() {
       <AudioProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen 
+            name="daw" 
+            options={{ 
+              presentation: 'fullScreenModal',
+              animation: 'slide_from_bottom',
+            }} 
+          />
         </Stack>
       </AudioProvider>
     </SafeAreaProvider>
