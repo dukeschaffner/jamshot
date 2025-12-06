@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import Track from '../../components/Track';
 import { useApi } from '../../lib/api';
 import { colors, buttonStyles, buttonTextStyles } from '../../styles/global';
@@ -8,6 +10,7 @@ import { colors, buttonStyles, buttonTextStyles } from '../../styles/global';
 const TRACKS_PER_PAGE = 5;
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -16,6 +19,10 @@ export default function HomeScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const api = useApi();
+
+  const openDAW = () => {
+    router.push('/daw');
+  };
 
   const fetchTracks = useCallback(async (pageNum = 1, append = false) => {
     try {
@@ -95,7 +102,13 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Home Feed</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Home Feed</Text>
+          <TouchableOpacity style={styles.dawButton} onPress={openDAW}>
+            <Ionicons name="musical-notes" size={18} color={colors.white} />
+            <Text style={styles.dawButtonText}>DAW</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.subtitle}>
           Check out the latest tracks from artists you follow and trending collaborations
         </Text>
@@ -152,11 +165,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.grey2,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.textPrimary,
-    marginBottom: 4,
+  },
+  dawButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.seafoam,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+  },
+  dawButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   subtitle: {
     fontSize: 14,

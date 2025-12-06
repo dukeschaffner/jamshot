@@ -114,6 +114,18 @@ TODO (after beta testing)
 
 
 
+LEGAL
+- option to allow others to 'steal' (use) the track?
+- splitting royalties if song uploaded
+
+
+
+
+
+
+
+
+
 About
 This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
 
@@ -219,7 +231,15 @@ Camps:
 - users can export stems from tracks to use in their DAW to turn the idea into a full song
 
 
+Progress:
+- Responsive web app
+  - fully featured with social feed, profile, search, DAW, Teams, and Camps
+  - DAW only available on desktop
 
-LEGAL
-- option to allow others to 'steal' (use) the track?
-- splitting royalties if song uploaded
+In Progress:
+- Mobile app with JUCE Tracktion engine based DAW
+
+Future:
+- Electron Desktop app with JUCE Tracktion engine based DAW
+- Sterio plugin to allow users to explore and record audio in their own DAW
+

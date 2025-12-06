@@ -19,3 +19,8 @@ web-build/
 .env.local
 .env.*.local
 
+
+android/
+ios/
+native/
+plugins/
