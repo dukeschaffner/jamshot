@@ -25,12 +25,12 @@ export default function BeatCard({ beat, campId }) {
 
   const handleStartIdea = () => {
     // Navigate to track page with camp context
-    router.push(`/track/${beat.id}?camp_id=${campId}`);
+    router.push(`/track/${beat.guid}?camp_id=${campId}`);
   };
 
   const handleCardClick = () => {
     // Navigate to beat details page
-    router.push(`/track/${beat.id}`);
+    router.push(`/track/${beat.guid}`);
   };
 
   return (

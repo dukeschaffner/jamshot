@@ -564,7 +564,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *',
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key, guid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, gen_random_uuid()) RETURNING *',
         [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key]
     );
 
@@ -785,14 +785,17 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
 
+    // Use the numeric ID from accessCheck for the actual query
+    const trackId = accessCheck.track.id;
+
     let baseQuery;
     let queryParams;
     if (userId) {
       baseQuery = getBaseTrackSelectQuery(true, 2, true);
-      queryParams = [id, userId];
+      queryParams = [trackId, userId];
     } else {
       baseQuery = getBaseTrackSelectQuery(false, 1, true);
-      queryParams = [id];
+      queryParams = [trackId];
     }
 
     const result = await pool.query(`
@@ -1631,14 +1634,16 @@ router.get('/:id/tree', async (req, res) => {
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
 
+    const trackId = accessCheck.track.id;
+
     let baseQuery;
     let queryParams;
     if (userId) {
       baseQuery = getBaseTrackSelectQuery(true, 2, false);
-      queryParams = [id, userId];
+      queryParams = [trackId, userId];
     } else {
       baseQuery = getBaseTrackSelectQuery(false, 1, false);
-      queryParams = [id];
+      queryParams = [trackId];
     }
     
     // First, get the current track

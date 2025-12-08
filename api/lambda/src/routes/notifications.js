@@ -39,6 +39,10 @@ router.get('/', async (req, res) => {
           ELSE t.title 
         END AS track_title,
         CASE 
+          WHEN n.type = 'follow_request' THEN NULL
+          ELSE t.guid 
+        END AS track_guid,
+        CASE 
           WHEN n.type = 'follow_request' THEN u_related.username
           ELSE u_actor.username
         END AS actor_username,

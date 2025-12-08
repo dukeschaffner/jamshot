@@ -34,6 +34,8 @@ TODO (MVP)
 - camps/teams - remove repost button from track component. make sure liked camp/team songs dont show up in user likes (maybe unless they are viewing their own page?)
 - what if project end is dragged before parent stem region ends?
 - export stems button on track ellipsis menu
+- finish track id -> track guid migration (competition create page)
+  - team/camp id -> team/camp guid migration
 
 
 

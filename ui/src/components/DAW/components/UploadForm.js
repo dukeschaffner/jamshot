@@ -111,7 +111,7 @@ export default function UploadForm({
   }, [title]);
 
   // Poll processing status
-  const pollProcessingStatus = useCallback(async (trackId, startTime = Date.now()) => {
+  const pollProcessingStatus = useCallback(async (trackId, trackGuid, startTime = Date.now()) => {
     try {
       // Check if we've exceeded the 5-minute timeout (300,000 ms)
       const elapsedTime = Date.now() - startTime;
@@ -131,7 +131,7 @@ export default function UploadForm({
       setProcessingError(status.error);
 
       if (status.status === 'completed') {
-        // Processing is done, redirect
+        // Processing is done, redirect using GUID for public-facing URLs
         setTimeout(() => {
           if (campId) {
             router.push(`/camp/${campId}`);
@@ -140,7 +140,7 @@ export default function UploadForm({
           } else if (createCompetition) {
             router.push(`/competition/create?track=${trackId}`);
           } else {
-            router.push(`/track/${trackId}`);
+            router.push(`/track/${trackGuid}`);
           }
         }, 100);
       } else if (status.status === 'failed') {
@@ -149,7 +149,7 @@ export default function UploadForm({
         setIsUploading(false);
       } else {
         // Still processing, poll again in 3 seconds
-        setTimeout(() => pollProcessingStatus(trackId, startTime), 3000);
+        setTimeout(() => pollProcessingStatus(trackId, trackGuid, startTime), 3000);
       }
     } catch (err) {
       console.error('Error polling processing status:', err);
@@ -317,7 +317,7 @@ export default function UploadForm({
 
       // Start polling for processing status
       setProcessingStatus('processing');
-      pollProcessingStatus(uploadedTrack.id);
+      pollProcessingStatus(uploadedTrack.id, uploadedTrack.guid);
 
     } catch (err) {
       console.error('Upload error:', err);
