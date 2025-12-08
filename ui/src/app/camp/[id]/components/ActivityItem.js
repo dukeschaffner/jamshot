@@ -28,7 +28,7 @@ function ActivityItem({ activity }) {
   };
 
   const handleClick = () => {
-    router.push(`/track/${data.id}`);
+    router.push(`/track/${data.guid}`);
   };
 
   return (

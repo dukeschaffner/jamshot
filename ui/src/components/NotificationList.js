@@ -38,8 +38,8 @@ export default function NotificationList({
       // Navigate to the user profile who started following
       router.push(`/user/${notification.actor_username}`);
     } else {
-      // Navigate to the track
-      router.push(`/track/${notification.related_track_id}`);
+      // Navigate to the track using GUID
+      router.push(`/track/${notification.track_guid}`);
     }
   };
 

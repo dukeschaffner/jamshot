@@ -51,8 +51,8 @@ export default function GlobalPlayer() {
   // Navigation functions
   const navigateToTrack = (e) => {
     e.stopPropagation();
-    if (currentTrack && currentTrack.id) {
-      router.push(`/track/${currentTrack.id}`);
+    if (currentTrack && currentTrack.guid) {
+      router.push(`/track/${currentTrack.guid}`);
     }
   };
 

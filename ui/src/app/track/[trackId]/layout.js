@@ -48,11 +48,11 @@ export async function generateMetadata({ params }) {
     };
   }
 
-  // Build the full URL for this track
+  // Build the full URL for this track using GUID for public-facing URLs
   // In development, use localhost. In production, use the site URL or default.
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
     (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://sterio.fm');
-  const trackUrl = `${baseUrl}/track/${trackId}`;
+  const trackUrl = `${baseUrl}/track/${track.guid}`;
 
   // Use profile picture as the image, or a default
   // Ensure image URL is absolute

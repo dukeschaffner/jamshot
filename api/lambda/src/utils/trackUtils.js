@@ -114,7 +114,7 @@ async function getTrackInstruments(trackId) {
 // Generate a standardized base query for track selection
 function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, includeDetails = true) {
   const baseQuery = `
-    t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
+    t.id, t.guid, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature, t.allow_download,
     t.competition_id, t.is_competition_entry,
     u.username, u.verified, u.profile_pic_url, u.is_private AS creator_is_private,
@@ -448,15 +448,22 @@ function generateStandardTrackFilename(type = 'raw', base = null) {
 }
 
 // Check if a user has access to a private track
-async function checkTrackAccess(trackId, userId = null, secretToken = null) {
+// trackIdOrGuid can be either an integer ID or a UUID GUID
+async function checkTrackAccess(trackIdOrGuid, userId = null, secretToken = null) {
+  // Determine if we received a GUID (UUID format) or an integer ID
+  const isGuid = typeof trackIdOrGuid === 'string' && 
+                 trackIdOrGuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  
+  const whereClause = isGuid ? 't.guid = $1' : 't.id = $1';
+  
   const trackCheck = await pool.query(
-    `SELECT t.id, t.user_id, t.is_private, t.secret_token, t.parent_track_id, 
+    `SELECT t.id, t.guid, t.user_id, t.is_private, t.secret_token, t.parent_track_id, 
             t.camp_id, t.team_id,
             p.is_private as parent_is_private, p.secret_token as parent_secret_token
      FROM tracks t
      LEFT JOIN tracks p ON t.parent_track_id = p.id
-     WHERE t.id = $1`,
-    [trackId]
+     WHERE ${whereClause}`,
+    [trackIdOrGuid]
   );
   
   if (trackCheck.rows.length === 0) {
@@ -464,6 +471,7 @@ async function checkTrackAccess(trackId, userId = null, secretToken = null) {
   }
   
   const track = trackCheck.rows[0];
+  const trackId = track.id; // Use the numeric ID for internal queries
   
   // Check camp access if track belongs to a camp
   if (track.camp_id) {

@@ -86,7 +86,8 @@ function TrackContent() {
     setIsPrivacyToggleInProgress(true);
     
     try {
-      const response = await api.put(`/tracks/${trackId}/privacy`, {
+      // Use numeric ID for API calls
+      const response = await api.put(`/tracks/${track.id}/privacy`, {
         is_private: !isPrivate
       });
       
@@ -113,13 +114,15 @@ function TrackContent() {
 
   const handleCopyLink = async () => {
     const baseUrl = window.location.origin;
-    let trackUrl = `${baseUrl}/track/${trackId}`;
+    // Use the track's GUID for the public-facing URL
+    let trackUrl = `${baseUrl}/track/${track.guid}`;
     
     // If track is private, get the secret token from the API
     if (isPrivate && isTrackOwner) {
       try {
         setIsLinkCopied(true); // Show loading state
-        const response = await api.post(`/tracks/${trackId}/share`);
+        // Use numeric ID for API calls
+        const response = await api.post(`/tracks/${track.id}/share`);
         trackUrl += `?secret=${response.data.secretToken}`;
       } catch (err) {
         console.error('Failed to generate share link:', err);
@@ -159,7 +162,8 @@ function TrackContent() {
     setIsDeleteInProgress(true);
     
     try {
-      const response = await api.delete(`/tracks/${trackId}`);
+      // Use numeric ID for API calls
+      const response = await api.delete(`/tracks/${track.id}`);
       
       // Show appropriate message based on deletion type
       if (response.data.soft_delete) {
@@ -255,7 +259,7 @@ function TrackContent() {
            />
          </div>
          <div className="track-controls">
-           <Link href={`/tree/${trackId}`} className="pill-btn">
+           <Link href={`/tree/${track.guid}`} className="pill-btn">
              <FaProjectDiagram className="explore-icon" />
              <span>Explore</span>
            </Link>
@@ -280,7 +284,7 @@ function TrackContent() {
       </div>
       {activeTab === 'comments' && (
         <div className="comments-container">
-          <CommentSection trackId={trackId} />
+          <CommentSection trackId={track.id} />
         </div>
       )}
       {activeTab === 'edit' && isTrackOwner && (

@@ -70,7 +70,7 @@ export default function SponsoredCompetition({
 
   const handleEnterCompetition = () => {
     if (competition) {
-      router.push(`/track/${competition.track.id}`);
+      router.push(`/track/${competition.track.guid}`);
     }
   };
 

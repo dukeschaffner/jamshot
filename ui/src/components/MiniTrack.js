@@ -53,7 +53,7 @@ export default function MiniTrack(
   
   const navigateToTrack = (e) => {
     e.stopPropagation();
-    router.push(`/track/${track.id}`);
+    router.push(`/track/${track.guid}`);
   };
   
   return (

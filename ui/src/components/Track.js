@@ -188,7 +188,7 @@ export default function Track(
     e.stopPropagation();
     
     const baseUrl = window.location.origin;
-    let trackUrl = `${baseUrl}/track/${track.id}`;
+    let trackUrl = `${baseUrl}/track/${track.guid}`;
     
     // If track is private, get the secret token from the API
     if (track.is_private && currentUser.id === track.user_id) {
@@ -299,7 +299,7 @@ export default function Track(
 
   const navigateToTrack = (e) => {
     e.stopPropagation();
-    router.push(`/track/${track.id}`);
+    router.push(`/track/${track.guid}`);
   };
 
   // Competition button helpers
@@ -363,7 +363,7 @@ export default function Track(
       onEnterCompetition();
     } else {
       // Fallback to normal track navigation
-      let url = `/track/${track.id}`;
+      let url = `/track/${track.guid}`;
       const params = new URLSearchParams();
       
       // Include camp_id or team_id, but not both (prioritize camp_id)
@@ -601,7 +601,7 @@ export default function Track(
               className="pill-btn pink-btn sm" 
               onClick={(e) => {
                 e.stopPropagation();
-                let url = `/track/${track.id}`;
+                let url = `/track/${track.guid}`;
                 const params = new URLSearchParams();
                 
                 // Include camp_id or team_id, but not both (prioritize camp_id)

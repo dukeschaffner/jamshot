@@ -139,7 +139,7 @@ export default function CompetitionDetailPage() {
 
     try {
       // Navigate to track page with competition context
-      router.push(`/track/${competition.track.id}?competition=${competition.id}`);
+      router.push(`/track/${competition.track.guid}?competition=${competition.id}`);
     } catch (err) {
       console.error('Error entering competition:', err);
       setError('Failed to enter competition. Please try again.');
