@@ -61,7 +61,7 @@ function CreateCompetitionClient() {
     try {
       setLoadingTracks(true);
       const response = await trackApi.getUserTracks(user.id);
-      setUserTracks(response.data || []);
+      setUserTracks(response.data?.tracks || []);
     } catch (err) {
       console.error('Error loading tracks:', err);
       setError('Failed to load your tracks');
