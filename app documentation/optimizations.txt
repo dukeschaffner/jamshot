@@ -1,4 +1,5 @@
-
+DAW:
+- Clear buffer registry unused/old buffers
 
 TRACKS:
 - move old/cold tracks to a different s3 bucket

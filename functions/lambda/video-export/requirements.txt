@@ -1,0 +1,18 @@
+# Database - install latest version for Python 3.13 compatibility
+psycopg2-binary
+
+# AWS/R2
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Audio processing
+librosa>=0.10.1
+numpy>=1.24.3
+
+# Video/Image processing
+Pillow>=10.2.0
+moviepy>=1.0.3
+
+# HTTP
+requests>=2.31.0
+

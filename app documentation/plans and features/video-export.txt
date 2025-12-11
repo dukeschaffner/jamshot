@@ -1,0 +1,13 @@
+track video export:
+- waveform viz, showing user profile pics, names, sterio watermark, etc
+    - for collabs, divide the screen into a section for each track in the collab so that it can be visualized independently
+- vertical orientation
+- python lambda function to generate video
+- save to R2 bucket (add policy to delete after 3 days of no access)
+
+todo:
+- update graphics
+- add optimized sterio watermark
+- lifecycle rules
+- make sure individual track audio is rendered correctly
+- add track names
