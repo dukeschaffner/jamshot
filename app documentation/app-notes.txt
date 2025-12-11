@@ -6,6 +6,15 @@ node ./functions/lambda/audio-processing/dev-start.js
 
 
 TODO (MVP)
+
+before launch:
+- home feed - filters (genre, instrument, requested instrument, layer)
+- DAW - help section indicating how to use audio from their own DAW, how to allow audio access
+- check genres (make sure rap and all instruments are included)
+- video export with waveform viz, showing user profile pics, names, watermark, etc
+- post upload screen with option to copy track link or export video
+
+
 - analytics
   - analytics opt out
     - user opts out -> unique anonymous id is created? anonymize track play data
@@ -18,9 +27,9 @@ TODO (MVP)
   - handle if user blocked mic access
   - region splitting
   - region looping
-  - what to do with takes list?
   - snap strenth
   - playhead snap
+  - multiple recording tracks for camp/team DAW
 - how to page with tutorials
 - handle notification spamming
 - display uploads left in nav?
@@ -36,6 +45,7 @@ TODO (MVP)
 - export stems button on track ellipsis menu
 - finish track id -> track guid migration (competition create page)
   - team/camp id -> team/camp guid migration
+- report track (abuse, copyright infringement, not actually a collab, etc)
 
 
 
@@ -63,7 +73,6 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
-- b2b model (churches, studios, etc)
 - dont save recording if stopped during count in.
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
 - create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
@@ -220,6 +229,13 @@ eventually:
 - longer recording limit (5 minutes for free, 10 minutes for premium)
 
 
+DAW:
+- tracks:
+  - DAW always has a recording track. it also has 1 track for each collab.
+  - when a user is collabing, they have full control over the recording track (record, delete, etc)
+  - users have limited control over the collab tracks (delete, trim, etc). they cannot record on them and there must always be at least one region in each collab track. users can trim/copy/paste regions on a track, but cannot move regions between tracks.
+- user can select audio input device. they can record audio from their own DAW by using loopback audio.
+
 Teams:
 - subscription feature that allows groups of users to collaborate on tracks in a private, shared workspace.
 - 10, 25, 50, 100 user plans (shared upload pool for team members)
@@ -238,10 +254,8 @@ Progress:
   - fully featured with social feed, profile, search, DAW, Teams, and Camps
   - DAW only available on desktop
 
-In Progress:
-- Mobile app with JUCE Tracktion engine based DAW
-
 Future:
 - Electron Desktop app with JUCE Tracktion engine based DAW
 - Sterio plugin to allow users to explore and record audio in their own DAW
+- Mobile app with JUCE Tracktion engine based DAW
 
