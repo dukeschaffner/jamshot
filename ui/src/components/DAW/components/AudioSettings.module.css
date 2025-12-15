@@ -73,6 +73,7 @@
   font-size: 14px;
   background-color: white;
   transition: border-color 0.2s;
+  display: block;
 }
 
 .formControl:focus {
@@ -134,6 +135,21 @@
   color: #666;
   margin-top: 4px;
   line-height: 1.4;
+}
+
+/* Help Link */
+.helpLink {
+  display: inline-block;
+  font-size: 12px;
+  color: #007aff;
+  margin-top: 8px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.helpLink:hover {
+  color: #0062cc;
+  text-decoration: underline;
 }
 
 /* Toggle Container */
