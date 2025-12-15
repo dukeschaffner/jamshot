@@ -46,6 +46,14 @@ before launch:
 - finish track id -> track guid migration (competition create page)
   - team/camp id -> team/camp guid migration
 - report track (abuse, copyright infringement, not actually a collab, etc)
+- for camps and teams, save lossless audio for stem export
+- add “Your friends listened to…” tracks to feed
+- maybe tik tok style feed view?
+  - user-wide canvas video that plays in tik tok feed view
+    - ~8s duration
+    - 16:9 aspect ratio
+    - can be updated any time
+    - plays for all tracks by that user
 
 
 
@@ -138,7 +146,7 @@ LEGAL
 
 
 About
-This is an app/website that allows music artists to collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
+This is an app/website that allows music artists to asynchronously collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach audio files onto the original recording as a new version. the app would have a like/ranking system and have a featured page to show popular collabs.
 
 Tech Stack/integrations:
 - Frontend: Next.js hosted on AWS Amplify
@@ -163,6 +171,7 @@ Goals/VALUE
 - tracks around 30-90s will be prioritized in the algorithm to make it simple, fun, and pair well with short form video content like Tik Tok.
 - The equivalent of going from books/publications to posts on social media. New content is released daily and from more sources, and just as social media posts allow you to comment your textual thoughts/ideas on someone else's textual posts, with this app, you can comment your musical thoughts/ideas on someone else's musical posts
 - the simple DAW makes it easy to get into music recording
+- collaborative starter - frictionless, transactional collaboration. if a collab resonates, the artists can export to bandlab, soundtrap, etc to continue the collaboration. this allows artists to find collaborators and have a solid idea/connections BEFORE having to do administrative work like project setup.
 
 Features
 - home feed with tracks/collabs posted by user's follows mixed with popular tracks
@@ -198,13 +207,12 @@ Collabs:
 MONETIZATION
 - ads
 - premium subscription
-- selling samples
-- streaming revenue from published collabs
+- (maybe) streaming revenue from published collabs
 - pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
 - sponsored competitions from audio companies (best Sketch Cassette track)
 
 FREE
-- 3 Upload/day
+- 3 Uploads/day
 - 25 total uploads
 - ads (post MVP)
 
@@ -230,11 +238,15 @@ eventually:
 
 
 DAW:
+- simple and easy to use DAW that allows users to record audio and add it to a track as a collab
 - tracks:
   - DAW always has a recording track. it also has 1 track for each collab.
   - when a user is collabing, they have full control over the recording track (record, delete, etc)
   - users have limited control over the collab tracks (delete, trim, etc). they cannot record on them and there must always be at least one region in each collab track. users can trim/copy/paste regions on a track, but cannot move regions between tracks.
 - user can select audio input device. they can record audio from their own DAW by using loopback audio.
+
+
+camps and teams: shared musical scratchpad
 
 Teams:
 - subscription feature that allows groups of users to collaborate on tracks in a private, shared workspace.

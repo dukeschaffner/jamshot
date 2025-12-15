@@ -1,0 +1,20 @@
+
+gamification:
+record user point values: status and momentum
+
+users can gain points by:
+- receiving likes
+- receiving reposts
+- receiving collabs
+- receiving plays
+- receiving follows
+- winning competitions
+- getting featured somewhere (maybe top 10 collabs of the week or something)
+
+momentum = status / time (ie change in status points over the last week)
+show status and momentum where user details are displayed
+
+status and momentum leaderboards (filter by genre?) - drives exploration
+
+competitions that are only for users with a certain status level
+

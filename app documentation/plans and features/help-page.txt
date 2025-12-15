@@ -1,0 +1,36 @@
+
+
+what:
+- a help page with articles and pictures explaining how to use various features of the app
+- should have a scrollable list of features that can be expanded to show article titles for that feature
+    ie: - Teams
+        - Camps
+        - DAW (expanded)
+            - how to use audio from your own DAW
+            - how to allow audio access
+these should link to the article content
+
+for now, lets just do the DAW feature with articles:
+- how to use audio from your own DAW
+- how to allow audio access
+
+when you are making the articles, you can leave image placeholders explaining the image that should go there, and I'll get the image and add it
+
+
+how to use your own DAW:
+a - loopback audio
+    - download loopback audio software (blackhole 2ch works great)
+    - set DAW to output to loopback audio
+    - in sterio, select loopback audio as the input device
+b - record audio in DAW (while track audio is playing in sterio), export as audio file, upload file to sterio DAW
+
+how to allow audio access:
+- (look up how to allow audio access on chromium browsers)
+    - if necessary, have different sections for different browsers
+
+
+
+todo:
+
+the helpcontainer shouldnt be scrollable. the sidebar and the article content container should be independently scrollable and should take up the remaining vertical space after the help header
+
