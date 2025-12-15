@@ -11,3 +11,11 @@ todo:
 - lifecycle rules
 - make sure individual track audio is rendered correctly
 - add track names
+- option to save files locally to dir
+- themed videos
+    - milestones (50 collabs, 100 likes, 1000 plays, etc)
+    - competition announcements
+    - collab of the week
+
+
+add an optional flag -local. when included, the lambda should save all rendered stem audio files and the video file to a local dir (named output) with the track id instead of saving to r2. this is for debugging. it should overwrite the dir every time. 

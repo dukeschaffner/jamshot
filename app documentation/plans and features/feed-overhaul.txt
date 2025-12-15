@@ -1,0 +1,3 @@
+
+
+don't load tracks whose artist has been cleared

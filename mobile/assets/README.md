@@ -17,3 +17,5 @@ You can use Expo's asset generation tools or create these manually. For now, pla
 
 For initial development, you can create simple placeholder images or use Expo's default assets.
 
+
+

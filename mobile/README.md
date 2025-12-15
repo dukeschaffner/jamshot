@@ -75,3 +75,5 @@ EXPO_PUBLIC_API_URL=https://your-api-url.com/api
 - Styling follows the web app's design system (seafoam green, rustic pink)
 - Placeholder screens are ready for future implementation
 
+
+

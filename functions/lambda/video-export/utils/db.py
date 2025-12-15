@@ -44,3 +44,5 @@ def close_pool():
         _connection_pool.closeall()
         _connection_pool = None
 
+
+
