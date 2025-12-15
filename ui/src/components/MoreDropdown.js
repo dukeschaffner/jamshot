@@ -99,6 +99,10 @@ export default function MoreDropdown() {
                   <FaNewspaper />
                   <span>Release Notes</span>
                 </Link>
+                <Link className="mobile-more-link" href="/help" onClick={handleLinkClick}>
+                  <FaQuestionCircle />
+                  <span>Help</span>
+                </Link>
                 <Link className="mobile-more-link" href="/about" onClick={handleLinkClick}>
                   <FaInfoCircle />
                   <span>About</span>
@@ -153,6 +157,7 @@ export default function MoreDropdown() {
             <Link className="nav-link" href={getCampsLink()} onClick={handleLinkClick}><FaCampground />Camps</Link>
             <Link className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</Link>
             <Link className="nav-link" href="/release-notes" onClick={handleLinkClick}><FaNewspaper />Release Notes</Link>
+            <Link className="nav-link" href="/help" onClick={handleLinkClick}><FaQuestionCircle />Help</Link>
             <Link className="nav-link" href="/about" onClick={handleLinkClick}><FaInfoCircle />About</Link>
             <Link className="nav-link" href="/faq" onClick={handleLinkClick}><FaQuestionCircle />FAQ</Link>
             <Link className="nav-link" href="/contact" onClick={handleLinkClick}><FaEnvelope />Contact</Link>

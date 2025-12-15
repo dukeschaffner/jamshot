@@ -10,12 +10,27 @@ what:
             - how to allow audio access
 these should link to the article content
 
-for now, lets just do the DAW feature with articles:
-- how to use audio from your own DAW
-- how to allow audio access
+
 
 when you are making the articles, you can leave image placeholders explaining the image that should go there, and I'll get the image and add it
 
+
+layout:
+- sidebar (left)
+    - scrollable sidebar with a list of feature names (DAW, Camps, etc)
+    - when a feature name is clicked, it expands to show the article titles for that feature
+    - when an article title is clicked, it opens that article 
+- article content (right)
+    - scrollable article content container
+
+ensure when an article is selected, it updates the url to inlcude the article title as a query parameter
+each article should be it's own component 
+make sure to match the theme feel of the about page
+
+
+for now, lets just do the DAW feature with articles:
+- how to use audio from your own DAW
+- how to allow audio access
 
 how to use your own DAW:
 a - loopback audio
@@ -29,8 +44,4 @@ how to allow audio access:
     - if necessary, have different sections for different browsers
 
 
-
-todo:
-
-the helpcontainer shouldnt be scrollable. the sidebar and the article content container should be independently scrollable and should take up the remaining vertical space after the help header
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import styles from './AudioSettings.module.css';
 import Cookies from 'js-cookie';
 import { eventBus } from '../misc/EventBus.js';
@@ -173,6 +174,9 @@ export default function AudioSettings({
                 </option>
               ))}
             </select>
+            <Link href="/help?article=how-to-use-own-daw" className={styles.helpLink}>
+              Learn how to use your own DAW to record
+            </Link>
           </div>
           
           {/* Latency Compensation */}
