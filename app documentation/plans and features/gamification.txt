@@ -2,7 +2,14 @@
 gamification:
 record user point values: status and momentum
 
-users can gain points by:
+alt words for status:
+- reputation
+- clout
+
+alt words for momentum:
+
+
+users can gain status points by:
 - receiving likes
 - receiving reposts
 - receiving collabs
@@ -18,3 +25,6 @@ status and momentum leaderboards (filter by genre?) - drives exploration
 
 competitions that are only for users with a certain status level
 
+
+LATER:
+- add competitions with status point prize pools and status point range/rank entry requirements

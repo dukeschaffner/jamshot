@@ -8,7 +8,8 @@ import {
   faDrum, 
   faCog,
   faUndo,
-  faRedo
+  faRedo,
+  faQuestion
 } from '@fortawesome/free-solid-svg-icons';
 import CountInIcon from '../misc/CountInIcon';
 import AudioSettings from './AudioSettings';
@@ -313,6 +314,13 @@ const TransportControls = ({
         title="Audio Settings"
     >
         <FontAwesomeIcon icon={faCog} />
+    </button>
+    <button 
+      className={styles.controlButton + ' ' + styles.settings}
+      onClick={() => window.open('/help?article=how-to-use-own-daw', '_blank', 'noopener,noreferrer')}
+      title="Help"
+    >
+        <FontAwesomeIcon icon={faQuestion} />
     </button>
     </div>
 

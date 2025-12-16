@@ -1,0 +1,140 @@
+TODO (MVP)
+
+before launch:
+- home feed - filters (genre, instrument, requested instrument, layer)
+- check genres (make sure rap and all instruments are included)
+- video export with waveform viz, showing user profile pics, names, watermark, etc
+- post upload screen with option to copy track link or export video
+- ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
+
+
+- analytics
+  - analytics opt out
+    - user opts out -> unique anonymous id is created? anonymize track play data
+    - keep anonymized analytics data after user deletes account?
+- yearly billing for subscriptions
+- DAW 
+  - track virtual rendering when zoomed in + throttle/debounce
+  - handle sample rate mismatch (should input device determine sample rate?)
+  - handle stereo input devices
+  - handle if user blocked mic access
+  - region splitting
+  - region looping
+  - snap strenth
+  - playhead snap
+  - multiple recording tracks for camp/team DAW
+- how to page with tutorials
+- handle notification spamming
+- display uploads left in nav?
+- on delete track, delete analytics for that track too (check and make sure this is working)
+- upgrade suggestions
+  - Profile (track count)
+- competition
+  - update track component with competition indicators
+  - indicate number of comp wins on user page (or by their username display)
+- camps/teams - remove repost button from track component. make sure liked camp/team songs dont show up in user likes (maybe unless they are viewing their own page?)
+- what if project end is dragged before parent stem region ends?
+- export stems button on track ellipsis menu
+- finish track id -> track guid migration (competition create page)
+  - team/camp id -> team/camp guid migration
+- report track (abuse, copyright infringement, not actually a collab, etc)
+- for camps and teams, save lossless audio for stem export
+- maybe tik tok style feed view?
+  - user-wide canvas video that plays in tik tok feed view
+    - ~8s duration
+    - 16:9 aspect ratio
+    - can be updated any time
+    - plays for all tracks by that user
+
+
+
+BUGS
+- double check track plays recording correctly
+  - full play didnt get marked as complete play
+- got generic error when trying to enter my own competition: Competition entry validation failed
+- release notes infinite loop
+- short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
+- context menu displaying underneath the region on the below track
+- daw sometimes gets initialized twice (causes undo/redo bug)
+- load artist names on track tree page
+- feed loaded team track 
+
+ui issues:
+- more dropdown extends past the bottom of the screen
+- user display on search page should use track and follower icons
+- DAW rerenders on token refresh (should be fixed)
+
+
+
+
+RELEASE CHECKLIST
+- confirm all privacy restrictions are working properly
+- Confirm all notifications working properly
+- test recording sync with original track and metronome
+- register DMCA agent
+- review terms and privacy policy - ensure all legal requirements are met
+- Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
+- VonGon partnership
+- upgrade neon
+
+
+
+TODO (after beta testing)
+- make navbar collapsible
+- dont save recording if stopped during count in.
+- load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
+- create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
+- auto stripe payout for competition winners
+- correlation id for audio processing
+- competition: add entry count to table so that entries dont need to be loaded from the api
+- switch to minutes based quota
+- competition entry notification to host
+- make sure users cant make competition from private track.
+- make sure users cant convert competition track to private.
+- remove make this track private option if createcompetition = true
+- requested instrument tags (ie i want collaborator to add drums)
+- search typeahead
+- if track is loop, allow collaborators to increase/set the number of loops in the collab
+- script to clean r2 files that dont have track in db
+- script to delete old tracks that never finished processing
+- looper/trim snap
+- recording while looping should auto create takes after each loop
+- files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
+- secure track play count recording to prevent abuse of vulnerabilites
+- list/sell samples in track
+- posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
+- Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
+- content moderation
+- block users
+- profile banner image
+- global player audio level
+- notification settings (ie instagram)
+- rework edit user profile page (edit dialog should be its own page)
+- invite people to collab on private tracks (groups)?
+- comment edit view
+- audio ads
+- feed ads
+- improve search algorithm - prioritize popular results
+- improve feed algorithms - track user preferences
+- change non auth cookies to local storage
+- @mentions
+  - (prompt) add an @mentions system where users can tag other users in the track title, creating a notification for the user. start by searching the existing codebase, designing the business logic/rules around the system including edge cases (ie what happens when a user that is tagged in a post changes their username). be concise and dont write any code yet
+- ensure collab count accounts for ALL descendants of the track
+- audio plugin to drag files into a track or even just playback a given sterio track in time with the DAW transport
+- DAW phase 2:
+  - add "advanced" or "extension" DAW editor (load simple "layer" DAW by default, but allow user to load advanced DAW if they want)
+  - two collab types: layers and extensions
+  - advanced DAW and extension collabs paid features?
+  - allow users to specify which collab types they allow on their track?
+  - undo redo
+
+
+
+
+
+
+LEGAL
+- option to allow others to 'steal' (use) the track?
+- splitting royalties if song uploaded
+
+

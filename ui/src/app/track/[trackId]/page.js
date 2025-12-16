@@ -234,7 +234,7 @@ function TrackContent() {
                 height={40} 
               />
              <span className="artist-name ml-2">{track?.username || 'Unknown Artist'}</span>
-             {track?.verified && <FaCheckCircle className="verified-icon" />}
+             {track?.verified && <FaCheckCircle className="verified-icon ml-1" />}
            </div>
            <div>
             <div className={styles.trackTitle}>

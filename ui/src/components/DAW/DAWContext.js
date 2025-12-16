@@ -63,7 +63,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   useEffect(() => {
     const initializeDAW = async () => {
       try {
-        if(isLoading || (!trackData && !isCollab)) return;
+        if(isLoading || (!trackData && !isCollab) || audioEngineRef.current || trackManagerRef.current) return;
         console.log('Initializing DAW. Loading:', isLoading, 'Track data:', trackData, 'Is collab:', isCollab);
         setIsLoading(true);
         

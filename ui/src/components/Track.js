@@ -422,9 +422,9 @@ export default function Track(
           </div>
 
         <div className={styles.trackTitle}>
-          <span className="title-text link-underline" onClick={navigateToTrack}>
-            {track.title}
-          </span>
+          <div className={styles.trackTitleContainer}>
+            <span className="title-text link-underline" onClick={navigateToTrack}>{track.title}</span>
+          </div>
           <div className={styles.trackLayerMessage}>
             {track?.parent_track_id ? 
             (
