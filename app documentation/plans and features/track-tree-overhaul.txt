@@ -1,0 +1,5 @@
+
+
+
+track tree should be an actual tree structure, not a flat list.
+nodes can show more details at different zoom levels or if there arent as many nodes.
