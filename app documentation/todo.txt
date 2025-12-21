@@ -4,8 +4,10 @@ before launch:
 - home feed - filters (genre, instrument, requested instrument, layer)
 - check genres (make sure rap and all instruments are included)
 - video export with waveform viz, showing user profile pics, names, watermark, etc
-- post upload screen with option to copy track link or export video
+- post upload screen (or toast message)with option to copy track link or export video
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
+- check how external links render (images, icons, etc)
+
 
 
 - analytics
@@ -23,6 +25,7 @@ before launch:
   - snap strenth
   - playhead snap
   - multiple recording tracks for camp/team DAW
+  - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
 - how to page with tutorials
 - handle notification spamming
 - display uploads left in nav?
