@@ -1,5 +1,4 @@
-
-gamification:
+gamification - implement, but lock with feature flag:
 record user point values: status and momentum
 
 alt words for status:
@@ -24,6 +23,10 @@ show status and momentum where user details are displayed
 status and momentum leaderboards (filter by genre?) - drives exploration
 
 competitions that are only for users with a certain status level
+
+track status gained from a track. if a user deletes that track, the status is lost.
+    - how will this affect momentum?
+also, show status gained on track details page + analytics page
 
 
 LATER:

@@ -1,10 +1,3 @@
-RUNNING STRIPE: 
-stripe listen --forward-to localhost:5001/api/payments/webhook
-
-RUNNING AUDIO PROCESSING DEV SERVER: 
-node ./functions/lambda/audio-processing/dev-start.js
-
-
 
 <BACKGROUND>
 This is an app/website that allows music artists to asynchronously collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach an audio file onto the original recording as a new version. the app has a like/ranking system and has a featured page to show popular collabs.
