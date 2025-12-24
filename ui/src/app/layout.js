@@ -15,8 +15,14 @@ export const metadata = {
   keywords: ['music', 'collaboration', 'recording', 'music production', 'collaborative music'],
   authors: [{ name: 'Sterio' }],
   icons: {
-    icon: '/next.svg',
-    type: 'image/svg+xml',
+    icon: [
+      { url: '/next.svg', type: 'image/svg+xml' },
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
   openGraph: {
     title: 'Sterio - Collaborate on Music',
