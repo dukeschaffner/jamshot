@@ -32,7 +32,7 @@ export const metadata = {
     type: 'website',
     images: [
       {
-        url: 'https://sterio.fm/next.svg',
+        url: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || 'https://cdn.sterio.fm'}/images/static/meta-link-logo.png`,
         width: 1200,
         height: 630,
         alt: 'Sterio - Collaborate on Music',
@@ -43,7 +43,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Sterio - Collaborate on Music',
     description: 'Create, collaborate, and share music with Sterio. Record layers, collaborate with artists, and build tracks together.',
-    images: ['https://sterio.fm/next.svg'],
+    images: [`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || 'https://cdn.sterio.fm'}/images/static/meta-link-logo.png`],
   },
 };
 
