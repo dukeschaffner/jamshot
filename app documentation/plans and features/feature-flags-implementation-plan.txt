@@ -1,0 +1,202 @@
+FEATURE FLAGS IMPLEMENTATION PLAN
+==================================
+
+OBJECTIVE
+---------
+Implement a feature flags system to enable/disable features dynamically.
+This provides a flexible way to control feature availability without code deployments.
+
+SCOPE
+-----
+1. Database schema for feature flags
+2. API utilities for checking feature flags
+3. Caching mechanism for performance
+4. Admin/management interface (optional, can be manual DB updates initially)
+
+ARCHITECTURE
+------------
+
+1. DATABASE LAYER
+   - Create `feature_flags` table to store flag definitions
+   - Flags will be simple boolean toggles
+   - Support for description and metadata
+
+2. API LAYER
+   - Feature flag utility module to check flag status
+   - Cache flags in memory (refresh periodically or on-demand)
+   - Simple API for checking if a feature is enabled
+
+3. USAGE PATTERN
+   - Import feature flags utility in any route/module
+   - Check flag status before executing feature-specific logic
+   - Flags can be toggled via database updates
+
+IMPLEMENTATION STEPS
+====================
+
+PHASE 1: DATABASE SETUP
+-----------------------
+1. Create `feature_flags` table with:
+   - id (SERIAL PRIMARY KEY)
+   - flag_key (VARCHAR UNIQUE NOT NULL) - e.g., 'new_feature_enabled'
+   - flag_value (BOOLEAN NOT NULL DEFAULT true)
+   - description (TEXT) - Human-readable description
+   - created_at (TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
+   - updated_at (TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
+
+2. Create index on flag_key for fast lookups
+
+3. Create trigger to automatically update updated_at timestamp
+
+PHASE 2: API UTILITY MODULE
+---------------------------
+Location: api/lambda/src/utils/featureFlags.js
+
+Functions needed:
+1. `getFeatureFlag(flagKey)` - Get single flag value (returns boolean or null)
+2. `getFeatureFlags()` - Get all flags (for caching, returns object)
+3. `isFeatureEnabled(flagKey, defaultValue = false)` - Boolean check with default fallback
+4. `refreshFeatureFlags()` - Reload flags from DB (for cache invalidation)
+
+Implementation approach:
+- Cache flags in memory with TTL (e.g., 5 minutes)
+- Fallback to DB if cache miss
+- Default to false if flag doesn't exist (fail-safe: features disabled by default)
+- Cache all flags at once to minimize DB queries
+
+PHASE 3: TESTING & VALIDATION
+------------------------------
+1. Test flag retrieval:
+   - Get existing flag
+   - Get non-existent flag (should return default)
+   - Verify caching works
+
+2. Test flag toggling:
+   - Create flag in DB
+   - Check flag status
+   - Update flag value in DB
+   - Verify changes take effect (within cache TTL)
+   - Test cache refresh function
+
+3. Test performance:
+   - Verify cache reduces DB queries
+   - Test concurrent flag checks
+
+DETAILED FILE CHANGES
+=====================
+
+1. DATABASE MIGRATION
+   File: api/db-updates.txt
+   - Add CREATE TABLE statement for feature_flags
+   - Add CREATE INDEX statement
+   - Add trigger function for updated_at timestamp
+   - Add CREATE TRIGGER statement
+
+2. FEATURE FLAGS UTILITY
+   File: api/lambda/src/utils/featureFlags.js (NEW)
+   - Import database pool
+   - Implement in-memory cache with TTL
+   - Implement getFeatureFlag() function
+   - Implement getFeatureFlags() function
+   - Implement isFeatureEnabled() function
+   - Implement refreshFeatureFlags() function
+   - Export all functions
+
+USAGE EXAMPLE
+=============
+```javascript
+const { isFeatureEnabled } = require('../utils/featureFlags');
+
+// In a route handler
+if (isFeatureEnabled('new_feature_enabled')) {
+  // Execute new feature logic
+} else {
+  // Execute fallback logic
+}
+```
+
+FLAG NAMING CONVENTION
+======================
+Use descriptive, lowercase names with underscores:
+- Use verb + noun pattern: 'feature_name_enabled'
+- Examples:
+  - 'new_ui_enabled'
+  - 'beta_feature_enabled'
+  - 'experimental_api_enabled'
+- Keep names concise but clear
+- Use consistent naming patterns across flags
+
+CACHING STRATEGY
+================
+- In-memory cache with 5-minute TTL
+- Cache all flags at once (single query)
+- Cache structure: { flagKey: boolean, ... }
+- Refresh on-demand via refreshFeatureFlags()
+- Consider Redis later if needed for multi-instance Lambda
+
+DEFAULT BEHAVIOR
+================
+- If flag doesn't exist: default to false (feature disabled)
+- This ensures fail-safe behavior - features must be explicitly enabled
+- New flags must be explicitly created in database
+- isFeatureEnabled() accepts optional defaultValue parameter
+
+DATABASE SCHEMA DETAILS
+=======================
+```sql
+CREATE TABLE feature_flags (
+  id SERIAL PRIMARY KEY,
+  flag_key VARCHAR(255) UNIQUE NOT NULL,
+  flag_value BOOLEAN NOT NULL DEFAULT true,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_feature_flags_flag_key ON feature_flags(flag_key);
+
+-- Trigger function for updated_at
+CREATE OR REPLACE FUNCTION update_feature_flag_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_feature_flag_timestamp
+BEFORE UPDATE ON feature_flags
+FOR EACH ROW
+EXECUTE FUNCTION update_feature_flag_timestamp();
+```
+
+FUTURE ENHANCEMENTS
+===================
+- Admin UI for managing flags
+- Per-user or per-tier flag overrides
+- Flag history/audit log
+- A/B testing support
+- Gradual rollout (percentage-based flags)
+- Flag dependencies (flag A requires flag B)
+- Environment-specific flags (dev/staging/prod)
+
+RISKS & MITIGATION
+==================
+Risk: Cache staleness
+- Mitigation: Short TTL (5 min), manual refresh function
+
+Risk: Performance impact
+- Mitigation: In-memory cache, single query for all flags
+
+Risk: Accidental enabling/disabling of features
+- Mitigation: Default to disabled, clear flag names, documentation
+
+Risk: Database connection issues
+- Mitigation: Cache fallback, graceful degradation
+
+ESTIMATED EFFORT
+================
+- Database setup: 30 minutes
+- Feature flags utility: 1-2 hours
+- Testing: 1 hour
+- Total: 2.5-3.5 hours

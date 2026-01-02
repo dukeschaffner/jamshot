@@ -7,6 +7,7 @@ import { AudioProvider, useAudio } from '../lib/AudioContext';
 import { NotificationProvider } from '../lib/NotificationContext';
 import { ToastProvider } from '../lib/ToastContext';
 import { UserProvider, useUser } from '../contexts/UserContext';
+import { FeatureFlagsProvider } from '../contexts/FeatureFlagsContext';
 import { MobileProvider } from '../contexts/MobileContext';
 import { NavigationGuardProvider } from 'next-navigation-guard';
 import { initGA, trackPageView, trackSearch } from '../lib/analytics';
@@ -167,21 +168,23 @@ function AppContent({ children }) {
 
 export default function ClientLayout({ children }) {
   return (
-    <UserProvider>
-      <MobileProvider>
-        <AudioProvider>
-          <ToastProvider>
-            <NotificationProvider>
-              <NavigationGuardProvider>
-                <AppContent>
-                  {children}
-                </AppContent>
-              </NavigationGuardProvider>
-            </NotificationProvider>
-          </ToastProvider>
-        </AudioProvider>
-      </MobileProvider>
-    </UserProvider>
+    <FeatureFlagsProvider>
+      <UserProvider>
+        <MobileProvider>
+          <AudioProvider>
+            <ToastProvider>
+              <NotificationProvider>
+                <NavigationGuardProvider>
+                  <AppContent>
+                    {children}
+                  </AppContent>
+                </NavigationGuardProvider>
+              </NotificationProvider>
+            </ToastProvider>
+          </AudioProvider>
+        </MobileProvider>
+      </UserProvider>
+    </FeatureFlagsProvider>
   );
 }
 
