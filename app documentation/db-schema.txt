@@ -61,8 +61,10 @@ CREATE TABLE tracks (
   camp_id INT REFERENCES camps(id) ON DELETE CASCADE,
   room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
   key VARCHAR(10), -- Musical key (e.g., "C Major", "A Minor")
+  guid UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
 );
 
+CREATE INDEX idx_tracks_guid ON tracks(guid);
 CREATE INDEX idx_tracks_processing_status ON tracks(processing_status);
 
 
