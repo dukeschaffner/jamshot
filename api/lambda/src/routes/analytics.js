@@ -3,6 +3,7 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const pool = require('../config/db');
 const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils');
+const { isFeatureEnabled } = require('../utils/featureFlags');
 
 /**
  * Analytics API Routes
@@ -16,6 +17,17 @@ router.get('/tracks/:trackId', authMiddleware, async (req, res) => {
     const { trackId } = req.params;
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
+
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, block analytics access
+    if (!subscriptionsEnabled) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics are not available at this time.'
+      });
+    }
 
     const userResult = await pool.query(
       'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
@@ -122,6 +134,17 @@ router.get('/tracks/:trackId/streams', authMiddleware, async (req, res) => {
     const { trackId } = req.params;
     const { start_date, end_date } = req.query;
     const userId = req.user.id;
+
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, block analytics access
+    if (!subscriptionsEnabled) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics are not available at this time.'
+      });
+    }
 
     const userResult = await pool.query(
       'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
@@ -243,6 +266,17 @@ router.get('/users/me/tracks', authMiddleware, async (req, res) => {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
 
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, block analytics access
+    if (!subscriptionsEnabled) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics are not available at this time.'
+      });
+    }
+
     const userResult = await pool.query(
       'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
       [req.user.id]
@@ -322,6 +356,17 @@ router.get('/users/me', authMiddleware, async (req, res) => {
   try {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
+
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, block analytics access
+    if (!subscriptionsEnabled) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics are not available at this time.'
+      });
+    }
 
     const userResult = await pool.query(
       'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
@@ -416,6 +461,17 @@ router.get('/users/:username', authMiddleware, async (req, res) => {
     const { username } = req.params;
     const { period = 'day', start_date, end_date } = req.query;
     const requestingUserId = req.user.id;
+
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, block analytics access
+    if (!subscriptionsEnabled) {
+      return res.status(403).json({ 
+        error: 'Analytics access denied', 
+        message: 'Analytics are not available at this time.'
+      });
+    }
 
     const userResult = await pool.query(
       'SELECT id, username, is_private, subscription_tier, subscription_expires_at FROM users WHERE id = $1',

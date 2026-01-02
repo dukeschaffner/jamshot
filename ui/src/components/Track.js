@@ -17,6 +17,7 @@ import { useUser } from '../contexts/UserContext';
 import styles from './Track.module.css';
 import { useMobile } from '../contexts/MobileContext';
 import { useToast } from '../lib/ToastContext';
+import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
 import MoveTrackModal from './teams/MoveTrackModal';
 export default function Track(
     { track, 
@@ -55,6 +56,7 @@ export default function Track(
   const [isExportingStems, setIsExportingStems] = useState(false);
   const actionsMenuRef = useRef(null);
   const { showSuccess, showError } = useToast();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   // Close actions menu when clicking outside
   useEffect(() => {
@@ -528,8 +530,8 @@ export default function Track(
               
               {showActionsMenu && (
                 <div className={styles.actionsDropdown}>
-                  {/* Analytics option for track owners */}
-                  {currentUser?.id === track.user_id && (
+                  {/* Analytics option for track owners - only show when subscriptions enabled */}
+                  {currentUser?.id === track.user_id && isFeatureEnabled('subscriptions', false) && (
                     <button
                       className={styles.actionMenuItem}
                       onClick={(e) => {

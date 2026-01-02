@@ -51,6 +51,7 @@ before launch:
     - 16:9 aspect ratio
     - can be updated any time
     - plays for all tracks by that user
+- check competition hosting restriction for free tier users
 
 
 

@@ -25,3 +25,7 @@ CREATE TRIGGER update_feature_flag_timestamp
 BEFORE UPDATE ON feature_flags
 FOR EACH ROW
 EXECUTE FUNCTION update_feature_flag_timestamp();
+
+-- Insert subscriptions feature flag (disabled by default for launch)
+INSERT INTO feature_flags (flag_key, flag_value, description)
+VALUES ('subscriptions', false, 'Enable subscription-based restrictions. When disabled, uses hidden limits (50 tracks/day, 500 total) and allows all users to host competitions.');

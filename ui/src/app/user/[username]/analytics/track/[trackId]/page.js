@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { analyticsApi, trackApi } from '../../../../../../lib/api';
 import { useUser } from '../../../../../../contexts/UserContext';
+import { useFeatureFlags } from '../../../../../../contexts/FeatureFlagsContext';
 import { getUserTier, SUBSCRIPTION_TIERS } from '../../../../../../lib/subscriptionUtils';
 import { getCountryName } from '../../../../../../../../shared/utils/formatting.js';
 import TimeSelector from '../../../../../../components/analytics/TimeSelector';
@@ -18,6 +19,7 @@ export default function TrackAnalyticsPage() {
   const params = useParams();
   const router = useRouter();
   const { user: currentUser, isAuthenticated } = useUser();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [track, setTrack] = useState(null);
   const [analyticsData, setAnalyticsData] = useState([]);
   const [streamsData, setStreamsData] = useState([]);
@@ -40,11 +42,18 @@ export default function TrackAnalyticsPage() {
   const isFreeTier = getUserTier(currentUser) === SUBSCRIPTION_TIERS.FREE;
 
   useEffect(() => {
+    // Check if subscriptions feature is enabled
+    if (!isFeatureEnabled('subscriptions', false)) {
+      setError('Analytics are not available at this time.');
+      setLoading(false);
+      return;
+    }
+    
     if (!isAuthenticated) {
       return;
     }
     fetchTrackData();
-  }, [trackId, isAuthenticated]);
+  }, [trackId, isAuthenticated, isFeatureEnabled]);
 
   useEffect(() => {
     if (track && !isFreeTier) {

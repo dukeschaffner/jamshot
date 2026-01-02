@@ -25,6 +25,7 @@ const {
 } = require('../../shared/utils/subscription');
 
 const pool = require('../config/db');
+const { isFeatureEnabled } = require('./featureFlags');
 
 // API-specific extensions (Stripe price IDs)
 const API_PLAN_EXTENSIONS = {
@@ -79,6 +80,36 @@ for (const [version, basePlan] of Object.entries(TEAM_PLANS)) {
  */
 async function checkDailyUploadQuota(userId, user = null, subscription = null) {
   try {
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, use hidden limits (50/day, 500 total)
+    if (!subscriptionsEnabled) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const uploadCountResult = await pool.query(
+        'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND created_at >= $2 AND processing_status = $3 AND camp_id IS NULL AND team_id IS NULL',
+        [userId, today, 'completed']
+      );
+
+      const dailyUploadCount = parseInt(uploadCountResult.rows[0].count);
+      const HIDDEN_DAILY_LIMIT = 50;
+
+      if (dailyUploadCount >= HIDDEN_DAILY_LIMIT) {
+        return {
+          status: 429,
+          body: {
+            error: 'Daily upload limit reached',
+            message: `You have reached the daily upload limit.`,
+            daily_count: dailyUploadCount
+          }
+        };
+      }
+
+      return null; // Valid, no error
+    }
+
     // Fetch user from DB if not provided
     if (!user) {
       const userResult = await pool.query(
@@ -143,6 +174,33 @@ async function checkDailyUploadQuota(userId, user = null, subscription = null) {
  */
 async function checkTotalUploadQuota(userId, user = null, subscription = null) {
   try {
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, use hidden limits (50/day, 500 total)
+    if (!subscriptionsEnabled) {
+      const totalTrackCountResult = await pool.query(
+        'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2 AND camp_id IS NULL AND team_id IS NULL',
+        [userId, 'completed']
+      );
+
+      const totalTrackCount = parseInt(totalTrackCountResult.rows[0].count);
+      const HIDDEN_TOTAL_LIMIT = 500;
+
+      if (totalTrackCount >= HIDDEN_TOTAL_LIMIT) {
+        return {
+          status: 429,
+          body: {
+            error: 'Total track limit reached',
+            message: `You have reached the total track limit.`,
+            total_count: totalTrackCount
+          }
+        };
+      }
+
+      return null; // Valid, no error
+    }
+
     // Fetch user from DB if not provided
     if (!user) {
       const userResult = await pool.query(

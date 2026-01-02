@@ -13,6 +13,7 @@ import DAWConfig from '../misc/DAWConfig';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
+import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 
 export default function UploadForm({
   isCollab = false,
@@ -21,6 +22,7 @@ export default function UploadForm({
   onUploadComplete = null
 }) {
   const { metronomeBpm, timeSignature, metronomeOffset, trackManagerRef, trackData } = useDAW();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
@@ -468,8 +470,8 @@ export default function UploadForm({
           />
         </div>
         
-        {/* Privacy option - only show for non-collab tracks and when not uploading to a camp */}
-        {!isCollab && !campId && !teamId && (
+        {/* Privacy option - only show for non-collab tracks, when not uploading to a camp, and when subscriptions feature is enabled */}
+        {!isCollab && !campId && !teamId && isFeatureEnabled('subscriptions', false) && (
           <>
             <div className="flex items-center space-x-2 mt-4">
               <input

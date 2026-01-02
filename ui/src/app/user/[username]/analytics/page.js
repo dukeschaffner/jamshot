@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { analyticsApi, userApi, trackApi } from '../../../../lib/api';
 import { useUser } from '../../../../contexts/UserContext';
+import { useFeatureFlags } from '../../../../contexts/FeatureFlagsContext';
 import { getUserTier, SUBSCRIPTION_TIERS } from '../../../../lib/subscriptionUtils';
 import { getCountryName, getCountryFlag } from '../../../../../shared/utils/formatting.js';
 import TimeSelector from '../../../../components/analytics/TimeSelector';
@@ -18,6 +19,7 @@ export default function UserAnalyticsPage() {
   const params = useParams();
   const router = useRouter();
   const { user, isAuthenticated } = useUser();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [analyticsData, setAnalyticsData] = useState([]);
   const [tracksData, setTracksData] = useState([]);
   const [geographicData, setGeographicData] = useState([]);
@@ -36,6 +38,13 @@ export default function UserAnalyticsPage() {
   const isFreeTier = getUserTier(user) === SUBSCRIPTION_TIERS.FREE;
 
   useEffect(() => {
+    // Check if subscriptions feature is enabled
+    if (!isFeatureEnabled('subscriptions', false)) {
+      setError('Analytics are not available at this time.');
+      setLoading(false);
+      return;
+    }
+    
     if (!isAuthenticated) {
         setError('You must be logged in to view analytics.');
         setLoading(false);
@@ -47,7 +56,7 @@ export default function UserAnalyticsPage() {
         setLoading(false);
         return;
       }
-  }, [isAuthenticated, isOwnProfile]);
+  }, [isAuthenticated, isOwnProfile, isFeatureEnabled]);
 
   useEffect(() => {
     if (user && isOwnProfile && !isFreeTier) {

@@ -39,6 +39,7 @@ const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDail
 const { getGeolocationData } = require('../utils/geolocation');
 const { validateCompetitionEntry } = require('../utils/competition');
 const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils');
+const { isFeatureEnabled } = require('../utils/featureFlags');
 require('dotenv').config;
 
 async function getParser() {
@@ -416,9 +417,20 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         }
       }
     } else {
-      // If no parent track, the user specified is_private = true, and their subscription tier does not allow private tracks, and a camp is not specified, return an error
+      // If no parent track, check private track restrictions
       if (!camp_id) {
-        if (isPrivate && !subscription.features.private_tracks) {
+        // Check if subscriptions feature is enabled
+        const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+        
+        // If subscriptions disabled, block private tracks
+        if (!subscriptionsEnabled && isPrivate) {
+          return res.status(400).json({
+            error: 'Private tracks are not available at this time.'
+          });
+        }
+        
+        // If subscriptions enabled, check subscription tier
+        if (subscriptionsEnabled && isPrivate && !subscription.features.private_tracks) {
           return res.status(400).json({
             error: 'Private tracks are not allowed for your subscription tier. Upgrade your plan to enable private tracks.',
             upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
@@ -1710,6 +1722,16 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
   const { is_private } = req.body;
   
   try {
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, block making tracks private
+    if (!subscriptionsEnabled && is_private) {
+      return res.status(400).json({
+        error: 'Private tracks are not available at this time.'
+      });
+    }
+    
     // Check if track exists and user is the owner
     const trackCheck = await pool.query(
       'SELECT user_id, is_private, secret_token, parent_track_id FROM tracks WHERE id = $1',

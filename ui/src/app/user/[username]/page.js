@@ -10,12 +10,14 @@ import Cookies from 'js-cookie';
 import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import ImageCropper from '../../../components/ImageCropper';
 import { useUser } from '../../../contexts/UserContext';
+import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 import styles from './UserPage.module.css';
 
 export default function UserPage() {
   const { username } = useParams();
   const router = useRouter();
   const { user: currentUser, isAuthenticated, refreshUser } = useUser();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [tracks, setTracks] = useState([]);
   const [repostedTracks, setRepostedTracks] = useState([]);
   const [likedTracks, setLikedTracks] = useState([]);
@@ -512,12 +514,14 @@ export default function UserPage() {
                     <button className="pill-btn sm" onClick={() => setIsEditing(true)}>
                       Edit Profile
                     </button>
-                    <button 
-                      className="pill-btn sm gradient-btn" 
-                      onClick={() => router.push(`/user/${username}/analytics`)}
-                    >
-                      📊 Analytics
-                    </button>
+                    {isFeatureEnabled('subscriptions', false) && (
+                      <button 
+                        className="pill-btn sm gradient-btn" 
+                        onClick={() => router.push(`/user/${username}/analytics`)}
+                      >
+                        📊 Analytics
+                      </button>
+                    )}
                   </>
                 )}
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useUser } from '@/contexts/UserContext';
+import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, TEAM_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@/lib/subscriptionUtils';
 import api from '@/lib/api';
 import { loadStripe } from '@stripe/stripe-js';
@@ -17,10 +18,31 @@ function SubscribeContent() {
   const { user, userPlan, refreshUser } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [loading, setLoading] = useState({});
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [subscriptionType, setSubscriptionType] = useState('individual'); // 'individual' or 'team'
+  
+  // Check if subscriptions feature is enabled
+  const subscriptionsEnabled = isFeatureEnabled('subscriptions', false);
+  
+  // Block access if subscriptions feature is disabled
+  if (!subscriptionsEnabled) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Subscriptions</h1>
+          <p className={styles.subtitle}>
+            Subscriptions are not available at this time.
+          </p>
+        </div>
+        <div className={`${styles.message} ${styles.error}`}>
+          Subscriptions are currently disabled. Please check back later.
+        </div>
+      </div>
+    );
+  }
 
   // Check for success/cancel messages
   const success = searchParams.get('success');

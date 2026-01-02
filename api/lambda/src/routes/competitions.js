@@ -11,6 +11,7 @@ const {
 const { processTrack } = require('../utils/trackUtils');
 const { getUserPlan } = require('../utils/subscriptionUtils');
 const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler');
+const { isFeatureEnabled } = require('../utils/featureFlags');
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
@@ -537,8 +538,12 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
     const user = userResult.rows[0];
     const subscription = getUserPlan(user);
     
-    // Check if user can host competitions
-    if (!subscription.features.host_competitions) {
+    // Check if subscriptions feature is enabled
+    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    
+    // If subscriptions disabled, allow all users to host competitions
+    // Otherwise, check subscription tier
+    if (subscriptionsEnabled && !subscription.features.host_competitions) {
       return res.status(403).json({ 
         error: 'Your subscription tier does not allow hosting competitions. Upgrade your plan to host competitions.',
         upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
