@@ -14,6 +14,8 @@ import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';
 import GlobalPlayer from '../components/GlobalPlayer';
 import ReleaseNotesToast from '../components/ReleaseNotesToast';
+import LandingPage from '../components/LandingPage';
+import LoadingSpinner from '../components/LoadingSpinner';
 import api from '../lib/api';
 
 // This component will be rendered after providers are initialized
@@ -21,6 +23,8 @@ function AppContent({ children }) {
   const { user, isLoading, isAuthenticated, logout } = useUser();
   const [darkMode, setDarkMode] = useState(false);
   const { currentTrack, isPlaying, togglePlayPause } = useAudio();
+  const [hasAccess, setHasAccess] = useState(false);
+  const [accessCheckComplete, setAccessCheckComplete] = useState(false);
   
   // Check if we're on pages where player should be hidden
   const pathname = usePathname();
@@ -29,6 +33,20 @@ function AppContent({ children }) {
   const shouldHidePlayer = isUploadPage || isTrackPage;
   
   const playerVisible = !!currentTrack && !shouldHidePlayer;
+
+  // Check for access on mount
+  useEffect(() => {
+    const checkAccess = () => {
+      // Check if user has access granted in session
+      const accessGranted = sessionStorage.getItem('sterio_access_granted');
+      if (accessGranted === 'true') {
+        setHasAccess(true);
+      }
+      setAccessCheckComplete(true);
+    };
+    
+    checkAccess();
+  }, []);
 
   // Initialize Google Analytics on mount
   useEffect(() => {
@@ -99,6 +117,31 @@ function AppContent({ children }) {
     }
   }, []);
 
+  // Handle access granted
+  const handleAccessGranted = () => {
+    setHasAccess(true);
+  };
+
+  // Show landing page if access check is complete and user doesn't have access
+  if (accessCheckComplete && !hasAccess) {
+    return <LandingPage onAccessGranted={handleAccessGranted} />;
+  }
+
+  // Show loading state while checking access
+  if (!accessCheckComplete) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '100vh',
+        background: 'var(--background)',
+        color: 'var(--text-primary)'
+      }}>
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>
