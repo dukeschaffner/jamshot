@@ -148,7 +148,7 @@ export default function LandingPage({ onAccessGranted }) {
             <p>
               Sterio is revolutionizing how musicians collaborate. Upload your tracks, 
               layer sounds from other artists, and create amazing music together. 
-              It's like social media, but for music creation.
+              It&apos;s like social media, but for music creation.
             </p>
             
             <div className={styles.features}>
