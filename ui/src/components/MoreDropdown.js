@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper, FaCampground } from 'react-icons/fa';
 import { useMobile } from '../contexts/MobileContext';
 import { useUser } from '../contexts/UserContext';
+import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
 
 export default function MoreDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -12,6 +13,7 @@ export default function MoreDropdown() {
   const router = useRouter();
   const { isMobile } = useMobile();
   const { user, isAuthenticated, logout } = useUser();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   // Get camps link URL based on user state
   const getCampsLink = () => {
@@ -91,10 +93,12 @@ export default function MoreDropdown() {
                   <FaCampground />
                   <span>Camps</span>
                 </Link>
-                <Link className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
-                  <FaCrown />
-                  <span>Subscribe</span>
-                </Link>
+                {isFeatureEnabled('subscriptions', false) && (
+                  <Link className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
+                    <FaCrown />
+                    <span>Subscribe</span>
+                  </Link>
+                )}
                 <Link className="mobile-more-link" href="/release-notes" onClick={handleLinkClick}>
                   <FaNewspaper />
                   <span>Release Notes</span>
@@ -155,7 +159,9 @@ export default function MoreDropdown() {
           </div>
           <div className="notification-body">
             <Link className="nav-link" href={getCampsLink()} onClick={handleLinkClick}><FaCampground />Camps</Link>
-            <Link className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</Link>
+            {isFeatureEnabled('subscriptions', false) && (
+              <Link className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</Link>
+            )}
             <Link className="nav-link" href="/release-notes" onClick={handleLinkClick}><FaNewspaper />Release Notes</Link>
             <Link className="nav-link" href="/help" onClick={handleLinkClick}><FaQuestionCircle />Help</Link>
             <Link className="nav-link" href="/about" onClick={handleLinkClick}><FaInfoCircle />About</Link>

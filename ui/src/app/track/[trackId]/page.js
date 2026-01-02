@@ -15,6 +15,7 @@ import styles from '@/components/Track.module.css';
 import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop} from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
 import { useMobile } from '../../../contexts/MobileContext';
+import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 import DAW from '@/components/DAW/DAW';
 
 // Component that uses useSearchParams, wrapped in Suspense
@@ -28,6 +29,7 @@ function TrackContent() {
   const [activeTab, setActiveTab] = useState('collab');
   const { user, isAuthenticated } = useUser();
   const { isMobile } = useMobile();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [isTrackOwner, setIsTrackOwner] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
@@ -292,48 +294,52 @@ function TrackContent() {
           <div className="edit-track-panel">
             <h3>Track Settings</h3>
             
-            <div className="edit-track-section">
-              <h4>Privacy Settings</h4>
-              <div className="privacy-toggle">
-                <button 
-                  className={`pill-btn w-min`}
-                  onClick={handlePrivacyToggle}
-                  disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
-                >
-                  {isPrivate ? (
-                    <>
-                      <FaLock className="btn-icon" />
-                      <span>Private</span>
-                    </>
-                  ) : (
-                    <>
-                      <FaLockOpen className="btn-icon" />
-                      <span>Public</span>
-                    </>
-                  )}
-                </button>
-                <p className="privacy-description">
-                  {isPrivate 
-                    ? 'This track is private. Only you and people with the link can view it.' 
-                    : 'This track is public. Anyone can view and collaborate on it.'}
-                </p>
-              </div>
-              
-              {isPrivate && (
-                <div className="share-link-section">
-                  <button 
-                    className="edit-track-share-btn"
-                    onClick={handleCopyLink}
-                  >
-                    <FaShareAlt className="btn-icon" />
-                    <span>{isLinkCopied ? 'Link Copied!' : 'Copy Private Link'}</span>
-                  </button>
-                  <p className="share-description">
-                    Share this link to give others access to your private track.
-                  </p>
+            {isFeatureEnabled('subscriptions', false) && (
+              <>
+                <div className="edit-track-section">
+                  <h4>Privacy Settings</h4>
+                  <div className="privacy-toggle">
+                    <button 
+                      className={`pill-btn w-min`}
+                      onClick={handlePrivacyToggle}
+                      disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
+                    >
+                      {isPrivate ? (
+                        <>
+                          <FaLock className="btn-icon" />
+                          <span>Private</span>
+                        </>
+                      ) : (
+                        <>
+                          <FaLockOpen className="btn-icon" />
+                          <span>Public</span>
+                        </>
+                      )}
+                    </button>
+                    <p className="privacy-description">
+                      {isPrivate 
+                        ? 'This track is private. Only you and people with the link can view it.' 
+                        : 'This track is public. Anyone can view and collaborate on it.'}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
+                
+                {isPrivate && (
+                  <div className="share-link-section">
+                    <button 
+                      className="edit-track-share-btn"
+                      onClick={handleCopyLink}
+                    >
+                      <FaShareAlt className="btn-icon" />
+                      <span>{isLinkCopied ? 'Link Copied!' : 'Copy Private Link'}</span>
+                    </button>
+                    <p className="share-description">
+                      Share this link to give others access to your private track.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
             
             <div className="edit-track-section danger-zone">
               <h4>Danger Zone</h4>
