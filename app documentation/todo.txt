@@ -6,7 +6,11 @@ before launch:
 - video export with waveform viz, showing user profile pics, names, watermark, etc
 - post upload screen (or toast message)with option to copy track link or export video
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
-- check how external links render (images, icons, etc)
+- remove/hide subscription and restrictions for launch
+- landing page with email waitlist + early access code
+- switch to better auth? neon auth?
+- feature flags (subscriptions)
+- add 5 user team/camp option
 
 
 
@@ -26,7 +30,6 @@ before launch:
   - playhead snap
   - multiple recording tracks for camp/team DAW
   - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
-- how to page with tutorials
 - handle notification spamming
 - display uploads left in nav?
 - on delete track, delete analytics for that track too (check and make sure this is working)
@@ -42,6 +45,7 @@ before launch:
   - team/camp id -> team/camp guid migration
 - report track (abuse, copyright infringement, not actually a collab, etc)
 - for camps and teams, save lossless audio for stem export
+- add duration to track component
 - maybe tik tok style feed view?
   - user-wide canvas video that plays in tik tok feed view
     - ~8s duration
@@ -57,7 +61,7 @@ BUGS
 - got generic error when trying to enter my own competition: Competition entry validation failed
 - release notes infinite loop
 - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
-- context menu displaying underneath the region on the below track
+- context menu displaying underneath the region on the below track (git stached)
 - daw sometimes gets initialized twice (causes undo/redo bug)
 - load artist names on track tree page
 - feed loaded team track 

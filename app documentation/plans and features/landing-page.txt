@@ -1,0 +1,18 @@
+landing page + waitlist for my app in its pre launch state. 
+the landing page should serve as an introduction to the app, 
+
+requirements:
+- it should include the R2 video located at {bucket}/videos/static/sterio-intro.mov. 
+    - it should auto play but be muted until the user clicks on it. 
+    - it should be streamed so that it doesnt have to download the whole video before playing. 
+    - note that video is vertical resolution
+- it should include other info about the app (see app-notes.txt or the about page)
+- it should get people excited about the app while being specific and clear about the novelty and value of the app.
+- landing page should be whole screen and the regular layout/content shouldnt render
+- landing page should be its own component
+- include a waitlist form with email input and a submit button
+- include early access code input and a submit button. if the user enters a valid early access code, they should be granted access to the site.
+- access codes should be stored in the database and it should track usages with timestamps and ip geolocation.
+- access check should be done at the layout level so that ANY attempt to access the site (at any route) shows the landing page and doesnt render the nav bar or any other app content besides the landing page
+- make sure to match the app theme
+- since this code will be temporary, make sure it is easy to remove the code later

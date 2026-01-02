@@ -16,4 +16,3 @@ ALTER TABLE tracks ALTER COLUMN guid SET DEFAULT gen_random_uuid();
 
 -- Step 5: Create index for fast lookups by GUID
 CREATE INDEX idx_tracks_guid ON tracks(guid);
-
