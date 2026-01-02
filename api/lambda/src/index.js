@@ -19,6 +19,7 @@ const campRoutes = require('./routes/camps');
 const teamRoutes = require('./routes/teams');
 const groupRoutes = require('./routes/groups');
 const landingRoutes = require('./routes/landing');
+const featureFlagsRoutes = require('./routes/featureFlags');
 require('dotenv').config();
 
 
@@ -120,6 +121,7 @@ app.use('/api/camps', campRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api', landingRoutes);
+app.use('/api/feature-flags', featureFlagsRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
