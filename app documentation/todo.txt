@@ -7,7 +7,6 @@ before launch:
 - post upload screen (or toast message)with option to copy track link or export video
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
 - remove/hide subscription and restrictions for launch
-- landing page with email waitlist + early access code
 - switch to better auth? neon auth?
 - feature flags (subscriptions)
 - add 5 user team/camp option
