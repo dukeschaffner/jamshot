@@ -23,31 +23,15 @@ function SubscribeContent() {
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
   const [subscriptionType, setSubscriptionType] = useState('individual'); // 'individual' or 'team'
+  const [message, setMessage] = useState(null);
   
-  // Check if subscriptions feature is enabled
-  const subscriptionsEnabled = isFeatureEnabled('subscriptions', false);
-  
-  // Block access if subscriptions feature is disabled
-  if (!subscriptionsEnabled) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>Subscriptions</h1>
-          <p className={styles.subtitle}>
-            Subscriptions are not available at this time.
-          </p>
-        </div>
-        <div className={`${styles.message} ${styles.error}`}>
-          Subscriptions are currently disabled. Please check back later.
-        </div>
-      </div>
-    );
-  }
-
   // Check for success/cancel messages
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
   const tier = searchParams.get('tier');
+
+  // Check if subscriptions feature is enabled
+  const subscriptionsEnabled = isFeatureEnabled('subscriptions', false);
 
   useEffect(() => {
     if (success === 'true') {
@@ -63,8 +47,6 @@ function SubscribeContent() {
       setMessage({ type: 'error', text: 'Subscription was canceled.' });
     }
   }, [success, canceled, tier, refreshUser]);
-
-  const [message, setMessage] = useState(null);
 
   // Helper function to refresh user data and subscription status together
   const refreshUserAndSubscription = async () => {
@@ -97,6 +79,23 @@ function SubscribeContent() {
 
     fetchSubscriptionStatus();
   }, [user]);
+  
+  // Block access if subscriptions feature is disabled
+  if (!subscriptionsEnabled) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>Subscriptions</h1>
+          <p className={styles.subtitle}>
+            Subscriptions are not available at this time.
+          </p>
+        </div>
+        <div className={`${styles.message} ${styles.error}`}>
+          Subscriptions are currently disabled. Please check back later.
+        </div>
+      </div>
+    );
+  }
 
   const handleSubscribe = async (planTier) => {
     if (!user) {
