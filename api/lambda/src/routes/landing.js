@@ -178,11 +178,13 @@ router.post('/waitlist', landingLimiter, async (req, res) => {
 
       await client.query('COMMIT');
 
-      // Send confirmation email (don't await - send asynchronously)
-      sendWaitlistConfirmationEmail(email, newReferralCode).catch(err => {
-        console.error('Error sending waitlist confirmation email:', err);
+      // Send confirmation email (await to keep Lambda execution context alive)
+      try {
+        await sendWaitlistConfirmationEmail(email, newReferralCode);
+      } catch (emailErr) {
+        console.error('Error sending waitlist confirmation email:', emailErr);
         // Don't fail the request if email fails
-      });
+      }
 
       const response = { success: true, message: 'Added to waitlist successfully' };
       if (selfReferralWarning) {
