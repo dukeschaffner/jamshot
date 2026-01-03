@@ -1,18 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute, FaEnvelope, FaKey, FaMusic } from 'react-icons/fa';
 import api from '../lib/api';
 import styles from './LandingPage.module.css';
 
-export default function LandingPage({ onAccessGranted }) {
+function LandingPageContent({ onAccessGranted }) {
+  const searchParams = useSearchParams();
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(true);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [accessCode, setAccessCode] = useState('');
-  const [waitlistStatus, setWaitlistStatus] = useState(''); // 'loading', 'success', 'error'
+  const [waitlistStatus, setWaitlistStatus] = useState(''); // 'loading', 'success', 'error', 'warning'
   const [accessStatus, setAccessStatus] = useState(''); // 'loading', 'success', 'error'
-  const [statusMessage, setStatusMessage] = useState('');
+  const [waitlistMessage, setWaitlistMessage] = useState('');
+  const [accessMessage, setAccessMessage] = useState('');
   const videoRef = useRef(null);
 
   // Auto-play video on mount (muted)
@@ -25,6 +28,15 @@ export default function LandingPage({ onAccessGranted }) {
       });
     }
   }, []);
+
+  // Check for waitlist confirmation message
+  useEffect(() => {
+    const confirmed = searchParams?.get('waitlist-confirmed');
+    if (confirmed === 'true') {
+      setWaitlistStatus('success');
+      setWaitlistMessage('Your spot on the waitlist has been confirmed! Check your email for your referral link.');
+    }
+  }, [searchParams]);
 
   const toggleVideoPlayback = () => {
     if (videoRef.current) {
@@ -51,16 +63,30 @@ export default function LandingPage({ onAccessGranted }) {
 
     setWaitlistStatus('loading');
     try {
-      await api.post('/waitlist', { email: waitlistEmail.trim() });
-      setWaitlistStatus('success');
-      setStatusMessage('Thanks! You\'ve been added to our waitlist. We\'ll notify you when we launch!');
+      // Get referral code from URL if present
+      const referralCode = searchParams?.get('ref');
+      
+      const payload = { email: waitlistEmail.trim() };
+      if (referralCode) {
+        payload.referralCode = referralCode;
+      }
+
+      const response = await api.post('/waitlist', payload);
+      // Check if there's a warning message (e.g., self-referral attempt)
+      if (response.data.warning) {
+        setWaitlistStatus('warning');
+        setWaitlistMessage(`${response.data.message} ${response.data.warning}`);
+      } else {
+        setWaitlistStatus('success');
+        setWaitlistMessage('Thanks! Check your email to confirm your spot on the waitlist and get your referral link.');
+      }
       setWaitlistEmail('');
     } catch (error) {
       setWaitlistStatus('error');
       if (error.response?.status === 409) {
-        setStatusMessage('This email is already on our waitlist!');
+        setWaitlistMessage('This email is already on our waitlist!');
       } else {
-        setStatusMessage('Something went wrong. Please try again.');
+        setWaitlistMessage('Something went wrong. Please try again.');
       }
     }
   };
@@ -74,18 +100,18 @@ export default function LandingPage({ onAccessGranted }) {
       const response = await api.post('/access-code/verify', { code: accessCode.trim() });
       if (response.data.valid) {
         setAccessStatus('success');
-        setStatusMessage('Access granted! Welcome to Sterio!');
+        setAccessMessage('Access granted! Welcome to Sterio!');
         // Store access in session/localStorage
         sessionStorage.setItem('sterio_access_granted', 'true');
         // Call parent function to hide landing page
         setTimeout(() => onAccessGranted(), 1500);
       } else {
         setAccessStatus('error');
-        setStatusMessage('Invalid access code. Please check and try again.');
+        setAccessMessage('Invalid access code. Please check and try again.');
       }
     } catch (error) {
       setAccessStatus('error');
-      setStatusMessage('Something went wrong. Please try again.');
+      setAccessMessage('Something went wrong. Please try again.');
     }
   };
 
@@ -181,7 +207,10 @@ export default function LandingPage({ onAccessGranted }) {
             {/* Waitlist Form */}
             <div className={styles.formContainer}>
               <h3>Join the Waitlist</h3>
-              <p>Be the first to know when we launch publicly!</p>
+              <ul>
+                <li>Be the first to know when we launch publicly!</li>
+                <li>Refer 3 friends to get priority early access and get your tracks on the feed at launch.</li>
+              </ul>
               <form onSubmit={handleWaitlistSubmit} className={styles.form}>
                 <div className={styles.inputGroup}>
                   <FaEnvelope className={styles.formIcon} />
@@ -202,6 +231,11 @@ export default function LandingPage({ onAccessGranted }) {
                   {waitlistStatus === 'loading' ? 'Adding...' : 'Join Waitlist'}
                 </button>
               </form>
+              {waitlistMessage && (
+                <div className={`${styles.statusMessage} ${styles[waitlistStatus]}`}>
+                  {waitlistMessage}
+                </div>
+              )}
             </div>
 
             {/* Access Code Form */}
@@ -228,18 +262,35 @@ export default function LandingPage({ onAccessGranted }) {
                   {accessStatus === 'loading' ? 'Verifying...' : 'Get Access'}
                 </button>
               </form>
+              {accessMessage && (
+                <div className={`${styles.statusMessage} ${styles[accessStatus]}`}>
+                  {accessMessage}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Status Message */}
-          {statusMessage && (
-            <div className={`${styles.statusMessage} ${styles[waitlistStatus || accessStatus]}`}>
-              {statusMessage}
-            </div>
-          )}
         </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LandingPage({ onAccessGranted }) {
+  return (
+    <Suspense fallback={
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '100vh',
+        background: 'var(--background)',
+        color: 'var(--text-primary)'
+      }}>
+        <div>Loading...</div>
+      </div>
+    }>
+      <LandingPageContent onAccessGranted={onAccessGranted} />
+    </Suspense>
   );
 }

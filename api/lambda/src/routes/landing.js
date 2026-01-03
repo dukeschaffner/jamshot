@@ -1,7 +1,9 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const rateLimit = require('express-rate-limit');
 const { getGeolocationData } = require('../utils/geolocation');
+const { sendWaitlistConfirmationEmail } = require('../utils/emailService');
 
 const router = express.Router();
 
@@ -14,10 +16,61 @@ const landingLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Helper function to generate a random IP address for development testing
+const generateRandomIP = () => {
+  // Generate a random IP in the range 192.168.0.0 to 192.168.255.255
+  // This is a private IP range, safe for testing
+  const octet3 = Math.floor(Math.random() * 256);
+  const octet4 = Math.floor(Math.random() * 256);
+  return `192.168.${octet3}.${octet4}`;
+};
+
+// Helper function to check if email contains any numbers
+const emailContainsNumbers = (email) => {
+  return /\d/.test(email);
+};
+
+// Helper function to generate a unique alphanumeric referral code
+const generateReferralCode = async () => {
+  let code;
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+  const codeLength = 10;
+  
+  // Characters to use: uppercase letters and numbers (excluding ambiguous characters like 0, O, I, 1)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+  while (!isUnique && attempts < maxAttempts) {
+    // Generate an alphanumeric code
+    code = '';
+    for (let i = 0; i < codeLength; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    // Check if code already exists
+    const existing = await pool.query(
+      'SELECT id FROM waitlist WHERE referral_code = $1',
+      [code]
+    );
+    
+    if (existing.rows.length === 0) {
+      isUnique = true;
+    }
+    attempts++;
+  }
+
+  if (!isUnique) {
+    throw new Error('Failed to generate unique referral code');
+  }
+
+  return code;
+};
+
 // Add email to waitlist
 router.post('/waitlist', landingLimiter, async (req, res) => {
   try {
-    let { email } = req.body;
+    let { email, referralCode } = req.body;
 
     // Validate email is provided
     if (!email || typeof email !== 'string') {
@@ -32,7 +85,15 @@ router.post('/waitlist', landingLimiter, async (req, res) => {
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email address' });
     }
-    const ip = req.ip || req.connection.remoteAddress;
+    
+    // In development: if email contains numbers, assign random IP for testing referrals
+    let ip = req.ip || req.connection.remoteAddress;
+    const isDevelopment = process.env.NODE_ENV === 'dev' || process.env.NODE_ENV === 'development';
+    if (isDevelopment && emailContainsNumbers(email)) {
+      ip = generateRandomIP();
+      console.log(`[DEV] Generated random IP ${ip} for email ${email} (contains numbers)`);
+    }
+    
     const userAgent = req.get('User-Agent');
     
     // Get geolocation data if IP is available
@@ -56,14 +117,84 @@ router.post('/waitlist', landingLimiter, async (req, res) => {
       return res.status(409).json({ error: 'Email already on waitlist' });
     }
 
-    // Insert into waitlist
-    await pool.query(
-      `INSERT INTO waitlist (email, ip_address, country_code, region, city, user_agent) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [email, ip, location.country_code, location.region, location.city, userAgent]
-    );
+    // Generate unique referral code for this user
+    const newReferralCode = await generateReferralCode();
 
-    res.json({ success: true, message: 'Added to waitlist successfully' });
+    // Start transaction for referral tracking
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Insert into waitlist
+      const insertResult = await client.query(
+        `INSERT INTO waitlist (email, ip_address, country_code, region, city, user_agent, referral_code) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [email, ip, location.country_code, location.region, location.city, userAgent, newReferralCode]
+      );
+
+      const waitlistId = insertResult.rows[0].id;
+
+      // Track if self-referral was attempted
+      let selfReferralWarning = null;
+
+      // Handle referral tracking if referral code is provided
+      if (referralCode && typeof referralCode === 'string') {
+        referralCode = referralCode.trim();
+        
+        // Find the referrer by referral code
+        const referrerResult = await client.query(
+          'SELECT id, email, ip_address FROM waitlist WHERE referral_code = $1',
+          [referralCode]
+        );
+
+        if (referrerResult.rows.length > 0) {
+          const referrer = referrerResult.rows[0];
+          
+          // Prevent self-referrals: check email and IP
+          const isSelfReferral = 
+            referrer.email.toLowerCase() === email.toLowerCase() ||
+            (referrer.ip_address && ip && referrer.ip_address === ip);
+
+          if (isSelfReferral) {
+            // Set warning message for self-referral attempt
+            selfReferralWarning = 'You cannot refer yourself. Your signup was successful, but the referral was not counted.';
+          } else {
+            // Record the referral
+            try {
+              await client.query(
+                `INSERT INTO referrals (referrer_waitlist_id, referred_waitlist_id) 
+                 VALUES ($1, $2)`,
+                [referrer.id, waitlistId]
+              );
+            } catch (refError) {
+              // Ignore duplicate referral errors (unique constraint)
+              if (refError.code !== '23505') {
+                throw refError;
+              }
+            }
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      // Send confirmation email (don't await - send asynchronously)
+      sendWaitlistConfirmationEmail(email, newReferralCode).catch(err => {
+        console.error('Error sending waitlist confirmation email:', err);
+        // Don't fail the request if email fails
+      });
+
+      const response = { success: true, message: 'Added to waitlist successfully' };
+      if (selfReferralWarning) {
+        response.warning = selfReferralWarning;
+      }
+      res.json(response);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Error adding to waitlist:', error);
     res.status(500).json({ error: 'Server error' });
@@ -164,6 +295,53 @@ router.get('/access-code/check', (req, res) => {
   // This endpoint can be used to check server-side session if needed
   // For now, we're using client-side sessionStorage
   res.json({ hasAccess: false });
+});
+
+// Confirm waitlist email
+router.get('/confirm-waitlist/:token', async (req, res) => {
+  const { token } = req.params;
+  
+  try {
+    // Verify the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Check if this is a waitlist confirmation token
+    if (decoded.action !== 'confirm_waitlist') {
+      console.error('Invalid token action:', decoded.action);
+      return res.status(400).json({ error: 'Invalid confirmation token' });
+    }
+    
+    // Normalize email (lowercase) to match how it's stored
+    const email = decoded.email ? decoded.email.toLowerCase().trim() : null;
+    if (!email) {
+      console.error('No email in token');
+      return res.status(400).json({ error: 'Invalid confirmation token' });
+    }
+    
+    // Update waitlist entry's confirmed status (case-insensitive match)
+    const result = await pool.query(
+      'UPDATE waitlist SET confirmed = true WHERE LOWER(email) = LOWER($1) RETURNING id, email',
+      [email]
+    );
+    
+    if (result.rows.length === 0) {
+      console.error('Waitlist entry not found for email:', email);
+      return res.status(404).json({ error: 'Waitlist entry not found' });
+    }
+    
+    console.log('Waitlist confirmed for email:', result.rows[0].email);
+    
+    // Redirect to frontend with success message
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}?waitlist-confirmed=true`);
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      console.error('Token expired for confirmation');
+      return res.status(400).json({ error: 'Confirmation link has expired' });
+    }
+    console.error('Error confirming waitlist:', err);
+    res.status(400).json({ error: 'Invalid confirmation token' });
+  }
 });
 
 module.exports = router;

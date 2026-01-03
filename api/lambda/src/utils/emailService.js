@@ -140,8 +140,76 @@ const sendContactEmail = async ({ name, email, message }) => {
   return transporter.sendMail(mailOptions);
 };
 
+/**
+ * Send waitlist confirmation email with referral link
+ * @param {string} email - User's email address
+ * @param {string} referralCode - Unique referral code for this waitlist entry
+ * @returns {Promise} - Resolves when email is sent
+ */
+const sendWaitlistConfirmationEmail = async (email, referralCode) => {
+  // Create a confirmation token valid for 7 days
+  const confirmationToken = jwt.sign(
+    { email, action: 'confirm_waitlist' },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  // Create the confirmation URL (points to API endpoint which will redirect to frontend)
+  // API_URL should include /api (e.g., https://api.sterio.fm/api or http://localhost:5001/api)
+  const apiBaseUrl = process.env.API_URL || 'http://localhost:5001/api';
+  const confirmationUrl = `${apiBaseUrl}/confirm-waitlist/${confirmationToken}`;
+  
+  // Create the referral link
+  const referralUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}?ref=${referralCode}`;
+
+  // Email content
+  const mailOptions = {
+    from: process.env.EMAIL,
+    to: getEmailAddress(email),
+    subject: 'Confirm your spot on the Sterio waitlist',
+    html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+        <h2 style="color: #171717; font-size: 2rem; font-weight: 700; margin-bottom: 16px;">Welcome to sterio!</h2>
+        <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;">Thank you for joining our waitlist! We're excited to have you be part of the future of music collaboration.</p>
+        
+        <div style="background-color: #C1F4D9; border-left: 4px solid #93E9BE; padding: 16px; margin: 20px 0; border-radius: 6px;">
+          <h3 style="margin-top: 0; color: #171717; font-size: 1.2rem; font-weight: 600;">Want your tracks to be featured on the home feed at launch?</h3>
+          <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 12px;">Get priority early access to the app to start posting and collaborating by:</p>
+          <ul style="margin: 0; padding-left: 20px; color: #171717; font-size: 1rem; line-height: 1.6;">
+            <li style="margin-bottom: 8px;">confirming your spot on the waitlist using the button below</li>
+            <li style="margin-bottom: 0;">referring 3 friends to sterio using the referral link below</li>
+          </ul>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${confirmationUrl}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block; font-size: 1rem;">Confirm Your Spot</a>
+        </div>
+        
+        <p style="color: #555555; font-size: 0.9rem; margin-bottom: 8px;">If the button doesn't work, you can also copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #555555; background: #f5f5f5; padding: 10px; border-radius: 6px; font-size: 0.875rem; margin-bottom: 24px;">${confirmationUrl}</p>
+
+        <div style="border-top: 1px solid #e0e0e0; margin-top: 30px; padding-top: 20px;">
+          <h3 style="color: #171717; font-size: 1.2rem; font-weight: 600; margin-bottom: 12px;">Share with Friends</h3>
+          <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">Want to get priority access? Refer friends to join the waitlist! Share your unique referral link:</p>
+          <div style="background: #f5f5f5; padding: 16px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: 600; color: #171717; font-size: 0.9rem;">Your Referral Link:</p>
+            <p style="word-break: break-all; color: #93E9BE; font-size: 0.875rem; margin: 8px 0 0 0;">${referralUrl}</p>
+          </div>
+          <p style="font-size: 0.875rem; color: #555555; margin-top: 12px;">Refer 3 friends to get priority access when we launch!</p>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 0.7rem; color: #999999; line-height: 1.5;">This confirmation link will expire in 7 days. If you didn't sign up for the Sterio waitlist, you can safely ignore this email.</p>
+      </div>
+    `
+  };
+
+  // Send the email
+  return transporter.sendMail(mailOptions);
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
-  sendContactEmail
+  sendContactEmail,
+  sendWaitlistConfirmationEmail
 }; 
