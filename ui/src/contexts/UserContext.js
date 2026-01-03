@@ -31,7 +31,8 @@ export const UserProvider = ({ children }) => {
     setIsLoading(true);
     try {
       const token = Cookies.get('accessToken');
-      if (!token) {
+      const refreshToken = Cookies.get('refreshToken');
+      if (!token && !refreshToken) {
         setUser(null);
         setUserPlan(getUserPlan(null)); // Set to free plan instead of null
         setIsLoading(false);
