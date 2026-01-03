@@ -1,0 +1,15 @@
+
+what: referral system to incentive referring friends to the sterio waitlist with early access
+
+- when a user signs up with their email address to the waitlist, they get an email where they can confirm their spot on the waitlist (add confirmed flag on waitlist table)
+    - include referral link and instructions
+    - use non specific language like "refer 3 friends to get priority access"
+    - include language that clearly indicates value in signing up early
+        - the value is that they get early access and can seed content in the app which will give them a lot of exposure when it launches
+- referral link should be like "https://sterio.fm?ref=1234567890"
+- if someone else clicks the referral link and signs up, it will track that referral usage in the db
+    - track referral usage on initial waitlist sign up, not confirmation
+        - i can filter on confirmed referrals if i need to
+- all priority access decisions and notifications will be made manually by me
+
+- prevent self-referrals (same email/ip)
