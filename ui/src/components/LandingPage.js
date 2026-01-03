@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute, FaEnvelope, FaKey, FaMusic } from 'react-icons/fa';
+import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute, FaEnvelope, FaKey, FaMusic, FaMicrophone, FaProjectDiagram } from 'react-icons/fa';
 import api from '../lib/api';
 import styles from './LandingPage.module.css';
 import LoginModal from './LoginModal';
@@ -167,38 +167,38 @@ function LandingPageContent({ onAccessGranted }) {
               <h1 className={styles.title}>sterio</h1>
             </div>
             <p className={styles.subtitle}>
-              The social platform where musicians collaborate and create together
+              The social platform where posts and comments are music-based, not text-based
             </p>
           </div>
 
           <div className={styles.description}>
-            <h2>Music Collaboration Reimagined</h2>
+            {/* <h2>Music Collaboration Reimagined</h2>
             <p>
               Sterio is revolutionizing how musicians collaborate. Upload your tracks, 
               layer sounds from other artists, and create amazing music together. 
               It&apos;s like social media, but for music creation.
-            </p>
+            </p> */}
             
             <div className={styles.features}>
               <div className={styles.featureItem}>
                 <FaMusic className={styles.featureIcon} />
                 <div>
-                  <h3>Create & Collaborate</h3>
-                  <p>Upload your music or add layers to existing tracks</p>
+                  <h3>Browse Feed and Post Daily</h3>
+                  <p>Sterio incentivizes and facilitates daily content creation. Check back daily to see what your friends and favorite artists are working on.</p>
                 </div>
               </div>
               <div className={styles.featureItem}>
-                <FaPlay className={styles.featureIcon} />
+                <FaMicrophone className={styles.featureIcon} />
                 <div>
-                  <h3>Built-in DAW</h3>
-                  <p>Record and edit directly in your browser</p>
+                  <h3>Inspired by a Track? Add Your Own Collab in Seconds</h3>
+                  <p>Click &apos;Collab&apos; on a track to open the simple built in DAW to add your own layer to the track. Your version will appear under the original track and on your page.</p>
                 </div>
               </div>
               <div className={styles.featureItem}>
-                <FaEnvelope className={styles.featureIcon} />
+                <FaProjectDiagram className={styles.featureIcon} />
                 <div>
-                  <h3>Social Features</h3>
-                  <p>Follow artists, like tracks, and discover new music</p>
+                  <h3>Explore Track Version Trees</h3>
+                  <p>Every collaboration creates a new version, building a tree of different track versions you can explore. Navigate through the evolution of tracks and discover how artists build on each other&apos;s work.</p>
                 </div>
               </div>
             </div>
