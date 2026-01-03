@@ -216,14 +216,19 @@ const createApiClient = (config = {}) => {
         // Try to get a new access token with retry logic
         const response = await attemptTokenRefresh(refreshToken);
         
-        const { accessToken } = response.data;
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
         
         // Update the access token
         if (setToken) {
           await setToken(accessToken);
         }
+        
+        // Update the refresh token if a new one was provided (token rotation)
+        if (newRefreshToken && setRefreshToken) {
+          await setRefreshToken(newRefreshToken);
+        }
 
-        console.log('Access token refreshed');
+        console.log('Access token refreshed' + (newRefreshToken ? ' (refresh token rotated)' : ''));
         
         // Update the UserContext if callback is set
         if (refreshUserState) {

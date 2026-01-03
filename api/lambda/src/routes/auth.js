@@ -253,16 +253,26 @@ router.post('/refresh-token', authLimiter, async (req, res) => {
     
     const tokenData = tokenResult.rows[0];
     const userId = tokenData.user_id;
+    const deviceInfo = tokenData.device_info;
     
-    // Generate a new access token
-    const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Revoke the old refresh token (token rotation)
+    await pool.query(
+      'UPDATE refresh_tokens SET revoked = true WHERE token = $1',
+      [refreshToken]
+    );
+    
+    // Generate new tokens (access token and new refresh token)
+    const { accessToken, refreshToken: newRefreshToken } = await generateTokens(userId, deviceInfo);
     
     // Set user context for CSRF token generation
     req.user = { id: userId };
     
     // Generate and set CSRF token
     setCSRFToken(req, res, () => {
-      res.json({ accessToken });
+      res.json({ 
+        accessToken,
+        refreshToken: newRefreshToken
+      });
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
