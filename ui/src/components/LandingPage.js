@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute, FaEnvelope, FaKey, FaMusic } from 'react-icons/fa';
 import api from '../lib/api';
 import styles from './LandingPage.module.css';
+import LoginModal from './LoginModal';
 
 function LandingPageContent({ onAccessGranted }) {
   const searchParams = useSearchParams();
@@ -16,6 +17,7 @@ function LandingPageContent({ onAccessGranted }) {
   const [accessStatus, setAccessStatus] = useState(''); // 'loading', 'success', 'error'
   const [waitlistMessage, setWaitlistMessage] = useState('');
   const [accessMessage, setAccessMessage] = useState('');
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const videoRef = useRef(null);
 
   // Auto-play video on mount (muted)
@@ -208,8 +210,8 @@ function LandingPageContent({ onAccessGranted }) {
             <div className={styles.formContainer}>
               <h3>Join the Waitlist</h3>
               <ul>
-                <li>Be the first to know when we launch publicly!</li>
-                <li>Refer 3 friends to get priority early access and get your tracks on the feed at launch.</li>
+                <li>Be the first to know when we launch publicly</li>
+                <li>Refer 3 friends to get priority early access and get your tracks on the feed at launch</li>
               </ul>
               <form onSubmit={handleWaitlistSubmit} className={styles.form}>
                 <div className={styles.inputGroup}>
@@ -240,8 +242,8 @@ function LandingPageContent({ onAccessGranted }) {
 
             {/* Access Code Form */}
             <div className={styles.formContainer}>
-              <h3>Have an Early Access Code?</h3>
-              <p>Enter your code to get immediate access!</p>
+              <h3>Already have early access?</h3>
+              <p>Enter your access code or sign in to get started!</p>
               <form onSubmit={handleAccessCodeSubmit} className={styles.form}>
                 <div className={styles.inputGroup}>
                   <FaKey className={styles.formIcon} />
@@ -262,6 +264,16 @@ function LandingPageContent({ onAccessGranted }) {
                   {accessStatus === 'loading' ? 'Verifying...' : 'Get Access'}
                 </button>
               </form>
+              <div className={styles.divider}>
+                <span>or</span>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsLoginModalOpen(true)}
+                className={`${styles.btn} ${styles.btnSecondary} w-full`}
+              >
+                Sign In
+              </button>
               {accessMessage && (
                 <div className={`${styles.statusMessage} ${styles[accessStatus]}`}>
                   {accessMessage}
@@ -272,6 +284,15 @@ function LandingPageContent({ onAccessGranted }) {
         </div>
         </div>
       </div>
+      <LoginModal 
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSuccess={() => {
+          // Grant access on successful login
+          sessionStorage.setItem('sterio_access_granted', 'true');
+          setTimeout(() => onAccessGranted(), 500);
+        }}
+      />
     </div>
   );
 }
