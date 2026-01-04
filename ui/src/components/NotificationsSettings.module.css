@@ -1,0 +1,31 @@
+.notificationsSettings {
+  max-width: 800px;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+}
+
+body.dark-mode .title {
+  color: var(--dark-text-primary);
+}
+
+.placeholder {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+body.dark-mode .placeholder {
+  color: var(--dark-text-secondary);
+  background: linear-gradient(135deg, rgba(30,30,30,0.7), rgba(18,18,18,0.3));
+  border: 1px solid rgba(46, 46, 46, 0.18);
+}
+
