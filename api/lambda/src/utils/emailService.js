@@ -2,6 +2,8 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+const emailName = 'Duke from Sterio';
+
 /**
  * Get the appropriate email address based on environment
  * @param {string} originalEmail - The original email address
@@ -50,7 +52,7 @@ const sendVerificationEmail = async (email, userId, username) => {
 
   // Email content
   const mailOptions = {
-    from: process.env.EMAIL,
+    from: `"${emailName}" <${process.env.EMAIL}>`,
     to: getEmailAddress(email),
     subject: 'Verify your Sterio account',
     html: `
@@ -91,7 +93,7 @@ const sendPasswordResetEmail = async (email, userId, username) => {
 
   // Email content
   const mailOptions = {
-    from: process.env.EMAIL,
+    from: `"${emailName}" <${process.env.EMAIL}>`,
     to: getEmailAddress(email),
     subject: 'Reset your Sterio password',
     html: `
@@ -124,7 +126,7 @@ const sendPasswordResetEmail = async (email, userId, username) => {
  */
 const sendContactEmail = async ({ name, email, message }) => {
   const mailOptions = {
-    from: process.env.EMAIL,
+    from: `"${emailName}" <${process.env.EMAIL}>`,
     to: getEmailAddress('hello@sterio.fm'),
     subject: `Contact Form Submission from ${name}`,
     html: `
@@ -164,7 +166,7 @@ const sendWaitlistConfirmationEmail = async (email, referralCode) => {
 
   // Email content
   const mailOptions = {
-    from: process.env.EMAIL,
+    from: `"${emailName}" <${process.env.EMAIL}>`,
     to: getEmailAddress(email),
     subject: 'Confirm your spot on the Sterio waitlist',
     html: `
