@@ -20,6 +20,8 @@ const teamRoutes = require('./routes/teams');
 const groupRoutes = require('./routes/groups');
 const landingRoutes = require('./routes/landing');
 const featureFlagsRoutes = require('./routes/featureFlags');
+// TEMP: Temporary logging endpoint - remove after debugging token refresh issues
+const loggingRoutes = require('./routes/logging');
 require('dotenv').config();
 
 
@@ -101,6 +103,14 @@ if (process.env.NODE_ENV === 'dev') {
 
 // Cookie parser middleware (must come before CSRF)
 app.use(cookieParser());
+
+// TEMP: Temporary logging endpoint (only in dev/test) - register before CSRF protection
+// This is a temporary debugging endpoint, so we bypass CSRF for convenience
+// Remove after debugging token refresh issues
+const env = process.env.NODE_ENV || 'development';
+if (env === 'dev' || env === 'test' || env === 'development') {
+  app.use('/api/logging', loggingRoutes);
+}
 
 // Apply CSRF protection globally (after auth middleware in routes)
 app.use(csrfProtection);
