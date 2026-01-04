@@ -8,6 +8,7 @@ before launch:
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
 - switch to better auth? neon auth?
 - add 5 user team/camp option
+- change email name that displays in emails from sterio
 
 
 
@@ -63,6 +64,8 @@ BUGS
 - daw sometimes gets initialized twice (causes undo/redo bug)
 - load artist names on track tree page
 - feed loaded team track 
+- mobile - notifications page loading bug
+- notifications - liking track triggered red dot but notification didnt show up/ wasnt refreshed on bell click
 
 ui issues:
 - more dropdown extends past the bottom of the screen
