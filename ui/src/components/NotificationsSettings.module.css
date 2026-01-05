@@ -1,31 +1,241 @@
 .notificationsSettings {
-  max-width: 800px;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
 .title {
   font-size: 2rem;
   font-weight: 700;
-  margin-bottom: 2rem;
   color: var(--text-primary);
+  margin-bottom: 24px;
 }
 
-body.dark-mode .title {
-  color: var(--dark-text-primary);
+.warning {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
 }
 
-.placeholder {
-  padding: 3rem;
-  text-align: center;
+.warning p {
+  margin: 0;
+  color: #856404;
+  font-weight: 500;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.section {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  background: var(--bg-secondary);
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.sectionDescription {
   color: var(--text-secondary);
-  font-size: 1.1rem;
-  background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  margin: 0 0 20px 0;
+  line-height: 1.5;
 }
 
-body.dark-mode .placeholder {
-  color: var(--dark-text-secondary);
-  background: linear-gradient(135deg, rgba(30,30,30,0.7), rgba(18,18,18,0.3));
-  border: 1px solid rgba(46, 46, 46, 0.18);
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.radioOption:hover {
+  background-color: var(--bg-hover);
+}
+
+.radioInput {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--seafoam);
+  cursor: pointer;
+}
+
+.radioLabel {
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.toggleOption {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+  flex-wrap: wrap;
+}
+
+.toggleOption:hover {
+  background-color: var(--bg-hover);
+}
+
+.toggleInput {
+  display: none;
+}
+
+.toggleSlider {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  background-color: #ccc;
+  border-radius: 26px;
+  transition: background-color 0.3s;
+  cursor: pointer;
+}
+
+.toggleSlider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+
+.toggleInput:checked + .toggleSlider {
+  background-color: var(--seafoam);
+}
+
+.toggleInput:checked + .toggleSlider::before {
+  transform: translateX(24px);
+}
+
+.toggleLabel {
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+}
+
+.error {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #721c24;
+  font-weight: 500;
+}
+
+.success {
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #155724;
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.saveButton {
+  background: linear-gradient(90deg, #93E9BE, #E9A9A1);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 32px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.saveButton:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.footer {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.footerText {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .notificationsSettings {
+    padding: 16px;
+  }
+  
+  .title {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+  }
+  
+  .section {
+    padding: 20px;
+  }
+  
+  .form {
+    gap: 24px;
+  }
+  
+  .toggleOption {
+    gap: 12px;
+  }
+  
+  .toggleSlider {
+    flex-shrink: 0;
+  }
+  
+  .actions {
+    justify-content: stretch;
+  }
+  
+  .saveButton {
+    width: 100%;
+  }
+}

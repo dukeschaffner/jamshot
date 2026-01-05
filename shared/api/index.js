@@ -512,6 +512,10 @@ const createApiMethods = (apiClient) => {
     markAsRead: (id) => api.put(`/notifications/${id}/read`),
     
     markAllAsRead: () => api.put('/notifications/read-all'),
+    
+    getPreferences: () => api.get('/notifications/preferences'),
+    
+    updatePreferences: (preferences) => api.put('/notifications/preferences', preferences),
   };
 
   // Competition API methods

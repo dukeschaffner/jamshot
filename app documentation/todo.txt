@@ -50,6 +50,7 @@ before launch:
     - can be updated any time
     - plays for all tracks by that user
 - check competition hosting restriction for free tier users
+- move teams link to more dropdown. if user is in active team or camp, show link in navbar (on desktop)
 
 
 
@@ -65,6 +66,7 @@ BUGS
 - feed loaded team track 
 - mobile - notifications page loading bug
 - notifications - liking track triggered red dot but notification didnt show up/ wasnt refreshed on bell click
+- when user is a part of expired camp, the camps link still navs to the camp page
 
 ui issues:
 - more dropdown extends past the bottom of the screen

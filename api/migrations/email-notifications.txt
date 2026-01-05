@@ -1,0 +1,59 @@
+
+-- Email Notifications Feature Database Schema
+-- ============================================
+
+-- Create enum for activity summary frequency
+CREATE TYPE activity_summary_frequency AS ENUM ('daily', 'weekly', 'monthly', 'none');
+
+-- Create notification preferences table
+CREATE TABLE notification_preferences (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  activity_summary_frequency activity_summary_frequency NOT NULL DEFAULT 'weekly',
+  collab_email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id)
+);
+
+-- Create index for performance
+CREATE INDEX idx_notification_preferences_user_id ON notification_preferences(user_id);
+CREATE INDEX idx_notification_preferences_activity_summary ON notification_preferences(activity_summary_frequency);
+
+-- Create default notification preferences for existing users
+INSERT INTO notification_preferences (user_id, activity_summary_frequency, collab_email_enabled)
+SELECT id, 'weekly', TRUE
+FROM users
+ON CONFLICT (user_id) DO NOTHING;
+
+-- Create trigger function to automatically create notification preferences for new users
+CREATE OR REPLACE FUNCTION create_default_notification_preferences()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO notification_preferences (user_id, activity_summary_frequency, collab_email_enabled)
+  VALUES (NEW.id, 'weekly', TRUE);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for new users
+DROP TRIGGER IF EXISTS trigger_create_notification_preferences ON users;
+CREATE TRIGGER trigger_create_notification_preferences
+  AFTER INSERT ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION create_default_notification_preferences();
+
+-- Add updated_at trigger function for notification_preferences
+CREATE OR REPLACE FUNCTION update_notification_preferences_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create updated_at trigger
+CREATE TRIGGER trigger_notification_preferences_updated_at
+  BEFORE UPDATE ON notification_preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION update_notification_preferences_timestamp();

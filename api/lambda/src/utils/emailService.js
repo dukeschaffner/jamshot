@@ -209,9 +209,101 @@ const sendWaitlistConfirmationEmail = async (email, referralCode) => {
   return transporter.sendMail(mailOptions);
 };
 
+/**
+ * Send a collaboration notification email
+ * @param {number} userId - ID of the user who created the collaboration
+ * @param {number} collabTrackId - ID of the collaboration track
+ * @param {number} parentTrackId - ID of the parent track
+ * @returns {Promise} - Resolves when email is sent
+ */
+const sendCollabEmail = async (userId, collabTrackId, parentTrackId) => {
+  const pool = require('../config/db');
+  const { generateCollabEmailTemplate } = require('./emailTemplates');
+  
+  try {
+    // Get parent track owner details and preferences
+    const parentTrackQuery = `
+      SELECT 
+        t.title,
+        t.guid,
+        u.email,
+        u.name,
+        u.email_verified,
+        np.collab_email_enabled
+      FROM tracks t
+      JOIN users u ON t.user_id = u.id
+      LEFT JOIN notification_preferences np ON u.id = np.user_id
+      WHERE t.id = $1
+    `;
+    const parentTrackResult = await pool.query(parentTrackQuery, [parentTrackId]);
+    
+    if (parentTrackResult.rows.length === 0) {
+      console.log('Parent track not found for collab email');
+      return;
+    }
+    
+    const parentTrack = parentTrackResult.rows[0];
+    
+    // Check if email should be sent
+    if (!parentTrack.email_verified) {
+      console.log('Parent track owner email not verified, skipping collab email');
+      return;
+    }
+    
+    if (!parentTrack.collab_email_enabled) {
+      console.log('Parent track owner has collab emails disabled, skipping');
+      return;
+    }
+    
+    // Get collaborator details
+    const collaboratorQuery = `
+      SELECT name, username
+      FROM users
+      WHERE id = $1
+    `;
+    const collaboratorResult = await pool.query(collaboratorQuery, [userId]);
+    
+    if (collaboratorResult.rows.length === 0) {
+      console.log('Collaborator not found for collab email');
+      return;
+    }
+    
+    const collaborator = collaboratorResult.rows[0];
+    
+    // Generate URLs
+    const trackUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/track/${parentTrack.guid}`;
+    const settingsUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/user/edit?tab=notifications`;
+    
+    // Generate email template
+    const htmlContent = generateCollabEmailTemplate(
+      collaborator.name || collaborator.username,
+      parentTrack.title,
+      trackUrl,
+      settingsUrl
+    );
+    
+    // Email options
+    const mailOptions = {
+      from: `"${emailName}" <${process.env.EMAIL}>`,
+      to: getEmailAddress(parentTrack.email),
+      subject: `New collaboration on "${parentTrack.title}"`,
+      html: htmlContent
+    };
+    
+    // Send the email
+    await transporter.sendMail(mailOptions);
+    console.log(`Collab email sent to ${parentTrack.email} for track ${parentTrack.title}`);
+    
+  } catch (error) {
+    console.error('Error sending collab email:', error);
+    // Don't throw error to prevent blocking notification creation
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendContactEmail,
-  sendWaitlistConfirmationEmail
+  sendWaitlistConfirmationEmail,
+  sendCollabEmail
 }; 
