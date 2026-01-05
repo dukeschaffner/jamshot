@@ -19,6 +19,7 @@ import { useMobile } from '../contexts/MobileContext';
 import { useToast } from '../lib/ToastContext';
 import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
 import MoveTrackModal from './teams/MoveTrackModal';
+import TrackTags from './TrackTags';
 export default function Track(
     { track, 
       allTracks, 
@@ -387,6 +388,7 @@ export default function Track(
   // Create tabs configuration
   const tabs = [
     { key: 'collabs', label: 'Collabs' },
+    { key: 'tags', label: 'Tags' },
     { key: 'comments', label: 'Comments' }
   ];
 
@@ -444,53 +446,7 @@ export default function Track(
         />
         
         <div className={styles.trackMetaAudio}>
-
-          
-          {/* Display genres */}
-          {track.genres && Array.isArray(track.genres) && track.genres.length > 0 && (
-            <>
-              {isMobile ? (
-                // Mobile: show max 1 genre
-                <>
-                  {track.genres.length > 1 ? (
-                    <span className="track-tag">
-                      {typeof track.genres[0] === 'string' ? track.genres[0] : track.genres[0].name}+{track.genres.length - 1}
-                    </span>
-                  ) : (
-                    <span className="track-tag">{typeof track.genres[0] === 'string' ? track.genres[0] : track.genres[0].name}</span>
-                  )}
-                </>
-              ) : (
-                // Desktop: show all genres
-                track.genres.map((genre, index) => (
-                  <span key={`genre-${index}`} className="track-tag">{typeof genre === 'string' ? genre : genre.name}</span>
-                ))
-              )}
-            </>
-          )}
-          
-          {/* Display instruments */}
-          {track.instruments && Array.isArray(track.instruments) && track.instruments.length > 0 && (
-            <>
-              {isMobile ? (
-                // Mobile: show max 1 instrument
-                <>
-                  {track.instruments.length > 1 ? (
-                    <span className="track-tag">
-                      {typeof track.instruments[0] === 'string' ? track.instruments[0] : track.instruments[0].name}+{track.instruments.length - 1}
-                    </span>
-                  ) : (
-                    <span className="track-tag">{typeof track.instruments[0] === 'string' ? track.instruments[0] : track.instruments[0].name}</span>
-                  )}
-                </>
-              ) : (
-                // Desktop: show all instruments
-                track.instruments.map((instrument, index) => (
-                  <span key={`instrument-${index}`} className="track-tag">{typeof instrument === 'string' ? instrument : instrument.name}</span>
-                ))
-              )}
-            </>
-          )}
+          <TrackTags track={track} variant="light" />
                       
           {track.metronome_bpm && (
             <>
@@ -693,6 +649,61 @@ export default function Track(
                       </>
                     )}
                   </>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {activeTab === 'tags' && (
+            <div className="track-tab-content">
+              <div className={styles.tagsTabContent}>
+                {/* Genres */}
+                {track.genres && Array.isArray(track.genres) && track.genres.length > 0 && (
+                  <div className={styles.tagCategory}>
+                    <h3 className={styles.tagCategoryTitle}>Genres</h3>
+                    <TrackTags track={track} variant="dark" categories={['genres']} />
+                  </div>
+                )}
+                
+                {/* Instruments */}
+                {track.instruments && Array.isArray(track.instruments) && track.instruments.length > 0 && (
+                  <div className={styles.tagCategory}>
+                    <h3 className={styles.tagCategoryTitle}>Instruments</h3>
+                    <TrackTags track={track} variant="dark" categories={['instruments']} />
+                  </div>
+                )}
+                
+                {/* Elements */}
+                {track.elements && Array.isArray(track.elements) && track.elements.length > 0 && (
+                  <div className={styles.tagCategory}>
+                    <h3 className={styles.tagCategoryTitle}>Elements</h3>
+                    <TrackTags track={track} variant="dark" categories={['elements']} />
+                  </div>
+                )}
+                
+                {/* Requested Instruments */}
+                {track.instrument_requests && Array.isArray(track.instrument_requests) && track.instrument_requests.length > 0 && (
+                  <div className={styles.tagCategory}>
+                    <h3 className={styles.tagCategoryTitle}>Requested Instruments</h3>
+                    <TrackTags track={track} variant="dark" categories={['instrument_requests']} />
+                  </div>
+                )}
+                
+                {/* Requested Elements */}
+                {track.element_requests && Array.isArray(track.element_requests) && track.element_requests.length > 0 && (
+                  <div className={styles.tagCategory}>
+                    <h3 className={styles.tagCategoryTitle}>Requested Elements</h3>
+                    <TrackTags track={track} variant="dark" categories={['element_requests']} />
+                  </div>
+                )}
+                
+                {/* Show message if no tags */}
+                {(!track.genres || track.genres.length === 0) &&
+                 (!track.instruments || track.instruments.length === 0) &&
+                 (!track.elements || track.elements.length === 0) &&
+                 (!track.instrument_requests || track.instrument_requests.length === 0) &&
+                 (!track.element_requests || track.element_requests.length === 0) && (
+                  <div className={styles.noTags}>No tags available for this track</div>
                 )}
               </div>
             </div>
