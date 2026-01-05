@@ -709,7 +709,7 @@ body.dark-mode .mobile-more-link:hover {
 }
 
 .track-tags {
-  display: flex;
+  /* display: flex; */
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
