@@ -31,6 +31,9 @@ export default function UploadForm({
   const [isUploading, setIsUploading] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
+  const [selectedElements, setSelectedElements] = useState([]);
+  const [selectedInstrumentRequests, setSelectedInstrumentRequests] = useState([]);
+  const [selectedElementRequests, setSelectedElementRequests] = useState([]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const createCompetition = searchParams.get('createCompetition') === 'true';
@@ -193,9 +196,12 @@ export default function UploadForm({
   // Time signature options
   const timeSignatureOptions = DAWConfig.timeSignature.options;
 
-  const handleTagChange = ({ genreIds, instrumentIds }) => {
-    setSelectedGenres(genreIds);
-    setSelectedInstruments(instrumentIds);
+  const handleTagChange = ({ genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds }) => {
+    setSelectedGenres(genreIds || []);
+    setSelectedInstruments(instrumentIds || []);
+    setSelectedElements(elementIds || []);
+    setSelectedInstrumentRequests(instrumentRequestIds || []);
+    setSelectedElementRequests(elementRequestIds || []);
   };
 
   const handleSubmit = async (e) => {
@@ -263,6 +269,9 @@ export default function UploadForm({
         stems: JSON.stringify(stems),
         genreIds: selectedGenres.length > 0 ? JSON.stringify(selectedGenres) : undefined,
         instrumentIds: selectedInstruments.length > 0 ? JSON.stringify(selectedInstruments) : undefined,
+        elementIds: selectedElements.length > 0 ? JSON.stringify(selectedElements) : undefined,
+        instrumentRequestIds: selectedInstrumentRequests.length > 0 ? JSON.stringify(selectedInstrumentRequests) : undefined,
+        elementRequestIds: selectedElementRequests.length > 0 ? JSON.stringify(selectedElementRequests) : undefined,
         allow_download: allowDownload
       };
 
@@ -464,9 +473,15 @@ export default function UploadForm({
           <TagSelector 
             selectedGenres={selectedGenres}
             selectedInstruments={selectedInstruments}
+            selectedElements={selectedElements}
+            selectedInstrumentRequests={selectedInstrumentRequests}
+            selectedElementRequests={selectedElementRequests}
             onChange={handleTagChange}
             maxGenres={2}
             maxInstruments={4}
+            maxElements={2}
+            maxInstrumentRequests={2}
+            maxElementRequests={2}
           />
         </div>
         

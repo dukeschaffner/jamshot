@@ -246,6 +246,9 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     s3Key,
     parsedGenreIds,
     parsedInstrumentIds,
+    parsedElementIds,
+    parsedInstrumentRequestIds,
+    parsedElementRequestIds,
     parsedMetronomeBpm,
     parsedStems,
     parsedTimeSignature,
@@ -633,6 +636,45 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         await pool.query(
           'INSERT INTO track_instruments (track_id, instrument_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
           [trackId, instrumentId]
+        );
+      }
+    }
+    
+    // Validate and add elements if provided (max 2)
+    if (parsedElementIds && parsedElementIds.length > 0) {
+      if (parsedElementIds.length > 2) {
+        return res.status(400).json({ error: 'Maximum 2 elements allowed per track' });
+      }
+      for (const elementId of parsedElementIds) {
+        await pool.query(
+          'INSERT INTO track_elements (track_id, element_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [trackId, elementId]
+        );
+      }
+    }
+    
+    // Validate and add instrument requests if provided (max 2)
+    if (parsedInstrumentRequestIds && parsedInstrumentRequestIds.length > 0) {
+      if (parsedInstrumentRequestIds.length > 2) {
+        return res.status(400).json({ error: 'Maximum 2 instrument requests allowed per track' });
+      }
+      for (const instrumentId of parsedInstrumentRequestIds) {
+        await pool.query(
+          'INSERT INTO track_instrument_requests (track_id, instrument_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [trackId, instrumentId]
+        );
+      }
+    }
+    
+    // Validate and add element requests if provided (max 2)
+    if (parsedElementRequestIds && parsedElementRequestIds.length > 0) {
+      if (parsedElementRequestIds.length > 2) {
+        return res.status(400).json({ error: 'Maximum 2 element requests allowed per track' });
+      }
+      for (const elementId of parsedElementRequestIds) {
+        await pool.query(
+          'INSERT INTO track_element_requests (track_id, element_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [trackId, elementId]
         );
       }
     }
