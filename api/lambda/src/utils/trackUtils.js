@@ -207,12 +207,12 @@ function getTrackPrivacyClause(isAuthenticated = true, userIdParamIndex = 1) {
  * @param {boolean} includeRepostMetadata - Whether to include repost metadata fields
  * @returns {string} The SQL query string
  */
-function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limitParamIndex = 2, offsetParamIndex = 3, includeRepostMetadata = false) {
+function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limitParamIndex = 2, offsetParamIndex = 3, includeRepostMetadata = false, tagFilters = {}) {
   let query = `
-    SELECT 
+    SELECT
       ${getBaseTrackSelectQuery(isAuthenticated, userIdParamIndex)}
   `;
-  
+
   // Add repost metadata if requested
   if (includeRepostMetadata) {
     query += `,
@@ -224,7 +224,7 @@ function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limit
   }
 
   const privacyClause = getTrackPrivacyClause(isAuthenticated, userIdParamIndex);
-  
+
   query += `
     FROM tracks t
     LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
@@ -232,20 +232,82 @@ function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limit
     LEFT JOIN users u2 ON t2.user_id = u2.id
     WHERE ${privacyClause}
     AND t.processing_status = 'completed'
+  `;
+
+  // Add tag filters
+  const tagFilterClauses = buildTagFilterClauses(tagFilters, 't');
+  if (tagFilterClauses.length > 0) {
+    query += ` AND (${tagFilterClauses.join(' OR ')})`;
+  }
+
+  query += `
     ORDER BY like_count DESC, t.created_at DESC
     LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
   `;
-  
+
   return query;
+}
+
+/**
+ * Build tag filter WHERE clauses for a given table alias
+ * @param {object} tagFilters - Object containing tag filter arrays
+ * @param {string} tableAlias - The table alias to use in the query (e.g., 't')
+ * @returns {string[]} Array of WHERE clause strings
+ */
+function buildTagFilterClauses(tagFilters = {}, tableAlias = 't') {
+  const clauses = [];
+
+  // Genres filter
+  if (tagFilters.genreIds && tagFilters.genreIds.length > 0) {
+    const genreIdsStr = tagFilters.genreIds.join(',');
+    clauses.push(`EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = ${tableAlias}.id AND tg.genre_id IN (${genreIdsStr}))`);
+  }
+
+  // Instruments filter
+  if (tagFilters.instrumentIds && tagFilters.instrumentIds.length > 0) {
+    const instrumentIdsStr = tagFilters.instrumentIds.join(',');
+    clauses.push(`EXISTS (SELECT 1 FROM track_instruments ti WHERE ti.track_id = ${tableAlias}.id AND ti.instrument_id IN (${instrumentIdsStr}))`);
+  }
+
+  // Elements filter
+  if (tagFilters.elementIds && tagFilters.elementIds.length > 0) {
+    const elementIdsStr = tagFilters.elementIds.join(',');
+    clauses.push(`EXISTS (SELECT 1 FROM track_elements te WHERE te.track_id = ${tableAlias}.id AND te.element_id IN (${elementIdsStr}))`);
+  }
+
+  // Requested instruments filter
+  if (tagFilters.instrumentRequestIds && tagFilters.instrumentRequestIds.length > 0) {
+    const instrumentRequestIdsStr = tagFilters.instrumentRequestIds.join(',');
+    clauses.push(`EXISTS (SELECT 1 FROM track_instrument_requests tir WHERE tir.track_id = ${tableAlias}.id AND tir.instrument_id IN (${instrumentRequestIdsStr}))`);
+  }
+
+  // Requested elements filter
+  if (tagFilters.elementRequestIds && tagFilters.elementRequestIds.length > 0) {
+    const elementRequestIdsStr = tagFilters.elementRequestIds.join(',');
+    clauses.push(`EXISTS (SELECT 1 FROM track_element_requests ter WHERE ter.track_id = ${tableAlias}.id AND ter.element_id IN (${elementRequestIdsStr}))`);
+  }
+
+  return clauses;
 }
 
 /**
  * Generate a standardized following feed query
  * @param {number} limitParamIndex - The parameter index for the limit value in the query
  * @param {number} offsetParamIndex - The parameter index for the offset value in the query
+ * @param {object} tagFilters - Tag filter object with genreIds, instrumentIds, etc.
  * @returns {string} The SQL query string
  */
-function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
+function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFilters = {}) {
+  const followedTracksFilters = buildTagFilterClauses(tagFilters, 't');
+  const followedTracksWhereClause = followedTracksFilters.length > 0
+    ? `AND (${followedTracksFilters.join(' OR ')})`
+    : '';
+
+  const repostedTracksFilters = buildTagFilterClauses(tagFilters, 't');
+  const repostedTracksWhereClause = repostedTracksFilters.length > 0
+    ? `AND (${repostedTracksFilters.join(' OR ')})`
+    : '';
+
   return `
     WITH followed_users AS (
       SELECT following_id FROM follows WHERE follower_id = $1
@@ -264,9 +326,10 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      ${followedTracksWhereClause}
     ),
     reposted_tracks AS (
-      SELECT 
+      SELECT
         ${getBaseTrackSelectQuery(true)},
         r.user_id AS reposted_by_id,
         ru.username AS reposted_by_username,
@@ -281,6 +344,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      ${repostedTracksWhereClause}
     )
     SELECT * FROM (
       SELECT * FROM followed_tracks
@@ -298,10 +362,15 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
  * @param {number} offsetParamIndex - The parameter index for the offset value in the query
  * @returns {string} The SQL query string
  */
-function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
+function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFilters = {}) {
   const privacyClause = getTrackPrivacyClause(true, 1);
+  const tagFilterClauses = buildTagFilterClauses(tagFilters, 't');
+  const tagWhereClause = tagFilterClauses.length > 0
+    ? `AND (${tagFilterClauses.join(' OR ')})`
+    : '';
+
   const popularWithExclusions = `
-    SELECT 
+    SELECT
       ${getBaseTrackSelectQuery(true)},
       NULL::integer AS reposted_by_id,
       NULL::text AS reposted_by_username,
@@ -319,16 +388,27 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
     )
     AND ${privacyClause}
     AND t.processing_status = 'completed'
+    ${tagWhereClause}
     ORDER BY like_count DESC
     LIMIT $${limitParamIndex}
   `;
+
+  const followedTracksFilters = buildTagFilterClauses(tagFilters, 't');
+  const followedTracksWhereClause = followedTracksFilters.length > 0
+    ? `AND (${followedTracksFilters.join(' OR ')})`
+    : '';
+
+  const repostedTracksFilters = buildTagFilterClauses(tagFilters, 't');
+  const repostedTracksWhereClause = repostedTracksFilters.length > 0
+    ? `AND (${repostedTracksFilters.join(' OR ')})`
+    : '';
 
   return `
     WITH followed_users AS (
       SELECT following_id FROM follows WHERE follower_id = $1
     ),
     followed_tracks AS (
-      SELECT 
+      SELECT
         ${getBaseTrackSelectQuery(true)},
         NULL::integer AS reposted_by_id,
         NULL::text AS reposted_by_username,
@@ -342,9 +422,10 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      ${followedTracksWhereClause}
     ),
     reposted_tracks AS (
-      SELECT 
+      SELECT
         ${getBaseTrackSelectQuery(true)},
         r.user_id AS reposted_by_id,
         ru.username AS reposted_by_username,
@@ -360,6 +441,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3) {
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      ${repostedTracksWhereClause}
     ),
     popular_tracks AS (
       ${popularWithExclusions}
