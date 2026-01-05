@@ -68,7 +68,7 @@ CREATE TABLE track_elements (
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   element_id INT REFERENCES elements(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (track_id, element_id)
+  UNIQUE (track_id, element_id) -- Prevent duplicate element tags for a track
 );
 
 -- Create track_instrument_requests table
@@ -77,7 +77,7 @@ CREATE TABLE track_instrument_requests (
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   instrument_id INT REFERENCES instruments(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (track_id, instrument_id)
+  UNIQUE (track_id, instrument_id) -- Prevent duplicate instrument request tags for a track
 );
 
 -- Create track_element_requests table
@@ -86,7 +86,7 @@ CREATE TABLE track_element_requests (
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   element_id INT REFERENCES elements(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE (track_id, element_id)
+  UNIQUE (track_id, element_id) -- Prevent duplicate element request tags for a track
 );
 
 -- Create indexes for performance
@@ -96,3 +96,4 @@ CREATE INDEX idx_track_instrument_requests_track_id ON track_instrument_requests
 CREATE INDEX idx_track_instrument_requests_instrument_id ON track_instrument_requests(instrument_id);
 CREATE INDEX idx_track_element_requests_track_id ON track_element_requests(track_id);
 CREATE INDEX idx_track_element_requests_element_id ON track_element_requests(element_id);
+

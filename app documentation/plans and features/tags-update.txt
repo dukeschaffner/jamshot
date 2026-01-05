@@ -35,27 +35,21 @@ Viola
 Ukulele
 Harmonica
 FX
-
-split guitar tag into:
-Acoustic Guitar
+Vocals (Rap)
 Electric Guitar
 
+change Guitar tag to Acoustic Guitar
 
-Add a “Role” or “Contribution Type” tag (1 max)
 
-This avoids people over-using genre/instrument to explain intent. enforce relationships between instruments and roles
-
-Examples:
+Add “Elements” tag type (2 max per track):
 Beat
 Melody
 Harmony
-Lyrics
 Vocals (Lead)
 Vocals (Background)
 Solo
 Rhythm
-Texture / Atmosphere
-
+Texture/SFX
 
 add instrument request tags
-add role/contribution type request tags
+add element request tags

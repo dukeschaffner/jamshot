@@ -26,6 +26,17 @@ router.get('/instruments', async (req, res) => {
   }
 });
 
+// Get all elements
+router.get('/elements', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM elements ORDER BY name');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching elements:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Add a new genre (admin only)
 router.post('/genres', authMiddleware, async (req, res) => {
   try {

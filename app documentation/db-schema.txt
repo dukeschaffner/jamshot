@@ -181,7 +181,7 @@ INSERT INTO genres (name) VALUES
 
 
 INSERT INTO instruments (name) VALUES
-('Guitar'),
+('Acoustic Guitar'),
 ('Piano'),
 ('Drums'),
 ('Bass'),
@@ -191,6 +191,56 @@ INSERT INTO instruments (name) VALUES
 ('Violin'),
 ('Trumpet'),
 ('DJ/Turntables');
+
+
+
+CREATE TABLE elements (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+CREATE TABLE track_elements (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  element_id INT REFERENCES elements(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, element_id) -- Prevent duplicate element tags for a track (max 2 enforced at application level)
+);
+
+
+
+CREATE TABLE track_instrument_requests (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  instrument_id INT REFERENCES instruments(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, instrument_id) -- Prevent duplicate instrument request tags for a track (max 2 enforced at application level)
+);
+
+
+
+CREATE TABLE track_element_requests (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  element_id INT REFERENCES elements(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, element_id) -- Prevent duplicate element request tags for a track (max 2 enforced at application level)
+);
+
+
+
+INSERT INTO elements (name) VALUES
+('Beat'),
+('Melody'),
+('Harmony'),
+('Vocals (Lead)'),
+('Vocals (Background)'),
+('Solo'),
+('Rhythm'),
+('Texture/SFX');
 
 
 

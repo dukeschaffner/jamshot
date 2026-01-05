@@ -553,6 +553,8 @@ const createApiMethods = (apiClient) => {
 
     getInstruments: () => api.get('/tags/instruments'),
 
+    getElements: () => api.get('/tags/elements'),
+
     getTrackGenres: (trackId) => api.get(`/tags/track/${trackId}/genres`),
 
     getTrackInstruments: (trackId) => api.get(`/tags/track/${trackId}/instruments`),

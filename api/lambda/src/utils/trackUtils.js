@@ -111,6 +111,39 @@ async function getTrackInstruments(trackId) {
   );
 }
 
+// Get elements for a track
+async function getTrackElements(trackId) {
+  return await pool.query(
+    `SELECT e.* FROM elements e
+     JOIN track_elements te ON e.id = te.element_id
+     WHERE te.track_id = $1
+     ORDER BY e.name`,
+    [trackId]
+  );
+}
+
+// Get instrument requests for a track
+async function getTrackInstrumentRequests(trackId) {
+  return await pool.query(
+    `SELECT i.* FROM instruments i
+     JOIN track_instrument_requests tir ON i.id = tir.instrument_id
+     WHERE tir.track_id = $1
+     ORDER BY i.name`,
+    [trackId]
+  );
+}
+
+// Get element requests for a track
+async function getTrackElementRequests(trackId) {
+  return await pool.query(
+    `SELECT e.* FROM elements e
+     JOIN track_element_requests ter ON e.id = ter.element_id
+     WHERE ter.track_id = $1
+     ORDER BY e.name`,
+    [trackId]
+  );
+}
+
 // Generate a standardized base query for track selection
 function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, includeDetails = true) {
   const baseQuery = `
@@ -358,10 +391,13 @@ async function processTrack(track, userId = null) {
     combinedAudioUrl = generateSignedUrl(combinedAudioUrl);
   }
 
-  // Get genres and instruments
-  const [genresResult, instrumentsResult] = await Promise.all([
+  // Get genres, instruments, elements, and request tags
+  const [genresResult, instrumentsResult, elementsResult, instrumentRequestsResult, elementRequestsResult] = await Promise.all([
     getTrackGenres(track.id),
-    getTrackInstruments(track.id)
+    getTrackInstruments(track.id),
+    getTrackElements(track.id),
+    getTrackInstrumentRequests(track.id),
+    getTrackElementRequests(track.id)
   ]);
 
   // Check if track has an active competition
@@ -400,6 +436,9 @@ async function processTrack(track, userId = null) {
     combined_audio_url: combinedAudioUrl,
     genres: genresResult.rows,
     instruments: instrumentsResult.rows,
+    elements: elementsResult.rows,
+    instrument_requests: instrumentRequestsResult.rows,
+    element_requests: elementRequestsResult.rows,
     has_active_competition
   };
 }
@@ -876,6 +915,9 @@ function parseTrackUploadBody(body) {
   const {
     genreIds,
     instrumentIds,
+    elementIds,
+    instrumentRequestIds,
+    elementRequestIds,
     metronome_bpm,
     stems,
     time_signature,
@@ -887,6 +929,9 @@ function parseTrackUploadBody(body) {
   // Parse genre and instrument IDs if they're provided as strings
   const parsedGenreIds = genreIds ? (typeof genreIds === 'string' ? JSON.parse(genreIds) : genreIds) : [];
   const parsedInstrumentIds = instrumentIds ? (typeof instrumentIds === 'string' ? JSON.parse(instrumentIds) : instrumentIds) : [];
+  const parsedElementIds = elementIds ? (typeof elementIds === 'string' ? JSON.parse(elementIds) : elementIds) : [];
+  const parsedInstrumentRequestIds = instrumentRequestIds ? (typeof instrumentRequestIds === 'string' ? JSON.parse(instrumentRequestIds) : instrumentRequestIds) : [];
+  const parsedElementRequestIds = elementRequestIds ? (typeof elementRequestIds === 'string' ? JSON.parse(elementRequestIds) : elementRequestIds) : [];
   
   // Parse metronome_bpm if provided
   let parsedMetronomeBpm = metronome_bpm ? parseInt(metronome_bpm, 10) : null;
@@ -938,6 +983,9 @@ function parseTrackUploadBody(body) {
     s3Key,
     parsedGenreIds,
     parsedInstrumentIds,
+    parsedElementIds,
+    parsedInstrumentRequestIds,
+    parsedElementRequestIds,
     parsedMetronomeBpm,
     parsedStems,
     parsedTimeSignature,
@@ -959,6 +1007,9 @@ module.exports = {
   moveS3File,
   getTrackGenres,
   getTrackInstruments,
+  getTrackElements,
+  getTrackInstrumentRequests,
+  getTrackElementRequests,
   getTrackPrivacyClause,
   processTrack,
   downloadS3File,
