@@ -609,10 +609,15 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         );
         
         if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== userId) {
+          // Create notification
           await pool.query(
             'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
             [parentTrackOwner.rows[0].user_id, 'new_version', parent_track_id]
           );
+          
+          // Send collaboration email if preferences allow
+          const { sendCollabEmail } = require('../utils/emailService');
+          await sendCollabEmail(userId, trackId, parent_track_id);
         }
       } catch (err) {
         console.error('Error creating collaboration notification:', err);
