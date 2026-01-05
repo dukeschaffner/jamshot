@@ -278,3 +278,39 @@
     padding: 12px;
     transition: color 0.3s ease;
   }
+  
+  .tagsTabContent {
+    padding: 16px 0;
+  }
+  
+  .tagCategory {
+    margin-bottom: 24px;
+  }
+  
+  .tagCategory:last-child {
+    margin-bottom: 0;
+  }
+  
+  .tagCategoryTitle {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .tagCategoryTitle {
+    color: var(--dark-text-primary);
+  }
+  
+  .noTags {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 24px;
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .noTags {
+    color: var(--dark-text-secondary);
+  }

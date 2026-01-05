@@ -12,6 +12,7 @@ import { useUser } from '../contexts/UserContext';
 import { getLikeCountString } from '../lib/utils';
 import { useMobile } from '../contexts/MobileContext';
 import styles from './MiniTrack.module.css';
+import TrackTags from './TrackTags';
 
 export default function MiniTrack(
   { 
@@ -72,56 +73,7 @@ export default function MiniTrack(
           </div>
           {(track.tags?.length > 0 || track.genres?.length > 0 || track.instruments?.length > 0) && (
             <div className={styles.miniTrackTags}>
-              
-              {/* Display genres */}
-              {track.genres && Array.isArray(track.genres) && track.genres.length > 0 && (
-                <>
-                  {isMobile ? (
-                    // Mobile: show max 1 genre
-                    <>
-                      {track.genres.length > 1 ? (
-                        <span className="track-tag mini">
-                          {typeof track.genres[0] === 'string' ? track.genres[0] : track.genres[0].name}+{track.genres.length - 1}
-                        </span>
-                      ) : (
-                        <span className="track-tag mini">{typeof track.genres[0] === 'string' ? track.genres[0] : track.genres[0].name}</span>
-                      )}
-                    </>
-                  ) : (
-                    // Desktop: show all genres
-                    track.genres.map((genre, index) => (
-                      <span key={`genre-${index}`} className="track-tag mini">
-                        {typeof genre === 'string' ? genre : genre.name}
-                      </span>
-                    ))
-                  )}
-                </>
-              )}
-              
-              {/* Display instruments */}
-              {track.instruments && Array.isArray(track.instruments) && track.instruments.length > 0 && (
-                <>
-                  {isMobile ? (
-                    // Mobile: show max 1 instrument
-                    <>
-                      {track.instruments.length > 1 ? (
-                        <span className="track-tag mini">
-                          {typeof track.instruments[0] === 'string' ? track.instruments[0] : track.instruments[0].name}+{track.instruments.length - 1}
-                        </span>
-                      ) : (
-                        <span className="track-tag mini">{typeof track.instruments[0] === 'string' ? track.instruments[0] : track.instruments[0].name}</span>
-                      )}
-                    </>
-                  ) : (
-                    // Desktop: show all instruments
-                    track.instruments.map((instrument, index) => (
-                      <span key={`instrument-${index}`} className="track-tag mini">
-                        {typeof instrument === 'string' ? instrument : instrument.name}
-                      </span>
-                    ))
-                  )}
-                </>
-              )}
+              <TrackTags track={track} variant="dark" />
             </div>
           )}
       </div>
