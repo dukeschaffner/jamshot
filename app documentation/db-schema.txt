@@ -193,7 +193,24 @@ INSERT INTO genres (name) VALUES
 ('R&B'),
 ('Country'),
 ('Folk'),
-('Metal');
+('Metal'),
+('Alternative'),
+('Indie'),
+('Punk'),
+('Soul'),
+('Funk'),
+('Blues'),
+('Reggae'),
+('Latin'),
+('Afrobeats'),
+('EDM'),
+('House'),
+('Techno'),
+('Ambient'),
+('Lo-Fi'),
+('Experimental'),
+('Christian'),
+('Gospel');
 
 
 INSERT INTO instruments (name) VALUES
@@ -206,7 +223,22 @@ INSERT INTO instruments (name) VALUES
 ('Saxophone'),
 ('Violin'),
 ('Trumpet'),
-('DJ/Turntables');
+('DJ/Turntables'),
+('Keyboard'),
+('Percussion'),
+('Bass Synth'),
+('Sampler'),
+('Drum Machine'),
+('Flute'),
+('Clarinet'),
+('Trombone'),
+('Cello'),
+('Viola'),
+('Ukulele'),
+('Harmonica'),
+('FX'),
+('Vocals (Rap)'),
+('Electric Guitar');
 
 
 
@@ -246,6 +278,13 @@ CREATE TABLE track_element_requests (
   UNIQUE (track_id, element_id) -- Prevent duplicate element request tags for a track (max 2 enforced at application level)
 );
 
+-- Create indexes for performance
+CREATE INDEX idx_track_elements_track_id ON track_elements(track_id);
+CREATE INDEX idx_track_elements_element_id ON track_elements(element_id);
+CREATE INDEX idx_track_instrument_requests_track_id ON track_instrument_requests(track_id);
+CREATE INDEX idx_track_instrument_requests_instrument_id ON track_instrument_requests(instrument_id);
+CREATE INDEX idx_track_element_requests_track_id ON track_element_requests(track_id);
+CREATE INDEX idx_track_element_requests_element_id ON track_element_requests(element_id);
 
 
 INSERT INTO elements (name) VALUES
