@@ -10,6 +10,15 @@ export default function TrackTags({ track, variant = 'light', showAllCategories 
   const containerRef = useRef(null);
   const closeTimeoutRef = useRef(null);
   
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+  
   if (!track) return null;
   
   const hasGenres = track.genres && Array.isArray(track.genres) && track.genres.length > 0;
@@ -64,15 +73,6 @@ export default function TrackTags({ track, variant = 'light', showAllCategories 
   
   // Show popover on hover for collapsed views (to show all tags)
   const shouldShowPopover = isCollapsedView && !isMobile;
-  
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (closeTimeoutRef.current) {
-        clearTimeout(closeTimeoutRef.current);
-      }
-    };
-  }, []);
   
   const handleMouseEnter = () => {
     if (shouldShowPopover) {
