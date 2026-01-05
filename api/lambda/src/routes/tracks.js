@@ -735,30 +735,38 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
 // Get "For You" feed (mixed content - followed users + popular)
 router.get('/feed/for-you', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  
+
+  // Parse tag filter parameters
+  const tagFilters = {};
+  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
   try {
     let query;
     let queryParams;
-    
+
     // Mixed feed: combination of followed artists, their reposts, and popular tracks
     if (userId) {
       // Use the standardized For You feed query function
-      query = getForYouFeedQuery(2, 3);
+      query = getForYouFeedQuery(2, 3, tagFilters);
       queryParams = [userId, limitNum, offset];
     } else {
       // For non-logged in users, just show popular tracks
-      query = getPopularFeedQuery(false, null, 1, 2);
+      query = getPopularFeedQuery(false, null, 1, 2, false, tagFilters);
       queryParams = [limitNum, offset];
     }
-    
+
     const result = await pool.query(query, queryParams);
-    
+
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
+
     res.json(tracks);
   } catch (err) {
     console.error('Feed error:', err);
@@ -769,24 +777,32 @@ router.get('/feed/for-you', async (req, res) => {
 // Get Following feed (just followed artists)
 router.get('/feed/following', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  
+
   if (!userId) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  
+
+  // Parse tag filter parameters
+  const tagFilters = {};
+  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
   try {
     // Use the standardized following feed query function
-    const query = getFollowingFeedQuery(2, 3);
+    const query = getFollowingFeedQuery(2, 3, tagFilters);
     const queryParams = [userId, limitNum, offset];
-    
+
     const result = await pool.query(query, queryParams);
-    
+
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
+
     res.json(tracks);
   } catch (err) {
     console.error('Following feed error:', err);
@@ -797,27 +813,35 @@ router.get('/feed/following', async (req, res) => {
 // Get Popular feed (globally popular tracks)
 router.get('/feed/popular', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  
+
+  // Parse tag filter parameters
+  const tagFilters = {};
+  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
   try {
     // Use the standardized popular feed query function
     let query;
     let queryParams;
     if (userId) {
-      query = getPopularFeedQuery(!!userId, 1, 2, 3, true);
+      query = getPopularFeedQuery(!!userId, 1, 2, 3, true, tagFilters);
       queryParams = [userId, limitNum, offset];
     } else {
-      query = getPopularFeedQuery(false, null, 1, 2);
+      query = getPopularFeedQuery(false, null, 1, 2, false, tagFilters);
       queryParams = [limitNum, offset];
     }
-    
+
     const result = await pool.query(query, queryParams);
-    
+
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
+
     res.json(tracks);
   } catch (err) {
     console.error('Popular feed error:', err);
