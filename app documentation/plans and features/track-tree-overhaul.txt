@@ -1,6 +1,43 @@
 
 
 
-track tree should be an actual tree structure, not a flat list.
-nodes can show more details at different zoom levels or if there arent as many nodes.
-- color code nodes or change size based on popularity
+create new track tree view that is an actual tree structure, not a flat list. allow  user to switch between the two views
+- only allow on desktop for now
+- each node is a circle
+- original track (root) at the top
+- collabs on that track are on the next level down with lines connecting them to the original track
+- collabs on collabs are on the next level down with lines connecting them to the parent collab
+- etc
+
+- how to handle when there are a lot of collabs? can't render all of them at once.
+    - potential option: load max 20 nodes at each level. at each level, if there are more to load, show a "load more" button that loads the next 20 nodes all the way at the right of the level. after 50, start unrendering the leftmost nodes, so that a max of 50 nodes per level can be shown at any time. these numbers should be parameters so its easilyconfigurable.
+- note that trees can only be a max 5 levels deep
+- only show selected track's immediate children + each ancestor and their immediate children
+- start fully zoomed, with selected track + 1 levels
+    - ie if selected track is the third track, show root + layer2 + layer3 (which includes the selected track) + layer4 (which contains the selected track's children)
+- each node should have the artist's thumbnail and the verified icon (if applicable) overlaid on the bottom right of the circle. show the default avatar if the artist has no profile picture.
+
+- node size determined by track popularity (plays + likes)
+- node color determined by track recency (ie new tracks red, older tracks blue, etc)
+
+
+- hovering over node shows popover with more details + play/pause button
+- clicking node selects track, updates url, and loads that track's immediate children if necessary, and updates the view
+
+- must have pan/zoom/fit to screen
+- api loading should be optimized to not load data that the ui aleady has. ie if the user selects a new track, it should only need to load the new track's immediate children (unless new selected track is an ancestor of the current selected track, in which case its children should already be loaded).
+
+
+in the future (DO NOT IMPLEMENT YET):
+- nodes can show more details at different zoom levels or if there arent as many nodes.
+    - anywhere from empty circle to circle full of text and thumbnail
+- maybe autorender play button on bottom left of node if node is big enough
+
+
+
+
+
+
+
+
+implement this feature. for now, just focus on the new tree view, put it at /tree2/[trackId]. dont worry about integrating with the old tree page

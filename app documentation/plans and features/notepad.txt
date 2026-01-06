@@ -2,3 +2,4 @@
 - collab streak badges?
 - collab layer - track and display percentage of active audio in the collab layer. or maybe percentage of 1s windows that have audio above a certain threshold.
 - signing or endorsements - artists of a certain status level get a limited number of signings or endorsements they can offer to other artists to help them grow.
+- render audio for user to preview before publishing?
