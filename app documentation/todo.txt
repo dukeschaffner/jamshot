@@ -50,6 +50,7 @@ BUGS
   - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
   - context menu displaying underneath the region on the below track (git stached)
   - daw sometimes gets initialized twice (causes undo/redo bug)
+  - DAW rerenders on token refresh (should be fixed)
 
 - double check track plays recording correctly
   - full play didnt get marked as complete play
@@ -61,8 +62,8 @@ BUGS
 
 ui issues:
 - more dropdown extends past the bottom of the screen
-- user display on search page should use track and follower icons
-- DAW rerenders on token refresh (should be fixed)
+
+
 
 
 
@@ -92,7 +93,6 @@ TODO (after beta testing)
 - make sure users cant make competition from private track.
 - make sure users cant convert competition track to private.
 - remove make this track private option if createcompetition = true
-- requested instrument tags (ie i want collaborator to add drums)
 - search typeahead
 - if track is loop, allow collaborators to increase/set the number of loops in the collab
 - script to clean r2 files that dont have track in db

@@ -111,7 +111,7 @@ router.get('/', async (req, res) => {
     if (!type || type === 'all' || type === 'users') {
       const usersQuery = `
         SELECT
-          u.id, u.username, u.profile_pic_url, u.verified, u.bio, u.is_private,
+          u.id, u.username, u.name, u.profile_pic_url, u.verified, u.bio, u.is_private,
           (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS follower_count,
           (SELECT COUNT(*) FROM tracks WHERE user_id = u.id AND processing_status = 'completed') AS track_count,
           EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) AS is_following,
