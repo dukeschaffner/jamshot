@@ -65,8 +65,8 @@ BUGS
 - load artist names on track tree page
 - feed loaded team track 
 - mobile - notifications page loading bug
-- notifications - liking track triggered red dot but notification didnt show up/ wasnt refreshed on bell click
 - when user is a part of expired camp, the camps link still navs to the camp page
+- when i play a track in the feed and then skip through a bunch of tracks, it should keep skipping through the feed indefinitely. however, only the orginal track and the next several tracks get added to the playlist and it just cycles through those.
 
 ui issues:
 - more dropdown extends past the bottom of the screen
