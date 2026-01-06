@@ -51,6 +51,17 @@ Percentile	Color  Popularity Score Range
 90–99%	Orange  0.09–0.15
 99%+	Red      >0.15
 
+saturation increases with track plays:
+Plays Saturation Percentage
+0	0%
+100	50%
+1000	60%
+10000	70%
+100000	80%
+1000000	90%
+> 10000000	100%
+
+
 
 
 

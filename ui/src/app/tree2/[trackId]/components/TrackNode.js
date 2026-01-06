@@ -4,13 +4,14 @@ import { memo, useRef } from 'react';
 import { Handle, Position } from 'reactflow';
 import Image from 'next/image';
 import { FaCheckCircle } from 'react-icons/fa';
+import { getTrackColor } from '../trackColorUtils';
 import './TrackNode.module.css';
 
 function TrackNode({ data }) {
   const { track, isSelected, onNodeClick, onNodeHover } = data;
   const nodeRef = useRef(null);
   const size = 70; // Fixed size for all nodes
-  const color = 'var(--grey-2)'; // Fixed color for all nodes
+  const color = track ? getTrackColor(track) : 'var(--grey-2)'; // Color based on popularity and plays
 
   const handleMouseEnter = () => {
     if (onNodeHover && nodeRef.current) {
