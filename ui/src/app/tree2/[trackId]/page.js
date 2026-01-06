@@ -48,6 +48,8 @@ export default function TrackTreePage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const hoverTimeoutRef = useRef(null);
+  const isInternalNavigationRef = useRef(false);
+  const lastLoadedTrackGuidRef = useRef(null);
 
   // Fetch children for a track
   const fetchChildren = useCallback(async (parentTrackId) => {
@@ -90,8 +92,15 @@ export default function TrackTreePage() {
   }, [isMobile, trackId, secret, router]);
 
   // Fetch initial track tree (ancestors + current track)
+  // NOTE: This only runs when trackId from useParams() changes (initial load or external navigation)
+  // Internal node clicks use window.history.pushState() which doesn't change trackId, so this won't run
   useEffect(() => {
-    const fetchTrackTree = async () => {
+    const fetchTrackTree = async () => {      
+      // Skip if we already loaded this exact track (shouldn't happen often, but safety check)
+      if (lastLoadedTrackGuidRef.current === trackId && trackData.size > 0) {
+        return;
+      }
+
       try {
         setLoading(true);
         const url = secret 
@@ -107,7 +116,7 @@ export default function TrackTreePage() {
         }
 
         // Store all tracks in trackData
-        const newTrackData = new Map();
+        const newTrackData = new Map(trackData);
         trackTree.forEach(track => {
           newTrackData.set(track.id, track);
         });
@@ -116,10 +125,16 @@ export default function TrackTreePage() {
         // Set selected track to the current track (last in array)
         const currentTrack = trackTree[trackTree.length - 1];
         setSelectedTrackId(currentTrack.id);
+        lastLoadedTrackGuidRef.current = trackId;
 
         // Fetch children for all tracks in the tree
         await Promise.all(
-          trackTree.map(track => fetchChildren(track.id))
+          trackTree.map(track => {
+            if (!childrenData.has(track.id)) {
+              return fetchChildren(track.id);
+            }
+            return Promise.resolve();
+          })
         );
 
         setLoading(false);
@@ -136,6 +151,20 @@ export default function TrackTreePage() {
 
     fetchTrackTree();
   }, [trackId, secret, fetchChildren]);
+
+  // Handle browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      // Reset the internal navigation flag when user uses browser navigation
+      isInternalNavigationRef.current = false;
+      // The useEffect will handle fetching the new track based on URL params
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   // Build tree structure: selected track + ancestors + their immediate children
   const buildTreeStructure = useCallback(() => {
@@ -202,6 +231,25 @@ export default function TrackTreePage() {
           }
         }
       });
+    });
+
+    // Sort tracks at each level by creation date (and ID as fallback) to maintain consistent order
+    // This ensures nodes don't change position when selected
+    structure.levels.forEach((trackIds, level) => {
+      const sorted = [...trackIds].sort((a, b) => {
+        const trackA = trackData.get(a);
+        const trackB = trackData.get(b);
+        if (!trackA || !trackB) return 0;
+        
+        // Sort by creation date first, then by ID for stability
+        const dateA = new Date(trackA.created_at).getTime();
+        const dateB = new Date(trackB.created_at).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        return a - b; // Fallback to ID comparison
+      });
+      structure.levels.set(level, sorted);
     });
 
     return structure;
@@ -311,7 +359,7 @@ export default function TrackTreePage() {
                 id: `edge-${parentTrackId}-${trackId}`,
                 source: `track-${parentTrackId}`,
                 target: `track-${trackId}`,
-                type: 'bezier',
+                type: 'default',
                 animated: false,
                 style: { stroke: '#86a699', strokeWidth: 2 },
                 markerEnd: {
@@ -340,20 +388,35 @@ export default function TrackTreePage() {
 
   // Handle node click
   const handleNodeClick = useCallback(async (clickedTrackId) => {
-    setSelectedTrackId(clickedTrackId);
-    
-    // Update URL
-    const clickedTrack = trackData.get(clickedTrackId);
-    if (clickedTrack) {
-      const newUrl = `/tree2/${clickedTrack.guid}${secret ? `?secret=${secret}` : ''}`;
-      router.push(newUrl);
+    // Don't do anything if this track is already selected
+    if (clickedTrackId === selectedTrackId) {
+      return;
     }
 
+    const clickedTrack = trackData.get(clickedTrackId);
+    if (!clickedTrack) {
+      // Track not found, can't proceed
+      return;
+    }
+
+    // Mark this as internal navigation to prevent full reload
+    isInternalNavigationRef.current = true;
+    
+    // Update URL without causing navigation/reload
+    const newUrl = `/tree2/${clickedTrack.guid}${secret ? `?secret=${secret}` : ''}`;
+    const fullUrl = `${window.location.origin}${newUrl}`;
+    // Use window.history.pushState to update URL without triggering Next.js navigation/remount
+    window.history.pushState(null, '', newUrl);
+
+    // Update selected track immediately
+    setSelectedTrackId(clickedTrackId);
+
     // Fetch children if not already loaded
-    if (!childrenData.has(clickedTrackId)) {
+    const hasChildren = childrenData.has(clickedTrackId);
+    if (!hasChildren) {
       await fetchChildren(clickedTrackId);
     }
-  }, [trackData, childrenData, secret, router, fetchChildren]);
+  }, [trackData, childrenData, secret, selectedTrackId, router, fetchChildren]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -363,20 +426,6 @@ export default function TrackTreePage() {
       }
     };
   }, []);
-
-  // Fit view to show selected track and its immediate context
-  useEffect(() => {
-    if (selectedTrackId && nodes.length > 0 && reactFlowInstance) {
-      const selectedNodeId = `track-${selectedTrackId}`;
-      setTimeout(() => {
-        reactFlowInstance.fitView({ 
-          nodes: [{ id: selectedNodeId }],
-          padding: 0.2,
-          duration: 500,
-        });
-      }, 100);
-    }
-  }, [selectedTrackId, nodes.length, reactFlowInstance]);
 
   if (loading) {
     return (
