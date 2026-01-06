@@ -232,6 +232,8 @@ function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limit
     LEFT JOIN users u2 ON t2.user_id = u2.id
     WHERE ${privacyClause}
     AND t.processing_status = 'completed'
+    AND t.team_id IS NULL
+    AND t.camp_id IS NULL
   `;
 
   // Add tag filters
@@ -326,6 +328,8 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFil
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ${followedTracksWhereClause}
     ),
     reposted_tracks AS (
@@ -344,6 +348,8 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFil
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ${repostedTracksWhereClause}
     )
     SELECT * FROM (
@@ -388,6 +394,8 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFilter
     )
     AND ${privacyClause}
     AND t.processing_status = 'completed'
+    AND t.team_id IS NULL
+    AND t.camp_id IS NULL
     ${tagWhereClause}
     ORDER BY like_count DESC
     LIMIT $${limitParamIndex}
@@ -422,6 +430,8 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFilter
       WHERE t.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ${followedTracksWhereClause}
     ),
     reposted_tracks AS (
@@ -441,6 +451,8 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFilter
       WHERE r.user_id IN (SELECT following_id FROM followed_users)
       AND (t.is_private = FALSE OR t.user_id = $1)
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ${repostedTracksWhereClause}
     ),
     popular_tracks AS (

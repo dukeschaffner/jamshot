@@ -1482,7 +1482,7 @@ router.get('/search', async (req, res) => {
     `;
     
     const queryParams = [userId || null];
-    let whereClause = 't.processing_status = \'completed\'';
+    let whereClause = 't.processing_status = \'completed\' AND t.team_id IS NULL AND t.camp_id IS NULL';
 
     if (genreId) {
       whereClause += ' AND EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = t.id AND tg.genre_id = $2)';

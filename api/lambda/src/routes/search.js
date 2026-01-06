@@ -58,6 +58,8 @@ router.get('/', async (req, res) => {
             u.username ILIKE $2
           )
         AND t.processing_status = 'completed'
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
         AND ${privacyClause}
         ORDER BY
           title_match_order,

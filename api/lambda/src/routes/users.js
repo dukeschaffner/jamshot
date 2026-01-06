@@ -165,6 +165,8 @@ router.get('/:userId/tracks', async (req, res) => {
       FROM tracks t
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
     `;
 
@@ -177,6 +179,8 @@ router.get('/:userId/tracks', async (req, res) => {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
       ORDER BY t.created_at DESC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
@@ -546,6 +550,8 @@ router.get('/:userId/reposts', async (req, res) => {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ORDER BY r.created_at DESC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `;
@@ -926,6 +932,8 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       FROM tracks t
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $2)
     `;
     
@@ -951,6 +959,8 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       LEFT JOIN reposts ur ON t.id = ur.track_id AND ur.user_id = $2
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $2)
       ORDER BY t.created_at DESC
       LIMIT $3 OFFSET $4
@@ -1029,6 +1039,8 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       JOIN tracks t ON r.track_id = t.id
       WHERE r.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
     `;
     
     // Get reposts with additional info
@@ -1056,6 +1068,8 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
       WHERE r.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ORDER BY r.created_at DESC
       LIMIT $3 OFFSET $4
     `;
@@ -1260,6 +1274,8 @@ router.get('/:username/liked', async (req, res) => {
       JOIN tracks t ON l.track_id = t.id
       WHERE l.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
     `;
 
     const resultQuery = `
@@ -1274,6 +1290,8 @@ router.get('/:username/liked', async (req, res) => {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE l.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ORDER BY l.created_at DESC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `;
