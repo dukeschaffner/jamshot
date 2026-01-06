@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import MiniTrack from '../../components/MiniTrack';
 import CustomTabs from '../../components/CustomTabs';
 import { trackUserFollow, trackUserUnfollow, trackSearch } from '../../lib/analytics';
-import { FaCheckCircle, FaSearch } from 'react-icons/fa';
+import { FaCheckCircle, FaSearch, FaMusic, FaUsers } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -146,24 +146,33 @@ function SearchContent() {
         {searchResults.users.map(user => (
           <div key={user.id} className={styles.userCard}>
             <Image
-              className="avatar mr-1"
+              className="avatar mr-2"
               src={user?.profile_pic_url || '/avatar.svg'} 
               alt={user.username} 
               width={60} 
               height={60}
             />
             <div className="user-info">
-              <div className="user-name">
+              <div className="user-name d-flex">
                 <Link href={`/user/${user.username}`}>
-                  {user.username}
+                  {user.name || user.username}
                 </Link>
-                {user.is_verified && (
-                  <FaCheckCircle className="verified-icon" />
+                {user.verified && (
+                  <FaCheckCircle className="verified-icon ml-1" style={{ alignSelf: 'center' }} />
                 )}
               </div>
-              <div className="user-stats">
-                <span>{user.track_count || 0} tracks</span>
-                <span style={{ marginLeft: '10px' }}>{user.follower_count || 0} followers</span>
+              <div className="user-handle">
+                @{user.username}
+              </div>
+              <div className={styles.userStats}>
+                <span className={styles.statItem}>
+                  <FaMusic className={styles.statIcon} />
+                  <span className={styles.statValue}>{user.track_count || 0}</span>
+                </span>
+                <span className={styles.statItem}>
+                  <FaUsers className={styles.statIcon} />
+                  <span className={styles.statValue}>{user.follower_count || 0}</span>
+                </span>
               </div>
             </div>
             <div className="user-actions">
