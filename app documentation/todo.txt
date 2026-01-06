@@ -6,16 +6,10 @@ before launch:
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
 - switch to better auth? neon auth?
 - add 5 user team/camp option
-- change email name that displays in emails from sterio (should be done)
 - email notifications
 
 
 
-- analytics
-  - analytics opt out
-    - user opts out -> unique anonymous id is created? anonymize track play data
-    - keep anonymized analytics data after user deletes account?
-- yearly billing for subscriptions
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
   - handle sample rate mismatch (should input device determine sample rate?)
@@ -29,9 +23,6 @@ before launch:
   - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
 - handle notification spamming
 - display uploads left in nav?
-- on delete track, delete analytics for that track too (check and make sure this is working)
-- upgrade suggestions
-  - Profile (track count)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
@@ -55,13 +46,15 @@ before launch:
 
 
 BUGS
+-DAW
+  - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
+  - context menu displaying underneath the region on the below track (git stached)
+  - daw sometimes gets initialized twice (causes undo/redo bug)
+
 - double check track plays recording correctly
   - full play didnt get marked as complete play
 - got generic error when trying to enter my own competition: Competition entry validation failed
 - release notes infinite loop
-- short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
-- context menu displaying underneath the region on the below track (git stached)
-- daw sometimes gets initialized twice (causes undo/redo bug)
 - load artist names on track tree page
 - feed loaded team track 
 - mobile - notifications page loading bug
@@ -136,7 +129,14 @@ TODO (after beta testing)
   - advanced DAW and extension collabs paid features?
   - allow users to specify which collab types they allow on their track?
   - undo redo
-
+- on delete track, delete analytics for that track too (check and make sure this is working)
+- analytics
+  - analytics opt out
+    - user opts out -> unique anonymous id is created? anonymize track play data
+    - keep anonymized analytics data after user deletes account?
+- yearly billing for subscriptions
+- upgrade suggestions
+  - Profile (track count)
 
 
 
