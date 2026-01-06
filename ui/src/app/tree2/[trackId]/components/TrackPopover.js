@@ -17,7 +17,7 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter })
     if (isCurrentTrack) {
       togglePlayPause();
     } else {
-      playTrack(track, 'tree-view');
+      playTrack(track, []);
     }
   };
 
