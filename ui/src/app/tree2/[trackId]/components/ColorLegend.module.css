@@ -1,0 +1,139 @@
+.legend-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.legend-icon {
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.legend-icon:hover {
+  color: var(--text-primary);
+  border-color: var(--grey-3);
+  background: var(--grey-1);
+}
+
+.legend {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 240px;
+  max-width: 300px;
+}
+
+.legend-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.legend-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.legend-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.legend-color {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--grey-3);
+  flex-shrink: 0;
+}
+
+.legend-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legend-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.legend-description {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legend-saturation {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--grey-2);
+}
+
+.legend-saturation-header {
+  margin-bottom: 8px;
+}
+
+.legend-saturation-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.legend-saturation-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0 0 12px 0;
+}
+
+.legend-saturation-examples {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.legend-saturation-example {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-saturation-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+

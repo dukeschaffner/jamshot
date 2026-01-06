@@ -5,7 +5,6 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   MarkerType,
@@ -15,6 +14,7 @@ import api from '../../../lib/api';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import TrackNode from './components/TrackNode';
 import TrackPopover from './components/TrackPopover';
+import ColorLegend from './components/ColorLegend';
 import { useAudio } from '../../../lib/AudioContext';
 import { useMobile } from '../../../contexts/MobileContext';
 import styles from './TreeView.module.css';
@@ -452,9 +452,10 @@ export default function TrackTreePage() {
         >
           <Background />
           <Controls />
-          <MiniMap />
         </ReactFlow>
       </div>
+
+      <ColorLegend />
 
       {hoveredTrackId && trackData.has(hoveredTrackId) && hoveredNodePosition && (
         <TrackPopover
