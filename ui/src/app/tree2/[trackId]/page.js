@@ -285,31 +285,12 @@ export default function TrackTreePage() {
         const x = levelPositions.get(level)[index];
         const y = startY + level * levelHeight;
 
-        // Calculate node size based on popularity (plays + likes)
-        const popularity = (track.play_count || 0) + (track.like_count || 0);
-        const minSize = 40;
-        const maxSize = 100;
-        const size = Math.min(maxSize, Math.max(minSize, 40 + Math.sqrt(popularity) * 2));
-
-        // Calculate node color based on recency
-        const now = Date.now();
-        const trackDate = new Date(track.created_at).getTime();
-        const daysSinceCreation = (now - trackDate) / (1000 * 60 * 60 * 24);
-        const maxDays = 365;
-        const recencyRatio = Math.min(1, daysSinceCreation / maxDays);
-        // Red (new) to Blue (old): red at 0, blue at 1
-        const red = Math.round(255 * (1 - recencyRatio));
-        const blue = Math.round(255 * recencyRatio);
-        const color = `rgb(${red}, 100, ${blue})`;
-
         flowNodes.push({
           id: `track-${trackId}`,
           type: 'trackNode',
           position: { x, y },
           data: {
             track,
-            size,
-            color,
             isSelected: trackId === selectedTrackId,
             onNodeClick: () => handleNodeClick(trackId),
             onNodeHover: (hovering, nodePosition) => {

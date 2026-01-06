@@ -28,6 +28,40 @@ create new track tree view that is an actual tree structure, not a flat list. al
 - api loading should be optimized to not load data that the ui aleady has. ie if the user selects a new track, it should only need to load the new track's immediate children (unless new selected track is an ancestor of the current selected track, in which case its children should already be loaded).
 
 
+
+
+
+
+
+node coloring:
+- each node has popularity score:
+popularity =
+  (likes + α * globalLikeRate) /
+  (streams + α)
+  - α is a confidence constant (e.g. 50–100)
+  - range: 0 < popularity < 1
+  - start with α = 50, globalLikeRate = 0.05
+
+store popularity score thresholds in the code, which set percentile ranges for the colors
+
+Percentile	Color  Popularity Score Range
+0–50%	Blue    0.00–0.06
+50–75%	Green   0.06–0.075
+75–90%	Yellow  0.075–0.09
+90–99%	Orange  0.09–0.15
+99%+	Red      >0.15
+
+
+
+
+
+
+
+
+
+
+
+
 in the future (DO NOT IMPLEMENT YET):
 - nodes can show more details at different zoom levels or if there arent as many nodes.
     - anywhere from empty circle to circle full of text and thumbnail
