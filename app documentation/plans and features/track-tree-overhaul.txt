@@ -40,4 +40,3 @@ in the future (DO NOT IMPLEMENT YET):
 
 
 
-implement this feature. for now, just focus on the new tree view, put it at /tree2/[trackId]. dont worry about integrating with the old tree page
