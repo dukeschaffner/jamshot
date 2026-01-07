@@ -18,7 +18,7 @@ function isTeamSubscriptionExpired(team) {
 /**
  * Validate user's access to a team
  * @param {number} teamId - Team ID to validate
- * @param {number} userId - User ID to check
+ * @param {string} userId - User ID to check
  * @returns {Object} Validation result with team data or error
  */
 async function validateTeamAccess(teamId, userId) {
@@ -67,7 +67,7 @@ async function validateTeamAccess(teamId, userId) {
  * Validate folder access within a team
  * @param {number} folderId - Folder ID to validate
  * @param {number} teamId - Team ID the folder should belong to
- * @param {number} userId - User ID to check membership
+ * @param {string} userId - User ID to check membership
  * @param {object} team - Optional team object from previous validation (to avoid redundant DB call)
  * @returns {Object} Validation result
  */

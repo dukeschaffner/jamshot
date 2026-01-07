@@ -3,7 +3,7 @@ const pool = require('../config/db.cjs');
 /**
  * Validate user's access to a camp
  * @param {number} campId - Camp ID to validate
- * @param {number} userId - User ID to check
+ * @param {string} userId - User ID to check
  * @returns {Object} Validation result with camp data or error
  */
 async function validateCampAccess(campId, userId) {
@@ -49,7 +49,7 @@ async function validateCampAccess(campId, userId) {
  * Validate room access within a camp
  * @param {number} roomId - Room ID to validate
  * @param {number} campId - Camp ID the room should belong to
- * @param {number} userId - User ID to check membership
+ * @param {string} userId - User ID to check membership
  * @returns {Object} Validation result
  */
 async function validateRoomAccess(roomId, campId, userId) {

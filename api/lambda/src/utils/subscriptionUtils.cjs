@@ -73,7 +73,7 @@ for (const [version, basePlan] of Object.entries(TEAM_PLANS)) {
 
 /**
  * Check if user has reached their daily upload quota
- * @param {number} userId - User ID (required)
+ * @param {string} userId - User ID (required)
  * @param {object} user - Optional user object with subscription_tier and subscription_expires_at
  * @param {object} subscription - Optional subscription plan object
  * @returns {Promise<{status: number, body: object}|null>} Returns error response body or null if valid
@@ -167,7 +167,7 @@ async function checkDailyUploadQuota(userId, user = null, subscription = null) {
 
 /**
  * Check if user has reached their total upload quota
- * @param {number} userId - User ID (required)
+ * @param {string} userId - User ID (required)
  * @param {object} user - Optional user object with subscription_tier and subscription_expires_at
  * @param {object} subscription - Optional subscription plan object
  * @returns {Promise<{status: number, body: object}|null>} Returns error response body or null if valid

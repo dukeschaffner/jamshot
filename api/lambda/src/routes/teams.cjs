@@ -114,7 +114,7 @@ router.get('/created', apiEndpointLimiter, async (req, res) => {
     // Get session details from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
-    if (parseInt(session.metadata.userId) !== req.user.id) {
+    if (session.metadata.userId !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -356,7 +356,7 @@ router.get('/:id/members', apiEndpointLimiter, async (req, res) => {
 // Update member role (owner/admin can change roles, but admins cannot demote admins)
 router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
-  const userId = parseInt(req.params.userId);
+  const userId = req.params.userId;
   const { role } = req.body;
 
   if (!role) {
@@ -425,7 +425,7 @@ router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) =
 // Remove member from team (admin/owner only)
 router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
   const teamId = parseInt(req.params.id);
-  const userId = parseInt(req.params.userId);
+  const userId = req.params.userId;
 
   try {
     // Check if user is admin or owner

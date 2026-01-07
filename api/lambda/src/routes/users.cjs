@@ -128,7 +128,7 @@ router.get('/:userId/tracks', async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private, check if the current user is following them
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
@@ -362,7 +362,7 @@ router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private and current user is not the owner or a follower, return empty array
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
@@ -430,7 +430,7 @@ router.get('/:userId/following', optionalAuthMiddleware, async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private and current user is not the owner or a follower, return empty array
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
@@ -498,7 +498,7 @@ router.get('/:userId/reposts', async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private, check if the current user is following them
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',

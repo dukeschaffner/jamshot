@@ -35,7 +35,7 @@ const transporter = nodemailer.createTransport({
 /**
  * Send a verification email to a newly registered user
  * @param {string} email - User's email address
- * @param {number} userId - User's ID in the database
+ * @param {string} userId - User's ID in the database
  * @param {string} username - User's username
  * @returns {Promise} - Resolves when email is sent
  */
@@ -77,7 +77,7 @@ const sendVerificationEmail = async (email, userId, username) => {
 /**
  * Send a password reset email
  * @param {string} email - User's email address
- * @param {number} userId - User's ID in the database
+ * @param {string} userId - User's ID in the database
  * @returns {Promise} - Resolves when email is sent
  */
 const sendPasswordResetEmail = async (email, userId, username) => {
