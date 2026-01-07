@@ -1,0 +1,174 @@
+.oauth-tester {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.oauth-tester h1 {
+  color: #333;
+  margin-bottom: 2rem;
+}
+
+.config-section {
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.config-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.config-section input {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.config-section button {
+  padding: 0.5rem 1rem;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.config-section button:hover {
+  background: #0056b3;
+}
+
+.status {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.status.loading {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.status.error {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status.unauthenticated {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.session-section {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.session-section h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+.session-info {
+  margin-top: 1rem;
+}
+
+.session-details {
+  margin: 1.5rem 0;
+}
+
+.session-details h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-size: 1rem;
+}
+
+.session-details pre {
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 12px;
+  border: 1px solid #ddd;
+}
+
+.btn-google,
+.btn-signout {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: background-color 0.2s;
+}
+
+.btn-google {
+  background: #4285f4;
+  color: white;
+}
+
+.btn-google:hover {
+  background: #357ae8;
+}
+
+.btn-signout {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-signout:hover {
+  background: #c82333;
+}
+
+.info-section {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.info-section h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+.info-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.info-section li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.info-section code {
+  background: #f5f5f5;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+}
+

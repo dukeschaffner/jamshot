@@ -1,3 +1,6 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -522,4 +525,4 @@ router.post('/create-test-users', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
