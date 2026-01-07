@@ -692,7 +692,7 @@ async function findAllDescendantTracks(trackId) {
 /**
  * Delete a track with proper S3 cleanup and soft/hard delete logic
  * @param {number} trackId - The track ID to delete
- * @param {number} userId - The user ID requesting deletion
+ * @param {string} userId - The user ID requesting deletion
  * @param {Object} options - Configuration options
  * @param {boolean} options.skipOwnershipCheck - Skip ownership verification (for user deletion)
  * @param {boolean} options.skipChildrenCheck - Skip children check and force hard delete

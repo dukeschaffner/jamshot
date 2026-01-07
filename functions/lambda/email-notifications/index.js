@@ -128,7 +128,7 @@ const generateActivitySummaryTemplate = (userName, periodType, analyticsData, se
 
 /**
  * Send an activity summary email
- * @param {number} userId - ID of the user to send summary to
+ * @param {string} userId - ID of the user to send summary to
  * @param {string} periodType - Type of period (daily, weekly, monthly)
  * @param {Object} analyticsData - Analytics data from user_analytics_aggregates
  * @returns {Promise} - Resolves when email is sent

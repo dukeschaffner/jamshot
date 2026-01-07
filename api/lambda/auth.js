@@ -13,7 +13,7 @@ export const auth = betterAuth({
     'http://localhost:5173',
   ],
   emailAndPassword: {
-    enabled: false, // Disable email/password - we use our own system
+    enabled: true, 
   },
   socialProviders: {
     google: { 
@@ -21,4 +21,13 @@ export const auth = betterAuth({
         clientSecret: process.env.GOOGLE_CLIENT_SECRET, 
     }, 
   },
+  user:{
+    modelName: 'users',
+    fields: {
+      emailVerified: "email_verified",
+      image: "profile_pic_url",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    }
+  }
 });

@@ -8,7 +8,7 @@ const pool = require('../config/db.cjs');
 /**
  * Validate if a track upload can be entered as a competition entry
  * @param {number} parentTrackId - ID of the parent track (competition track)
- * @param {number} userId - ID of the user uploading the track
+ * @param {string} userId - ID of the user uploading the track
  * @returns {Object} Validation result with valid boolean and error message
  */
 const validateCompetitionEntry = async (parentTrackId, userId) => {
