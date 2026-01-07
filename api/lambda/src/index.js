@@ -1,13 +1,16 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from '../auth.js';
+import authRoutes from './routes/sterioAuth.js';
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const { csrfProtection } = require('./middleware/csrf.cjs');
 const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting.cjs');
 const { bodyParser } = require('./middleware/bodyParser.cjs');
-const authRoutes = require('./routes/auth.cjs');
 const trackRoutes = require('./routes/tracks.cjs');
 const userRoutes = require('./routes/users.cjs');
 const tagRoutes = require('./routes/tags.cjs');
@@ -69,7 +72,10 @@ const corsOptions = {
     if (!origin) return callback(null, true);
 
     // Allow local development
-    if (origin === 'http://localhost:3000' || origin === 'http://localhost:8081' || process.env.NODE_ENV === 'dev') {
+    if (origin === 'http://localhost:3000' || 
+        origin === 'http://localhost:8081' || 
+        origin === 'http://localhost:5173' || 
+        process.env.NODE_ENV === 'dev') {
       return callback(null, true);
     }
 
@@ -95,6 +101,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+app.all("/api/auth/*", toNodeHandler(auth));
+
 if (process.env.NODE_ENV === 'dev') {
   app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '50mb' }));
@@ -119,7 +127,7 @@ if (env === 'dev' || env === 'test' || env === 'development') {
 app.use(csrfProtection);
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/sterioAuth', authRoutes);
 app.use('/api/tracks', trackRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tags', tagRoutes);
