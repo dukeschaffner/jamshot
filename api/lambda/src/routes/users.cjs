@@ -1,16 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const pool = require('../config/db');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const pool = require('../config/db.cjs');
+const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth.cjs');
 const {
   interactionLimiter,
   uploadLimiter,
   contentCreationLimiter
-} = require('../middleware/rateLimiting');
+} = require('../middleware/rateLimiting.cjs');
 const multer = require('multer');
 const sharp = require('sharp');
-const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils');
+const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils.cjs');
 const bcrypt = require('bcryptjs');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 

@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/db');
-const { authMiddleware } = require('../middleware/auth');
-const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
-const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired, checkTeamOwner, checkTeamAdminOrOwner } = require('../utils/teamUtils');
-const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils');
-const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
-const stripe = require('../config/stripe');
+const pool = require('../config/db.cjs');
+const { authMiddleware } = require('../middleware/auth.cjs');
+const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting.cjs');
+const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired, checkTeamOwner, checkTeamAdminOrOwner } = require('../utils/teamUtils.cjs');
+const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils.cjs');
+const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils.cjs');
+const stripe = require('../config/stripe.cjs');
 
 // Helper function to check if user is team admin
 async function checkTeamAdmin(teamId, userId) {

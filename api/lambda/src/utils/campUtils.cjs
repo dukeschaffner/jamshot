@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const pool = require('../config/db.cjs');
 
 /**
  * Validate user's access to a camp

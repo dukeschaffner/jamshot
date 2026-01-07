@@ -22,10 +22,10 @@ const {
   getTierUpgradeOptions,
   getTeamPlan,
   isValidTeamProductVersion
-} = require('../../shared/utils/subscription');
+} = require('../../shared/utils/subscription.cjs');
 
-const pool = require('../config/db');
-const { isFeatureEnabled } = require('./featureFlags');
+const pool = require('../config/db.cjs');
+const { isFeatureEnabled } = require('./featureFlags.cjs');
 
 // API-specific extensions (Stripe price IDs)
 const API_PLAN_EXTENSIONS = {

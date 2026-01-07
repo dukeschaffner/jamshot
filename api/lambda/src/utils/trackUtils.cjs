@@ -2,10 +2,10 @@ const { S3Client, GetObjectCommand, PutObjectCommand, CopyObjectCommand, DeleteO
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('fs');
 const path = require('path');
-const pool = require('../config/db');
+const pool = require('../config/db.cjs');
 const crypto = require('crypto');
-const { validateCampAccess } = require('./campUtils');
-const { validateTeamAccess } = require('./teamUtils');
+const { validateCampAccess } = require('./campUtils.cjs');
+const { validateTeamAccess } = require('./teamUtils.cjs');
 
 // Cloudflare R2 setup
 const s3Client = new S3Client({

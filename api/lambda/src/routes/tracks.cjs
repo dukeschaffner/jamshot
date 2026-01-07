@@ -6,14 +6,14 @@ const fsPromises = require('fs').promises;
 const mm = require('music-metadata');
 const { PutObjectCommand } = require('@aws-sdk/client-s3');
 const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
-const pool = require('../config/db');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const pool = require('../config/db.cjs');
+const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth.cjs');
 const { 
   uploadLimiter, 
   contentCreationLimiter, 
   interactionLimiter, 
   apiEndpointLimiter 
-} = require('../middleware/rateLimiting');
+} = require('../middleware/rateLimiting.cjs');
 const {
   s3Client,
   generateSignedUrl,
@@ -34,12 +34,12 @@ const {
   getStemChain,
   validateAndUpdateStemChain,
   parseTrackUploadBody
-} = require('../utils/trackUtils');
-const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils');
-const { getGeolocationData } = require('../utils/geolocation');
-const { validateCompetitionEntry } = require('../utils/competition');
-const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils');
-const { isFeatureEnabled } = require('../utils/featureFlags');
+} = require('../utils/trackUtils.cjs');
+const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils.cjs');
+const { getGeolocationData } = require('../utils/geolocation.cjs');
+const { validateCompetitionEntry } = require('../utils/competition.cjs');
+const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils.cjs');
+const { isFeatureEnabled } = require('../utils/featureFlags.cjs');
 require('dotenv').config;
 
 async function getParser() {

@@ -1,9 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const pool = require('../config/db');
+const pool = require('../config/db.cjs');
 const rateLimit = require('express-rate-limit');
-const { getGeolocationData } = require('../utils/geolocation');
-const { sendWaitlistConfirmationEmail } = require('../utils/emailService');
+const { getGeolocationData } = require('../utils/geolocation.cjs');
+const { sendWaitlistConfirmationEmail } = require('../utils/emailService.cjs');
 
 const router = express.Router();
 

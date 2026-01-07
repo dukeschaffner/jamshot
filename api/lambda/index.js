@@ -1,5 +1,8 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 const serverlessExpress = require('@codegenie/serverless-express');
-const app = require('./src/index');
+import app from './src/index.js';
 
 // Create serverless express instance with proper configuration
 const serverlessExpressInstance = serverlessExpress({

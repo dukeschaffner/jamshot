@@ -217,8 +217,8 @@ const sendWaitlistConfirmationEmail = async (email, referralCode) => {
  * @returns {Promise} - Resolves when email is sent
  */
 const sendCollabEmail = async (userId, collabTrackId, parentTrackId) => {
-  const pool = require('../config/db');
-  const { generateCollabEmailTemplate } = require('./emailTemplates');
+  const pool = require('../config/db.cjs');
+  const { generateCollabEmailTemplate } = require('./emailTemplates.cjs');
   
   try {
     // Get parent track owner details and preferences
