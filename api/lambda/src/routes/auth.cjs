@@ -2,17 +2,17 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const pool = require('../config/db');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService');
-const { authMiddleware } = require('../middleware/auth');
-const { setCSRFToken } = require('../middleware/csrf');
+const pool = require('../config/db.cjs');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/emailService.cjs');
+const { authMiddleware } = require('../middleware/auth.cjs');
+const { setCSRFToken } = require('../middleware/csrf.cjs');
 const { 
   authLimiter, 
   strictAuthLimiter, 
   passwordResetLimiter, 
   emailVerificationLimiter 
-} = require('../middleware/rateLimiting');
-const { validateDateOfBirth } = require('../../shared/utils/validation');
+} = require('../middleware/rateLimiting.cjs');
+const { validateDateOfBirth } = require('../../shared/utils/validation.cjs');
 require('dotenv').config();
 
 const router = express.Router();

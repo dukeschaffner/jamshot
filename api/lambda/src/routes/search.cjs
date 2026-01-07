@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/db');
-const { optionalAuthMiddleware } = require('../middleware/auth');
-const { searchLimiter } = require('../middleware/rateLimiting');
+const pool = require('../config/db.cjs');
+const { optionalAuthMiddleware } = require('../middleware/auth.cjs');
+const { searchLimiter } = require('../middleware/rateLimiting.cjs');
 const { S3Client } = require('@aws-sdk/client-s3');
-const { getTrackPrivacyClause } = require('../utils/trackUtils');
+const { getTrackPrivacyClause } = require('../utils/trackUtils.cjs');
 
 const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region

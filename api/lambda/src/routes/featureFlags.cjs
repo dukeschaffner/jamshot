@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllFeatureFlags } = require('../utils/featureFlags');
+const { getAllFeatureFlags } = require('../utils/featureFlags.cjs');
 
 /**
  * Feature Flags API Routes

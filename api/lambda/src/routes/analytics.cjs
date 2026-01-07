@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
-const pool = require('../config/db');
-const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils');
-const { isFeatureEnabled } = require('../utils/featureFlags');
+const { authMiddleware } = require('../middleware/auth.cjs');
+const pool = require('../config/db.cjs');
+const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils.cjs');
+const { isFeatureEnabled } = require('../utils/featureFlags.cjs');
 
 /**
  * Analytics API Routes

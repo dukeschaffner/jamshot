@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/db');
-const { authMiddleware } = require('../middleware/auth');
+const pool = require('../config/db.cjs');
+const { authMiddleware } = require('../middleware/auth.cjs');
 
 // Apply auth middleware to all notification routes
 router.use(authMiddleware);

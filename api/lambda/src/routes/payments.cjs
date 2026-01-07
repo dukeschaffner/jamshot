@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const stripe = require('../config/stripe');
-const db = require('../config/db');
-const {authMiddleware} = require('../middleware/auth');
-const { contentCreationLimiter } = require('../middleware/rateLimiting');
-const { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } = require('../utils/subscriptionUtils');
+const stripe = require('../config/stripe.cjs');
+const db = require('../config/db.cjs');
+const {authMiddleware} = require('../middleware/auth.cjs');
+const { contentCreationLimiter } = require('../middleware/rateLimiting.cjs');
+const { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } = require('../utils/subscriptionUtils.cjs');
 
 // Create a checkout session for donations
 router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res) => {

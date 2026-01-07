@@ -1,5 +1,5 @@
-const pool = require('../config/db');
-const { getTeamPlan } = require('../../shared/utils/subscription');
+const pool = require('../config/db.cjs');
+const { getTeamPlan } = require('../../shared/utils/subscription.cjs');
 
 /**
  * Check if team subscription is expired

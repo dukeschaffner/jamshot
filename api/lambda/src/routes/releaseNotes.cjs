@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/db');
-const { optionalAuthMiddleware } = require('../middleware/auth');
-const { apiEndpointLimiter } = require('../middleware/rateLimiting');
+const pool = require('../config/db.cjs');
+const { optionalAuthMiddleware } = require('../middleware/auth.cjs');
+const { apiEndpointLimiter } = require('../middleware/rateLimiting.cjs');
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);

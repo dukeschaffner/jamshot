@@ -1,27 +1,30 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const { csrfProtection } = require('./middleware/csrf');
-const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting');
-const { bodyParser } = require('./middleware/bodyParser');
-const authRoutes = require('./routes/auth');
-const trackRoutes = require('./routes/tracks');
-const userRoutes = require('./routes/users');
-const tagRoutes = require('./routes/tags');
-const notificationRoutes = require('./routes/notifications');
-const searchRoutes = require('./routes/search');
-const paymentRoutes = require('./routes/payments');
-const contactRoutes = require('./routes/contact');
-const analyticsRoutes = require('./routes/analytics');
-const competitionRoutes = require('./routes/competitions');
-const releaseNotesRoutes = require('./routes/releaseNotes');
-const campRoutes = require('./routes/camps');
-const teamRoutes = require('./routes/teams');
-const groupRoutes = require('./routes/groups');
-const landingRoutes = require('./routes/landing');
-const featureFlagsRoutes = require('./routes/featureFlags');
+const { csrfProtection } = require('./middleware/csrf.cjs');
+const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting.cjs');
+const { bodyParser } = require('./middleware/bodyParser.cjs');
+const authRoutes = require('./routes/auth.cjs');
+const trackRoutes = require('./routes/tracks.cjs');
+const userRoutes = require('./routes/users.cjs');
+const tagRoutes = require('./routes/tags.cjs');
+const notificationRoutes = require('./routes/notifications.cjs');
+const searchRoutes = require('./routes/search.cjs');
+const paymentRoutes = require('./routes/payments.cjs');
+const contactRoutes = require('./routes/contact.cjs');
+const analyticsRoutes = require('./routes/analytics.cjs');
+const competitionRoutes = require('./routes/competitions.cjs');
+const releaseNotesRoutes = require('./routes/releaseNotes.cjs');
+const campRoutes = require('./routes/camps.cjs');
+const teamRoutes = require('./routes/teams.cjs');
+const groupRoutes = require('./routes/groups.cjs');
+const landingRoutes = require('./routes/landing.cjs');
+const featureFlagsRoutes = require('./routes/featureFlags.cjs');
 // TEMP: Temporary logging endpoint - remove after debugging token refresh issues
-const loggingRoutes = require('./routes/logging');
+const loggingRoutes = require('./routes/logging.cjs');
 require('dotenv').config();
 
 
@@ -148,5 +151,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Export the app for Lambda
-module.exports = app;
+export default app;

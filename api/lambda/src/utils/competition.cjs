@@ -3,7 +3,7 @@
  * Shared across different parts of the application
  */
 
-const pool = require('../config/db');
+const pool = require('../config/db.cjs');
 
 /**
  * Validate if a track upload can be entered as a competition entry

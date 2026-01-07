@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/db');
-const { authMiddleware } = require('../middleware/auth');
-const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
-const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils');
-const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
+const pool = require('../config/db.cjs');
+const { authMiddleware } = require('../middleware/auth.cjs');
+const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting.cjs');
+const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils.cjs');
+const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils.cjs');
 const crypto = require('crypto');
-const stripe = require('../config/stripe');
+const stripe = require('../config/stripe.cjs');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);

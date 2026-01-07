@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { sendContactEmail } = require('../utils/emailService');
-const { contactLimiter } = require('../middleware/rateLimiting');
+const { sendContactEmail } = require('../utils/emailService.cjs');
+const { contactLimiter } = require('../middleware/rateLimiting.cjs');
 
 // POST /contact
 router.post('/', contactLimiter, async (req, res) => {
