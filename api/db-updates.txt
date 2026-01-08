@@ -4,6 +4,8 @@
 
 -- Step 1: Drop all foreign key constraints that reference users(id)
 -- This is necessary because we need to change the referenced column type
+BEGIN;
+
 
 ALTER TABLE tracks DROP CONSTRAINT tracks_user_id_fkey;
 ALTER TABLE likes DROP CONSTRAINT likes_user_id_fkey;
@@ -19,8 +21,7 @@ ALTER TABLE follow_requests DROP CONSTRAINT follow_requests_requester_id_fkey;
 ALTER TABLE follow_requests DROP CONSTRAINT follow_requests_target_id_fkey;
 ALTER TABLE refresh_tokens DROP CONSTRAINT refresh_tokens_user_id_fkey;
 ALTER TABLE payments DROP CONSTRAINT payments_user_id_fkey;
-ALTER TABLE track_mentions DROP CONSTRAINT track_mentions_mentioned_user_id_fkey;
-ALTER TABLE track_mentions DROP CONSTRAINT track_mentions_mentioned_by_user_id_fkey;
+
 ALTER TABLE user_engagement DROP CONSTRAINT user_engagement_user_id_fkey;
 ALTER TABLE analytics_aggregates DROP CONSTRAINT analytics_aggregates_user_id_fkey;
 ALTER TABLE user_analytics_aggregates DROP CONSTRAINT user_analytics_aggregates_user_id_fkey;
@@ -82,10 +83,7 @@ UPDATE refresh_tokens SET user_id = refresh_tokens.user_id::TEXT WHERE user_id I
 ALTER TABLE payments ALTER COLUMN user_id TYPE TEXT;
 UPDATE payments SET user_id = user_id::TEXT WHERE user_id IS NOT NULL;
 
-ALTER TABLE track_mentions ALTER COLUMN mentioned_user_id TYPE TEXT;
-UPDATE track_mentions SET mentioned_user_id = mentioned_user_id::TEXT WHERE mentioned_user_id IS NOT NULL;
-ALTER TABLE track_mentions ALTER COLUMN mentioned_by_user_id TYPE TEXT;
-UPDATE track_mentions SET mentioned_by_user_id = mentioned_by_user_id::TEXT WHERE mentioned_by_user_id IS NOT NULL;
+
 
 ALTER TABLE user_engagement ALTER COLUMN user_id TYPE TEXT;
 UPDATE user_engagement SET user_id = user_id::TEXT WHERE user_id IS NOT NULL;
@@ -150,8 +148,6 @@ ALTER TABLE follow_requests ADD CONSTRAINT follow_requests_requester_id_fkey FOR
 ALTER TABLE follow_requests ADD CONSTRAINT follow_requests_target_id_fkey FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE refresh_tokens ADD CONSTRAINT refresh_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE payments ADD CONSTRAINT payments_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE track_mentions ADD CONSTRAINT track_mentions_mentioned_user_id_fkey FOREIGN KEY (mentioned_user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE track_mentions ADD CONSTRAINT track_mentions_mentioned_by_user_id_fkey FOREIGN KEY (mentioned_by_user_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE user_engagement ADD CONSTRAINT user_engagement_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE analytics_aggregates ADD CONSTRAINT analytics_aggregates_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE user_analytics_aggregates ADD CONSTRAINT user_analytics_aggregates_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
@@ -179,3 +175,19 @@ ALTER TABLE user_rooms ADD CONSTRAINT user_rooms_user_id_fkey FOREIGN KEY (user_
 -- Date: 2026-01-XX
 
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+
+
+
+create table "session" ("id" text not null primary key, "expiresAt" timestamptz not null, "token" text not null unique, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz not null, "ipAddress" text, "userAgent" text, "userId" text not null references "users" ("id") on delete cascade);
+
+create table "account" ("id" text not null primary key, "accountId" text not null, "providerId" text not null, "userId" text not null references "users" ("id") on delete cascade, "accessToken" text, "refreshToken" text, "idToken" text, "accessTokenExpiresAt" timestamptz, "refreshTokenExpiresAt" timestamptz, "scope" text, "password" text, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz not null);
+
+create table "verification" ("id" text not null primary key, "identifier" text not null, "value" text not null, "expiresAt" timestamptz not null, "createdAt" timestamptz default CURRENT_TIMESTAMP not null, "updatedAt" timestamptz default CURRENT_TIMESTAMP not null);
+
+create index "session_userId_idx" on "session" ("userId");
+
+create index "account_userId_idx" on "account" ("userId");
+
+create index "verification_identifier_idx" on "verification" ("identifier");
+
+ROLLBACK;
