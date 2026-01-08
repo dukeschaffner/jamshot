@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
+import { customSession } from "better-auth/plugins";
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const pool = require('./src/config/db.cjs');
@@ -82,6 +83,21 @@ export const auth = betterAuth({
       password_hash: { // temp, can be removed after migration
         type: "string",
         required: false,
+      },
+      date_of_birth: {
+        type: "date",
+        required: false,
+        input: false, // Don't allow user to set this directly during signup
+      },
+      terms_accepted: {
+        type: "boolean",
+        required: false,
+        input: false, // Don't allow user to set this directly during signup
+      },
+      privacy_policy_accepted: {
+        type: "boolean",
+        required: false,
+        input: false, // Don't allow user to set this directly during signup
       },
 		},
   },
@@ -224,6 +240,11 @@ export const auth = betterAuth({
               });
             }
           }
+          else if(!isOAuthSignup) {
+            throw new APIError("BAD_REQUEST", {
+              message: 'Date of birth is required',
+            });
+          }
           
           // Validate password
           if (password) {
@@ -275,6 +296,64 @@ export const auth = betterAuth({
               password_hash: password ? await bcrypt.hash(password, 10) : null,
             },
           };
+        },
+        after: async (user, ctx) => {
+          // Write DOB and policy acceptance fields for email/password signups
+          const { dateOfBirth, acceptTerms } = ctx.body || {};
+          const isOAuthSignup = ctx.path === '/callback/:id' || ctx.path?.includes('/callback/');
+          
+          // Only write these fields for email/password signups (OAuth signups use complete-profile flow)
+          if (!isOAuthSignup && (dateOfBirth || acceptTerms)) {
+            // Get client IP address for policy acceptance tracking
+            // Try multiple ways to access headers/request
+            let clientIp = null;
+            if (ctx.headers) {
+              clientIp = ctx.headers['x-forwarded-for'] || ctx.headers['x-real-ip'];
+            } else if (ctx.request?.headers) {
+              clientIp = ctx.request.headers['x-forwarded-for'] || ctx.request.headers['x-real-ip'];
+            } else if (ctx.request?.connection) {
+              clientIp = ctx.request.connection.remoteAddress || 
+                        ctx.request.socket?.remoteAddress ||
+                        (ctx.request.connection.socket ? ctx.request.connection.socket.remoteAddress : null);
+            }
+            
+            // Extract first IP if x-forwarded-for contains multiple IPs
+            if (clientIp && clientIp.includes(',')) {
+              clientIp = clientIp.split(',')[0].trim();
+            }
+            
+            const currentTimestamp = new Date();
+            const policyVersion = '1.0';
+            
+            // Build update query dynamically based on what's provided
+            const updates = [];
+            const values = [];
+            let paramIndex = 1;
+            
+            if (dateOfBirth) {
+              updates.push(`date_of_birth = $${paramIndex++}`);
+              values.push(dateOfBirth);
+            }
+            
+            if (acceptTerms) {
+              updates.push(`terms_accepted = $${paramIndex++}`);
+              updates.push(`privacy_policy_accepted = $${paramIndex++}`);
+              updates.push(`policy_accepted_at = $${paramIndex++}`);
+              updates.push(`policy_accepted_ip = $${paramIndex++}`);
+              updates.push(`policy_version = $${paramIndex++}`);
+              values.push(true, true, currentTimestamp, clientIp, policyVersion);
+            }
+            
+            if (updates.length > 0) {
+              values.push(user.id);
+              await pool.query(
+                `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+                values
+              );
+            }
+          }
+          
+          return { data: user };
         },
       },
     },
@@ -429,5 +508,44 @@ export const auth = betterAuth({
         maxAge: 60 * 60,
         strategy: "jwt" // or "jwt" or "jwe"
     }
-  }
+  },
+  plugins: [
+    customSession(async ({ user, session }, ctx) => {
+      // Get user fields from database if not present in user object
+      let dateOfBirth = user.date_of_birth;
+      let termsAccepted = user.terms_accepted;
+      let privacyPolicyAccepted = user.privacy_policy_accepted;
+      
+      // If fields are missing, query the database
+      if (!dateOfBirth || termsAccepted === undefined || privacyPolicyAccepted === undefined) {
+        try {
+          const result = await pool.query(
+            'SELECT date_of_birth, terms_accepted, privacy_policy_accepted FROM users WHERE id = $1',
+            [user.id]
+          );
+          
+          if (result.rows.length > 0) {
+            dateOfBirth = dateOfBirth || result.rows[0].date_of_birth;
+            termsAccepted = termsAccepted !== undefined ? termsAccepted : result.rows[0].terms_accepted;
+            privacyPolicyAccepted = privacyPolicyAccepted !== undefined ? privacyPolicyAccepted : result.rows[0].privacy_policy_accepted;
+          }
+        } catch (error) {
+          console.error('Error fetching user profile fields:', error);
+        }
+      }
+      
+      // Check if profile is completed: DOB and both policy accepted fields must be filled
+      const profileCompleted = !!(
+        dateOfBirth && 
+        termsAccepted && 
+        privacyPolicyAccepted
+      );
+      
+      return {
+        profile_completed: profileCompleted,
+        user,
+        session,
+      };
+    }),
+  ],
 });

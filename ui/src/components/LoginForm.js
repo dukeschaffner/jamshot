@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { authClient } from '../lib/auth-client';
 import { useRouter } from 'next/navigation';
+import ForgotPasswordForm from './ForgotPasswordForm';
+import { validateDateOfBirth } from '../../shared/utils/validation';
+import { validatePassword, validateUsername, validateName, validateEmail, checkPasswordRequirements } from '../lib/validation';
 
 export default function LoginForm({ 
   onSuccess, 
@@ -13,13 +16,27 @@ export default function LoginForm({
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [user, setUser] = useState(null);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  });
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const router = useRouter();
 
   // Check if user is already logged in
@@ -119,6 +136,65 @@ export default function LoginForm({
     e.preventDefault();
     setError('');
     setSuccess('');
+    setUsernameError('');
+    setConfirmPasswordError('');
+    
+    // Validate username
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.valid) {
+      setUsernameError(usernameValidation.message);
+      return;
+    }
+    
+    // Validate name
+    const nameValidation = validateName(name);
+    if (!nameValidation.valid) {
+      setError(nameValidation.message);
+      return;
+    }
+    
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      setError(emailValidation.message);
+      return;
+    }
+    
+    // Validate date of birth
+    if (!dateOfBirth) {
+      setError('Date of birth is required.');
+      return;
+    }
+    
+    const dobValidation = validateDateOfBirth(dateOfBirth);
+    if (!dobValidation.valid) {
+      setError(dobValidation.error);
+      return;
+    }
+    
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message);
+      setShowPasswordRequirements(true);
+      return;
+    }
+    
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      const errorMsg = 'Passwords do not match';
+      setError(errorMsg);
+      setConfirmPasswordError(errorMsg);
+      setShowPasswordRequirements(true);
+      return;
+    }
+    
+    // Check if terms are accepted
+    if (!acceptTerms) {
+      setError('You must accept the Terms of Service and Privacy Policy to register.');
+      return;
+    }
+    
     setIsLoggingIn(true);
 
     try {
@@ -127,6 +203,8 @@ export default function LoginForm({
         password,
         name,
         username,
+        dateOfBirth,
+        acceptTerms,
       });
 
       if (result.data?.user) {
@@ -180,7 +258,7 @@ export default function LoginForm({
         <p><strong>Name:</strong> {user.name || 'N/A'}</p>
         <button
           onClick={handleLogout}
-          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+          className="mt-4 pill-btn"
         >
           Logout
         </button>
@@ -188,8 +266,41 @@ export default function LoginForm({
     );
   }
 
+  // Determine header text based on form state
+  const getHeaderText = () => {
+    if (showForgotPassword) return 'Forgot Password';
+    if (isSignUp) return 'Sign Up';
+    return 'Login';
+  };
+
+  // If showing forgot password form, render it
+  if (showForgotPassword) {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold mb-4">{getHeaderText()}</h2>
+        <ForgotPasswordForm
+          onSuccess={onSuccess}
+          onError={onError}
+          redirectUrl={redirectUrl}
+          showLinks={false}
+          noRedirect={noRedirect}
+        />
+        <div className="mt-4 text-center text-sm">
+          <button
+            type="button"
+            onClick={() => setShowForgotPassword(false)}
+            className="text-blue-600 hover:text-blue-800 cursor-pointer"
+          >
+            Back to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
+      <h2 className="text-2xl font-bold mb-4">{getHeaderText()}</h2>
       {success && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
           {success}
@@ -207,7 +318,7 @@ export default function LoginForm({
         <button
           onClick={handleGoogleLogin}
           disabled={isLoggingIn}
-          className="w-full bg-white hover:bg-gray-50 text-gray-900 px-4 py-2 rounded border border-gray-300 disabled:opacity-50 flex items-center justify-center space-x-2 shadow-sm transition-colors"
+          className="w-full pill-btn disabled:opacity-50 flex items-center justify-center space-x-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -227,17 +338,6 @@ export default function LoginForm({
           <span className="px-2 bg-white text-gray-500">Or continue with email</span>
         </div>
       </div>
-      
-      {/* Toggle between Login and Sign Up */}
-      <div className="mb-4 text-center">
-        <button
-          type="button"
-          onClick={() => setIsSignUp(!isSignUp)}
-          className="text-blue-600 hover:text-blue-800 underline"
-        >
-          {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-        </button>
-      </div>
 
       {/* Email/Password Form */}
       <form onSubmit={isSignUp ? handleSignUp : handleEmailPasswordLogin} className="space-y-4">
@@ -251,12 +351,23 @@ export default function LoginForm({
                 id="username"
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setUsername(value);
+                  const validation = validateUsername(value);
+                  if (!validation.valid) {
+                    setUsernameError(validation.message);
+                  } else {
+                    setUsernameError('');
+                  }
+                }}
                 placeholder="Username"
                 className="w-full p-2 border rounded"
                 required
                 disabled={isLoggingIn}
+                maxLength={20}
               />
+              {usernameError && <div className="text-red-600 text-sm mt-1">{usernameError}</div>}
             </div>
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
@@ -271,7 +382,24 @@ export default function LoginForm({
                 className="w-full p-2 border rounded"
                 required
                 disabled={isLoggingIn}
+                maxLength={40}
               />
+            </div>
+            <div>
+              <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1">
+                Date of Birth
+              </label>
+              <input
+                id="dateOfBirth"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+                className="w-full p-2 border rounded"
+                required
+                disabled={isLoggingIn}
+                max={new Date().toISOString().split('T')[0]} // Prevent future dates
+              />
+              <p className="text-xs text-gray-500 mt-1">You must be at least 13 years old to register.</p>
             </div>
           </>
         )}
@@ -300,17 +428,114 @@ export default function LoginForm({
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              const newPassword = e.target.value;
+              setPassword(newPassword);
+              if (isSignUp) {
+                const requirements = checkPasswordRequirements(newPassword);
+                setPasswordRequirements(requirements);
+                setShowPasswordRequirements(true);
+                // Clear error if password becomes valid
+                if (requirements.minLength && requirements.hasUppercase && 
+                    requirements.hasLowercase && requirements.hasNumber && 
+                    requirements.hasSpecialChar) {
+                  setError('');
+                }
+              }
+            }}
+            onFocus={() => {
+              if (isSignUp) {
+                setShowPasswordRequirements(true);
+              }
+            }}
             placeholder="Password"
             className="w-full p-2 border rounded"
             required
             disabled={isLoggingIn}
           />
+          {isSignUp && showPasswordRequirements && (
+            <div className="mt-1 text-xs">
+              <p className="text-gray-700 font-medium mb-1">Password must:</p>
+              <ul className="space-y-0.5">
+                <li className={passwordRequirements.minLength ? 'text-green-600' : 'text-gray-500'}>
+                  {passwordRequirements.minLength ? '✓' : '✗'} Be at least 8 characters long
+                </li>
+                <li className={passwordRequirements.hasUppercase ? 'text-green-600' : 'text-gray-500'}>
+                  {passwordRequirements.hasUppercase ? '✓' : '✗'} Contain at least one uppercase letter
+                </li>
+                <li className={passwordRequirements.hasLowercase ? 'text-green-600' : 'text-gray-500'}>
+                  {passwordRequirements.hasLowercase ? '✓' : '✗'} Contain at least one lowercase letter
+                </li>
+                <li className={passwordRequirements.hasNumber ? 'text-green-600' : 'text-gray-500'}>
+                  {passwordRequirements.hasNumber ? '✓' : '✗'} Contain at least one number
+                </li>
+                <li className={passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}>
+                  {passwordRequirements.hasSpecialChar ? '✓' : '✗'} Contain at least one special character (!@#$%^&*)
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
+
+        {isSignUp && (
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              Confirm Password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => {
+                const newConfirmPassword = e.target.value;
+                setConfirmPassword(newConfirmPassword);
+                if (newConfirmPassword && password && newConfirmPassword !== password) {
+                  setConfirmPasswordError('Passwords do not match');
+                } else {
+                  setConfirmPasswordError('');
+                }
+              }}
+              placeholder="Confirm Password"
+              className={`w-full p-2 border rounded ${confirmPasswordError ? 'border-red-500' : ''}`}
+              required
+              disabled={isLoggingIn}
+            />
+            {confirmPasswordError && (
+              <div className="text-red-600 text-sm mt-1">{confirmPasswordError}</div>
+            )}
+            {confirmPassword && password && confirmPassword === password && !confirmPasswordError && (
+              <div className="text-green-600 text-sm mt-1">✓ Passwords match</div>
+            )}
+          </div>
+        )}
+
+        {isSignUp && (
+          <div className="flex items-start space-x-2">
+              <input
+                id="acceptTerms"
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                className="mt-1"
+                required
+                disabled={isLoggingIn}
+              />
+              <label htmlFor="acceptTerms" className="text-sm text-gray-700">
+                I agree to the{' '}
+                <Link href="/terms" className="text-seafoam hover:underline" target="_blank">
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link href="/privacy" className="text-seafoam hover:underline" target="_blank">
+                  Privacy Policy
+                </Link>
+              </label>
+            </div>
+        )}
         
         <button 
           type="submit" 
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          className="w-full pill-btn gradient-btn disabled:opacity-50"
           disabled={isLoggingIn}
         >
           {isLoggingIn 
@@ -322,11 +547,78 @@ export default function LoginForm({
 
       {showLinks && !isSignUp && (
         <div className="mt-4 space-y-2 text-center text-sm">
-          <Link href="/forgot-password" className="text-blue-600 hover:text-blue-800 block">
+          <button
+            type="button"
+            onClick={() => setShowForgotPassword(true)}
+            className="text-blue-600 hover:text-blue-800 cursor-pointer"
+          >
             Forgot password?
-          </Link>
+          </button>
         </div>
       )}
+
+      {showLinks && (
+        <>
+          {/* Toggle between Login and Sign Up */}
+          <div className="mt-1 space-y-2 text-center text-sm">
+          {isSignUp ? (
+            <div className="mt-2">
+              <span className="text-black">Already have an account? </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(false);
+                  // Reset sign up specific state
+                  setShowPasswordRequirements(false);
+                  setPasswordRequirements({
+                    minLength: false,
+                    hasUppercase: false,
+                    hasLowercase: false,
+                    hasNumber: false,
+                    hasSpecialChar: false,
+                  });
+                  setConfirmPassword('');
+                  setConfirmPasswordError('');
+                  setUsernameError('');
+                  setError('');
+                }}
+                className="text-blue-600 hover:text-blue-800 cursor-pointer"
+              >
+                Sign in
+              </button>
+            </div>
+          ) : (
+            <div>
+              <span className="text-black">Don't have an account? </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(true);
+                  // Reset password state when switching to sign up
+                  setPassword('');
+                  setConfirmPassword('');
+                  setShowPasswordRequirements(false);
+                  setPasswordRequirements({
+                    minLength: false,
+                    hasUppercase: false,
+                    hasLowercase: false,
+                    hasNumber: false,
+                    hasSpecialChar: false,
+                  });
+                  setConfirmPasswordError('');
+                  setError('');
+                }}
+                className="text-blue-600 hover:text-blue-800 cursor-pointer"
+              >
+                Sign up
+              </button>
+            </div>
+          )}
+        </div>
+        </>
+      )}
+
+      
     </div>
   );
 }

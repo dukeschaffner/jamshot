@@ -1,4 +1,19 @@
 /**
+ * Check individual password requirements for real-time validation feedback
+ * @param {string} password - Password to check
+ * @returns {Object} Object with boolean flags for each requirement
+ */
+export const checkPasswordRequirements = (password) => {
+  return {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
+  };
+};
+
+/**
  * Password validation function matching legacy API validation
  * @param {string} password - Password to validate
  * @returns {Object} Validation result with valid boolean and message

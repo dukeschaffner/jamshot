@@ -155,7 +155,7 @@ export default function ResetPassword({ params }) {
             
             <button 
               type="submit" 
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              className="w-full pill-btn gradient-btn disabled:opacity-50"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Resetting...' : 'Reset Password'}

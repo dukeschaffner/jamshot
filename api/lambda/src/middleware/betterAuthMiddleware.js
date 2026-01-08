@@ -24,6 +24,41 @@ export const betterAuthMiddleware = async (req, res, next) => {
       });
     }
 
+
+
+    // If profile is not completed and route is not allowed, remove authentication
+    if (session.profile_completed !== true) {
+      // Get the request path (remove query string if present)
+      // Use originalUrl for full path, fallback to path or url
+      const fullPath = req.originalUrl?.split('?')[0] || req.path || req.url?.split('?')[0] || '';
+      
+      // Define allowed routes that don't require profile completion
+      // Routes are mounted at /api/users, so paths include /api prefix
+      const allowedPaths = [
+        '/api/users/me',
+        '/api/users/me/complete-profile',
+        '/users/me', // Also check without /api prefix for flexibility
+        '/users/me/complete-profile',
+      ];
+      
+      // Check if the path matches any allowed route (exact match or starts with allowed path)
+      const isAllowedRoute = allowedPaths.some(allowedPath => 
+        fullPath === allowedPath || fullPath.startsWith(allowedPath + '/')
+      );
+
+      if (!isAllowedRoute) {
+        // Wipe user from request to ensure request is not authenticated
+        req.user = null;
+        req.session = null;
+        
+        return res.status(401).json({
+          error: 'Profile completion required',
+          code: 'PROFILE_INCOMPLETE',
+          message: 'Please complete your profile before accessing this resource'
+        });
+      }
+    }
+
     // Add user to request object for backwards compatibility
     // Map Better Auth user structure to match legacy format if needed
     req.user = {

@@ -17,15 +17,17 @@ import GlobalPlayer from '../components/GlobalPlayer';
 import ReleaseNotesToast from '../components/ReleaseNotesToast';
 import LandingPage from '../components/LandingPage';
 import LoadingSpinner from '../components/LoadingSpinner';
+import CompleteProfileForm from '../components/CompleteProfileForm';
 import api from '../lib/api';
 
 // This component will be rendered after providers are initialized
 function AppContent({ children }) {
-  const { user, isLoading, isAuthenticated, logout } = useUser();
+  const { user, isLoading, isAuthenticated, needsToCompleteProfile, logout, refreshUser } = useUser();
   const [darkMode, setDarkMode] = useState(false);
   const { currentTrack, isPlaying, togglePlayPause } = useAudio();
   const [hasAccess, setHasAccess] = useState(false);
   const [accessCheckComplete, setAccessCheckComplete] = useState(false);
+  const [profileError, setProfileError] = useState('');
   
   // Check if we're on pages where player should be hidden
   const pathname = usePathname();
@@ -140,6 +142,37 @@ function AppContent({ children }) {
         color: 'var(--text-primary)'
       }}>
         <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  // Show complete profile form if needed
+  if (needsToCompleteProfile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="max-w-md w-full mx-auto p-6 bg-white rounded-lg shadow-md">
+          <h1 className="text-2xl font-bold mb-4">Complete Your Profile</h1>
+          <p className="text-gray-600 mb-6">
+            We need a few more details to complete your account setup.
+          </p>
+          
+          {profileError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {profileError}
+            </div>
+          )}
+          
+          <CompleteProfileForm
+            onSuccess={async () => {
+              // Clear any previous errors
+              setProfileError('');
+              // Refresh user session to get updated profile_completed status
+              await refreshUser();
+            }}
+            onError={(errorMessage) => setProfileError(errorMessage)}
+            onLogout={logout}
+          />
+        </div>
       </div>
     );
   }
