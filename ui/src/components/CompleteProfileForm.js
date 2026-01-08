@@ -5,7 +5,8 @@ import { validateDateOfBirth } from '../../shared/utils/validation';
 
 export default function CompleteProfileForm({ 
   onSuccess, 
-  onError
+  onError,
+  onLogout
 }) {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -53,7 +54,7 @@ export default function CompleteProfileForm({
       const result = await response.json();
       
       if (onSuccess) {
-        onSuccess();
+        await onSuccess();
       }
     } catch (err) {
       const errorMessage = err.message || 'Failed to complete profile. Please try again.';
@@ -116,11 +117,22 @@ export default function CompleteProfileForm({
       
       <button 
         type="submit" 
-        className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+        className="w-full pill-btn gradient-btn disabled:opacity-50"
         disabled={isSubmitting}
       >
         {isSubmitting ? 'Completing...' : 'Complete Profile'}
       </button>
+      
+      {onLogout && (
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full mt-3 pill-btn disabled:opacity-50"
+          disabled={isSubmitting}
+        >
+          Logout
+        </button>
+      )}
     </form>
   );
 }

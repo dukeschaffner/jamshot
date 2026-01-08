@@ -110,7 +110,7 @@ export default function ForgotPasswordForm({
             
             <button 
               type="submit" 
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+              className="w-full pill-btn gradient-btn disabled:opacity-50"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Sending...' : 'Send Reset Link'}
@@ -118,7 +118,7 @@ export default function ForgotPasswordForm({
             
             {showLinks && (
               <div className="text-center mt-4">
-                <Link href="/login" className="text-blue-600 hover:text-blue-800">
+                <Link href="/login" className="text-blue-600 hover:text-blue-800 cursor-pointer">
                   Back to Login
                 </Link>
               </div>

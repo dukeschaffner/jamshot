@@ -9,6 +9,7 @@ const UserContext = createContext({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  needsToCompleteProfile: false,
   login: () => {},
   logout: () => {},
   refreshUser: () => {},
@@ -22,10 +23,6 @@ export const UserProvider = ({ children }) => {
   
   // Use Better Auth's useSession hook for session management
   const { data: session, isPending, error, refetch } = authClient.useSession();
-
-  useEffect(() => {
-    console.log('session', session);
-  }, [session]);
   
   // State for additional user data that might not be in the session
   const [additionalUserData, setAdditionalUserData] = useState(null);
@@ -33,12 +30,22 @@ export const UserProvider = ({ children }) => {
 
   // Get user from session or additional data
   const user = useMemo(() => {
+    // Only return user if profile is completed
+    if (session?.profile_completed !== true) {
+      return null;
+    }
+    
     // If we have additional user data, merge it with session user
     if (additionalUserData) {
       return { ...session?.user, ...additionalUserData };
     }
     return session?.user || null;
   }, [session?.user, additionalUserData]);
+
+  // Check if user needs to complete profile
+  const needsToCompleteProfile = useMemo(() => {
+    return !!session?.user && session.profile_completed !== true;
+  }, [session?.user, session?.profile_completed]);
 
   // Check if user is authenticated
   const isAuthenticated = !!user;
@@ -143,14 +150,22 @@ export const UserProvider = ({ children }) => {
   };
 
   // Refresh user data
-  const refreshUser = useCallback(() => {
-    // Refetch Better Auth session
-    refetch();
-    // Also fetch additional user data if session exists
-    if (session?.user) {
-      fetchAdditionalUserData();
+  const refreshUser = useCallback(async () => {
+    // Force refresh session from database, bypassing cookie cache
+    const freshSession = await authClient.getSession({
+      query: {
+        disableCookieCache: true, // Force fetch from database and refresh cookie cache
+      },
+    });
+    
+    // Refetch Better Auth session hook to update reactive state
+    await refetch();
+    
+    // After session is updated, fetch additional user data if user exists
+    if (freshSession?.data?.user) {
+      await fetchAdditionalUserData(true);
     }
-  }, [refetch, session?.user, fetchAdditionalUserData]);
+  }, [refetch, fetchAdditionalUserData]);
 
   // Register the callback with the API service
   useEffect(() => {
@@ -167,6 +182,7 @@ export const UserProvider = ({ children }) => {
     user,
     isLoading,
     isAuthenticated,
+    needsToCompleteProfile,
     userPlan,
     login,
     logout,

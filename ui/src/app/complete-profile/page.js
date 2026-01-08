@@ -1,62 +1,18 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { authClient } from '../../lib/auth-client';
+import { useUser } from '../../contexts/UserContext';
 import CompleteProfileForm from '../../components/CompleteProfileForm';
 
 // Component that uses useSearchParams
 function CompleteProfileContent() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isLoading, isAuthenticated, refreshUser } = useUser();
 
-  useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const session = await authClient.getSession();
-        if (!session?.data?.session?.user) {
-          // Not logged in, redirect to login
-          router.push('/login');
-          return;
-        }
-
-        const currentUser = session.data.session.user;
-        setUser(currentUser);
-
-        // Check if profile is already complete
-        // We'll need to fetch full user data to check date_of_birth and terms_accepted
-        try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/users/me`, {
-            credentials: 'include',
-          });
-
-          if (response.ok) {
-            const userData = await response.json();
-            // If user already has date_of_birth and terms_accepted, redirect
-            if (userData.date_of_birth && userData.terms_accepted && userData.privacy_policy_accepted) {
-              // Get redirect URL from query params or default to home
-              const redirectUrl = searchParams.get('redirect') || '/';
-              router.push(redirectUrl);
-              return;
-            }
-          }
-        } catch (err) {
-          console.error('Error checking user profile:', err);
-        }
-      } catch (err) {
-        console.error('Error checking session:', err);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkUser();
-  }, [router, searchParams]);
-
-  if (loading) {
+  // Show loading state while checking authentication
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -64,9 +20,9 @@ function CompleteProfileContent() {
     );
   }
 
-  if (!user) {
-    return null; // Will redirect
-  }
+  // If not authenticated, UserContext will handle redirect to login
+  // If authenticated and profile complete, UserContext will handle redirect away
+  // So if we reach here, user is authenticated but profile is incomplete
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -82,9 +38,14 @@ function CompleteProfileContent() {
       )}
       
       <CompleteProfileForm
-        onSuccess={() => {
-          const redirectUrl = searchParams.get('redirect') || '/';
-          router.push(redirectUrl);
+        onSuccess={async () => {
+          // Refresh user session to get updated profile_completed status
+          await refreshUser();
+          // Small delay to ensure session is updated before redirect
+          setTimeout(() => {
+            const redirectUrl = searchParams.get('redirect') || '/';
+            router.push(redirectUrl);
+          }, 100);
         }}
         onError={(errorMessage) => setError(errorMessage)}
       />

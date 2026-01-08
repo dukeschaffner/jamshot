@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { authClient } from '../lib/auth-client';
-import { validatePassword, validateUsername, validateName, validateEmail } from '../lib/validation';
+import { validatePassword, validateUsername, validateName, validateEmail, checkPasswordRequirements } from '../lib/validation';
 import { validateDateOfBirth } from '../../shared/utils/validation';
 
 export default function RegisterForm({ 
@@ -25,12 +25,21 @@ export default function RegisterForm({
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  });
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setUsernameError('');
+    setConfirmPasswordError('');
     
     // Validate username
     const usernameValidation = validateUsername(username);
@@ -70,7 +79,9 @@ export default function RegisterForm({
     
     // Check if passwords match
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      const errorMsg = 'Passwords do not match';
+      setError(errorMsg);
+      setConfirmPasswordError(errorMsg);
       setShowPasswordRequirements(true);
       return;
     }
@@ -89,6 +100,8 @@ export default function RegisterForm({
         password,
         name,
         username: username.toLowerCase(),
+        dateOfBirth,
+        acceptTerms,
       });
 
       if (result.data?.user) {
@@ -236,21 +249,44 @@ export default function RegisterForm({
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                const newPassword = e.target.value;
+                setPassword(newPassword);
+                const requirements = checkPasswordRequirements(newPassword);
+                setPasswordRequirements(requirements);
+                setShowPasswordRequirements(true);
+                // Clear error if password becomes valid
+                if (requirements.minLength && requirements.hasUppercase && 
+                    requirements.hasLowercase && requirements.hasNumber && 
+                    requirements.hasSpecialChar) {
+                  setError('');
+                }
+              }}
+              onFocus={() => setShowPasswordRequirements(true)}
               placeholder="Password"
               className="w-full p-2 border rounded"
               required
               disabled={isRegistering}
             />
             {showPasswordRequirements && (
-              <div className="mt-1 text-xs text-gray-500">
-                <p>Password must:</p>
-                <ul className="list-disc pl-5">
-                  <li>Be at least 8 characters long</li>
-                  <li>Contain at least one uppercase letter</li>
-                  <li>Contain at least one lowercase letter</li>
-                  <li>Contain at least one number</li>
-                  <li>Contain at least one special character (!@#$%^&*)</li>
+              <div className="mt-1 text-xs">
+                <p className="text-gray-700 font-medium mb-1">Password must:</p>
+                <ul className="space-y-0.5">
+                  <li className={passwordRequirements.minLength ? 'text-green-600' : 'text-gray-500'}>
+                    {passwordRequirements.minLength ? '✓' : '✗'} Be at least 8 characters long
+                  </li>
+                  <li className={passwordRequirements.hasUppercase ? 'text-green-600' : 'text-gray-500'}>
+                    {passwordRequirements.hasUppercase ? '✓' : '✗'} Contain at least one uppercase letter
+                  </li>
+                  <li className={passwordRequirements.hasLowercase ? 'text-green-600' : 'text-gray-500'}>
+                    {passwordRequirements.hasLowercase ? '✓' : '✗'} Contain at least one lowercase letter
+                  </li>
+                  <li className={passwordRequirements.hasNumber ? 'text-green-600' : 'text-gray-500'}>
+                    {passwordRequirements.hasNumber ? '✓' : '✗'} Contain at least one number
+                  </li>
+                  <li className={passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}>
+                    {passwordRequirements.hasSpecialChar ? '✓' : '✗'} Contain at least one special character (!@#$%^&*)
+                  </li>
                 </ul>
               </div>
             )}
@@ -264,12 +300,26 @@ export default function RegisterForm({
               id="confirmPassword"
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                const newConfirmPassword = e.target.value;
+                setConfirmPassword(newConfirmPassword);
+                if (newConfirmPassword && password && newConfirmPassword !== password) {
+                  setConfirmPasswordError('Passwords do not match');
+                } else {
+                  setConfirmPasswordError('');
+                }
+              }}
               placeholder="Confirm Password"
-              className="w-full p-2 border rounded"
+              className={`w-full p-2 border rounded ${confirmPasswordError ? 'border-red-500' : ''}`}
               required
               disabled={isRegistering}
             />
+            {confirmPasswordError && (
+              <div className="text-red-600 text-sm mt-1">{confirmPasswordError}</div>
+            )}
+            {confirmPassword && password && confirmPassword === password && !confirmPasswordError && (
+              <div className="text-green-600 text-sm mt-1">✓ Passwords match</div>
+            )}
           </div>
           
           <div className="flex items-start space-x-2">
@@ -302,7 +352,7 @@ export default function RegisterForm({
           
           <button 
             type="submit" 
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+            className="w-full pill-btn gradient-btn disabled:opacity-50"
             disabled={isRegistering}
           >
             {isRegistering ? 'Registering...' : 'Register'}
