@@ -167,6 +167,10 @@ jobs:
             STRIPE_TEAM_25_USERS_PRICE_ID=${{ vars.STRIPE_TEAM_25_USERS_PRICE_ID_TEST }},
             STRIPE_TEAM_50_USERS_PRICE_ID=${{ vars.STRIPE_TEAM_50_USERS_PRICE_ID_TEST }},
             STRIPE_TEAM_100_USERS_PRICE_ID=${{ vars.STRIPE_TEAM_100_USERS_PRICE_ID_TEST }},
+            BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET_TEST }},
+            BETTER_AUTH_URL=${{ vars.BETTER_AUTH_URL_TEST }},
+            GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }},
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
           }"
 
   deploy-to-prod:
@@ -248,6 +252,10 @@ jobs:
             STRIPE_TEAM_25_USERS_PRICE_ID=${{ vars.STRIPE_TEAM_25_USERS_PRICE_ID_PROD }},
             STRIPE_TEAM_50_USERS_PRICE_ID=${{ vars.STRIPE_TEAM_50_USERS_PRICE_ID_PROD }},
             STRIPE_TEAM_100_USERS_PRICE_ID=${{ vars.STRIPE_TEAM_100_USERS_PRICE_ID_PROD }},
+            BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET_PROD }},
+            BETTER_AUTH_URL=${{ vars.BETTER_AUTH_URL_PROD }},
+            GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }},
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
           }"
 
     # - name: Create deployment tag
