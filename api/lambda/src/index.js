@@ -6,6 +6,7 @@ import { auth } from '../auth.js';
 import authRoutes from './routes/sterioAuth.js';
 import userRoutes from './routes/users.js';
 import trackRoutes from './routes/tracks.js';
+import notificationRoutes from './routes/notifications.js';
 
 const express = require('express');
 const cors = require('cors');
@@ -14,7 +15,6 @@ const { csrfProtection } = require('./middleware/csrf.cjs');
 const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting.cjs');
 const { bodyParser } = require('./middleware/bodyParser.cjs');
 const tagRoutes = require('./routes/tags.cjs');
-const notificationRoutes = require('./routes/notifications.cjs');
 const searchRoutes = require('./routes/search.cjs');
 const paymentRoutes = require('./routes/payments.cjs');
 const contactRoutes = require('./routes/contact.cjs');
