@@ -1,13 +1,22 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const fsPromises = require('fs').promises;
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { createRequire } from 'module';
+import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const require = createRequire(import.meta.url);
 const mm = require('music-metadata');
-const { PutObjectCommand } = require('@aws-sdk/client-s3');
-const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
 const pool = require('../config/db.cjs');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth.cjs');
 const { 
   uploadLimiter, 
   contentCreationLimiter, 
@@ -40,7 +49,7 @@ const { getGeolocationData } = require('../utils/geolocation.cjs');
 const { validateCompetitionEntry } = require('../utils/competition.cjs');
 const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils.cjs');
 const { isFeatureEnabled } = require('../utils/featureFlags.cjs');
-require('dotenv').config;
+dotenv.config();
 
 async function getParser() {
   if (typeof mm.parseFile === 'function') {
@@ -96,7 +105,7 @@ const upload = multer({
 });
 
 // Apply optional auth middleware to all routes
-router.use(optionalAuthMiddleware);
+router.use(optionalBetterAuthMiddleware);
 
 // Audio processing health check is now handled by the audio-processing lambda
 
@@ -168,7 +177,7 @@ const handleMulterError = (error, req, res, next) => {
 
 
 // Initialize upload by generating pre-signed S3 URL
-router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
+router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res) => {
   const { filename, fileSize, is_camp_track, team_id } = req.body;
   const userId = req.user.id;
 
@@ -230,7 +239,7 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
 });
 
 // Process upload after S3 upload is complete
-router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
+router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => {
   const userId = req.user.id;
   let layer = 0;
   let parentIsPrivate = false;
@@ -331,7 +340,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       error: err.message,
       stack: err.stack,
       filePath: localFilePath,
-      fileExists: require('fs').existsSync(localFilePath)
+      fileExists: fs.existsSync(localFilePath)
     });
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
   }
@@ -856,7 +865,7 @@ router.get('/feed/popular', async (req, res) => {
 
 
 // Get Track and Versions
-router.get('/:id', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { secret } = req.query; // Secret token for private tracks
@@ -902,7 +911,7 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Get stem chain for DAW loading
-router.get('/:id/stems', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -1022,7 +1031,7 @@ router.get('/:id/related', async (req, res) => {
 });
 
 // Get track processing status
-router.get('/:id/status', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -1076,7 +1085,7 @@ router.get('/:id/status', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Like a Track
-router.post('/:id/like', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1109,7 +1118,7 @@ router.post('/:id/like', interactionLimiter, authMiddleware, async (req, res) =>
 });
 
 // Unlike a Track
-router.delete('/:id/like', authMiddleware, async (req, res) => {
+router.delete('/:id/like', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1124,7 +1133,7 @@ router.delete('/:id/like', authMiddleware, async (req, res) => {
 });
 
 // Get users who liked a track
-router.get('/:id/likes', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { page = 1, limit = 20 } = req.query;
@@ -1204,7 +1213,7 @@ router.get('/:id/likes', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Get comments for a track with pagination
-router.get('/:id/comments', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { page = 1, limit = 10, parent_id = null } = req.query;
@@ -1281,7 +1290,7 @@ router.get('/:id/comments', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Comment on a Track
-router.post('/:id/comment', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const { content, parent_comment_id } = req.body;
   const userId = req.user.id;
@@ -1368,7 +1377,7 @@ router.post('/:id/comment', contentCreationLimiter, authMiddleware, async (req, 
 });
 
 // Update a comment
-router.put('/comments/:commentId', authMiddleware, async (req, res) => {
+router.put('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
   const { commentId } = req.params;
   const { content } = req.body;
   const userId = req.user.id;
@@ -1433,7 +1442,7 @@ router.put('/comments/:commentId', authMiddleware, async (req, res) => {
 });
 
 // Delete a comment
-router.delete('/comments/:commentId', authMiddleware, async (req, res) => {
+router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
   const { commentId } = req.params;
   const userId = req.user.id;
   
@@ -1511,7 +1520,7 @@ router.get('/search', async (req, res) => {
 });
 
 // Repost a Track
-router.post('/:id/repost', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1564,7 +1573,7 @@ router.post('/:id/repost', interactionLimiter, authMiddleware, async (req, res) 
 });
 
 // Unrepost a Track
-router.delete('/:id/repost', authMiddleware, async (req, res) => {
+router.delete('/:id/repost', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1787,7 +1796,7 @@ router.get('/:id/tree', async (req, res) => {
 });
 
 // Toggle track privacy. Only root tracks can control their privacy status.
-router.put('/:id/privacy', authMiddleware, async (req, res) => {
+router.put('/:id/privacy', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   const { is_private } = req.body;
@@ -1869,7 +1878,7 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
 });
 
 // Delete a track
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   
@@ -1894,7 +1903,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 // Generate a share link with a secret token for a private track
-router.post('/:id/share', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   
@@ -1935,7 +1944,7 @@ router.post('/:id/share', interactionLimiter, authMiddleware, async (req, res) =
 });
 
 // Refresh signed URL for a track
-router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/refresh-url', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { secret } = req.query; // Secret token for private tracks
@@ -1979,7 +1988,7 @@ router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Download a track
-router.get('/:id/download', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { secret } = req.query; // Secret token for private tracks
@@ -2030,4 +2039,4 @@ router.get('/:id/download', optionalAuthMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
