@@ -5,7 +5,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const pool = require('./src/config/db.cjs');
 const bcrypt = require('bcryptjs');
-const { sendVerificationEmail: sendLegacyVerificationEmail } = require('./src/utils/emailService.cjs');
+const { sendVerificationEmail: sendLegacyVerificationEmail, sendPasswordResetEmail: sendLegacyPasswordResetEmail } = require('./src/utils/emailService.cjs');
 const { validateDateOfBirth } = require('./shared/utils/validation.cjs');
 
 /**
@@ -33,6 +33,22 @@ const sendVerificationEmail = async ({ user, url, token }, request) => {
   return sendLegacyVerificationEmail(user.email, user.id, username, urlWithCallback);
 };
 
+/**
+ * Send password reset email using Better Auth format but legacy email service
+ * @param {Object} data - Better Auth password reset data
+ * @param {Object} data.user - User object with email and other properties
+ * @param {string} data.url - Reset URL provided by Better Auth
+ * @param {string} data.token - Reset token
+ * @param {Object} request - Request object (optional)
+ */
+const sendResetPassword = async ({ user, url, token }, request) => {
+  // Get username from user object (it's in additionalFields)
+  const username = user.username || user.name || 'there';
+  
+  // Use the legacy email service function with Better Auth's URL
+  return sendLegacyPasswordResetEmail(user.email, user.id, username, url);
+};
+
 
 
 export const auth = betterAuth({
@@ -54,6 +70,7 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true, // Require email verification before login
+    sendResetPassword: sendResetPassword,
   },
   emailVerification: {
     sendVerificationEmail: sendVerificationEmail,
@@ -436,7 +453,7 @@ export const auth = betterAuth({
         const returned = ctx.context.returned;
         
         // If returned is an APIError or error response, handle it
-        if (returned && (returned instanceof APIError || returned.error || (returned.status && returned.status >= 400))) {
+        if (returned && (returned.status && returned.status >= 400)) {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
           const loginUrl = `${frontendUrl}/login`;
           
@@ -477,28 +494,6 @@ export const auth = betterAuth({
           
           // Redirect to login page with error message
           throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
-        }
-        
-        // After successful OAuth callback, check if user needs to complete profile
-        if (ctx.context.newSession?.user) {
-          const userId = ctx.context.newSession.user.id;
-          // Check if user has date_of_birth and terms_accepted
-          const userCheck = await pool.query(
-            'SELECT date_of_birth, terms_accepted, privacy_policy_accepted FROM users WHERE id = $1',
-            [userId]
-          );
-          
-          if (userCheck.rows.length > 0) {
-            const user = userCheck.rows[0];
-            // If missing required fields, redirect to completion page
-            if (!user.date_of_birth || !user.terms_accepted || !user.privacy_policy_accepted) {
-              const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-              const completionUrl = `${frontendUrl}/complete-profile`;
-              // Store redirect URL in session or query param for after completion
-              const callbackURL = ctx.query?.callbackURL || '/';
-              throw ctx.redirect(`${completionUrl}?redirect=${encodeURIComponent(callbackURL)}`);
-            }
-          }
         }
       }
     }),
