@@ -28,6 +28,23 @@ const s3Client = new S3Client({
   endpoint: process.env.R2_ENDPOINT,
 });
 
+// Helper function to check if a URL is from R2 and extract the key
+const isR2Url = (url) => {
+  if (!url || typeof url !== 'string') return { isR2: false, key: null };
+  
+  const r2PublicUrl = process.env.R2_PUBLIC_URL;
+  if (!r2PublicUrl) return { isR2: false, key: null };
+  
+  // Check if URL starts with R2_PUBLIC_URL
+  if (url.startsWith(r2PublicUrl)) {
+    // Extract the key (everything after the base URL and slash)
+    const key = url.replace(r2PublicUrl, '').replace(/^\//, '');
+    return { isR2: true, key };
+  }
+  
+  return { isR2: false, key: null };
+};
+
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -50,7 +67,7 @@ router.use(optionalBetterAuthMiddleware);
 router.get('/me', betterAuthMiddleware, async (req, res) => {
   try {
     const userResult = await pool.query(
-      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -651,6 +668,65 @@ router.put('/me', betterAuthMiddleware, async (req, res) => {
   }
 });
 
+// Complete profile - update date of birth and terms/privacy acceptance (for OAuth signups)
+router.put('/me/complete-profile', betterAuthMiddleware, async (req, res) => {
+  try {
+    const { dateOfBirth, acceptTerms } = req.body;
+    const { validateDateOfBirth } = require('../../shared/utils/validation.cjs');
+    
+    // Validate date of birth
+    if (!dateOfBirth) {
+      return res.status(400).json({ error: 'Date of birth is required' });
+    }
+    
+    const dobValidation = validateDateOfBirth(dateOfBirth);
+    if (!dobValidation.valid) {
+      return res.status(400).json({ error: dobValidation.error });
+    }
+    
+    // Validate terms acceptance
+    if (!acceptTerms) {
+      return res.status(400).json({ error: 'You must accept the Terms of Service and Privacy Policy to continue.' });
+    }
+    
+    // Get client IP address for policy acceptance tracking
+    const clientIp = req.headers['x-forwarded-for'] || 
+                    req.headers['x-real-ip'] || 
+                    req.connection.remoteAddress || 
+                    req.socket.remoteAddress ||
+                    (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    
+    const currentTimestamp = new Date();
+    const policyVersion = '1.0';
+    
+    // Update user with date of birth and terms/privacy acceptance
+    const result = await pool.query(
+      `UPDATE users 
+       SET date_of_birth = $1,
+           terms_accepted = $2,
+           privacy_policy_accepted = $2,
+           policy_accepted_at = $3,
+           policy_accepted_ip = $4,
+           policy_version = $5
+       WHERE id = $6
+       RETURNING id, username, name, email, date_of_birth, terms_accepted, privacy_policy_accepted, policy_accepted_at`,
+      [dateOfBirth, true, currentTimestamp, clientIp, policyVersion, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ 
+      message: 'Profile completed successfully',
+      user: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Complete profile error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Upload and update profile image
 router.post('/me/profile-image', uploadLimiter, betterAuthMiddleware, upload.single('image'), async (req, res) => {
   try {
@@ -687,17 +763,19 @@ router.post('/me/profile-image', uploadLimiter, betterAuthMiddleware, upload.sin
       [req.user.id]
     );
 
-    // If user has an existing profile image, delete it from S3
+    // If user has an existing profile image from R2, delete it from R2
     if (currentUser.rows[0]?.profile_pic_url) {
-      const oldKey = currentUser.rows[0].profile_pic_url;
-      try {
-        await s3Client.send(new DeleteObjectCommand({
-          Bucket: process.env.R2_BUCKET,
-          Key: oldKey
-        }));
-      } catch (err) {
-        console.warn('Failed to delete old profile image:', err);
-        // Continue with upload even if delete fails
+      const { isR2, key } = isR2Url(currentUser.rows[0].profile_pic_url);
+      if (isR2 && key) {
+        try {
+          await s3Client.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: key
+          }));
+        } catch (err) {
+          console.warn('Failed to delete old profile image from R2:', err);
+          // Continue with upload even if delete fails
+        }
       }
     }
 
@@ -1343,6 +1421,9 @@ router.delete('/me', contentCreationLimiter, betterAuthMiddleware, async (req, r
     }
     
     const user = userResult.rows[0];
+    if (!user.password_hash) {
+      return res.status(400).json({ error: 'No password set for this account' });
+    }
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid password' });
@@ -1375,18 +1456,20 @@ router.delete('/me', contentCreationLimiter, betterAuthMiddleware, async (req, r
       }
     }
     
-    // Delete profile picture from S3
-    if (user.profile_pic_url && user.profile_pic_url.includes('images/profile/')) {
-      try {
-        const profilePicKey = user.profile_pic_url.split('.com/')[1]; // Extract S3 key
-        await s3Client.send(new DeleteObjectCommand({
-          Bucket: process.env.R2_BUCKET,
-          Key: profilePicKey
-        }));
-        console.log(`Profile picture deleted from S3 for user ${userId}`);
-      } catch (s3Error) {
-        console.error('Error deleting profile picture from S3:', s3Error);
-        // Continue with deletion even if S3 cleanup fails
+    // Delete profile picture from R2 if it's stored in R2
+    if (user.profile_pic_url) {
+      const { isR2, key } = isR2Url(user.profile_pic_url);
+      if (isR2 && key) {
+        try {
+          await s3Client.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: key
+          }));
+          console.log(`Profile picture deleted from R2 for user ${userId}`);
+        } catch (s3Error) {
+          console.error('Error deleting profile picture from R2:', s3Error);
+          // Continue with deletion even if R2 cleanup fails
+        }
       }
     }
     
