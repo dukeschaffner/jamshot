@@ -216,7 +216,7 @@ function getPopularFeedQuery(isAuthenticated = true, userIdParamIndex = 1, limit
   // Add repost metadata if requested
   if (includeRepostMetadata) {
     query += `,
-      NULL::integer AS reposted_by_id,
+      NULL::text AS reposted_by_id,
       NULL::text AS reposted_by_username,
       NULL::timestamp AS reposted_at,
       FALSE AS is_repost
@@ -317,7 +317,7 @@ function getFollowingFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFil
     followed_tracks AS (
       SELECT
         ${getBaseTrackSelectQuery(true)},
-        NULL::integer AS reposted_by_id,
+        NULL::text AS reposted_by_id,
         NULL::text AS reposted_by_username,
         NULL::timestamp AS reposted_at,
         FALSE AS is_repost
@@ -378,7 +378,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFilter
   const popularWithExclusions = `
     SELECT
       ${getBaseTrackSelectQuery(true)},
-      NULL::integer AS reposted_by_id,
+      NULL::text AS reposted_by_id,
       NULL::text AS reposted_by_username,
       NULL::timestamp AS reposted_at,
       FALSE AS is_repost,
@@ -418,7 +418,7 @@ function getForYouFeedQuery(limitParamIndex = 2, offsetParamIndex = 3, tagFilter
     followed_tracks AS (
       SELECT
         ${getBaseTrackSelectQuery(true)},
-        NULL::integer AS reposted_by_id,
+        NULL::text AS reposted_by_id,
         NULL::text AS reposted_by_username,
         NULL::timestamp AS reposted_at,
         FALSE AS is_repost,
