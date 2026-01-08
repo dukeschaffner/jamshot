@@ -107,15 +107,6 @@ export default function LoginForm({
         callbackURL: window.location.origin + (redirectUrl || '/')
       });
 
-      if (result.url) {
-        router.push(result.url);
-      } else {
-        const errorMessage = 'No redirect URL received from Google OAuth';
-        setError(errorMessage);
-        if (onError) {
-          onError(errorMessage);
-        }
-      }
     } catch (err) {
       const errorMessage = err.message || 'Google OAuth failed. Please try again.';
       setError(errorMessage);
@@ -283,22 +274,6 @@ export default function LoginForm({
     }
   };
 
-  // If user is already logged in, show logged in state
-  if (user) {
-    return (
-      <div className="p-4 bg-green-100 border border-green-400 rounded">
-        <h2 className="text-xl font-bold text-green-800 mb-2">Logged In!</h2>
-        <p><strong>Email:</strong> {user.email}</p>
-        <p><strong>Name:</strong> {user.name || 'N/A'}</p>
-        <button
-          onClick={handleLogout}
-          className="mt-4 pill-btn"
-        >
-          Logout
-        </button>
-      </div>
-    );
-  }
 
   // Determine header text based on form state
   const getHeaderText = () => {

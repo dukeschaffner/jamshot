@@ -84,36 +84,43 @@ const sendVerificationEmail = async (email, userId, username, verificationUrl = 
  * Send a password reset email
  * @param {string} email - User's email address
  * @param {string} userId - User's ID in the database
+ * @param {string} username - User's username
+ * @param {string} [resetUrl] - Optional reset URL (if not provided, will generate one)
  * @returns {Promise} - Resolves when email is sent
  */
-const sendPasswordResetEmail = async (email, userId, username) => {
-  // Create a reset token valid for 1 hour
-  const resetToken = jwt.sign(
-    { id: userId, action: 'reset_password' },
-    process.env.JWT_SECRET,
-    { expiresIn: '1h' }
-  );
+const sendPasswordResetEmail = async (email, userId, username, resetUrl = null) => {
+  // Use provided URL or create a reset token valid for 1 hour
+  let url = resetUrl;
+  if (!url) {
+    const resetToken = jwt.sign(
+      { id: userId, action: 'reset_password' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    // Create the reset URL (frontend page)
+    url = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
+  }
 
-  // Create the reset URL (frontend page)
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
-
-  // Email content
+  // Email content - matching the verification email theme
   const mailOptions = {
     from: `"${emailName}" <${process.env.EMAIL}>`,
     to: getEmailAddress(email),
-    subject: 'Reset your Sterio password',
+    subject: 'Reset your sterio password',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Password Reset Request</h2>
-        <p>Hello ${username},</p>
-        <p>We received a request to reset your password. Click the button below to create a new password:</p>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+        <h2 style="color: #171717; font-size: 2rem; font-weight: 700; margin-bottom: 16px;">Password Reset Request</h2>
+        <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;">Hello ${username},</p>
+        <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;">We received a request to reset your password. Click the button below to create a new password:</p>
+        
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetUrl}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Reset Password</a>
+          <a href="${url}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #171717; padding: 12px 20px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block;">Reset Password</a>
         </div>
-        <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; color: #666;">${resetUrl}</p>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request a password reset, you can safely ignore this email.</p>
+        
+        <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">If the button doesn't work, you can also copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #555555; background: #f5f5f5; padding: 10px; border-radius: 6px; font-size: 0.875rem; margin-bottom: 24px;">${url}</p>
+        
+        <p style="font-size: 0.9rem; color: #555555; line-height: 1.6; margin-bottom: 8px;">This link will expire in 1 hour.</p>
+        <p style="font-size: 0.9rem; color: #555555; line-height: 1.6;">If you didn't request a password reset, you can safely ignore this email.</p>
       </div>
     `
   };
