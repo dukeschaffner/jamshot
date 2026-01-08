@@ -44,11 +44,11 @@ export default function EmailVerificationForm({
     <div className="space-y-4">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-gray-700 mb-2">
-          We've sent a verification email to <strong>{userEmail}</strong>
+          We&apos;ve sent a verification email to <strong>{userEmail}</strong>
         </p>
         <p className="text-sm text-gray-600">
           Please check your inbox and click the verification link to verify your email address. 
-          If you don't see the email, check your spam folder.
+          If you don&apos;t see the email, check your spam folder.
         </p>
       </div>
       
