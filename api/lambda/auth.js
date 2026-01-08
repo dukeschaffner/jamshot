@@ -58,6 +58,7 @@ export const auth = betterAuth({
   emailVerification: {
     sendVerificationEmail: sendVerificationEmail,
     sendOnSignUp: true, // Automatically send verification email on signup
+    sendOnSignIn: false, // Disable automatic resend on login attempts
     autoSignInAfterVerification: true, // Auto sign in after verification
     expiresIn: 86400, // 24 hours in seconds
   },
