@@ -2,14 +2,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { authClient } from '../../../lib/auth-client';
-import { validatePassword } from '../../../lib/validation';
+import { authClient } from '../../lib/auth-client';
+import { validatePassword } from '../../lib/validation';
 
-export default function ResetPassword({ params }) {
+export default function ResetPassword() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Better Auth uses query parameter ?token=... instead of route param
-  const token = searchParams?.get('token') || params?.token;
+  // Better Auth uses query parameter ?token=...
+  const token = searchParams?.get('token');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -119,6 +119,7 @@ export default function ResetPassword({ params }) {
                 placeholder="Enter new password"
                 className="w-full p-2 border rounded"
                 required
+                disabled={isSubmitting}
               />
               <div className="mt-1 text-xs text-gray-500">
                 <p>Password must:</p>
@@ -144,6 +145,7 @@ export default function ResetPassword({ params }) {
                 placeholder="Confirm new password"
                 className="w-full p-2 border rounded"
                 required
+                disabled={isSubmitting}
               />
             </div>
             
@@ -155,7 +157,7 @@ export default function ResetPassword({ params }) {
             
             <button 
               type="submit" 
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Resetting...' : 'Reset Password'}
@@ -171,4 +173,5 @@ export default function ResetPassword({ params }) {
       )}
     </div>
   );
-} 
+}
+
