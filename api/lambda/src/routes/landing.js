@@ -1,11 +1,13 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const router = express.Router();
 const pool = require('../config/db.cjs');
-const rateLimit = require('express-rate-limit');
 const { getGeolocationData } = require('../utils/geolocation.cjs');
 const { sendWaitlistConfirmationEmail } = require('../utils/emailService.cjs');
-
-const router = express.Router();
 
 // Rate limiting for landing page endpoints
 const landingLimiter = rateLimit({
@@ -346,5 +348,5 @@ router.get('/confirm-waitlist/:token', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
 

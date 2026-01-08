@@ -1,8 +1,11 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
 const stripe = require('../config/stripe.cjs');
 const db = require('../config/db.cjs');
-const {authMiddleware} = require('../middleware/auth.cjs');
 const { contentCreationLimiter } = require('../middleware/rateLimiting.cjs');
 const { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } = require('../utils/subscriptionUtils.cjs');
 
@@ -703,4 +706,4 @@ async function handleTeamCreation(session) {
   }
 }
 
-module.exports = router; 
+export default router; 

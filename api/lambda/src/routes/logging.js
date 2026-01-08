@@ -1,5 +1,6 @@
 // TEMP: Temporary logging endpoint - remove after debugging token refresh issues
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
 
 /**
@@ -40,5 +41,5 @@ router.post('/log', (req, res) => {
   res.json({ success: true });
 });
 
-module.exports = router;
+export default router;
 
