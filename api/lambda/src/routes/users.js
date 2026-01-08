@@ -1,18 +1,23 @@
-const express = require('express');
-const router = express.Router();
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+import express from 'express';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { createRequire } from 'module';
+import multer from 'multer';
+import sharp from 'sharp';
+import bcrypt from 'bcryptjs';
+import stripeLib from 'stripe';
+import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const pool = require('../config/db.cjs');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth.cjs');
 const {
   interactionLimiter,
   uploadLimiter,
   contentCreationLimiter
 } = require('../middleware/rateLimiting.cjs');
-const multer = require('multer');
-const sharp = require('sharp');
 const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils.cjs');
-const bcrypt = require('bcryptjs');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+const router = express.Router();
+const stripe = stripeLib(process.env.STRIPE_SECRET_KEY);
 
 const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region
@@ -39,10 +44,10 @@ const upload = multer({
 });
 
 // Apply optional auth middleware to all routes
-router.use(optionalAuthMiddleware);
+router.use(optionalBetterAuthMiddleware);
 
 // Get current user details
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', betterAuthMiddleware, async (req, res) => {
   try {
     const userResult = await pool.query(
       'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
@@ -212,7 +217,7 @@ router.get('/:userId/tracks', async (req, res) => {
 });
 
 // Follow a user
-router.post('/follow/:userId', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow/:userId', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const followerId = req.user.id;
   
@@ -285,7 +290,7 @@ router.post('/follow/:userId', interactionLimiter, authMiddleware, async (req, r
 });
 
 // Unfollow a user
-router.delete('/follow/:userId', authMiddleware, async (req, res) => {
+router.delete('/follow/:userId', betterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const followerId = req.user.id;
   try {
@@ -341,7 +346,7 @@ router.get('/:userId/stats', async (req, res) => {
 });
 
 // Get user's followers with pagination
-router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
+router.get('/:userId/followers', optionalBetterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -409,7 +414,7 @@ router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Get users the specified user is following with pagination
-router.get('/:userId/following', optionalAuthMiddleware, async (req, res) => {
+router.get('/:userId/following', optionalBetterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -583,7 +588,7 @@ router.get('/:userId/reposts', async (req, res) => {
 });
 
 // Update user profile
-router.put('/me', authMiddleware, async (req, res) => {
+router.put('/me', betterAuthMiddleware, async (req, res) => {
   try {
     let { username, name, bio, is_private } = req.body;
     
@@ -647,7 +652,7 @@ router.put('/me', authMiddleware, async (req, res) => {
 });
 
 // Upload and update profile image
-router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('image'), async (req, res) => {
+router.post('/me/profile-image', uploadLimiter, betterAuthMiddleware, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -734,7 +739,7 @@ router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('i
 });
 
 // Toggle account privacy
-router.put('/me/privacy', authMiddleware, async (req, res) => {
+router.put('/me/privacy', betterAuthMiddleware, async (req, res) => {
   try {
     const { is_private } = req.body;
     
@@ -754,7 +759,7 @@ router.put('/me/privacy', authMiddleware, async (req, res) => {
 });
 
 // Get pending follow requests for current user
-router.get('/me/follow-requests', authMiddleware, async (req, res) => {
+router.get('/me/follow-requests', betterAuthMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT fr.id, fr.created_at, 
@@ -772,7 +777,7 @@ router.get('/me/follow-requests', authMiddleware, async (req, res) => {
 });
 
 // Accept a follow request
-router.post('/follow-requests/:requestId/accept', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/accept', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { requestId } = req.params;
   
   try {
@@ -821,7 +826,7 @@ router.post('/follow-requests/:requestId/accept', interactionLimiter, authMiddle
 });
 
 // Reject a follow request
-router.post('/follow-requests/:requestId/reject', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/reject', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { requestId } = req.params;
   
   try {
@@ -1097,7 +1102,7 @@ router.get('/by-username/:username/reposts', async (req, res) => {
 });
 
 // Follow a user by username
-router.post('/follow/username/:username', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow/username/:username', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { username } = req.params;
   const followerId = req.user.id;
   
@@ -1178,7 +1183,7 @@ router.post('/follow/username/:username', interactionLimiter, authMiddleware, as
 });
 
 // Unfollow a user by username
-router.delete('/follow/username/:username', authMiddleware, async (req, res) => {
+router.delete('/follow/username/:username', betterAuthMiddleware, async (req, res) => {
   const { username } = req.params;
   const followerId = req.user.id;
   
@@ -1322,7 +1327,7 @@ router.get('/:username/liked', async (req, res) => {
 });
 
 // Delete user account
-router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.delete('/me', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
   const userId = req.user.id;
   const { password } = req.body;
   
@@ -1399,4 +1404,5 @@ router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) =>
   }
 });
 
-module.exports = router;
+export default router;
+

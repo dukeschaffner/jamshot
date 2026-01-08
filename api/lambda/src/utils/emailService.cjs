@@ -37,35 +37,41 @@ const transporter = nodemailer.createTransport({
  * @param {string} email - User's email address
  * @param {string} userId - User's ID in the database
  * @param {string} username - User's username
+ * @param {string} [verificationUrl] - Optional verification URL (if not provided, will generate one)
  * @returns {Promise} - Resolves when email is sent
  */
-const sendVerificationEmail = async (email, userId, username) => {
-  // Create a verification token valid for 24 hours
-  const verificationToken = jwt.sign(
-    { id: userId, action: 'verify_email' },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-
-  // Create the verification URL
-  const verificationUrl = `${process.env.API_URL || 'http://localhost:5001/api'}/auth/verify-email/${verificationToken}`;
+const sendVerificationEmail = async (email, userId, username, verificationUrl = null) => {
+  // Use provided URL or create a verification token valid for 24 hours
+  let url = verificationUrl;
+  if (!url) {
+    const verificationToken = jwt.sign(
+      { id: userId, action: 'verify_email' },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    // Create the verification URL
+    url = `${process.env.API_URL || 'http://localhost:5001/api'}/auth/verify-email/${verificationToken}`;
+  }
 
   // Email content
   const mailOptions = {
     from: `"${emailName}" <${process.env.EMAIL}>`,
     to: getEmailAddress(email),
-    subject: 'Verify your Sterio account',
+    subject: 'Verify your sterio account',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Welcome to Sterio, ${username}!</h2>
-        <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+        <h2 style="color: #171717; font-size: 2rem; font-weight: 700; margin-bottom: 16px;">Welcome to sterio, ${username}!</h2>
+        <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;">Thank you for registering! Please verify your email address by clicking the button below to complete your account setup.</p>
+        
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Verify Email</a>
+          <a href="${url}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #171717; padding: 12px 20px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block;">Verify Email</a>
         </div>
-        <p>If the button doesn't work, you can also copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; color: #666;">${verificationUrl}</p>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you didn't create an account on Sterio, you can safely ignore this email.</p>
+        
+        <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">If the button doesn't work, you can also copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #555555; background: #f5f5f5; padding: 10px; border-radius: 6px; font-size: 0.875rem; margin-bottom: 24px;">${url}</p>
+        
+        <p style="font-size: 0.9rem; color: #555555; line-height: 1.6; margin-bottom: 8px;">This link will expire in 24 hours.</p>
+        <p style="font-size: 0.9rem; color: #555555; line-height: 1.6;">If you didn't create an account on sterio, you can safely ignore this email.</p>
       </div>
     `
   };
