@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { authClient } from '../lib/auth-client';
 import api, { setRefreshUserState } from '../lib/api';
@@ -27,6 +27,8 @@ export const UserProvider = ({ children }) => {
   // State for additional user data that might not be in the session
   const [additionalUserData, setAdditionalUserData] = useState(null);
   const [isFetchingUserData, setIsFetchingUserData] = useState(false);
+  // Track if we're currently logging out to prevent race conditions
+  const isLoggingOutRef = useRef(false);
 
   // Get user from session or additional data
   const user = useMemo(() => {
@@ -81,12 +83,17 @@ export const UserProvider = ({ children }) => {
 
   // Fetch additional user data when session becomes available
   useEffect(() => {
+    // Don't fetch if we're logging out or if session is pending
+    if (isLoggingOutRef.current || isPending) {
+      return;
+    }
+    
     if (session?.user && !additionalUserData) {
       fetchAdditionalUserData();
     } else if (!session?.user) {
       setAdditionalUserData(null);
     }
-  }, [session?.user, additionalUserData, fetchAdditionalUserData]);
+  }, [session?.user, additionalUserData, fetchAdditionalUserData, isPending]);
 
   // Login function using Better Auth
   const login = async (email, password, redirectUrl = null) => {
@@ -131,11 +138,18 @@ export const UserProvider = ({ children }) => {
   // Logout function using Better Auth
   const logout = async () => {
     try {
+      // Set flag to prevent useEffect from fetching user data during logout
+      isLoggingOutRef.current = true;
+      
       await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
             // Clear additional user data
             setAdditionalUserData(null);
+            // Reset logout flag after a brief delay to allow session to clear
+            setTimeout(() => {
+              isLoggingOutRef.current = false;
+            }, 100);
             // Redirect to login page
             router.push('/login');
           },
@@ -145,6 +159,10 @@ export const UserProvider = ({ children }) => {
       console.error('Logout error:', error);
       // Even if logout fails, clear local state and redirect
       setAdditionalUserData(null);
+      // Reset logout flag
+      setTimeout(() => {
+        isLoggingOutRef.current = false;
+      }, 100);
       router.push('/login');
     }
   };
