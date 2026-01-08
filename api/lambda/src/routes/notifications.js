@@ -1,10 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const pool = require('../config/db.cjs');
-const { authMiddleware } = require('../middleware/auth.cjs');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-// Apply auth middleware to all notification routes
-router.use(authMiddleware);
+const require = createRequire(import.meta.url);
+const pool = require('../config/db.cjs');
+
+const router = express.Router();
+
+// Apply Better Auth middleware to all notification routes
+router.use(betterAuthMiddleware);
 
 // Get user's notifications
 router.get('/', async (req, res) => {
@@ -289,4 +293,4 @@ router.put('/preferences', async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 
