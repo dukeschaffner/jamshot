@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 const pool = require('./src/config/db.cjs');
 const bcrypt = require('bcryptjs');
 const { sendVerificationEmail: sendLegacyVerificationEmail } = require('./src/utils/emailService.cjs');
-const { validateDateOfBirth } = require('../../shared/utils/validation.cjs');
+const { validateDateOfBirth } = require('./shared/utils/validation.cjs');
 
 /**
  * Send verification email using Better Auth format but legacy email service
@@ -44,6 +44,12 @@ export const auth = betterAuth({
     'http://localhost:5173',
     `http://localhost:${process.env.PORT || 5001}`,
   ],
+  onAPIError: {
+    onError: (error, ctx) => {
+      // Log errors for debugging
+      console.error('Better Auth error:', error, 'Path:', ctx.path);
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true, // Require email verification before login
@@ -57,7 +63,7 @@ export const auth = betterAuth({
   socialProviders: {
     google: { 
         clientId: process.env.GOOGLE_CLIENT_ID, 
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET, 
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }, 
   },
   user:{
@@ -85,9 +91,74 @@ export const auth = betterAuth({
         before: async (user, ctx) => {
           const { username, name, password, dateOfBirth, acceptTerms } = ctx.body || {};
           
-          // Validate username
-          if (username) {
-            const usernameLower = username.toLowerCase();
+          // Check if this is an OAuth signup
+          const isOAuthSignup = ctx.path === '/callback/:id' || ctx.path?.includes('/callback/');
+          
+          // For OAuth signups, use name from user object (populated by Better Auth from provider profile)
+          // For email/password signups, use name from request body
+          const userDisplayName = isOAuthSignup ? (user.name || name) : name;
+          
+          // Generate username for OAuth signups if not provided
+          let finalUsername = username;
+          if (isOAuthSignup && !username && user.email) {
+            // Extract part before @ from email
+            const emailPrefix = user.email.split('@')[0];
+            
+            // Sanitize: keep only alphanumeric and underscores, convert to lowercase
+            let baseUsername = emailPrefix.toLowerCase().replace(/[^a-z0-9_]/g, '');
+            
+            // If empty after sanitization, use a default
+            if (!baseUsername) {
+              baseUsername = 'user';
+            }
+            
+            // Prevent using "me" as base username
+            if (baseUsername === 'me') {
+              baseUsername = 'user';
+            }
+            
+            // Truncate to leave room for suffix (max 18 chars to allow for "_99")
+            if (baseUsername.length > 18) {
+              baseUsername = baseUsername.substring(0, 18);
+            }
+            
+            // Try base username first, then increment suffix until available
+            let candidateUsername = baseUsername;
+            let suffix = 0;
+            let foundAvailable = false;
+            
+            while (!foundAvailable && suffix < 1000) {
+              // Check if username is available
+              const usernameCheck = await pool.query('SELECT id FROM users WHERE username = $1', [candidateUsername]);
+              
+              if (usernameCheck.rows.length === 0) {
+                foundAvailable = true;
+                finalUsername = candidateUsername;
+              } else {
+                // Increment suffix and try again
+                suffix++;
+                candidateUsername = `${baseUsername}${suffix}`;
+                
+                // Ensure total length doesn't exceed 20 characters
+                if (candidateUsername.length > 20) {
+                  // Truncate base to leave room for suffix
+                  const maxBaseLength = 20 - String(suffix).length;
+                  baseUsername = baseUsername.substring(0, maxBaseLength);
+                  candidateUsername = `${baseUsername}${suffix}`;
+                }
+              }
+            }
+            
+            if (!foundAvailable) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Unable to generate a unique username. Please try again later.',
+              });
+            }
+          }
+          
+          // Validate username (either provided or generated)
+          if (finalUsername) {
+            const usernameLower = finalUsername.toLowerCase();
             // Username validation: only allow letters, numbers, and underscores
             if (!/^\w+$/.test(usernameLower)) {
               throw new APIError("BAD_REQUEST", {
@@ -106,23 +177,25 @@ export const auth = betterAuth({
                 message: 'Username "me" is not allowed',
               });
             }
-            // Check if username already exists
-            const usernameCheck = await pool.query('SELECT id FROM users WHERE username = $1', [usernameLower]);
-            if (usernameCheck.rows.length > 0) {
-              throw new APIError("BAD_REQUEST", {
-                message: 'Username is already taken',
-              });
+            // Check if username already exists (only for non-OAuth or if username was provided)
+            if (!isOAuthSignup || username) {
+              const usernameCheck = await pool.query('SELECT id FROM users WHERE username = $1', [usernameLower]);
+              if (usernameCheck.rows.length > 0) {
+                throw new APIError("BAD_REQUEST", {
+                  message: 'Username is already taken',
+                });
+              }
             }
           }
           
           // Validate name
-          if (!name || name.trim() === '') {
+          if (!userDisplayName || userDisplayName.trim() === '') {
             throw new APIError("BAD_REQUEST", {
               message: 'Name is required',
             });
           }
           // Name length validation: max 40 characters
-          if (name.length > 40) {
+          if (userDisplayName.length > 40) {
             throw new APIError("BAD_REQUEST", {
               message: 'Name must be 40 characters or less.',
             });
@@ -186,8 +259,9 @@ export const auth = betterAuth({
             }
           }
           
-          // Validate terms acceptance
-          if (acceptTerms !== true) {
+          // Validate terms acceptance - only required for email/password signups, not OAuth
+          // OAuth signups will be redirected to complete-profile page to accept terms
+          if (!isOAuthSignup && acceptTerms !== true) {
             throw new APIError("BAD_REQUEST", {
               message: 'You must accept the Terms of Service and Privacy Policy to register.',
             });
@@ -196,7 +270,8 @@ export const auth = betterAuth({
           return {
             data: {
               ...user,
-              username: username ? username.toLowerCase() : null,
+              name: userDisplayName, // Ensure name is set (from OAuth profile or request body)
+              username: finalUsername ? finalUsername.toLowerCase() : null,
               password_hash: password ? await bcrypt.hash(password, 10) : null,
             },
           };
@@ -206,6 +281,35 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // Intercept OAuth error page redirects and redirect to UI instead
+      if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const loginUrl = `${frontendUrl}/login`;
+        
+        // Map Better Auth error codes to client-safe messages
+        const errorMessages = {
+          'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
+          'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
+          'state_not_found': 'OAuth session expired. Please try signing in again.',
+          'no_code': 'OAuth authorization failed. Please try signing in again.',
+          'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
+          'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
+          'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
+          'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
+          'email_already_registered': 'This email is already registered. Please sign in instead.',
+          'email_is_already_registered': 'This email is already registered. Please sign in instead.',
+        };
+        
+        // Get error code from query params
+        const errorCode = ctx.query?.error || 'unknown_error';
+        
+        // Get client-safe error message
+        const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
+        
+        // Redirect to login page with error message
+        throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
+      }
+      
       // Validate password on reset password endpoint
       if (ctx.path === '/reset-password') {
         const { newPassword } = ctx.body || {};
@@ -239,6 +343,81 @@ export const auth = betterAuth({
             throw new APIError("BAD_REQUEST", {
               message: 'Password must contain at least one special character',
             });
+          }
+        }
+      }
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      // Check for OAuth callback errors and redirect to UI with client-safe error message
+      const isOAuthCallback = ctx.path?.includes('/callback/');
+      
+      if (isOAuthCallback) {
+        // Check if there was an error in the returned value
+        const returned = ctx.context.returned;
+        
+        // If returned is an APIError or error response, handle it
+        if (returned && (returned instanceof APIError || returned.error || (returned.status && returned.status >= 400))) {
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+          const loginUrl = `${frontendUrl}/login`;
+          
+          // Map Better Auth error codes to client-safe messages
+          const errorMessages = {
+            'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
+            'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
+            'state_not_found': 'OAuth session expired. Please try signing in again.',
+            'no_code': 'OAuth authorization failed. Please try signing in again.',
+            'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
+            'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
+            'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
+            'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
+            'email_already_registered': 'This email is already registered. Please sign in instead.',
+            'email_is_already_registered': 'This email is already registered. Please sign in instead.',
+          };
+          
+          // Extract error code from error message or query params
+          let errorCode = 'unknown_error';
+          if (returned instanceof APIError) {
+            errorCode = returned.message || 'unknown_error';
+          } else if (returned.error) {
+            errorCode = returned.error;
+          } else if (ctx.query?.error) {
+            errorCode = ctx.query.error;
+          }
+          
+          // Extract error code from error message if it's in the format "error=code"
+          if (typeof errorCode === 'string' && errorCode.includes('error=')) {
+            const match = errorCode.match(/error=([^&]+)/);
+            if (match) {
+              errorCode = match[1];
+            }
+          }
+          
+          // Get client-safe error message
+          const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
+          
+          // Redirect to login page with error message
+          throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
+        }
+        
+        // After successful OAuth callback, check if user needs to complete profile
+        if (ctx.context.newSession?.user) {
+          const userId = ctx.context.newSession.user.id;
+          // Check if user has date_of_birth and terms_accepted
+          const userCheck = await pool.query(
+            'SELECT date_of_birth, terms_accepted, privacy_policy_accepted FROM users WHERE id = $1',
+            [userId]
+          );
+          
+          if (userCheck.rows.length > 0) {
+            const user = userCheck.rows[0];
+            // If missing required fields, redirect to completion page
+            if (!user.date_of_birth || !user.terms_accepted || !user.privacy_policy_accepted) {
+              const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+              const completionUrl = `${frontendUrl}/complete-profile`;
+              // Store redirect URL in session or query param for after completion
+              const callbackURL = ctx.query?.callbackURL || '/';
+              throw ctx.redirect(`${completionUrl}?redirect=${encodeURIComponent(callbackURL)}`);
+            }
           }
         }
       }

@@ -172,3 +172,10 @@ ALTER TABLE user_rooms ADD CONSTRAINT user_rooms_user_id_fkey FOREIGN KEY (user_
 -- id SERIAL PRIMARY KEY,
 -- to:
 -- id TEXT PRIMARY KEY,
+
+
+-- Migration: Make password_hash column nullable on users table
+-- This allows users to sign up via OAuth providers without requiring a password
+-- Date: 2026-01-XX
+
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;

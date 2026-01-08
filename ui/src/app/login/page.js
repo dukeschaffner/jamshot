@@ -21,6 +21,20 @@ function LoginContent() {
       setSuccess('Email verified successfully! You can now log in.');
     }
     
+    // Check for OAuth error from redirect
+    const oauthError = searchParams.get('error');
+    const errorType = searchParams.get('errorType');
+    if (oauthError && errorType === 'oauth') {
+      setError(decodeURIComponent(oauthError));
+      // Clean up URL by removing error parameters
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('error');
+        url.searchParams.delete('errorType');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+    
     // Check for auth error message (e.g., expired token)
     if (typeof window !== 'undefined') {
       const authError = sessionStorage.getItem('authError');

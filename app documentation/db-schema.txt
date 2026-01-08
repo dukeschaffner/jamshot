@@ -5,7 +5,7 @@ CREATE TABLE users (
   name VARCHAR(40) NOT NULL,
   username VARCHAR(20) UNIQUE NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL, -- Hashed with bcrypt
+  password_hash VARCHAR(255), -- Hashed with bcrypt (nullable for OAuth users)
   profile_pic_url VARCHAR(255), -- S3 URL for profile pic
   bio TEXT, -- Optional short bio
   verified BOOL not null default false, -- Reserved for well-known artists
