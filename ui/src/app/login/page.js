@@ -1,22 +1,14 @@
 'use client';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { useUser } from '../../contexts/UserContext';
-import api from '../../lib/api';
+import LoginForm from '../../components/LoginForm';
 
 // Component that uses useSearchParams
 function LoginContent() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isResendingVerification, setIsResendingVerification] = useState(false);
-  const [isEmailNotVerified, setIsEmailNotVerified] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useUser();
 
   // Get redirect URL from query params
   const redirectUrl = searchParams.get('redirect');
@@ -39,46 +31,13 @@ function LoginContent() {
     }
   }, [searchParams]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setIsEmailNotVerified(false);
-    setIsLoggingIn(true);
-    
-    try {
-      // Use the login function from UserContext, passing redirect URL
-      const result = await login(email, password, redirectUrl);
-      
-      if (!result.success) {
-        if (result.isEmailNotVerified) {
-          setIsEmailNotVerified(true);
-          setError('Your email is not verified. Please verify your email to log in.');
-        } else {
-          setError(result.error || 'Login failed');
-        }
-      }
-      // No need to handle success case with router.push as it's now handled in the UserContext
-    } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-      console.error('Login error:', err);
-    } finally {
-      setIsLoggingIn(false);
-    }
+  const handleLoginSuccess = () => {
+    // Handle successful login - redirect will be handled by LoginForm
+    console.log('Login successful');
   };
 
-  const handleResendVerification = async () => {
-    setIsResendingVerification(true);
-    try {
-      await api.post('/auth/resend-verification', { email });
-      setSuccess('Verification email sent! Please check your inbox.');
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to resend verification email');
-      setSuccess('');
-    } finally {
-      setIsResendingVerification(false);
-    }
+  const handleLoginError = (errorMessage) => {
+    setError(errorMessage);
   };
 
   return (
@@ -90,78 +49,20 @@ function LoginContent() {
           {success}
         </div>
       )}
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
       
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full p-2 border rounded"
-            required
-            disabled={isLoggingIn}
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full p-2 border rounded"
-            required
-            disabled={isLoggingIn}
-          />
-        </div>
-        
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-            {isEmailNotVerified && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={handleResendVerification}
-                  disabled={isResendingVerification}
-                  className="text-blue-600 hover:text-blue-800 underline focus:outline-none"
-                >
-                  {isResendingVerification ? 'Sending...' : 'Resend verification email'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        
-        <button 
-          type="submit" 
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          disabled={isLoggingIn}
-        >
-          {isLoggingIn ? 'Logging in...' : 'Login'}
-        </button>
-        
-        <div className="text-center mt-4">
-          <Link href="/forgot-password" className="text-blue-600 hover:text-blue-800">
-            Forgot password?
-          </Link>
-        </div>
-        
-        <div className="text-center mt-2">
-          <span className="text-gray-600">Don&apos;t have an account? </span>
-          <Link href="/register" className="text-blue-600 hover:text-blue-800">
-            Register
-          </Link>
-        </div>
-      </form>
+      <LoginForm
+        onSuccess={handleLoginSuccess}
+        onError={handleLoginError}
+        redirectUrl={redirectUrl}
+        showLinks={true}
+        noRedirect={false}
+      />
     </div>
   );
 }

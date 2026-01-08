@@ -30,6 +30,8 @@ const sendVerificationEmail = async ({ user, url, token }, request) => {
   return sendLegacyVerificationEmail(user.email, user.id, username, urlWithCallback);
 };
 
+
+
 export const auth = betterAuth({
   database: pool,
   baseURL: process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || 5001}`,
