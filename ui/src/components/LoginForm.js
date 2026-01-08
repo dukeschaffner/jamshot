@@ -12,7 +12,8 @@ export default function LoginForm({
   onError,
   redirectUrl = null,
   showLinks = true,
-  noRedirect = false
+  noRedirect = false,
+  initialMode = 'login' // 'login' or 'signup'
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +26,7 @@ export default function LoginForm({
   const [success, setSuccess] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [user, setUser] = useState(null);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
   const [passwordRequirements, setPasswordRequirements] = useState({
@@ -37,41 +38,35 @@ export default function LoginForm({
   });
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [usernameError, setUsernameError] = useState('');
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
   const router = useRouter();
 
   // Check if user is already logged in
-  useEffect(() => {
-    authClient.getSession()
-      .then((session) => {
-        if (session?.data?.user) {
-          setUser(session.data.user);
-          if (onSuccess && !noRedirect) {
-            onSuccess();
-          }
-        }
-      })
-      .catch((error) => {
-        console.error('Error checking session:', error);
-      });
-  }, [onSuccess, noRedirect]);
 
-  useEffect(() => {
-    console.log('user lgoin', user);
-  }, [user]);
 
   const handleEmailPasswordLogin = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setNeedsVerification(false);
     setIsLoggingIn(true);
 
+    let result = null;
     try {
       const result = await authClient.signIn.email({
         email,
         password,
       });
 
-      if (result.data?.user) {
+      if (result.error){
+        const isUnverifiedError = result?.error?.code === 'EMAIL_NOT_VERIFIED';
+        if (isUnverifiedError) {
+          setNeedsVerification(true);
+          setError(result?.error?.message);
+        }
+      }
+      else if (result.data?.user) {
         setUser(result.data.user);
         setSuccess('Login successful!');
         if (onSuccess) {
@@ -91,11 +86,11 @@ export default function LoginForm({
         }
       }
     } catch (err) {
-      const errorMessage = err.message || 'Login failed. Please check your credentials.';
-      setError(errorMessage);
-      if (onError) {
-        onError(errorMessage);
-      }
+        const displayMessage = 'Login failed - Unexpected error';
+        setError(displayMessage);
+        if (onError) {
+          onError(displayMessage);
+        }
       console.error('Email/password login error:', err);
     } finally {
       setIsLoggingIn(false);
@@ -109,11 +104,11 @@ export default function LoginForm({
     try {
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: window.location.origin + (redirectUrl || '/dashboard')
+        callbackURL: window.location.origin + (redirectUrl || '/')
       });
 
       if (result.url) {
-        window.location.href = result.url;
+        router.push(result.url);
       } else {
         const errorMessage = 'No redirect URL received from Google OAuth';
         setError(errorMessage);
@@ -136,6 +131,7 @@ export default function LoginForm({
     e.preventDefault();
     setError('');
     setSuccess('');
+    setNeedsVerification(false);
     setUsernameError('');
     setConfirmPasswordError('');
     
@@ -208,16 +204,24 @@ export default function LoginForm({
       });
 
       if (result.data?.user) {
-        setUser(result.data.user);
-        setSuccess('Account created successfully!');
-        if (onSuccess) {
-          onSuccess();
-        }
-        // Handle redirect if not disabled
-        if (!noRedirect && redirectUrl) {
-          window.location.href = redirectUrl;
-        } else if (!noRedirect) {
-          window.location.href = '/dashboard';
+        // Check if email is verified
+        const isEmailVerified = result.data.user.emailVerified;
+        
+        if (!isEmailVerified) {
+          // User signed up but email is not verified
+          setNeedsVerification(true);
+          setSuccess('');
+          setError('');
+        } else {
+          setUser(result.data.user);
+          setSuccess('Account created successfully!');
+          if (onSuccess) {
+            onSuccess();
+          }
+          // Handle redirect if not disabled
+          if (!noRedirect) {
+            router.push(redirectUrl || '/');
+          }
         }
       } else {
         const errorMessage = 'Sign up failed - no user data returned';
@@ -238,11 +242,41 @@ export default function LoginForm({
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    
+    setIsResendingVerification(true);
+    setError('');
+    
+    try {
+      const frontendUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const callbackURL = `${frontendUrl}${redirectUrl || '/'}`;
+      
+      await authClient.sendVerificationEmail({
+        email,
+        callbackURL,
+      });
+      
+      setSuccess('Verification email sent! Please check your inbox.');
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to send verification email. Please try again.';
+      setError(errorMessage);
+      console.error('Resend verification error:', err);
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await authClient.signOut();
-      setUser(null);
       setSuccess('Logged out successfully');
+      setUser(null);
+      setUserPlan(getUserPlan(null)); // Set to free plan instead of null
+      router.push('/login');
     } catch (error) {
       setError('Logout failed');
       console.error('Logout error:', error);
@@ -290,6 +324,101 @@ export default function LoginForm({
             type="button"
             onClick={() => setShowForgotPassword(false)}
             className="text-blue-600 hover:text-blue-800 cursor-pointer"
+          >
+            Back to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If email verification is needed, show verification message instead of login form
+  if (needsVerification) {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Verify Your Email</h2>
+        
+        <div style={{
+          backgroundColor: 'var(--grey-1)',
+          borderRadius: '12px',
+          padding: '24px',
+          marginBottom: '24px'
+        }}>
+          <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            Please verify your email address
+          </p>
+          <p style={{
+            color: 'var(--text-secondary)',
+            marginBottom: '16px',
+            lineHeight: '1.6'
+          }}>
+            We've sent a verification email to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>. Please check your inbox and click the verification link to activate your account.
+          </p>
+          
+          {success && (
+            <div className="mb-4" style={{
+              backgroundColor: 'rgba(147, 233, 190, 0.15)',
+              border: '1px solid var(--seafoam)',
+              borderRadius: '8px',
+              padding: '12px',
+              color: 'var(--text-primary)',
+              fontSize: '0.95rem'
+            }}>
+              {success}
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4" style={{
+              backgroundColor: 'rgba(252, 50, 50, 0.1)',
+              border: '1px solid var(--red)',
+              borderRadius: '8px',
+              padding: '12px',
+              color: 'var(--red)',
+              fontSize: '0.95rem'
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleResendVerification}
+            disabled={isResendingVerification}
+            className="pill-btn green-btn"
+            style={{
+              width: '100%',
+              marginBottom: '16px',
+              opacity: isResendingVerification ? 0.6 : 1,
+              cursor: isResendingVerification ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isResendingVerification ? 'Sending...' : 'Resend verification email'}
+          </button>
+        </div>
+
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setNeedsVerification(false);
+              setError('');
+              setSuccess('');
+              setPassword('');
+              setConfirmPassword('');
+              setUsernameError('');
+              setConfirmPasswordError('');
+              setShowPasswordRequirements(false);
+              setPasswordRequirements({
+                minLength: false,
+                hasUppercase: false,
+                hasLowercase: false,
+                hasNumber: false,
+                hasSpecialChar: false,
+              });
+              setIsResendingVerification(false);
+            }}
+            className="pill-btn"
           >
             Back to Login
           </button>
@@ -412,7 +541,12 @@ export default function LoginForm({
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (needsVerification) {
+                setNeedsVerification(false);
+              }
+            }}
             placeholder="Email"
             className="w-full p-2 border rounded"
             required
@@ -581,6 +715,7 @@ export default function LoginForm({
                   setConfirmPasswordError('');
                   setUsernameError('');
                   setError('');
+                  setNeedsVerification(false);
                 }}
                 className="text-blue-600 hover:text-blue-800 cursor-pointer"
               >
@@ -607,6 +742,7 @@ export default function LoginForm({
                   });
                   setConfirmPasswordError('');
                   setError('');
+                  setNeedsVerification(false);
                 }}
                 className="text-blue-600 hover:text-blue-800 cursor-pointer"
               >
