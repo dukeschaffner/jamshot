@@ -327,7 +327,7 @@ export default function LoginForm({
             marginBottom: '16px',
             lineHeight: '1.6'
           }}>
-            We've sent a verification email to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>. Please check your inbox and click the verification link to activate your account.
+            We&apos;ve sent a verification email to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>. Please check your inbox and click the verification link to activate your account.
           </p>
           
           {success && (
@@ -699,7 +699,7 @@ export default function LoginForm({
             </div>
           ) : (
             <div>
-              <span className="text-black">Don't have an account? </span>
+              <span className="text-black">Don&apos;t have an account? </span>
               <button
                 type="button"
                 onClick={() => {
