@@ -4,6 +4,7 @@ const require = createRequire(import.meta.url);
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from '../auth.js';
 import authRoutes from './routes/sterioAuth.js';
+import userRoutes from './routes/users.js';
 
 const express = require('express');
 const cors = require('cors');
@@ -12,7 +13,6 @@ const { csrfProtection } = require('./middleware/csrf.cjs');
 const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting.cjs');
 const { bodyParser } = require('./middleware/bodyParser.cjs');
 const trackRoutes = require('./routes/tracks.cjs');
-const userRoutes = require('./routes/users.cjs');
 const tagRoutes = require('./routes/tags.cjs');
 const notificationRoutes = require('./routes/notifications.cjs');
 const searchRoutes = require('./routes/search.cjs');
