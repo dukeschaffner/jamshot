@@ -3,31 +3,29 @@ const require = createRequire(import.meta.url);
 
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from '../auth.js';
-import authRoutes from './routes/sterioAuth.js';
 import userRoutes from './routes/users.js';
 import trackRoutes from './routes/tracks.js';
 import notificationRoutes from './routes/notifications.js';
+import tagRoutes from './routes/tags.js';
+import searchRoutes from './routes/search.js';
+import paymentRoutes from './routes/payments.js';
+import contactRoutes from './routes/contact.js';
+import analyticsRoutes from './routes/analytics.js';
+import competitionRoutes from './routes/competitions.js';
+import releaseNotesRoutes from './routes/releaseNotes.js';
+import campRoutes from './routes/camps.js';
+import teamRoutes from './routes/teams.js';
+import groupRoutes from './routes/groups.js';
+import landingRoutes from './routes/landing.js';
+import featureFlagsRoutes from './routes/featureFlags.js';
+// TEMP: Temporary logging endpoint - remove after debugging token refresh issues
+import loggingRoutes from './routes/logging.js';
 
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const { csrfProtection } = require('./middleware/csrf.cjs');
 const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting.cjs');
 const { bodyParser } = require('./middleware/bodyParser.cjs');
-const tagRoutes = require('./routes/tags.cjs');
-const searchRoutes = require('./routes/search.cjs');
-const paymentRoutes = require('./routes/payments.cjs');
-const contactRoutes = require('./routes/contact.cjs');
-const analyticsRoutes = require('./routes/analytics.cjs');
-const competitionRoutes = require('./routes/competitions.cjs');
-const releaseNotesRoutes = require('./routes/releaseNotes.cjs');
-const campRoutes = require('./routes/camps.cjs');
-const teamRoutes = require('./routes/teams.cjs');
-const groupRoutes = require('./routes/groups.cjs');
-const landingRoutes = require('./routes/landing.cjs');
-const featureFlagsRoutes = require('./routes/featureFlags.cjs');
-// TEMP: Temporary logging endpoint - remove after debugging token refresh issues
-const loggingRoutes = require('./routes/logging.cjs');
 require('dotenv').config();
 
 
@@ -123,11 +121,7 @@ if (env === 'dev' || env === 'test' || env === 'development') {
   app.use('/api/logging', loggingRoutes);
 }
 
-// Apply CSRF protection globally (after auth middleware in routes)
-app.use(csrfProtection);
-
 // Routes
-app.use('/api/sterioAuth', authRoutes);
 app.use('/api/tracks', trackRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tags', tagRoutes);

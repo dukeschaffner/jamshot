@@ -1,7 +1,9 @@
-const express = require('express');
-const pool = require('../config/db.cjs');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth.cjs');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware, optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
+const require = createRequire(import.meta.url);
+const pool = require('../config/db.cjs');
 const router = express.Router();
 
 // Get all genres
@@ -37,69 +39,69 @@ router.get('/elements', async (req, res) => {
   }
 });
 
-// Add a new genre (admin only)
-router.post('/genres', authMiddleware, async (req, res) => {
-  try {
-    // Check if user is admin (you'll need to add an admin field to users table)
-    const userCheck = await pool.query('SELECT verified FROM users WHERE id = $1', [req.user.id]);
-    if (!userCheck.rows[0].verified) {
-      return res.status(403).json({ error: 'Only verified artists can add genres' });
-    }
+// // Add a new genre (admin only)
+// router.post('/genres', authMiddleware, async (req, res) => {
+//   try {
+//     // Check if user is admin (you'll need to add an admin field to users table)
+//     const userCheck = await pool.query('SELECT verified FROM users WHERE id = $1', [req.user.id]);
+//     if (!userCheck.rows[0].verified) {
+//       return res.status(403).json({ error: 'Only verified artists can add genres' });
+//     }
 
-    const { name } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Genre name is required' });
-    }
+//     const { name } = req.body;
+//     if (!name) {
+//       return res.status(400).json({ error: 'Genre name is required' });
+//     }
 
-    // Check if genre already exists
-    const existingGenre = await pool.query('SELECT * FROM genres WHERE name = $1', [name]);
-    if (existingGenre.rows.length > 0) {
-      return res.status(400).json({ error: 'Genre already exists' });
-    }
+//     // Check if genre already exists
+//     const existingGenre = await pool.query('SELECT * FROM genres WHERE name = $1', [name]);
+//     if (existingGenre.rows.length > 0) {
+//       return res.status(400).json({ error: 'Genre already exists' });
+//     }
 
-    const result = await pool.query(
-      'INSERT INTO genres (name) VALUES ($1) RETURNING *',
-      [name]
-    );
+//     const result = await pool.query(
+//       'INSERT INTO genres (name) VALUES ($1) RETURNING *',
+//       [name]
+//     );
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error adding genre:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+//     res.status(201).json(result.rows[0]);
+//   } catch (error) {
+//     console.error('Error adding genre:', error);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
 
-// Add a new instrument (admin only)
-router.post('/instruments', authMiddleware, async (req, res) => {
-  try {
-    // Check if user is admin (you'll need to add an admin field to users table)
-    const userCheck = await pool.query('SELECT verified FROM users WHERE id = $1', [req.user.id]);
-    if (!userCheck.rows[0].verified) {
-      return res.status(403).json({ error: 'Only verified artists can add instruments' });
-    }
+// // Add a new instrument (admin only)
+// router.post('/instruments', authMiddleware, async (req, res) => {
+//   try {
+//     // Check if user is admin (you'll need to add an admin field to users table)
+//     const userCheck = await pool.query('SELECT verified FROM users WHERE id = $1', [req.user.id]);
+//     if (!userCheck.rows[0].verified) {
+//       return res.status(403).json({ error: 'Only verified artists can add instruments' });
+//     }
 
-    const { name } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Instrument name is required' });
-    }
+//     const { name } = req.body;
+//     if (!name) {
+//       return res.status(400).json({ error: 'Instrument name is required' });
+//     }
 
-    // Check if instrument already exists
-    const existingInstrument = await pool.query('SELECT * FROM instruments WHERE name = $1', [name]);
-    if (existingInstrument.rows.length > 0) {
-      return res.status(400).json({ error: 'Instrument already exists' });
-    }
+//     // Check if instrument already exists
+//     const existingInstrument = await pool.query('SELECT * FROM instruments WHERE name = $1', [name]);
+//     if (existingInstrument.rows.length > 0) {
+//       return res.status(400).json({ error: 'Instrument already exists' });
+//     }
 
-    const result = await pool.query(
-      'INSERT INTO instruments (name) VALUES ($1) RETURNING *',
-      [name]
-    );
+//     const result = await pool.query(
+//       'INSERT INTO instruments (name) VALUES ($1) RETURNING *',
+//       [name]
+//     );
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error adding instrument:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+//     res.status(201).json(result.rows[0]);
+//   } catch (error) {
+//     console.error('Error adding instrument:', error);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
 
 // Get genres for a track
 router.get('/track/:trackId/genres', async (req, res) => {
@@ -221,4 +223,4 @@ router.post('/track/:trackId/instruments', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

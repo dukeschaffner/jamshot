@@ -1,8 +1,11 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware, optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
 const pool = require('../config/db.cjs');
 const stripe = require('../config/stripe.cjs');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth.cjs');
 const { 
   contentCreationLimiter, 
   interactionLimiter, 
@@ -938,4 +941,4 @@ router.get('/:id/entries', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

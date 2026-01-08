@@ -1,7 +1,10 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
 const pool = require('../config/db.cjs');
-const { optionalAuthMiddleware } = require('../middleware/auth.cjs');
 const { searchLimiter } = require('../middleware/rateLimiting.cjs');
 const { S3Client } = require('@aws-sdk/client-s3');
 const { getTrackPrivacyClause } = require('../utils/trackUtils.cjs');
@@ -147,4 +150,4 @@ router.get('/', async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

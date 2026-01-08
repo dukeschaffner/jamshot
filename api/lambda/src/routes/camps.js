@@ -1,7 +1,10 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
 const pool = require('../config/db.cjs');
-const { authMiddleware } = require('../middleware/auth.cjs');
 const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting.cjs');
 const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils.cjs');
 const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils.cjs');
@@ -883,4 +886,4 @@ router.patch('/:id/tracks/:trackId/room', apiEndpointLimiter, async (req, res) =
   }
 });
 
-module.exports = router;
+export default router;
