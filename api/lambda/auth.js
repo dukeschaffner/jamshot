@@ -72,6 +72,7 @@ const baseURL = process.env.BETTER_AUTH_URL || `http://localhost:${process.env.P
 console.log('🔐 Base URL:', baseURL);
 
 export const auth = betterAuth({
+  origin: 'https://kxdwjea5mk.execute-api.us-east-2.amazonaws.com',
   database: pool,
   baseURL: baseURL,
   // basePath: '/api/auth',
