@@ -10,6 +10,17 @@ const serverlessExpressInstance = serverlessExpress({
   shouldParseBody: false,
 });
 
+// Global error handlers for Lambda environment
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process in Lambda - just log the error
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Don't exit the process in Lambda - just log the error
+});
+
 // Lambda handler function
 export const handler = async (event, context) => {
   // Set callbackWaitsForEmptyEventLoop to false to prevent Lambda from waiting

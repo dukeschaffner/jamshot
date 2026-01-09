@@ -28,17 +28,6 @@ const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting.cjs')
 const { bodyParser } = require('./middleware/bodyParser.cjs');
 require('dotenv').config();
 
-// Global error handlers for Lambda environment
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit the process in Lambda - just log the error
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-  // Don't exit the process in Lambda - just log the error
-});
-
 
 const app = express();
 
@@ -96,36 +85,6 @@ const getStagePrefix = () => {
   return ''; // No prefix for dev/staging/other environments
 };
 
-// Auth request logging middleware
-const authLoggingMiddleware = (req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`🔐 AUTH MIDDLEWARE [${timestamp}]:`);
-  console.log(`  - Original URL: ${req.originalUrl}`);
-  console.log(`  - Method: ${req.method}`);
-  console.log(`  - Headers:`, {
-    'user-agent': req.headers['user-agent'],
-    'origin': req.headers.origin,
-    'referer': req.headers.referer,
-    'content-type': req.headers['content-type'],
-    'authorization': req.headers.authorization ? '[PRESENT]' : '[NOT SET]'
-  });
-
-  // Log request body for POST/PUT/PATCH (but sanitize sensitive data)
-  if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
-    const bodyCopy = { ...req.body };
-    // Remove sensitive fields from logging
-    if (bodyCopy.password) bodyCopy.password = '[REDACTED]';
-    if (bodyCopy.newPassword) bodyCopy.newPassword = '[REDACTED]';
-    console.log(`  - Body:`, JSON.stringify(bodyCopy, null, 2));
-  }
-
-  // Log when response is finished
-  res.on('finish', () => {
-    console.log(`🔐 AUTH RESPONSE [${timestamp}]: Status ${res.statusCode}`);
-  });
-
-  next();
-};
 
 // Register Better Auth routes with conditional stage prefix
 const stagePrefix = getStagePrefix();
@@ -137,7 +96,6 @@ console.log('  - BETTER_AUTH_URL env var:', process.env.BETTER_AUTH_URL || '(not
 console.log('  - Frontend URL:', process.env.FRONTEND_URL || '(not set)');
 
 // Apply auth logging middleware before Better Auth routes
-app.use(`${stagePrefix}/api/auth/*`, authLoggingMiddleware);
 app.all(`${stagePrefix}/api/auth/*`, toNodeHandler(auth));
 console.log('✅ Better Auth routes registered successfully');
 
