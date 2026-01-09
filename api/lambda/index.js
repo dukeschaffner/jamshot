@@ -15,11 +15,26 @@ export const handler = async (event, context) => {
   // Set callbackWaitsForEmptyEventLoop to false to prevent Lambda from waiting
   // for the event loop to be empty before returning
   context.callbackWaitsForEmptyEventLoop = false;
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-    let message = `
-    Endpoint hit: ${event.rawPath}
-    `;
-    console.log(message);
+
+  // Enhanced logging for all requests, especially auth endpoints
+  const isAuthEndpoint = event.rawPath && event.rawPath.includes('/api/auth/');
+  const logLevel = isAuthEndpoint ? '🔐 AUTH REQUEST' : '📡 API REQUEST';
+
+  console.log(`${logLevel}:`);
+  console.log(`  - Method: ${event.requestContext?.http?.method || 'UNKNOWN'}`);
+  console.log(`  - Path: ${event.rawPath || 'UNKNOWN'}`);
+  console.log(`  - Query: ${event.rawQueryString || '(none)'}`);
+  console.log(`  - User-Agent: ${event.headers?.['user-agent'] || 'UNKNOWN'}`);
+  console.log(`  - Origin: ${event.headers?.origin || 'UNKNOWN'}`);
+  console.log(`  - NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+  console.log(`  - Stage: ${event.requestContext?.stage || 'UNKNOWN'}`);
+
+  if (isAuthEndpoint) {
+    console.log(`  - Headers:`, JSON.stringify(event.headers, null, 2));
+    if (event.body) {
+      // Don't log full body for security, but log that body exists
+      console.log(`  - Has body: ${!!event.body} (${typeof event.body})`);
+    }
   }
 
   if (event.body && event.isBase64Encoded) {
