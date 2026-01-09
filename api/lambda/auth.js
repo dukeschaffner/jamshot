@@ -75,6 +75,9 @@ export const auth = betterAuth({
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
   ],
+  logger: {
+    level: 'debug',
+  }
   // onAPIError: {
   //   onError: (error, ctx) => {
   //     // Enhanced error logging for debugging
