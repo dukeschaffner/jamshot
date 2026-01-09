@@ -28,6 +28,17 @@ const { globalLimiter, speedLimiter } = require('./middleware/rateLimiting.cjs')
 const { bodyParser } = require('./middleware/bodyParser.cjs');
 require('dotenv').config();
 
+// Global error handlers for Lambda environment
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process in Lambda - just log the error
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Don't exit the process in Lambda - just log the error
+});
+
 
 const app = express();
 
