@@ -50,17 +50,34 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 };
 
 
+const baseURL = process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || 5001}`;
+console.log('🔐 BETTER AUTH CONFIGURATION:');
+console.log('  - baseURL:', baseURL);
+console.log('  - basePath: /api/auth');
+console.log('  - trustedOrigins:', [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+]);
+console.log('  - Google Client ID set:', !!process.env.GOOGLE_CLIENT_ID);
+console.log('  - Google Client Secret set:', !!process.env.GOOGLE_CLIENT_SECRET);
+
 export const auth = betterAuth({
   database: pool,
-  baseURL: process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || 5001}`,
+  baseURL: baseURL,
   basePath: '/api/auth',
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
   ],
   onAPIError: {
     onError: (error, ctx) => {
-      // Log errors for debugging
-      console.error('Better Auth error:', error, 'Path:', ctx.path);
+      // Enhanced error logging for debugging
+      console.error('❌ BETTER AUTH ERROR:');
+      console.error('  - Error:', error);
+      console.error('  - Path:', ctx.path);
+      console.error('  - Method:', ctx.method);
+      console.error('  - Query:', ctx.query);
+      console.error('  - Headers:', ctx.headers);
+      console.error('  - Body:', ctx.body ? '[PRESENT]' : '[NOT PRESENT]');
+      console.error('  - Stack:', error.stack);
     },
   },
   emailAndPassword: {
@@ -374,8 +391,13 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      // Intercept OAuth error page redirects and redirect to UI instead
-      if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
+      console.log('🔐 BEFORE HOOK EXECUTED:');
+      console.log('  - Path:', ctx.path);
+      console.log('  - Method:', ctx.method);
+
+      try {
+        // Intercept OAuth error page redirects and redirect to UI instead
+        if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const loginUrl = `${frontendUrl}/login`;
         
@@ -438,11 +460,19 @@ export const auth = betterAuth({
             });
           }
         }
+      } catch (hookError) {
+        console.error('❌ BEFORE HOOK ERROR:', hookError);
+        throw hookError;
       }
     }),
     after: createAuthMiddleware(async (ctx) => {
-      // Check for OAuth callback errors and redirect to UI with client-safe error message
-      const isOAuthCallback = ctx.path?.includes('/callback/');
+      console.log('🔐 AFTER HOOK EXECUTED:');
+      console.log('  - Path:', ctx.path);
+      console.log('  - Method:', ctx.method);
+
+      try {
+        // Check for OAuth callback errors and redirect to UI with client-safe error message
+        const isOAuthCallback = ctx.path?.includes('/callback/');
       
       if (isOAuthCallback) {
         // Check if there was an error in the returned value
@@ -491,6 +521,9 @@ export const auth = betterAuth({
           // Redirect to login page with error message
           throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
         }
+      } catch (hookError) {
+        console.error('❌ AFTER HOOK ERROR:', hookError);
+        throw hookError;
       }
     }),
   },
