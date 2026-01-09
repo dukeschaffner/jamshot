@@ -62,8 +62,8 @@ console.log('  - Google Client Secret set:', !!process.env.GOOGLE_CLIENT_SECRET)
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: baseURL,
-  basePath: '/api/auth',
+  baseURL: baseURL + '/api/auth',
+  // basePath: '/api/auth',
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
   ],
