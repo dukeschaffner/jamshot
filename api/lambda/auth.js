@@ -68,11 +68,12 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 };
 
 
-const baseURL = process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || 5001}`;
+const baseURL = process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || 5001}` + 'api/auth';
+console.log('🔐 Base URL:', baseURL);
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: baseURL + '/api/auth',
+  baseURL: baseURL,
   // basePath: '/api/auth',
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
