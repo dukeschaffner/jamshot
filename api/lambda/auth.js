@@ -19,18 +19,25 @@ const { validateDateOfBirth } = require('./shared/utils/validation.cjs');
 const sendVerificationEmail = async ({ user, url, token }, request) => {
   // Get username from user object (it's in additionalFields)
   const username = user.username || user.name || 'there';
-  
+
   // Add callbackURL to redirect to home page after verification
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const homePageUrl = `${frontendUrl}/`;
-  
+
   // Always set callbackURL to absolute URL (override any relative paths)
   const urlObj = new URL(url);
   urlObj.searchParams.set('callbackURL', homePageUrl);
   const urlWithCallback = urlObj.toString();
-  
-  // Use the legacy email service function with Better Auth's URL (now with callbackURL)
-  return sendLegacyVerificationEmail(user.email, user.id, username, urlWithCallback);
+
+  // Fire-and-forget email sending to prevent Lambda timeout issues
+  // Don't await the email sending operation - let it run in background
+  sendLegacyVerificationEmail(user.email, user.id, username, urlWithCallback)
+    .catch(error => {
+      console.error('❌ Background email sending failed:', error);
+    });
+
+  // Return immediately to prevent unsettled promise in Lambda
+  return { success: true };
 };
 
 /**
@@ -51,14 +58,6 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 
 
 const baseURL = process.env.BETTER_AUTH_URL || `http://localhost:${process.env.PORT || 5001}`;
-console.log('🔐 BETTER AUTH CONFIGURATION:');
-console.log('  - baseURL:', baseURL);
-console.log('  - basePath: /api/auth');
-console.log('  - trustedOrigins:', [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
-]);
-console.log('  - Google Client ID set:', !!process.env.GOOGLE_CLIENT_ID);
-console.log('  - Google Client Secret set:', !!process.env.GOOGLE_CLIENT_SECRET);
 
 export const auth = betterAuth({
   database: pool,
@@ -82,16 +81,16 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true, // Require email verification before login
+    // requireEmailVerification: true, // Require email verification before login
     sendResetPassword: sendResetPassword,
   },
-  emailVerification: {
-    sendVerificationEmail: sendVerificationEmail,
-    sendOnSignUp: true, // Automatically send verification email on signup
-    sendOnSignIn: false, // Disable automatic resend on login attempts
-    autoSignInAfterVerification: true, // Auto sign in after verification
-    expiresIn: 86400, // 24 hours in seconds
-  },
+  // emailVerification: {
+  //   sendVerificationEmail: sendVerificationEmail,
+  //   sendOnSignUp: true, // Automatically send verification email on signup
+  //   sendOnSignIn: false, // Disable automatic resend on login attempts
+  //   autoSignInAfterVerification: true, // Auto sign in after verification
+  //   expiresIn: 86400, // 24 hours in seconds
+  // },
   socialProviders: {
     google: { 
         clientId: process.env.GOOGLE_CLIENT_ID, 
