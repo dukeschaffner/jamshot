@@ -46,11 +46,11 @@ app.use((req, res, next) => {
 
     if (req.path.startsWith(stagePrefixSlash)) {
       req.url = req.path.substring(stagePrefixSlash.length - 1); // Remove stage prefix, keep leading slash
-      req.path = req.url;
+      // req.path = req.url;
       break; // Only strip one stage prefix
     } else if (req.path === stagePrefix) {
       req.url = '/';
-      req.path = '/';
+      // req.path = '/';
       break; // Only strip one stage prefix
     }
   }
