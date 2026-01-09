@@ -89,20 +89,10 @@ const getStagePrefix = () => {
 // Register Better Auth routes with conditional stage prefix
 const stagePrefix = getStagePrefix();
 
+// Create Better Auth handler for Node.js/Express
+const authHandler = toNodeHandler(auth);
 
-
-app.all(`${stagePrefix}/api/auth/*`,  async (req, res) => {
-  try {
-    console.log('🔐 Better Auth request:', req.url);
-    req.url = 'https://kxdwjea5mk.execute-api.us-east-2.amazonaws.com' + req.url;
-    const response = await auth.handler(req);
-    console.log('🔐 Better Auth response:', response);
-    // Handle the response object
-  } catch (error) {
-    console.error('❌ Better Auth error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+app.all(`${stagePrefix}/api/auth/*`, authHandler);
 
 if (process.env.NODE_ENV === 'dev') {
   app.use(`${stagePrefix}/api/payments/webhook`, express.raw({ type: 'application/json' }));
