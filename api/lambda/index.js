@@ -4,6 +4,9 @@ const require = createRequire(import.meta.url);
 const serverlessExpress = require('@codegenie/serverless-express');
 import app from './src/index.js';
 
+// Import database pool for cleanup
+const pool = require('./src/config/db.cjs');
+
 // Create serverless express instance with proper configuration
 const serverlessExpressInstance = serverlessExpress({
   app,
@@ -19,6 +22,23 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
   // Don't exit the process in Lambda - just log the error
+});
+
+// Cleanup function for database connections
+const cleanup = async () => {
+  try {
+    console.log('🧹 Cleaning up database connections...');
+    await pool.end();
+    console.log('✅ Database connections closed');
+  } catch (error) {
+    console.error('❌ Error closing database connections:', error);
+  }
+};
+
+// Handle Lambda container shutdown
+process.on('SIGTERM', async () => {
+  console.log('📤 Received SIGTERM, cleaning up...');
+  await cleanup();
 });
 
 // Lambda handler function
@@ -52,7 +72,27 @@ export const handler = async (event, context) => {
     event.body = Buffer.from(event.body, 'base64');
   }
 
-  return serverlessExpressInstance(event, context);
+  try {
+    // Ensure the serverless express response is properly awaited
+    const result = await serverlessExpressInstance(event, context);
+    return result;
+  } catch (error) {
+    console.error('❌ Lambda handler error:', error);
+    // Return a proper error response instead of letting Lambda exit
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+      },
+      body: JSON.stringify({
+        error: 'Internal server error',
+        message: 'An unexpected error occurred'
+      })
+    };
+  }
 };
 
 

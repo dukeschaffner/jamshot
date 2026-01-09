@@ -17,27 +17,30 @@ const { validateDateOfBirth } = require('./shared/utils/validation.cjs');
  * @param {Object} request - Request object (optional)
  */
 const sendVerificationEmail = async ({ user, url, token }, request) => {
-  // Get username from user object (it's in additionalFields)
-  const username = user.username || user.name || 'there';
+  try {
+    // Get username from user object (it's in additionalFields)
+    const username = user.username || user.name || 'there';
 
-  // Add callbackURL to redirect to home page after verification
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  const homePageUrl = `${frontendUrl}/`;
+    // Add callbackURL to redirect to home page after verification
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const homePageUrl = `${frontendUrl}/`;
 
-  // Always set callbackURL to absolute URL (override any relative paths)
-  const urlObj = new URL(url);
-  urlObj.searchParams.set('callbackURL', homePageUrl);
-  const urlWithCallback = urlObj.toString();
+    // Always set callbackURL to absolute URL (override any relative paths)
+    const urlObj = new URL(url);
+    urlObj.searchParams.set('callbackURL', homePageUrl);
+    const urlWithCallback = urlObj.toString();
 
-  // Fire-and-forget email sending to prevent Lambda timeout issues
-  // Don't await the email sending operation - let it run in background
-  sendLegacyVerificationEmail(user.email, user.id, username, urlWithCallback)
-    .catch(error => {
-      console.error('❌ Background email sending failed:', error);
-    });
+    // Send email and properly handle the promise
+    // Use Promise.resolve to ensure we return a settled promise
+    await Promise.resolve(sendLegacyVerificationEmail(user.email, user.id, username, urlWithCallback));
 
-  // Return immediately to prevent unsettled promise in Lambda
-  return { success: true };
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Email verification sending failed:', error);
+    // Return success even on failure to prevent auth flow interruption
+    // The user can still verify their account through other means
+    return { success: true };
+  }
 };
 
 /**
@@ -49,11 +52,19 @@ const sendVerificationEmail = async ({ user, url, token }, request) => {
  * @param {Object} request - Request object (optional)
  */
 const sendResetPassword = async ({ user, url, token }, request) => {
-  // Get username from user object (it's in additionalFields)
-  const username = user.username || user.name || 'there';
-  
-  // Use the legacy email service function with Better Auth's URL
-  return sendLegacyPasswordResetEmail(user.email, user.id, username, url);
+  try {
+    // Get username from user object (it's in additionalFields)
+    const username = user.username || user.name || 'there';
+
+    // Use the legacy email service function with Better Auth's URL
+    await sendLegacyPasswordResetEmail(user.email, user.id, username, url);
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Password reset email sending failed:', error);
+    // Return success even on failure to prevent auth flow interruption
+    return { success: true };
+  }
 };
 
 
