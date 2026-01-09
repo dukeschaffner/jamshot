@@ -75,19 +75,19 @@ export const auth = betterAuth({
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
   ],
-  onAPIError: {
-    onError: (error, ctx) => {
-      // Enhanced error logging for debugging
-      console.error('❌ BETTER AUTH ERROR:');
-      console.error('  - Error:', error);
-      console.error('  - Path:', ctx.path);
-      console.error('  - Method:', ctx.method);
-      console.error('  - Query:', ctx.query);
-      console.error('  - Headers:', ctx.headers);
-      console.error('  - Body:', ctx.body ? '[PRESENT]' : '[NOT PRESENT]');
-      console.error('  - Stack:', error.stack);
-    },
-  },
+  // onAPIError: {
+  //   onError: (error, ctx) => {
+  //     // Enhanced error logging for debugging
+  //     console.error('❌ BETTER AUTH ERROR:');
+  //     console.error('  - Error:', error);
+  //     console.error('  - Path:', ctx.path);
+  //     console.error('  - Method:', ctx.method);
+  //     console.error('  - Query:', ctx.query);
+  //     console.error('  - Headers:', ctx.headers);
+  //     console.error('  - Body:', ctx.body ? '[PRESENT]' : '[NOT PRESENT]');
+  //     console.error('  - Stack:', error.stack);
+  //   },
+  // },
   emailAndPassword: {
     enabled: true,
     // requireEmailVerification: true, // Require email verification before login
@@ -336,207 +336,207 @@ export const auth = betterAuth({
             },
           };
         },
-        after: async (user, ctx) => {
-          // Write DOB and policy acceptance fields for email/password signups
-          const { dateOfBirth, acceptTerms } = ctx.body || {};
-          const isOAuthSignup = ctx.path === '/callback/:id' || ctx.path?.includes('/callback/');
+        // after: async (user, ctx) => {
+        //   // Write DOB and policy acceptance fields for email/password signups
+        //   const { dateOfBirth, acceptTerms } = ctx.body || {};
+        //   const isOAuthSignup = ctx.path === '/callback/:id' || ctx.path?.includes('/callback/');
           
-          // Only write these fields for email/password signups (OAuth signups use complete-profile flow)
-          if (!isOAuthSignup && (dateOfBirth || acceptTerms)) {
-            // Get client IP address for policy acceptance tracking
-            // Try multiple ways to access headers/request
-            let clientIp = null;
-            if (ctx.headers) {
-              clientIp = ctx.headers['x-forwarded-for'] || ctx.headers['x-real-ip'];
-            } else if (ctx.request?.headers) {
-              clientIp = ctx.request.headers['x-forwarded-for'] || ctx.request.headers['x-real-ip'];
-            } else if (ctx.request?.connection) {
-              clientIp = ctx.request.connection.remoteAddress || 
-                        ctx.request.socket?.remoteAddress ||
-                        (ctx.request.connection.socket ? ctx.request.connection.socket.remoteAddress : null);
-            }
+        //   // Only write these fields for email/password signups (OAuth signups use complete-profile flow)
+        //   if (!isOAuthSignup && (dateOfBirth || acceptTerms)) {
+        //     // Get client IP address for policy acceptance tracking
+        //     // Try multiple ways to access headers/request
+        //     let clientIp = null;
+        //     if (ctx.headers) {
+        //       clientIp = ctx.headers['x-forwarded-for'] || ctx.headers['x-real-ip'];
+        //     } else if (ctx.request?.headers) {
+        //       clientIp = ctx.request.headers['x-forwarded-for'] || ctx.request.headers['x-real-ip'];
+        //     } else if (ctx.request?.connection) {
+        //       clientIp = ctx.request.connection.remoteAddress || 
+        //                 ctx.request.socket?.remoteAddress ||
+        //                 (ctx.request.connection.socket ? ctx.request.connection.socket.remoteAddress : null);
+        //     }
             
-            // Extract first IP if x-forwarded-for contains multiple IPs
-            if (clientIp && clientIp.includes(',')) {
-              clientIp = clientIp.split(',')[0].trim();
-            }
+        //     // Extract first IP if x-forwarded-for contains multiple IPs
+        //     if (clientIp && clientIp.includes(',')) {
+        //       clientIp = clientIp.split(',')[0].trim();
+        //     }
             
-            const currentTimestamp = new Date();
-            const policyVersion = '1.0';
+        //     const currentTimestamp = new Date();
+        //     const policyVersion = '1.0';
             
-            // Build update query dynamically based on what's provided
-            const updates = [];
-            const values = [];
-            let paramIndex = 1;
+        //     // Build update query dynamically based on what's provided
+        //     const updates = [];
+        //     const values = [];
+        //     let paramIndex = 1;
             
-            if (dateOfBirth) {
-              updates.push(`date_of_birth = $${paramIndex++}`);
-              values.push(dateOfBirth);
-            }
+        //     if (dateOfBirth) {
+        //       updates.push(`date_of_birth = $${paramIndex++}`);
+        //       values.push(dateOfBirth);
+        //     }
             
-            if (acceptTerms) {
-              updates.push(`terms_accepted = $${paramIndex++}`);
-              updates.push(`privacy_policy_accepted = $${paramIndex++}`);
-              updates.push(`policy_accepted_at = $${paramIndex++}`);
-              updates.push(`policy_accepted_ip = $${paramIndex++}`);
-              updates.push(`policy_version = $${paramIndex++}`);
-              values.push(true, true, currentTimestamp, clientIp, policyVersion);
-            }
+        //     if (acceptTerms) {
+        //       updates.push(`terms_accepted = $${paramIndex++}`);
+        //       updates.push(`privacy_policy_accepted = $${paramIndex++}`);
+        //       updates.push(`policy_accepted_at = $${paramIndex++}`);
+        //       updates.push(`policy_accepted_ip = $${paramIndex++}`);
+        //       updates.push(`policy_version = $${paramIndex++}`);
+        //       values.push(true, true, currentTimestamp, clientIp, policyVersion);
+        //     }
             
-            if (updates.length > 0) {
-              values.push(user.id);
-              await pool.query(
-                `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
-                values
-              );
-            }
-          }
+        //     if (updates.length > 0) {
+        //       values.push(user.id);
+        //       await pool.query(
+        //         `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+        //         values
+        //       );
+        //     }
+        //   }
           
-          return { data: user };
-        },
+        //   return { data: user };
+        // },
       },
     },
   },
-  hooks: {
-    before: createAuthMiddleware(async (ctx) => {
-      console.log('🔐 BEFORE HOOK EXECUTED:');
-      console.log('  - Path:', ctx.path);
-      console.log('  - Method:', ctx.method);
+  // hooks: {
+  //   before: createAuthMiddleware(async (ctx) => {
+  //     console.log('🔐 BEFORE HOOK EXECUTED:');
+  //     console.log('  - Path:', ctx.path);
+  //     console.log('  - Method:', ctx.method);
 
-      try {
-        // Intercept OAuth error page redirects and redirect to UI instead
-        if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
-          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const loginUrl = `${frontendUrl}/login`;
+  //     try {
+  //       // Intercept OAuth error page redirects and redirect to UI instead
+  //       if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
+  //         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  //       const loginUrl = `${frontendUrl}/login`;
         
-        // Map Better Auth error codes to client-safe messages
-        const errorMessages = {
-          'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
-          'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
-          'state_not_found': 'OAuth session expired. Please try signing in again.',
-          'no_code': 'OAuth authorization failed. Please try signing in again.',
-          'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
-          'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
-          'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
-          'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
-          'email_already_registered': 'This email is already registered. Please sign in instead.',
-          'email_is_already_registered': 'This email is already registered. Please sign in instead.',
-        };
+  //       // Map Better Auth error codes to client-safe messages
+  //       const errorMessages = {
+  //         'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
+  //         'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
+  //         'state_not_found': 'OAuth session expired. Please try signing in again.',
+  //         'no_code': 'OAuth authorization failed. Please try signing in again.',
+  //         'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
+  //         'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
+  //         'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
+  //         'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
+  //         'email_already_registered': 'This email is already registered. Please sign in instead.',
+  //         'email_is_already_registered': 'This email is already registered. Please sign in instead.',
+  //       };
         
-        // Get error code from query params
-        const errorCode = ctx.query?.error || 'unknown_error';
+  //       // Get error code from query params
+  //       const errorCode = ctx.query?.error || 'unknown_error';
         
-        // Get client-safe error message
-        const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
+  //       // Get client-safe error message
+  //       const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
         
-        // Redirect to login page with error message
-        throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
-        }
+  //       // Redirect to login page with error message
+  //       throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
+  //       }
 
-        // Validate password on reset password endpoint
-        if (ctx.path === '/reset-password') {
-          const { newPassword } = ctx.body || {};
-          if (newPassword) {
-            // Password must be at least 8 characters long
-            if (newPassword.length < 8) {
-              throw new APIError("BAD_REQUEST", {
-                message: 'Password must be at least 8 characters long',
-              });
-            }
-            // Password must contain at least one uppercase letter
-            if (!/[A-Z]/.test(newPassword)) {
-              throw new APIError("BAD_REQUEST", {
-                message: 'Password must contain at least one uppercase letter',
-              });
-            }
-            // Password must contain at least one lowercase letter
-            if (!/[a-z]/.test(newPassword)) {
-              throw new APIError("BAD_REQUEST", {
-                message: 'Password must contain at least one lowercase letter',
-              });
-            }
-            // Password must contain at least one number
-            if (!/\d/.test(newPassword)) {
-              throw new APIError("BAD_REQUEST", {
-                message: 'Password must contain at least one number',
-              });
-            }
-            // Password must contain at least one special character
-            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
-              throw new APIError("BAD_REQUEST", {
-                message: 'Password must contain at least one special character',
-              });
-            }
-          }
-        }
-      } catch (hookError) {
-        console.error('❌ BEFORE HOOK ERROR:', hookError);
-        throw hookError;
-      }
-    }),
-    after: createAuthMiddleware(async (ctx) => {
-      console.log('🔐 AFTER HOOK EXECUTED:');
-      console.log('  - Path:', ctx.path);
-      console.log('  - Method:', ctx.method);
+  //       // Validate password on reset password endpoint
+  //       if (ctx.path === '/reset-password') {
+  //         const { newPassword } = ctx.body || {};
+  //         if (newPassword) {
+  //           // Password must be at least 8 characters long
+  //           if (newPassword.length < 8) {
+  //             throw new APIError("BAD_REQUEST", {
+  //               message: 'Password must be at least 8 characters long',
+  //             });
+  //           }
+  //           // Password must contain at least one uppercase letter
+  //           if (!/[A-Z]/.test(newPassword)) {
+  //             throw new APIError("BAD_REQUEST", {
+  //               message: 'Password must contain at least one uppercase letter',
+  //             });
+  //           }
+  //           // Password must contain at least one lowercase letter
+  //           if (!/[a-z]/.test(newPassword)) {
+  //             throw new APIError("BAD_REQUEST", {
+  //               message: 'Password must contain at least one lowercase letter',
+  //             });
+  //           }
+  //           // Password must contain at least one number
+  //           if (!/\d/.test(newPassword)) {
+  //             throw new APIError("BAD_REQUEST", {
+  //               message: 'Password must contain at least one number',
+  //             });
+  //           }
+  //           // Password must contain at least one special character
+  //           if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+  //             throw new APIError("BAD_REQUEST", {
+  //               message: 'Password must contain at least one special character',
+  //             });
+  //           }
+  //         }
+  //       }
+  //     } catch (hookError) {
+  //       console.error('❌ BEFORE HOOK ERROR:', hookError);
+  //       throw hookError;
+  //     }
+  //   }),
+  //   after: createAuthMiddleware(async (ctx) => {
+  //     console.log('🔐 AFTER HOOK EXECUTED:');
+  //     console.log('  - Path:', ctx.path);
+  //     console.log('  - Method:', ctx.method);
 
-      try {
-        // Check for OAuth callback errors and redirect to UI with client-safe error message
-        const isOAuthCallback = ctx.path?.includes('/callback/');
+  //     try {
+  //       // Check for OAuth callback errors and redirect to UI with client-safe error message
+  //       const isOAuthCallback = ctx.path?.includes('/callback/');
 
-        if (isOAuthCallback) {
-          // Check if there was an error in the returned value
-          const returned = ctx.context.returned;
+  //       if (isOAuthCallback) {
+  //         // Check if there was an error in the returned value
+  //         const returned = ctx.context.returned;
         
-        // If returned is an APIError or error response, handle it
-        if (returned && (returned.status && returned.status >= 400)) {
-          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-          const loginUrl = `${frontendUrl}/login`;
+  //       // If returned is an APIError or error response, handle it
+  //       if (returned && (returned.status && returned.status >= 400)) {
+  //         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  //         const loginUrl = `${frontendUrl}/login`;
           
-          // Map Better Auth error codes to client-safe messages
-          const errorMessages = {
-            'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
-            'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
-            'state_not_found': 'OAuth session expired. Please try signing in again.',
-            'no_code': 'OAuth authorization failed. Please try signing in again.',
-            'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
-            'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
-            'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
-            'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
-            'email_already_registered': 'This email is already registered. Please sign in instead.',
-            'email_is_already_registered': 'This email is already registered. Please sign in instead.',
-          };
+  //         // Map Better Auth error codes to client-safe messages
+  //         const errorMessages = {
+  //           'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
+  //           'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
+  //           'state_not_found': 'OAuth session expired. Please try signing in again.',
+  //           'no_code': 'OAuth authorization failed. Please try signing in again.',
+  //           'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
+  //           'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
+  //           'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
+  //           'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
+  //           'email_already_registered': 'This email is already registered. Please sign in instead.',
+  //           'email_is_already_registered': 'This email is already registered. Please sign in instead.',
+  //         };
           
-          // Extract error code from error message or query params
-          let errorCode = 'unknown_error';
-          if (returned instanceof APIError) {
-            errorCode = returned.message || 'unknown_error';
-          } else if (returned.error) {
-            errorCode = returned.error;
-          } else if (ctx.query?.error) {
-            errorCode = ctx.query.error;
-          }
+  //         // Extract error code from error message or query params
+  //         let errorCode = 'unknown_error';
+  //         if (returned instanceof APIError) {
+  //           errorCode = returned.message || 'unknown_error';
+  //         } else if (returned.error) {
+  //           errorCode = returned.error;
+  //         } else if (ctx.query?.error) {
+  //           errorCode = ctx.query.error;
+  //         }
           
-          // Extract error code from error message if it's in the format "error=code"
-          if (typeof errorCode === 'string' && errorCode.includes('error=')) {
-            const match = errorCode.match(/error=([^&]+)/);
-            if (match) {
-              errorCode = match[1];
-            }
-          }
+  //         // Extract error code from error message if it's in the format "error=code"
+  //         if (typeof errorCode === 'string' && errorCode.includes('error=')) {
+  //           const match = errorCode.match(/error=([^&]+)/);
+  //           if (match) {
+  //             errorCode = match[1];
+  //           }
+  //         }
           
-          // Get client-safe error message
-          const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
+  //         // Get client-safe error message
+  //         const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
           
-          // Redirect to login page with error message
-          throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
-        }
-        }
-      } catch (hookError) {
-        console.error('❌ AFTER HOOK ERROR:', hookError);
-        throw hookError;
-      }
-    }),
-  },
+  //         // Redirect to login page with error message
+  //         throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
+  //       }
+  //       }
+  //     } catch (hookError) {
+  //       console.error('❌ AFTER HOOK ERROR:', hookError);
+  //       throw hookError;
+  //     }
+  //   }),
+  // },
   session: {
     cookieCache: {
         enabled: true,
@@ -548,43 +548,43 @@ export const auth = betterAuth({
     disableCSRFCheck: true,
     disableOriginCheck: true,
   },
-  plugins: [
-    customSession(async ({ user, session }, ctx) => {
-      // Get user fields from database if not present in user object
-      let dateOfBirth = user.date_of_birth;
-      let termsAccepted = user.terms_accepted;
-      let privacyPolicyAccepted = user.privacy_policy_accepted;
+  // plugins: [
+  //   customSession(async ({ user, session }, ctx) => {
+  //     // Get user fields from database if not present in user object
+  //     let dateOfBirth = user.date_of_birth;
+  //     let termsAccepted = user.terms_accepted;
+  //     let privacyPolicyAccepted = user.privacy_policy_accepted;
       
-      // If fields are missing, query the database
-      if (!dateOfBirth || termsAccepted === undefined || privacyPolicyAccepted === undefined) {
-        try {
-          const result = await pool.query(
-            'SELECT date_of_birth, terms_accepted, privacy_policy_accepted FROM users WHERE id = $1',
-            [user.id]
-          );
+  //     // If fields are missing, query the database
+  //     if (!dateOfBirth || termsAccepted === undefined || privacyPolicyAccepted === undefined) {
+  //       try {
+  //         const result = await pool.query(
+  //           'SELECT date_of_birth, terms_accepted, privacy_policy_accepted FROM users WHERE id = $1',
+  //           [user.id]
+  //         );
           
-          if (result.rows.length > 0) {
-            dateOfBirth = dateOfBirth || result.rows[0].date_of_birth;
-            termsAccepted = termsAccepted !== undefined ? termsAccepted : result.rows[0].terms_accepted;
-            privacyPolicyAccepted = privacyPolicyAccepted !== undefined ? privacyPolicyAccepted : result.rows[0].privacy_policy_accepted;
-          }
-        } catch (error) {
-          console.error('Error fetching user profile fields:', error);
-        }
-      }
+  //         if (result.rows.length > 0) {
+  //           dateOfBirth = dateOfBirth || result.rows[0].date_of_birth;
+  //           termsAccepted = termsAccepted !== undefined ? termsAccepted : result.rows[0].terms_accepted;
+  //           privacyPolicyAccepted = privacyPolicyAccepted !== undefined ? privacyPolicyAccepted : result.rows[0].privacy_policy_accepted;
+  //         }
+  //       } catch (error) {
+  //         console.error('Error fetching user profile fields:', error);
+  //       }
+  //     }
       
-      // Check if profile is completed: DOB and both policy accepted fields must be filled
-      const profileCompleted = !!(
-        dateOfBirth && 
-        termsAccepted && 
-        privacyPolicyAccepted
-      );
+  //     // Check if profile is completed: DOB and both policy accepted fields must be filled
+  //     const profileCompleted = !!(
+  //       dateOfBirth && 
+  //       termsAccepted && 
+  //       privacyPolicyAccepted
+  //     );
       
-      return {
-        profile_completed: profileCompleted,
-        user,
-        session,
-      };
-    }),
-  ],
+  //     return {
+  //       profile_completed: profileCompleted,
+  //       user,
+  //       session,
+  //     };
+  //   }),
+  // ],
 });
