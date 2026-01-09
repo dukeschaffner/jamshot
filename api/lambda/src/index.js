@@ -35,28 +35,6 @@ const app = express();
 // Set to 1 to trust only the immediate proxy (API Gateway)
 app.set('trust proxy', 1);
 
-// Handle API Gateway stage prefix stripping
-app.use((req, res, next) => {
-  // Common stage prefixes to strip (API Gateway adds these)
-  const stages = ['test', 'prod', 'staging', 'dev'];
-
-  for (const stage of stages) {
-    const stagePrefix = `/${stage}`;
-    const stagePrefixSlash = `/${stage}/`;
-
-    if (req.path.startsWith(stagePrefixSlash)) {
-      req.url = req.path.substring(stagePrefixSlash.length - 1); // Remove stage prefix, keep leading slash
-      // req.path = req.url;
-      break; // Only strip one stage prefix
-    } else if (req.path === stagePrefix) {
-      req.url = '/';
-      // req.path = '/';
-      break; // Only strip one stage prefix
-    }
-  }
-
-  next();
-});
 
 // Apply global rate limiting first (before CORS and other middleware)
 app.use(globalLimiter);
@@ -99,10 +77,20 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-app.all("/api/auth/*", toNodeHandler(auth));
+// Helper function to get stage prefix based on environment
+const getStagePrefix = () => {
+  const env = process.env.NODE_ENV;
+  if (env === 'test') return '/test';
+  if (env === 'prod') return '/prod';
+  return ''; // No prefix for dev/staging/other environments
+};
+
+// Register Better Auth routes with conditional stage prefix
+const stagePrefix = getStagePrefix();
+app.all(`${stagePrefix}/api/auth/*`, toNodeHandler(auth));
 
 if (process.env.NODE_ENV === 'dev') {
-  app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+  app.use(`${stagePrefix}/api/payments/webhook`, express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 } else { // CORS configured in API Gateway
@@ -118,25 +106,25 @@ app.use(cookieParser());
 // Remove after debugging token refresh issues
 const env = process.env.NODE_ENV || 'development';
 if (env === 'dev' || env === 'test' || env === 'development') {
-  app.use('/api/logging', loggingRoutes);
+  app.use(`${stagePrefix}/api/logging`, loggingRoutes);
 }
 
-// Routes
-app.use('/api/tracks', trackRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/tags', tagRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/contact', contactRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/competitions', competitionRoutes);
-app.use('/api/release-notes', releaseNotesRoutes);
-app.use('/api/camps', campRoutes);
-app.use('/api/teams', teamRoutes);
-app.use('/api/groups', groupRoutes);
-app.use('/api', landingRoutes);
-app.use('/api/feature-flags', featureFlagsRoutes);
+// Register routes with conditional stage prefix
+app.use(`${stagePrefix}/api/tracks`, trackRoutes);
+app.use(`${stagePrefix}/api/users`, userRoutes);
+app.use(`${stagePrefix}/api/tags`, tagRoutes);
+app.use(`${stagePrefix}/api/notifications`, notificationRoutes);
+app.use(`${stagePrefix}/api/search`, searchRoutes);
+app.use(`${stagePrefix}/api/payments`, paymentRoutes);
+app.use(`${stagePrefix}/api/contact`, contactRoutes);
+app.use(`${stagePrefix}/api/analytics`, analyticsRoutes);
+app.use(`${stagePrefix}/api/competitions`, competitionRoutes);
+app.use(`${stagePrefix}/api/release-notes`, releaseNotesRoutes);
+app.use(`${stagePrefix}/api/camps`, campRoutes);
+app.use(`${stagePrefix}/api/teams`, teamRoutes);
+app.use(`${stagePrefix}/api/groups`, groupRoutes);
+app.use(`${stagePrefix}/api`, landingRoutes);
+app.use(`${stagePrefix}/api/feature-flags`, featureFlagsRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
