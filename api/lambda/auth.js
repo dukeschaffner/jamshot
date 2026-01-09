@@ -536,6 +536,10 @@ export const auth = betterAuth({
         strategy: "jwt" // or "jwt" or "jwe"
     }
   },
+  advanced: {
+    disableCSRFCheck: true,
+    disableOriginCheck: true,
+  },
   plugins: [
     customSession(async ({ user, session }, ctx) => {
       // Get user fields from database if not present in user object
