@@ -88,16 +88,9 @@ const getStagePrefix = () => {
 
 // Register Better Auth routes with conditional stage prefix
 const stagePrefix = getStagePrefix();
-console.log('🔐 AUTH ROUTE SETUP:');
-console.log('  - NODE_ENV:', process.env.NODE_ENV);
-console.log('  - Stage prefix:', stagePrefix || '(none)');
-console.log('  - Auth route pattern:', `${stagePrefix}/api/auth/*`);
-console.log('  - BETTER_AUTH_URL env var:', process.env.BETTER_AUTH_URL || '(not set)');
-console.log('  - Frontend URL:', process.env.FRONTEND_URL || '(not set)');
 
 // Apply auth logging middleware before Better Auth routes
 app.all(`${stagePrefix}/api/auth/*`, toNodeHandler(auth));
-console.log('✅ Better Auth routes registered successfully');
 
 if (process.env.NODE_ENV === 'dev') {
   app.use(`${stagePrefix}/api/payments/webhook`, express.raw({ type: 'application/json' }));
