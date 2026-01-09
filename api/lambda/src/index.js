@@ -93,6 +93,8 @@ const stagePrefix = getStagePrefix();
 
 app.all(`${stagePrefix}/api/auth/*`,  async (req, res) => {
   try {
+    console.log('🔐 Better Auth request:', req.url);
+    req.url = 'https://kxdwjea5mk.execute-api.us-east-2.amazonaws.com' + req.url;
     const response = await auth.handler(req);
     console.log('🔐 Better Auth response:', response);
     // Handle the response object
