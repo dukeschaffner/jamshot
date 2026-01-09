@@ -11,7 +11,7 @@ const serverlessExpressInstance = serverlessExpress({
 });
 
 // Lambda handler function
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   // Set callbackWaitsForEmptyEventLoop to false to prevent Lambda from waiting
   // for the event loop to be empty before returning
   context.callbackWaitsForEmptyEventLoop = false;
