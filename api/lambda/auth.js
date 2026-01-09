@@ -398,7 +398,7 @@ export const auth = betterAuth({
       try {
         // Intercept OAuth error page redirects and redirect to UI instead
         if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const loginUrl = `${frontendUrl}/login`;
         
         // Map Better Auth error codes to client-safe messages
@@ -423,41 +423,42 @@ export const auth = betterAuth({
         
         // Redirect to login page with error message
         throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
-      }
-      
-      // Validate password on reset password endpoint
-      if (ctx.path === '/reset-password') {
-        const { newPassword } = ctx.body || {};
-        if (newPassword) {
-          // Password must be at least 8 characters long
-          if (newPassword.length < 8) {
-            throw new APIError("BAD_REQUEST", {
-              message: 'Password must be at least 8 characters long',
-            });
-          }
-          // Password must contain at least one uppercase letter
-          if (!/[A-Z]/.test(newPassword)) {
-            throw new APIError("BAD_REQUEST", {
-              message: 'Password must contain at least one uppercase letter',
-            });
-          }
-          // Password must contain at least one lowercase letter
-          if (!/[a-z]/.test(newPassword)) {
-            throw new APIError("BAD_REQUEST", {
-              message: 'Password must contain at least one lowercase letter',
-            });
-          }
-          // Password must contain at least one number
-          if (!/\d/.test(newPassword)) {
-            throw new APIError("BAD_REQUEST", {
-              message: 'Password must contain at least one number',
-            });
-          }
-          // Password must contain at least one special character
-          if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
-            throw new APIError("BAD_REQUEST", {
-              message: 'Password must contain at least one special character',
-            });
+        }
+
+        // Validate password on reset password endpoint
+        if (ctx.path === '/reset-password') {
+          const { newPassword } = ctx.body || {};
+          if (newPassword) {
+            // Password must be at least 8 characters long
+            if (newPassword.length < 8) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must be at least 8 characters long',
+              });
+            }
+            // Password must contain at least one uppercase letter
+            if (!/[A-Z]/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one uppercase letter',
+              });
+            }
+            // Password must contain at least one lowercase letter
+            if (!/[a-z]/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one lowercase letter',
+              });
+            }
+            // Password must contain at least one number
+            if (!/\d/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one number',
+              });
+            }
+            // Password must contain at least one special character
+            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one special character',
+              });
+            }
           }
         }
       } catch (hookError) {
@@ -473,10 +474,10 @@ export const auth = betterAuth({
       try {
         // Check for OAuth callback errors and redirect to UI with client-safe error message
         const isOAuthCallback = ctx.path?.includes('/callback/');
-      
-      if (isOAuthCallback) {
-        // Check if there was an error in the returned value
-        const returned = ctx.context.returned;
+
+        if (isOAuthCallback) {
+          // Check if there was an error in the returned value
+          const returned = ctx.context.returned;
         
         // If returned is an APIError or error response, handle it
         if (returned && (returned.status && returned.status >= 400)) {
@@ -520,6 +521,7 @@ export const auth = betterAuth({
           
           // Redirect to login page with error message
           throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
+        }
         }
       } catch (hookError) {
         console.error('❌ AFTER HOOK ERROR:', hookError);
