@@ -8,6 +8,7 @@ const pool = require('./src/config/db.cjs');
 export const auth = betterAuth({
   database: pool,
   baseURL: 'https://kxdwjea5mk.execute-api.us-east-2.amazonaws.com/test/api/auth',
+  //baseUrl: 'http://localhost:3000/api/auth',
   // basePath: '/api/auth',
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
