@@ -5,10 +5,9 @@ const pool = require('./src/config/db.cjs');
 
 
 
-export const auth = betterAuth({
+export const auth4 = betterAuth({
   database: pool,
-  baseURL: 'https://kxdwjea5mk.execute-api.us-east-2.amazonaws.com/test/api/auth',
-  // basePath: '/api/auth',
+  basePath: '/api/auth',
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'https://dev.d3cx888lrkmdbn.amplifyapp.com'
@@ -81,21 +80,21 @@ export const auth = betterAuth({
     //   },
 		// },
   },
-  // databaseHooks: {
-  //   user: {
-  //     create: {
-  //       before: async (user, ctx) => {
-  //         return {
-  //           data: {
-  //             ...user,
-  //             name: 'sdfgsd', // Ensure name is set (from OAuth profile or request body)
-  //             username: 'sadflkj234' + Math.random().toString(36).substring(2, 15)
-  //           },
-  //         };
-  //       },
-  //     },
-  //   },
-  // },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user, ctx) => {
+          return {
+            data: {
+              ...user,
+              name: 'sdfgsd', // Ensure name is set (from OAuth profile or request body)
+              username: 'sadflkj234' + Math.random().toString(36).substring(2, 15)
+            },
+          };
+        },
+      },
+    },
+  },
   session: {
     cookieCache: {
         enabled: true,
