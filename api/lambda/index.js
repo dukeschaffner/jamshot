@@ -27,47 +27,19 @@ console.log(`[HONO HANDLER] Initializing Hono handler with stage prefix: "${stag
 // Create Hono app
 const app = new Hono();
 
-// CORS configuration (matching the existing Express CORS setup)
-app.use(`${stagePrefix}/api/auth/*`, cors({
-  origin: function (origin) {
-    console.log(`[HONO HANDLER] CORS check for origin: ${origin}`);
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      console.log(`[HONO HANDLER] CORS: Allowing request with no origin`);
-      return true;
-    }
-
-    // Allow local development
-    if (origin === 'http://localhost:3000' ||
-        origin === 'http://localhost:8081' ||
-        origin === 'http://localhost:5173' ||
-        process.env.NODE_ENV === 'dev') {
-      console.log(`[HONO HANDLER] CORS: Allowing local development origin: ${origin}`);
-      return true;
-    }
-
-    // Allow production domains
-    if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com' ||
-        origin === 'https://sterio.fm' ||
-        origin === 'https://www.sterio.fm') {
-      console.log(`[HONO HANDLER] CORS: Allowing production origin: ${origin}`);
-      return true;
-    }
-
-    // Allow API Gateway domain (when deployed)
-    if (process.env.API_GATEWAY_DOMAIN && origin.includes(process.env.API_GATEWAY_DOMAIN)) {
-      console.log(`[HONO HANDLER] CORS: Allowing API Gateway domain: ${origin}`);
-      return true;
-    }
-
-    // Deny other origins
-    console.log(`[HONO HANDLER] CORS: Denying origin: ${origin}`);
-    return false;
-  },
-  allowHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
-  allowMethods: ['POST', 'GET', 'OPTIONS'],
-  credentials: true
-}));
+app.use(
+  '*',
+  cors({
+    origin: [
+      'http://localhost:3000',
+      'https://dev.d3cx888lrkmdbn.amplifyapp.com',
+      process.env.FRONTEND_URL,
+    ],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
+    credentials: true // Allow cookies to be sent
+  })
+)
 
 // Mount Better Auth routes
 console.log(`[HONO HANDLER] Mounting Better Auth routes at: ${stagePrefix}/api/auth/*`);
