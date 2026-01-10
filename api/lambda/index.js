@@ -44,7 +44,14 @@ app.use(
 // Mount Better Auth routes
 console.log(`[HONO HANDLER] Mounting Better Auth routes at: ${stagePrefix}/api/auth/*`);
 app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, (c) => {
-  console.log(`[HONO HANDLER] Better Auth route hit: ${c.req.method} ${c.req.path}`);
+  console.log(`[HONO HANDLER] Better Auth 1 route hit: ${c.req.method} ${c.req.path}`);
+  console.log(`[HONO HANDLER] Headers:`, Object.fromEntries(c.req.raw.headers.entries()));
+  console.log(`[HONO HANDLER] Query:`, c.req.query());
+  return auth.handler(c.req.raw);
+});
+
+app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+  console.log(`[HONO HANDLER] Better Auth 2 route hit: ${c.req.method} ${c.req.path}`);
   console.log(`[HONO HANDLER] Headers:`, Object.fromEntries(c.req.raw.headers.entries()));
   console.log(`[HONO HANDLER] Query:`, c.req.query());
   return auth.handler(c.req.raw);
@@ -55,7 +62,7 @@ app.get(`${stagePrefix}/`, (c) => {
   console.log(`[HONO HANDLER] Health check endpoint hit: ${c.req.method} ${c.req.path}`);
   return c.json({
     status: 'ok',
-    service: 'Sterio API',
+    service: 'Sterio API 1',
     environment: process.env.NODE_ENV || 'development',
     framework: 'hono',
     stagePrefix: stagePrefix || '(none)'
@@ -67,7 +74,7 @@ app.get('/', (c) => {
   console.log(`[HONO HANDLER] Root health check endpoint hit: ${c.req.method} ${c.req.path}`);
   return c.json({
     status: 'ok',
-    service: 'Sterio API',
+    service: 'Sterio API 2',
     environment: process.env.NODE_ENV || 'development',
     framework: 'hono',
     stagePrefix: stagePrefix || '(none)'
