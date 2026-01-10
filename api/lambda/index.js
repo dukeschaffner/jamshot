@@ -6,6 +6,8 @@ import { auth } from './auth.js';
 import { auth1 } from './auth1.js';
 import { auth2 } from './auth2.js';
 import { auth3 } from './auth3.js';
+import { auth4 } from './auth4.js';
+import { auth5 } from './auth5.js';
 
 // Helper function to get stage prefix based on environment (matching Express setup)
 const getStagePrefix = () => {
@@ -52,7 +54,7 @@ app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
   console.log(`[HONO HANDLER] Query:`, c.req.query());
 
   // Try auth handlers in sequence and return first non-404 response
-  const authHandlers = [auth, auth1, auth2, auth3];
+  const authHandlers = [auth, auth1, auth2, auth3, auth4, auth5];
 
   for (let i = 0; i < authHandlers.length; i++) {
     const handler = authHandlers[i];
