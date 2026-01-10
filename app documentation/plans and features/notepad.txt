@@ -1,6 +1,8 @@
 - allow user to highlight their favorite collab on their track (and maybe incentivize them to do so with status points or badges)
 - collab streak badges?
 - collab layer - track and display percentage of active audio in the collab layer. or maybe percentage of 1s windows that have audio above a certain threshold.
+- render audio for user to preview before publishing?
+
 - signing or endorsements - artists of a certain status level get a limited number of signings or endorsements they can offer to other artists to help them grow.
     - badge for listeners, likers, reposters of a track that eventually blows up - "underground artist discoverer"
     - each user gets a limited number of "bet" tokens they can use to bet on tracks they think will blow up. if the track does blow up, the user gets a reward or gets the badge.
@@ -16,10 +18,15 @@
         - scout leaderboard has minumum bet count requirement
         - reputation decays over time
     - confidence tiers/allow varying token amounts for bets?
-- render audio for user to preview before publishing?
+
+
 - loop listening mode
     - track which tracks/collabs are "loops" - a loop is a track that is one or more loops (an even number of measures/bars) and if it's a collab, the original track region must not have been modified.
     - this mode cycles through all the loop tracks in such a way that it sounds like a continuous loop/song.
+    - this can be done in the tree view where each track is a circle node in the tree graph
+    - really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
+
+
 - "underrated" feed - low follows, high momentum
 - leaderboard stats on track
     - "#513 on weekly hip hop"

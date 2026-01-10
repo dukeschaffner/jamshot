@@ -37,8 +37,8 @@ app.set('trust proxy', 1);
 
 
 // Apply global rate limiting first (before CORS and other middleware)
-app.use(globalLimiter);
-app.use(speedLimiter);
+// app.use(globalLimiter);
+// app.use(speedLimiter);
 
 
 // CORS configuration for API Gateway
@@ -94,17 +94,17 @@ const authHandler = toNodeHandler(auth);
 
 app.all(`${stagePrefix}/api/auth/*`, authHandler);
 
-if (process.env.NODE_ENV === 'dev') {
-  app.use(`${stagePrefix}/api/payments/webhook`, express.raw({ type: 'application/json' }));
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-} else { // CORS configured in API Gateway
-  // Body parser middleware to handle Buffer objects from API Gateway
-  app.use(bodyParser);
-}
+// if (process.env.NODE_ENV === 'dev') {
+//   app.use(`${stagePrefix}/api/payments/webhook`, express.raw({ type: 'application/json' }));
+//   app.use(express.json({ limit: '50mb' }));
+//   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// } else { // CORS configured in API Gateway
+//   // Body parser middleware to handle Buffer objects from API Gateway
+//   app.use(bodyParser);
+// }
 
-// Cookie parser middleware (must come before CSRF)
-app.use(cookieParser());
+// // Cookie parser middleware (must come before CSRF)
+// app.use(cookieParser());
 
 // TEMP: Temporary logging endpoint (only in dev/test) - register before CSRF protection
 // This is a temporary debugging endpoint, so we bypass CSRF for convenience
