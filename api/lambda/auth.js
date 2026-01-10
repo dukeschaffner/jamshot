@@ -106,5 +106,10 @@ export const auth = betterAuth({
   advanced: {
     disableCSRFCheck: true,
     disableOriginCheck: true,
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      partitioned: true // New browser standards will mandate this for foreign cookies
+    }
   }
 });
