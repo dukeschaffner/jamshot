@@ -188,7 +188,7 @@ export default function LoginForm({
       const result = await authClient.signUp.email({
         email,
         password,
-        // name,
+        name
         // username,
         // dateOfBirth,
         // acceptTerms,
