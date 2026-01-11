@@ -1,11 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { auth } from '../auth.js';
-import { auth1 } from '../auth1.js';
-import { auth2 } from '../auth2.js';
-import { auth3 } from '../auth3.js';
-import { auth4 } from '../auth4.js';
-import { auth5 } from '../auth5.js';
 
 // Helper function to get stage prefix based on environment (matching Express setup)
 const getStagePrefix = () => {
@@ -51,33 +46,20 @@ app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
   console.log(`[HONO HANDLER] Headers:`, Object.fromEntries(c.req.raw.headers.entries()));
   console.log(`[HONO HANDLER] Query:`, c.req.query());
 
-  // Try auth handlers in sequence and return first non-404 response
-  const authHandlers = [auth, auth1, auth2, auth3, auth4, auth5];
+  try {
+    const response = await auth.handler(c.req.raw);
+    console.log(`[HONO HANDLER] Auth handler returned status: ${response.status}`);
 
-  for (let i = 0; i < authHandlers.length; i++) {
-    const handler = authHandlers[i];
-    console.log(`[HONO HANDLER] Trying auth handler ${i}: ${c.req.method} ${c.req.path}`);
-
-    try {
-      const response = await handler.handler(c.req.raw);
-      console.log(`[HONO HANDLER] Auth handler ${i} returned status: ${response.status}`);
-
-      // If not a 404, return this response
-      if (response.status !== 404) {
-        console.log(`[HONO HANDLER] Returning response from auth handler ${i} (status: ${response.status})`);
-        return response;
-      }
-
-      console.log(`[HONO HANDLER] Auth handler ${i} returned 404, trying next handler...`);
-    } catch (error) {
-      console.error(`[HONO HANDLER] Error in auth handler ${i}:`, error);
-      // Continue to next handler if there's an error
+    // If not a 404, return this response
+    if (response.status !== 404) {
+      console.log(`[HONO HANDLER] Returning response from auth handler (status: ${response.status})`);
+      return response;
     }
-  }
 
-  // If all handlers returned 404 or errored, return the last response (which would be a 404)
-  console.log(`[HONO HANDLER] All auth handlers returned 404, returning last response`);
-  return auth3.handler(c.req.raw);
+    console.log(`[HONO HANDLER] Auth handler returned 404, trying next handler...`);
+  } catch (error) {
+    console.error(`[HONO HANDLER] Error in auth handler:`, error);
+  }
 });
 
 // Health check endpoint
