@@ -139,8 +139,6 @@ export const auth = betterAuth({
   advanced: {
     disableCSRFCheck: true,
     disableOriginCheck: true,
-    // Try disabling state check entirely for OAuth callbacks
-    disableStateCheck: true,
     defaultCookieAttributes: {
       sameSite: "none",
       secure: true,
@@ -440,46 +438,42 @@ export const auth = betterAuth({
     },
   },
   hooks: {
-    before: [
-      // Custom middleware to capture cookies for OAuth callbacks before Better Auth strips them
-      async (ctx) => {
-        const isOAuthCallback = ctx.path?.includes('/callback/');
-        if (isOAuthCallback) {
-          console.log('🎣 CUSTOM OAUTH MIDDLEWARE: Capturing cookies for callback');
+    before: createAuthMiddleware(async (ctx) => {
+      // Custom cookie capture for OAuth callbacks before Better Auth strips them
+      const isOAuthCallback = ctx.path?.includes('/callback/');
+      if (isOAuthCallback) {
+        console.log('🎣 CUSTOM OAUTH MIDDLEWARE: Capturing cookies for callback');
 
-          // Try to capture cookies from various sources before Better Auth processes them
-          let capturedCookies = null;
+        // Try to capture cookies from various sources before Better Auth processes them
+        let capturedCookies = null;
 
-          // Try Hono context if available (this might work in some setups)
-          try {
-            // @ts-ignore - Try to access Hono context
-            if (globalThis?.c?.req?.header) {
-              const cookieHeader = globalThis.c.req.header('cookie') || globalThis.c.req.header('Cookie');
-              if (cookieHeader) {
-                capturedCookies = cookieHeader;
-                console.log('🎣 CAPTURED COOKIES VIA HONO CONTEXT:', capturedCookies.substring(0, 100) + '...');
-              }
+        // Try Hono context if available (this might work in some setups)
+        try {
+          // @ts-ignore - Try to access Hono context
+          if (globalThis?.c?.req?.header) {
+            const cookieHeader = globalThis.c.req.header('cookie') || globalThis.c.req.header('Cookie');
+            if (cookieHeader) {
+              capturedCookies = cookieHeader;
+              console.log('🎣 CAPTURED COOKIES VIA HONO CONTEXT:', capturedCookies.substring(0, 100) + '...');
             }
-          } catch (e) {
-            // Ignore errors
           }
-
-          // Store captured cookies in a global variable for later use
-          if (capturedCookies) {
-            // @ts-ignore
-            globalThis._oauthCookies = capturedCookies;
-          }
+        } catch (e) {
+          // Ignore errors
         }
-        return ctx;
-      },
-      createAuthMiddleware(async (ctx) => {
-        console.log('🔐 BEFORE HOOK EXECUTED:');
-        console.log('  - Path:', ctx.path);
-        console.log('  - Method:', ctx.method);
 
-        // Enhanced OAuth state debugging for callback requests
-        const isOAuthCallback = ctx.path?.includes('/callback/');
-        if (isOAuthCallback) {
+        // Store captured cookies in a global variable for later use
+        if (capturedCookies) {
+          // @ts-ignore
+          globalThis._oauthCookies = capturedCookies;
+        }
+      }
+
+      console.log('🔐 BEFORE HOOK EXECUTED:');
+      console.log('  - Path:', ctx.path);
+      console.log('  - Method:', ctx.method);
+
+      // Enhanced OAuth state debugging for callback requests
+      if (isOAuthCallback) {
         console.log('🔑 OAUTH CALLBACK DEBUG:');
         console.log('  - State from query:', ctx.query?.state);
         console.log('  - Code from query:', ctx.query?.code ? '[PRESENT]' : '[NOT PRESENT]');
@@ -630,7 +624,7 @@ export const auth = betterAuth({
         console.error('❌ BEFORE HOOK ERROR:', hookError);
         throw hookError;
       }
-    })],
+    }),
     after: createAuthMiddleware(async (ctx) => {
       console.log('🔐 AFTER HOOK EXECUTED:');
       console.log('  - Path:', ctx.path);
