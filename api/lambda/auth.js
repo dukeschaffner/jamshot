@@ -90,6 +90,25 @@ export const auth = betterAuth({
       console.error('  - Headers:', ctx.headers);
       console.error('  - Body:', ctx.body ? '[PRESENT]' : '[NOT PRESENT]');
       console.error('  - Stack:', error.stack);
+
+      // Special logging for OAuth state mismatch errors
+      if (error?.message?.includes('state') || ctx.query?.error === 'state_mismatch') {
+        console.error('🚨 OAUTH STATE MISMATCH DEBUG:');
+        console.error('  - Error message:', error.message);
+        console.error('  - Query state:', ctx.query?.state);
+        console.error('  - Query error:', ctx.query?.error);
+        console.error('  - Session cookies present:', !!ctx.headers?.cookie);
+
+        if (ctx.headers?.cookie) {
+          const cookies = ctx.headers.cookie.split(';').map(c => c.trim());
+          const sessionCookie = cookies.find(c => c.startsWith('__Secure-better-auth.session_token='));
+          if (sessionCookie) {
+            console.error('  - Session token exists but may be invalid/corrupted');
+          } else {
+            console.error('  - Session token MISSING - this could cause state mismatch');
+          }
+        }
+      }
     },
   },
   emailAndPassword: {
@@ -109,6 +128,22 @@ export const auth = betterAuth({
         clientId: process.env.GOOGLE_CLIENT_ID, 
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }, 
+  },
+  session: {
+    cookieCache: {
+        enabled: true,
+        maxAge: 60 * 60,
+        strategy: "jwt" // or "jwt" or "jwe"
+    }
+  },
+  advanced: {
+    disableCSRFCheck: true,
+    disableOriginCheck: true,
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      partitioned: true // New browser standards will mandate this for foreign cookies
+    }
   },
   user:{
     modelName: 'users',
@@ -407,6 +442,39 @@ export const auth = betterAuth({
       console.log('  - Path:', ctx.path);
       console.log('  - Method:', ctx.method);
 
+      // Enhanced OAuth state debugging for callback requests
+      const isOAuthCallback = ctx.path?.includes('/callback/');
+      if (isOAuthCallback) {
+        console.log('🔑 OAUTH CALLBACK DEBUG:');
+        console.log('  - State from query:', ctx.query?.state);
+        console.log('  - Code from query:', ctx.query?.code ? '[PRESENT]' : '[NOT PRESENT]');
+        console.log('  - Scope from query:', ctx.query?.scope);
+        console.log('  - Auth user from query:', ctx.query?.authuser);
+
+        // Log session cookie details (without sensitive data)
+        if (ctx.headers?.cookie) {
+          const cookies = ctx.headers.cookie.split(';').map(c => c.trim());
+          const sessionCookie = cookies.find(c => c.startsWith('__Secure-better-auth.session_token='));
+          if (sessionCookie) {
+            const tokenValue = sessionCookie.split('=')[1];
+            console.log('  - Session token present:', !!tokenValue);
+            console.log('  - Session token length:', tokenValue?.length || 0);
+            // Log first and last few characters for debugging (safe since it's encrypted)
+            if (tokenValue) {
+              console.log('  - Session token prefix:', tokenValue.substring(0, 10) + '...');
+              console.log('  - Session token suffix:', '...' + tokenValue.substring(tokenValue.length - 10));
+            }
+          } else {
+            console.log('  - Session token: NOT FOUND');
+          }
+        } else {
+          console.log('  - No cookies present');
+        }
+
+        console.log('  - User-Agent:', ctx.headers?.['user-agent']);
+        console.log('  - Referer:', ctx.headers?.referer);
+      }
+
       try {
         // Intercept OAuth error page redirects and redirect to UI instead
         if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
@@ -488,11 +556,33 @@ export const auth = betterAuth({
         const isOAuthCallback = ctx.path?.includes('/callback/');
 
         if (isOAuthCallback) {
-          // Check if there was an error in the returned value
+          console.log('🔑 OAUTH CALLBACK AFTER DEBUG:');
           const returned = ctx.context.returned;
-        
+          console.log('  - Returned status:', returned?.status);
+          console.log('  - Returned body type:', typeof returned?.body);
+          console.log('  - Returned headers:', returned?.headers ? '[PRESENT]' : '[NOT PRESENT]');
+
+          // Log returned body safely (avoid logging sensitive data)
+          if (returned?.body) {
+            if (typeof returned.body === 'object') {
+              console.log('  - Returned body keys:', Object.keys(returned.body));
+              // Log error details if present
+              if (returned.body.error) {
+                console.log('  - Returned error:', returned.body.error);
+              }
+              if (returned.body.message) {
+                console.log('  - Returned message:', returned.body.message);
+              }
+            } else {
+              console.log('  - Returned body:', returned.body);
+            }
+          }
+
         // If returned is an APIError or error response, handle it
         if (returned && (returned.status && returned.status >= 400)) {
+          console.log('❌ OAUTH CALLBACK ERROR DETECTED:');
+          console.log('  - Error status:', returned.status);
+          console.log('  - Error body:', returned.body);
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
           const loginUrl = `${frontendUrl}/login`;
           
@@ -540,22 +630,6 @@ export const auth = betterAuth({
         throw hookError;
       }
     }),
-  },
-  session: {
-    cookieCache: {
-        enabled: true,
-        maxAge: 60 * 60,
-        strategy: "jwt" // or "jwt" or "jwe"
-    }
-  },
-  advanced: {
-    disableCSRFCheck: true,
-    disableOriginCheck: true,
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
-      partitioned: true // New browser standards will mandate this for foreign cookies
-    }
   },
   plugins: [
     customSession(async ({ user, session }, ctx) => {
