@@ -1,5 +1,0 @@
-better auth test env bug:
-
-everything works locally
-
-in test env, the /get-session endpoint works (200), but the /sign-in/social and /sign-up/email endpoints return a 404
