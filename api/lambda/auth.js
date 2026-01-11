@@ -70,7 +70,7 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: 'https://kxdwjea5mk.execute-api.us-east-2.amazonaws.com/test/api/auth',
+  baseURL: process.env.API_URL + '/auth',
   // basePath: '/api/auth',
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
