@@ -451,15 +451,48 @@ export const auth = betterAuth({
         console.log('  - Scope from query:', ctx.query?.scope);
         console.log('  - Auth user from query:', ctx.query?.authuser);
 
-        // Log session cookie details (without sensitive data)
+        // Log all available headers for debugging
+        console.log('  - All headers keys:', Object.keys(ctx.headers || {}));
+        console.log('  - Raw headers object:', JSON.stringify(ctx.headers, null, 2));
+
+        // Check for cookies in different possible locations
+        let cookieString = null;
         if (ctx.headers?.cookie) {
-          const cookies = ctx.headers.cookie.split(';').map(c => c.trim());
+          cookieString = ctx.headers.cookie;
+        } else if (ctx.headers?.['Cookie']) {
+          cookieString = ctx.headers['Cookie'];
+        } else if (ctx.request?.headers?.cookie) {
+          cookieString = ctx.request.headers.cookie;
+        } else if (ctx.request?.headers?.['Cookie']) {
+          cookieString = ctx.request.headers['Cookie'];
+        }
+
+        console.log('  - Cookie string found:', !!cookieString);
+        if (cookieString) {
+          console.log('  - Raw cookie string:', cookieString);
+          const cookies = cookieString.split(';').map(c => c.trim());
+          console.log('  - Parsed cookies count:', cookies.length);
+          console.log('  - Cookie names:', cookies.map(c => c.split('=')[0]));
+
+          const stateCookie = cookies.find(c => c.startsWith('__Secure-better-auth.state='));
           const sessionCookie = cookies.find(c => c.startsWith('__Secure-better-auth.session_token='));
+
+          if (stateCookie) {
+            const stateValue = stateCookie.split('=')[1];
+            console.log('  - State cookie present:', !!stateValue);
+            console.log('  - State cookie length:', stateValue?.length || 0);
+            if (stateValue) {
+              console.log('  - State cookie prefix:', stateValue.substring(0, 10) + '...');
+              console.log('  - State cookie suffix:', '...' + stateValue.substring(stateValue.length - 10));
+            }
+          } else {
+            console.log('  - State cookie: NOT FOUND');
+          }
+
           if (sessionCookie) {
             const tokenValue = sessionCookie.split('=')[1];
             console.log('  - Session token present:', !!tokenValue);
             console.log('  - Session token length:', tokenValue?.length || 0);
-            // Log first and last few characters for debugging (safe since it's encrypted)
             if (tokenValue) {
               console.log('  - Session token prefix:', tokenValue.substring(0, 10) + '...');
               console.log('  - Session token suffix:', '...' + tokenValue.substring(tokenValue.length - 10));
@@ -468,11 +501,11 @@ export const auth = betterAuth({
             console.log('  - Session token: NOT FOUND');
           }
         } else {
-          console.log('  - No cookies present');
+          console.log('  - No cookies found in any location');
         }
 
-        console.log('  - User-Agent:', ctx.headers?.['user-agent']);
-        console.log('  - Referer:', ctx.headers?.referer);
+        console.log('  - User-Agent:', ctx.headers?.['user-agent'] || ctx.headers?.['User-Agent']);
+        console.log('  - Referer:', ctx.headers?.referer || ctx.headers?.['Referer']);
       }
 
       try {
