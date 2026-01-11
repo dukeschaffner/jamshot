@@ -1,110 +1,100 @@
 
-
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
 import { handle } from "hono/aws-lambda";
-import { auth } from './auth.js';
-import { auth1 } from './auth1.js';
-import { auth2 } from './auth2.js';
-import { auth3 } from './auth3.js';
-import { auth4 } from './auth4.js';
-import { auth5 } from './auth5.js';
+import honoApp from './src/hono-api.js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
-// Helper function to get stage prefix based on environment (matching Express setup)
-const getStagePrefix = () => {
-  const env = process.env.NODE_ENV;
-  console.log(`[HONO HANDLER] Environment: ${env}`);
-  if (env === 'test') {
-    console.log(`[HONO HANDLER] Using stage prefix: /test`);
-    return '/test';
+const serverlessExpress = require('@codegenie/serverless-express');
+import expressApp from './src/express-api.js';
+
+// Import database pool for cleanup
+const pool = require('./src/config/db.cjs');
+
+// Create serverless express instance
+const serverlessExpressInstance = serverlessExpress({
+  app: expressApp,
+  shouldParseBody: false,
+});
+
+// Cleanup function for database connections
+const cleanup = async () => {
+  try {
+    console.log('🧹 Cleaning up database connections...');
+    await pool.end();
+    console.log('✅ Database connections closed');
+  } catch (error) {
+    console.error('❌ Error closing database connections:', error);
   }
-  if (env === 'prod') {
-    console.log(`[HONO HANDLER] Using stage prefix: /prod`);
-    return '/prod';
-  }
-  console.log(`[HONO HANDLER] Using stage prefix: (none)`);
-  return ''; // No prefix for dev/staging/other environments
 };
 
-const stagePrefix = getStagePrefix();
+// Handle Lambda container shutdown
+process.on('SIGTERM', async () => {
+  console.log('📤 Received SIGTERM, cleaning up...');
+  await cleanup();
+});
 
-console.log(`[HONO HANDLER] Initializing Hono handler with stage prefix: "${stagePrefix}"`);
+// Global error handlers for Lambda environment
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
-// Create Hono app
-const app = new Hono();
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
 
-app.use(
-  '*',
-  cors({
-    origin: [
-      'http://localhost:3000',
-      'https://dev.d3cx888lrkmdbn.amplifyapp.com',
-      process.env.FRONTEND_URL,
-    ],
-    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
-    credentials: true // Allow cookies to be sent
-  })
-)
+// Main routing handler
+export const handler = async (event, context) => {
+  // Set callbackWaitsForEmptyEventLoop to false
+  context.callbackWaitsForEmptyEventLoop = false;
 
-// Mount Better Auth routes
-console.log(`[HONO HANDLER] Mounting Better Auth routes at: ${stagePrefix}/api/auth/*`);
-app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
-  console.log(`[HONO HANDLER] Better Auth route hit: ${c.req.method} ${c.req.path}`);
-  console.log(`[HONO HANDLER] Headers:`, Object.fromEntries(c.req.raw.headers.entries()));
-  console.log(`[HONO HANDLER] Query:`, c.req.query());
+  // Determine if this is an auth request
+  const isAuthRequest = event.rawPath && event.rawPath.includes('/api/auth');
 
-  // Try auth handlers in sequence and return first non-404 response
-  const authHandlers = [auth, auth1, auth2, auth3, auth4, auth5];
+  // Enhanced logging
+  const logLevel = isAuthRequest ? '🔐 AUTH REQUEST' : '📡 API REQUEST';
+  console.log(`${logLevel}:`);
+  console.log(`  - Method: ${event.requestContext?.http?.method || 'UNKNOWN'}`);
+  console.log(`  - Path: ${event.rawPath || 'UNKNOWN'}`);
+  console.log(`  - Query: ${event.rawQueryString || '(none)'}`);
+  console.log(`  - User-Agent: ${event.headers?.['user-agent'] || 'UNKNOWN'}`);
+  console.log(`  - Origin: ${event.headers?.origin || 'UNKNOWN'}`);
 
-  for (let i = 0; i < authHandlers.length; i++) {
-    const handler = authHandlers[i];
-    console.log(`[HONO HANDLER] Trying auth handler ${i}: ${c.req.method} ${c.req.path}`);
-
-    try {
-      const response = await handler.handler(c.req.raw);
-      console.log(`[HONO HANDLER] Auth handler ${i} returned status: ${response.status}`);
-
-      // If not a 404, return this response
-      if (response.status !== 404) {
-        console.log(`[HONO HANDLER] Returning response from auth handler ${i} (status: ${response.status})`);
-        return response;
-      }
-
-      console.log(`[HONO HANDLER] Auth handler ${i} returned 404, trying next handler...`);
-    } catch (error) {
-      console.error(`[HONO HANDLER] Error in auth handler ${i}:`, error);
-      // Continue to next handler if there's an error
+  if (isAuthRequest) {
+    console.log(`  - Headers:`, JSON.stringify(event.headers, null, 2));
+    if (event.body) {
+      console.log(`  - Has body: ${!!event.body} (${typeof event.body})`);
     }
   }
 
-  // If all handlers returned 404 or errored, return the last response (which would be a 404)
-  console.log(`[HONO HANDLER] All auth handlers returned 404, returning last response`);
-  return auth3.handler(c.req.raw);
-});
+  // Decode base64 body if needed
+  if (event.body && event.isBase64Encoded) {
+    event.body = Buffer.from(event.body, 'base64');
+  }
 
-// Health check endpoint
-app.get(`${stagePrefix}/`, (c) => {
-  console.log(`[HONO HANDLER] Health check endpoint hit: ${c.req.method} ${c.req.path}`);
-  return c.json({
-    status: 'ok',
-    service: 'Sterio API 1',
-    environment: process.env.NODE_ENV || 'development',
-    framework: 'hono',
-    stagePrefix: stagePrefix || '(none)'
-  });
-});
-
-// Also add a root health check for backwards compatibility
-app.get('/', (c) => {
-  console.log(`[HONO HANDLER] Root health check endpoint hit: ${c.req.method} ${c.req.path}`);
-  return c.json({
-    status: 'ok',
-    service: 'Sterio API 2',
-    environment: process.env.NODE_ENV || 'development',
-    framework: 'hono',
-    stagePrefix: stagePrefix || '(none)'
-  });
-});
-
-export const handler = handle(app);
+  try {
+    if (isAuthRequest) {
+      // Route auth requests to Hono handler
+      console.log('🔀 Routing to Hono auth handler');
+      return await handle(honoApp)(event, context);
+    } else {
+      // Route all other requests to serverless express handler
+      console.log('🔀 Routing to Express API handler');
+      return await serverlessExpressInstance(event, context);
+    }
+  } catch (error) {
+    console.error('❌ Lambda handler error:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+      },
+      body: JSON.stringify({
+        error: 'Internal server error',
+        message: 'An unexpected error occurred'
+      })
+    };
+  }
+};
