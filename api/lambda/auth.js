@@ -71,7 +71,7 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 export const auth = betterAuth({
   database: pool,
   baseURL: process.env.API_URL + '/auth',
-  // basePath: '/api/auth',
+  basePath: '/api/auth',
   trustedOrigins: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
     'https://dev.d3cx888lrkmdbn.amplifyapp.com'
@@ -124,10 +124,10 @@ export const auth = betterAuth({
     expiresIn: 86400, // 24 hours in seconds
   },
   socialProviders: {
-    google: { 
-        clientId: process.env.GOOGLE_CLIENT_ID, 
+    google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }, 
+    },
   },
   session: {
     cookieCache: {
@@ -142,7 +142,8 @@ export const auth = betterAuth({
     defaultCookieAttributes: {
       sameSite: "none",
       secure: true,
-      partitioned: true // New browser standards will mandate this for foreign cookies
+      // Remove partitioned to allow cross-site cookie access during OAuth callbacks
+      // partitioned: true // New browser standards will mandate this for foreign cookies
     }
   },
   user:{
@@ -465,6 +466,18 @@ export const auth = betterAuth({
           cookieString = ctx.request.headers.cookie;
         } else if (ctx.request?.headers?.['Cookie']) {
           cookieString = ctx.request.headers['Cookie'];
+        } else if (ctx.request?.raw?.headers?.get) {
+          // Try Hono's raw request headers
+          cookieString = ctx.request.raw.headers.get('cookie') || ctx.request.raw.headers.get('Cookie');
+        }
+
+        // Additional debug for request object structure
+        console.log('  - ctx.request exists:', !!ctx.request);
+        if (ctx.request) {
+          console.log('  - ctx.request keys:', Object.keys(ctx.request));
+          if (ctx.request.raw) {
+            console.log('  - ctx.request.raw exists, has headers.get:', typeof ctx.request.raw.headers?.get);
+          }
         }
 
         console.log('  - Cookie string found:', !!cookieString);
