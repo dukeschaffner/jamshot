@@ -1,6 +1,6 @@
 
 import { createServer } from 'http';
-import app from './src/index.js';
+import app from './src/hono-api.js';
 
 const PORT = process.env.PORT || 5001;
 

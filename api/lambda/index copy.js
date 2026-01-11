@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 const serverlessExpress = require('@codegenie/serverless-express');
-import app from './src/index.js';
+import app from './src/hono-api.js';
 
 // Import database pool for cleanup
 const pool = require('./src/config/db.cjs');
