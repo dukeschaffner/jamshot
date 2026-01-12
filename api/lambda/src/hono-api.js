@@ -58,9 +58,13 @@ app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
       return response;
     }
 
-    console.log(`[HONO HANDLER] Auth handler returned 404, trying next handler...`);
+    console.log(`[HONO HANDLER] Auth handler returned 404, returning 404 response`);
+
+    // Return a proper 404 response when Better Auth doesn't handle the route
+    return c.json({ error: 'Not found', message: 'Auth endpoint not found' }, 404);
   } catch (error) {
     console.error(`[HONO HANDLER] Error in auth handler:`, error);
+    return c.json({ error: 'Internal server error', message: error.message }, 500);
   }
 });
 
