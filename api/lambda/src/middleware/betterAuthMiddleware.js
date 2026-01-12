@@ -31,14 +31,22 @@ export const betterAuthMiddleware = async (req, res, next) => {
       // Get the request path (remove query string if present)
       // Use originalUrl for full path, fallback to path or url
       const fullPath = req.originalUrl?.split('?')[0] || req.path || req.url?.split('?')[0] || '';
+
       
       // Define allowed routes that don't require profile completion
       // Routes are mounted at /api/users, so paths include /api prefix
+      const stagePrefix = process.env.NODE_ENV === 'test' ? '/test' : process.env.NODE_ENV === 'prod' ? '/prod' : '';
       const allowedPaths = [
         '/api/users/me',
         '/api/users/me/complete-profile',
         '/users/me', // Also check without /api prefix for flexibility
         '/users/me/complete-profile',
+        ...(stagePrefix ? [
+          `${stagePrefix}/api/users/me`,
+          `${stagePrefix}/api/users/me/complete-profile`,
+          `${stagePrefix}/users/me`,
+          `${stagePrefix}/users/me/complete-profile`,
+        ] : []),
       ];
       
       // Check if the path matches any allowed route (exact match or starts with allowed path)
