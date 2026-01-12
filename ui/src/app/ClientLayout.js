@@ -125,8 +125,8 @@ function AppContent({ children }) {
     setHasAccess(true);
   };
 
-  // Show landing page if access check is complete and user doesn't have access
-  if (accessCheckComplete && !hasAccess) {
+  // Show landing page if access check is complete and user doesn't have access and is not authenticated
+  if (accessCheckComplete && !hasAccess && !isAuthenticated) {
     return <LandingPage onAccessGranted={handleAccessGranted} />;
   }
 

@@ -70,7 +70,7 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: process.env.API_URL + '/auth',
+  baseURL: `${process.env.API_URL || 'http://localhost:5001/api'}/auth`,
   basePath: '/api/auth',
 	trustedOrigins: [
 		'https://sterio.fm', // production UI
@@ -105,16 +105,18 @@ export const auth = betterAuth({
         enabled: true,
         maxAge: 60 * 60,
         strategy: "jwt" // or "jwt" or "jwe"
-    }
+    },
+    expiresIn: 60 * 60 * 24 * 30, // 30 days
+    updateAge: 60 * 60 * 24 * 7, // 30 days
   },
   advanced: {
     crossSubDomainCookies: {
-			enabled: true,
-			domain: "sterio.fm",
+			enabled: process.env.NODE_ENV === 'prod',
+			domain: process.env.NODE_ENV === 'prod' ? "sterio.fm" : undefined,
 		},
     defaultCookieAttributes: {
       sameSite: "lax",
-      secure: true,
+      secure: process.env.NODE_ENV === 'prod', // Only use secure cookies in production
       // Remove partitioned to allow cross-site cookie access during OAuth callbacks
       // partitioned: true // New browser standards will mandate this for foreign cookies
     }
@@ -418,31 +420,17 @@ export const auth = betterAuth({
         if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const loginUrl = `${frontendUrl}/login`;
-        
-        // Map Better Auth error codes to client-safe messages
-        const errorMessages = {
-          'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
-          'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
-          'state_not_found': 'OAuth session expired. Please try signing in again.',
-          'no_code': 'OAuth authorization failed. Please try signing in again.',
-          'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
-          'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
-          'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
-          'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
-          'email_already_registered': 'This email is already registered. Please sign in instead.',
-          'email_is_already_registered': 'This email is already registered. Please sign in instead.',
-        };
+    
         
         // Get error code from query params
         const errorCode = ctx.query?.error || 'unknown_error';
-        
-        // Get client-safe error message
-        const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
+
+        console.log('errorCode', errorCode);
 
         console.log('loginUrl', loginUrl);
-        
-        // Redirect to login page with error message
-        throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
+
+        // Redirect to login page with error code
+        throw ctx.redirect(`${loginUrl}?errorCode=${encodeURIComponent(errorCode)}&errorType=oauth`);
         }
 
         // Validate password on reset password endpoint
@@ -504,19 +492,6 @@ export const auth = betterAuth({
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
             const loginUrl = `${frontendUrl}/login`;
             
-            // Map Better Auth error codes to client-safe messages
-            const errorMessages = {
-              'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
-              'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
-              'state_not_found': 'OAuth session expired. Please try signing in again.',
-              'no_code': 'OAuth authorization failed. Please try signing in again.',
-              'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
-              'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
-              'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
-              'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
-              'email_already_registered': 'This email is already registered. Please sign in instead.',
-              'email_is_already_registered': 'This email is already registered. Please sign in instead.',
-            };
             
             // Extract error code from error message or query params
             let errorCode = 'unknown_error';
@@ -535,14 +510,13 @@ export const auth = betterAuth({
                 errorCode = match[1];
               }
             }
-            
-            // Get client-safe error message
-            const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
+
+            console.log('errorCode', errorCode);
 
             console.log('loginUrl', loginUrl);
-            
-            // Redirect to login page with error message
-            throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
+
+            // Redirect to login page with error code
+            throw ctx.redirect(`${loginUrl}?errorCode=${encodeURIComponent(errorCode)}&errorType=oauth`);
           }
         }
       } catch (hookError) {

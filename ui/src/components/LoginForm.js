@@ -2,9 +2,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { authClient } from '../lib/auth-client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import { validateDateOfBirth } from '../../shared/utils/validation';
+import { getErrorMessage } from '../../shared/utils/errors';
 import { validatePassword, validateUsername, validateName, validateEmail, checkPasswordRequirements } from '../lib/validation';
 
 export default function LoginForm({ 
@@ -41,6 +42,18 @@ export default function LoginForm({
   const [needsVerification, setNeedsVerification] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check for error code in URL query parameters
+  useEffect(() => {
+    const urlErrorCode = searchParams.get('errorCode');
+    if (urlErrorCode) {
+      // Decode the URL-encoded error code and get displayable message
+      const decodedErrorCode = decodeURIComponent(urlErrorCode);
+      const displayMessage = getErrorMessage(decodedErrorCode);
+      setError(displayMessage);
+    }
+  }, [searchParams]);
 
   // Check if user is already logged in
 
@@ -60,10 +73,10 @@ export default function LoginForm({
       });
 
       if (result.error){
+        setError(result?.error?.message);
         const isUnverifiedError = result?.error?.code === 'EMAIL_NOT_VERIFIED';
         if (isUnverifiedError) {
           setNeedsVerification(true);
-          setError(result?.error?.message);
         }
       }
       else if (result.data?.user) {
