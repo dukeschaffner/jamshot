@@ -2,4 +2,5 @@
 
 - delete account
 - landing page sign in
-- improve security config
+- handle refresh on 403
+- ui error handling/display
