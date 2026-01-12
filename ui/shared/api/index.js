@@ -265,9 +265,9 @@ const createApiClient = (config = {}) => {
             refreshUserState();
           }
           
-          if (redirectToLogin) {
-            redirectToLogin();
-          }
+          // if (redirectToLogin) {
+          //   redirectToLogin();
+          // }
           
           return Promise.reject(error);
         }
@@ -341,9 +341,9 @@ const createApiClient = (config = {}) => {
             refreshUserState();
           }
 
-          if (redirectToLogin) {
-            redirectToLogin();
-          }
+          // if (redirectToLogin) {
+          //   redirectToLogin();
+          // }
 
           return Promise.reject(refreshError);
         } else {
