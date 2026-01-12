@@ -72,10 +72,12 @@ export const auth = betterAuth({
   database: pool,
   baseURL: process.env.API_URL + '/auth',
   basePath: '/api/auth',
-  trustedOrigins: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'https://dev.d3cx888lrkmdbn.amplifyapp.com'
-  ],
+	trustedOrigins: [
+		'https://sterio.fm', // production UI
+		'https://test.sterio.fm', // test UI
+		'https://api.sterio.fm', // API (both environments)
+    'http://localhost:3000', // local development
+	],
   logger: {
     level: 'debug',
   },
@@ -137,10 +139,12 @@ export const auth = betterAuth({
     }
   },
   advanced: {
-    disableCSRFCheck: true,
-    disableOriginCheck: true,
+    crossSubDomainCookies: {
+			enabled: true,
+			domain: "sterio.fm",
+		},
     defaultCookieAttributes: {
-      sameSite: "none",
+      sameSite: "lax",
       secure: true,
       // Remove partitioned to allow cross-site cookie access during OAuth callbacks
       // partitioned: true // New browser standards will mandate this for foreign cookies
