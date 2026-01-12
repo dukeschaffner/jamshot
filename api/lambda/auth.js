@@ -70,7 +70,7 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: 'https://api.sterio.fm/test/api/auth',
+  baseURL: process.env.API_URL + '/auth',
   basePath: '/api/auth',
 	trustedOrigins: [
 		'https://sterio.fm', // production UI
@@ -80,38 +80,6 @@ export const auth = betterAuth({
 	],
   logger: {
     level: 'debug',
-  },
-  onAPIError: {
-    onError: (error, ctx) => {
-      // Enhanced error logging for debugging
-      console.error('❌ BETTER AUTH ERROR:');
-      console.error('  - Error:', error);
-      console.error('  - Path:', ctx.path);
-      console.error('  - Method:', ctx.method);
-      console.error('  - Query:', ctx.query);
-      console.error('  - Headers:', ctx.headers);
-      console.error('  - Body:', ctx.body ? '[PRESENT]' : '[NOT PRESENT]');
-      console.error('  - Stack:', error.stack);
-
-      // Special logging for OAuth state mismatch errors
-      if (error?.message?.includes('state') || ctx.query?.error === 'state_mismatch') {
-        console.error('🚨 OAUTH STATE MISMATCH DEBUG:');
-        console.error('  - Error message:', error.message);
-        console.error('  - Query state:', ctx.query?.state);
-        console.error('  - Query error:', ctx.query?.error);
-        console.error('  - Session cookies present:', !!ctx.headers?.cookie);
-
-        if (ctx.headers?.cookie) {
-          const cookies = ctx.headers.cookie.split(';').map(c => c.trim());
-          const sessionCookie = cookies.find(c => c.startsWith('__Secure-better-auth.session_token='));
-          if (sessionCookie) {
-            console.error('  - Session token exists but may be invalid/corrupted');
-          } else {
-            console.error('  - Session token MISSING - this could cause state mismatch');
-          }
-        }
-      }
-    },
   },
   emailAndPassword: {
     enabled: true,
@@ -444,121 +412,6 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      // Custom cookie capture for OAuth callbacks before Better Auth strips them
-      const isOAuthCallback = ctx.path?.includes('/callback/');
-      if (isOAuthCallback) {
-        console.log('🎣 CUSTOM OAUTH MIDDLEWARE: Capturing cookies for callback');
-
-        // Try to capture cookies from various sources before Better Auth processes them
-        let capturedCookies = null;
-
-        // Try Hono context if available (this might work in some setups)
-        try {
-          // @ts-ignore - Try to access Hono context
-          if (globalThis?.c?.req?.header) {
-            const cookieHeader = globalThis.c.req.header('cookie') || globalThis.c.req.header('Cookie');
-            if (cookieHeader) {
-              capturedCookies = cookieHeader;
-              console.log('🎣 CAPTURED COOKIES VIA HONO CONTEXT:', capturedCookies.substring(0, 100) + '...');
-            }
-          }
-        } catch (e) {
-          // Ignore errors
-        }
-
-        // Store captured cookies in a global variable for later use
-        if (capturedCookies) {
-          // @ts-ignore
-          globalThis._oauthCookies = capturedCookies;
-        }
-      }
-
-      console.log('🔐 BEFORE HOOK EXECUTED:');
-      console.log('  - Path:', ctx.path);
-      console.log('  - Method:', ctx.method);
-
-      // Enhanced OAuth state debugging for callback requests
-      if (isOAuthCallback) {
-        console.log('🔑 OAUTH CALLBACK DEBUG:');
-        console.log('  - State from query:', ctx.query?.state);
-        console.log('  - Code from query:', ctx.query?.code ? '[PRESENT]' : '[NOT PRESENT]');
-        console.log('  - Scope from query:', ctx.query?.scope);
-        console.log('  - Auth user from query:', ctx.query?.authuser);
-
-        // Log all available headers for debugging
-        console.log('  - All headers keys:', Object.keys(ctx.headers || {}));
-        console.log('  - Raw headers object:', JSON.stringify(ctx.headers, null, 2));
-
-        // Check for cookies in different possible locations
-        let cookieString = null;
-        if (ctx.headers?.cookie) {
-          cookieString = ctx.headers.cookie;
-        } else if (ctx.headers?.['Cookie']) {
-          cookieString = ctx.headers['Cookie'];
-        } else if (ctx.request?.headers?.cookie) {
-          cookieString = ctx.request.headers.cookie;
-        } else if (ctx.request?.headers?.['Cookie']) {
-          cookieString = ctx.request.headers['Cookie'];
-        } else if (ctx.request?.raw?.headers?.get) {
-          // Try Hono's raw request headers
-          cookieString = ctx.request.raw.headers.get('cookie') || ctx.request.raw.headers.get('Cookie');
-        } else if (globalThis._oauthCookies) {
-          // Try globally captured cookies from custom middleware
-          cookieString = globalThis._oauthCookies;
-          console.log('🎣 USING GLOBALLY CAPTURED COOKIES');
-        }
-
-        // Additional debug for request object structure
-        console.log('  - ctx.request exists:', !!ctx.request);
-        if (ctx.request) {
-          console.log('  - ctx.request keys:', Object.keys(ctx.request));
-          if (ctx.request.raw) {
-            console.log('  - ctx.request.raw exists, has headers.get:', typeof ctx.request.raw.headers?.get);
-          }
-        }
-        console.log('  - globalThis._oauthCookies exists:', !!globalThis._oauthCookies);
-
-        console.log('  - Cookie string found:', !!cookieString);
-        if (cookieString) {
-          console.log('  - Raw cookie string:', cookieString);
-          const cookies = cookieString.split(';').map(c => c.trim());
-          console.log('  - Parsed cookies count:', cookies.length);
-          console.log('  - Cookie names:', cookies.map(c => c.split('=')[0]));
-
-          const stateCookie = cookies.find(c => c.startsWith('__Secure-better-auth.state='));
-          const sessionCookie = cookies.find(c => c.startsWith('__Secure-better-auth.session_token='));
-
-          if (stateCookie) {
-            const stateValue = stateCookie.split('=')[1];
-            console.log('  - State cookie present:', !!stateValue);
-            console.log('  - State cookie length:', stateValue?.length || 0);
-            if (stateValue) {
-              console.log('  - State cookie prefix:', stateValue.substring(0, 10) + '...');
-              console.log('  - State cookie suffix:', '...' + stateValue.substring(stateValue.length - 10));
-            }
-          } else {
-            console.log('  - State cookie: NOT FOUND');
-          }
-
-          if (sessionCookie) {
-            const tokenValue = sessionCookie.split('=')[1];
-            console.log('  - Session token present:', !!tokenValue);
-            console.log('  - Session token length:', tokenValue?.length || 0);
-            if (tokenValue) {
-              console.log('  - Session token prefix:', tokenValue.substring(0, 10) + '...');
-              console.log('  - Session token suffix:', '...' + tokenValue.substring(tokenValue.length - 10));
-            }
-          } else {
-            console.log('  - Session token: NOT FOUND');
-          }
-        } else {
-          console.log('  - No cookies found in any location');
-        }
-
-        console.log('  - User-Agent:', ctx.headers?.['user-agent'] || ctx.headers?.['User-Agent']);
-        console.log('  - Referer:', ctx.headers?.referer || ctx.headers?.['Referer']);
-      }
-
       try {
         // Intercept OAuth error page redirects and redirect to UI instead
         if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
@@ -584,6 +437,8 @@ export const auth = betterAuth({
         
         // Get client-safe error message
         const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
+
+        console.log('loginUrl', loginUrl);
         
         // Redirect to login page with error message
         throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
@@ -631,83 +486,62 @@ export const auth = betterAuth({
       }
     }),
     after: createAuthMiddleware(async (ctx) => {
-      console.log('🔐 AFTER HOOK EXECUTED:');
-      console.log('  - Path:', ctx.path);
-      console.log('  - Method:', ctx.method);
 
       try {
         // Check for OAuth callback errors and redirect to UI with client-safe error message
         const isOAuthCallback = ctx.path?.includes('/callback/');
 
         if (isOAuthCallback) {
-          console.log('🔑 OAUTH CALLBACK AFTER DEBUG:');
           const returned = ctx.context.returned;
-          console.log('  - Returned status:', returned?.status);
-          console.log('  - Returned body type:', typeof returned?.body);
-          console.log('  - Returned headers:', returned?.headers ? '[PRESENT]' : '[NOT PRESENT]');
 
-          // Log returned body safely (avoid logging sensitive data)
-          if (returned?.body) {
-            if (typeof returned.body === 'object') {
-              console.log('  - Returned body keys:', Object.keys(returned.body));
-              // Log error details if present
-              if (returned.body.error) {
-                console.log('  - Returned error:', returned.body.error);
-              }
-              if (returned.body.message) {
-                console.log('  - Returned message:', returned.body.message);
-              }
-            } else {
-              console.log('  - Returned body:', returned.body);
+          // If returned is an APIError or error response, handle it
+          if (returned && (returned.status && returned.status >= 400)) {
+            console.log('❌ OAUTH CALLBACK ERROR DETECTED:');
+            console.log('  - Error status:', returned.status);
+            console.log('  - Error body:', returned.body);
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+            const loginUrl = `${frontendUrl}/login`;
+            
+            // Map Better Auth error codes to client-safe messages
+            const errorMessages = {
+              'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
+              'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
+              'state_not_found': 'OAuth session expired. Please try signing in again.',
+              'no_code': 'OAuth authorization failed. Please try signing in again.',
+              'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
+              'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
+              'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
+              'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
+              'email_already_registered': 'This email is already registered. Please sign in instead.',
+              'email_is_already_registered': 'This email is already registered. Please sign in instead.',
+            };
+            
+            // Extract error code from error message or query params
+            let errorCode = 'unknown_error';
+            if (returned instanceof APIError) {
+              errorCode = returned.message || 'unknown_error';
+            } else if (returned.error) {
+              errorCode = returned.error;
+            } else if (ctx.query?.error) {
+              errorCode = ctx.query.error;
             }
-          }
+            
+            // Extract error code from error message if it's in the format "error=code"
+            if (typeof errorCode === 'string' && errorCode.includes('error=')) {
+              const match = errorCode.match(/error=([^&]+)/);
+              if (match) {
+                errorCode = match[1];
+              }
+            }
+            
+            // Get client-safe error message
+            const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
 
-        // If returned is an APIError or error response, handle it
-        if (returned && (returned.status && returned.status >= 400)) {
-          console.log('❌ OAUTH CALLBACK ERROR DETECTED:');
-          console.log('  - Error status:', returned.status);
-          console.log('  - Error body:', returned.body);
-          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-          const loginUrl = `${frontendUrl}/login`;
-          
-          // Map Better Auth error codes to client-safe messages
-          const errorMessages = {
-            'please_restart_the_process': 'Please restart the sign-up process. The OAuth session may have expired.',
-            'invalid_callback_request': 'Invalid OAuth callback. Please try signing in again.',
-            'state_not_found': 'OAuth session expired. Please try signing in again.',
-            'no_code': 'OAuth authorization failed. Please try signing in again.',
-            'no_callback_url': 'OAuth callback URL missing. Please try signing in again.',
-            'oauth_provider_not_found': 'OAuth provider not found. Please try signing in again.',
-            'unable_to_get_user_info': 'Unable to retrieve user information from Google. Please try again.',
-            'state_mismatch': 'OAuth state mismatch. Please try signing in again.',
-            'email_already_registered': 'This email is already registered. Please sign in instead.',
-            'email_is_already_registered': 'This email is already registered. Please sign in instead.',
-          };
-          
-          // Extract error code from error message or query params
-          let errorCode = 'unknown_error';
-          if (returned instanceof APIError) {
-            errorCode = returned.message || 'unknown_error';
-          } else if (returned.error) {
-            errorCode = returned.error;
-          } else if (ctx.query?.error) {
-            errorCode = ctx.query.error;
+            console.log('loginUrl', loginUrl);
+            
+            // Redirect to login page with error message
+            throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
           }
-          
-          // Extract error code from error message if it's in the format "error=code"
-          if (typeof errorCode === 'string' && errorCode.includes('error=')) {
-            const match = errorCode.match(/error=([^&]+)/);
-            if (match) {
-              errorCode = match[1];
-            }
-          }
-          
-          // Get client-safe error message
-          const clientMessage = errorMessages[errorCode] || 'An error occurred during sign-up. Please try again.';
-          
-          // Redirect to login page with error message
-          throw ctx.redirect(`${loginUrl}?error=${encodeURIComponent(clientMessage)}&errorType=oauth`);
-        }
         }
       } catch (hookError) {
         console.error('❌ AFTER HOOK ERROR:', hookError);
