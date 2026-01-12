@@ -51,6 +51,7 @@ const corsOptions = {
     // Allow production domains
     if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com' ||
         origin === 'https://sterio.fm' ||
+        origin === 'https://test.sterio.fm' ||
         origin === 'https://www.sterio.fm') {
       return callback(null, true);
     }

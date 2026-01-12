@@ -31,6 +31,8 @@ app.use(
     origin: [
       'http://localhost:3000',
       'https://dev.d3cx888lrkmdbn.amplifyapp.com',
+      'https://test.sterio.fm',
+      'https://sterio.fm',
       process.env.FRONTEND_URL,
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
