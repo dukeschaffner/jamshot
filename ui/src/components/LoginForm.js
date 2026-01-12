@@ -101,10 +101,14 @@ export default function LoginForm({
     setError('');
     setIsLoggingIn(true);
 
+    const allowSignUp = showLinks;
+    console.log('allowSignUp', allowSignUp);
+
     try {
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: window.location.origin + (redirectUrl || '/')
+        callbackURL: window.location.origin + (redirectUrl || '/'),
+        requestSignUp: allowSignUp,
       });
 
     } catch (err) {
