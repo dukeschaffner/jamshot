@@ -70,7 +70,7 @@ const sendResetPassword = async ({ user, url, token }, request) => {
 
 export const auth = betterAuth({
   database: pool,
-  baseURL: process.env.API_URL + '/auth',
+  baseURL: 'https://api.sterio.fm/test/api/auth',
   basePath: '/api/auth',
 	trustedOrigins: [
 		'https://sterio.fm', // production UI
