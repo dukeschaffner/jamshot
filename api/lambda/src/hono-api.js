@@ -42,15 +42,10 @@ app.use(
 )
 
 // Mount Better Auth routes
-console.log(`[HONO HANDLER] Mounting Better Auth routes at: ${stagePrefix}/api/auth/*`);
 app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
-  console.log(`[HONO HANDLER] Better Auth route hit: ${c.req.method} ${c.req.path}`);
-  console.log(`[HONO HANDLER] Headers:`, Object.fromEntries(c.req.raw.headers.entries()));
-  console.log(`[HONO HANDLER] Query:`, c.req.query());
 
   try {
     const response = await auth.handler(c.req.raw);
-    console.log(`[HONO HANDLER] Auth handler returned status: ${response.status}`);
 
     // If not a 404, return this response
     if (response.status !== 404) {
