@@ -125,27 +125,6 @@ function AppContent({ children }) {
     setHasAccess(true);
   };
 
-  // Show landing page if access check is complete and user doesn't have access and is not authenticated
-  if (accessCheckComplete && !hasAccess && !isAuthenticated) {
-    return <LandingPage onAccessGranted={handleAccessGranted} />;
-  }
-
-  // Show loading state while checking access
-  if (!accessCheckComplete) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        height: '100vh',
-        background: 'var(--background)',
-        color: 'var(--text-primary)'
-      }}>
-        <LoadingSpinner size="large" />
-      </div>
-    );
-  }
-
   // Show complete profile form if needed
   if (needsToCompleteProfile) {
     return (
@@ -176,6 +155,29 @@ function AppContent({ children }) {
       </div>
     );
   }
+
+  // Show landing page if access check is complete and user doesn't have access and is not authenticated
+  if (accessCheckComplete && !hasAccess && !isAuthenticated) {
+    return <LandingPage onAccessGranted={handleAccessGranted} />;
+  }
+
+  // Show loading state while checking access
+  if (!accessCheckComplete) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '100vh',
+        background: 'var(--background)',
+        color: 'var(--text-primary)'
+      }}>
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  
 
   return (
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>

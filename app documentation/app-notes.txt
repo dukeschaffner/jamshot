@@ -104,11 +104,29 @@ Collabs:
 
 <DAW>
   - simple and easy to use DAW that allows users to record audio and add it to a track as a collab
+  - regular DAW and Collab DAW. 
   - tracks:
-    - DAW always has a recording track. it also has 1 track for each collab.
-    - when a user is collabing, they have full control over the recording track (record, delete, etc)
-    - users have limited control over the collab tracks (delete, trim, etc). they cannot record on them and there must always be at least one region in each collab track. users can trim/copy/paste regions on a track, but cannot move regions between tracks.
+    - two types of tracks: regular tracks and recording tracks
+    - all tracks:
+      - regions, solo, mute, gain
+    - regular tracks:
+      - these are from tracks/collabs posted by earlier users (1 track for each previous post/collab). like if user A posted an original track, then user B posts a collab on it. then if I open the collab DAW, I will see a track for user A's post, a track for user B's collab and then the recording track.
+      - recording disabled on these tracks
+      - all other features are enabled on these tracks
+      - must always have at least one region. this preserves the original track/collab.
+    - recording track:
+      - this is the track that the user is recording on. it is the only track that can be recorded on.
+      - togglable input monitoring
+  - regions:
+    - start/end time, waveform, trim, repeat, copy/paste, move, delete. 
+    - can only be added to or moved within the same track. regions cannot be moved between tracks.
+  - horizontal zoom
+  - looper region: user can drag the looper region to loop a section of the track or disable the loop
+  - metronome: user can enable/disable the metronome and adjust the BPM. they can also enable/disable the count-in for recording.
+  - time signature: user can select the time signature of the track
+  - snap to grid: user can enable/disable the snap to grid for recording. this helps when trimming regions, dragging looper region, etc.
   - user can select audio input device. they can record audio from their own DAW by using loopback audio.
+  - DAW duration is set to the end time of the longest track by default. user can extend the DAW duration by dragging the right edge of the DAW.
 </DAW>
 
 
