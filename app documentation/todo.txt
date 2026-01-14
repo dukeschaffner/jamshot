@@ -12,7 +12,6 @@ before launch:
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
   - handle stereo input devices
-  - region splitting
   - region looping
   - snap strenth
   - playhead snap

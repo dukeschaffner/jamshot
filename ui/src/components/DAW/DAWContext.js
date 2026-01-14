@@ -30,6 +30,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [recordingMode, setRecordingMode] = useState('region'); // 'take' | 'region'
   const [gridLines, setGridLines] = useState([]);
+  const [snapStrength, setSnapStrength] = useState(DAWConfig.ui.gridSnapThreshold);
   
   // Region selection and clipboard state
   const [selectedRegionId, setSelectedRegionId] = useState(null);
@@ -490,6 +491,10 @@ export function DAWProvider({ children, trackData, isCollab }) {
     const handleMonitorStarted = () => setIsMonitoring(true);
     const handleMonitorStopped = () => setIsMonitoring(false);
 
+    const handleSnapStrengthChange = (data) => {
+      setSnapStrength(data.snapStrength);
+    };
+
     const handleMetronomeOffsetChange = (data) => {
       const newOffset = data.offset;
       setMetronomeOffset(newOffset);
@@ -553,6 +558,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
     eventBus.on(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
     eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.SNAP_STRENGTH_CHANGE, handleSnapStrengthChange);
     eventBus.on(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
 
     // Return cleanup function
@@ -573,6 +579,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED, handleMonitorStarted);
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STOPPED, handleMonitorStopped);
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_STRENGTH_CHANGE, handleSnapStrengthChange);
       eventBus.off(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
     };
   }, [selectedRegionId, selectedTrackId, clearSelection]); 
@@ -638,6 +645,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       setRecordingMode,
       gridLines,
       updateGridLines,
+      snapStrength,
       selectedRegionId,
       selectedTrackId,
       selectRegion,
