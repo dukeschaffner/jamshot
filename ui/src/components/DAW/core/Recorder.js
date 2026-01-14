@@ -7,11 +7,12 @@ class Recorder {
   constructor(audioContext, eventBus) {
     this.context = audioContext;
     this.eventBus = eventBus;
-    
+
     // Recording state
     this.recordingBuffer = null;
     this.recordingProcessor = null;
     this.recordingStream = null;
+    this.streamSampleRate = null; // Sample rate from the input stream
     this.recordingLatency = 0; // Latency compensation in seconds
     
     // Playback tracking
@@ -99,6 +100,23 @@ class Recorder {
       this.ownsRecordingStream = false;
       if (stream) {
         this.recordingStream = stream;
+        // Capture sample rate from the stream
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+          const settings = audioTrack.getSettings();
+          this.streamSampleRate = settings.sampleRate || this.context.sampleRate;
+
+
+          // Show toast if sample rate is > 48kHz
+          if (this.streamSampleRate > 48000) {
+            this.eventBus.emit(DAW_EVENTS.NOTIFICATION.TOAST, {
+              variant: 'info',
+              title: 'High Sample Rate Detected',
+              message: `Your input is using ${this.streamSampleRate / 1000}kHz. For best results, use 44.1kHz or 48kHz.`,
+              duration: 5000
+            });
+          }
+        }
       } else {
         // Get microphone access with selected device if available
         const audioConstraints = {
@@ -118,6 +136,23 @@ class Recorder {
           audio: audioConstraints
         });
         this.ownsRecordingStream = true;
+
+        // Capture sample rate from the newly created stream
+        const audioTrack = this.recordingStream.getAudioTracks()[0];
+        if (audioTrack) {
+          const settings = audioTrack.getSettings();
+          this.streamSampleRate = settings.sampleRate || this.context.sampleRate;
+
+          // Show toast if sample rate is > 48kHz
+          if (this.streamSampleRate > 48000) {
+            this.eventBus.emit(DAW_EVENTS.NOTIFICATION.TOAST, {
+              variant: 'info',
+              title: 'High Sample Rate Detected',
+              message: `Your input is using ${this.streamSampleRate / 1000}kHz. For best results, use 44.1kHz or 48kHz.`,
+              duration: 5000
+            });
+          }
+        }
       }
       
       // Create recording processor
@@ -245,11 +280,12 @@ class Recorder {
     // Calculate total length
     const totalLength = this.recordingBuffer.reduce((sum, buffer) => sum + buffer.length, 0);
     
-    // Create audio buffer
+    // Create audio buffer with the sample rate from the stream (or default to context sample rate)
+    const sampleRate = this.streamSampleRate || this.context.sampleRate;
     const audioBuffer = this.context.createBuffer(
       DAWConfig.audio.channels,
       totalLength,
-      DAWConfig.audio.sampleRate
+      sampleRate
     );
     
     // Copy data to buffer

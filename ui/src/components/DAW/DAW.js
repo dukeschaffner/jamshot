@@ -22,6 +22,7 @@ import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
+import { useToast } from '../../lib/ToastContext';
 
 function DAWContent({ track}) {
   const {
@@ -59,6 +60,7 @@ function DAWContent({ track}) {
     redo,
   } = useDAW();
 
+  const { showToast } = useToast();
   const [saved, setSaved] = useState(false);
 
   useNavigationGuard({ 
@@ -201,6 +203,19 @@ function DAWContent({ track}) {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo]); // Include dependencies
+
+  // Handle toast notifications from the event bus
+  useEffect(() => {
+    const handleToast = (toastData) => {
+      showToast(toastData);
+    };
+
+    eventBus.on(DAW_EVENTS.NOTIFICATION.TOAST, handleToast);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.NOTIFICATION.TOAST, handleToast);
+    };
+  }, [showToast]);
 
   const handleTimelineClick = (e) => {
     e.stopPropagation();
