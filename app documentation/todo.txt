@@ -6,15 +6,13 @@ before launch:
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
 - add 5 user team/camp option
 - email notifications
-
+- intro video use downloaded video after streaming through once
 
 
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
   - handle stereo input devices
   - region looping
-  - snap strenth
-  - playhead snap
   - multiple recording tracks for camp/team DAW
   - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
 

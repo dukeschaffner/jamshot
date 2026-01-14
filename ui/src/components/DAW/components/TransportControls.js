@@ -1,15 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faPlay, 
-  faPause, 
-  faStop, 
-  faCircle, 
-  faDrum, 
+import {
+  faPlay,
+  faPause,
+  faStop,
+  faCircle,
+  faDrum,
   faCog,
   faUndo,
   faRedo,
-  faQuestion
+  faEllipsisV
 } from '@fortawesome/free-solid-svg-icons';
 import CountInIcon from '../misc/CountInIcon';
 import AudioSettings from './AudioSettings';
@@ -35,12 +35,29 @@ const TransportControls = ({
   const [isEditingTimeSignature, setIsEditingTimeSignature] = useState(false);
   const [bpmInputValue, setBpmInputValue] = useState(metronomeBpm.toString());
   const [showAudioSettingsModal, setShowAudioSettingsModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const bpmControlRef = useRef(null);
+  const menuRef = useRef(null);
 
-  const { isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo} = useDAW();
+  const { isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo, isFullscreen, setIsFullscreen} = useDAW();
 
   const { isAuthenticated } = useUser();
   const isAuthenticatedRef = useRef(isAuthenticated);
+
+  // Listen for browser fullscreen changes and update DAW fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        // User exited fullscreen via browser (ESC key, etc.)
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullscreen, setIsFullscreen]);
 
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
@@ -182,8 +199,39 @@ const TransportControls = ({
     eventBus.emit(DAW_EVENTS.METRONOME.TOGGLE, { isOn: newState });
   };
 
+  // Toggle fullscreen
+  const toggleFullscreen = () => {
+    // Toggle DAW fullscreen state
+    const newFullscreenState = !isFullscreen;
+    setIsFullscreen(newFullscreenState);
 
-  // handle click outside bpm control to finish editing bpm or time signature
+    // Also toggle browser fullscreen for full immersion
+    if (newFullscreenState && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error('Error attempting to enable fullscreen:', err);
+      });
+    } else if (!newFullscreenState && document.fullscreenElement) {
+      document.exitFullscreen().catch(err => {
+        console.error('Error attempting to exit fullscreen:', err);
+      });
+    }
+
+    setShowMenu(false);
+  };
+
+  // Handle menu button click
+  const handleMenuClick = () => {
+    setShowMenu(!showMenu);
+  };
+
+  // Handle help link click
+  const handleHelpClick = () => {
+    window.open('/help?article=how-to-use-own-daw', '_blank', 'noopener,noreferrer');
+    setShowMenu(false);
+  };
+
+
+  // handle click outside bpm control to finish editing bpm or time signature and close menu
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (bpmControlRef.current && !bpmControlRef.current.contains(event.target)) {
@@ -194,16 +242,20 @@ const TransportControls = ({
           setIsEditingTimeSignature(false);
         }
       }
+
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
     };
 
-    if (isEditingBpm || isEditingTimeSignature) {
+    if (isEditingBpm || isEditingTimeSignature || showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isEditingBpm, isEditingTimeSignature]);
+  }, [isEditingBpm, isEditingTimeSignature, showMenu]);
 
 
   return (
@@ -315,13 +367,31 @@ const TransportControls = ({
     >
         <FontAwesomeIcon icon={faCog} />
     </button>
-    <button 
-      className={styles.controlButton + ' ' + styles.settings}
-      onClick={() => window.open('/help?article=how-to-use-own-daw', '_blank', 'noopener,noreferrer')}
-      title="Help"
-    >
-        <FontAwesomeIcon icon={faQuestion} />
-    </button>
+    <div className={styles.menuContainer} ref={menuRef}>
+      <button
+        className={styles.controlButton + ' ' + styles.settings}
+        onClick={handleMenuClick}
+        title="Menu"
+      >
+          <FontAwesomeIcon icon={faEllipsisV} />
+      </button>
+      {showMenu && (
+        <div className={styles.menuDropdown}>
+          <button
+            className={styles.menuItem}
+            onClick={handleHelpClick}
+          >
+            Help
+          </button>
+          <button
+            className={styles.menuItem}
+            onClick={toggleFullscreen}
+          >
+            Fullscreen
+          </button>
+        </div>
+      )}
+    </div>
     </div>
 
     {/* Audio Settings Modal */}

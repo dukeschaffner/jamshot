@@ -428,12 +428,30 @@ function DAW({ track }) {
   // Use useMemo to stabilize the reference and prevent unnecessary re-initializations
   const trackData = useMemo(() => track ? [track] : [], [track]);
   const isCollab = track ? true : false;
-  
+
   return (
     <DAWProvider trackData={trackData} isCollab={isCollab}>
-      <DAWContent track={track}/>
+      <DAWWrapper track={track} />
     </DAWProvider>
   );
+}
+
+// Wrapper component that handles fullscreen modal rendering
+function DAWWrapper({ track }) {
+  const { isFullscreen } = useDAW();
+
+  if (isFullscreen) {
+    return (
+      <>
+        {/* Fullscreen modal overlay */}
+        <div className={styles.fullscreenOverlay}>
+          <DAWContent track={track} />
+        </div>
+      </>
+    );
+  }
+
+  return <DAWContent track={track} />;
 }
 
 export default DAW;
