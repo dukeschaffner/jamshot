@@ -10,7 +10,7 @@ const getStagePrefix = () => {
     console.log(`[HONO HANDLER] Using stage prefix: /test`);
     return '/test';
   }
-  if (env === 'prod') {
+  if (env === 'production') {
     console.log(`[HONO HANDLER] Using stage prefix: /prod`);
     return '/prod';
   }
