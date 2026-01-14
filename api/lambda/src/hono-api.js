@@ -5,22 +5,16 @@ import { auth } from '../auth.js';
 // Helper function to get stage prefix based on environment (matching Express setup)
 const getStagePrefix = () => {
   const env = process.env.NODE_ENV;
-  console.log(`[HONO HANDLER] Environment: ${env}`);
   if (env === 'test') {
-    console.log(`[HONO HANDLER] Using stage prefix: /test`);
     return '/test';
   }
   if (env === 'production') {
-    console.log(`[HONO HANDLER] Using stage prefix: /prod`);
     return '/prod';
   }
-  console.log(`[HONO HANDLER] Using stage prefix: (none)`);
   return ''; // No prefix for dev/staging/other environments
 };
 
 const stagePrefix = getStagePrefix();
-
-console.log(`[HONO HANDLER] Initializing Hono handler with stage prefix: "${stagePrefix}"`);
 
 // Create Hono app
 const app = new Hono();
