@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import styles from './AudioSettings.module.css';
-import Cookies from 'js-cookie';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import DAWConfig from '../misc/DAWConfig.js';
@@ -18,6 +17,7 @@ export default function AudioSettings({
   const [userLatencyCompensation, setUserLatencyCompensation] = useState(15);
   const [metronomeVolume, setMetronomeVolume] = useState(0.7);
   const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
+  const [snapStrength, setSnapStrength] = useState(5);
   const [audioInputDevices, setAudioInputDevices] = useState([]);
 
 
@@ -41,7 +41,7 @@ export default function AudioSettings({
   useEffect(() => {
     const configureAudioSettings = async () => {
       const audioInputs = await getAudioInputDevices();
-      const preferredAudioInputDevice = Cookies.get('preferredAudioInputDevice');
+      const preferredAudioInputDevice = localStorage.getItem('preferredAudioInputDevice');
       let deviceId = null;
       if(audioInputs.length === 1){
         deviceId = audioInputs[0].deviceId;
@@ -59,23 +59,40 @@ export default function AudioSettings({
       setSelectedAudioInputDevice(deviceId);
       AudioState.selectedAudioInputDevice = deviceId;
   
-      const savedLatencyCompensation = Cookies.get('userLatencyCompensation');
-      if (savedLatencyCompensation !== undefined) {
-        setUserLatencyCompensation(parseInt(savedLatencyCompensation, 10));
+      const savedLatencyCompensation = localStorage.getItem('userLatencyCompensation');
+      if (savedLatencyCompensation !== null) {
+        const parsedValue = parseInt(savedLatencyCompensation, 10);
+        if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 100) {
+          setUserLatencyCompensation(parsedValue);
+        } else {
+          setUserLatencyCompensation(DAWConfig.recording.defaultLatencyCompensation);
+        }
       } else {
         // Default value of 15ms if not set
         setUserLatencyCompensation(DAWConfig.recording.defaultLatencyCompensation);
       }
   
-      // Load snap to grid preference from cookies
-      const savedSnapToGridEnabled = Cookies.get('snapToGridEnabled');
-      if (savedSnapToGridEnabled !== undefined) {
+      // Load snap to grid preference from localStorage
+      const savedSnapToGridEnabled = localStorage.getItem('snapToGridEnabled');
+      if (savedSnapToGridEnabled !== null) {
         setSnapToGridEnabled(savedSnapToGridEnabled === 'true');
       }
+
+      // Load snap strength preference from localStorage
+      const savedSnapStrength = localStorage.getItem('snapStrength');
+      if (savedSnapStrength !== null) {
+        const parsedValue = parseInt(savedSnapStrength, 10);
+        if (!isNaN(parsedValue) && parsedValue >= 1 && parsedValue <= 20) {
+          setSnapStrength(parsedValue);
+        }
+      }
   
-      const savedMetronomeVolume = Cookies.get('metronomeVolume');
-      if (savedMetronomeVolume !== undefined) {
-        setMetronomeVolume(parseFloat(savedMetronomeVolume));
+      const savedMetronomeVolume = localStorage.getItem('metronomeVolume');
+      if (savedMetronomeVolume !== null) {
+        const parsedValue = parseFloat(savedMetronomeVolume);
+        if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 1) {
+          setMetronomeVolume(parsedValue);
+        }
       }
     }
     // get audio settings on load
@@ -97,7 +114,7 @@ export default function AudioSettings({
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: e.target.value });
-    Cookies.set('preferredAudioInputDevice', e.target.value, { expires: 365 });
+    localStorage.setItem('preferredAudioInputDevice', e.target.value);
   };
 
   //listen for input device change events, disconnect on unmount
@@ -115,7 +132,7 @@ export default function AudioSettings({
     const latencyCompensation = parseInt(e.target.value, 10);
     setUserLatencyCompensation(latencyCompensation);
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, { latencyCompensation: latencyCompensation });
-    Cookies.set('userLatencyCompensation', latencyCompensation.toString(), { expires: 365 });
+    localStorage.setItem('userLatencyCompensation', latencyCompensation.toString());
   };
 
   // Handle snap to grid toggle
@@ -123,7 +140,15 @@ export default function AudioSettings({
     const snapToGridEnabled = e.target.checked;
     setSnapToGridEnabled(snapToGridEnabled);
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.SNAP_TO_GRID_CHANGE, { snapToGridEnabled: snapToGridEnabled });
-    Cookies.set('snapToGridEnabled', snapToGridEnabled.toString(), { expires: 365 });
+    localStorage.setItem('snapToGridEnabled', snapToGridEnabled.toString());
+  };
+
+  // Handle snap strength change
+  const handleSnapStrengthChange = (e) => {
+    const newSnapStrength = parseInt(e.target.value, 10);
+    setSnapStrength(newSnapStrength);
+    eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.SNAP_STRENGTH_CHANGE, { snapStrength: newSnapStrength });
+    localStorage.setItem('snapStrength', newSnapStrength.toString());
   };
 
   // Handle metronome volume change
@@ -131,7 +156,7 @@ export default function AudioSettings({
     const newVolume = parseFloat(e.target.value);
     setMetronomeVolume(newVolume);
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, { volume: newVolume });
-    Cookies.set('metronomeVolume', newVolume.toString(), { expires: 365 });
+    localStorage.setItem('metronomeVolume', newVolume.toString());
   };
 
   // Handle close button click
@@ -239,7 +264,29 @@ export default function AudioSettings({
               </label>
             </div>
             <p className={styles.helpText}>
-              When enabled, looper and track regions will snap to grid lines while dragging.
+              When enabled, looper, track regions, and playhead will snap to grid lines while dragging.
+            </p>
+          </div>
+
+          {/* Snap Strength Control */}
+          <div className={styles.formGroup}>
+            <label htmlFor="snap-strength">
+              Snap Strength: {snapStrength}px
+            </label>
+            <div className={styles.sliderContainer}>
+              <input
+                type="range"
+                id="snap-strength"
+                className={styles.formRange}
+                min="1"
+                max="20"
+                step="1"
+                value={snapStrength}
+                onChange={handleSnapStrengthChange}
+              />
+            </div>
+            <p className={styles.helpText}>
+              Adjust how close you need to be to a grid line before snapping occurs. Lower values make snapping more sensitive.
             </p>
           </div>
         </div>

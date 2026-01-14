@@ -34,6 +34,7 @@ export const DAW_EVENTS = {
       INPUT_DEVICE_CHANGE: 'audio:settings:input:device:change',
       LATENCY_COMPENSATION_CHANGE: 'audio:settings:latency:compensation:change',
       SNAP_TO_GRID_CHANGE: 'audio:settings:snap:to:grid:change',
+      SNAP_STRENGTH_CHANGE: 'audio:settings:snap:strength:change',
       METRONOME_VOLUME_CHANGE: 'audio:settings:metronome:volume:change',
       MONITOR_TOGGLE: 'audio:settings:monitor:toggle',
       MONITOR_STARTED: 'audio:settings:monitor:started',
