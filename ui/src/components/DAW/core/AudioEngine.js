@@ -332,7 +332,18 @@ class AudioEngine {
 
   async startRecording() {
     if (!this.monitorStream || !this.monitorSource) {
-      await this.initializeInputMetering();
+      try{
+        await this.initializeInputMetering();
+      } catch (e) {
+        console.error('Failed to initialize input metering:', e);
+        this.eventBus.emit(DAW_EVENTS.NOTIFICATION.TOAST, {
+          variant: 'error',
+          title: 'Microphone Access Required',
+          message: 'Unable to access microphone. Please grant microphone permissions to record audio. <a href="/help?article=how-to-allow-audio-access" target="_blank" rel="noopener noreferrer">Learn how to grant access</a>',
+          duration: 8000
+        });
+        return;
+      }
     }
     if (this.recorder) {
       await this.recorder.startRecording(this.monitorStream || undefined);

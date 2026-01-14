@@ -53,6 +53,7 @@ function DAWContent({ track}) {
     copyRegion,
     pasteRegion,
     repeatRegion,
+    splitRegion,
     clipboard,
     clearSelection,
     canUndo,
@@ -156,6 +157,13 @@ function DAWContent({ track}) {
         if (selectedRegionId && !isRecording) {
           e.preventDefault();
           repeatRegion();
+        }
+      }
+      // Handle 't' key for split region (only when no modifiers are pressed)
+      else if (!e.metaKey && !e.ctrlKey && (e.code === 'KeyT' || e.key === 't' || e.key === 'T')) {
+        if (selectedRegionId && !isRecording) {
+          e.preventDefault();
+          splitRegion();
         }
       }
       // Handle 'r' key for recording (only when no modifiers are pressed)

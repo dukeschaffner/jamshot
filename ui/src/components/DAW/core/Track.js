@@ -68,15 +68,17 @@ class Track {
     if (data.trackId === this.id) {
       // Find the region before removing to capture state for undo
       const regionToRemove = this.regions.find(r => r.id === data.region.id);
-      
+
       this.regions = this.regions.filter(r => r.id !== data.region.id);
-      
+
       // Emit REGION.REMOVED with optional action metadata for undo
-      // Skip undo for recording track to avoid undo pollution
-      eventBus.emit(DAW_EVENTS.REGION.REMOVED, { 
-        region: data.region, 
+      // Skip undo for recording track to avoid undo pollution, or when recordUndo is false
+      const shouldRecordUndo = !this.isRecordingTrack && data.recordUndo !== false;
+
+      eventBus.emit(DAW_EVENTS.REGION.REMOVED, {
+        region: data.region,
         trackId: this.id,
-        ...(regionToRemove && {
+        ...(regionToRemove && shouldRecordUndo && {
           action: {
             canUndo: true,
             type: COMMAND_TYPES.REGION_REMOVE,

@@ -31,9 +31,10 @@ export default function Region({
     selectedTrackId, 
     selectRegion, 
     clearSelection, 
-    copyRegion, 
-    pasteRegion, 
-    repeatRegion, 
+    copyRegion,
+    pasteRegion,
+    repeatRegion,
+    splitRegion,
     clipboard, 
     trackManagerRef,
     setContextMenuItems,
@@ -273,12 +274,12 @@ export default function Region({
   // Handle repeat region
   const handleRegionRepeat = () => {
     if (isRecording) return;
-    
+
     // Select the region first if not already selected
     if (!isSelected) {
       selectRegion(region.id, track.id);
     }
-    
+
     // Calculate the new start time (immediately after the region ends)
     const newStartTime = region.endTime;
     const regionDuration = region.endTime - region.startTime;
@@ -308,14 +309,29 @@ export default function Region({
           false, // overwriteTrack
           true   // recordUndo - record this for undo/redo
         );
-        
+
         // Select the newly created region so the next Ctrl+R will repeat it
         if (newRegion) {
           selectRegion(newRegion.id, track.id);
         }
       }
     }
-    
+
+    setShowContextMenu(false);
+  };
+
+  // Handle split region
+  const handleRegionSplit = () => {
+    if (isRecording) return;
+
+    // Select the region first if not already selected
+    if (!isSelected) {
+      selectRegion(region.id, track.id);
+    }
+
+    // Split the region using the splitRegion function
+    splitRegion();
+
     setShowContextMenu(false);
   };
 
@@ -546,6 +562,10 @@ export default function Region({
     {
       label: "Repeat Region (Cmd/Ctrl+R)",
       action: () => handleRegionRepeat(),
+    },
+    {
+      label: "Split at Playhead (T)",
+      action: () => handleRegionSplit(),
     },
     ...(canDelete ? [
       {
