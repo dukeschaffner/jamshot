@@ -1,7 +1,6 @@
 'use client';
 
 import styles from './Region.module.css';
-import contextMenuStyles from './ContextMenu.module.css';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
 import WaveformChunk from './waveform/WaveformChunk';
@@ -20,7 +19,27 @@ export default function Region({
   tracksScrollContainerRef,
   isRecordingTrack = false
 }) {
-  const { scrollLeft, duration, zoom, isPlaying, isRecording, tracksContainerWidth, gridLines, selectedRegionId, selectedTrackId, selectRegion, clearSelection, copyRegion, pasteRegion, repeatRegion, clipboard, trackManagerRef } = useDAW();
+  const { 
+    scrollLeft, 
+    duration, 
+    zoom, 
+    isPlaying, 
+    isRecording, 
+    tracksContainerWidth, 
+    gridLines, 
+    selectedRegionId, 
+    selectedTrackId, 
+    selectRegion, 
+    clearSelection, 
+    copyRegion, 
+    pasteRegion, 
+    repeatRegion, 
+    clipboard, 
+    trackManagerRef,
+    setContextMenuItems,
+    setContextMenuPosition,
+    setShowContextMenu,
+  } = useDAW();
 
 
   const musicGridLinesRef = useRef([]);
@@ -65,10 +84,6 @@ export default function Region({
 
   // Store original state for undo tracking
   const originalStateRef = useRef(null);
-
-  // Context menu state
-  const [showContextMenu, setShowContextMenu] = useState(false);
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
 
   // Grid snapping state
   const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
@@ -199,13 +214,14 @@ export default function Region({
   const handleRegionContextMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (isRecording) return;
-    
+
     // Emit event to close other context menus (including other regions)
     eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'region', regionId: region.id });
-    
-    // Position context menu at mouse position
+
+    // Set context menu items and position context menu at mouse position
+    setContextMenuItems(menuItems);
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
   };
@@ -312,43 +328,6 @@ export default function Region({
   // Check if delete should be shown (hide if it's the last region in a non-recording track)
   const canDelete = isRecordingTrack || (track && track.getActiveRegions().length > 1);
 
-
-  // Handle click outside context menu to close it
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setShowContextMenu(false);
-    };
-    
-    if (showContextMenu) {
-      document.addEventListener('click', handleClickOutside);
-    }
-    
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showContextMenu]);
-
-  // Listen for other context menus opening and close this one
-  useEffect(() => {
-    const handleOtherContextMenuOpen = (data) => {
-      // Close this context menu if another one opens
-      // If it's a region context menu, only keep it open if it's for this same region
-      if (data.source === 'region') {
-        if (data.regionId !== region.id) {
-          setShowContextMenu(false);
-        }
-      } else {
-        // Close for any non-region context menu (track, timeline, etc.)
-        setShowContextMenu(false);
-      }
-    };
-
-    eventBus.on(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
-
-    return () => {
-      eventBus.off(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
-    };
-  }, [region.id]);
 
   // Mouse event handlers for region dragging
   useEffect(() => {
@@ -552,6 +531,25 @@ export default function Region({
       regionContainerRef.current.style.cursor = 'default';
     }
   };
+
+  const menuItems = [
+    {
+      label: "Copy Region",
+      action: () => handleRegionCopy(),
+    },
+    ...(canPaste ? [
+      {
+        label: "Paste Region",
+        action: () => handleRegionPaste(),
+      }
+    ] : []),
+    ...(canDelete ? [
+      {
+        label: "Delete Region",
+        action: () => handleRegionDelete(),
+      }
+    ] : []),
+  ];
 
   // Mouse event handlers for crop dragging
   useEffect(() => {
@@ -850,46 +848,7 @@ export default function Region({
       </>
     )}
 
-    {/* Context Menu */}
-    {showContextMenu && (
-      <div 
-        className={contextMenuStyles.contextMenu} 
-        style={{ 
-          top: `${contextMenuPosition.y}px`, 
-          left: `${contextMenuPosition.x}px`
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button 
-          onClick={handleRegionCopy}
-          disabled={isRecording}
-        >
-          Copy Region
-        </button>
-        {canPaste && (
-          <button 
-            onClick={handleRegionPaste}
-            disabled={isRecording}
-          >
-            Paste Region
-          </button>
-        )}
-        <button 
-          onClick={handleRegionRepeat}
-          disabled={isRecording}
-        >
-          Add Repeat ({navigator.platform.toLowerCase().includes('mac') ? 'Cmd+R' : 'Ctrl+R'})
-        </button>
-        {canDelete && (
-          <button 
-            onClick={handleRegionDelete}
-            style={{ color: '#ff3b30' }}
-          >
-            Delete Region
-          </button>
-        )}
-      </div>
-    )}
+
     </div>
   );
 } 
