@@ -123,6 +123,17 @@ body.dark-mode .toastTitle {
   line-height: 1.4;
 }
 
+.toastMessage a {
+  color: var(--seafoam);
+  text-decoration: underline;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+
+.toastMessage a:hover {
+  opacity: 0.8;
+}
+
 body.dark-mode .toastMessage {
   color: var(--text-secondary);
 }

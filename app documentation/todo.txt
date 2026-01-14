@@ -4,7 +4,6 @@ before launch:
 - video export with waveform viz, showing user profile pics, names, watermark, etc
 - post upload screen (or toast message)with option to copy track link or export video
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
-- switch to better auth? neon auth?
 - add 5 user team/camp option
 - email notifications
 
@@ -13,7 +12,6 @@ before launch:
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
   - handle stereo input devices
-  - handle if user blocked mic access
   - region splitting
   - region looping
   - snap strenth

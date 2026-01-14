@@ -10,6 +10,7 @@ export const COMMAND_TYPES = {
   REGION_CROP: 'region:crop',
   REGION_ADD: 'region:add',
   REGION_REMOVE: 'region:remove',
+  REGION_SPLIT: 'region:split',
   TRACK_VOLUME: 'track:volume',
   TRACK_SOLO: 'track:solo',
 };
@@ -266,19 +267,23 @@ class UndoManager {
         }
         break;
 
+      case COMMAND_TYPES.REGION_SPLIT:
+        this.applyRegionSplit(track, command, isUndo);
+        break;
+
       case COMMAND_TYPES.TRACK_VOLUME:
         track.setGain(state.gain);
-        eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, { 
-          trackId: command.trackId, 
-          gain: state.gain 
+        eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, {
+          trackId: command.trackId,
+          gain: state.gain
         });
         break;
 
       case COMMAND_TYPES.TRACK_SOLO:
         track.setSolo(state.isSolo);
-        eventBus.emit(DAW_EVENTS.TRACK.SOLO, { 
-          trackId: command.trackId, 
-          isSolo: state.isSolo 
+        eventBus.emit(DAW_EVENTS.TRACK.SOLO, {
+          trackId: command.trackId,
+          isSolo: state.isSolo
         });
         break;
 
@@ -336,7 +341,7 @@ class UndoManager {
    */
   applyRegionRestore(track, command) {
     const state = command.before || command.after;
-    
+
     // Create the region object from saved state
     const region = {
       id: command.regionId,
@@ -353,9 +358,85 @@ class UndoManager {
     track.regions.push(region);
 
     // Emit added event to refresh UI
-    eventBus.emit(DAW_EVENTS.REGION.ADDED, { 
-      region: region, 
-      trackId: command.trackId 
+    eventBus.emit(DAW_EVENTS.REGION.ADDED, {
+      region: region,
+      trackId: command.trackId
+    });
+  }
+
+  /**
+   * Apply region split operation (for undo/redo)
+   */
+  applyRegionSplit(track, command, isUndo) {
+    if (isUndo) {
+      // Undo: Remove the two split regions and restore the original region
+      if (command.after.leftRegion) {
+        this.applyRegionRemoveById(track, command.after.leftRegion.id);
+      }
+      if (command.after.rightRegion) {
+        this.applyRegionRemoveById(track, command.after.rightRegion.id);
+      }
+
+      // Restore the original region
+      const originalRegion = {
+        id: command.regionId,
+        key: command.before.key,
+        startTime: command.before.startTime,
+        endTime: command.before.endTime,
+        offset: command.before.offset,
+        duration: command.before.duration,
+        active: command.before.active !== undefined ? command.before.active : true,
+        name: command.before.name || 'Region'
+      };
+
+      track.regions.push(originalRegion);
+      eventBus.emit(DAW_EVENTS.REGION.ADDED, {
+        region: originalRegion,
+        trackId: command.trackId
+      });
+    } else {
+      // Redo: Remove the original region and restore the two split regions
+      this.applyRegionRemoveById(track, command.regionId);
+
+      // Restore the two split regions
+      if (command.after.leftRegion) {
+        const leftRegion = { ...command.after.leftRegion };
+        track.regions.push(leftRegion);
+        eventBus.emit(DAW_EVENTS.REGION.ADDED, {
+          region: leftRegion,
+          trackId: command.trackId
+        });
+      }
+
+      if (command.after.rightRegion) {
+        const rightRegion = { ...command.after.rightRegion };
+        track.regions.push(rightRegion);
+        eventBus.emit(DAW_EVENTS.REGION.ADDED, {
+          region: rightRegion,
+          trackId: command.trackId
+        });
+      }
+    }
+  }
+
+  /**
+   * Remove a region by ID (helper method for region split)
+   */
+  applyRegionRemoveById(track, regionId) {
+    const regionIndex = track.regions.findIndex(r => r.id === regionId);
+
+    if (regionIndex === -1) {
+      console.error('Region not found for removal:', regionId);
+      return;
+    }
+
+    const region = track.regions[regionIndex];
+    track.regions.splice(regionIndex, 1);
+
+    // Emit removed event to refresh UI
+    eventBus.emit(DAW_EVENTS.REGION.REMOVED, {
+      region: region,
+      trackId: track.id
     });
   }
 

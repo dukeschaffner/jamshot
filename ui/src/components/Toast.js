@@ -57,7 +57,12 @@ export default function Toast({
           </div>
           <div className={styles.toastText}>
             {title && <div className={styles.toastTitle}>{title}</div>}
-            {message && <div className={styles.toastMessage}>{message}</div>}
+            {message && (
+              <div
+                className={styles.toastMessage}
+                dangerouslySetInnerHTML={{ __html: message }}
+              />
+            )}
           </div>
         </div>
         <div className={styles.toastActions}>

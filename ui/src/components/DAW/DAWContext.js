@@ -5,9 +5,9 @@ import AudioEngine from './core/AudioEngine';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
 import api from '@/lib/api';
+import { undoManager, COMMAND_TYPES } from './core/UndoManager';
 import DAWConfig from './misc/DAWConfig';
 import AudioState from './core/AudioStateStore';
-import { undoManager } from './core/UndoManager';
 
 const DAWContext = createContext();
 
@@ -313,6 +313,112 @@ export function DAWProvider({ children, trackData, isCollab }) {
     return true;
   }, [selectedRegionId, selectedTrackId, selectRegion]);
 
+  // Split handler - splits a region at playhead position
+  const splitRegion = useCallback(() => {
+    if (!selectedRegionId || !selectedTrackId || !trackManagerRef.current) {
+      return false;
+    }
+
+    const track = trackManagerRef.current.getTrack(selectedTrackId);
+    if (!track) {
+      return false;
+    }
+
+    const region = track.regions.find(r => r.id === selectedRegionId);
+    if (!region) {
+      return false;
+    }
+
+    // Check if playhead is within the selected region
+    const playheadTime = playheadLocation.time;
+    if (playheadTime <= region.startTime || playheadTime >= region.endTime) {
+      return false; // Playhead is not over the selected region
+    }
+
+    // Calculate split time relative to region's start
+    const splitTimeRelative = playheadTime - region.startTime;
+
+    // Calculate offsets for the two new regions
+    // Left region: same offset as original
+    // Right region: offset + splitTimeRelative
+    const leftRegionOffset = region.offset;
+    const rightRegionOffset = region.offset + splitTimeRelative;
+
+    // Create the two split regions
+    const leftRegion = track.addRegion(
+      region.key,
+      region.startTime,
+      leftRegionOffset,
+      playheadTime,
+      `${region.name} (1)`,
+      false, // overwriteTrack
+      false  // recordUndo - we'll handle undo manually
+    );
+
+    const rightRegion = track.addRegion(
+      region.key,
+      playheadTime,
+      rightRegionOffset,
+      region.endTime,
+      `${region.name} (2)`,
+      false, // overwriteTrack
+      false  // recordUndo - we'll handle undo manually
+    );
+
+    // Remove the original region (without undo recording since we're handling it manually)
+    eventBus.emit(DAW_EVENTS.REGION.REMOVE, {
+      region: region,
+      trackId: selectedTrackId,
+      recordUndo: false
+    });
+
+    // Record the split operation for undo/redo
+    undoManager.recordCommand({
+      type: COMMAND_TYPES.REGION_SPLIT,
+      trackId: selectedTrackId,
+      regionId: region.id, // Store original region ID for undo
+      before: {
+        startTime: region.startTime,
+        endTime: region.endTime,
+        offset: region.offset,
+        key: region.key,
+        duration: region.duration,
+        active: region.active,
+        name: region.name
+      },
+      after: {
+        leftRegion: leftRegion ? {
+          id: leftRegion.id,
+          startTime: leftRegion.startTime,
+          endTime: leftRegion.endTime,
+          offset: leftRegion.offset,
+          key: leftRegion.key,
+          duration: leftRegion.duration,
+          active: leftRegion.active,
+          name: leftRegion.name
+        } : null,
+        rightRegion: rightRegion ? {
+          id: rightRegion.id,
+          startTime: rightRegion.startTime,
+          endTime: rightRegion.endTime,
+          offset: rightRegion.offset,
+          key: rightRegion.key,
+          duration: rightRegion.duration,
+          active: rightRegion.active,
+          name: rightRegion.name
+        } : null
+      },
+      description: 'Split Region'
+    });
+
+    // Select the first (left) split region
+    if (leftRegion) {
+      selectRegion(leftRegion.id, selectedTrackId);
+    }
+
+    return true;
+  }, [selectedRegionId, selectedTrackId, selectRegion, playheadLocation]);
+
   // Undo handler
   const undo = useCallback(() => {
     if (!trackManagerRef.current) {
@@ -539,6 +645,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       copyRegion,
       pasteRegion,
       repeatRegion,
+      splitRegion,
       clipboard,
       // Undo/Redo
       canUndo,
