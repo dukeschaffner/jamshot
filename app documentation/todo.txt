@@ -12,7 +12,6 @@ before launch:
 
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
-  - handle sample rate mismatch (should input device determine sample rate?)
   - handle stereo input devices
   - handle if user blocked mic access
   - region splitting
