@@ -86,10 +86,15 @@ function DAWContent({ track}) {
     const handleKeyDown = (e) => {
       // Ignore if user is typing in an input field, textarea, or contentEditable element
       if (
-        e.target.tagName === 'INPUT' || 
-        e.target.tagName === 'TEXTAREA' || 
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
         e.target.isContentEditable
       ) {
+        return;
+      }
+
+      // Ignore if upload form is open
+      if (showUploadForm) {
         return;
       }
 
@@ -210,7 +215,7 @@ function DAWContent({ track}) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm]); // Include dependencies
 
   // Handle toast notifications from the event bus
   useEffect(() => {
