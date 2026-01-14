@@ -48,6 +48,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [showContextMenu, setShowContextMenu] = useState(false);
 
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   // Function for components to update grid lines
   const updateGridLines = useCallback((newGridLines) => {
     setGridLines(newGridLines);
@@ -669,6 +672,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
       setContextMenuPosition,
       showContextMenu,
       setShowContextMenu,
+      // Fullscreen
+      isFullscreen,
+      setIsFullscreen,
     }}>
       {children}
     </DAWContext.Provider>

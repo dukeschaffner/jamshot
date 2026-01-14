@@ -21,6 +21,7 @@
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Modal Header */
@@ -78,8 +79,8 @@
 
 .formControl:focus {
   outline: none;
-  border-color: #007aff;
-  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+  border-color: var(--seafoam-dark);
+  box-shadow: 0 0 0 2px rgba(101, 214, 173, 0.2);
 }
 
 /* Slider Container */
@@ -105,7 +106,7 @@
   appearance: none;
   width: 18px;
   height: 18px;
-  background: #007aff;
+  background: var(--seafoam-dark);
   border-radius: 50%;
   cursor: pointer;
   transition: transform 0.2s;
@@ -118,7 +119,7 @@
 .formRange::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  background: #007aff;
+  background: var(--seafoam-dark);
   border-radius: 50%;
   cursor: pointer;
   border: none;
@@ -135,20 +136,24 @@
   color: #666;
   margin-top: 4px;
   line-height: 1.4;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: normal;
 }
 
 /* Help Link */
 .helpLink {
   display: inline-block;
   font-size: 12px;
-  color: #007aff;
+  color: var(--seafoam-dark);
   margin-top: 8px;
   text-decoration: none;
   transition: color 0.2s;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .helpLink:hover {
-  color: #0062cc;
   text-decoration: underline;
 }
 
@@ -200,7 +205,7 @@
 }
 
 .toggleInput:checked + .toggleSwitch {
-  background-color: #007aff;
+  background-color: var(--seafoam-dark);
 }
 
 .toggleInput:checked + .toggleSwitch::before {
@@ -230,12 +235,12 @@
 }
 
 .btnPrimary {
-  background-color: #007aff;
+  background-color: var(--seafoam-dark);
   color: white;
 }
 
 .btnPrimary:hover:not(:disabled) {
-  background-color: #0062cc;
+  background-color: #4ab08a;
   transform: translateY(-1px);
 }
 
