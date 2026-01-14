@@ -22,6 +22,7 @@ import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
+import ContextMenu from './components/ContextMenu';
 import { useToast } from '../../lib/ToastContext';
 
 function DAWContent({ track}) {
@@ -58,6 +59,10 @@ function DAWContent({ track}) {
     canRedo,
     undo,
     redo,
+    contextMenuItems,
+    contextMenuPosition,
+    showContextMenu,
+    setShowContextMenu,
   } = useDAW();
 
   const { showToast } = useToast();
@@ -73,11 +78,6 @@ function DAWContent({ track}) {
   const [tracksContainer, setTracksContainer] = useState(null);
 
   const [showUploadForm, setShowUploadForm] = useState(false);
-  
-  // Timeline context menu state
-  const [showTimelineContextMenu, setShowTimelineContextMenu] = useState(false);
-  const [timelineContextMenuPosition, setTimelineContextMenuPosition] = useState({ x: 0, y: 0 });
-  const [timelinePasteTime, setTimelinePasteTime] = useState(null);
 
 
   // Add keyboard event listener for space and enter keys
@@ -227,82 +227,8 @@ function DAWContent({ track}) {
     clearSelection();
   };
 
-  // Handle right-click on timeline for context menu
-  const handleTimelineContextMenu = (e) => {
-    // Don't show timeline context menu if clicking on a region or track
-    let target = e.target;
-    while (target && target !== e.currentTarget) {
-      if (target.className && typeof target.className === 'string' && 
-          (target.className.includes('region') || target.className.includes('Region') ||
-           target.className.includes('track') || target.className.includes('Track'))) {
-        return;
-      }
-      target = target.parentElement;
-    }
-    
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (isRecording) return;
-    
-    // Calculate time position based on click location
-    if (tracksAndTimelineRef.current) {
-      const rect = tracksAndTimelineRef.current.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const timePosition = (clickX / rect.width) * duration;
-      setTimelinePasteTime(Math.max(0, Math.min(timePosition, duration)));
-    }
-    
-    // Emit event to close other context menus
-    eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'timeline' });
-    
-    // Position context menu at mouse position
-    setTimelineContextMenuPosition({ x: e.clientX, y: e.clientY });
-    setShowTimelineContextMenu(true);
-  };
 
-  // Handle paste from timeline context menu (pastes to the track that was copied from)
-  const handleTimelinePaste = () => {
-    if (isRecording) return;
-    
-    if (clipboard) {
-      // Use timelinePasteTime if available (from right-click position), otherwise use playhead
-      pasteRegion(timelinePasteTime !== null ? timelinePasteTime : undefined);
-    }
-    setShowTimelineContextMenu(false);
-    setTimelinePasteTime(null);
-  };
 
-  // Handle click outside timeline context menu to close it
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setShowTimelineContextMenu(false);
-    };
-    
-    if (showTimelineContextMenu) {
-      document.addEventListener('click', handleClickOutside);
-    }
-    
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showTimelineContextMenu]);
-
-  // Listen for other context menus opening and close this one
-  useEffect(() => {
-    const handleOtherContextMenuOpen = (data) => {
-      // Close this context menu if another one opens (unless it's this same one)
-      if (data.source !== 'timeline') {
-        setShowTimelineContextMenu(false);
-      }
-    };
-
-    eventBus.on(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
-
-    return () => {
-      eventBus.off(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, handleOtherContextMenuOpen);
-    };
-  }, []);
 
   const handleMetronomeOffsetChange = (newOffset) => {
     eventBus.emit(DAW_EVENTS.METRONOME.OFFSET_CHANGE, { offset: newOffset });
@@ -406,11 +332,10 @@ function DAWContent({ track}) {
           >
             {tracks.length > 0 && (
               <>
-                <div 
+                <div
                   className={styles.tracksAndTimelineContainer}
                   ref={tracksAndTimelineRef}
                   onClick={handleTimelineClick}
-                  onContextMenu={handleTimelineContextMenu}
                   style={{
                     width: `${Math.max(100, zoom * 100)}%`,
                     minWidth: `${Math.max(100, zoom * 100)}%`,
@@ -441,26 +366,6 @@ function DAWContent({ track}) {
                     zoom={zoom}
                   />
                   
-                  {/* Timeline Context Menu */}
-                  {showTimelineContextMenu && (
-                    <div 
-                      className={contextMenuStyles.contextMenu} 
-                      style={{ 
-                        top: `${timelineContextMenuPosition.y}px`, 
-                        left: `${timelineContextMenuPosition.x}px`
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {clipboard && (
-                        <button 
-                          onClick={handleTimelinePaste}
-                          disabled={isRecording}
-                        >
-                          Paste Region
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
                 {zoom > 1 && (
                   <div className={styles.zoomIndicator}>
@@ -477,6 +382,14 @@ function DAWContent({ track}) {
             />
         </div>
       </div>
+
+      <ContextMenu
+        x={contextMenuPosition.x}
+        y={contextMenuPosition.y}
+        show={showContextMenu}
+        items={contextMenuItems}
+        onClose={() => setShowContextMenu(false)}
+      />
 
       {recordingTrackHasAudio && showUploadForm && (
         <UploadForm

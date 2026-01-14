@@ -42,6 +42,11 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [undoDescription, setUndoDescription] = useState(null);
   const [redoDescription, setRedoDescription] = useState(null);
 
+  // Context menu state
+  const [contextMenuItems, setContextMenuItems] = useState([]);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [showContextMenu, setShowContextMenu] = useState(false);
+
   // Function for components to update grid lines
   const updateGridLines = useCallback((newGridLines) => {
     setGridLines(newGridLines);
@@ -542,6 +547,13 @@ export function DAWProvider({ children, trackData, isCollab }) {
       redoDescription,
       undo,
       redo,
+      // Context menu
+      contextMenuItems,
+      setContextMenuItems,
+      contextMenuPosition,
+      setContextMenuPosition,
+      showContextMenu,
+      setShowContextMenu,
     }}>
       {children}
     </DAWContext.Provider>
