@@ -161,7 +161,6 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user, ctx) => {
-          console.log('ctx', ctx);
           const { username, name, password, dateOfBirth, acceptTerms } = ctx.body || {};
           
           // Check if this is an OAuth signup
@@ -373,6 +372,9 @@ export const auth = betterAuth({
                         ctx.request.socket?.remoteAddress ||
                         (ctx.request.connection.socket ? ctx.request.connection.socket.remoteAddress : null);
             }
+
+            console.log('clientIp', clientIp);
+            console.log('headers', ctx.headers);
             
             // Extract first IP if x-forwarded-for contains multiple IPs
             if (clientIp && clientIp.includes(',')) {
