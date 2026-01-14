@@ -19,13 +19,11 @@ export const handler = async (event, context) => {
   try {
     if (isAuthRequest) {
       // Route auth requests to Hono handler
-      console.log('🔀 Routing to Hono auth handler');
       const { handle } = await import("hono/aws-lambda");
       const honoApp = await import('./src/hono-api.js');
       return await handle(honoApp.default)(event, context);
     } else {
       // Route all other requests to serverless express handler
-      console.log('🔀 Routing to Express API handler');
       const serverlessExpress = require('@codegenie/serverless-express');
       const expressApp = await import('./src/express-api.js');
       const serverlessExpressInstance = serverlessExpress({

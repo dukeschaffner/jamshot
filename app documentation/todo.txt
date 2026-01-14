@@ -21,6 +21,8 @@ before launch:
   - playhead snap
   - multiple recording tracks for camp/team DAW
   - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
+
+  
 - handle notification spamming
 - display uploads left in nav?
 - competition

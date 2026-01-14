@@ -1,3 +1,6 @@
+API:
+- switch to hono for all routes
+
 DAW:
 - Clear buffer registry unused/old buffers
 

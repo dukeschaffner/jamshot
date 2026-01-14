@@ -1,8 +1,6 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-import { toNodeHandler } from 'better-auth/node';
-import { auth } from '../auth.js';
 import userRoutes from './routes/users.js';
 import trackRoutes from './routes/tracks.js';
 import notificationRoutes from './routes/notifications.js';
@@ -18,8 +16,7 @@ import teamRoutes from './routes/teams.js';
 import groupRoutes from './routes/groups.js';
 import landingRoutes from './routes/landing.js';
 import featureFlagsRoutes from './routes/featureFlags.js';
-// TEMP: Temporary logging endpoint - remove after debugging token refresh issues
-import loggingRoutes from './routes/logging.js';
+
 
 const express = require('express');
 const cors = require('cors');
@@ -91,15 +88,6 @@ if (process.env.NODE_ENV === 'dev') {
 } else { // CORS configured in API Gateway
   // Body parser middleware to handle Buffer objects from API Gateway
   app.use(bodyParser);
-}
-
-
-// TEMP: Temporary logging endpoint (only in dev/test) - register before CSRF protection
-// This is a temporary debugging endpoint, so we bypass CSRF for convenience
-// Remove after debugging token refresh issues
-const env = process.env.NODE_ENV || 'development';
-if (env === 'dev' || env === 'test' || env === 'development') {
-  app.use(`${stagePrefix}/api/logging`, loggingRoutes);
 }
 
 // Register routes with conditional stage prefix
