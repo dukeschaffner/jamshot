@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useDAW, DAWProvider } from './DAWContext';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
@@ -412,7 +412,8 @@ function DAWContent({ track}) {
 // Main DAW component that provides the context
 function DAW({ track }) {
   // Convert track data to the format expected by DAWContext
-  const trackData = track ? [track] : [];
+  // Use useMemo to stabilize the reference and prevent unnecessary re-initializations
+  const trackData = useMemo(() => track ? [track] : [], [track]);
   const isCollab = track ? true : false;
   
   return (
