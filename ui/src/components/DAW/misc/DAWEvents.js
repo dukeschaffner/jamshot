@@ -144,6 +144,11 @@ export const DAW_EVENTS = {
       GENERIC: 'error:generic'
     },
 
+    // Notification events
+    NOTIFICATION: {
+      TOAST: 'notification:toast'
+    },
+
     // Undo/Redo events
     UNDO: {
       RECORD: 'undo:record',
