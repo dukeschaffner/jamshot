@@ -35,7 +35,7 @@ export const betterAuthMiddleware = async (req, res, next) => {
       
       // Define allowed routes that don't require profile completion
       // Routes are mounted at /api/users, so paths include /api prefix
-      const stagePrefix = process.env.NODE_ENV === 'test' ? '/test' : process.env.NODE_ENV === 'prod' ? '/prod' : '';
+      const stagePrefix = process.env.NODE_ENV === 'test' ? '/test' : process.env.NODE_ENV === 'production' ? '/prod' : '';
       const allowedPaths = [
         '/api/users/me',
         '/api/users/me/complete-profile',

@@ -72,7 +72,7 @@ app.use(cors(corsOptions));
 const getStagePrefix = () => {
   const env = process.env.NODE_ENV;
   if (env === 'test') return '/test';
-  if (env === 'prod') return '/prod';
+  if (env === 'production') return '/prod';
   return ''; // No prefix for dev/staging/other environments
 };
 
