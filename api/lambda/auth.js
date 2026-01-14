@@ -364,17 +364,15 @@ export const auth = betterAuth({
             // Try multiple ways to access headers/request
             let clientIp = null;
             if (ctx.headers) {
-              clientIp = ctx.headers['x-forwarded-for'] || ctx.headers['x-real-ip'];
+              // ctx.headers is a Headers object, use .get() method
+              clientIp = ctx.headers.get('x-forwarded-for') || ctx.headers.get('x-real-ip');
             } else if (ctx.request?.headers) {
               clientIp = ctx.request.headers['x-forwarded-for'] || ctx.request.headers['x-real-ip'];
             } else if (ctx.request?.connection) {
-              clientIp = ctx.request.connection.remoteAddress || 
+              clientIp = ctx.request.connection.remoteAddress ||
                         ctx.request.socket?.remoteAddress ||
                         (ctx.request.connection.socket ? ctx.request.connection.socket.remoteAddress : null);
             }
-
-            console.log('clientIp', clientIp);
-            console.log('headers', ctx.headers);
             
             // Extract first IP if x-forwarded-for contains multiple IPs
             if (clientIp && clientIp.includes(',')) {
