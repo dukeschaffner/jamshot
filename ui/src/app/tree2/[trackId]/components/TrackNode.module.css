@@ -1,0 +1,17 @@
+.track-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.track-node:hover {
+  transform: scale(1.1);
+  z-index: 10;
+}
+
+.track-node.selected {
+  border-color: var(--seafoam);
+  box-shadow: 0 0 20px rgba(147, 233, 190, 0.5);
+}
+

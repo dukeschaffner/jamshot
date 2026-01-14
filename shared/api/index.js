@@ -84,6 +84,24 @@ const createApiClient = (config = {}) => {
   // Sleep utility for retry delays
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+  // TEMP: Helper function to log errors to the API (for CloudWatch visibility)
+  // This is a fire-and-forget operation that should never throw
+  // Remove after debugging token refresh issues
+  const logToApi = async (message, level = 'error', metadata = {}) => {
+    try {
+      const baseURL = config.baseURL || process.env.API_URL;
+      await axios.post(
+        `${baseURL}/logging/log`,
+        { message, level, metadata },
+        { timeout: 2000 } // Short timeout to avoid blocking
+      );
+    } catch (logError) {
+      // Silently fail - we don't want logging to interfere with the main flow
+      // Just log to console as fallback
+      console.error('[Failed to log to API]', message, logError);
+    }
+  };
+
   // Attempt token refresh with retry logic
   const attemptTokenRefresh = async (refreshToken) => {
     try {
@@ -101,10 +119,39 @@ const createApiClient = (config = {}) => {
         refreshRetryCount++;
         const delay = REFRESH_RETRY_DELAY * Math.pow(2, refreshRetryCount - 1); // Exponential backoff
         console.log(`Token refresh failed (attempt ${refreshRetryCount}/${MAX_REFRESH_RETRIES}), retrying in ${delay}ms...`, error.message);
+        
+        // TEMP: Log retry attempt to API - remove after debugging
+        await logToApi(
+          `Token refresh retry attempt ${refreshRetryCount}/${MAX_REFRESH_RETRIES}`,
+          'warn',
+          {
+            errorMessage: error.message,
+            errorCode: error.code,
+            status: error.response?.status,
+            delay,
+            isRetryable: true
+          }
+        );
 
         await sleep(delay);
         return attemptTokenRefresh(refreshToken); // Recursive retry
       }
+
+      // TEMP: Log final failure to API - remove after debugging
+      await logToApi(
+        'Token refresh failed - exceeded retries or non-retryable error',
+        'error',
+        {
+          errorMessage: error.message,
+          errorCode: error.code,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          responseData: error.response?.data,
+          retryCount: refreshRetryCount,
+          maxRetries: MAX_REFRESH_RETRIES,
+          isRetryable: isRetryableError(error)
+        }
+      );
 
       // If not retryable or exceeded retries, throw the error
       throw error;
@@ -197,6 +244,18 @@ const createApiClient = (config = {}) => {
         if (!refreshToken) {
           // No refresh token, clear auth and redirect to login
           console.log('No refresh token, clearing auth and redirecting to login');
+          
+          // TEMP: Log to API for visibility - remove after debugging
+          await logToApi(
+            'Token refresh failed: No refresh token available',
+            'error',
+            {
+              originalRequestUrl: originalRequest.url,
+              originalRequestMethod: originalRequest.method,
+              hasGetRefreshToken: !!getRefreshToken
+            }
+          );
+          
           if (removeToken) await removeToken();
           if (removeRefreshToken) await removeRefreshToken();
           if (setAuthError) setAuthError('Your session has expired. Please log in again.');
@@ -216,14 +275,19 @@ const createApiClient = (config = {}) => {
         // Try to get a new access token with retry logic
         const response = await attemptTokenRefresh(refreshToken);
         
-        const { accessToken } = response.data;
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
         
         // Update the access token
         if (setToken) {
           await setToken(accessToken);
         }
+        
+        // Update the refresh token if a new one was provided (token rotation)
+        if (newRefreshToken && setRefreshToken) {
+          await setRefreshToken(newRefreshToken);
+        }
 
-        console.log('Access token refreshed');
+        console.log('Access token refreshed' + (newRefreshToken ? ' (refresh token rotated)' : ''));
         
         // Update the UserContext if callback is set
         if (refreshUserState) {
@@ -241,6 +305,26 @@ const createApiClient = (config = {}) => {
       } catch (refreshError) {
         // Check if this is specifically an invalid/expired refresh token error
         const isInvalidTokenError = refreshError.response?.data?.error === 'Invalid or expired refresh token';
+
+        // TEMP: Log error to API for visibility - remove after debugging
+        await logToApi(
+          isInvalidTokenError 
+            ? 'Token refresh failed: Invalid or expired refresh token'
+            : 'Token refresh failed: Non-auth error',
+          'error',
+          {
+            isInvalidTokenError,
+            errorMessage: refreshError.message,
+            errorCode: refreshError.code,
+            status: refreshError.response?.status,
+            statusText: refreshError.response?.statusText,
+            responseData: refreshError.response?.data,
+            originalRequestUrl: originalRequest.url,
+            originalRequestMethod: originalRequest.method,
+            refreshRetryCount,
+            willLogout: isInvalidTokenError
+          }
+        );
 
         if (isInvalidTokenError) {
           // Only logout for explicit invalid/expired token errors
@@ -428,6 +512,10 @@ const createApiMethods = (apiClient) => {
     markAsRead: (id) => api.put(`/notifications/${id}/read`),
     
     markAllAsRead: () => api.put('/notifications/read-all'),
+    
+    getPreferences: () => api.get('/notifications/preferences'),
+    
+    updatePreferences: (preferences) => api.put('/notifications/preferences', preferences),
   };
 
   // Competition API methods
@@ -468,6 +556,8 @@ const createApiMethods = (apiClient) => {
     getGenres: () => api.get('/tags/genres'),
 
     getInstruments: () => api.get('/tags/instruments'),
+
+    getElements: () => api.get('/tags/elements'),
 
     getTrackGenres: (trackId) => api.get(`/tags/track/${trackId}/genres`),
 

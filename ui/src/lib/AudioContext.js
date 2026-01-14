@@ -306,8 +306,10 @@ export function AudioProvider({ children }) {
   };
 
   const playTrack = (track, tracksToAdd = []) => {
-    console.log('Playing track:', track.title, 'with tracks to add:', tracksToAdd.map(t => t.title));
-    const newPlaylist = [track, ...tracksToAdd];
+    // Ensure tracksToAdd is always an array
+    const tracksArray = Array.isArray(tracksToAdd) ? tracksToAdd : [];
+    console.log('Playing track:', track.title, 'with tracks to add:', tracksArray.map(t => t.title));
+    const newPlaylist = [track, ...tracksArray];
     updatePlay(true); // skip is true because we are playing a new track
     setPlaylist(newPlaylist);
     setCurrentIndex(0);

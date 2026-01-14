@@ -1,18 +1,23 @@
-const express = require('express');
-const router = express.Router();
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const pool = require('../config/db');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+import express from 'express';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { createRequire } from 'module';
+import multer from 'multer';
+import sharp from 'sharp';
+import bcrypt from 'bcryptjs';
+import stripeLib from 'stripe';
+import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
+const pool = require('../config/db.cjs');
 const {
   interactionLimiter,
   uploadLimiter,
   contentCreationLimiter
-} = require('../middleware/rateLimiting');
-const multer = require('multer');
-const sharp = require('sharp');
-const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils');
-const bcrypt = require('bcryptjs');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+} = require('../middleware/rateLimiting.cjs');
+const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils.cjs');
+
+const router = express.Router();
+const stripe = stripeLib(process.env.STRIPE_SECRET_KEY);
 
 const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region
@@ -22,6 +27,23 @@ const s3Client = new S3Client({
   },
   endpoint: process.env.R2_ENDPOINT,
 });
+
+// Helper function to check if a URL is from R2 and extract the key
+const isR2Url = (url) => {
+  if (!url || typeof url !== 'string') return { isR2: false, key: null };
+  
+  const r2PublicUrl = process.env.R2_PUBLIC_URL;
+  if (!r2PublicUrl) return { isR2: false, key: null };
+  
+  // Check if URL starts with R2_PUBLIC_URL
+  if (url.startsWith(r2PublicUrl)) {
+    // Extract the key (everything after the base URL and slash)
+    const key = url.replace(r2PublicUrl, '').replace(/^\//, '');
+    return { isR2: true, key };
+  }
+  
+  return { isR2: false, key: null };
+};
 
 // Configure multer for memory storage
 const upload = multer({
@@ -39,13 +61,13 @@ const upload = multer({
 });
 
 // Apply optional auth middleware to all routes
-router.use(optionalAuthMiddleware);
+router.use(optionalBetterAuthMiddleware);
 
 // Get current user details
-router.get('/me', authMiddleware, async (req, res) => {
+router.get('/me', betterAuthMiddleware, async (req, res) => {
   try {
     const userResult = await pool.query(
-      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
+      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -128,7 +150,7 @@ router.get('/:userId/tracks', async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private, check if the current user is following them
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
@@ -165,6 +187,8 @@ router.get('/:userId/tracks', async (req, res) => {
       FROM tracks t
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
     `;
 
@@ -177,6 +201,8 @@ router.get('/:userId/tracks', async (req, res) => {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
       ORDER BY t.created_at DESC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
@@ -208,7 +234,7 @@ router.get('/:userId/tracks', async (req, res) => {
 });
 
 // Follow a user
-router.post('/follow/:userId', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow/:userId', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const followerId = req.user.id;
   
@@ -281,7 +307,7 @@ router.post('/follow/:userId', interactionLimiter, authMiddleware, async (req, r
 });
 
 // Unfollow a user
-router.delete('/follow/:userId', authMiddleware, async (req, res) => {
+router.delete('/follow/:userId', betterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const followerId = req.user.id;
   try {
@@ -337,7 +363,7 @@ router.get('/:userId/stats', async (req, res) => {
 });
 
 // Get user's followers with pagination
-router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
+router.get('/:userId/followers', optionalBetterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -358,7 +384,7 @@ router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private and current user is not the owner or a follower, return empty array
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
@@ -405,7 +431,7 @@ router.get('/:userId/followers', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Get users the specified user is following with pagination
-router.get('/:userId/following', optionalAuthMiddleware, async (req, res) => {
+router.get('/:userId/following', optionalBetterAuthMiddleware, async (req, res) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -426,7 +452,7 @@ router.get('/:userId/following', optionalAuthMiddleware, async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private and current user is not the owner or a follower, return empty array
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
@@ -494,7 +520,7 @@ router.get('/:userId/reposts', async (req, res) => {
     const isPrivate = userResult.rows[0].is_private;
     
     // If account is private, check if the current user is following them
-    if (isPrivate && currentUserId !== parseInt(userId)) {
+    if (isPrivate && currentUserId !== userId) {
       // Check if the current user is following this user
       const isFollowing = currentUserId ? await pool.query(
         'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
@@ -546,6 +572,8 @@ router.get('/:userId/reposts', async (req, res) => {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE r.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ORDER BY r.created_at DESC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `;
@@ -577,7 +605,7 @@ router.get('/:userId/reposts', async (req, res) => {
 });
 
 // Update user profile
-router.put('/me', authMiddleware, async (req, res) => {
+router.put('/me', betterAuthMiddleware, async (req, res) => {
   try {
     let { username, name, bio, is_private } = req.body;
     
@@ -640,8 +668,67 @@ router.put('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// Complete profile - update date of birth and terms/privacy acceptance (for OAuth signups)
+router.put('/me/complete-profile', betterAuthMiddleware, async (req, res) => {
+  try {
+    const { dateOfBirth, acceptTerms } = req.body;
+    const { validateDateOfBirth } = require('../../shared/utils/validation.cjs');
+    
+    // Validate date of birth
+    if (!dateOfBirth) {
+      return res.status(400).json({ error: 'Date of birth is required' });
+    }
+    
+    const dobValidation = validateDateOfBirth(dateOfBirth);
+    if (!dobValidation.valid) {
+      return res.status(400).json({ error: dobValidation.error });
+    }
+    
+    // Validate terms acceptance
+    if (!acceptTerms) {
+      return res.status(400).json({ error: 'You must accept the Terms of Service and Privacy Policy to continue.' });
+    }
+    
+    // Get client IP address for policy acceptance tracking
+    const clientIp = req.headers['x-forwarded-for'] || 
+                    req.headers['x-real-ip'] || 
+                    req.connection.remoteAddress || 
+                    req.socket.remoteAddress ||
+                    (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    
+    const currentTimestamp = new Date();
+    const policyVersion = '1.0';
+    
+    // Update user with date of birth and terms/privacy acceptance
+    const result = await pool.query(
+      `UPDATE users 
+       SET date_of_birth = $1,
+           terms_accepted = $2,
+           privacy_policy_accepted = $2,
+           policy_accepted_at = $3,
+           policy_accepted_ip = $4,
+           policy_version = $5
+       WHERE id = $6
+       RETURNING id, username, name, email, date_of_birth, terms_accepted, privacy_policy_accepted, policy_accepted_at`,
+      [dateOfBirth, true, currentTimestamp, clientIp, policyVersion, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ 
+      message: 'Profile completed successfully',
+      user: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Complete profile error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Upload and update profile image
-router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('image'), async (req, res) => {
+router.post('/me/profile-image', uploadLimiter, betterAuthMiddleware, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -676,17 +763,19 @@ router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('i
       [req.user.id]
     );
 
-    // If user has an existing profile image, delete it from S3
+    // If user has an existing profile image from R2, delete it from R2
     if (currentUser.rows[0]?.profile_pic_url) {
-      const oldKey = currentUser.rows[0].profile_pic_url;
-      try {
-        await s3Client.send(new DeleteObjectCommand({
-          Bucket: process.env.R2_BUCKET,
-          Key: oldKey
-        }));
-      } catch (err) {
-        console.warn('Failed to delete old profile image:', err);
-        // Continue with upload even if delete fails
+      const { isR2, key } = isR2Url(currentUser.rows[0].profile_pic_url);
+      if (isR2 && key) {
+        try {
+          await s3Client.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: key
+          }));
+        } catch (err) {
+          console.warn('Failed to delete old profile image from R2:', err);
+          // Continue with upload even if delete fails
+        }
       }
     }
 
@@ -728,7 +817,7 @@ router.post('/me/profile-image', uploadLimiter, authMiddleware, upload.single('i
 });
 
 // Toggle account privacy
-router.put('/me/privacy', authMiddleware, async (req, res) => {
+router.put('/me/privacy', betterAuthMiddleware, async (req, res) => {
   try {
     const { is_private } = req.body;
     
@@ -748,7 +837,7 @@ router.put('/me/privacy', authMiddleware, async (req, res) => {
 });
 
 // Get pending follow requests for current user
-router.get('/me/follow-requests', authMiddleware, async (req, res) => {
+router.get('/me/follow-requests', betterAuthMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT fr.id, fr.created_at, 
@@ -766,7 +855,7 @@ router.get('/me/follow-requests', authMiddleware, async (req, res) => {
 });
 
 // Accept a follow request
-router.post('/follow-requests/:requestId/accept', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/accept', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { requestId } = req.params;
   
   try {
@@ -815,7 +904,7 @@ router.post('/follow-requests/:requestId/accept', interactionLimiter, authMiddle
 });
 
 // Reject a follow request
-router.post('/follow-requests/:requestId/reject', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/reject', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { requestId } = req.params;
   
   try {
@@ -926,6 +1015,8 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       FROM tracks t
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $2)
     `;
     
@@ -951,6 +1042,8 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       LEFT JOIN reposts ur ON t.id = ur.track_id AND ur.user_id = $2
       WHERE t.user_id = $1
       AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       AND (t.is_private = FALSE OR t.user_id = $2)
       ORDER BY t.created_at DESC
       LIMIT $3 OFFSET $4
@@ -1029,6 +1122,8 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       JOIN tracks t ON r.track_id = t.id
       WHERE r.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
     `;
     
     // Get reposts with additional info
@@ -1056,6 +1151,8 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
       WHERE r.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ORDER BY r.created_at DESC
       LIMIT $3 OFFSET $4
     `;
@@ -1083,7 +1180,7 @@ router.get('/by-username/:username/reposts', async (req, res) => {
 });
 
 // Follow a user by username
-router.post('/follow/username/:username', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/follow/username/:username', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { username } = req.params;
   const followerId = req.user.id;
   
@@ -1164,7 +1261,7 @@ router.post('/follow/username/:username', interactionLimiter, authMiddleware, as
 });
 
 // Unfollow a user by username
-router.delete('/follow/username/:username', authMiddleware, async (req, res) => {
+router.delete('/follow/username/:username', betterAuthMiddleware, async (req, res) => {
   const { username } = req.params;
   const followerId = req.user.id;
   
@@ -1260,6 +1357,8 @@ router.get('/:username/liked', async (req, res) => {
       JOIN tracks t ON l.track_id = t.id
       WHERE l.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
     `;
 
     const resultQuery = `
@@ -1274,6 +1373,8 @@ router.get('/:username/liked', async (req, res) => {
       LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE l.user_id = $1
       AND t.is_private = FALSE
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
       ORDER BY l.created_at DESC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
     `;
@@ -1304,7 +1405,7 @@ router.get('/:username/liked', async (req, res) => {
 });
 
 // Delete user account
-router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.delete('/me', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
   const userId = req.user.id;
   const { password } = req.body;
   
@@ -1320,6 +1421,9 @@ router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) =>
     }
     
     const user = userResult.rows[0];
+    if (!user.password_hash) {
+      return res.status(400).json({ error: 'No password set for this account' });
+    }
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid password' });
@@ -1352,18 +1456,20 @@ router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) =>
       }
     }
     
-    // Delete profile picture from S3
-    if (user.profile_pic_url && user.profile_pic_url.includes('images/profile/')) {
-      try {
-        const profilePicKey = user.profile_pic_url.split('.com/')[1]; // Extract S3 key
-        await s3Client.send(new DeleteObjectCommand({
-          Bucket: process.env.R2_BUCKET,
-          Key: profilePicKey
-        }));
-        console.log(`Profile picture deleted from S3 for user ${userId}`);
-      } catch (s3Error) {
-        console.error('Error deleting profile picture from S3:', s3Error);
-        // Continue with deletion even if S3 cleanup fails
+    // Delete profile picture from R2 if it's stored in R2
+    if (user.profile_pic_url) {
+      const { isR2, key } = isR2Url(user.profile_pic_url);
+      if (isR2 && key) {
+        try {
+          await s3Client.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: key
+          }));
+          console.log(`Profile picture deleted from R2 for user ${userId}`);
+        } catch (s3Error) {
+          console.error('Error deleting profile picture from R2:', s3Error);
+          // Continue with deletion even if R2 cleanup fails
+        }
       }
     }
     
@@ -1381,4 +1487,5 @@ router.delete('/me', contentCreationLimiter, authMiddleware, async (req, res) =>
   }
 });
 
-module.exports = router;
+export default router;
+

@@ -1,0 +1,345 @@
+.editProfile {
+  max-width: 800px;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: var(--text-primary);
+}
+
+body.dark-mode .title {
+  color: var(--dark-text-primary);
+}
+
+.profileImageSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+body.dark-mode .profileImageSection {
+  background: linear-gradient(135deg, rgba(30,30,30,0.7), rgba(18,18,18,0.3));
+  border: 1px solid rgba(46, 46, 46, 0.18);
+}
+
+.profileImageContainer {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border: 4px solid var(--white);
+  transition: all 0.3s ease;
+}
+
+body.dark-mode .profileImageContainer {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border: 4px solid var(--dark-card-bg);
+}
+
+.profileImageContainer:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.profileImageContainer:hover .imageOverlay {
+  opacity: 1;
+}
+
+.profileImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.profileImageContainer:hover .profileImage {
+  transform: scale(1.05);
+}
+
+.imageOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.imageOverlay svg {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.imageHint {
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+body.dark-mode .imageHint {
+  color: var(--dark-text-secondary);
+}
+
+.editForm {
+  background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+body.dark-mode .editForm {
+  background: linear-gradient(135deg, rgba(30,30,30,0.7), rgba(18,18,18,0.3));
+  border: 1px solid rgba(46, 46, 46, 0.18);
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+body.dark-mode .formGroup label {
+  color: var(--dark-text-primary);
+}
+
+.formControl {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  background-color: var(--bg-secondary, #f9f9f9);
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+body.dark-mode .formControl {
+  background-color: var(--dark-card-bg);
+  border-color: var(--dark-border-color);
+  color: var(--dark-text-primary);
+}
+
+.formControl:focus {
+  border-color: var(--seafoam);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.formControl textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.inputError {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.charCount {
+  text-align: right;
+  color: var(--text-secondary, #666);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+body.dark-mode .charCount {
+  color: var(--dark-text-secondary);
+}
+
+.helpText {
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+body.dark-mode .helpText {
+  color: var(--dark-text-secondary);
+}
+
+.formActions {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.dangerZone {
+  background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 2rem;
+  border-left: 4px solid #dc2626;
+}
+
+body.dark-mode .dangerZone {
+  background: linear-gradient(135deg, rgba(30,30,30,0.7), rgba(18,18,18,0.3));
+  border: 1px solid rgba(46, 46, 46, 0.18);
+}
+
+.dangerTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.dangerText {
+  margin-top: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+body.dark-mode .dangerText {
+  color: var(--dark-text-secondary);
+}
+
+/* Delete Account Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.deleteModal {
+  background: var(--bg-primary, #ffffff);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+body.dark-mode .deleteModal {
+  background: var(--dark-card-bg, #1f2937);
+  border: 1px solid var(--dark-border-color, #374151);
+}
+
+.deleteModal h2 {
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+body.dark-mode .deleteModal h2 {
+  color: var(--dark-text-primary, #f9fafb);
+}
+
+.warningText {
+  color: #dc2626;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid #dc2626;
+}
+
+.infoText {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+body.dark-mode .infoText {
+  color: var(--dark-text-secondary, #9ca3af);
+}
+
+.passwordInput {
+  margin-bottom: 1.5rem;
+}
+
+.passwordInput label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary, #1f2937);
+}
+
+body.dark-mode .passwordInput label {
+  color: var(--dark-text-primary, #f9fafb);
+}
+
+.modalActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .editProfile {
+    max-width: 100%;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .profileImageSection {
+    padding: 1.5rem;
+  }
+
+  .profileImageContainer {
+    width: 120px;
+    height: 120px;
+  }
+
+  .editForm {
+    padding: 1.5rem;
+  }
+
+  .dangerZone {
+    padding: 1.5rem;
+  }
+
+  .deleteModal {
+    margin: 1rem;
+    padding: 1.5rem;
+    max-width: none;
+  }
+
+  .modalActions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .modalActions button {
+    width: 100%;
+  }
+}
+

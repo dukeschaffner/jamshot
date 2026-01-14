@@ -1,7 +1,7 @@
-import { createContext, useState, useContext, useEffect } from 'react';
-import Cookies from 'js-cookie';
-import api, { authApi, setRefreshUserState } from '../lib/api';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { authClient } from '../lib/auth-client';
+import api, { setRefreshUserState } from '../lib/api';
 import { getUserPlan } from '../lib/subscriptionUtils';
 
 // Create the context with default values
@@ -9,6 +9,7 @@ const UserContext = createContext({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  needsToCompleteProfile: false,
   login: () => {},
   logout: () => {},
   refreshUser: () => {},
@@ -18,124 +19,192 @@ const UserContext = createContext({
 export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [userPlan, setUserPlan] = useState(getUserPlan(null)); // Initialize with free plan
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  
+  // Use Better Auth's useSession hook for session management
+  const { data: session, isPending, error, refetch } = authClient.useSession();
+  
+  // State for additional user data that might not be in the session
+  const [additionalUserData, setAdditionalUserData] = useState(null);
+  const [isFetchingUserData, setIsFetchingUserData] = useState(false);
+  // Track if we're currently logging out to prevent race conditions
+  const isLoggingOutRef = useRef(false);
+
+  // Get user from session or additional data
+  const user = useMemo(() => {
+    // Only return user if profile is completed
+    if (session?.profile_completed !== true) {
+      return null;
+    }
+    
+    // If we have additional user data, merge it with session user
+    if (additionalUserData) {
+      return { ...session?.user, ...additionalUserData };
+    }
+    return session?.user || null;
+  }, [session?.user, additionalUserData]);
+
+  // Check if user needs to complete profile
+  const needsToCompleteProfile = useMemo(() => {
+    return !!session?.user && session.profile_completed !== true;
+  }, [session?.user, session?.profile_completed]);
 
   // Check if user is authenticated
   const isAuthenticated = !!user;
 
-  // Function to fetch user data
-  const fetchUserData = async () => {
-    setIsLoading(true);
-    try {
-      const token = Cookies.get('accessToken');
-      if (!token) {
-        setUser(null);
-        setUserPlan(getUserPlan(null)); // Set to free plan instead of null
-        setIsLoading(false);
-        return;
-      }
+  // Calculate user plan based on user data
+  const userPlan = useMemo(() => {
+    return getUserPlan(user);
+  }, [user]);
 
-      const response = await api.get('/users/me');
-      setUser(response.data);
-      const plan = getUserPlan(response.data);
-      setUserPlan(plan);
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
-      setUser(null);
-      setUserPlan(getUserPlan(null)); // Set to free plan instead of null
-    } finally {
-      setIsLoading(false);
+  // Loading state combines Better Auth loading and additional data fetching
+  const isLoading = isPending || isFetchingUserData;
+
+  // Function to fetch additional user data from /users/me endpoint
+  // This might be needed if there are fields not included in the Better Auth session
+  // Can be called with force=true to fetch even if session isn't set yet (e.g., right after login)
+  const fetchAdditionalUserData = useCallback(async (force = false) => {
+    if (!force && !session?.user) {
+      setAdditionalUserData(null);
+      return;
     }
-  };
 
-  // Login function
+    setIsFetchingUserData(true);
+    try {
+      const response = await api.get('/users/me');
+      setAdditionalUserData(response.data);
+    } catch (error) {
+      console.error('Failed to fetch additional user data:', error);
+      // Don't clear user data on error, keep session data
+    } finally {
+      setIsFetchingUserData(false);
+    }
+  }, [session?.user]);
+
+  // Fetch additional user data when session becomes available
+  useEffect(() => {
+    // Don't fetch if we're logging out or if session is pending
+    if (isLoggingOutRef.current || isPending) {
+      return;
+    }
+    
+    if (session?.user && !additionalUserData) {
+      fetchAdditionalUserData();
+    } else if (!session?.user) {
+      setAdditionalUserData(null);
+    }
+  }, [session?.user, additionalUserData, fetchAdditionalUserData, isPending]);
+
+  // Login function using Better Auth
   const login = async (email, password, redirectUrl = null) => {
     try {
-      const response = await authApi.login(email, password);
-      
-      // Store both tokens in cookies
-      const { accessToken, refreshToken } = response.data;
-      
-      // Store access token with short expiry (1 hour)
-      Cookies.set('accessToken', accessToken, { 
-        expires: 1/24, // 1 hour in days
-        sameSite: 'strict'
-      });
-      
-      // Store refresh token with longer expiry (30 days)
-      Cookies.set('refreshToken', refreshToken, { 
-        expires: 30, 
-        sameSite: 'strict'
+      const { data, error: signInError } = await authClient.signIn.email({
+        email,
+        password,
       });
 
-      // Fetch user data
-      await fetchUserData();
-      
+      if (signInError) {
+        return {
+          success: false,
+          error: signInError.message || 'Login failed',
+          isEmailNotVerified: signInError.status === 403 || signInError.message?.includes('email not verified'),
+        };
+      }
+
+      // Session will be automatically updated via useSession hook
+      // Fetch additional user data immediately if we have user data from signIn
+      // Use force=true since session might not be updated in the hook yet
+      if (data?.user) {
+        // Fetch additional user data in the background
+        fetchAdditionalUserData(true).catch(err => {
+          console.error('Failed to fetch additional user data after login:', err);
+        });
+      }
+
       // Redirect to provided URL or home page on successful login
       const destination = redirectUrl || '/';
       router.push(destination);
-      
+
       return { success: true };
     } catch (err) {
-      return { 
-        success: false, 
-        error: err.response?.data?.error || 'Login failed',
-        isEmailNotVerified: err.response?.status === 403 && err.response?.data?.error === 'Email not verified'
+      return {
+        success: false,
+        error: err.message || 'Login failed',
+        isEmailNotVerified: err.status === 403 || err.message?.includes('email not verified'),
       };
     }
   };
 
-  // Logout function
+  // Logout function using Better Auth
   const logout = async () => {
     try {
-      const refreshToken = Cookies.get('refreshToken');
-      if (refreshToken) {
-        await api.post('/auth/logout', { refreshToken });
-      }
+      // Set flag to prevent useEffect from fetching user data during logout
+      isLoggingOutRef.current = true;
+      
+      await authClient.signOut({
+        fetchOptions: {
+          onSuccess: () => {
+            // Clear additional user data
+            setAdditionalUserData(null);
+            // Reset logout flag after a brief delay to allow session to clear
+            setTimeout(() => {
+              isLoggingOutRef.current = false;
+            }, 100);
+            // Redirect to login page
+            router.push('/login');
+          },
+        },
+      });
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      // Clear cookies and user state
-      Cookies.remove('accessToken');
-      Cookies.remove('refreshToken');
-      setUser(null);
-      setUserPlan(getUserPlan(null)); // Set to free plan instead of null
+      // Even if logout fails, clear local state and redirect
+      setAdditionalUserData(null);
+      // Reset logout flag
+      setTimeout(() => {
+        isLoggingOutRef.current = false;
+      }, 100);
       router.push('/login');
     }
   };
-  
+
   // Refresh user data
-  const refreshUser = () => {
-    fetchUserData();
-  };
+  const refreshUser = useCallback(async () => {
+    // Force refresh session from database, bypassing cookie cache
+    const freshSession = await authClient.getSession({
+      query: {
+        disableCookieCache: true, // Force fetch from database and refresh cookie cache
+      },
+    });
+    
+    // Refetch Better Auth session hook to update reactive state
+    await refetch();
+    
+    // After session is updated, fetch additional user data if user exists
+    if (freshSession?.data?.user) {
+      await fetchAdditionalUserData(true);
+    }
+  }, [refetch, fetchAdditionalUserData]);
 
   // Register the callback with the API service
   useEffect(() => {
     setRefreshUserState(refreshUser);
-    
+
     // Clean up when component unmounts
     return () => {
       setRefreshUserState(null);
     };
-  }, []);
-
-  // Fetch user data on first load
-  useEffect(() => {
-    fetchUserData();
-  }, []);
+  }, [refreshUser]);
 
   // Create the context value
   const value = {
     user,
     isLoading,
     isAuthenticated,
+    needsToCompleteProfile,
     userPlan,
     login,
     logout,
-    refreshUser
+    refreshUser,
   };
 
   return (

@@ -1,11 +1,21 @@
-const app = require('./src/index');
+
+
+import honoApp from './src/hono-api.js';
+import expressApp from './src/express-api.js';
+import { serve } from '@hono/node-server'
 
 const PORT = process.env.PORT || 5001;
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Developmen server running on http://localhost:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+serve({
+  fetch: honoApp.fetch,
+  port: 5002,
 });
+
+expressApp.listen(5001, () => {
+  console.log('Express server running on port 5001');
+});
+
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {

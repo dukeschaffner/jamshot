@@ -1,19 +1,28 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const fsPromises = require('fs').promises;
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { createRequire } from 'module';
+import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const require = createRequire(import.meta.url);
 const mm = require('music-metadata');
-const { PutObjectCommand } = require('@aws-sdk/client-s3');
-const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
-const pool = require('../config/db');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const pool = require('../config/db.cjs');
 const { 
   uploadLimiter, 
   contentCreationLimiter, 
   interactionLimiter, 
   apiEndpointLimiter 
-} = require('../middleware/rateLimiting');
+} = require('../middleware/rateLimiting.cjs');
 const {
   s3Client,
   generateSignedUrl,
@@ -34,13 +43,13 @@ const {
   getStemChain,
   validateAndUpdateStemChain,
   parseTrackUploadBody
-} = require('../utils/trackUtils');
-const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils');
-const { getGeolocationData } = require('../utils/geolocation');
-const { validateCompetitionEntry } = require('../utils/competition');
-const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils');
-const { isFeatureEnabled } = require('../utils/featureFlags');
-require('dotenv').config;
+} = require('../utils/trackUtils.cjs');
+const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils.cjs');
+const { getGeolocationData } = require('../utils/geolocation.cjs');
+const { validateCompetitionEntry } = require('../utils/competition.cjs');
+const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils.cjs');
+const { isFeatureEnabled } = require('../utils/featureFlags.cjs');
+dotenv.config();
 
 async function getParser() {
   if (typeof mm.parseFile === 'function') {
@@ -96,7 +105,7 @@ const upload = multer({
 });
 
 // Apply optional auth middleware to all routes
-router.use(optionalAuthMiddleware);
+router.use(optionalBetterAuthMiddleware);
 
 // Audio processing health check is now handled by the audio-processing lambda
 
@@ -168,7 +177,7 @@ const handleMulterError = (error, req, res, next) => {
 
 
 // Initialize upload by generating pre-signed S3 URL
-router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
+router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res) => {
   const { filename, fileSize, is_camp_track, team_id } = req.body;
   const userId = req.user.id;
 
@@ -230,7 +239,7 @@ router.post('/upload/init', uploadLimiter, authMiddleware, async (req, res) => {
 });
 
 // Process upload after S3 upload is complete
-router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
+router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => {
   const userId = req.user.id;
   let layer = 0;
   let parentIsPrivate = false;
@@ -246,6 +255,9 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
     s3Key,
     parsedGenreIds,
     parsedInstrumentIds,
+    parsedElementIds,
+    parsedInstrumentRequestIds,
+    parsedElementRequestIds,
     parsedMetronomeBpm,
     parsedStems,
     parsedTimeSignature,
@@ -328,7 +340,7 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
       error: err.message,
       stack: err.stack,
       filePath: localFilePath,
-      fileExists: require('fs').existsSync(localFilePath)
+      fileExists: fs.existsSync(localFilePath)
     });
     return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
   }
@@ -606,10 +618,15 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         );
         
         if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== userId) {
+          // Create notification
           await pool.query(
             'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
             [parentTrackOwner.rows[0].user_id, 'new_version', parent_track_id]
           );
+          
+          // Send collaboration email if preferences allow
+          const { sendCollabEmail } = require('../utils/emailService');
+          await sendCollabEmail(userId, trackId, parent_track_id);
         }
       } catch (err) {
         console.error('Error creating collaboration notification:', err);
@@ -633,6 +650,45 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
         await pool.query(
           'INSERT INTO track_instruments (track_id, instrument_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
           [trackId, instrumentId]
+        );
+      }
+    }
+    
+    // Validate and add elements if provided (max 2)
+    if (parsedElementIds && parsedElementIds.length > 0) {
+      if (parsedElementIds.length > 2) {
+        return res.status(400).json({ error: 'Maximum 2 elements allowed per track' });
+      }
+      for (const elementId of parsedElementIds) {
+        await pool.query(
+          'INSERT INTO track_elements (track_id, element_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [trackId, elementId]
+        );
+      }
+    }
+    
+    // Validate and add instrument requests if provided (max 2)
+    if (parsedInstrumentRequestIds && parsedInstrumentRequestIds.length > 0) {
+      if (parsedInstrumentRequestIds.length > 2) {
+        return res.status(400).json({ error: 'Maximum 2 instrument requests allowed per track' });
+      }
+      for (const instrumentId of parsedInstrumentRequestIds) {
+        await pool.query(
+          'INSERT INTO track_instrument_requests (track_id, instrument_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [trackId, instrumentId]
+        );
+      }
+    }
+    
+    // Validate and add element requests if provided (max 2)
+    if (parsedElementRequestIds && parsedElementRequestIds.length > 0) {
+      if (parsedElementRequestIds.length > 2) {
+        return res.status(400).json({ error: 'Maximum 2 element requests allowed per track' });
+      }
+      for (const elementId of parsedElementRequestIds) {
+        await pool.query(
+          'INSERT INTO track_element_requests (track_id, element_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [trackId, elementId]
         );
       }
     }
@@ -693,30 +749,38 @@ router.post('/upload', uploadLimiter, authMiddleware, async (req, res) => {
 // Get "For You" feed (mixed content - followed users + popular)
 router.get('/feed/for-you', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  
+
+  // Parse tag filter parameters
+  const tagFilters = {};
+  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
   try {
     let query;
     let queryParams;
-    
+
     // Mixed feed: combination of followed artists, their reposts, and popular tracks
     if (userId) {
       // Use the standardized For You feed query function
-      query = getForYouFeedQuery(2, 3);
+      query = getForYouFeedQuery(2, 3, tagFilters);
       queryParams = [userId, limitNum, offset];
     } else {
       // For non-logged in users, just show popular tracks
-      query = getPopularFeedQuery(false, null, 1, 2);
+      query = getPopularFeedQuery(false, null, 1, 2, false, tagFilters);
       queryParams = [limitNum, offset];
     }
-    
+
     const result = await pool.query(query, queryParams);
-    
+
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
+
     res.json(tracks);
   } catch (err) {
     console.error('Feed error:', err);
@@ -727,24 +791,32 @@ router.get('/feed/for-you', async (req, res) => {
 // Get Following feed (just followed artists)
 router.get('/feed/following', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  
+
   if (!userId) {
     return res.status(401).json({ error: 'Authentication required' });
   }
-  
+
+  // Parse tag filter parameters
+  const tagFilters = {};
+  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
   try {
     // Use the standardized following feed query function
-    const query = getFollowingFeedQuery(2, 3);
+    const query = getFollowingFeedQuery(2, 3, tagFilters);
     const queryParams = [userId, limitNum, offset];
-    
+
     const result = await pool.query(query, queryParams);
-    
+
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
+
     res.json(tracks);
   } catch (err) {
     console.error('Following feed error:', err);
@@ -755,27 +827,35 @@ router.get('/feed/following', async (req, res) => {
 // Get Popular feed (globally popular tracks)
 router.get('/feed/popular', async (req, res) => {
   const userId = req.user?.id;
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  
+
+  // Parse tag filter parameters
+  const tagFilters = {};
+  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
   try {
     // Use the standardized popular feed query function
     let query;
     let queryParams;
     if (userId) {
-      query = getPopularFeedQuery(!!userId, 1, 2, 3, true);
+      query = getPopularFeedQuery(!!userId, 1, 2, 3, true, tagFilters);
       queryParams = [userId, limitNum, offset];
     } else {
-      query = getPopularFeedQuery(false, null, 1, 2);
+      query = getPopularFeedQuery(false, null, 1, 2, false, tagFilters);
       queryParams = [limitNum, offset];
     }
-    
+
     const result = await pool.query(query, queryParams);
-    
+
     // Use the processTrack utility function
     const tracks = await Promise.all(result.rows.map(track => processTrack(track, userId)));
-    
+
     res.json(tracks);
   } catch (err) {
     console.error('Popular feed error:', err);
@@ -785,7 +865,7 @@ router.get('/feed/popular', async (req, res) => {
 
 
 // Get Track and Versions
-router.get('/:id', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { secret } = req.query; // Secret token for private tracks
@@ -831,7 +911,7 @@ router.get('/:id', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Get stem chain for DAW loading
-router.get('/:id/stems', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -951,7 +1031,7 @@ router.get('/:id/related', async (req, res) => {
 });
 
 // Get track processing status
-router.get('/:id/status', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
 
@@ -1005,7 +1085,7 @@ router.get('/:id/status', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Like a Track
-router.post('/:id/like', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1038,7 +1118,7 @@ router.post('/:id/like', interactionLimiter, authMiddleware, async (req, res) =>
 });
 
 // Unlike a Track
-router.delete('/:id/like', authMiddleware, async (req, res) => {
+router.delete('/:id/like', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1053,7 +1133,7 @@ router.delete('/:id/like', authMiddleware, async (req, res) => {
 });
 
 // Get users who liked a track
-router.get('/:id/likes', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { page = 1, limit = 20 } = req.query;
@@ -1133,7 +1213,7 @@ router.get('/:id/likes', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Get comments for a track with pagination
-router.get('/:id/comments', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { page = 1, limit = 10, parent_id = null } = req.query;
@@ -1210,7 +1290,7 @@ router.get('/:id/comments', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Comment on a Track
-router.post('/:id/comment', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const { content, parent_comment_id } = req.body;
   const userId = req.user.id;
@@ -1297,7 +1377,7 @@ router.post('/:id/comment', contentCreationLimiter, authMiddleware, async (req, 
 });
 
 // Update a comment
-router.put('/comments/:commentId', authMiddleware, async (req, res) => {
+router.put('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
   const { commentId } = req.params;
   const { content } = req.body;
   const userId = req.user.id;
@@ -1362,7 +1442,7 @@ router.put('/comments/:commentId', authMiddleware, async (req, res) => {
 });
 
 // Delete a comment
-router.delete('/comments/:commentId', authMiddleware, async (req, res) => {
+router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
   const { commentId } = req.params;
   const userId = req.user.id;
   
@@ -1411,7 +1491,7 @@ router.get('/search', async (req, res) => {
     `;
     
     const queryParams = [userId || null];
-    let whereClause = 't.processing_status = \'completed\'';
+    let whereClause = 't.processing_status = \'completed\' AND t.team_id IS NULL AND t.camp_id IS NULL';
 
     if (genreId) {
       whereClause += ' AND EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = t.id AND tg.genre_id = $2)';
@@ -1440,7 +1520,7 @@ router.get('/search', async (req, res) => {
 });
 
 // Repost a Track
-router.post('/:id/repost', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1493,7 +1573,7 @@ router.post('/:id/repost', interactionLimiter, authMiddleware, async (req, res) 
 });
 
 // Unrepost a Track
-router.delete('/:id/repost', authMiddleware, async (req, res) => {
+router.delete('/:id/repost', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
@@ -1716,7 +1796,7 @@ router.get('/:id/tree', async (req, res) => {
 });
 
 // Toggle track privacy. Only root tracks can control their privacy status.
-router.put('/:id/privacy', authMiddleware, async (req, res) => {
+router.put('/:id/privacy', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   const { is_private } = req.body;
@@ -1798,7 +1878,7 @@ router.put('/:id/privacy', authMiddleware, async (req, res) => {
 });
 
 // Delete a track
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   
@@ -1823,7 +1903,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 // Generate a share link with a secret token for a private track
-router.post('/:id/share', interactionLimiter, authMiddleware, async (req, res) => {
+router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   
@@ -1864,7 +1944,7 @@ router.post('/:id/share', interactionLimiter, authMiddleware, async (req, res) =
 });
 
 // Refresh signed URL for a track
-router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/refresh-url', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { secret } = req.query; // Secret token for private tracks
@@ -1908,7 +1988,7 @@ router.get('/:id/refresh-url', optionalAuthMiddleware, async (req, res) => {
 });
 
 // Download a track
-router.get('/:id/download', optionalAuthMiddleware, async (req, res) => {
+router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
   const { secret } = req.query; // Secret token for private tracks
@@ -1959,4 +2039,4 @@ router.get('/:id/download', optionalAuthMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

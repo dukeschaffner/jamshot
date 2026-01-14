@@ -1,0 +1,569 @@
+import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
+import { customSession } from "better-auth/plugins";
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pool = require('./src/config/db.cjs');
+const bcrypt = require('bcryptjs');
+const { sendVerificationEmail: sendLegacyVerificationEmail, sendPasswordResetEmail: sendLegacyPasswordResetEmail } = require('./src/utils/emailService.cjs');
+const { validateDateOfBirth } = require('./shared/utils/validation.cjs');
+
+/**
+ * Send verification email using Better Auth format but legacy email service
+ * @param {Object} data - Better Auth email verification data
+ * @param {Object} data.user - User object with email and other properties
+ * @param {string} data.url - Verification URL provided by Better Auth
+ * @param {string} data.token - Verification token
+ * @param {Object} request - Request object (optional)
+ */
+const sendVerificationEmail = async ({ user, url, token }, request) => {
+  try {
+    // Get username from user object (it's in additionalFields)
+    const username = user.username || user.name || 'there';
+
+    // Add callbackURL to redirect to home page after verification
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const homePageUrl = `${frontendUrl}/`;
+
+    // Always set callbackURL to absolute URL (override any relative paths)
+    const urlObj = new URL(url);
+    urlObj.searchParams.set('callbackURL', homePageUrl);
+    const urlWithCallback = urlObj.toString();
+
+    // Send email and properly handle the promise
+    // Use Promise.resolve to ensure we return a settled promise
+    await Promise.resolve(sendLegacyVerificationEmail(user.email, user.id, username, urlWithCallback));
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Email verification sending failed:', error);
+    // Return success even on failure to prevent auth flow interruption
+    // The user can still verify their account through other means
+    return { success: true };
+  }
+};
+
+/**
+ * Send password reset email using Better Auth format but legacy email service
+ * @param {Object} data - Better Auth password reset data
+ * @param {Object} data.user - User object with email and other properties
+ * @param {string} data.url - Reset URL provided by Better Auth
+ * @param {string} data.token - Reset token
+ * @param {Object} request - Request object (optional)
+ */
+const sendResetPassword = async ({ user, url, token }, request) => {
+  try {
+    // Get username from user object (it's in additionalFields)
+    const username = user.username || user.name || 'there';
+
+    // Use the legacy email service function with Better Auth's URL
+    await sendLegacyPasswordResetEmail(user.email, user.id, username, url);
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Password reset email sending failed:', error);
+    // Return success even on failure to prevent auth flow interruption
+    return { success: true };
+  }
+};
+
+const baseUrl = process.env.NODE_ENV === 'dev' ? 'http://localhost:5002/api' : process.env.API_URL;
+
+
+export const auth = betterAuth({
+  database: pool,
+  baseURL: `${baseUrl}/auth`,
+  basePath: '/api/auth',
+	trustedOrigins: [
+		'https://sterio.fm', // production UI
+		'https://test.sterio.fm', // test UI
+		'https://api.sterio.fm', // API (both environments)
+    'http://localhost:3000', // local development
+	],
+  logger: {
+    level: 'debug',
+  },
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true, // Require email verification before login
+    sendResetPassword: sendResetPassword,
+  },
+  emailVerification: {
+    sendVerificationEmail: sendVerificationEmail,
+    sendOnSignUp: true, // Automatically send verification email on signup
+    sendOnSignIn: false, // Disable automatic resend on login attempts
+    autoSignInAfterVerification: true, // Auto sign in after verification
+    expiresIn: 86400, // 24 hours in seconds
+  },
+  socialProviders: {
+    google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        disableImplicitSignUp: true,
+    },
+  },
+  session: {
+    cookieCache: {
+        enabled: true,
+        maxAge: 60 * 60,
+        strategy: "jwt" // or "jwt" or "jwe"
+    },
+    expiresIn: 60 * 60 * 24 * 30, // 30 days
+    updateAge: 60 * 60 * 24 * 7, // 30 days
+  },
+  advanced: {
+    crossSubDomainCookies: {
+			enabled: process.env.NODE_ENV === 'prod',
+			domain: process.env.NODE_ENV === 'prod' ? "sterio.fm" : undefined,
+		},
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === 'prod', // Only use secure cookies in production
+      // Remove partitioned to allow cross-site cookie access during OAuth callbacks
+      // partitioned: true // New browser standards will mandate this for foreign cookies
+    }
+  },
+  user:{
+    modelName: 'users',
+    fields: {
+      emailVerified: "email_verified",
+      image: "profile_pic_url",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
+    additionalFields: {
+			username: {
+				type: "string",
+				required: false,
+			},
+      password_hash: { // temp, can be removed after migration
+        type: "string",
+        required: false,
+      },
+      date_of_birth: {
+        type: "date",
+        required: false,
+        input: false, // Don't allow user to set this directly during signup
+      },
+      terms_accepted: {
+        type: "boolean",
+        required: false,
+        input: false, // Don't allow user to set this directly during signup
+      },
+      privacy_policy_accepted: {
+        type: "boolean",
+        required: false,
+        input: false, // Don't allow user to set this directly during signup
+      },
+		},
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user, ctx) => {
+          const { username, name, password, dateOfBirth, acceptTerms } = ctx.body || {};
+          
+          // Check if this is an OAuth signup
+          const isOAuthSignup = ctx.path === '/callback/:id' || ctx.path?.includes('/callback/');
+          
+          // For OAuth signups, use name from user object (populated by Better Auth from provider profile)
+          // For email/password signups, use name from request body
+          const userDisplayName = isOAuthSignup ? (user.name || name) : name;
+          
+          // Generate username for OAuth signups if not provided
+          let finalUsername = username;
+          if (isOAuthSignup && !username && user.email) {
+            // Extract part before @ from email
+            const emailPrefix = user.email.split('@')[0];
+            
+            // Sanitize: keep only alphanumeric and underscores, convert to lowercase
+            let baseUsername = emailPrefix.toLowerCase().replace(/[^a-z0-9_]/g, '');
+            
+            // If empty after sanitization, use a default
+            if (!baseUsername) {
+              baseUsername = 'user';
+            }
+            
+            // Prevent using "me" as base username
+            if (baseUsername === 'me') {
+              baseUsername = 'user';
+            }
+            
+            // Truncate to leave room for suffix (max 18 chars to allow for "_99")
+            if (baseUsername.length > 18) {
+              baseUsername = baseUsername.substring(0, 18);
+            }
+            
+            // Try base username first, then increment suffix until available
+            let candidateUsername = baseUsername;
+            let suffix = 0;
+            let foundAvailable = false;
+            
+            while (!foundAvailable && suffix < 1000) {
+              // Check if username is available
+              const usernameCheck = await pool.query('SELECT id FROM users WHERE username = $1', [candidateUsername]);
+              
+              if (usernameCheck.rows.length === 0) {
+                foundAvailable = true;
+                finalUsername = candidateUsername;
+              } else {
+                // Increment suffix and try again
+                suffix++;
+                candidateUsername = `${baseUsername}${suffix}`;
+                
+                // Ensure total length doesn't exceed 20 characters
+                if (candidateUsername.length > 20) {
+                  // Truncate base to leave room for suffix
+                  const maxBaseLength = 20 - String(suffix).length;
+                  baseUsername = baseUsername.substring(0, maxBaseLength);
+                  candidateUsername = `${baseUsername}${suffix}`;
+                }
+              }
+            }
+            
+            if (!foundAvailable) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Unable to generate a unique username. Please try again later.',
+              });
+            }
+          }
+          
+          // Validate username (either provided or generated)
+          if (finalUsername) {
+            const usernameLower = finalUsername.toLowerCase();
+            // Username validation: only allow letters, numbers, and underscores
+            if (!/^\w+$/.test(usernameLower)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Username can only contain letters, numbers, and underscores.',
+              });
+            }
+            // Username length validation: max 20 characters
+            if (usernameLower.length > 20) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Username must be 20 characters or less.',
+              });
+            }
+            // Prevent using "me" as username
+            if (usernameLower === 'me') {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Username "me" is not allowed',
+              });
+            }
+            // Check if username already exists (only for non-OAuth or if username was provided)
+            if (!isOAuthSignup || username) {
+              const usernameCheck = await pool.query('SELECT id FROM users WHERE username = $1', [usernameLower]);
+              if (usernameCheck.rows.length > 0) {
+                throw new APIError("BAD_REQUEST", {
+                  message: 'Username is already taken',
+                });
+              }
+            }
+          }
+          
+          // Validate name
+          if (!userDisplayName || userDisplayName.trim() === '') {
+            throw new APIError("BAD_REQUEST", {
+              message: 'Name is required',
+            });
+          }
+          // Name length validation: max 40 characters
+          if (userDisplayName.length > 40) {
+            throw new APIError("BAD_REQUEST", {
+              message: 'Name must be 40 characters or less.',
+            });
+          }
+          
+          // Validate email
+          if (!user.email || user.email.trim() === '') {
+            throw new APIError("BAD_REQUEST", {
+              message: 'Email is required',
+            });
+          }
+          // Check if email already exists
+          const emailCheck = await pool.query('SELECT id FROM users WHERE email = $1', [user.email]);
+          if (emailCheck.rows.length > 0) {
+            throw new APIError("BAD_REQUEST", {
+              message: 'Email is already registered',
+            });
+          }
+          
+          // Validate date of birth
+          if (dateOfBirth) {
+            const dobValidation = validateDateOfBirth(dateOfBirth);
+            if (!dobValidation.valid) {
+              throw new APIError("BAD_REQUEST", {
+                message: dobValidation.error,
+              });
+            }
+          }
+          else if(!isOAuthSignup) {
+            throw new APIError("BAD_REQUEST", {
+              message: 'Date of birth is required',
+            });
+          }
+          
+          // Validate password
+          if (password) {
+            // Password must be at least 8 characters long
+            if (password.length < 8) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must be at least 8 characters long',
+              });
+            }
+            // Password must contain at least one uppercase letter
+            if (!/[A-Z]/.test(password)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one uppercase letter',
+              });
+            }
+            // Password must contain at least one lowercase letter
+            if (!/[a-z]/.test(password)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one lowercase letter',
+              });
+            }
+            // Password must contain at least one number
+            if (!/\d/.test(password)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one number',
+              });
+            }
+            // Password must contain at least one special character
+            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one special character',
+              });
+            }
+          }
+          
+          // Validate terms acceptance - only required for email/password signups, not OAuth
+          // OAuth signups will be redirected to complete-profile page to accept terms
+          if (!isOAuthSignup && acceptTerms !== true) {
+            throw new APIError("BAD_REQUEST", {
+              message: 'You must accept the Terms of Service and Privacy Policy to register.',
+            });
+          }
+          
+          return {
+            data: {
+              ...user,
+              name: userDisplayName, // Ensure name is set (from OAuth profile or request body)
+              username: finalUsername ? finalUsername.toLowerCase() : null,
+              password_hash: password ? await bcrypt.hash(password, 10) : null,
+            },
+          };
+        },
+        after: async (user, ctx) => {
+          // Write DOB and policy acceptance fields for email/password signups
+          const { dateOfBirth, acceptTerms } = ctx.body || {};
+          const isOAuthSignup = ctx.path === '/callback/:id' || ctx.path?.includes('/callback/');
+          
+          // Only write these fields for email/password signups (OAuth signups use complete-profile flow)
+          if (!isOAuthSignup && (dateOfBirth || acceptTerms)) {
+            // Get client IP address for policy acceptance tracking
+            // Try multiple ways to access headers/request
+            let clientIp = null;
+            if (ctx.headers) {
+              clientIp = ctx.headers['x-forwarded-for'] || ctx.headers['x-real-ip'];
+            } else if (ctx.request?.headers) {
+              clientIp = ctx.request.headers['x-forwarded-for'] || ctx.request.headers['x-real-ip'];
+            } else if (ctx.request?.connection) {
+              clientIp = ctx.request.connection.remoteAddress || 
+                        ctx.request.socket?.remoteAddress ||
+                        (ctx.request.connection.socket ? ctx.request.connection.socket.remoteAddress : null);
+            }
+            
+            // Extract first IP if x-forwarded-for contains multiple IPs
+            if (clientIp && clientIp.includes(',')) {
+              clientIp = clientIp.split(',')[0].trim();
+            }
+            
+            const currentTimestamp = new Date();
+            const policyVersion = '1.0';
+            
+            // Build update query dynamically based on what's provided
+            const updates = [];
+            const values = [];
+            let paramIndex = 1;
+            
+            if (dateOfBirth) {
+              updates.push(`date_of_birth = $${paramIndex++}`);
+              values.push(dateOfBirth);
+            }
+            
+            if (acceptTerms) {
+              updates.push(`terms_accepted = $${paramIndex++}`);
+              updates.push(`privacy_policy_accepted = $${paramIndex++}`);
+              updates.push(`policy_accepted_at = $${paramIndex++}`);
+              updates.push(`policy_accepted_ip = $${paramIndex++}`);
+              updates.push(`policy_version = $${paramIndex++}`);
+              values.push(true, true, currentTimestamp, clientIp, policyVersion);
+            }
+            
+            if (updates.length > 0) {
+              values.push(user.id);
+              await pool.query(
+                `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+                values
+              );
+            }
+          }
+          
+          return { data: user };
+        },
+      },
+    },
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      try {
+        console.log('before hook ctx.path', ctx.path);
+        // Intercept OAuth error page redirects and redirect to UI instead
+        if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const loginUrl = `${frontendUrl}/login`;
+    
+        
+        // Get error code from query params
+        const errorCode = ctx.query?.error || 'unknown_error';
+
+        console.log('errorCode', errorCode);
+
+        console.log('loginUrl', loginUrl);
+
+        // Redirect to login page with error code
+        throw ctx.redirect(`${loginUrl}?errorCode=${encodeURIComponent(errorCode)}&errorType=oauth`);
+        }
+
+        // Validate password on reset password endpoint
+        if (ctx.path === '/reset-password') {
+          const { newPassword } = ctx.body || {};
+          if (newPassword) {
+            // Password must be at least 8 characters long
+            if (newPassword.length < 8) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must be at least 8 characters long',
+              });
+            }
+            // Password must contain at least one uppercase letter
+            if (!/[A-Z]/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one uppercase letter',
+              });
+            }
+            // Password must contain at least one lowercase letter
+            if (!/[a-z]/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one lowercase letter',
+              });
+            }
+            // Password must contain at least one number
+            if (!/\d/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one number',
+              });
+            }
+            // Password must contain at least one special character
+            if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+              throw new APIError("BAD_REQUEST", {
+                message: 'Password must contain at least one special character',
+              });
+            }
+          }
+        }
+      } catch (hookError) {
+        console.error('❌ BEFORE HOOK ERROR:', hookError);
+        throw hookError;
+      }
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+
+      try {
+        console.log('after hook ctx.path', ctx.path);
+        // Check for OAuth callback errors and redirect to UI with client-safe error message
+        const isOAuthCallback = ctx.path?.includes('/callback/');
+
+        if (isOAuthCallback) {
+          const returned = ctx.context.returned;
+
+          // If returned is an APIError or error response, handle it
+          if (returned && (returned.status && returned.status >= 400)) {
+            console.log('❌ OAUTH CALLBACK ERROR DETECTED:');
+            console.log('  - Error status:', returned.status);
+            console.log('  - Error body:', returned.body);
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+            const loginUrl = `${frontendUrl}/login`;
+            
+            
+            // Extract error code from error message or query params
+            let errorCode = 'unknown_error';
+            if (returned instanceof APIError) {
+              errorCode = returned.message || 'unknown_error';
+            } else if (returned.error) {
+              errorCode = returned.error;
+            } else if (ctx.query?.error) {
+              errorCode = ctx.query.error;
+            }
+            
+            // Extract error code from error message if it's in the format "error=code"
+            if (typeof errorCode === 'string' && errorCode.includes('error=')) {
+              const match = errorCode.match(/error=([^&]+)/);
+              if (match) {
+                errorCode = match[1];
+              }
+            }
+
+            console.log('errorCode', errorCode);
+
+            console.log('loginUrl', loginUrl);
+
+            // Redirect to login page with error code
+            throw ctx.redirect(`${loginUrl}?errorCode=${encodeURIComponent(errorCode)}&errorType=oauth`);
+          }
+        }
+      } catch (hookError) {
+        console.error('❌ AFTER HOOK ERROR:', hookError);
+        throw hookError;
+      }
+    }),
+  },
+  plugins: [
+    customSession(async ({ user, session }, ctx) => {
+      // Get user fields from database if not present in user object
+      let dateOfBirth = user.date_of_birth;
+      let termsAccepted = user.terms_accepted;
+      let privacyPolicyAccepted = user.privacy_policy_accepted;
+      
+      // If fields are missing, query the database
+      if (!dateOfBirth || termsAccepted === undefined || privacyPolicyAccepted === undefined) {
+        try {
+          const result = await pool.query(
+            'SELECT date_of_birth, terms_accepted, privacy_policy_accepted FROM users WHERE id = $1',
+            [user.id]
+          );
+          
+          if (result.rows.length > 0) {
+            dateOfBirth = dateOfBirth || result.rows[0].date_of_birth;
+            termsAccepted = termsAccepted !== undefined ? termsAccepted : result.rows[0].terms_accepted;
+            privacyPolicyAccepted = privacyPolicyAccepted !== undefined ? privacyPolicyAccepted : result.rows[0].privacy_policy_accepted;
+          }
+        } catch (error) {
+          console.error('Error fetching user profile fields:', error);
+        }
+      }
+      
+      // Check if profile is completed: DOB and both policy accepted fields must be filled
+      const profileCompleted = !!(
+        dateOfBirth && 
+        termsAccepted && 
+        privacyPolicyAccepted
+      );
+      
+      return {
+        profile_completed: profileCompleted,
+        user,
+        session,
+      };
+    }),
+  ]
+});

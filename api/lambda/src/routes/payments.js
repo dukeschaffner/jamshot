@@ -1,10 +1,13 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
-const stripe = require('../config/stripe');
-const db = require('../config/db');
-const {authMiddleware} = require('../middleware/auth');
-const { contentCreationLimiter } = require('../middleware/rateLimiting');
-const { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } = require('../utils/subscriptionUtils');
+const stripe = require('../config/stripe.cjs');
+const db = require('../config/db.cjs');
+const { contentCreationLimiter } = require('../middleware/rateLimiting.cjs');
+const { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } = require('../utils/subscriptionUtils.cjs');
 
 // Create a checkout session for donations
 router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res) => {
@@ -703,4 +706,4 @@ async function handleTeamCreation(session) {
   }
 }
 
-module.exports = router; 
+export default router; 

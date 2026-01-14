@@ -1,0 +1,13 @@
+
+add notification preferences section to profile edit
+email notification preferences section:
+- email activity summaries (daily, weekly, none)
+    - reuse the user_analytics_aggregate data for these?
+- email me when someone collabs on my track
+
+
+emails should include link to manage notification settings
+
+
+create a daily email lambda that sends out the email activity summaries according to the user's notification preferences
+create an email logic in the api for sending collab emails immediately when a collab is created according to the user's notification preferences

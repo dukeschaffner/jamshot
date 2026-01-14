@@ -1,21 +1,15 @@
 TODO (MVP)
 
 before launch:
-- home feed - filters (genre, instrument, requested instrument, layer)
-- check genres (make sure rap and all instruments are included)
 - video export with waveform viz, showing user profile pics, names, watermark, etc
 - post upload screen (or toast message)with option to copy track link or export video
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
 - switch to better auth? neon auth?
 - add 5 user team/camp option
+- email notifications
 
 
 
-- analytics
-  - analytics opt out
-    - user opts out -> unique anonymous id is created? anonymize track play data
-    - keep anonymized analytics data after user deletes account?
-- yearly billing for subscriptions
 - DAW 
   - track virtual rendering when zoomed in + throttle/debounce
   - handle sample rate mismatch (should input device determine sample rate?)
@@ -27,11 +21,10 @@ before launch:
   - playhead snap
   - multiple recording tracks for camp/team DAW
   - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
+
+  
 - handle notification spamming
 - display uploads left in nav?
-- on delete track, delete analytics for that track too (check and make sure this is working)
-- upgrade suggestions
-  - Profile (track count)
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
@@ -50,24 +43,30 @@ before launch:
     - can be updated any time
     - plays for all tracks by that user
 - check competition hosting restriction for free tier users
+- move teams link to more dropdown. if user is in active team or camp, show link in navbar (on desktop)
 
 
 
 BUGS
+-DAW
+  - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
+  - context menu displaying underneath the region on the below track (git stached)
+  - daw sometimes gets initialized twice (causes undo/redo bug)
+  - DAW rerenders on token refresh (should be fixed)
+  - loop a section -> record -> add repeat: the repeated region isnt synced right
+
 - double check track plays recording correctly
   - full play didnt get marked as complete play
 - got generic error when trying to enter my own competition: Competition entry validation failed
 - release notes infinite loop
-- short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
-- context menu displaying underneath the region on the below track (git stached)
-- daw sometimes gets initialized twice (causes undo/redo bug)
 - load artist names on track tree page
-- feed loaded team track 
+- when user is a part of expired camp, the camps link still navs to the camp page
+- when i play a track in the feed and then skip through a bunch of tracks, it should keep skipping through the feed indefinitely. however, only the orginal track and the next several tracks get added to the playlist and it just cycles through those.
 
 ui issues:
 - more dropdown extends past the bottom of the screen
-- user display on search page should use track and follower icons
-- DAW rerenders on token refresh (should be fixed)
+
+
 
 
 
@@ -97,7 +96,6 @@ TODO (after beta testing)
 - make sure users cant make competition from private track.
 - make sure users cant convert competition track to private.
 - remove make this track private option if createcompetition = true
-- requested instrument tags (ie i want collaborator to add drums)
 - search typeahead
 - if track is loop, allow collaborators to increase/set the number of loops in the collab
 - script to clean r2 files that dont have track in db
@@ -132,7 +130,14 @@ TODO (after beta testing)
   - advanced DAW and extension collabs paid features?
   - allow users to specify which collab types they allow on their track?
   - undo redo
-
+- on delete track, delete analytics for that track too (check and make sure this is working)
+- analytics
+  - analytics opt out
+    - user opts out -> unique anonymous id is created? anonymize track play data
+    - keep anonymized analytics data after user deletes account?
+- yearly billing for subscriptions
+- upgrade suggestions
+  - Profile (track count)
 
 
 

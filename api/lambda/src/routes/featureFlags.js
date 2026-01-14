@@ -1,6 +1,9 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
-const { getAllFeatureFlags } = require('../utils/featureFlags');
+const { getAllFeatureFlags } = require('../utils/featureFlags.cjs');
 
 /**
  * Feature Flags API Routes
@@ -18,5 +21,5 @@ router.get('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
 

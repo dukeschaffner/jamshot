@@ -1,10 +1,13 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db');
-const { optionalAuthMiddleware } = require('../middleware/auth');
-const { searchLimiter } = require('../middleware/rateLimiting');
+const pool = require('../config/db.cjs');
+const { searchLimiter } = require('../middleware/rateLimiting.cjs');
 const { S3Client } = require('@aws-sdk/client-s3');
-const { getTrackPrivacyClause } = require('../utils/trackUtils');
+const { getTrackPrivacyClause } = require('../utils/trackUtils.cjs');
 
 const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region
@@ -58,6 +61,8 @@ router.get('/', async (req, res) => {
             u.username ILIKE $2
           )
         AND t.processing_status = 'completed'
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
         AND ${privacyClause}
         ORDER BY
           title_match_order,
@@ -109,7 +114,7 @@ router.get('/', async (req, res) => {
     if (!type || type === 'all' || type === 'users') {
       const usersQuery = `
         SELECT
-          u.id, u.username, u.profile_pic_url, u.verified, u.bio, u.is_private,
+          u.id, u.username, u.name, u.profile_pic_url, u.verified, u.bio, u.is_private,
           (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS follower_count,
           (SELECT COUNT(*) FROM tracks WHERE user_id = u.id AND processing_status = 'completed') AS track_count,
           EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) AS is_following,
@@ -145,4 +150,4 @@ router.get('/', async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

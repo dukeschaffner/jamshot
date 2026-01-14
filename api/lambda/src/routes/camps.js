@@ -1,12 +1,15 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db');
-const { authMiddleware } = require('../middleware/auth');
-const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting');
-const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils');
-const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils');
+const pool = require('../config/db.cjs');
+const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting.cjs');
+const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils.cjs');
+const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils.cjs');
 const crypto = require('crypto');
-const stripe = require('../config/stripe');
+const stripe = require('../config/stripe.cjs');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
@@ -98,7 +101,7 @@ router.get('/created', apiEndpointLimiter, async (req, res) => {
     // Get session details from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
-    if (parseInt(session.metadata.userId) !== req.user.id) {
+    if (session.metadata.userId !== req.user.id) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -312,7 +315,7 @@ router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
 // Update member role (owner/admin can change roles, but admins cannot demote admins)
 router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
-  const userId = parseInt(req.params.userId);
+  const userId = req.params.userId;
   const { role } = req.body;
 
   if (!role) {
@@ -381,7 +384,7 @@ router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) =
 // Remove member from camp (admin/owner only)
 router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
   const campId = parseInt(req.params.id);
-  const userId = parseInt(req.params.userId);
+  const userId = req.params.userId;
 
   try {
     // Check if user is admin or owner
@@ -883,4 +886,4 @@ router.patch('/:id/tracks/:trackId/room', apiEndpointLimiter, async (req, res) =
   }
 });
 
-module.exports = router;
+export default router;
