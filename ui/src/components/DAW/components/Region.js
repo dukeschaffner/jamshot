@@ -543,6 +543,10 @@ export default function Region({
         action: () => handleRegionPaste(),
       }
     ] : []),
+    {
+      label: "Repeat Region (Cmd/Ctrl+R)",
+      action: () => handleRegionRepeat(),
+    },
     ...(canDelete ? [
       {
         label: "Delete Region",
