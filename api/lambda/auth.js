@@ -161,6 +161,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user, ctx) => {
+          console.log('ctx', ctx);
           const { username, name, password, dateOfBirth, acceptTerms } = ctx.body || {};
           
           // Check if this is an OAuth signup
