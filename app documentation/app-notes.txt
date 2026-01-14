@@ -202,5 +202,7 @@ Progress:
     - this mode cycles through all the loop tracks in such a way that it sounds like a continuous loop/song.
     - this can be done in the tree view where each track is a circle node in the tree graph
     - really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
+    - "mix mode" - user can define the traversal order, creating their own mix that they can share
+      - popular mixes can be published on streaming platforms
 
 </FUTURE_FEATURES>

@@ -1,6 +1,4 @@
 
 
 - delete account
-- landing page sign in
-- handle refresh on 403
-- ui error handling/display
+    - cancel teams/camps subscriptions
