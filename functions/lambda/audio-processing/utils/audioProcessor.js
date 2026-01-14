@@ -121,17 +121,20 @@ class AudioProcessor {
 
       console.log(`📥 Downloaded raw audio file to ${localFilePath}`);
 
-      // Determine if this is a collaboration or regular upload
+      // Determine if this is a collaboration or regular upload and get duration
+      let duration = 0;
       if (track.parent_track_id) {
-        await this.processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
+        const result = await this.processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
+        duration = result.duration;
       } else {
-        await this.processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
+        const result = await this.processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
+        duration = result.duration;
       }
 
-      // Update processing status to 'completed' and set final URLs
+      // Update processing status to 'completed' and set final URLs and duration
       await pool.query(
-        'UPDATE tracks SET processing_status = $1, audio_url = $2, combined_audio_url = $3 WHERE id = $4',
-        ['completed', finalAudioUrl, finalCombinedAudioUrl, trackId]
+        'UPDATE tracks SET processing_status = $1, audio_url = $2, combined_audio_url = $3, duration = $4 WHERE id = $5',
+        ['completed', finalAudioUrl, finalCombinedAudioUrl, duration, trackId]
       );
 
       // Clean up temp file
@@ -229,6 +232,9 @@ class AudioProcessor {
     const combinedPath = path.join(this.tempDir, `combined-${track.id}-${Date.now()}.mp3`);
     await this.combineAudioFiles(localFiles, combinedPath, gainValues);
 
+    // Extract duration from the combined audio file
+    const duration = await this.getAudioDuration(combinedPath);
+
     // Upload the combined file to final location
     await this.uploadToS3(combinedPath, finalCombinedAudioUrl);
 
@@ -246,6 +252,8 @@ class AudioProcessor {
       fsPromises.unlink(combinedPath).catch(() => {}),
       fsPromises.unlink(rawPath).catch(() => {})
     ]);
+
+    return { duration };
   }
 
   /**
@@ -329,6 +337,9 @@ class AudioProcessor {
     const normalizedPath = path.join(this.tempDir, `normalized-${track.id}-${Date.now()}.mp3`);
     await this.combineAudioFiles([localFilePath], normalizedPath, [1.0], -16, -1); // LUFS -16, True Peak -1
 
+    // Extract duration from the normalized audio file
+    const duration = await this.getAudioDuration(normalizedPath);
+
     // Upload normalized file to final location
     await this.uploadToS3(normalizedPath, finalCombinedAudioUrl);
 
@@ -343,6 +354,8 @@ class AudioProcessor {
       fsPromises.unlink(normalizedPath).catch(() => {}),
       fsPromises.unlink(rawPath).catch(() => {})
     ]);
+
+    return { duration };
   }
 
   async downloadS3File(s3Key, localPath) {
@@ -452,6 +465,17 @@ class AudioProcessor {
     });
   }
 
+  // Extract duration from audio file using music-metadata
+  async getAudioDuration(filePath) {
+    try {
+      const metadata = await mm.parseFile(filePath);
+      return metadata.format.duration || 0;
+    } catch (error) {
+      console.error('Error extracting audio duration:', error);
+      return 0;
+    }
+  }
+
   async getStemChain(trackId) {
     const stems = [];
 
@@ -481,7 +505,7 @@ class AudioProcessor {
         if (stemTrackResult.rows.length === 0) {
           console.warn(`Stem track ${stem.track_id} not found, skipping`);
           continue;
-        } 
+        }
         else {
           audioUrl = stemTrackResult.rows[0].audio_url;
         }
