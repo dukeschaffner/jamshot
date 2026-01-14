@@ -23,8 +23,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess }) {
       }}
     >
       <div className={styles.modal}>
-        <div className={styles.header}>
-          <h2 className={styles.title}>Sign In</h2>
+        <div className={styles.header} style={{ justifyContent: 'flex-end' }}>
           <button 
             className={styles.closeBtn} 
             onClick={onClose}

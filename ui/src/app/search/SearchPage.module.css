@@ -53,16 +53,41 @@
     color: var(--text-primary);
   }
   
+  .userCard .user-handle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+  }
+  
   .userCard .verified-icon {
     color: var(--p2);
     margin-left: 0.5rem;
     font-size: 0.9rem;
   }
   
-  .userCard .user-stats {
+  .userCard .userStats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     font-size: 0.9rem;
     color: var(--text-secondary);
     margin-bottom: 0.5rem;
+  }
+  
+  .userCard .statItem {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  
+  .userCard .statIcon {
+    color: var(--seafoam);
+    font-size: 0.9rem;
+  }
+  
+  .userCard .statValue {
+    font-weight: 500;
+    color: var(--text-primary);
   }
   
   .userCard .user-actions {

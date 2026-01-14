@@ -1,0 +1,128 @@
+.editPage {
+  display: flex;
+  max-width: 1400px;
+  margin: 0 auto;
+  gap: 2rem;
+  min-height: calc(100vh - 200px);
+}
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: sticky;
+  top: 2rem;
+}
+
+.navItem {
+  padding: 12px 24px;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.navItem:hover {
+  background-color: var(--seafoam-light);
+  color: var(--dark);
+}
+
+.navItem.active {
+  color: var(--dark);
+  background-color: var(--seafoam-light);
+  border-left: 4px solid var(--seafoam);
+  padding-left: 20px;
+}
+
+body.dark-mode .navItem {
+  color: var(--dark-text-secondary);
+}
+
+body.dark-mode .navItem:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+body.dark-mode .navItem.active {
+  color: var(--dark-text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.mainContent {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 1rem;
+}
+
+.notLoggedIn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 2rem;
+  min-height: 60vh;
+  width: 100%;
+}
+
+.notLoggedIn h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary, #333);
+}
+
+body.dark-mode .notLoggedIn h1 {
+  color: var(--dark-text-primary, #e8e8e8);
+}
+
+.notLoggedIn p {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  color: var(--text-secondary, #666);
+  max-width: 500px;
+}
+
+body.dark-mode .notLoggedIn p {
+  color: var(--dark-text-secondary, #a0a0a0);
+}
+
+@media (max-width: 768px) {
+  .editPage {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
+
+  .sidebarNav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .navItem {
+    white-space: nowrap;
+    margin-bottom: 0;
+    padding: 10px 20px;
+  }
+
+  .mainContent {
+    padding-right: 0;
+  }
+}
+

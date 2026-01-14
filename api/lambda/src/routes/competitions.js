@@ -1,17 +1,20 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware, optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db');
-const stripe = require('../config/stripe');
-const { authMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const pool = require('../config/db.cjs');
+const stripe = require('../config/stripe.cjs');
 const { 
   contentCreationLimiter, 
   interactionLimiter, 
   apiEndpointLimiter 
-} = require('../middleware/rateLimiting');
-const { processTrack } = require('../utils/trackUtils');
-const { getUserPlan } = require('../utils/subscriptionUtils');
-const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler');
-const { isFeatureEnabled } = require('../utils/featureFlags');
+} = require('../middleware/rateLimiting.cjs');
+const { processTrack } = require('../utils/trackUtils.cjs');
+const { getUserPlan } = require('../utils/subscriptionUtils.cjs');
+const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler.cjs');
+const { isFeatureEnabled } = require('../utils/featureFlags.cjs');
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
@@ -938,4 +941,4 @@ router.get('/:id/entries', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

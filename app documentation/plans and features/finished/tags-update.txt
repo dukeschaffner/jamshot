@@ -1,0 +1,55 @@
+
+
+
+add genre tags:
+Alternative
+Indie
+Punk
+Soul
+Funk
+Blues
+Reggae
+Latin
+Afrobeats
+EDM
+House
+Techno
+Ambient
+Lo-Fi
+Experimental
+Christian
+Gospel
+
+
+add instrument tags:
+Keyboard
+Percussion
+Bass Synth
+Sampler
+Drum Machine
+Flute
+Clarinet
+Trombone
+Cello
+Viola
+Ukulele
+Harmonica
+FX
+Vocals (Rap)
+Electric Guitar
+
+change Guitar tag to Acoustic Guitar
+
+
+Add “Elements” tag type (2 max per track):
+Beat
+Melody
+Harmony
+Vocals (Lead)
+Vocals (Background)
+Solo
+Rhythm
+Texture/SFX
+
+add instrument request tags
+add element request tags

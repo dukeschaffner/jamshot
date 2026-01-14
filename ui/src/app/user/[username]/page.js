@@ -6,8 +6,8 @@ import Track from '../../../components/Track';
 import CustomTabs from '../../../components/CustomTabs';
 import UserListModal from '../../../components/UserListModal';
 import LoadingSpinner from '../../../components/LoadingSpinner';
-import Cookies from 'js-cookie';
-import { FaCamera, FaTimes, FaCheck, FaLock, FaLockOpen, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
+import { FaCamera, FaLock, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
+import Link from 'next/link';
 import ImageCropper from '../../../components/ImageCropper';
 import { useUser } from '../../../contexts/UserContext';
 import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
@@ -45,12 +45,6 @@ export default function UserPage() {
   const likedObserver = useRef();
   const TRACKS_PER_PAGE = 20;
   const [isOwnProfile, setIsOwnProfile] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ 
-    username: '', 
-    name: '',
-    bio: '' 
-  });
   const [userProfile, setUserProfile] = useState(null);
   const [showImageCropper, setShowImageCropper] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -58,10 +52,6 @@ export default function UserPage() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
-  const [usernameError, setUsernameError] = useState('');
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deletePassword, setDeletePassword] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch tracks for a specific tab
   const fetchTracks = useCallback(async (pageNum, tabType) => {
@@ -142,11 +132,6 @@ export default function UserPage() {
         const stats = await api.get(`/users/${userId}/stats`);
         setUserProfile(user.data);
         setIsPrivate(user.data.is_private);
-        setEditForm({
-          username: user.data.username,
-          name: user.data.name || '',
-          bio: user.data.bio || ''
-        });
         setStats(stats.data);
         setUserNotFound(false);
         
@@ -252,47 +237,6 @@ export default function UserPage() {
     }
   };
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    setUsernameError('');
-    // Validate username
-    if (!/^\w+$/.test(editForm.username)) {
-      setUsernameError('Username can only contain letters, numbers, and underscores.');
-      return;
-    }
-    // Validate username length
-    if (editForm.username.length > 20) {
-      setUsernameError('Username must be 20 characters or less.');
-      return;
-    }
-    // Validate name is provided
-    if (!editForm.name || editForm.name.trim() === '') {
-      alert('Full name is required');
-      return;
-    }
-    // Validate name length
-    if (editForm.name.length > 40) {
-      alert('Name must be 40 characters or less.');
-      return;
-    }
-    try {
-      const response = await api.put('/users/me', editForm);
-      setUserProfile(response.data);
-      setIsEditing(false);
-      
-      // Refresh global user context to update navbar
-      refreshUser();
-      
-      // If the username was changed, navigate to new URL
-      if (response.data.username !== username) {
-        router.push(`/user/${response.data.username}`);
-      }
-    } catch (err) {
-      console.error('Failed to update profile:', err);
-      alert(err.response?.data?.error || 'Failed to update profile');
-    }
-  };
-
   const handleImageClick = () => {
     if (isOwnProfile) {
       fileInputRef.current?.click();
@@ -336,49 +280,6 @@ export default function UserPage() {
     } catch (err) {
       console.error('Failed to upload image:', err);
       alert('Failed to upload profile image');
-    }
-  };
-
-  const handlePrivacyToggle = async () => {
-    try {
-      const response = await api.put('/users/me/privacy', { is_private: !isPrivate });
-      setIsPrivate(response.data.is_private);
-      alert(`Your account is now ${response.data.is_private ? 'private' : 'public'}`);
-      
-      // Refresh global user context to update navbar
-      refreshUser();
-    } catch (err) {
-      console.error('Failed to update privacy settings:', err);
-      alert('Failed to update privacy settings');
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!deletePassword.trim()) {
-      alert('Please enter your password to confirm account deletion');
-      return;
-    }
-
-    setIsDeleting(true);
-    try {
-      const response = await api.delete('/users/me', { data: { password: deletePassword } });
-      
-      // Clear local storage and cookies
-      localStorage.clear();
-      Cookies.remove('token');
-      Cookies.remove('refreshToken');
-      
-      // Redirect to home page
-      router.push('/');
-      
-      alert('Your account has been successfully deleted');
-    } catch (err) {
-      console.error('Failed to delete account:', err);
-      alert(err.response?.data?.error || 'Failed to delete account');
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteModal(false);
-      setDeletePassword('');
     }
   };
 
@@ -476,53 +377,29 @@ export default function UserPage() {
         <div className={styles.profileInfo}>
           <div className={styles.profileHeaderTop}>
             <h1 className={styles.profileUsername}>
-              {!isEditing && (
-                <>
-                  {userProfile?.username}
-                  {userProfile?.verified && (
-                    <span className="verified-badge" title="Verified Artist">✓</span>
-                  )}
-                  {userProfile?.is_private && (
-                    <span className="private-badge" title="Private Account">
-                      <FaLock />
-                    </span>
-                  )}
-                </>
+              {userProfile?.username}
+              {userProfile?.verified && (
+                <span className="verified-badge" title="Verified Artist">✓</span>
+              )}
+              {userProfile?.is_private && (
+                <span className="private-badge" title="Private Account">
+                  <FaLock />
+                </span>
               )}
             </h1>
             
             {isOwnProfile ? (
               <div className={styles.profileActions}>
-                {isEditing ? (
-                  <div className={styles.editActions}>
-                    <button className="cancel-btn" onClick={() => setIsEditing(false)}>
-                      <FaTimes /> Cancel
-                    </button>
-                    <button className="pill-btn sm green-btn" onClick={handleEditSubmit}>
-                      <FaCheck /> Save
-                    </button>
-                    <button 
-                      className="pill-btn sm pink-btn" 
-                      onClick={() => setShowDeleteModal(true)}
-                      title="Delete Account"
-                    >
-                      Delete Account
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <button className="pill-btn sm" onClick={() => setIsEditing(true)}>
-                      Edit Profile
-                    </button>
-                    {isFeatureEnabled('subscriptions', false) && (
-                      <button 
-                        className="pill-btn sm gradient-btn" 
-                        onClick={() => router.push(`/user/${username}/analytics`)}
-                      >
-                        📊 Analytics
-                      </button>
-                    )}
-                  </>
+                <Link href="/user/edit" className="pill-btn sm">
+                  Edit Profile
+                </Link>
+                {isFeatureEnabled('subscriptions', false) && (
+                  <button 
+                    className="pill-btn sm gradient-btn" 
+                    onClick={() => router.push(`/user/${username}/analytics`)}
+                  >
+                    📊 Analytics
+                  </button>
                 )}
               </div>
             ) : (
@@ -535,78 +412,15 @@ export default function UserPage() {
             )}
           </div>
           
-          {!isEditing && userProfile?.name && (
+          {userProfile?.name && (
             <h2 className="profile-name">{userProfile.name}</h2>
           )}
           
-          {isEditing ? (
-            <>
-            <button 
-              className={`pill-btn sm ${isPrivate ? 'private' : 'public'} w-min justify-self-start mb-2`}
-              onClick={handlePrivacyToggle}
-              title={isPrivate ? 'Make account public' : 'Make account private'}
-            >
-              {isPrivate ? <FaLock /> : <FaLockOpen />}
-              {isPrivate ? 'Private' : 'Public'}
-            </button>
-              <form className={styles.editProfileForm} onSubmit={handleEditSubmit}>
-                <div className={styles.formGroup}>
-                  <label htmlFor="username">Username</label>
-                  <input
-                    type="text"
-                    id="username"
-                    value={editForm.username}
-                    onChange={(e) => {
-                      setEditForm({...editForm, username: e.target.value});
-                      if (!/^\w*$/.test(e.target.value)) {
-                        setUsernameError('Username can only contain letters, numbers, and underscores.');
-                      } else if (e.target.value.length > 20) {
-                        setUsernameError('Username must be 20 characters or less.');
-                      } else {
-                        setUsernameError('');
-                      }
-                    }}
-                    className={styles.formControl}
-                    required
-                    maxLength={20}
-                  />
-                  {usernameError && <div className="input-error">{usernameError}</div>}
-                </div>
-                <div className={styles.formGroup}>
-                  <label htmlFor="name">Full Name</label>
-                  <input
-                    type="text"
-                    id="name"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                    className={styles.formControl}
-                    placeholder="Your full name"
-                    required
-                    maxLength={40}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label htmlFor="bio">Bio</label>
-                  <textarea
-                    id="bio"
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
-                    className={styles.formControl}
-                    rows="3"
-                    maxLength="160"
-                    placeholder="Tell people about yourself..."
-                  />
-                  <div className={styles.charCount}>{editForm.bio.length}/160</div>
-                </div>
-              </form>
-          </>
-          ) : (
-            <p className={styles.bio}>{userProfile?.bio || 'No bio yet'}</p>
-          )}
-          {!isEditing && (
-            <div className={styles.stats}>
-              <span 
-                className={`${styles.statItem} ${isPrivate && !isOwnProfile && !stats.isFollowing ? styles.disabled : ''}`} 
+          <p className={styles.bio}>{userProfile?.bio || 'No bio yet'}</p>
+          
+          <div className={styles.stats}>
+            <span 
+              className={`${styles.statItem} ${isPrivate && !isOwnProfile && !stats.isFollowing ? styles.disabled : ''}`} 
               onClick={handleOpenFollowersModal}
             >
               <span className={styles.statCount}>{stats.followers}</span> followers
@@ -616,9 +430,8 @@ export default function UserPage() {
               onClick={handleOpenFollowingModal}
             >
               <span className={styles.statCount}>{stats.following}</span> following
-              </span>
-            </div>
-          )}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -758,59 +571,6 @@ export default function UserPage() {
         userId={userProfile?.id}
       />
 
-      {/* Delete Account Modal */}
-      {showDeleteModal && (
-        <div 
-          className={styles.modalOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowDeleteModal(false);
-              setDeletePassword('');
-            }
-          }}
-        >
-          <div className={styles.deleteModal}>
-            <h2>Delete Account</h2>
-            <p className={styles.warningText}>
-              <strong>Warning:</strong> This action cannot be undone. All your tracks, comments, and account data will be permanently deleted.
-            </p>
-            <p className={styles.infoText}>
-              Tracks with collaborations will be anonymized but preserved for other users.
-            </p>
-            <div className={styles.passwordInput}>
-              <label htmlFor="deletePassword">Enter your password to confirm:</label>
-              <input
-                type="password"
-                id="deletePassword"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                placeholder="Your password"
-                className={styles.formControl}
-                autoComplete="current-password"
-              />
-            </div>
-            <div className={styles.modalActions}>
-              <button 
-                className="cancel-btn" 
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeletePassword('');
-                }}
-                disabled={isDeleting}
-              >
-                Cancel
-              </button>
-              <button 
-                className="pill-btn sm pink-btn" 
-                onClick={handleDeleteAccount}
-                disabled={isDeleting || !deletePassword.trim()}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete Account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

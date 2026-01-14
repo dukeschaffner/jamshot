@@ -1,24 +1,48 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import api from '../../../lib/api';
+import { authClient } from '../../../lib/auth-client';
+import { validatePassword } from '../../../lib/validation';
 
 export default function ResetPassword({ params }) {
-  const { token } = params;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Better Auth uses query parameter ?token=... instead of route param
+  const token = searchParams?.get('token') || params?.token;
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
+  const [tokenError, setTokenError] = useState('');
+
+  useEffect(() => {
+    // Check for error in query params (Better Auth redirects with ?error=INVALID_TOKEN)
+    const errorParam = searchParams?.get('error');
+    if (errorParam === 'INVALID_TOKEN') {
+      setTokenError('Invalid or expired reset token. Please request a new password reset.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     
-    // Validate passwords
+    if (!token) {
+      setError('Reset token is missing. Please request a new password reset.');
+      return;
+    }
+    
+    // Validate password format
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.message);
+      return;
+    }
+    
+    // Validate passwords match
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -27,21 +51,27 @@ export default function ResetPassword({ params }) {
     setIsSubmitting(true);
     
     try {
-      const response = await api.post('/auth/reset-password', { 
-        token, 
-        newPassword 
+      const result = await authClient.resetPassword({
+        token,
+        newPassword,
       });
       
-      setSuccess(response.data.message || 'Password reset successful!');
-      setNewPassword('');
-      setConfirmPassword('');
-      
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 3000);
+      if (result.data) {
+        setSuccess('Password reset successful!');
+        setNewPassword('');
+        setConfirmPassword('');
+        
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          router.push('/login');
+        }, 3000);
+      } else {
+        setError('Password reset failed. Please try again.');
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'An error occurred. Please try again later.');
+      const errorMessage = err.message || 'An error occurred. Please try again later.';
+      setError(errorMessage);
+      console.error('Reset password error:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -51,7 +81,16 @@ export default function ResetPassword({ params }) {
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
       <h1 className="text-2xl font-bold mb-4">Reset Password</h1>
       
-      {success ? (
+      {tokenError ? (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>{tokenError}</p>
+          <p className="mt-2">
+            <Link href="/forgot-password" className="text-blue-600 hover:text-blue-800 underline">
+              Request a new password reset
+            </Link>
+          </p>
+        </div>
+      ) : success ? (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
           <p>{success}</p>
           <p className="mt-2">
@@ -116,7 +155,7 @@ export default function ResetPassword({ params }) {
             
             <button 
               type="submit" 
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+              className="w-full pill-btn gradient-btn disabled:opacity-50"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Resetting...' : 'Reset Password'}

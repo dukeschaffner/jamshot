@@ -22,6 +22,7 @@ export default function NotificationsPage() {
     deleteNotification 
   } = useNotifications();
 
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
@@ -29,14 +30,13 @@ export default function NotificationsPage() {
       return;
     }
     
-    // Fetch notifications on mount
-    fetchNotifications();
-    
-    // Mark all as read when user visits the page
-    if (unreadCount > 0) {
+    // Mark all as read when notifications are loaded and there are unread ones
+    // Rely on NotificationContext's automatic fetching (no explicit fetchNotifications call)
+    if (!loading && unreadCount > 0) {
+      fetchNotifications();
       markAllAsRead();
     }
-  }, [isAuthenticated, fetchNotifications, markAllAsRead, unreadCount, router]);
+  }, [isAuthenticated, loading, unreadCount, markAllAsRead, router, fetchNotifications]);
 
   if (!isAuthenticated) {
     return null; // Will redirect in useEffect

@@ -1,9 +1,12 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
-const pool = require('../config/db');
-const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils');
-const { isFeatureEnabled } = require('../utils/featureFlags');
+const pool = require('../config/db.cjs');
+const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils.cjs');
+const { isFeatureEnabled } = require('../utils/featureFlags.cjs');
 
 /**
  * Analytics API Routes
@@ -661,4 +664,4 @@ router.get('/platform', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router; 

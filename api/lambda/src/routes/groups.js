@@ -1,8 +1,11 @@
-const express = require('express');
+import express from 'express';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db');
-const { apiEndpointLimiter } = require('../middleware/rateLimiting');
-const { getGeolocationData } = require('../utils/geolocation');
+const pool = require('../config/db.cjs');
+const { apiEndpointLimiter } = require('../middleware/rateLimiting.cjs');
+const { getGeolocationData } = require('../utils/geolocation.cjs');
 
 /**
  * Log a visit to a predefined group landing page
@@ -106,5 +109,5 @@ router.post('/visit', apiEndpointLimiter, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
 

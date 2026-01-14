@@ -1,3 +1,6 @@
+API:
+- switch to hono for all routes
+
 DAW:
 - Clear buffer registry unused/old buffers
 
@@ -19,3 +22,7 @@ TEAMS:
 
 NOTIFICATIONS:
 - don't poll for notifications if user already has unread notifications
+
+
+USER:
+- user page loads tracks, likes, and reposts on load. only need to load tracks at page load.

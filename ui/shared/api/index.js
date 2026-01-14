@@ -84,6 +84,24 @@ const createApiClient = (config = {}) => {
   // Sleep utility for retry delays
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+  // TEMP: Helper function to log errors to the API (for CloudWatch visibility)
+  // This is a fire-and-forget operation that should never throw
+  // Remove after debugging token refresh issues
+  const logToApi = async (message, level = 'error', metadata = {}) => {
+    try {
+      const baseURL = config.baseURL || process.env.API_URL;
+      await axios.post(
+        `${baseURL}/logging/log`,
+        { message, level, metadata },
+        { timeout: 2000 } // Short timeout to avoid blocking
+      );
+    } catch (logError) {
+      // Silently fail - we don't want logging to interfere with the main flow
+      // Just log to console as fallback
+      console.error('[Failed to log to API]', message, logError);
+    }
+  };
+
   // Attempt token refresh with retry logic
   const attemptTokenRefresh = async (refreshToken) => {
     try {
@@ -101,10 +119,39 @@ const createApiClient = (config = {}) => {
         refreshRetryCount++;
         const delay = REFRESH_RETRY_DELAY * Math.pow(2, refreshRetryCount - 1); // Exponential backoff
         console.log(`Token refresh failed (attempt ${refreshRetryCount}/${MAX_REFRESH_RETRIES}), retrying in ${delay}ms...`, error.message);
+        
+        // TEMP: Log retry attempt to API - remove after debugging
+        await logToApi(
+          `Token refresh retry attempt ${refreshRetryCount}/${MAX_REFRESH_RETRIES}`,
+          'warn',
+          {
+            errorMessage: error.message,
+            errorCode: error.code,
+            status: error.response?.status,
+            delay,
+            isRetryable: true
+          }
+        );
 
         await sleep(delay);
         return attemptTokenRefresh(refreshToken); // Recursive retry
       }
+
+      // TEMP: Log final failure to API - remove after debugging
+      await logToApi(
+        'Token refresh failed - exceeded retries or non-retryable error',
+        'error',
+        {
+          errorMessage: error.message,
+          errorCode: error.code,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          responseData: error.response?.data,
+          retryCount: refreshRetryCount,
+          maxRetries: MAX_REFRESH_RETRIES,
+          isRetryable: isRetryableError(error)
+        }
+      );
 
       // If not retryable or exceeded retries, throw the error
       throw error;
@@ -140,138 +187,6 @@ const createApiClient = (config = {}) => {
         setCsrfToken(csrfToken);
       }
       return response;
-    },
-    async (error) => {
-      const originalRequest = error.config;
-      
-      // Handle CSRF token errors
-      if (error.response?.status === 403 && 
-          (error.response?.data?.code === 'CSRF_TOKEN_MISSING' || 
-           error.response?.data?.code === 'CSRF_TOKEN_MISMATCH')) {
-        
-        // Clear CSRF token and retry the request
-        if (removeCsrfToken) {
-          await removeCsrfToken();
-        }
-        
-        // Don't retry if already retried
-        if (!originalRequest._csrfRetry) {
-          originalRequest._csrfRetry = true;
-          return api(originalRequest);
-        }
-        
-        return Promise.reject(error);
-      }
-      
-      // If the error is not 401 or the request has already been retried, reject
-      if (error.response?.status !== 401 || originalRequest._retry) {
-        return Promise.reject(error);
-      }
-      
-      // Don't attempt token refresh for login attempts - let them handle their own 401 errors
-      if (originalRequest.url?.includes('/auth/login')) {
-        return Promise.reject(error);
-      }
-      
-      // Mark this request as retried to prevent infinite loops
-      originalRequest._retry = true;
-      
-      // If already refreshing, add to queue
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(token => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return api(originalRequest);
-          })
-          .catch(err => Promise.reject(err));
-      }
-      
-      isRefreshing = true;
-      
-      try {
-        // Get refresh token
-        const refreshToken = getRefreshToken ? await getRefreshToken() : null;
-        
-        if (!refreshToken) {
-          // No refresh token, clear auth and redirect to login
-          console.log('No refresh token, clearing auth and redirecting to login');
-          if (removeToken) await removeToken();
-          if (removeRefreshToken) await removeRefreshToken();
-          if (setAuthError) setAuthError('Your session has expired. Please log in again.');
-          
-          // Update the UserContext if callback is set
-          if (refreshUserState) {
-            refreshUserState();
-          }
-          
-          if (redirectToLogin) {
-            redirectToLogin();
-          }
-          
-          return Promise.reject(error);
-        }
-        
-        // Try to get a new access token with retry logic
-        const response = await attemptTokenRefresh(refreshToken);
-        
-        const { accessToken } = response.data;
-        
-        // Update the access token
-        if (setToken) {
-          await setToken(accessToken);
-        }
-
-        console.log('Access token refreshed');
-        
-        // Update the UserContext if callback is set
-        if (refreshUserState) {
-          refreshUserState();
-        }
-        
-        // Update Authorization header for the original request
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        
-        // Process any queued requests
-        processQueue(null, accessToken);
-        
-        // Retry the original request
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Check if this is specifically an invalid/expired refresh token error
-        const isInvalidTokenError = refreshError.response?.data?.error === 'Invalid or expired refresh token';
-
-        if (isInvalidTokenError) {
-          // Only logout for explicit invalid/expired token errors
-          processQueue(refreshError, null);
-
-          console.log('Refresh token is invalid or expired, clearing auth and redirecting to login');
-          if (removeToken) await removeToken();
-          if (removeRefreshToken) await removeRefreshToken();
-          if (setAuthError) setAuthError('Your session has expired. Please log in again.');
-          window.refreshError = refreshError;
-
-          // Update the UserContext if callback is set
-          if (refreshUserState) {
-            refreshUserState();
-          }
-
-          if (redirectToLogin) {
-            redirectToLogin();
-          }
-
-          return Promise.reject(refreshError);
-        } else {
-          // For other errors (network issues, server errors, etc.), don't logout
-          // Just reject the original request and let it fail gracefully
-          console.log('Token refresh failed due to non-auth error, keeping user logged in:', refreshError.message);
-          processQueue(refreshError, null);
-          return Promise.reject(refreshError);
-        }
-      } finally {
-        isRefreshing = false;
-      }
     }
   );
 
@@ -428,6 +343,10 @@ const createApiMethods = (apiClient) => {
     markAsRead: (id) => api.put(`/notifications/${id}/read`),
     
     markAllAsRead: () => api.put('/notifications/read-all'),
+    
+    getPreferences: () => api.get('/notifications/preferences'),
+    
+    updatePreferences: (preferences) => api.put('/notifications/preferences', preferences),
   };
 
   // Competition API methods
@@ -468,6 +387,8 @@ const createApiMethods = (apiClient) => {
     getGenres: () => api.get('/tags/genres'),
 
     getInstruments: () => api.get('/tags/instruments'),
+
+    getElements: () => api.get('/tags/elements'),
 
     getTrackGenres: (trackId) => api.get(`/tags/track/${trackId}/genres`),
 

@@ -39,10 +39,26 @@
   }
 
 
+  .feedTabsContainer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 16px;
+  }
+
   .feedTabs {
     display: flex;
     gap: 12px;
-    margin-bottom: 8px;
+  }
+
+  /* Mobile responsive - stack vertically */
+  @media (max-width: 768px) {
+    .feedTabsContainer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
   }
 
   .loadingTabs {

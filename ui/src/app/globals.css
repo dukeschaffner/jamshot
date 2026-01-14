@@ -96,6 +96,55 @@ body {
   color: var(--text-secondary);
 }
 
+/* Input placeholder styles */
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+input:-ms-input-placeholder,
+textarea:-ms-input-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+body.dark-mode input::-webkit-input-placeholder,
+body.dark-mode textarea::-webkit-input-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+body.dark-mode input::-moz-placeholder,
+body.dark-mode textarea::-moz-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+body.dark-mode input:-ms-input-placeholder,
+body.dark-mode textarea:-ms-input-placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
 .pill-btn {
   padding: 12px 20px;
   background-color: var(--grey-1);
@@ -709,7 +758,7 @@ body.dark-mode .mobile-more-link:hover {
 }
 
 .track-tags {
-  display: flex;
+  /* display: flex; */
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;

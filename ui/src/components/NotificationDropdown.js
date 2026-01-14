@@ -17,7 +17,8 @@ export default function NotificationDropdown() {
     loadMoreNotifications,
     markAsRead, 
     markAllAsRead, 
-    deleteNotification 
+    deleteNotification,
+    fetchNotifications
   } = useNotifications();
 
   // Close dropdown when clicking outside
@@ -42,7 +43,12 @@ export default function NotificationDropdown() {
     <div className="relative notification-dropdown" ref={dropdownRef}>
       <button
         onClick={() => {
-          setIsOpen(!isOpen);
+          const newIsOpen = !isOpen;
+          setIsOpen(newIsOpen);
+          // Refresh notifications when opening dropdown if there are unread notifications
+          if (newIsOpen && unreadCount > 0) {
+            fetchNotifications();
+          }
         }}
         className="notification-button"
         title="Notifications"

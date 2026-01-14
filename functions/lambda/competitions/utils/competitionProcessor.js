@@ -32,6 +32,8 @@ if (!process.env.DB_HOST) {
   require('dotenv').config();
 }
 
+const emailName = 'Duke from Sterio';
+
 // Create a transporter using custom SMTP credentials
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -574,7 +576,7 @@ class CompetitionProcessor {
     if (!winner.email) return;
 
     const mailOptions = {
-      from: process.env.EMAIL,
+      from: `"${emailName}" <${process.env.EMAIL}>`,
       to: getEmailAddress(winner.email),
       subject: '🎉 You won a competition on sterio.fm!',
       html: `
@@ -620,7 +622,7 @@ class CompetitionProcessor {
     if (!competition.host_email) return;
 
     const mailOptions = {
-      from: process.env.EMAIL,
+      from: `"${emailName}" <${process.env.EMAIL}>`,
       to: getEmailAddress(competition.host_email),
       subject: isBackupWinner 
         ? 'Competition winner selected automatically' 
@@ -650,7 +652,7 @@ class CompetitionProcessor {
     if (!competition.host_email) return;
 
     const mailOptions = {
-      from: process.env.EMAIL,
+      from: `"${emailName}" <${process.env.EMAIL}>`,
       to: getEmailAddress(competition.host_email),
       subject: 'Competition ended - No entries received',
       html: `
@@ -676,7 +678,7 @@ class CompetitionProcessor {
     if (!competition.host_email) return;
 
     const mailOptions = {
-      from: process.env.EMAIL,
+      from: `"${emailName}" <${process.env.EMAIL}>`,
       to: getEmailAddress(competition.host_email),
       subject: 'Competition ended - No winner selected',
       html: `

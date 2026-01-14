@@ -1,10 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const pool = require('../config/db');
-const { authMiddleware } = require('../middleware/auth');
+import express from 'express';
+import { createRequire } from 'module';
+import { betterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-// Apply auth middleware to all notification routes
-router.use(authMiddleware);
+const require = createRequire(import.meta.url);
+const pool = require('../config/db.cjs');
+
+const router = express.Router();
+
+// Apply Better Auth middleware to all notification routes
+router.use(betterAuthMiddleware);
 
 // Get user's notifications
 router.get('/', async (req, res) => {
@@ -195,4 +199,98 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router; 
+// Get user's notification preferences
+router.get('/preferences', async (req, res) => {
+  const userId = req.user.id;
+  
+  try {
+    const result = await pool.query(
+      'SELECT activity_summary_frequency, collab_email_enabled FROM notification_preferences WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (result.rows.length === 0) {
+      // Create default preferences if they don't exist
+      const defaultResult = await pool.query(
+        'INSERT INTO notification_preferences (user_id, activity_summary_frequency, collab_email_enabled) VALUES ($1, $2, $3) RETURNING activity_summary_frequency, collab_email_enabled',
+        [userId, 'weekly', true]
+      );
+      return res.json(defaultResult.rows[0]);
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching notification preferences:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update user's notification preferences
+router.put('/preferences', async (req, res) => {
+  const userId = req.user.id;
+  const { activity_summary_frequency, collab_email_enabled } = req.body;
+  
+  // Validate activity_summary_frequency
+  const validFrequencies = ['daily', 'weekly', 'monthly', 'none'];
+  if (activity_summary_frequency && !validFrequencies.includes(activity_summary_frequency)) {
+    return res.status(400).json({ 
+      error: 'Invalid activity_summary_frequency. Must be one of: daily, weekly, monthly, none' 
+    });
+  }
+  
+  // Validate collab_email_enabled
+  if (collab_email_enabled !== undefined && typeof collab_email_enabled !== 'boolean') {
+    return res.status(400).json({ 
+      error: 'collab_email_enabled must be a boolean' 
+    });
+  }
+  
+  try {
+    // Build dynamic update query
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+    
+    if (activity_summary_frequency !== undefined) {
+      updates.push(`activity_summary_frequency = $${paramCount}`);
+      values.push(activity_summary_frequency);
+      paramCount++;
+    }
+    
+    if (collab_email_enabled !== undefined) {
+      updates.push(`collab_email_enabled = $${paramCount}`);
+      values.push(collab_email_enabled);
+      paramCount++;
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    
+    values.push(userId);
+    const query = `
+      UPDATE notification_preferences 
+      SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $${paramCount}
+      RETURNING activity_summary_frequency, collab_email_enabled
+    `;
+    
+    const result = await pool.query(query, values);
+    
+    if (result.rows.length === 0) {
+      // Create preferences if they don't exist
+      const insertResult = await pool.query(
+        'INSERT INTO notification_preferences (user_id, activity_summary_frequency, collab_email_enabled) VALUES ($1, $2, $3) RETURNING activity_summary_frequency, collab_email_enabled',
+        [userId, activity_summary_frequency || 'weekly', collab_email_enabled !== undefined ? collab_email_enabled : true]
+      );
+      return res.json(insertResult.rows[0]);
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating notification preferences:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+export default router; 

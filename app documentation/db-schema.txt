@@ -1,11 +1,11 @@
 
 
 CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(40) NOT NULL,
   username VARCHAR(20) UNIQUE NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL, -- Hashed with bcrypt
+  password_hash VARCHAR(255), -- Hashed with bcrypt (nullable for OAuth users)
   profile_pic_url VARCHAR(255), -- S3 URL for profile pic
   bio TEXT, -- Optional short bio
   verified BOOL not null default false, -- Reserved for well-known artists
@@ -112,6 +112,8 @@ CREATE TABLE follows (
 
 CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost', 'follow', 'follow_request', 'mention', 'competition_winner', 'competition_entry', 'competition_started', 'competition_ended');
 
+CREATE TYPE activity_summary_frequency AS ENUM ('daily', 'weekly', 'monthly', 'none');
+
 CREATE TABLE notifications (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
@@ -127,6 +129,20 @@ CREATE TABLE notifications (
 CREATE INDEX idx_notifications_user_id_created_at ON notifications(user_id, created_at DESC);
 CREATE INDEX idx_notifications_user_id_is_read ON notifications(user_id, is_read);
 CREATE INDEX idx_notifications_type ON notifications(type);
+
+
+CREATE TABLE notification_preferences (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  activity_summary_frequency activity_summary_frequency NOT NULL DEFAULT 'weekly',
+  collab_email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id)
+);
+
+CREATE INDEX idx_notification_preferences_user_id ON notification_preferences(user_id);
+CREATE INDEX idx_notification_preferences_activity_summary ON notification_preferences(activity_summary_frequency);
 
 
 
@@ -177,11 +193,28 @@ INSERT INTO genres (name) VALUES
 ('R&B'),
 ('Country'),
 ('Folk'),
-('Metal');
+('Metal'),
+('Alternative'),
+('Indie'),
+('Punk'),
+('Soul'),
+('Funk'),
+('Blues'),
+('Reggae'),
+('Latin'),
+('Afrobeats'),
+('EDM'),
+('House'),
+('Techno'),
+('Ambient'),
+('Lo-Fi'),
+('Experimental'),
+('Christian'),
+('Gospel');
 
 
 INSERT INTO instruments (name) VALUES
-('Guitar'),
+('Acoustic Guitar'),
 ('Piano'),
 ('Drums'),
 ('Bass'),
@@ -190,7 +223,79 @@ INSERT INTO instruments (name) VALUES
 ('Saxophone'),
 ('Violin'),
 ('Trumpet'),
-('DJ/Turntables');
+('DJ/Turntables'),
+('Keyboard'),
+('Percussion'),
+('Bass Synth'),
+('Sampler'),
+('Drum Machine'),
+('Flute'),
+('Clarinet'),
+('Trombone'),
+('Cello'),
+('Viola'),
+('Ukulele'),
+('Harmonica'),
+('FX'),
+('Vocals (Rap)'),
+('Electric Guitar');
+
+
+
+CREATE TABLE elements (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+CREATE TABLE track_elements (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  element_id INT REFERENCES elements(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, element_id) -- Prevent duplicate element tags for a track (max 2 enforced at application level)
+);
+
+
+
+CREATE TABLE track_instrument_requests (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  instrument_id INT REFERENCES instruments(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, instrument_id) -- Prevent duplicate instrument request tags for a track (max 2 enforced at application level)
+);
+
+
+
+CREATE TABLE track_element_requests (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  element_id INT REFERENCES elements(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (track_id, element_id) -- Prevent duplicate element request tags for a track (max 2 enforced at application level)
+);
+
+-- Create indexes for performance
+CREATE INDEX idx_track_elements_track_id ON track_elements(track_id);
+CREATE INDEX idx_track_elements_element_id ON track_elements(element_id);
+CREATE INDEX idx_track_instrument_requests_track_id ON track_instrument_requests(track_id);
+CREATE INDEX idx_track_instrument_requests_instrument_id ON track_instrument_requests(instrument_id);
+CREATE INDEX idx_track_element_requests_track_id ON track_element_requests(track_id);
+CREATE INDEX idx_track_element_requests_element_id ON track_element_requests(element_id);
+
+
+INSERT INTO elements (name) VALUES
+('Beat'),
+('Melody'),
+('Harmony'),
+('Vocals (Lead)'),
+('Vocals (Background)'),
+('Solo'),
+('Rhythm'),
+('Texture/SFX');
 
 
 
@@ -284,6 +389,38 @@ CREATE TRIGGER update_comment_timestamp
 BEFORE UPDATE ON comments
 FOR EACH ROW
 EXECUTE FUNCTION update_comment_timestamp();
+
+-- Trigger function to automatically create notification preferences for new users
+CREATE OR REPLACE FUNCTION create_default_notification_preferences()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO notification_preferences (user_id, activity_summary_frequency, collab_email_enabled)
+  VALUES (NEW.id, 'weekly', TRUE);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for new users
+DROP TRIGGER IF EXISTS trigger_create_notification_preferences ON users;
+CREATE TRIGGER trigger_create_notification_preferences
+  AFTER INSERT ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION create_default_notification_preferences();
+
+-- Add updated_at trigger function for notification_preferences
+CREATE OR REPLACE FUNCTION update_notification_preferences_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create updated_at trigger
+CREATE TRIGGER trigger_notification_preferences_updated_at
+  BEFORE UPDATE ON notification_preferences
+  FOR EACH ROW
+  EXECUTE FUNCTION update_notification_preferences_timestamp();
 
 
 CREATE TABLE track_mentions (

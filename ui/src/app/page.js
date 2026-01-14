@@ -5,6 +5,7 @@ import Track from '../components/Track';
 import InfiniteScrollContainer from '../components/InfiniteScrollContainer';
 import CustomTabs from '../components/CustomTabs';
 import SponsoredCompetition from '../components/SponsoredCompetition';
+import TagFilter from '../components/TagFilter';
 import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 import { useMobile } from '../contexts/MobileContext';
@@ -19,6 +20,13 @@ export default function Home() {
   const { isAuthenticated, isLoading } = useUser();
   const { isMobile } = useMobile();
   const [hasSponsoredCompetition, setHasSponsoredCompetition] = useState(false);
+
+  // Tag filter state
+  const [selectedGenres, setSelectedGenres] = useState([]);
+  const [selectedInstruments, setSelectedInstruments] = useState([]);
+  const [selectedElements, setSelectedElements] = useState([]);
+  const [selectedInstrumentRequests, setSelectedInstrumentRequests] = useState([]);
+  const [selectedElementRequests, setSelectedElementRequests] = useState([]);
 
   // Check if this is the first visit when component mounts
   useEffect(() => {
@@ -52,27 +60,59 @@ export default function Home() {
     if (!feedType) {
       return [];
     }
-    
+
     // Call the appropriate endpoint based on feedType
     const endpoint = `/tracks/feed/${feedType}`;
-    
-    const response = await api.get(endpoint, {
-      params: {
-        page: pageNum,
-        limit: TRACKS_PER_PAGE
-      }
-    });
-    
+
+    const params = {
+      page: pageNum,
+      limit: TRACKS_PER_PAGE
+    };
+
+    // Add tag filter parameters if any are selected
+    if (selectedGenres.length > 0) {
+      params.genreIds = selectedGenres.join(',');
+    }
+    if (selectedInstruments.length > 0) {
+      params.instrumentIds = selectedInstruments.join(',');
+    }
+    if (selectedElements.length > 0) {
+      params.elementIds = selectedElements.join(',');
+    }
+    if (selectedInstrumentRequests.length > 0) {
+      params.instrumentRequestIds = selectedInstrumentRequests.join(',');
+    }
+    if (selectedElementRequests.length > 0) {
+      params.elementRequestIds = selectedElementRequests.join(',');
+    }
+
+    const response = await api.get(endpoint, { params });
+
     // API returns array directly, InfiniteScrollContainer handles it
     return response.data;
-  }, [feedType]);
+  }, [feedType, selectedGenres, selectedInstruments, selectedElements, selectedInstrumentRequests, selectedElementRequests]);
 
   const handleFeedTypeChange = (newFeedType) => {
     if (newFeedType !== feedType) {
       setFeedType(newFeedType);
       setExpandedTrackId(null);
+      // Reset tag filters when switching feed types
+      setSelectedGenres([]);
+      setSelectedInstruments([]);
+      setSelectedElements([]);
+      setSelectedInstrumentRequests([]);
+      setSelectedElementRequests([]);
       trackFeedChange(newFeedType);
     }
+  };
+
+  const handleTagFilterChange = (filters) => {
+    setSelectedGenres(filters.genreIds);
+    setSelectedInstruments(filters.instrumentIds);
+    setSelectedElements(filters.elementIds);
+    setSelectedInstrumentRequests(filters.instrumentRequestIds);
+    setSelectedElementRequests(filters.elementRequestIds);
+    setExpandedTrackId(null); // Reset expanded track when filters change
   };
 
   // Enhanced track expansion handler with analytics
@@ -181,18 +221,31 @@ export default function Home() {
           Check out the latest tracks from artists you follow and trending collaborations
         </p>
         
-        {feedType ? (
-          <CustomTabs
-            tabs={tabs}
-            activeTab={feedType}
-            onTabChange={handleFeedTypeChange}
-            variant="feed"
-          />
-        ) : (
-          <div className={styles.feedTabs}>
-            <div className={styles.loadingTabs}>Loading...</div>
-          </div>
-        )}
+        <div className={styles.feedTabsContainer}>
+          {feedType ? (
+            <CustomTabs
+              tabs={tabs}
+              activeTab={feedType}
+              onTabChange={handleFeedTypeChange}
+              variant="feed"
+            />
+          ) : (
+            <div className={styles.feedTabs}>
+              <div className={styles.loadingTabs}>Loading...</div>
+            </div>
+          )}
+
+          {feedType && (
+            <TagFilter
+              selectedGenres={selectedGenres}
+              selectedInstruments={selectedInstruments}
+              selectedElements={selectedElements}
+              selectedInstrumentRequests={selectedInstrumentRequests}
+              selectedElementRequests={selectedElementRequests}
+              onChange={handleTagFilterChange}
+            />
+          )}
+        </div>
       </div>
 
       {/* Mobile Banner - Show sponsored competition above feed on mobile */}
@@ -222,7 +275,7 @@ export default function Home() {
                 )}
                 className={styles.trackList}
                 itemsPerPage={TRACKS_PER_PAGE}
-                dependencies={[feedType]}
+                dependencies={[feedType, selectedGenres, selectedInstruments, selectedElements, selectedInstrumentRequests, selectedElementRequests]}
                 resetOnDependenciesChange={true}
               />
             ) : (

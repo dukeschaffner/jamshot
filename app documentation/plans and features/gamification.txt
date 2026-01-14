@@ -31,3 +31,4 @@ also, show status gained on track details page + analytics page
 
 LATER:
 - add competitions with status point prize pools and status point range/rank entry requirements
+- make sure users know that copyright infringement will result in loss of status points on strike 1 and account suspension on strike 2

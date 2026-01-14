@@ -6,6 +6,7 @@ import { FaPlay, FaPause, FaVolumeUp, FaVolumeMute, FaEnvelope, FaKey, FaMusic, 
 import api from '../lib/api';
 import styles from './LandingPage.module.css';
 import LoginModal from './LoginModal';
+import { getErrorMessage } from '../../shared/utils/errors';
 
 function LandingPageContent({ onAccessGranted }) {
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ function LandingPageContent({ onAccessGranted }) {
   const [accessStatus, setAccessStatus] = useState(''); // 'loading', 'success', 'error'
   const [waitlistMessage, setWaitlistMessage] = useState('');
   const [accessMessage, setAccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const videoRef = useRef(null);
 
@@ -37,6 +39,17 @@ function LandingPageContent({ onAccessGranted }) {
     if (confirmed === 'true') {
       setWaitlistStatus('success');
       setWaitlistMessage('Your spot on the waitlist has been confirmed! Check your email for your referral link.');
+    }
+  }, [searchParams]);
+
+  // Check for error code in URL query parameters
+  useEffect(() => {
+    const urlErrorCode = searchParams.get('errorCode');
+    if (urlErrorCode) {
+      // Decode the URL-encoded error code and get displayable message
+      const decodedErrorCode = decodeURIComponent(urlErrorCode);
+      const displayMessage = getErrorMessage(decodedErrorCode);
+      setErrorMessage(displayMessage);
     }
   }, [searchParams]);
 
@@ -203,6 +216,13 @@ function LandingPageContent({ onAccessGranted }) {
               </div>
             </div>
           </div>
+
+          {/* Error Message Display */}
+          {errorMessage && (
+            <div className={`${styles.statusMessage} ${styles.error}`}>
+              {errorMessage}
+            </div>
+          )}
 
           {/* Forms Section */}
           <div className={styles.forms}>
