@@ -418,7 +418,6 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       try {
-        console.log('before hook ctx.path', ctx.path);
         // Intercept OAuth error page redirects and redirect to UI instead
         if (ctx.path === '/error' || ctx.path === '/api/auth/error') {
           const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -427,10 +426,6 @@ export const auth = betterAuth({
         
         // Get error code from query params
         const errorCode = ctx.query?.error || 'unknown_error';
-
-        console.log('errorCode', errorCode);
-
-        console.log('loginUrl', loginUrl);
 
         // Redirect to login page with error code
         throw ctx.redirect(`${loginUrl}?errorCode=${encodeURIComponent(errorCode)}&errorType=oauth`);
@@ -480,7 +475,6 @@ export const auth = betterAuth({
     after: createAuthMiddleware(async (ctx) => {
 
       try {
-        console.log('after hook ctx.path', ctx.path);
         // Check for OAuth callback errors and redirect to UI with client-safe error message
         const isOAuthCallback = ctx.path?.includes('/callback/');
 
@@ -513,10 +507,6 @@ export const auth = betterAuth({
                 errorCode = match[1];
               }
             }
-
-            console.log('errorCode', errorCode);
-
-            console.log('loginUrl', loginUrl);
 
             // Redirect to login page with error code
             throw ctx.redirect(`${loginUrl}?errorCode=${encodeURIComponent(errorCode)}&errorType=oauth`);
