@@ -82,3 +82,4 @@ The function logs:
 - Date ranges being processed
 
 Check CloudWatch logs for monitoring and debugging in production.
+# Email notifications lambda for sending scheduled activity summary emails
