@@ -385,13 +385,8 @@ const processEmailNotifications = async (forcePeriods = null) => {
  * Main Lambda handler
  */
 exports.handler = async (event, context) => {
-  try {
-    const result = await processEmailNotifications();
-    return result;
-  } finally {
-    // Close database connection
-    await pool.end();
-  }
+  const result = await processEmailNotifications();
+  return result;
 };
 
 /**
