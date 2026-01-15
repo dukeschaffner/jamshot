@@ -941,25 +941,26 @@ router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res) => {
 router.get('/:id/related', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
-  const { page = 1, limit = 5 } = req.query;
+  const { page = 1, limit = 5, includeParent = true, includeChildCount = false } = req.query;
   
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
 
   let baseQuery;
   let queryParams;
+  const includeChildCountBool = includeChildCount === 'true';
   if (userId) {
-    baseQuery = getBaseTrackSelectQuery(true, 2, false);
+    baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
     queryParams = [id, userId];
   } else {
-    baseQuery = getBaseTrackSelectQuery(false, 1, false);
+    baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
     queryParams = [id];
   }
   try {
     // Only include the parent track and current track on the first page
     let combinedTracks = [];
-    
-    if (parseInt(page) === 1) {
+
+    if (parseInt(page) === 1 && includeParent === 'true') {
       // First, get the parent track if it exists
       let parentTrackQuery = `
         SELECT
@@ -969,11 +970,11 @@ router.get('/:id/related', async (req, res) => {
         LEFT JOIN users u ON t.user_id = u.id
         WHERE (t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)) AND t.processing_status = 'completed'
       `;
-      
+
       const [parentTrackResult] = await Promise.all([
         pool.query(parentTrackQuery, queryParams),
       ]);
-      
+
       // Add parent track if it exists
       if (parentTrackResult.rows.length > 0) {
         combinedTracks.push(parentTrackResult.rows[0]);
@@ -2035,6 +2036,106 @@ router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error('Error generating download URL:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test endpoint that returns dummy related tracks for development/testing
+router.get('/:id/related-test', async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { page = 1, limit = 5, includeParent = true, count = 50, maxLikes = 1000, maxPlays = 10000, includeChildCount = false, depth = 0 } = req.query;
+
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  const limitNum = parseInt(limit);
+  const countNum = parseInt(count);
+  const maxLikesNum = parseInt(maxLikes);
+  const maxPlaysNum = parseInt(maxPlays);
+  const includeChildCountBool = includeChildCount === 'true';
+
+  try {
+    // Get a template track to use for dummy data
+    const templateQuery = `
+      SELECT t.audio_url, t.combined_audio_url, t.duration, t.layer, u.profile_pic_url, u.username, u.verified
+      FROM tracks t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.processing_status = 'completed' AND t.is_private = FALSE
+      ORDER BY t.created_at DESC
+      LIMIT 1
+    `;
+
+    const templateResult = await pool.query(templateQuery);
+    if (templateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No template track found' });
+    }
+
+    const template = templateResult.rows[0];
+    const signedAudioUrl = generateSignedUrl(template.audio_url);
+    const signedCombinedAudioUrl = template.combined_audio_url ? generateSignedUrl(template.combined_audio_url) : signedAudioUrl;
+
+    // Generate dummy tracks
+    const dummyTracks = [];
+    const startIndex = offset;
+    const endIndex = Math.min(offset + limitNum, countNum);
+
+    for (let i = startIndex; i < endIndex; i++) {
+      // Use provided depth + 1 for returned tracks
+      const trackDepth = parseInt(depth) + 1;
+
+      const dummyTrack = {
+        id: parseInt(`${trackDepth}00001000${i}`), // Fake ID to avoid conflicts
+        guid: `dummy-${i}`,
+        user_id: userId || 1,
+        title: `Depth ${trackDepth} Track ${i}`,
+        audio_url: signedAudioUrl,
+        combined_audio_url: signedCombinedAudioUrl,
+        duration: template.duration,
+        layer: trackDepth,
+        parent_track_id: parseInt(id),
+        created_at: new Date(Date.now() - (countNum - i) * 1000 * 60 * 60), // Spread out creation times
+        play_count: Math.floor(Math.random() * maxPlaysNum),
+        metronome_bpm: null,
+        time_signature: '4/4',
+        allow_download: true,
+        processing_status: 'completed',
+        username: template.username,
+        verified: template.verified,
+        profile_pic_url: template.profile_pic_url,
+        creator_is_private: false,
+        original_title: null,
+        ...(includeChildCountBool && { collab_count: Math.floor(Math.random() * 5) }),
+        like_count: Math.floor(Math.random() * maxLikesNum),
+        repost_count: Math.floor(Math.random() * 100),
+        comment_count: Math.floor(Math.random() * 50),
+        is_liked: userId ? Math.random() > 0.7 : false, // 30% chance of being liked
+        is_reposted: userId ? Math.random() > 0.9 : false, // 10% chance of being reposted
+        genres: [],
+        instruments: [],
+        elements: [],
+        instrument_requests: [],
+        element_requests: [],
+        has_active_competition: false
+      };
+
+      dummyTracks.push(dummyTrack);
+    }
+
+    // Calculate pagination based on the count parameter
+    const totalCount = countNum;
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    res.json({
+      tracks: dummyTracks,
+      pagination: {
+        total: totalCount,
+        page: parseInt(page),
+        limit: limitNum,
+        pages: totalPages,
+        hasMore: parseInt(page) < totalPages
+      }
+    });
+  } catch (err) {
+    console.error('Related test endpoint error:', err);
     res.status(500).json({ error: err.message });
   }
 });
