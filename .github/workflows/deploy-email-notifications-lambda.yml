@@ -1,0 +1,215 @@
+name: Deploy Email Notifications Lambda to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'functions/lambda/email-notifications/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - prod
+      reason:
+        description: 'Reason for deployment'
+        required: false
+        default: 'Manual deployment'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build-artifact: email-notifications-lambda-build-${{ github.run_number }}
+    defaults:
+      run:
+        working-directory: ./functions/lambda/email-notifications/
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: './functions/lambda/email-notifications/package-lock.json'
+
+    - name: Install dependencies
+      run: |
+        npm ci
+
+    # - name: Run tests
+    #   run: |
+    #     npm test
+
+    - name: Create deployment package
+      run: |
+        # Create deployment zip similar to existing script but CI-friendly
+        zip -r email-notifications-lambda.zip . \
+          -x ".env*" \
+          -x "test/*" \
+          -x "*.md" \
+          -x "package-lock.json" \
+          -x "scripts/*" \
+          -x ".git/*" \
+          -x "node_modules/.cache/*"
+
+    # TEMPORARY: Using S3 storage instead of GitHub artifacts
+    - name: Configure AWS credentials for S3 upload
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Upload artifact to S3
+      run: |
+        aws s3 cp email-notifications-lambda.zip s3://sterio/lambda-artifacts/email-notifications-lambda-latest.zip --acl private
+
+    # COMMENTED OUT: Original GitHub artifact upload (uncomment to revert)
+    # - name: Upload build artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: email-notifications-lambda-build-${{ github.run_number }}
+    #     path: ./functions/lambda/email-notifications/email-notifications-lambda.zip
+
+  deploy-to-test:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: email-notifications-test
+      url: ${{ vars.EMAIL_NOTIFICATIONS_LAMBDA_TEST_URL }}
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
+
+    steps:
+    # TEMPORARY: Using S3 download instead of GitHub artifacts
+    - name: Configure AWS credentials for S3 download
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Download artifact from S3
+      run: |
+        aws s3 cp s3://sterio/lambda-artifacts/email-notifications-lambda-latest.zip email-notifications-lambda.zip
+
+    # COMMENTED OUT: Original GitHub artifact download (uncomment to revert)
+    # - name: Download build artifact
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION_TEST || 'us-east-2' }}
+
+    - name: Deploy to Test Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-email-notifications-test \
+          --zip-file fileb://email-notifications-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-email-notifications-test
+
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-email-notifications-test \
+          --environment Variables="{
+            DB_HOST=${{ secrets.DB_HOST_TEST }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            EMAIL=${{ secrets.EMAIL }},
+            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            SMTP_HOST=${{ secrets.SMTP_HOST }},
+            SMTP_PORT=${{ secrets.SMTP_PORT }},
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
+            FRONTEND_URL=${{ secrets.FRONTEND_URL_TEST }},
+            NODE_ENV=test
+          }"
+
+  deploy-to-prod:
+    runs-on: ubuntu-latest
+    needs: [build, deploy-to-test]
+    environment:
+      name: email-notifications-prod
+      url: ${{ vars.EMAIL_NOTIFICATIONS_LAMBDA_PROD_URL }}
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
+
+    steps:
+    # TEMPORARY: Using S3 download instead of GitHub artifacts
+    - name: Configure AWS credentials for S3 download
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Download artifact from S3
+      run: |
+        aws s3 cp s3://sterio/lambda-artifacts/email-notifications-lambda-latest.zip email-notifications-lambda.zip
+
+    # COMMENTED OUT: Original GitHub artifact download (uncomment to revert)
+    # - name: Download build artifact
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     name: ${{ needs.build.outputs.build-artifact }}
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION_PROD || 'us-east-2' }}
+
+    - name: Deploy to Prod Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-email-notifications \
+          --zip-file fileb://email-notifications-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: |
+        aws lambda wait function-updated --function-name sterio-email-notifications
+
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-email-notifications \
+          --environment Variables="{
+            DB_HOST=${{ secrets.DB_HOST_PROD }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            EMAIL=${{ secrets.EMAIL }},
+            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }},
+            SMTP_HOST=${{ secrets.SMTP_HOST }},
+            SMTP_PORT=${{ secrets.SMTP_PORT }},
+            SMTP_SECURE=${{ secrets.SMTP_SECURE }},
+            FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }},
+            NODE_ENV=production
+          }"
+
+    # - name: Create deployment tag
+    #   run: |
+    #     git config --local user.email "action@github.com"
+    #     git config --local user.name "GitHub Action"
+    #     git tag -a "email-notifications-lambda-v${{ github.run_number }}" -m "Email Notifications Lambda deployment ${{ github.run_number }}"
+    #     git push origin "email-notifications-lambda-v${{ github.run_number }}"

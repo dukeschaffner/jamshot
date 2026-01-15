@@ -44,9 +44,7 @@ before launch:
 BUGS
 -DAW
   - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
-  - context menu displaying underneath the region on the below track (git stached)
   - daw sometimes gets initialized twice (causes undo/redo bug)
-  - DAW rerenders on token refresh (should be fixed)
   - loop a section -> record -> add repeat: the repeated region isnt synced right
 
 - double check track plays recording correctly
