@@ -58,24 +58,17 @@ export default function TrackTreePage() {
   const testMode = true;
 
   // Fetch children for a track
-  const fetchChildren = useCallback(async (parentTrackId, depth = null) => {
+  const fetchChildren = useCallback(async (parentTrackId) => {
     try {
       let data = null;
       if (testMode) {
-        // If depth not provided, try to get it from trackData
-        let currentDepth = depth;
-        if (currentDepth === null) {
-          const track = trackData.get(parentTrackId);
-          currentDepth = track?.depth || 0;
-        }
 
         const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
           params: {
             page: 1,
             limit: MAX_NODES_PER_LEVEL,
             includeChildCount: true,
-            includeParent: false,
-            depth: currentDepth
+            includeParent: false
           }
         });
         data = response.data;
@@ -121,6 +114,8 @@ export default function TrackTreePage() {
         return;
       }
 
+      console.log('fetchTrackTree', trackId);
+
       try {
         setLoading(true);
         const url = secret 
@@ -147,7 +142,7 @@ export default function TrackTreePage() {
         // Fetch children for all tracks in the tree
         const allChildrenData = await Promise.all(
           trackTree.map(track => {
-            return fetchChildren(track.id, track.layer);
+            return fetchChildren(track.id);
           })
         );
 
@@ -656,7 +651,21 @@ export default function TrackTreePage() {
     // Fetch children if not already loaded
     const hasChildren = childrenData.has(clickedTrackId);
     if (!hasChildren) {
-      await fetchChildren(clickedTrackId, clickedTrack.depth);
+      const children = await fetchChildren(clickedTrackId);
+      if (children && children.length > 0) {
+        // Store all tracks in trackData
+        const newTrackData = new Map(trackData);
+        children.forEach(child => {
+          newTrackData.set(child.id, child);
+        });
+
+        // Store children in childrenData
+        const newChildrenData = new Map(childrenData);
+        newChildrenData.set(clickedTrackId, children);
+
+        setTrackData(newTrackData);
+        setChildrenData(newChildrenData);
+      }
     }
   }, [trackData, childrenData, secret, selectedTrackId, router, fetchChildren]);
 
