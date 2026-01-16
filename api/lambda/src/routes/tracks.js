@@ -2044,7 +2044,7 @@ router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
 router.get('/:id/related-test', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
-  const { page = 1, limit = 5, includeParent = true, count = 50, maxLikes = 1000, maxPlays = 10000, includeChildCount = false, depth = 0 } = req.query;
+  const { page = 1, limit = 5, includeParent = true, count = 50, maxLikes = 1000, maxPlays = 10000, includeChildCount = false} = req.query;
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
@@ -2054,6 +2054,18 @@ router.get('/:id/related-test', async (req, res) => {
   const includeChildCountBool = includeChildCount === 'true';
 
   try {
+    // First look up the track with the given id to determine depth
+    const trackLookup = await pool.query('SELECT layer FROM tracks WHERE id = $1', [id]);
+    let trackDepth;
+
+    if (trackLookup.rows.length > 0) {
+      // Use the track's layer property as depth
+      trackDepth = trackLookup.rows[0].layer;
+    } else {
+      // If track not found, determine depth by the first digit from the id
+      trackDepth = parseInt(id.toString().charAt(0));
+    }
+
     // Get a template track to use for dummy data
     const templateQuery = `
       SELECT t.audio_url, t.combined_audio_url, t.duration, t.layer, u.profile_pic_url, u.username, u.verified
@@ -2079,18 +2091,18 @@ router.get('/:id/related-test', async (req, res) => {
     const endIndex = Math.min(offset + limitNum, countNum);
 
     for (let i = startIndex; i < endIndex; i++) {
-      // Use provided depth + 1 for returned tracks
-      const trackDepth = parseInt(depth) + 1;
+      // Use the determined depth + 1 for returned tracks
+      const returnTrackDepth = trackDepth + 1;
 
       const dummyTrack = {
-        id: parseInt(`${trackDepth}00001000${i}`), // Fake ID to avoid conflicts
+        id: parseInt(`${returnTrackDepth}0990${i}`), // Fake ID to avoid conflicts
         guid: `dummy-${i}`,
         user_id: userId || 1,
-        title: `Depth ${trackDepth} Track ${i}`,
+        title: `Depth ${returnTrackDepth} Track ${i}`,
         audio_url: signedAudioUrl,
         combined_audio_url: signedCombinedAudioUrl,
         duration: template.duration,
-        layer: trackDepth,
+        layer: returnTrackDepth,
         parent_track_id: parseInt(id),
         created_at: new Date(Date.now() - (countNum - i) * 1000 * 60 * 60), // Spread out creation times
         play_count: Math.floor(Math.random() * maxPlaysNum),
