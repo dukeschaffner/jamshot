@@ -47,6 +47,8 @@ function DAWContent({ track}) {
     setScrollLeftValue,
     tracksContainerWidth,
     setTracksContainerWidth,
+    viewWidth,
+    setViewWidth,
     recordingTrackHasAudio,
     selectedRegionId,
     selectedTrackId,
@@ -278,6 +280,38 @@ function DAWContent({ track}) {
       resizeObserver.disconnect();
     };
   }, [tracksContainer]);
+
+  // Listen to tracksScrollContainer width changes (viewWidth)
+  useEffect(() => {
+    if (!tracksScrollContainerRef.current) return;
+
+    const updateViewWidth = () => {
+      if (tracksScrollContainerRef.current) {
+        const rect = tracksScrollContainerRef.current.getBoundingClientRect();
+        setViewWidth(rect.width);
+      }
+    };
+
+    // Initial measurement
+    updateViewWidth();
+
+    // Set up ResizeObserver to watch for width changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setViewWidth(entry.contentRect.width);
+      }
+    });
+
+    resizeObserver.observe(tracksScrollContainerRef.current);
+
+    // Cleanup
+    return () => {
+      if (tracksScrollContainerRef.current) {
+        resizeObserver.unobserve(tracksScrollContainerRef.current);
+      }
+      resizeObserver.disconnect();
+    };
+  }, [tracksScrollContainerRef.current]);
 
   // Show loading state
   if (isLoading) {
