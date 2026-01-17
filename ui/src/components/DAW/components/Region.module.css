@@ -40,7 +40,7 @@
     height: 100px;
     background-color: #f8f9fa;
     border-radius: 4px;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
     position: relative;
     scrollbar-width: thin;

@@ -20,7 +20,6 @@ export default function Region({
   isRecordingTrack = false
 }) {
   const { 
-    scrollLeft, 
     duration, 
     zoom, 
     isPlaying, 
@@ -50,7 +49,7 @@ export default function Region({
   const [visibleChunks, setVisibleChunks] = useState(new Set());
   const [buffer, setBuffer] = useState(null);
   const [bufferData, setBufferData] = useState(null);
-  const MAX_CHUNK_WIDTH = 2000;
+  const MAX_CHUNK_WIDTH = 1000;
 
   const [width, setWidth] = useState(0); // width of the waveform/region in percentage
   const widthPx = width * tracksContainerWidth / 100; // width of the waveform/region in pixels
@@ -833,7 +832,6 @@ export default function Region({
               totalWidth={waveformWidth}
               width={chunk.width}
               offset={chunk.offset}
-              scrollLeft={scrollLeft}
             />
           ))}
           

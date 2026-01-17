@@ -26,6 +26,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
   const [zoom, setZoom] = useState(1);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [tracksContainerWidth, setTracksContainerWidth] = useState(0);
+  const [viewWidth, setViewWidth] = useState(0);
   const [recordingTrackHasAudio, setRecordingTrackHasAudio] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [recordingMode, setRecordingMode] = useState('region'); // 'take' | 'region'
@@ -642,6 +643,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
       setScrollLeftValue,
       tracksContainerWidth,
       setTracksContainerWidth,
+      viewWidth,
+      setViewWidth,
       recordingTrackHasAudio,
       isMonitoring,
       recordingMode,

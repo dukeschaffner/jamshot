@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { renderWaveform } from './WaveformUtils';
+import { useDAW } from '../../DAWContext';
 
 export default function WaveformChunk({ 
   bufferData, 
@@ -9,32 +10,35 @@ export default function WaveformChunk({
   totalWidth, // total width of the waveform in pixels
   width, // width of the chunk in pixels
   offset, // offset of the chunk in pixels
-  scrollLeft // scroll left of the waveform in pixels
 }) {
   const canvasRef = useRef(null);
   const [isRendered, setIsRendered] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [pixelRatio, setPixelRatio] = useState(2);
 
-  // Render the chunk when it becomes visible
-  // useEffect(() => {
-  //   if (!isVisible || isRendered) return;
-    
-  //   renderChunk();
-  // }, [isVisible, isRendered]);
+  const { scrollLeft, viewWidth, zoom } = useDAW();
 
-  // Cleanup when chunk becomes invisible
-  useEffect(() => {
-    if (isVisible || !isRendered) return;
-    
-    // Clear the canvas to free memory
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+  const virtualRenderBuffer = 100;
+
+  const setVisibility = useCallback((isZoomChange = false) => {
+    const isNearViewport = (offset + width + virtualRenderBuffer > scrollLeft) && (offset - virtualRenderBuffer < scrollLeft + viewWidth);
+    if(isNearViewport && !isVisible) {
+      setIsVisible(true);
     }
-    
-    setIsRendered(false);
-  }, [isVisible, isRendered]);
+    else if(!isNearViewport && isVisible && (!isRendered || isZoomChange)) {
+      setIsVisible(false);
+    }
+  }, [scrollLeft, viewWidth, offset, width]);
+
+  useEffect(() => {
+    setVisibility(true);
+  }, [zoom]);
+
+
+  // Render the chunk when it becomes visible
+  useEffect(() => {
+    setVisibility();
+  }, [scrollLeft, viewWidth, offset, width]);
 
   useEffect(() => {
     const renderChunk = () => {
@@ -53,9 +57,10 @@ export default function WaveformChunk({
       })
   
       renderWaveform(data, ctx)
+      setIsRendered(true);
     }
     renderChunk();
-  }, [bufferData, width, height, offset, totalWidth]);
+  }, [bufferData, width, height, offset, totalWidth, isVisible]);
 
 
 
@@ -80,8 +85,7 @@ export default function WaveformChunk({
         position: 'absolute',
         width: width,
         height: height,
-        left: offset,
-        display: isRendered ? 'block' : 'block'
+        left: offset
       }}
     />
   );

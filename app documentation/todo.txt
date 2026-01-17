@@ -53,7 +53,7 @@ BUGS
 - release notes infinite loop
 - load artist names on track tree page
 - when user is a part of expired camp, the camps link still navs to the camp page
-- when i play a track in the feed and then skip through a bunch of tracks, it should keep skipping through the feed indefinitely. however, only the orginal track and the next several tracks get added to the playlist and it just cycles through those.
+- right now if i click a track in the feed, it plays the current track and adds more tracks from the feed to the queue. the problem is that after the queue finishes playing, it does not queue up any more songs. when a song finisjes playing and there are no more songs in the queue, it should check to see if there are more tracks that can be added from the feed
 
 ui issues:
 - more dropdown extends past the bottom of the screen
