@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper, FaCampground } from 'react-icons/fa';
+import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper, FaCampground, FaUsers } from 'react-icons/fa';
 import { useMobile } from '../contexts/MobileContext';
 import { useUser } from '../contexts/UserContext';
 import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
@@ -23,6 +23,17 @@ export default function MoreDropdown() {
       return `/camp/${user.camps[0].id}`; // Direct to camp dashboard
     } else {
       return '/camps'; // List page
+    }
+  };
+
+  // Get teams link URL based on user state
+  const getTeamsLink = () => {
+    if (!isAuthenticated || !user?.teams || user.teams.length === 0) {
+      return '/teams'; // Landing page
+    } else if (user.teams.length === 1) {
+      return `/team/${user.teams[0].id}`; // Direct to team dashboard
+    } else {
+      return '/teams'; // List page
     }
   };
 
@@ -93,6 +104,10 @@ export default function MoreDropdown() {
                   <FaCampground />
                   <span>Camps</span>
                 </Link>
+                <Link className="mobile-more-link" href={getTeamsLink()} onClick={handleLinkClick}>
+                  <FaUsers />
+                  <span>Teams</span>
+                </Link>
                 {isFeatureEnabled('subscriptions', false) && (
                   <Link className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
                     <FaCrown />
@@ -159,6 +174,7 @@ export default function MoreDropdown() {
           </div>
           <div className="notification-body">
             <Link className="nav-link" href={getCampsLink()} onClick={handleLinkClick}><FaCampground />Camps</Link>
+            <Link className="nav-link" href={getTeamsLink()} onClick={handleLinkClick}><FaUsers />Teams</Link>
             {isFeatureEnabled('subscriptions', false) && (
               <Link className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</Link>
             )}

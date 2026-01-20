@@ -18,37 +18,19 @@ export default function MobileNavbar() {
     router.push('/search');
   };
 
-  // Get teams link URL based on user state
-  const getTeamsLink = () => {
-    if (!isAuthenticated || !user?.teams || user.teams.length === 0) {
-      return '/teams'; // Landing page
-    } else if (user.teams.length === 1) {
-      return `/team/${user.teams[0].id}`; // Direct to team dashboard
-    } else {
-      return '/teams'; // List page
-    }
-  };
-
   return (
     <nav className="mobile-navbar">
       <Link href="/" className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`}>
         <FaHome />
       </Link>
       
-      <button 
+      <button
         onClick={handleSearchClick}
         className={`mobile-nav-item ${pathname.startsWith('/search') ? 'active' : ''}`}
       >
         <FaSearch />
       </button>
-      
-      <Link 
-        href={getTeamsLink()}
-        className={`mobile-nav-item ${pathname.startsWith('/teams') ? 'active' : ''}`}
-      >
-        <FaUsers />
-      </Link>
-      
+
       {/* Notifications - only show for authenticated users */}
       {isAuthenticated && (
         <Link 

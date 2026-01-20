@@ -33,7 +33,8 @@ before launch:
     - can be updated any time
     - plays for all tracks by that user
 - check competition hosting restriction for free tier users
-- move teams link to more dropdown. if user is in active team or camp, show link in navbar (on desktop)
+- input monitoring level in audio settings
+
 
 
 
@@ -130,6 +131,7 @@ TODO (after beta testing)
 - yearly billing for subscriptions
 - upgrade suggestions
   - Profile (track count)
+- teams/camps - show teams/camps nav button if user in active team or camp
 
 
 
