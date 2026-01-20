@@ -43,7 +43,6 @@ app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
 
     // If not a 404, return this response
     if (response.status !== 404) {
-      console.log(`[HONO HANDLER] Returning response from auth handler (status: ${response.status})`);
       return response;
     }
 

@@ -1,0 +1,9 @@
+{
+  "name": "jamshot-monorepo",
+  "version": "1.0.0",
+  "description": "Jamshot monorepo",
+  "private": true,
+  "scripts": {
+    "build:packages": "npm run build --workspaces --if-present"
+  }
+}
