@@ -4,6 +4,97 @@ import { MarkerType } from 'reactflow';
 // Generates React Flow nodes and edges for a hierarchical tree layout
 
 /**
+ * Determines the sort order for children within a parent group
+ * prevPage clusters -> track nodes -> nextPage clusters
+ * @param {string} childId - The child node ID
+ * @param {Object} structure - Tree structure containing clusterNodes
+ * @returns {number} Sort order (lower numbers come first)
+ */
+function getChildSortOrder(childId, structure) {
+  // Check if this is a cluster node
+  if (structure.clusterNodes.has(childId)) {
+    const clusterData = structure.clusterNodes.get(childId);
+    if (typeof clusterData === 'object') {
+      if (clusterData.type === 'prevPage') return 0; // prevPage clusters first
+      if (clusterData.type === 'nextPage') return 2; // nextPage clusters last
+    }
+    // Legacy cluster or unknown type
+    if (childId.startsWith('prev-')) return 0;
+    if (childId.startsWith('next-')) return 2;
+    return 1; // other clusters in middle
+  }
+  // Regular track nodes in the middle
+  return 1;
+}
+
+/**
+ * Calculates the total width required for a node's subtree
+ * @param {string} nodeId - The node ID to calculate subtree width for
+ * @param {Object} structure - Tree structure containing levels and clusterNodes
+ * @param {Map} trackData - Map of trackId -> track data
+ * @param {number} nodeWidth - Width of individual nodes
+ * @param {number} minSpacing - Minimum spacing between nodes
+ * @returns {number} Total width required for the subtree
+ */
+function calculateSubtreeWidth(nodeId, structure, trackData, nodeWidth = 120, minSpacing = 150) {
+  // Get direct children of this node
+  const directChildren = [];
+
+  // Find children in the next level
+  const nodeLevel = Array.from(structure.levels.entries()).find(([level, trackIds]) =>
+    trackIds.includes(nodeId)
+  )?.[0];
+
+  if (nodeLevel !== undefined && structure.levels.has(nodeLevel + 1)) {
+    const nextLevelTracks = structure.levels.get(nodeLevel + 1);
+    nextLevelTracks.forEach(trackId => {
+      const track = trackData.get(trackId);
+      if (track && track.parent_track_id === nodeId) {
+        directChildren.push(trackId);
+      }
+    });
+  }
+
+  // Add cluster nodes for this parent
+  const clusterKeys = [`prev-${nodeId}`, `next-${nodeId}`, `collab-${nodeId}`];
+  clusterKeys.forEach(clusterKey => {
+    if (structure.clusterNodes.has(clusterKey)) {
+      const clusterData = structure.clusterNodes.get(clusterKey);
+      if (typeof clusterData === 'object' && clusterData.parentId === nodeId) {
+        directChildren.push(clusterKey);
+      } else if (typeof clusterData === 'number') {
+        // Legacy format
+        directChildren.push(clusterKey);
+      }
+    }
+  });
+
+  if (directChildren.length === 0) {
+    // Leaf node - just return node width
+    return nodeWidth;
+  }
+
+  // Calculate width of all children subtrees
+  const childrenWidths = directChildren.map(childId => {
+    if (structure.clusterNodes.has(childId)) {
+      // Cluster nodes are leaf nodes for width calculation
+      return nodeWidth;
+    } else {
+      // Recursively calculate subtree width for track nodes
+      return calculateSubtreeWidth(childId, structure, trackData, nodeWidth, minSpacing);
+    }
+  });
+
+  // Total width needed is sum of all children widths plus spacing between them
+  const totalChildrenWidth = childrenWidths.reduce((sum, width) => sum + width, 0);
+  const totalSpacing = (directChildren.length - 1) * minSpacing;
+  const subtreeWidth = totalChildrenWidth + totalSpacing;
+
+  // Ensure subtree width is at least the node width (for centering)
+  return Math.max(subtreeWidth, nodeWidth);
+}
+
+/**
  * Generates React Flow nodes and edges from tree structure using a hierarchical layout
  * @param {Object} params - Parameters for rendering
  * @param {Object} params.structure - Tree structure from buildTreeStructure()
@@ -114,45 +205,104 @@ export function generateHierarchicalTreeNodesAndEdges({
       }
     });
 
+    // Sort children within each parent group: prevPage -> tracks -> nextPage
+    childrenByParent.forEach((children, parentId) => {
+      children.sort((a, b) => {
+        const orderA = getChildSortOrder(a, structure);
+        const orderB = getChildSortOrder(b, structure);
+        return orderA - orderB;
+      });
+    });
+
     // Calculate positions for each parent group
     const levelPositionsArray = [];
     let currentX = 0;
 
     if (level === 0) {
-      // Root level: center all nodes
-      const totalWidth = totalNodes * spacing;
-      const startX = -totalWidth / 2 + spacing / 2;
-      levelPositionsArray.push(...Array.from({ length: totalNodes }, (_, index) => startX + index * spacing));
+      // Root level: center all nodes with dynamic spacing based on subtree widths
+      const rootNodes = trackIds.concat(otherClusterNodesForLevel);
+      // Sort root nodes: prevPage -> tracks -> nextPage
+      rootNodes.sort((a, b) => {
+        const orderA = getChildSortOrder(a, structure);
+        const orderB = getChildSortOrder(b, structure);
+        return orderA - orderB;
+      });
+      const rootWidths = rootNodes.map(nodeId => {
+        if (structure.clusterNodes.has(nodeId)) {
+          return nodeWidth; // Cluster nodes at root level are treated as leaf nodes
+        } else {
+          return calculateSubtreeWidth(nodeId, structure, trackData, nodeWidth, spacing);
+        }
+      });
+
+      // Calculate total width and start position
+      const totalWidth = rootWidths.reduce((sum, width, index) => {
+        return sum + width + (index > 0 ? spacing : 0);
+      }, 0);
+      const startX = -totalWidth / 2;
+
+      let currentX = startX;
+      rootWidths.forEach((width, index) => {
+        levelPositionsArray[index] = currentX + width / 2; // Center of each node
+        currentX += width + spacing;
+      });
     } else {
-      // Child levels: center each group around its parent
-      const parentTrackIds = Array.from(childrenByParent.keys()).sort();
-      let globalIndex = 0;
+      // Child levels: position each group with dynamic spacing to prevent overlaps
+      const parentTrackIds = Array.from(childrenByParent.keys()).filter(parentId => {
+        const children = childrenByParent.get(parentId);
+        return children && children.length > 0;
+      }).sort();
 
-      parentTrackIds.forEach(parentTrackId => {
-        const children = childrenByParent.get(parentTrackId);
-        if (children.length === 0) return;
-
-        // Find parent position
-        let parentX = 0;
-        if (parentTrackId !== 'orphaned' && structure.levels.has(level - 1)) {
+      // Calculate subtree widths for all children groups to determine spacing
+      const childrenGroups = parentTrackIds.map(parentId => ({
+        parentId,
+        children: childrenByParent.get(parentId),
+        parentX: (() => {
+          if (parentId === 'orphaned' || !structure.levels.has(level - 1)) return 0;
           const parentLevelTracks = structure.levels.get(level - 1);
-          const parentIndex = parentLevelTracks.indexOf(parentTrackId);
+          const parentIndex = parentLevelTracks.indexOf(parentId);
           if (parentIndex >= 0) {
             const parentLevelPositions = levelPositions.get(level - 1);
-            if (parentLevelPositions && parentLevelPositions[parentIndex] !== undefined) {
-              parentX = parentLevelPositions[parentIndex];
-            }
+            return parentLevelPositions && parentLevelPositions[parentIndex] !== undefined
+              ? parentLevelPositions[parentIndex]
+              : 0;
           }
-        }
+          return 0;
+        })()
+      }));
 
-        // Center this group around the parent
-        const groupWidth = children.length * spacing;
-        const groupStartX = parentX - groupWidth / 2 + spacing / 2;
+      // Calculate widths for each children group
+      childrenGroups.forEach(group => {
+        group.subtreeWidths = group.children.map(childId => {
+          if (structure.clusterNodes.has(childId)) {
+            return nodeWidth; // Cluster nodes are leaf nodes
+          } else {
+            return calculateSubtreeWidth(childId, structure, trackData, nodeWidth, spacing);
+          }
+        });
+        group.totalWidth = group.subtreeWidths.reduce((sum, width, index) => {
+          return sum + width + (index > 0 ? spacing : 0);
+        }, 0);
+      });
 
-        children.forEach(childId => {
-          const x = groupStartX + (children.indexOf(childId) * spacing);
-          levelPositionsArray[globalIndex] = x;
+      // Position groups to prevent overlaps, starting from leftmost parent
+      childrenGroups.sort((a, b) => a.parentX - b.parentX);
+
+      const positionedGroups = [];
+      let globalIndex = 0;
+
+      childrenGroups.forEach(group => {
+        // For each child in this group, position them with dynamic spacing
+        let groupCurrentX = group.parentX - group.totalWidth / 2;
+
+        group.children.forEach((childId, childIndex) => {
+          const childWidth = group.subtreeWidths[childIndex];
+          const childX = groupCurrentX + childWidth / 2; // Center of child node
+
+          levelPositionsArray[globalIndex] = childX;
           globalIndex++;
+
+          groupCurrentX += childWidth + spacing;
         });
       });
     }
