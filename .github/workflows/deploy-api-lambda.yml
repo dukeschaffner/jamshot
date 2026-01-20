@@ -47,8 +47,9 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
 
+
     - name: Build production dependencies
-      run: pnpm --filter-prod @sterio/api-lambda run build
+      run: pnpm -r --filter-prod @sterio/api-lambda run build
 
     - name: Build Lambda bundle
       working-directory: ./api/lambda
