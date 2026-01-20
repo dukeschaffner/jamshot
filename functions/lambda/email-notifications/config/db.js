@@ -6,31 +6,26 @@ if (!process.env.DB_HOST) {
     require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 }
 
-console.log('process.env.DB_HOST:', process.env.DB_HOST);
-console.log('process.env.DB_PORT:', process.env.DB_PORT);
-console.log('process.env.DB_NAME:', process.env.DB_NAME);
-console.log('process.env.DB_USER:', process.env.DB_USER);
-console.log('process.env.DB_PASSWORD:', process.env.DB_PASSWORD);
-console.log('process.env.NODE_ENV:', process.env.NODE_ENV);
-
-// Database configuration
-const pool = new Pool({
+/**
+ * Database configuration for Lambda function
+ * Uses environment variables for connection
+ */
+const poolConfig = {
   host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 5432,
   ssl: process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test' || process.env.DB_SSL === 'true' ? {
     rejectUnauthorized: false,
     sslmode: 'require'
   } : false,
-  max: 20,
+  // Lambda-specific optimizations
+  max: 1, // Limit connections for Lambda
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+  connectionTimeoutMillis: 2000
+};
 
-pool.on('error', (err) => {
-  console.error('Database connection error:', err);
-});
+const pool = new Pool(poolConfig);
 
 module.exports = { pool };
