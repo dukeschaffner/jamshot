@@ -3,14 +3,11 @@ TODO (MVP)
 before launch:
 - video export with waveform viz, showing user profile pics, names, watermark, etc
 - post upload screen (or toast message)with option to copy track link or export video
-- ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
 - add 5 user team/camp option
-- email notifications
 - intro video use downloaded video after streaming through once
 
 
 - DAW 
-  - track virtual rendering when zoomed in + throttle/debounce
   - handle stereo input devices
   - region looping
   - multiple recording tracks for camp/team DAW
@@ -23,7 +20,6 @@ before launch:
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
 - camps/teams - remove repost button from track component. make sure liked camp/team songs dont show up in user likes (maybe unless they are viewing their own page?)
-- what if project end is dragged before parent stem region ends?
 - export stems button on track ellipsis menu
 - finish track id -> track guid migration (competition create page)
   - team/camp id -> team/camp guid migration
@@ -44,7 +40,6 @@ before launch:
 BUGS
 -DAW
   - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
-  - daw sometimes gets initialized twice (causes undo/redo bug)
   - loop a section -> record -> add repeat: the repeated region isnt synced right
 
 - double check track plays recording correctly
@@ -61,6 +56,11 @@ ui issues:
 
 
 
+NEEDS VERIFICATION:
+- email notifications
+- ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
+- what if project end is dragged before parent stem region ends?
+  - daw sometimes gets initialized twice (causes undo/redo bug)
 
 
 RELEASE CHECKLIST
