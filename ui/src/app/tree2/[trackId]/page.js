@@ -13,10 +13,12 @@ import 'reactflow/dist/style.css';
 import api from '../../../lib/api';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import TrackNode from './components/TrackNode';
+import ClusterNode from './components/ClusterNode';
 import TrackPopover from './components/TrackPopover';
 import ColorLegend from './components/ColorLegend';
 import { useAudio } from '../../../lib/AudioContext';
 import { useMobile } from '../../../contexts/MobileContext';
+import { generateHierarchicalTreeNodesAndEdges } from './hierarchicalTreeRenderer';
 import styles from './TreeView.module.css';
 
 // Configuration constants
@@ -27,6 +29,7 @@ const MAX_LEVELS = 5;
 // Node types
 const nodeTypes = {
   trackNode: TrackNode,
+  clusterNode: ClusterNode,
 };
 
 export default function TrackTreePage() {
@@ -36,14 +39,16 @@ export default function TrackTreePage() {
   const secret = searchParams.get('secret');
   const { isMobile } = useMobile();
   const { currentTrack, playTrack, togglePlayPause, isPlaying } = useAudio();
+
+  const [trackData, setTrackData] = useState(new Map()); // trackId -> track data
+  const [childrenData, setChildrenData] = useState(new Map()); // trackId -> children array
+  const [paginationData, setPaginationData] = useState(new Map()); // trackId -> pagination data
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedTrackId, setSelectedTrackId] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [hoveredNodePosition, setHoveredNodePosition] = useState(null);
-  const [trackData, setTrackData] = useState(new Map()); // trackId -> track data
-  const [childrenData, setChildrenData] = useState(new Map()); // trackId -> children array
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
@@ -51,35 +56,47 @@ export default function TrackTreePage() {
   const isInternalNavigationRef = useRef(false);
   const lastLoadedTrackGuidRef = useRef(null);
 
+  const testMode = false;
+
   // Fetch children for a track
   const fetchChildren = useCallback(async (parentTrackId) => {
     try {
-      const response = await api.get(`/tracks/${parentTrackId}/related`, {
-        params: { page: 1, limit: MAX_NODES_PER_LEVEL }
-      });
-      
-      const { tracks } = response.data;
-      const children = tracks?.filter(t => t.parent_track_id === parentTrackId) || [];
-      
-      // Update childrenData
-      setChildrenData(prev => {
-        const newMap = new Map(prev);
-        newMap.set(parentTrackId, children);
-        return newMap;
-      });
+      let data = null;
+      if (testMode) {
 
-      // Store children tracks in trackData
-      setTrackData(prev => {
-        const newMap = new Map(prev);
-        children.forEach(track => {
-          newMap.set(track.id, track);
+        const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
+          params: {
+            page: 1,
+            limit: MAX_NODES_PER_LEVEL,
+            includeChildCount: true,
+            includeParent: false
+          }
         });
-        return newMap;
-      });
+        data = response.data;
+      }
+      else {
+        const response = await api.get(`/tracks/${parentTrackId}/related`, {
+          params: {
+            page: 1,
+            limit: MAX_NODES_PER_LEVEL,
+            includeChildCount: true,
+            includeParent: false
+          }
+        });
+        data = response.data;
+      }
+
+
+      const { tracks, pagination } = data;
+
+      // Store pagination data
+      setPaginationData(prev => new Map(prev).set(parentTrackId, pagination));
+
+      return tracks;
     } catch (err) {
       console.error(`Failed to fetch children for track ${parentTrackId}:`, err);
     }
-  }, []);
+  }, [trackData]);
 
   // Check if mobile - redirect to old tree view
   useEffect(() => {
@@ -120,23 +137,33 @@ export default function TrackTreePage() {
         trackTree.forEach(track => {
           newTrackData.set(track.id, track);
         });
-        setTrackData(newTrackData);
 
         // Set selected track to the current track (last in array)
         const currentTrack = trackTree[trackTree.length - 1];
-        setSelectedTrackId(currentTrack.id);
-        lastLoadedTrackGuidRef.current = trackId;
 
         // Fetch children for all tracks in the tree
-        await Promise.all(
+        const allChildrenData = await Promise.all(
           trackTree.map(track => {
-            if (!childrenData.has(track.id)) {
-              return fetchChildren(track.id);
-            }
-            return Promise.resolve();
+            return fetchChildren(track.id);
           })
         );
 
+        // Store all children in childrenData
+        const newChildrenData = new Map(childrenData);
+        allChildrenData.forEach(children => {
+          if (children.length > 0) {
+            children.forEach(child => {
+              newTrackData.set(child.id, child);
+            });
+            newChildrenData.set(children[0].parent_track_id, children);
+          }
+        });
+
+        // Set all state once with the complete data
+        setTrackData(newTrackData);
+        setChildrenData(newChildrenData);
+        setSelectedTrackId(currentTrack.id);
+        lastLoadedTrackGuidRef.current = trackId;
         setLoading(false);
       } catch (err) {
         console.error('Failed to fetch track tree:', err);
@@ -150,7 +177,7 @@ export default function TrackTreePage() {
     };
 
     fetchTrackTree();
-  }, [trackId, secret, fetchChildren]);
+  }, [trackId, secret, fetchChildren, trackData]);
 
   // Handle browser back/forward navigation
   useEffect(() => {
@@ -168,13 +195,14 @@ export default function TrackTreePage() {
 
   // Build tree structure: selected track + ancestors + their immediate children
   const buildTreeStructure = useCallback(() => {
-    if (!selectedTrackId || !trackData.has(selectedTrackId)) return { nodes: [], edges: [] };
+    if (!selectedTrackId || !trackData.has(selectedTrackId)) return { nodes: [], edges: [], clusterNodes: [] };
 
     const selectedTrack = trackData.get(selectedTrackId);
     const structure = {
       nodes: [],
       edges: [],
       levels: new Map(), // level -> array of trackIds
+      clusterNodes: new Map(), // parentTrackId -> childCount (for unloaded children)
     };
 
     // Build ancestor chain
@@ -216,21 +244,69 @@ export default function TrackTreePage() {
     allTracksToShow.forEach(track => {
       const children = childrenData.get(track.id) || [];
       const trackLevel = track === selectedTrack ? selectedLevel : ancestors.indexOf(track);
-      
-      // Limit children shown
-      const childrenToShow = children.slice(0, MAX_NODES_PER_LEVEL);
-      
-      childrenToShow.forEach((child) => {
-        const childLevel = trackLevel + 1;
-        if (childLevel <= MAX_LEVELS) {
-          if (!structure.levels.has(childLevel)) {
-            structure.levels.set(childLevel, []);
+      const pagination = paginationData.get(track.id);
+
+      if (children.length > 0) {
+        // Children are loaded - show them
+        const childrenToShow = children.slice(0, MAX_NODES_PER_LEVEL);
+
+        childrenToShow.forEach((child) => {
+          const childLevel = trackLevel + 1;
+          if (childLevel <= MAX_LEVELS) {
+            if (!structure.levels.has(childLevel)) {
+              structure.levels.set(childLevel, []);
+            }
+            if (!structure.levels.get(childLevel).includes(child.id)) {
+              structure.levels.get(childLevel).push(child.id);
+
+              // if allTracksToShow doesnt contain the child, add a collab node
+              if(!allTracksToShow.some(t => t.id === child.id)) {
+                if (child.collab_count && child.collab_count > 0) {
+                  console.log('adding collab node', child.id);
+                  structure.clusterNodes.set(`collab-${child.id}`, {
+                    type: 'collab',
+                    count: child.collab_count,
+                    parentId: child.id
+                  });
+                }
+              }
+            }
           }
-          if (!structure.levels.get(childLevel).includes(child.id)) {
-            structure.levels.get(childLevel).push(child.id);
+        });
+
+        // Handle cluster nodes based on pagination data
+        if (pagination) {
+          const currentPage = pagination.page;
+          const limit = pagination.limit;
+          const total = pagination.total;
+
+          // Calculate prev page cluster node count
+          const prevPageCount = currentPage > 1 ? (currentPage - 1) * limit : 0;
+          if (prevPageCount > 0) {
+            structure.clusterNodes.set(`prev-${track.id}`, {
+              type: 'prevPage',
+              count: prevPageCount,
+              parentId: track.id
+            });
+          }
+
+          // Calculate next page cluster node count (limited to one page worth)
+          const nextPageCount = Math.min(total - (currentPage * limit), limit);
+          if (nextPageCount > 0) {
+            structure.clusterNodes.set(`next-${track.id}`, {
+              type: 'nextPage',
+              count: nextPageCount,
+              parentId: track.id
+            });
+          }
+        } else {
+          // Fallback: if there are more children than shown, add to cluster nodes
+          const remainingChildren = children.length - MAX_NODES_PER_LEVEL;
+          if (remainingChildren > 0) {
+            structure.clusterNodes.set(track.id, remainingChildren);
           }
         }
-      });
+      }
     });
 
     // Sort tracks at each level by creation date (and ID as fallback) to maintain consistent order
@@ -255,117 +331,95 @@ export default function TrackTreePage() {
     return structure;
   }, [selectedTrackId, trackData, childrenData]);
 
-  // Generate React Flow nodes and edges from tree structure
+  // Generate React Flow nodes and edges from tree structure using hierarchical renderer
   const generateNodesAndEdges = useCallback(() => {
     const structure = buildTreeStructure();
-    if (structure.nodes.length === 0 && structure.levels.size === 0) return;
-
-    const flowNodes = [];
-    const flowEdges = [];
-    const levelPositions = new Map(); // level -> array of x positions
-
-    // Calculate positions for each level
-    const levels = Array.from(structure.levels.keys()).sort((a, b) => a - b);
-    const levelHeight = 200; // Vertical spacing between levels
-    const startY = 100;
-
-    levels.forEach(level => {
-      const trackIds = structure.levels.get(level);
-      const nodeWidth = 120; // Approximate node width
-      const spacing = 150; // Horizontal spacing between nodes
-      const totalWidth = trackIds.length * spacing;
-      const startX = -totalWidth / 2 + spacing / 2;
-
-      levelPositions.set(level, trackIds.map((_, index) => startX + index * spacing));
-
-      trackIds.forEach((trackId, index) => {
-        const track = trackData.get(trackId);
-        if (!track) return;
-
-        const x = levelPositions.get(level)[index];
-        const y = startY + level * levelHeight;
-
-        flowNodes.push({
-          id: `track-${trackId}`,
-          type: 'trackNode',
-          position: { x, y },
-          data: {
-            track,
-            isSelected: trackId === selectedTrackId,
-            onNodeClick: () => handleNodeClick(trackId),
-            onNodeHover: (hovering, nodePosition) => {
-              // Clear any existing timeout
-              if (hoverTimeoutRef.current) {
-                clearTimeout(hoverTimeoutRef.current);
-                hoverTimeoutRef.current = null;
-              }
-              
-              if (hovering && nodePosition) {
-                // Set node's screen position for popover
-                setHoveredNodePosition(nodePosition);
-                // Show popover immediately on hover
-                setHoveredTrackId(trackId);
-              } else {
-                // Delay hiding the popover to allow mouse to move to it
-                hoverTimeoutRef.current = setTimeout(() => {
-                  setHoveredTrackId(null);
-                  setHoveredNodePosition(null);
-                  hoverTimeoutRef.current = null;
-                }, 200); // 200ms delay
-              }
-            },
-          },
-        });
-
-        // Add edge from parent
-        if (track.parent_track_id) {
-          const parentTrackId = track.parent_track_id;
-          const parentTrack = trackData.get(parentTrackId);
-          if (parentTrack) {
-            // Find parent's level
-            let parentLevel = -1;
-            for (const [level, trackIds] of structure.levels.entries()) {
-              if (trackIds.includes(parentTrackId)) {
-                parentLevel = level;
-                break;
-              }
-            }
-
-            if (parentLevel >= 0) {
-              const parentIndex = structure.levels.get(parentLevel).indexOf(parentTrackId);
-              const parentX = levelPositions.get(parentLevel)[parentIndex];
-              const parentY = startY + parentLevel * levelHeight;
-
-              flowEdges.push({
-                id: `edge-${parentTrackId}-${trackId}`,
-                source: `track-${parentTrackId}`,
-                target: `track-${trackId}`,
-                type: 'default',
-                animated: false,
-                style: { stroke: '#86a699', strokeWidth: 2 },
-                markerEnd: {
-                  type: MarkerType.ArrowClosed,
-                  width: 20,
-                  height: 20,
-                  color: '#86a699',
-                },
-              });
-            }
-          }
-        }
-      });
+    generateHierarchicalTreeNodesAndEdges({
+      structure,
+      trackData,
+      selectedTrackId,
+      setNodes,
+      setEdges,
+      handleNodeClick,
+      handleClusterNodeClick,
+      setHoveredTrackId,
+      setHoveredNodePosition,
+      hoverTimeoutRef
     });
-
-    setNodes(flowNodes);
-    setEdges(flowEdges);
-  }, [buildTreeStructure, trackData, selectedTrackId, setNodes, setEdges]);
+  }, [buildTreeStructure, trackData, selectedTrackId, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
 
   // Update nodes and edges when data changes
   useEffect(() => {
     if (selectedTrackId && trackData.size > 0) {
       generateNodesAndEdges();
     }
-  }, [selectedTrackId, trackData, childrenData, generateNodesAndEdges]);
+  }, [selectedTrackId, trackData, childrenData, paginationData, generateNodesAndEdges]);
+
+  // Handle cluster node click (for pagination)
+  const handleClusterNodeClick = useCallback(async (type, parentTrackId) => {
+    const pagination = paginationData.get(parentTrackId);
+    if (!pagination) return;
+
+    let newPage;
+    if (type === 'prevPage' && pagination.page > 1) {
+      newPage = pagination.page - 1;
+    } else if (type === 'nextPage' && pagination.page < pagination.pages) {
+      newPage = pagination.page + 1;
+    } else {
+      return; // Invalid navigation
+    }
+
+    // Fetch children for the new page
+    try {
+      let data = null;
+      if (testMode) {
+        const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
+          params: {
+            page: newPage,
+            limit: MAX_NODES_PER_LEVEL,
+            includeChildCount: true,
+            includeParent: false,
+            depth: trackData.get(parentTrackId)?.depth || 0
+          }
+        });
+        data = response.data;
+      }
+      else {
+        const response = await api.get(`/tracks/${parentTrackId}/related`, {
+          params: {
+            page: newPage,
+            limit: MAX_NODES_PER_LEVEL,
+            includeChildCount: true,
+            includeParent: false
+          }
+        });
+        data = response.data;
+      }
+
+      const { tracks, pagination: newPagination } = data;
+
+      // Update children data with new page data
+      const newChildrenData = new Map(childrenData);
+      newChildrenData.set(parentTrackId, tracks);
+
+      // Update pagination data
+      const newPaginationData = new Map(paginationData);
+      newPaginationData.set(parentTrackId, newPagination);
+
+      // Store all tracks in trackData
+      const newTrackData = new Map(trackData);
+      tracks.forEach(track => {
+        newTrackData.set(track.id, track);
+      });
+
+      setTrackData(newTrackData);
+      setChildrenData(newChildrenData);
+      setPaginationData(newPaginationData);
+
+    } catch (err) {
+      console.error(`Failed to fetch page ${newPage} children for track ${parentTrackId}:`, err);
+    }
+  }, [childrenData, paginationData, trackData, testMode, api]);
 
   // Handle node click
   const handleNodeClick = useCallback(async (clickedTrackId) => {
@@ -382,7 +436,7 @@ export default function TrackTreePage() {
 
     // Mark this as internal navigation to prevent full reload
     isInternalNavigationRef.current = true;
-    
+
     // Update URL without causing navigation/reload
     const newUrl = `/tree2/${clickedTrack.guid}${secret ? `?secret=${secret}` : ''}`;
     const fullUrl = `${window.location.origin}${newUrl}`;
@@ -395,7 +449,21 @@ export default function TrackTreePage() {
     // Fetch children if not already loaded
     const hasChildren = childrenData.has(clickedTrackId);
     if (!hasChildren) {
-      await fetchChildren(clickedTrackId);
+      const children = await fetchChildren(clickedTrackId);
+      if (children && children.length > 0) {
+        // Store all tracks in trackData
+        const newTrackData = new Map(trackData);
+        children.forEach(child => {
+          newTrackData.set(child.id, child);
+        });
+
+        // Store children in childrenData
+        const newChildrenData = new Map(childrenData);
+        newChildrenData.set(clickedTrackId, children);
+
+        setTrackData(newTrackData);
+        setChildrenData(newChildrenData);
+      }
     }
   }, [trackData, childrenData, secret, selectedTrackId, router, fetchChildren]);
 
@@ -449,6 +517,7 @@ export default function TrackTreePage() {
           onInit={setReactFlowInstance}
           fitView
           fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.001}
         >
           <Background />
           <Controls />
