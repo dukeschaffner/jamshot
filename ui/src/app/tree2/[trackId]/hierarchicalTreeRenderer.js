@@ -586,6 +586,126 @@ export function generateHierarchicalTreeNodesAndEdges({
     }
   });
 
+  // Handle collab cluster nodes for leaf nodes at the final level
+  // These wouldn't be processed in the main loop since there's no next level
+  const maxLevel = Math.max(...levels);
+  const leafCollabClusterNodes = [];
+
+  // Find collab cluster nodes for parents at the maximum level (leaf nodes)
+  if (structure.levels.has(maxLevel)) {
+    structure.levels.get(maxLevel).forEach(trackId => {
+      const clusterKey = `collab-${trackId}`;
+      if (structure.clusterNodes.has(clusterKey)) {
+        const clusterData = structure.clusterNodes.get(clusterKey);
+        if (typeof clusterData === 'object' && clusterData.parentId === trackId) {
+          leafCollabClusterNodes.push(clusterKey);
+        } else if (typeof clusterData === 'number') {
+          // Legacy format
+          leafCollabClusterNodes.push(clusterKey);
+        }
+      }
+    });
+  }
+
+  // Render collab cluster nodes for leaf nodes
+  if (leafCollabClusterNodes.length > 0) {
+    const intermediateLevel = maxLevel + 0.5; // Position below the final level
+
+    // Group collab cluster nodes by their parent for positioning
+    const collabNodesByParent = new Map();
+    leafCollabClusterNodes.forEach(clusterKey => {
+      const clusterData = structure.clusterNodes.get(clusterKey);
+      const parentId = typeof clusterData === 'object' ? clusterData.parentId : clusterKey;
+      if (!collabNodesByParent.has(parentId)) {
+        collabNodesByParent.set(parentId, []);
+      }
+      collabNodesByParent.get(parentId).push(clusterKey);
+    });
+
+    // Position collab cluster nodes directly beneath their leaf parents
+    structure.levels.get(maxLevel).forEach(parentTrackId => {
+      const collabNodes = collabNodesByParent.get(parentTrackId) || [];
+      if (collabNodes.length > 0) {
+        // Find parent position
+        const parentIndex = structure.levels.get(maxLevel).indexOf(parentTrackId);
+        const parentPositions = levelPositions.get(maxLevel);
+        if (parentPositions && parentIndex >= 0) {
+          const parentX = parentPositions[parentIndex];
+          const parentY = startY + maxLevel * levelHeight;
+
+          // Position collab nodes below the parent
+          collabNodes.forEach((clusterKey, nodeIndex) => {
+            const x = parentX + (nodeIndex * 80) - ((collabNodes.length - 1) * 40); // Center multiple nodes
+            const y = parentY + 120; // Position below parent
+
+            const clusterData = structure.clusterNodes.get(clusterKey);
+            let displayCount, clickHandler, nodeId;
+
+            if (typeof clusterData === 'number') {
+              // Legacy: simple number (old behavior)
+              displayCount = clusterData;
+              nodeId = `cluster-collab-${clusterKey}`;
+              clickHandler = () => handleNodeClick(clusterKey);
+            } else {
+              // New: object with type and count
+              displayCount = clusterData.count;
+              nodeId = `cluster-collab-${clusterKey}`;
+              clickHandler = () => handleNodeClick(clusterData.parentId);
+            }
+
+            flowNodes.push({
+              id: nodeId,
+              type: 'clusterNode',
+              position: { x, y },
+              data: {
+                childCount: displayCount,
+                clusterType: typeof clusterData === 'object' ? clusterData.type : 'collab',
+                onNodeClick: clickHandler,
+                onNodeHover: (hovering, nodePosition) => {
+                  // Clear any existing timeout
+                  if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                    hoverTimeoutRef.current = null;
+                  }
+
+                  if (hovering && nodePosition) {
+                    // Set node's screen position for popover
+                    setHoveredNodePosition(nodePosition);
+                    // Show popover immediately on hover
+                    setHoveredTrackId(typeof clusterData === 'object' ? clusterData.parentId : clusterKey);
+                  } else {
+                    // Delay hiding the popover to allow mouse to move to it
+                    hoverTimeoutRef.current = setTimeout(() => {
+                      setHoveredTrackId(null);
+                      setHoveredNodePosition(null);
+                      hoverTimeoutRef.current = null;
+                    }, 200); // 200ms delay
+                  }
+                },
+              },
+            });
+
+            // Add edge from parent to collab cluster node
+            flowEdges.push({
+              id: `edge-${parentTrackId}-${nodeId}`,
+              source: `track-${parentTrackId}`,
+              target: nodeId,
+              type: 'default',
+              animated: false,
+              style: { stroke: '#86a699', strokeWidth: 2 },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                width: 20,
+                height: 20,
+                color: '#86a699',
+              },
+            });
+          });
+        }
+      }
+    });
+  }
+
   setNodes(flowNodes);
   setEdges(flowEdges);
 }
