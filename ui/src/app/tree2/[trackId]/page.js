@@ -56,7 +56,7 @@ export default function TrackTreePage() {
   const isInternalNavigationRef = useRef(false);
   const lastLoadedTrackGuidRef = useRef(null);
 
-  const testMode = true;
+  const testMode = false;
 
   // Fetch children for a track
   const fetchChildren = useCallback(async (parentTrackId) => {
@@ -65,6 +65,17 @@ export default function TrackTreePage() {
       if (testMode) {
 
         const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
+          params: {
+            page: 1,
+            limit: MAX_NODES_PER_LEVEL,
+            includeChildCount: true,
+            includeParent: false
+          }
+        });
+        data = response.data;
+      }
+      else {
+        const response = await api.get(`/tracks/${parentTrackId}/related`, {
           params: {
             page: 1,
             limit: MAX_NODES_PER_LEVEL,
@@ -369,6 +380,17 @@ export default function TrackTreePage() {
             includeChildCount: true,
             includeParent: false,
             depth: trackData.get(parentTrackId)?.depth || 0
+          }
+        });
+        data = response.data;
+      }
+      else {
+        const response = await api.get(`/tracks/${parentTrackId}/related`, {
+          params: {
+            page: newPage,
+            limit: MAX_NODES_PER_LEVEL,
+            includeChildCount: true,
+            includeParent: false
           }
         });
         data = response.data;
