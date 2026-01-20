@@ -1,0 +1,441 @@
+import { MarkerType } from 'reactflow';
+
+// Hierarchical Tree Renderer
+// Generates React Flow nodes and edges for a hierarchical tree layout
+
+/**
+ * Generates React Flow nodes and edges from tree structure using a hierarchical layout
+ * @param {Object} params - Parameters for rendering
+ * @param {Object} params.structure - Tree structure from buildTreeStructure()
+ * @param {Map} params.trackData - Map of trackId -> track data
+ * @param {string} params.selectedTrackId - Currently selected track ID
+ * @param {Function} params.setNodes - React Flow setNodes function
+ * @param {Function} params.setEdges - React Flow setEdges function
+ * @param {Function} params.handleNodeClick - Function to handle node clicks
+ * @param {Function} params.handleClusterNodeClick - Function to handle cluster node clicks
+ * @param {Function} params.setHoveredTrackId - Function to set hovered track ID
+ * @param {Function} params.setHoveredNodePosition - Function to set hovered node position
+ * @param {Object} params.hoverTimeoutRef - Reference to hover timeout
+ */
+export function generateHierarchicalTreeNodesAndEdges({
+  structure,
+  trackData,
+  selectedTrackId,
+  setNodes,
+  setEdges,
+  handleNodeClick,
+  handleClusterNodeClick,
+  setHoveredTrackId,
+  setHoveredNodePosition,
+  hoverTimeoutRef
+}) {
+  if (structure.nodes.length === 0 && structure.levels.size === 0 && structure.clusterNodes.size === 0) return;
+
+  const flowNodes = [];
+  const flowEdges = [];
+  const levelPositions = new Map(); // level -> array of x positions
+
+  // Calculate positions for each level
+  const levels = Array.from(structure.levels.keys()).sort((a, b) => a - b);
+  const levelHeight = 200; // Vertical spacing between levels
+  const startY = 100;
+
+  levels.forEach(level => {
+    const trackIds = structure.levels.get(level);
+    console.log('trackIds for level', level, trackIds);
+    const collabClusterNodesForLevel = [];
+    const otherClusterNodesForLevel = [];
+
+    // Separate collab cluster nodes from other cluster nodes
+    // Find cluster nodes for this level (parents at level-1)
+    structure.levels.forEach((levelTrackIds, levelIndex) => {
+      if (levelIndex === level - 1) {
+        levelTrackIds.forEach(trackId => {
+          // Check for all possible cluster node keys (prefixed with type)
+          const clusterKeys = [`prev-${trackId}`, `next-${trackId}`, `collab-${trackId}`];
+          clusterKeys.forEach(clusterKey => {
+            if (structure.clusterNodes.has(clusterKey)) {
+              const clusterData = structure.clusterNodes.get(clusterKey);
+              if (typeof clusterData === 'object' && clusterData.type === 'collab') {
+                collabClusterNodesForLevel.push(clusterKey);
+              } else {
+                otherClusterNodesForLevel.push(clusterKey);
+              }
+            }
+          });
+        });
+      }
+    });
+
+    const totalNodes = trackIds.length + otherClusterNodesForLevel.length;
+    const nodeWidth = 120; // Approximate node width
+    const spacing = 150; // Horizontal spacing between nodes
+
+    // Group children by their parent to center each group around its parent
+    const childrenByParent = new Map();
+
+    // Initialize children for each parent at level - 1
+    if (level > 0 && structure.levels.has(level - 1)) {
+      const parentTrackIds = structure.levels.get(level - 1);
+      parentTrackIds.forEach(parentTrackId => {
+        childrenByParent.set(parentTrackId, []);
+      });
+    }
+
+    // Assign each child track to its parent
+    trackIds.forEach(trackId => {
+      const track = trackData.get(trackId);
+      if (track && track.parent_track_id) {
+        const parentId = track.parent_track_id;
+        if (childrenByParent.has(parentId)) {
+          childrenByParent.get(parentId).push(trackId);
+        } else {
+          // Fallback: if parent not found, put in a default group
+          if (!childrenByParent.has('orphaned')) {
+            childrenByParent.set('orphaned', []);
+          }
+          childrenByParent.get('orphaned').push(trackId);
+        }
+      }
+    });
+
+    // Assign cluster nodes to their parents
+    otherClusterNodesForLevel.forEach(clusterKey => {
+      const clusterData = structure.clusterNodes.get(clusterKey);
+      const parentId = typeof clusterData === 'object' ? clusterData.parentId : clusterKey;
+      if (childrenByParent.has(parentId)) {
+        childrenByParent.get(parentId).push(clusterKey);
+      } else {
+        // Fallback
+        if (!childrenByParent.has('orphaned')) {
+          childrenByParent.set('orphaned', []);
+        }
+        childrenByParent.get('orphaned').push(clusterKey);
+      }
+    });
+
+    // Calculate positions for each parent group
+    const levelPositionsArray = [];
+    let currentX = 0;
+
+    if (level === 0) {
+      // Root level: center all nodes
+      const totalWidth = totalNodes * spacing;
+      const startX = -totalWidth / 2 + spacing / 2;
+      levelPositionsArray.push(...Array.from({ length: totalNodes }, (_, index) => startX + index * spacing));
+    } else {
+      // Child levels: center each group around its parent
+      const parentTrackIds = Array.from(childrenByParent.keys()).sort();
+      let globalIndex = 0;
+
+      parentTrackIds.forEach(parentTrackId => {
+        const children = childrenByParent.get(parentTrackId);
+        if (children.length === 0) return;
+
+        // Find parent position
+        let parentX = 0;
+        if (parentTrackId !== 'orphaned' && structure.levels.has(level - 1)) {
+          const parentLevelTracks = structure.levels.get(level - 1);
+          const parentIndex = parentLevelTracks.indexOf(parentTrackId);
+          if (parentIndex >= 0) {
+            const parentLevelPositions = levelPositions.get(level - 1);
+            if (parentLevelPositions && parentLevelPositions[parentIndex] !== undefined) {
+              parentX = parentLevelPositions[parentIndex];
+            }
+          }
+        }
+
+        // Center this group around the parent
+        const groupWidth = children.length * spacing;
+        const groupStartX = parentX - groupWidth / 2 + spacing / 2;
+
+        children.forEach(childId => {
+          const x = groupStartX + (children.indexOf(childId) * spacing);
+          levelPositionsArray[globalIndex] = x;
+          globalIndex++;
+        });
+      });
+    }
+
+    levelPositions.set(level, levelPositionsArray);
+
+    // Add regular track nodes first
+    console.log('adding ' + trackIds.length + ' track nodes to level ' + level);
+    trackIds.forEach((trackId, index) => {
+      const track = trackData.get(trackId);
+      if (!track) return;
+
+      const x = levelPositions.get(level)[index];
+      const y = startY + level * levelHeight;
+
+      flowNodes.push({
+        id: `track-${trackId}`,
+        type: 'trackNode',
+        position: { x, y },
+        data: {
+          track,
+          isSelected: trackId === selectedTrackId,
+          onNodeClick: () => handleNodeClick(trackId),
+          onNodeHover: (hovering, nodePosition) => {
+            // Clear any existing timeout
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+
+            if (hovering && nodePosition) {
+              // Set node's screen position for popover
+              setHoveredNodePosition(nodePosition);
+              // Show popover immediately on hover
+              setHoveredTrackId(trackId);
+            } else {
+              // Delay hiding the popover to allow mouse to move to it
+              hoverTimeoutRef.current = setTimeout(() => {
+                setHoveredTrackId(null);
+                setHoveredNodePosition(null);
+                hoverTimeoutRef.current = null;
+              }, 200); // 200ms delay
+            }
+          },
+        },
+      });
+
+      // Add edge from parent
+      if (track.parent_track_id) {
+        const parentTrackId = track.parent_track_id;
+        const parentTrack = trackData.get(parentTrackId);
+        if (parentTrack) {
+          // Find parent's level
+          let parentLevel = -1;
+          for (const [level, trackIds] of structure.levels.entries()) {
+            if (trackIds.includes(parentTrackId)) {
+              parentLevel = level;
+              break;
+            }
+          }
+
+          if (parentLevel >= 0) {
+            const parentIndex = structure.levels.get(parentLevel).indexOf(parentTrackId);
+            const parentX = levelPositions.get(parentLevel)[parentIndex];
+            const parentY = startY + parentLevel * levelHeight;
+
+            flowEdges.push({
+              id: `edge-${parentTrackId}-${trackId}`,
+              source: `track-${parentTrackId}`,
+              target: `track-${trackId}`,
+              type: 'default',
+              animated: false,
+              style: { stroke: '#86a699', strokeWidth: 2 },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                width: 20,
+                height: 20,
+                color: '#86a699',
+              },
+            });
+          }
+        }
+      }
+    });
+
+    // Add other cluster nodes (prev/next page) to the same level as regular tracks
+    otherClusterNodesForLevel.forEach((clusterKey, clusterIndex) => {
+      const clusterData = structure.clusterNodes.get(clusterKey);
+      const clusterNodeIndex = trackIds.length + clusterIndex;
+      const x = levelPositions.get(level)[clusterNodeIndex];
+      const y = startY + level * levelHeight;
+
+      // Handle different cluster node types
+      let displayCount, clickHandler, nodeId, parentId;
+
+      if (typeof clusterData === 'number') {
+        // Legacy: simple number (old behavior)
+        displayCount = clusterData;
+        nodeId = `cluster-${clusterKey}`;
+        parentId = clusterKey;
+        clickHandler = () => handleNodeClick(clusterKey);
+      } else {
+        // New: object with type and count
+        displayCount = clusterData.count;
+        parentId = clusterData.parentId;
+
+        if (clusterData.type === 'prevPage') {
+          nodeId = `cluster-prev-${clusterKey}`;
+          clickHandler = () => handleClusterNodeClick(clusterData.type, parentId);
+        } else if (clusterData.type === 'nextPage') {
+          nodeId = `cluster-next-${clusterKey}`;
+          clickHandler = () => handleClusterNodeClick(clusterData.type, parentId);
+        } else if (clusterData.type === 'collab') {
+          nodeId = `cluster-collab-${clusterKey}`;
+          clickHandler = () => handleNodeClick(parentId);
+        } else {
+          // Fallback
+          nodeId = `cluster-${clusterKey}`;
+          clickHandler = () => handleNodeClick(clusterKey);
+        }
+      }
+
+      flowNodes.push({
+        id: nodeId,
+        type: 'clusterNode',
+        position: { x, y },
+        data: {
+          childCount: displayCount,
+          clusterType: typeof clusterData === 'object' ? clusterData.type : 'legacy',
+          onNodeClick: clickHandler,
+          onNodeHover: (hovering, nodePosition) => {
+            // Clear any existing timeout
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+
+            if (hovering && nodePosition) {
+              // Set node's screen position for popover
+              setHoveredNodePosition(nodePosition);
+              // Show popover immediately on hover
+              setHoveredTrackId(parentId);
+            } else {
+              // Delay hiding the popover to allow mouse to move to it
+              hoverTimeoutRef.current = setTimeout(() => {
+                setHoveredTrackId(null);
+                setHoveredNodePosition(null);
+                hoverTimeoutRef.current = null;
+              }, 200); // 200ms delay
+            }
+          },
+        },
+      });
+
+      // Add edge from parent to cluster node
+      const parentTrack = trackData.get(parentId);
+      if (parentTrack) {
+        let parentLevel = -1;
+        for (const [level, trackIds] of structure.levels.entries()) {
+          if (trackIds.includes(parentId)) {
+            parentLevel = level;
+            break;
+          }
+        }
+
+        if (parentLevel >= 0) {
+          const parentIndex = structure.levels.get(parentLevel).indexOf(parentId);
+          const parentX = levelPositions.get(parentLevel)[parentIndex];
+          const parentY = startY + parentLevel * levelHeight;
+
+          flowEdges.push({
+            id: `edge-${parentId}-${nodeId}`,
+            source: `track-${parentId}`,
+            target: nodeId,
+            type: 'default',
+            animated: false,
+            style: { stroke: '#86a699', strokeWidth: 2 },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 20,
+              height: 20,
+              color: '#86a699',
+            },
+          });
+        }
+      }
+    });
+
+    // Add collab cluster nodes on intermediate level (directly beneath their parents)
+    if (collabClusterNodesForLevel.length > 0) {
+      const intermediateLevel = level - 0.5; // Position between parent level and children level
+      const collabLevelPositions = new Map();
+
+      // Group collab cluster nodes by their parent for positioning
+      const collabNodesByParent = new Map();
+      collabClusterNodesForLevel.forEach(clusterKey => {
+        const clusterData = structure.clusterNodes.get(clusterKey);
+        const parentId = clusterData.parentId;
+        if (!collabNodesByParent.has(parentId)) {
+          collabNodesByParent.set(parentId, []);
+        }
+        collabNodesByParent.get(parentId).push(clusterKey);
+      });
+
+      // Position collab cluster nodes directly beneath their parents
+      structure.levels.get(level - 1).forEach(parentTrackId => {
+        const collabNodes = collabNodesByParent.get(parentTrackId) || [];
+        if (collabNodes.length > 0) {
+          // Find parent position
+          const parentIndex = structure.levels.get(level - 1).indexOf(parentTrackId);
+          const parentPositions = levelPositions.get(level - 1);
+          if (parentPositions && parentIndex >= 0) {
+            const parentX = parentPositions[parentIndex];
+            const parentY = startY + (level - 1) * levelHeight;
+
+            // Position collab nodes below the parent
+            collabNodes.forEach((clusterKey, nodeIndex) => {
+              const x = parentX + (nodeIndex * 80) - ((collabNodes.length - 1) * 40); // Center multiple nodes
+              const y = parentY + 120; // Position below parent
+
+              collabLevelPositions.set(clusterKey, { x, y });
+
+              const clusterData = structure.clusterNodes.get(clusterKey);
+              let displayCount, clickHandler, nodeId;
+
+              displayCount = clusterData.count;
+              nodeId = `cluster-collab-${clusterKey}`;
+              clickHandler = () => handleNodeClick(clusterData.parentId);
+
+              flowNodes.push({
+                id: nodeId,
+                type: 'clusterNode',
+                position: { x, y },
+                data: {
+                  childCount: displayCount,
+                  clusterType: clusterData.type,
+                  onNodeClick: clickHandler,
+                  onNodeHover: (hovering, nodePosition) => {
+                    // Clear any existing timeout
+                    if (hoverTimeoutRef.current) {
+                      clearTimeout(hoverTimeoutRef.current);
+                      hoverTimeoutRef.current = null;
+                    }
+
+                    if (hovering && nodePosition) {
+                      // Set node's screen position for popover
+                      setHoveredNodePosition(nodePosition);
+                      // Show popover immediately on hover
+                      setHoveredTrackId(clusterData.parentId);
+                    } else {
+                      // Delay hiding the popover to allow mouse to move to it
+                      hoverTimeoutRef.current = setTimeout(() => {
+                        setHoveredTrackId(null);
+                        setHoveredNodePosition(null);
+                        hoverTimeoutRef.current = null;
+                      }, 200); // 200ms delay
+                    }
+                  },
+                },
+              });
+
+              // Add edge from parent to collab cluster node
+              flowEdges.push({
+                id: `edge-${parentTrackId}-${nodeId}`,
+                source: `track-${parentTrackId}`,
+                target: nodeId,
+                type: 'default',
+                animated: false,
+                style: { stroke: '#86a699', strokeWidth: 2 },
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  width: 20,
+                  height: 20,
+                  color: '#86a699',
+                },
+              });
+            });
+          }
+        }
+      });
+    }
+  });
+
+  setNodes(flowNodes);
+  setEdges(flowEdges);
+}
