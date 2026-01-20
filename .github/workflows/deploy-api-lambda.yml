@@ -47,8 +47,8 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
 
-    - name: Build shared packages
-      run: pnpm -r run build
+    - name: Build production dependencies
+      run: pnpm --filter-prod @sterio/api-lambda run build
 
     - name: Build Lambda bundle
       working-directory: ./api/lambda
@@ -60,7 +60,7 @@ jobs:
         # cp ../../packages/my-package/bin/ffmpeg ./bin/ || true
 
         # Optionally bundle Lambda code with esbuild
-        npx esbuild src/index.js \
+        npx esbuild index.js \
           --bundle \
           --platform=node \
           --target=node22 \
