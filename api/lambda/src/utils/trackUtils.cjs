@@ -145,7 +145,7 @@ async function getTrackElementRequests(trackId) {
 }
 
 // Generate a standardized base query for track selection
-function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, includeDetails = true) {
+function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, includeDetails = true, includeChildCount = true) {
   const baseQuery = `
     t.id, t.guid, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature, t.allow_download,
@@ -153,7 +153,7 @@ function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, i
     u.username, u.verified, u.profile_pic_url, u.is_private AS creator_is_private,
     t2.title AS original_title,
     ${includeDetails ? 'u2.username AS original_username,' : ''}
-    (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+    ${includeChildCount ? '(SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,' : ''}
     (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
     (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
     (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count
