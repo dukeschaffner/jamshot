@@ -7,7 +7,7 @@ import './TrackNode.module.css';
 function ClusterNode({ data }) {
   const { childCount, clusterType = 'legacy', onNodeClick, onNodeHover } = data;
   const nodeRef = useRef(null);
-  const size = 70; // Fixed size for all nodes
+  const size = 45; // Fixed size for all nodes
 
   const handleMouseEnter = () => {
     if (onNodeHover && nodeRef.current) {
