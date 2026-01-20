@@ -35,6 +35,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+**/dist
+
 # env files (can opt-in for committing if needed)
 .env*
 

@@ -1,5 +1,6 @@
 {
-  "name": "jamshot-api-lambda",
+  "name": "@sterio/api-lambda",
+  "private": true,
   "version": "1.0.0",
   "description": "Jamshot API running on AWS Lambda using @codegenie/serverless-express",
   "main": "handler.js",
@@ -11,6 +12,7 @@
     "deploy": "serverless deploy"
   },
   "dependencies": {
+    "@sterio/hello-world": "workspace:*",
     "@aws-sdk/client-eventbridge": "^3.758.0",
     "@aws-sdk/client-s3": "^3.758.0",
     "@aws-sdk/s3-request-presigner": "^3.758.0",
