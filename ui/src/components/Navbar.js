@@ -42,17 +42,6 @@ export default function Navbar() {
     }
   };
 
-  // Get teams link URL based on user state
-  const getTeamsLink = () => {
-    if (!isAuthenticated || !user?.teams || user.teams.length === 0) {
-      return '/teams'; // Landing page
-    } else if (user.teams.length === 1) {
-      return `/team/${user.teams[0].id}`; // Direct to team dashboard
-    } else {
-      return '/teams'; // List page
-    }
-  };
-
   return (
     <nav className="navbar">
       <div className="logo">
@@ -87,15 +76,7 @@ export default function Navbar() {
           <FaTrophy />
           Competitions
         </Link>
-        
-        <Link 
-          href={getTeamsLink()} 
-          className={`nav-link ${pathname.startsWith('/teams') ? 'active' : ''}`}
-        >
-          <FaUsers />
-          Teams
-        </Link>
-        
+
         {isAuthenticated && (
           <div className="nav-link nav-link-pop-out-btn">
             <NotificationDropdown />

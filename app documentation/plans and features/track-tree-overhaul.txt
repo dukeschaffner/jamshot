@@ -66,15 +66,6 @@ Plays Saturation Percentage
 
 
 
-
-TODO:
-- test tree scale and pagination
-- add child counts to tree for nodes whose children are not yet loaded
-    - prompt: for the tracks/nodes whose children arent loaded (the ones that are fetched with the /related endpoint), if they have at least 1 child, add a grey node at the next level below that track. the node should display the number of children that belong to that parent. when this new node is clicked, it should select the parent track. You will need to update the /related endpoint to optionally get the child count for each track it returns (for backwards compatibilty, dont get child count by default)
-
-
-
-
 in the future (DO NOT IMPLEMENT YET):
 - nodes can show more details at different zoom levels or if there arent as many nodes.
     - anywhere from empty circle to circle full of text and thumbnail
