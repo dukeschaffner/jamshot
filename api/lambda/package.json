@@ -3,14 +3,15 @@
   "private": true,
   "version": "1.0.0",
   "description": "Jamshot API running on AWS Lambda using @codegenie/serverless-express",
-  "main": "handler.js",
+  "main": "dist/index.mjs",
   "type": "module",
   "scripts": {
     "start": "node dev-server.js",
     "dev": "node dev-server.js",
     "lambda": "node handler.js",
     "deploy": "serverless deploy",
-    "build": "esbuild index.js --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.mjs"
+    "build": "rm -rf dist && mkdir -p dist && esbuild index.js --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.mjs --external:@aws-sdk/* --external:pg --external:sharp --external:music-metadata --external:bcryptjs --external:express --external:hono --external:@hono/node-server --external:@codegenie/serverless-express --external:nodemailer --external:multer --external:cors --external:express-rate-limit --external:express-slow-down --external:jsonwebtoken --external:cookie-parser --external:axios --external:better-auth --external:stripe && jq '{ name, version, type, dependencies }' package.json > dist/package.json && cd dist && npm install --production --omit=dev --omit=optional"
+
   },
   "dependencies": {
     "@sterio/subscription-utils": "file:../../packages/subscription-utils",

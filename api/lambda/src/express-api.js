@@ -1,5 +1,3 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
 
 import userRoutes from './routes/users.js';
 import trackRoutes from './routes/tracks.js';
