@@ -46,8 +46,8 @@ jobs:
 
     - name: Build Lambda bundle
       run: |
-        pnpm --filter ./api/lambda... install --frozen-lockfile
-        pnpm --filter ./api/lambda... run build
+        pnpm install --frozen-lockfile
+        pnpm run build
 
     - name: Create deployment zip
       working-directory: ./api/lambda
