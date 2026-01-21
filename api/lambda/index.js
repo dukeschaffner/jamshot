@@ -24,7 +24,8 @@ export const handler = async (event, context) => {
       const { configure } = await import('@codegenie/serverless-express');
       const expressApp = await import('./src/express-api.js');
       const serverlessExpressInstance = configure({
-        app: expressApp.default
+        app: expressApp.default,
+        framework: 'express'
       });
       return await serverlessExpressInstance(event, context);
     }

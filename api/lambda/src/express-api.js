@@ -19,7 +19,6 @@ import featureFlagsRoutes from './routes/featureFlags.js';
 import express from 'express';
 import cors from 'cors';
 import { bodyParser } from './middleware/bodyParser.js';
-import 'dotenv/config';
 
 
 const app = express();
