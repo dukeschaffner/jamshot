@@ -37,9 +37,10 @@ jobs:
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './package-lock.json'
+        cache-dependency-path: ./api/lambda/package-lock.json
 
-    - name: Install dependencies
+    - name: Install Lambda dependencies
+      working-directory: ./api/lambda
       run: |
         npm ci --omit=dev
 
