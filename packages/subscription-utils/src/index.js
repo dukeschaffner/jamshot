@@ -2,14 +2,14 @@
 // Single source of truth for subscription plans used by both UI and API
 
 // Subscription Tier Constants
-const SUBSCRIPTION_TIERS = {
+export const SUBSCRIPTION_TIERS = {
   FREE: 'free',
-  BASIC: 'basic', 
+  BASIC: 'basic',
   PREMIUM: 'premium'
 };
 
 // Base Subscription Plan Definitions (without environment-specific data)
-const SUBSCRIPTION_PLANS = {
+export const SUBSCRIPTION_PLANS = {
   [SUBSCRIPTION_TIERS.FREE]: {
     id: 'free',
     name: 'Free',
@@ -41,7 +41,7 @@ const SUBSCRIPTION_PLANS = {
       'Community features'
     ]
   },
-  
+
   [SUBSCRIPTION_TIERS.BASIC]: {
     id: 'basic',
     name: 'Basic',
@@ -75,7 +75,7 @@ const SUBSCRIPTION_PLANS = {
     //   'No ads'
     ]
   },
-  
+
   [SUBSCRIPTION_TIERS.PREMIUM]: {
     id: 'premium',
     name: 'Premium',
@@ -115,7 +115,7 @@ const SUBSCRIPTION_PLANS = {
 };
 
 // Team Subscription Plan Constants
-const TEAM_PRODUCT_VERSIONS = {
+export const TEAM_PRODUCT_VERSIONS = {
   TEN_USERS: '10_users',
   TWENTY_FIVE_USERS: '25_users',
   FIFTY_USERS: '50_users',
@@ -124,7 +124,7 @@ const TEAM_PRODUCT_VERSIONS = {
 };
 
 // Team Subscription Plan Definitions
-const TEAM_PLANS = {
+export const TEAM_PLANS = {
   [TEAM_PRODUCT_VERSIONS.TEN_USERS]: {
     id: '10_users',
     name: 'Team Plan (Up to 10 users)',
@@ -245,39 +245,39 @@ const TEAM_PLANS = {
 };
 
 // Helper function to extend plans with environment-specific data
-const createSubscriptionPlans = (extensions = {}) => {
+export const createSubscriptionPlans = (extensions = {}) => {
   const plans = {};
-  
+
   for (const [tier, basePlan] of Object.entries(SUBSCRIPTION_PLANS)) {
     plans[tier] = {
       ...basePlan,
       ...(extensions[tier] || {})
     };
   }
-  
+
   return plans;
 };
 
 // Core utility functions that work with any plan structure
-const isValidTier = (tier) => {
+export const isValidTier = (tier) => {
   return Object.values(SUBSCRIPTION_TIERS).includes(tier);
 };
 
 // Compare tiers - returns negative if tier1 < tier2, positive if tier1 > tier2, 0 if equal
-const compareTiers = (tier1, tier2) => {
+export const compareTiers = (tier1, tier2) => {
   const tierOrder = [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.BASIC, SUBSCRIPTION_TIERS.PREMIUM];
   const index1 = tierOrder.indexOf(tier1);
   const index2 = tierOrder.indexOf(tier2);
-  
+
   if (index1 === -1 || index2 === -1) {
     throw new Error('Invalid tier for comparison');
   }
-  
+
   return index1 - index2;
 };
 
 // Get tier rank (0 = lowest, higher number = higher tier)
-const getTierRank = (tier) => {
+export const getTierRank = (tier) => {
   const tierOrder = [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.BASIC, SUBSCRIPTION_TIERS.PREMIUM];
   const rank = tierOrder.indexOf(tier);
   if (rank === -1) {
@@ -287,69 +287,69 @@ const getTierRank = (tier) => {
 };
 
 // Check if tier1 is an upgrade from tier2
-const isUpgrade = (fromTier, toTier) => {
+export const isUpgrade = (fromTier, toTier) => {
   return compareTiers(toTier, fromTier) > 0;
 };
 
 // Check if tier1 is a downgrade from tier2
-const isDowngrade = (fromTier, toTier) => {
+export const isDowngrade = (fromTier, toTier) => {
   return compareTiers(toTier, fromTier) < 0;
 };
 
 // UI-specific Utility Functions
-const getUserTier = (user) => {
+export const getUserTier = (user) => {
   if (!user) return SUBSCRIPTION_TIERS.FREE;
-  
+
   // Check if subscription has expired
   if (user.subscription_expires_at && new Date(user.subscription_expires_at) < new Date()) {
     return SUBSCRIPTION_TIERS.FREE;
   }
-  
+
   // Check if user has premium subscription
   if (user.subscription_tier === SUBSCRIPTION_TIERS.PREMIUM) {
     return SUBSCRIPTION_TIERS.PREMIUM;
   }
-  
-  // Check if user has basic subscription  
+
+  // Check if user has basic subscription
   if (user.subscription_tier === SUBSCRIPTION_TIERS.BASIC) {
     return SUBSCRIPTION_TIERS.BASIC;
   }
-  
+
   // Default to free tier
   return SUBSCRIPTION_TIERS.FREE;
 };
 
-const getUserPlan = (user) => {
+export const getUserPlan = (user) => {
   const tier = getUserTier(user);
   return SUBSCRIPTION_PLANS[tier];
 };
 
-const canUserUpload = (user, uploadsToday = 0) => {
+export const canUserUpload = (user, uploadsToday = 0) => {
   const plan = getUserPlan(user);
   return uploadsToday < plan.limits.daily_uploads;
 };
 
-const canUserCreatePrivateTrack = (user) => {
+export const canUserCreatePrivateTrack = (user) => {
   const plan = getUserPlan(user);
   return plan.features.private_tracks;
 };
 
-const canUserAccessAnalytics = (user) => {
+export const canUserAccessAnalytics = (user) => {
   const plan = getUserPlan(user);
   return plan.features.analytics;
 };
 
-const canUserAccessStreamsByUser = (user) => {
+export const canUserAccessStreamsByUser = (user) => {
   const plan = getUserPlan(user);
   return plan.features.analytics_streams_by_user;
 };
 
-const canUserAccessAdvancedDAW = (user) => {
+export const canUserAccessAdvancedDAW = (user) => {
   const plan = getUserPlan(user);
   return plan.features.advanced_daw;
 };
 
-const getUserUploadLimit = (user) => {
+export const getUserUploadLimit = (user) => {
   const plan = getUserPlan(user);
   return {
     daily: plan.limits.daily_uploads,
@@ -357,135 +357,49 @@ const getUserUploadLimit = (user) => {
   };
 };
 
-const getUserRecordingLimit = (user) => {
+export const getUserRecordingLimit = (user) => {
   const plan = getUserPlan(user);
   return plan.limits.max_recording_duration;
 };
 
-const hasReachedTotalUploadLimit = (user, currentUploads = 0) => {
+export const hasReachedTotalUploadLimit = (user, currentUploads = 0) => {
   const plan = getUserPlan(user);
   if (plan.limits.max_total_uploads === -1) return false; // unlimited
   return currentUploads >= plan.limits.max_total_uploads;
 };
 
-const getFeaturesByTier = (tier) => {
+export const getFeaturesByTier = (tier) => {
   return SUBSCRIPTION_PLANS[tier]?.features || SUBSCRIPTION_PLANS[SUBSCRIPTION_TIERS.FREE].features;
 };
 
-const getLimitsByTier = (tier) => {
+export const getLimitsByTier = (tier) => {
   return SUBSCRIPTION_PLANS[tier]?.limits || SUBSCRIPTION_PLANS[SUBSCRIPTION_TIERS.FREE].limits;
 };
 
-const getTierUpgradeOptions = (currentTier) => {
+export const getTierUpgradeOptions = (currentTier) => {
   const tiers = [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.BASIC, SUBSCRIPTION_TIERS.PREMIUM];
   const currentIndex = tiers.indexOf(currentTier);
   return tiers.slice(currentIndex + 1).map(tier => SUBSCRIPTION_PLANS[tier]);
 };
 
-const formatPrice = (price) => {
+export const formatPrice = (price) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(price);
 };
 
-const formatLimitDisplay = (limit) => {
+export const formatLimitDisplay = (limit) => {
   if (limit === -1) return 'Unlimited';
   return limit.toString();
 };
 
-
-
 // Validate team product version
-const isValidTeamProductVersion = (version) => {
+export const isValidTeamProductVersion = (version) => {
   return Object.values(TEAM_PRODUCT_VERSIONS).includes(version);
 };
 
 // Get team plan by product version
-const getTeamPlan = (productVersion) => {
+export const getTeamPlan = (productVersion) => {
   return TEAM_PLANS[productVersion] || null;
-};
-
-// Export lists for different platforms
-const API_EXPORTS = [
-  SUBSCRIPTION_TIERS,
-  SUBSCRIPTION_PLANS,
-  createSubscriptionPlans,
-  isValidTier,
-  compareTiers,
-  getTierRank,
-  isUpgrade,
-  isDowngrade,
-  getUserTier,
-  getUserPlan,
-  canUserUpload,
-  canUserCreatePrivateTrack,
-  canUserAccessAnalytics,
-  canUserAccessStreamsByUser,
-  canUserAccessAdvancedDAW,
-  getUserUploadLimit,
-  getUserRecordingLimit,
-  hasReachedTotalUploadLimit,
-  getFeaturesByTier,
-  getLimitsByTier,
-  getTierUpgradeOptions,
-  TEAM_PRODUCT_VERSIONS,
-  TEAM_PLANS,
-  isValidTeamProductVersion,
-  getTeamPlan
-];
-
-const UI_EXPORTS = [
-  SUBSCRIPTION_TIERS,
-  SUBSCRIPTION_PLANS,
-  createSubscriptionPlans,
-  isValidTier,
-  compareTiers,
-  getTierRank,
-  isUpgrade,
-  isDowngrade,
-  getUserTier,
-  getUserPlan,
-  canUserUpload,
-  canUserCreatePrivateTrack,
-  canUserAccessAnalytics,
-  canUserAccessAdvancedDAW,
-  getUserUploadLimit,
-  getUserRecordingLimit,
-  hasReachedTotalUploadLimit,
-  getFeaturesByTier,
-  getLimitsByTier,
-  getTierUpgradeOptions,
-  formatPrice,
-  formatLimitDisplay,
-  TEAM_PRODUCT_VERSIONS,
-  TEAM_PLANS
-];
-
-module.exports = {
-  SUBSCRIPTION_TIERS,
-  SUBSCRIPTION_PLANS,
-  createSubscriptionPlans,
-  isValidTier,
-  compareTiers,
-  getTierRank,
-  isUpgrade,
-  isDowngrade,
-  getUserTier,
-  getUserPlan,
-  canUserUpload,
-  canUserCreatePrivateTrack,
-  canUserAccessAnalytics,
-  canUserAccessStreamsByUser,
-  canUserAccessAdvancedDAW,
-  getUserUploadLimit,
-  getUserRecordingLimit,
-  hasReachedTotalUploadLimit,
-  getFeaturesByTier,
-  getLimitsByTier,
-  getTierUpgradeOptions,
-  TEAM_PRODUCT_VERSIONS,
-  TEAM_PLANS,
-  isValidTeamProductVersion,
-  getTeamPlan,
 };

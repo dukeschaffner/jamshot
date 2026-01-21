@@ -5,7 +5,7 @@ import { optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middl
 const require = createRequire(import.meta.url);
 const router = express.Router();
 const pool = require('../config/db.cjs');
-const { apiEndpointLimiter } = require('../middleware/rateLimiting.cjs');
+const { apiEndpointLimiter } = require('../middleware/rateLimiting.js');
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);

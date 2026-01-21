@@ -3,8 +3,8 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const router = express.Router();
-const { sendContactEmail } = require('../utils/emailService.cjs');
-const { contactLimiter } = require('../middleware/rateLimiting.cjs');
+const { sendContactEmail } = require('../utils/emailService.js');
+const { contactLimiter } = require('../middleware/rateLimiting.js');
 
 // POST /contact
 router.post('/', contactLimiter, async (req, res) => {

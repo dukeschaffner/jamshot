@@ -305,7 +305,7 @@ const sendWaitlistConfirmationEmail = async (email, referralCode) => {
  */
 const sendCollabEmail = async (userId, collabTrackId, parentTrackId) => {
   const pool = require('../config/db.cjs');
-  const { generateCollabEmailTemplate } = require('./emailTemplates.cjs');
+  const { generateCollabEmailTemplate } = require('./emailTemplates.js');
 
   try {
     // Check if transporter is available

@@ -1,12 +1,10 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { customSession } from "better-auth/plugins";
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pool = require('./src/config/db.cjs');
-const bcrypt = require('bcryptjs');
-const { sendVerificationEmail: sendLegacyVerificationEmail, sendPasswordResetEmail: sendLegacyPasswordResetEmail } = require('./src/utils/emailService.cjs');
-const { validateDateOfBirth } = require('./shared/utils/validation.cjs');
+import pool from './src/config/db.js';
+import bcrypt from 'bcryptjs';
+import { sendVerificationEmail as sendLegacyVerificationEmail, sendPasswordResetEmail as sendLegacyPasswordResetEmail } from './src/utils/emailService.js';
+import { validateDateOfBirth } from '@sterio/validation-utils';
 
 /**
  * Send verification email using Better Auth format but legacy email service

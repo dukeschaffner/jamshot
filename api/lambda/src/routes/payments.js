@@ -4,10 +4,10 @@ import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuth
 
 const require = createRequire(import.meta.url);
 const router = express.Router();
-const stripe = require('../config/stripe.cjs');
+import stripe from '../config/stripe.js';
 const db = require('../config/db.cjs');
-const { contentCreationLimiter } = require('../middleware/rateLimiting.cjs');
-const { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } = require('../utils/subscriptionUtils.cjs');
+const { contentCreationLimiter } = require('../middleware/rateLimiting.js');
+const { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } = require('../utils/subscriptionUtils.js');
 
 // Create a checkout session for donations
 router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res) => {

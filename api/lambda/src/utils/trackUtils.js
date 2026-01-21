@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../config/db.cjs');
 const crypto = require('crypto');
-const { validateCampAccess } = require('./campUtils.cjs');
-const { validateTeamAccess } = require('./teamUtils.cjs');
+const { validateCampAccess } = require('./campUtils.js');
+const { validateTeamAccess } = require('./teamUtils.js');
 
 // Cloudflare R2 setup
 const s3Client = new S3Client({

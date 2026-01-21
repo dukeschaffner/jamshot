@@ -22,7 +22,7 @@ import featureFlagsRoutes from './routes/featureFlags.js';
 
 const express = require('express');
 const cors = require('cors');
-const { bodyParser } = require('./middleware/bodyParser.cjs');
+const { bodyParser } = require('./middleware/bodyParser.js');
 require('dotenv').config();
 
 

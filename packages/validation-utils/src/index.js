@@ -3,7 +3,7 @@
  * @param {string} dateOfBirth - Date of birth in YYYY-MM-DD format
  * @returns {Object} Validation result with valid boolean and error message
  */
-const validateDateOfBirth = (dateOfBirth) => {
+export const validateDateOfBirth = (dateOfBirth) => {
     if (!dateOfBirth || typeof dateOfBirth !== 'string') {
         return { valid: false, error: 'Date of birth is required' };
     }
@@ -38,17 +38,4 @@ const validateDateOfBirth = (dateOfBirth) => {
     }
 
     return { valid: true };
-};
-
-// Export lists for different platforms
-const API_EXPORTS = [
-    validateDateOfBirth
-];
-  
-const UI_EXPORTS = [
-    validateDateOfBirth
-]; 
-
-module.exports = {
-  validateDateOfBirth,
 };
