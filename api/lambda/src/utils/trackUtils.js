@@ -1,11 +1,10 @@
-const { S3Client, GetObjectCommand, PutObjectCommand, CopyObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const fs = require('fs');
-const path = require('path');
-const pool = require('../config/db.cjs');
-const crypto = require('crypto');
-const { validateCampAccess } = require('./campUtils.js');
-const { validateTeamAccess } = require('./teamUtils.js');
+import { S3Client, GetObjectCommand, PutObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import fs from 'fs';
+import pool from '../config/db.js';
+import crypto from 'crypto';
+import { validateCampAccess } from './campUtils.js';
+import { validateTeamAccess } from './teamUtils.js';
 
 // Cloudflare R2 setup
 const s3Client = new S3Client({
@@ -1094,7 +1093,7 @@ function parseTrackUploadBody(body) {
   };
 }
 
-module.exports = {
+export {
   s3Client,
   generateSignedUrl,
   generateUploadUrl,

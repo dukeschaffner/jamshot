@@ -34,4 +34,4 @@ const bodyParser = (req, res, next) => {
   }
 };
 
-module.exports = { bodyParser };
+export { bodyParser };

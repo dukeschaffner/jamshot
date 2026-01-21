@@ -1,9 +1,7 @@
 import express from 'express';
-import { createRequire } from 'module';
 import { betterAuthMiddleware as authMiddleware, optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-const require = createRequire(import.meta.url);
-const pool = require('../config/db.cjs');
+import pool from '../config/db.js';
 const router = express.Router();
 
 // Get all genres

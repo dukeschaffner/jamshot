@@ -1,4 +1,4 @@
-const { EventBridgeClient, PutEventsCommand } = require('@aws-sdk/client-eventbridge');
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 
 // Initialize EventBridge
 const eventBridgeClient = new EventBridgeClient({
@@ -164,7 +164,7 @@ async function triggerCompetitionEndNow(competitionId) {
   }
 }
 
-module.exports = {
+export {
   scheduleCompetitionEnd,
   scheduleCuratedFollowup,
   cancelScheduledEvents,

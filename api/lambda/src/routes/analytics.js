@@ -1,12 +1,10 @@
 import express from 'express';
-import { createRequire } from 'module';
 import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db.cjs');
-const { canUserAccessAnalytics, canUserAccessStreamsByUser } = require('../utils/subscriptionUtils.js');
-const { isFeatureEnabled } = require('../utils/featureFlags.js');
+import pool from '../config/db.js';
+import { canUserAccessAnalytics, canUserAccessStreamsByUser } from '../utils/subscriptionUtils.js';
+import { isFeatureEnabled } from '../utils/featureFlags.js';
 
 /**
  * Analytics API Routes

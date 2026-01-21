@@ -1,11 +1,9 @@
 import express from 'express';
-import { createRequire } from 'module';
 
-const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db.cjs');
-const { apiEndpointLimiter } = require('../middleware/rateLimiting.js');
-const { getGeolocationData } = require('../utils/geolocation.js');
+import pool from '../config/db.js';
+import { apiEndpointLimiter } from '../middleware/rateLimiting.js';
+import { getGeolocationData } from '../utils/geolocation.js';
 
 /**
  * Log a visit to a predefined group landing page

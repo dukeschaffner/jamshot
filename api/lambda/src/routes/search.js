@@ -1,13 +1,11 @@
 import express from 'express';
-import { createRequire } from 'module';
 import { optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db.cjs');
-const { searchLimiter } = require('../middleware/rateLimiting.js');
-const { S3Client } = require('@aws-sdk/client-s3');
-const { getTrackPrivacyClause } = require('../utils/trackUtils.js');
+import pool from '../config/db.js';
+import { searchLimiter } from '../middleware/rateLimiting.js';
+import { S3Client } from '@aws-sdk/client-s3';
+import { getTrackPrivacyClause } from '../utils/trackUtils.js';
 
 const s3Client = new S3Client({
   region: 'auto', // R2 uses 'auto' region

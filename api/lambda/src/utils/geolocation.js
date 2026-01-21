@@ -1,5 +1,5 @@
-const pool = require('../config/db.cjs');
-const axios = require('axios');
+import pool from '../config/db.js';
+import axios from 'axios';
 
 /**
  * Get geolocation data for an IP address
@@ -155,7 +155,7 @@ function getRealIP(req) {
   return fallbackIP && !isPrivateIP(fallbackIP) ? fallbackIP : null;
 }
 
-module.exports = {
+export {
   getGeolocationData,
   getRealIP,
   isPrivateIP

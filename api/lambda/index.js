@@ -1,8 +1,4 @@
 
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-
-
 // Main routing handler
 export const handler = async (event, context) => {
   // Set callbackWaitsForEmptyEventLoop to false
@@ -25,14 +21,13 @@ export const handler = async (event, context) => {
       return result;
     } else {
       // Route all other requests to serverless express handler
-      const serverlessExpress = require('@codegenie/serverless-express');
+      const serverlessExpress = await import('@codegenie/serverless-express');
       const expressApp = await import('./src/express-api.js');
       const serverlessExpressInstance = serverlessExpress({
         app: expressApp.default,
-        shouldParseBody: false,
+        shouldParseBody: false
       });
-      const result = await serverlessExpressInstance(event, context);
-      return result;
+      return await serverlessExpressInstance(event, context);
     }
   } catch (error) {
     console.error(`[LAMBDA HANDLER] Error processing request:`, {

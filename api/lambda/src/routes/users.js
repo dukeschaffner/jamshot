@@ -1,20 +1,18 @@
 import express from 'express';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { createRequire } from 'module';
 import multer from 'multer';
 import sharp from 'sharp';
 import bcrypt from 'bcryptjs';
 import stripeLib from 'stripe';
 import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-const require = createRequire(import.meta.url);
 import pool from '../config/db.js';
-const {
+import {
   interactionLimiter,
   uploadLimiter,
   contentCreationLimiter
-} = require('../middleware/rateLimiting.js');
-const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils.js');
+} from '../middleware/rateLimiting.js';
+import { getBaseTrackSelectQuery, processTrack, deleteTrack } from '../utils/trackUtils.js';
 
 const router = express.Router();
 const stripe = stripeLib(process.env.STRIPE_SECRET_KEY);

@@ -1,5 +1,5 @@
-const rateLimit = require('express-rate-limit');
-const slowDown = require('express-slow-down');
+import rateLimit from 'express-rate-limit';
+import slowDown from 'express-slow-down';
 
 // Global API rate limiting - protects against DDoS
 const globalLimiter = rateLimit({
@@ -212,7 +212,7 @@ const apiEndpointLimiter = rateLimit({
   }
 });
 
-module.exports = {
+export {
   globalLimiter,
   authLimiter,
   strictAuthLimiter,
