@@ -45,7 +45,7 @@ jobs:
         cache: 'pnpm'
 
     - name: Install production dependencies only
-      run: pnpm install --prod --frozen-lockfile
+      run: pnpm install --prod --frozen-lockfile --shamefully-hoist
 
     # - name: Build Lambda code
     #   run: |
