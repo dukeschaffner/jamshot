@@ -1,5 +1,6 @@
 
 
+import 'dotenv/config';
 import honoApp from './src/hono-api.js';
 import expressApp from './src/express-api.js';
 import { serve } from '@hono/node-server'

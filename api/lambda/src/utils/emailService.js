@@ -1,6 +1,5 @@
 import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
-import 'dotenv/config';
 import pool from '../config/db.js';
 import { generateCollabEmailTemplate } from './emailTemplates.js';
 

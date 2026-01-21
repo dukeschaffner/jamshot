@@ -7,7 +7,6 @@ import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
-import dotenv from 'dotenv';
 
 const __filename = import.meta.url ? fileURLToPath(import.meta.url) : __filename;
 const __dirname = import.meta.url ? dirname(__filename) : process.cwd();
@@ -46,7 +45,6 @@ import { getGeolocationData } from '../utils/geolocation.js';
 import { validateCompetitionEntry } from '../utils/competition.js';
 import { validateTeamAccess, validateTeamFolderAccess } from '../utils/teamUtils.js';
 import { isFeatureEnabled } from '../utils/featureFlags.js';
-dotenv.config();
 
 async function getParser() {
   if (typeof mm.parseFile === 'function') {
