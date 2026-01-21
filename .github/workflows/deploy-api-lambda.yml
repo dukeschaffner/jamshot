@@ -44,33 +44,15 @@ jobs:
         node-version: '22'
         cache: 'pnpm'
 
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-
-
-    - name: Build production dependencies
-      run: pnpm -r --filter-prod @sterio/api-lambda run build
-
     - name: Build Lambda bundle
-      working-directory: ./api/lambda
       run: |
-        # Install local deps for Lambda package
-        pnpm install --prod
-
-        # # Copy any Lambda-compatible ffmpeg binary if needed
-        # cp ../../packages/my-package/bin/ffmpeg ./bin/ || true
-
-        # Optionally bundle Lambda code with esbuild
-        npx esbuild index.js \
-          --bundle \
-          --platform=node \
-          --target=node22 \
-          --outfile=dist/index.js
+        pnpm --filter ./api/lambda... install --frozen-lockfile
+        pnpm --filter ./api/lambda... run build
 
     - name: Create deployment zip
       working-directory: ./api/lambda
       run: |
-        zip -r api-lambda.zip dist node_modules bin \
+        zip -r api-lambda.zip dist bin \
           -x "*.ts" \
           -x "*.md" \
           -x ".env*" \
