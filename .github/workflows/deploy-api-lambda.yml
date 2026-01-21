@@ -67,6 +67,7 @@ jobs:
         aws-region: us-east-2
 
     - name: Upload artifact to S3
+      working-directory: ./api/lambda
       run: |
         aws s3 cp api-lambda.zip s3://sterio/lambda-artifacts/api-lambda-latest.zip --acl private
 
