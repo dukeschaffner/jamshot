@@ -1,7 +1,0 @@
-packages:
-  - 'packages/*'
-  - 'api/lambda'
-  - 'ui'
-  - 'mobile'
-  - 'infrastructure/cdk'
-  - 'functions'

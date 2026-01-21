@@ -27,43 +27,42 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build-artifact: api-lambda-build-${{ github.run_number }}
-    defaults:
-      run:
-        working-directory: ./api/lambda/
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Install pnpm
-      run: npm install -g pnpm
-
     - name: Set up Node.js 22
       uses: actions/setup-node@v3
       with:
         node-version: '22'
-        cache: 'pnpm'
+        cache: 'npm'
+        cache-dependency-path: './package-lock.json'
 
-    - name: Install production dependencies only
-      run: pnpm install --prod --frozen-lockfile --shamefully-hoist --hoist-pattern=*
+    - name: Install dependencies
+      run: |
+        npm ci --production
 
-    # - name: Build Lambda code
+    - name: Build shared packages
+      run: |
+        npm run build:shared-packages --if-present
+
+    # - name: Run tests
     #   run: |
-    #     pnpm run build || echo "No build step defined"
+    #     npm test --if-present
 
     - name: Create deployment package
+      working-directory: ./api/lambda
       run: |
         # Create deployment zip similar to existing script but CI-friendly
         zip -r api-lambda.zip . \
           -x ".env*" \
           -x "test/*" \
           -x "*.md" \
-          -x "package-lock.json" \
           -x "scripts/*" \
           -x ".git/*" \
           -x "node_modules/.cache/*" \
           -x "dev-server.js"
-
 
     # TEMPORARY: Using S3 storage instead of GitHub artifacts
     - name: Configure AWS credentials for S3 upload
