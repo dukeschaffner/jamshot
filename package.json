@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "Jamshot monorepo",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "api/lambda",
+    "ui",
+    "mobile",
+    "infrastructure/cdk"
+  ],
   "scripts": {
-    "build:packages": "npm run build --workspaces --if-present"
+    "build:packages": "npm run build --workspaces --if-present",
+    "build:shared-packages": "npm run build --workspace=@sterio/hello-world --if-present"
   }
 }
