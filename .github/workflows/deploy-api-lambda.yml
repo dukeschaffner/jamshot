@@ -36,23 +36,12 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-        # Temporarily disable cache to avoid corruption issues
-        # cache: 'npm'
-        # cache-dependency-path: './package-lock.json'
-
-    - name: Clear npm cache (if needed)
-      run: |
-        npm cache clean --force
+        cache: 'npm'
+        cache-dependency-path: './package-lock.json'
 
     - name: Install dependencies
       run: |
-        # Delete potentially corrupted lock file and reinstall
-        rm -f package-lock.json
-        npm install --omit=dev
-
-    - name: Build shared packages
-      run: |
-        npm run build:shared-packages --if-present
+        npm ci --omit=dev
 
     # - name: Run tests
     #   run: |

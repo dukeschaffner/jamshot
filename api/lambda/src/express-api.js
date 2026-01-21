@@ -1,8 +1,6 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-import helloWorld from '@sterio/hello-world';
-
 import userRoutes from './routes/users.js';
 import trackRoutes from './routes/tracks.js';
 import notificationRoutes from './routes/notifications.js';
@@ -31,9 +29,6 @@ const app = express();
 // Trust proxy for accurate IP detection (required for API Gateway/Lambda)
 // Set to 1 to trust only the immediate proxy (API Gateway)
 app.set('trust proxy', 1);
-
-console.log(helloWorld());
-
 
 // CORS configuration for API Gateway
 const corsOptions = {
