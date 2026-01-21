@@ -9,8 +9,8 @@ import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge
 import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __filename = import.meta.url ? fileURLToPath(import.meta.url) : __filename;
+const __dirname = import.meta.url ? dirname(__filename) : process.cwd();
 
 import * as mm from 'music-metadata';
 import pool from '../config/db.js';
