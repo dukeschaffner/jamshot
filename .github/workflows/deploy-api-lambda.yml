@@ -52,7 +52,7 @@ jobs:
     - name: Create deployment zip
       working-directory: ./api/lambda
       run: |
-        zip -r api-lambda.zip dist bin \
+        zip -r api-lambda.zip dist node_modules bin \
           -x "*.ts" \
           -x "*.md" \
           -x ".env*" \
