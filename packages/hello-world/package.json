@@ -2,11 +2,11 @@
   "name": "@sterio/hello-world",
   "version": "1.0.0",
   "description": "A simple hello world package",
-  "main": "src/index.ts",
-  "module": "src/index.ts",
+  "main": "src/index.js",
+  "module": "src/index.js",
   "exports": {
     ".": {
-      "import": "./src/index.ts"
+      "import": "./src/index.js"
     }
   },
   "type": "module",
