@@ -24,8 +24,8 @@ import {
   isValidTeamProductVersion
 } from '@sterio/subscription-utils';
 
-const pool = require('../config/db.cjs');
-const { isFeatureEnabled } = require('./featureFlags.js');
+import pool from '../config/db.js';
+import { isFeatureEnabled } from './featureFlags.js';
 
 // API-specific extensions (Stripe price IDs)
 const API_PLAN_EXTENSIONS = {
@@ -391,10 +391,10 @@ async function checkTeamTotalUploadQuota(teamId, team = null, teamPlan = null) {
 }
 
 // Export all constants and functions
-module.exports = {
+export {
   // Constants
   SUBSCRIPTION_TIERS,
-  SUBSCRIPTION_PLANS: SUBSCRIPTION_PLANS_EXTENDED,
+  SUBSCRIPTION_PLANS_EXTENDED as SUBSCRIPTION_PLANS,
 
   // Utility Functions (from shared utils, but some overridden for extended plans)
   getUserTier,
@@ -420,7 +420,7 @@ module.exports = {
 
   // Team plan exports
   TEAM_PRODUCT_VERSIONS,
-  TEAM_PLANS: TEAM_PLANS_EXTENDED,
+  TEAM_PLANS_EXTENDED as TEAM_PLANS,
   getTeamPlan,
   isValidTeamProductVersion
 };

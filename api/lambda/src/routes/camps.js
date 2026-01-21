@@ -1,14 +1,12 @@
 import express from 'express';
-import { createRequire } from 'module';
 import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db.cjs');
-const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting.js');
-const { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } = require('../utils/campUtils.js');
-const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils.js');
-const crypto = require('crypto');
+import pool from '../config/db.js';
+import { contentCreationLimiter, apiEndpointLimiter } from '../middleware/rateLimiting.js';
+import { validateCampAccess, validateRoomAccess, getCampDetails, checkCampUserLimit, checkCampOwner, checkCampAdminOrOwner } from '../utils/campUtils.js';
+import { getBaseTrackSelectQuery, processTrack } from '../utils/trackUtils.js';
+import crypto from 'crypto';
 import stripe from '../config/stripe.js';
 
 // Apply auth middleware to all routes

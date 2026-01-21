@@ -1,4 +1,4 @@
-const pool = require('../config/db.cjs');
+import pool from '../config/db.js';
 
 /**
  * Validate user's access to a camp
@@ -264,7 +264,7 @@ async function checkCampUserLimit(campId) {
   }
 }
 
-module.exports = {
+export {
   validateCampAccess,
   validateRoomAccess,
   getCampDetails,

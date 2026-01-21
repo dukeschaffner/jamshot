@@ -20,10 +20,10 @@ import landingRoutes from './routes/landing.js';
 import featureFlagsRoutes from './routes/featureFlags.js';
 
 
-const express = require('express');
-const cors = require('cors');
-const { bodyParser } = require('./middleware/bodyParser.js');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import { bodyParser } from './middleware/bodyParser.js';
+import 'dotenv/config';
 
 
 const app = express();

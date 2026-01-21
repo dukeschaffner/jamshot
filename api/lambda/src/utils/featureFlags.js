@@ -1,7 +1,7 @@
 // Feature Flags Utility
 // Provides caching and retrieval of feature flags from the database
 
-const pool = require('../config/db.cjs');
+import pool from '../config/db.js';
 
 // In-memory cache for feature flags
 let flagsCache = null;
@@ -119,7 +119,7 @@ async function getAllFeatureFlags() {
   return await refreshFeatureFlags();
 }
 
-module.exports = {
+export {
   getFeatureFlag,
   getFeatureFlags,
   isFeatureEnabled,

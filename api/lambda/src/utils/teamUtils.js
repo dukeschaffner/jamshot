@@ -1,4 +1,4 @@
-const pool = require('../config/db.cjs');
+import pool from '../config/db.js';
 import { getTeamPlan } from '@sterio/subscription-utils';
 
 /**
@@ -277,7 +277,7 @@ async function checkTeamUserLimit(teamId) {
   }
 }
 
-module.exports = {
+export {
   validateTeamAccess,
   validateTeamFolderAccess,
   getTeamDetails,

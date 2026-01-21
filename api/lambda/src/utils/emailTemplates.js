@@ -33,6 +33,6 @@ const generateCollabEmailTemplate = (collaboratorName, trackTitle, trackUrl, set
   `;
 };
 
-module.exports = {
+export {
   generateCollabEmailTemplate
 };

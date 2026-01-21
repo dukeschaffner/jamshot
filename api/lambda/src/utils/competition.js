@@ -3,7 +3,7 @@
  * Shared across different parts of the application
  */
 
-const pool = require('../config/db.cjs');
+import pool from '../config/db.js';
 
 /**
  * Validate if a track upload can be entered as a competition entry
@@ -96,6 +96,6 @@ const validateCompetitionEntry = async (parentTrackId, userId) => {
   }
 };
 
-module.exports = {
+export {
   validateCompetitionEntry
 };

@@ -1,6 +1,8 @@
-const nodemailer = require('nodemailer');
-const jwt = require('jsonwebtoken');
-require('dotenv').config();
+import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
+import 'dotenv/config';
+import pool from '../config/db.js';
+import { generateCollabEmailTemplate } from './emailTemplates.js';
 
 const emailName = 'Duke from Sterio';
 
@@ -304,8 +306,6 @@ const sendWaitlistConfirmationEmail = async (email, referralCode) => {
  * @returns {Promise} - Resolves when email is sent
  */
 const sendCollabEmail = async (userId, collabTrackId, parentTrackId) => {
-  const pool = require('../config/db.cjs');
-  const { generateCollabEmailTemplate } = require('./emailTemplates.js');
 
   try {
     // Check if transporter is available
@@ -393,7 +393,7 @@ const sendCollabEmail = async (userId, collabTrackId, parentTrackId) => {
   }
 };
 
-module.exports = {
+export {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendContactEmail,

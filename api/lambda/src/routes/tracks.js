@@ -5,25 +5,22 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fs from 'fs';
 import { promises as fsPromises } from 'fs';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
-import { createRequire } from 'module';
 import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const require = createRequire(import.meta.url);
-const mm = require('music-metadata');
+import * as mm from 'music-metadata';
 import pool from '../config/db.js';
-const { 
+import { 
   uploadLimiter, 
   contentCreationLimiter, 
   interactionLimiter, 
   apiEndpointLimiter 
-} = require('../middleware/rateLimiting.js');
-const {
+} from '../middleware/rateLimiting.js';
+import {
   s3Client,
   generateSignedUrl,
   processTrack,
@@ -43,12 +40,12 @@ const {
   getStemChain,
   validateAndUpdateStemChain,
   parseTrackUploadBody
-} = require('../utils/trackUtils.js');
-const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils.js');
-const { getGeolocationData } = require('../utils/geolocation.js');
-const { validateCompetitionEntry } = require('../utils/competition.js');
-const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils.js');
-const { isFeatureEnabled } = require('../utils/featureFlags.js');
+} from '../utils/trackUtils.js';
+import { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } from '../utils/subscriptionUtils.js';
+import { getGeolocationData } from '../utils/geolocation.js';
+import { validateCompetitionEntry } from '../utils/competition.js';
+import { validateTeamAccess, validateTeamFolderAccess } from '../utils/teamUtils.js';
+import { isFeatureEnabled } from '../utils/featureFlags.js';
 dotenv.config();
 
 async function getParser() {

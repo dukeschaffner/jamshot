@@ -1,14 +1,12 @@
 import express from 'express';
-import { createRequire } from 'module';
 import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
 
-const require = createRequire(import.meta.url);
 const router = express.Router();
-const pool = require('../config/db.cjs');
-const { contentCreationLimiter, apiEndpointLimiter } = require('../middleware/rateLimiting.js');
-const { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired, checkTeamOwner, checkTeamAdminOrOwner } = require('../utils/teamUtils.js');
-const { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } = require('../utils/subscriptionUtils.js');
-const { getBaseTrackSelectQuery, processTrack } = require('../utils/trackUtils.js');
+import pool from '../config/db.js';
+import { contentCreationLimiter, apiEndpointLimiter } from '../middleware/rateLimiting.js';
+import { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired, checkTeamOwner, checkTeamAdminOrOwner } from '../utils/teamUtils.js';
+import { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } from '../utils/subscriptionUtils.js';
+import { getBaseTrackSelectQuery, processTrack } from '../utils/trackUtils.js';
 import stripe from '../config/stripe.js';
 
 // Helper function to check if user is team admin
