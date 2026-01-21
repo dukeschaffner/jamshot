@@ -10,7 +10,7 @@
     "dev": "node dev-server.js",
     "lambda": "node handler.js",
     "deploy": "serverless deploy",
-    "build": "esbuild index.js --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.js"
+    "build": "esbuild index.js --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.mjs"
   },
   "dependencies": {
     "@sterio/hello-world": "workspace:*",
