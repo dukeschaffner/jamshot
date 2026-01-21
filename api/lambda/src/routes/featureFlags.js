@@ -3,7 +3,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const router = express.Router();
-const { getAllFeatureFlags } = require('../utils/featureFlags.cjs');
+const { getAllFeatureFlags } = require('../utils/featureFlags.js');
 
 /**
  * Feature Flags API Routes

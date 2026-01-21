@@ -1,7 +1,7 @@
 // API Subscription Utilities
 // Uses shared subscription logic with API-specific extensions
 
-const {
+import {
   SUBSCRIPTION_TIERS,
   TEAM_PRODUCT_VERSIONS,
   TEAM_PLANS,
@@ -22,10 +22,10 @@ const {
   getTierUpgradeOptions,
   getTeamPlan,
   isValidTeamProductVersion
-} = require('../../shared/utils/subscription.cjs');
+} from '@sterio/subscription-utils';
 
 const pool = require('../config/db.cjs');
-const { isFeatureEnabled } = require('./featureFlags.cjs');
+const { isFeatureEnabled } = require('./featureFlags.js');
 
 // API-specific extensions (Stripe price IDs)
 const API_PLAN_EXTENSIONS = {

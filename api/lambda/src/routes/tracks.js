@@ -16,13 +16,13 @@ const __dirname = dirname(__filename);
 
 const require = createRequire(import.meta.url);
 const mm = require('music-metadata');
-const pool = require('../config/db.cjs');
+import pool from '../config/db.js';
 const { 
   uploadLimiter, 
   contentCreationLimiter, 
   interactionLimiter, 
   apiEndpointLimiter 
-} = require('../middleware/rateLimiting.cjs');
+} = require('../middleware/rateLimiting.js');
 const {
   s3Client,
   generateSignedUrl,
@@ -43,12 +43,12 @@ const {
   getStemChain,
   validateAndUpdateStemChain,
   parseTrackUploadBody
-} = require('../utils/trackUtils.cjs');
-const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils.cjs');
-const { getGeolocationData } = require('../utils/geolocation.cjs');
-const { validateCompetitionEntry } = require('../utils/competition.cjs');
-const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils.cjs');
-const { isFeatureEnabled } = require('../utils/featureFlags.cjs');
+} = require('../utils/trackUtils.js');
+const { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } = require('../utils/subscriptionUtils.js');
+const { getGeolocationData } = require('../utils/geolocation.js');
+const { validateCompetitionEntry } = require('../utils/competition.js');
+const { validateTeamAccess, validateTeamFolderAccess } = require('../utils/teamUtils.js');
+const { isFeatureEnabled } = require('../utils/featureFlags.js');
 dotenv.config();
 
 async function getParser() {

@@ -1,5 +1,5 @@
 const pool = require('../config/db.cjs');
-const { getTeamPlan } = require('../../shared/utils/subscription.cjs');
+import { getTeamPlan } from '@sterio/subscription-utils';
 
 /**
  * Check if team subscription is expired

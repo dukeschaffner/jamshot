@@ -1,0 +1,19 @@
+{
+  "name": "@sterio/validation-utils",
+  "version": "1.0.0",
+  "description": "Validation utilities for Sterio",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["validation", "date"],
+  "author": "",
+  "license": "ISC"
+}

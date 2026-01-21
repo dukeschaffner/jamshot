@@ -8,13 +8,13 @@ import stripeLib from 'stripe';
 import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
 const require = createRequire(import.meta.url);
-const pool = require('../config/db.cjs');
+import pool from '../config/db.js';
 const {
   interactionLimiter,
   uploadLimiter,
   contentCreationLimiter
-} = require('../middleware/rateLimiting.cjs');
-const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils.cjs');
+} = require('../middleware/rateLimiting.js');
+const { getBaseTrackSelectQuery, processTrack, deleteTrack } = require('../utils/trackUtils.js');
 
 const router = express.Router();
 const stripe = stripeLib(process.env.STRIPE_SECRET_KEY);
@@ -672,7 +672,7 @@ router.put('/me', betterAuthMiddleware, async (req, res) => {
 router.put('/me/complete-profile', betterAuthMiddleware, async (req, res) => {
   try {
     const { dateOfBirth, acceptTerms } = req.body;
-    const { validateDateOfBirth } = require('../../shared/utils/validation.cjs');
+    const { validateDateOfBirth } = await import('@sterio/validation-utils');
     
     // Validate date of birth
     if (!dateOfBirth) {

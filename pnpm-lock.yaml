@@ -28,6 +28,12 @@ importers:
       '@sterio/hello-world':
         specifier: workspace:*
         version: link:../../packages/hello-world
+      '@sterio/subscription-utils':
+        specifier: workspace:*
+        version: link:../../packages/subscription-utils
+      '@sterio/validation-utils':
+        specifier: workspace:*
+        version: link:../../packages/validation-utils
       axios:
         specifier: ^1.11.0
         version: 1.13.2
@@ -224,6 +230,10 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
+  packages/subscription-utils: {}
+
+  packages/validation-utils: {}
+
   ui:
     dependencies:
       '@fortawesome/fontawesome-svg-core':
@@ -235,6 +245,12 @@ importers:
       '@fortawesome/react-fontawesome':
         specifier: ^0.2.2
         version: 0.2.6(@fortawesome/fontawesome-svg-core@6.7.2)(react@18.3.1)
+      '@sterio/subscription-utils':
+        specifier: workspace:*
+        version: link:../packages/subscription-utils
+      '@sterio/validation-utils':
+        specifier: workspace:*
+        version: link:../packages/validation-utils
       '@stripe/stripe-js':
         specifier: ^6.0.0
         version: 6.1.0

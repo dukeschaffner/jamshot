@@ -1,5 +1,5 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+import { Pool } from 'pg';
+import 'dotenv/config';
 
 const poolConfig = {
   host: process.env.DB_HOST,
@@ -38,4 +38,4 @@ process.on('SIGTERM', async () => {
   console.log('Database pool closed');
 });
 
-module.exports = pool;
+export default pool;
