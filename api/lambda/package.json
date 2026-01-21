@@ -13,7 +13,6 @@
     "build": "esbuild index.js --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.mjs"
   },
   "dependencies": {
-    "@sterio/hello-world": "../../packages/hello-world",
     "@sterio/subscription-utils": "../../packages/subscription-utils",
     "@sterio/validation-utils": "../../packages/validation-utils",
     "@aws-sdk/client-eventbridge": "^3.758.0",
