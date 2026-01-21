@@ -44,20 +44,26 @@ jobs:
         node-version: '22'
         cache: 'pnpm'
 
-    - name: Build Lambda bundle
-      run: |
-        pnpm install --frozen-lockfile
-        pnpm run build
+    - name: Install production dependencies only
+      run: pnpm install --prod --frozen-lockfile
 
-    - name: Create deployment zip
-      working-directory: ./api/lambda
+    # - name: Build Lambda code
+    #   run: |
+    #     pnpm run build || echo "No build step defined"
+
+    - name: Create deployment package
       run: |
-        zip -r api-lambda.zip dist node_modules bin \
-          -x "*.ts" \
-          -x "*.md" \
+        # Create deployment zip similar to existing script but CI-friendly
+        zip -r api-lambda.zip . \
           -x ".env*" \
           -x "test/*" \
-          -x ".git/*"
+          -x "*.md" \
+          -x "package-lock.json" \
+          -x "scripts/*" \
+          -x ".git/*" \
+          -x "node_modules/.cache/*" \
+          -x "dev-server.js"
+
 
     # TEMPORARY: Using S3 storage instead of GitHub artifacts
     - name: Configure AWS credentials for S3 upload
