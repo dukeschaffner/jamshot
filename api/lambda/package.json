@@ -11,8 +11,7 @@
     "lambda": "node handler.js",
     "test-built": "node test-built.js",
     "deploy": "serverless deploy",
-    "build": "rm -rf dist && mkdir -p dist && npx esbuild index.js --bundle --platform=node --target=node22 --format=esm --outfile=dist/index.mjs --external:@aws-sdk/* --external:pg --external:sharp --external:music-metadata --external:bcryptjs --external:express --external:hono --external:@hono/node-server --external:@codegenie/serverless-express --external:nodemailer --external:multer --external:cors --external:express-rate-limit --external:express-slow-down --external:jsonwebtoken --external:cookie-parser --external:axios --external:better-auth --external:stripe && jq '{ name, version, type, dependencies }' package.json > dist/package.json && cd dist && npm install --production --omit=dev"
-
+    "build": "node esbuild.config.js"
   },
   "dependencies": {
     "@sterio/db-config": "file:../../packages/db-config",

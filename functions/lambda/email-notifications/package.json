@@ -9,8 +9,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@sterio/db-config": "workspace:*",
-    "@sterio/email": "workspace:*",
+    "@sterio/db-config": "file:../../../packages/db-config",
+    "@sterio/email": "file:../../../packages/email",
     "pg": "^8.11.0"
   },
   "devDependencies": {

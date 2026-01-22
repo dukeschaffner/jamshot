@@ -24,7 +24,7 @@ let transporter = null;
 
 // Only create transporter if all required environment variables are present
 if (process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.EMAIL && process.env.EMAIL_PASSWORD) {
-    transporter = nodemailer.createTransporter({
+    transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT, 10),
         secure: process.env.SMTP_SECURE === 'true',

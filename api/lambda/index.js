@@ -21,9 +21,9 @@ export const handler = async (event, context) => {
       return result;
     } else {
       // Route all other requests to serverless express handler
-      const serverlessExpress = await import('@codegenie/serverless-express');
+      const { default: serverlessExpress } = await import('@codegenie/serverless-express');
       const expressApp = await import('./src/express-api.js');
-      const serverlessExpressInstance = serverlessExpress.default({
+      const serverlessExpressInstance = serverlessExpress({
         app: expressApp.default
       });
       return await serverlessExpressInstance(event, context);
