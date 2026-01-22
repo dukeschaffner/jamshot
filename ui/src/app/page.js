@@ -13,7 +13,7 @@ import { trackWelcomeDialogClose, trackFeedChange, trackTrackExpand } from '../l
 import styles from './Home.module.css';
 import { SUBSCRIPTION_TIERS } from '@sterio/subscription-utils';
 
-console.log('SUBSCRIPTION_TIERS', SUBSCRIPTION_TIERS);
+
 
 export default function Home() {
   const [expandedTrackId, setExpandedTrackId] = useState(null);
@@ -23,6 +23,8 @@ export default function Home() {
   const { isAuthenticated, isLoading } = useUser();
   const { isMobile } = useMobile();
   const [hasSponsoredCompetition, setHasSponsoredCompetition] = useState(false);
+
+  console.log('SUBSCRIPTION_TIERS', SUBSCRIPTION_TIERS);
 
   // Tag filter state
   const [selectedGenres, setSelectedGenres] = useState([]);
