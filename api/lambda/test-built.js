@@ -99,10 +99,10 @@ console.log('🚀 Starting handler tests...\n');
 await testHandler(
   createDummyEvent({
     method: 'GET',
-    path: '/api/tracks',
+    path: '/api/tracks/feed/popular',
     queryParams: { limit: '10' }
   }),
-  'Regular API - GET /api/tracks'
+  'Regular API - GET /api/tracks/feed/popular'
 );
 
 // Test 2: Auth endpoint (should route to Hono)
@@ -119,29 +119,22 @@ await testHandler(
   'Auth API - POST /api/auth/sign-in'
 );
 
-// Test 3: POST request with body
+// Test 3: GET request for user profile
 await testHandler(
   createDummyEvent({
-    method: 'POST',
-    path: '/api/users',
-    body: {
-      name: 'Test User',
-      email: 'test@example.com'
-    }
+    method: 'GET',
+    path: '/api/users/me'
   }),
-  'Regular API - POST /api/users'
+  'Regular API - GET /api/users/me'
 );
 
-// Test 4: PUT request
+// Test 4: GET request for track details
 await testHandler(
   createDummyEvent({
-    method: 'PUT',
-    path: '/api/tracks/123',
-    body: {
-      title: 'Updated Track'
-    }
+    method: 'GET',
+    path: '/api/tracks/123'
   }),
-  'Regular API - PUT /api/tracks/123'
+  'Regular API - GET /api/tracks/123'
 );
 
 console.log('\n🎉 All tests completed!');
