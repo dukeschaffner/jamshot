@@ -1,0 +1,22 @@
+{
+  "name": "@sterio/db-config",
+  "version": "1.0.0",
+  "description": "Database configuration utilities for Sterio Lambda functions and API",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["database", "postgres", "lambda", "api"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.11.0"
+  }
+}

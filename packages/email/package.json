@@ -1,0 +1,22 @@
+{
+  "name": "@sterio/email",
+  "version": "1.0.0",
+  "description": "Email utilities for Sterio Lambda functions and API",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["email", "nodemailer", "smtp", "lambda", "api"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nodemailer": "^6.9.7"
+  }
+}
