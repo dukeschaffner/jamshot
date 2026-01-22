@@ -46,21 +46,18 @@ jobs:
       run: |
         npm ci
 
+    - name: Build Lambda package
+      run: |
+        npm run build
+
     # - name: Run tests
     #   run: |
     #     npm test
 
     - name: Create deployment package
       run: |
-        # Create deployment zip similar to existing script but CI-friendly
-        zip -r email-notifications-lambda.zip . \
-          -x ".env*" \
-          -x "test/*" \
-          -x "*.md" \
-          -x "package-lock.json" \
-          -x "scripts/*" \
-          -x ".git/*" \
-          -x "node_modules/.cache/*"
+        # Zip only the built dist folder containing bundled code and production dependencies
+        zip -r email-notifications-lambda.zip dist/
 
     # TEMPORARY: Using S3 storage instead of GitHub artifacts
     - name: Configure AWS credentials for S3 upload
