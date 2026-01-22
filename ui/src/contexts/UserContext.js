@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useMemo, useCallback, u
 import { useRouter } from 'next/navigation';
 import { authClient } from '../lib/auth-client';
 import api, { setRefreshUserState } from '../lib/api';
-import { getUserPlan } from '../lib/subscriptionUtils';
+import { getUserPlan } from '@sterio/subscription-utils';
 
 // Create the context with default values
 const UserContext = createContext({

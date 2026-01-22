@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { analyticsApi, trackApi } from '../../../../../../lib/api';
 import { useUser } from '../../../../../../contexts/UserContext';
 import { useFeatureFlags } from '../../../../../../contexts/FeatureFlagsContext';
-import { getUserTier, SUBSCRIPTION_TIERS } from '../../../../../../lib/subscriptionUtils';
+import { getUserTier, SUBSCRIPTION_TIERS } from '@sterio/subscription-utils';
 import { getCountryName } from '../../../../../../../../shared/utils/formatting.js';
 import TimeSelector from '../../../../../../components/analytics/TimeSelector';
 import MetricSelector from '../../../../../../components/analytics/MetricSelector';

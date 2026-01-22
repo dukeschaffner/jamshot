@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { FaCheckCircle, FaArrowRight, FaExternalLinkAlt } from 'react-icons/fa';
 import Link from 'next/link';
 import { useUser } from '../../contexts/UserContext';
-import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../shared/utils/subscription';
+import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '@sterio/subscription-utils';
 import styles from './LandingPage.module.css';
 
 export default function LandingPage({

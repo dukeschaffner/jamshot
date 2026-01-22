@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { FaCheckCircle, FaUsers, FaExclamationTriangle, FaUserPlus, FaFolder, FaMusic, FaRocket, FaLink, FaShareAlt } from 'react-icons/fa';
 import { teamApi } from '../../../lib/api';
-import { TEAM_PLANS } from '../../../../shared/utils/subscription';
+import { TEAM_PLANS } from '@sterio/subscription-utils';
 import styles from './TeamCreated.module.css';
 import sharedStyles from '../../../styles/SuccessPage.module.css';
 

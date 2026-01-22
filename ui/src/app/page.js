@@ -11,6 +11,9 @@ import { useUser } from '../contexts/UserContext';
 import { useMobile } from '../contexts/MobileContext';
 import { trackWelcomeDialogClose, trackFeedChange, trackTrackExpand } from '../lib/analytics';
 import styles from './Home.module.css';
+import { SUBSCRIPTION_TIERS } from '@sterio/subscription-utils';
+
+console.log('SUBSCRIPTION_TIERS', SUBSCRIPTION_TIERS);
 
 export default function Home() {
   const [expandedTrackId, setExpandedTrackId] = useState(null);
