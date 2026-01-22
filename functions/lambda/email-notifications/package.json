@@ -17,6 +17,7 @@
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "esbuild": "^0.23.0",
     "dotenv": "^16.0.0"
   },
   "author": "",
