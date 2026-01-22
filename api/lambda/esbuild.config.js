@@ -14,16 +14,35 @@ if (fs.existsSync(DIST)) {
 }
 fs.mkdirSync(DIST, { recursive: true });
 
-// Build with esbuild
-esbuild.buildSync({
+const externalizeDeps = {
+    name: 'externalize-deps',
+    setup(build) {
+      build.onResolve({ filter: /.*/ }, args => {
+        // relative & absolute imports → bundle
+        if (args.path.startsWith('.') || path.isAbsolute(args.path)) {
+          return;
+        }
+  
+        // internal monorepo packages → bundle
+        if (args.path.startsWith('@sterio/')) {
+          return;
+        }
+  
+        // everything else → external
+        return { external: true };
+      });
+    },
+  };
+  
+  // Build with esbuild
+  await esbuild.build({
     entryPoints: [ENTRY],
     bundle: true,
     platform: "node",
     target: "node22",
     format: "esm",
     outfile: path.join(DIST, "index.mjs"),
-    packages: "external",
-    external: ['!@sterio/*'],
+    plugins: [externalizeDeps],
     sourcemap: false,
     minify: false,
   });
