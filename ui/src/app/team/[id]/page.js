@@ -17,7 +17,7 @@ import {
 } from 'react-icons/fa';
 import styles from './TeamDashboard.module.css';
 import sharedStyles from '../../../styles/Dashboard.module.css';
-import { TEAM_PLANS } from '../../../../shared/utils/subscription';
+import { TEAM_PLANS } from '@sterio/subscription-utils';
 
 export default function TeamDashboard() {
   const router = useRouter();

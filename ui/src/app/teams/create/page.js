@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { FaUsers, FaCreditCard, FaClock, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import { teamApi } from '../../../lib/api';
-import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '../../../../shared/utils/subscription';
+import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice, isValidTeamProductVersion } from '@sterio/subscription-utils';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import sharedStyles from '../../../styles/SharedForm.module.css';
 import styles from './TeamCreate.module.css';
@@ -14,10 +14,6 @@ function CreateTeamClient() {
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading: isUserLoading } = useUser();
 
-  // Helper to validate team product version
-  const isValidTeamProductVersion = (version) => {
-    return Object.values(TEAM_PRODUCT_VERSIONS).includes(version);
-  };
 
   // Get plan version from URL query parameter, default to 25_users
   const planFromUrl = searchParams.get('plan');

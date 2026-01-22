@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
-import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, TEAM_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@/lib/subscriptionUtils';
+import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, TEAM_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@sterio/subscription-utils';
 import api from '@/lib/api';
 import { loadStripe } from '@stripe/stripe-js';
 import { FaCheck, FaTimes, FaCrown, FaStar } from 'react-icons/fa';

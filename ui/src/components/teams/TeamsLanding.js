@@ -1,7 +1,7 @@
 'use client';
 import { FaUsers, FaFolder, FaLock, FaChartLine, FaDownload, FaMusic } from 'react-icons/fa';
 import LandingPage from '../shared/LandingPage';
-import { TEAM_PRODUCT_VERSIONS } from '../../../shared/utils/subscription';
+import { TEAM_PRODUCT_VERSIONS } from '@sterio/subscription-utils';
 
 export default function TeamsLanding({ showBackButton = false, onBack }) {
   const features = [
