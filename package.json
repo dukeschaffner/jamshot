@@ -8,7 +8,8 @@
     "api/lambda",
     "ui",
     "mobile",
-    "infrastructure/cdk"
+    "infrastructure/cdk",
+    "functions/lambda/*"
   ],
   "scripts": {
     "build:packages": "npm run build --workspaces --if-present"

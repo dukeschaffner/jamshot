@@ -3,14 +3,17 @@
   "version": "1.0.0",
   "description": "Lambda function for sending scheduled email notifications",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "nodemailer": "^6.9.0",
-    "jsonwebtoken": "^9.0.0",
-    "pg": "^8.11.0",
+    "@sterio/db-config": "workspace:*",
+    "@sterio/email": "workspace:*",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
     "dotenv": "^16.0.0"
   },
   "author": "",
