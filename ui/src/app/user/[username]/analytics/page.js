@@ -6,7 +6,7 @@ import { analyticsApi, userApi, trackApi } from '../../../../lib/api';
 import { useUser } from '../../../../contexts/UserContext';
 import { useFeatureFlags } from '../../../../contexts/FeatureFlagsContext';
 import { getUserTier, SUBSCRIPTION_TIERS } from '@sterio/subscription-utils';
-import { getCountryName, getCountryFlag } from '../../../../../shared/utils/formatting.js';
+import { getCountryName, getCountryFlag } from '@sterio/formatting-utils';
 import TimeSelector from '../../../../components/analytics/TimeSelector';
 import MetricSelector from '../../../../components/analytics/MetricSelector';
 import ChartJSAnalyticsChart from '../../../../components/analytics/ChartJSAnalyticsChart';

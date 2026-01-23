@@ -295,9 +295,8 @@ const getCountryFlag = (countryCode) => {
   return flagEmojis[countryCode] || '🌍';
 };
 
-// Export lists for different platforms
-const API_EXPORTS = [];
-const UI_EXPORTS = [
+// Export all functions
+export {
   formatDuration,
   formatDate,
   formatDateTime,
@@ -315,4 +314,4 @@ const UI_EXPORTS = [
   timeToPos,
   getCountryName,
   getCountryFlag
-]; 
+}; 
