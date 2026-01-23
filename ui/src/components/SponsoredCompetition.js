@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FaTrophy, FaCalendarAlt, FaDollarSign, FaPlay, FaPause, FaUsers, FaClock, FaExternalLinkAlt } from 'react-icons/fa';
 import { competitionApi } from '../lib/api';
-import { formatCompetitionDateRange } from '../../shared/utils/formatting';
+import { formatCompetitionDateRange } from '@sterio/formatting-utils';
 import { useUser } from '../contexts/UserContext';
 import { useAudio } from '../lib/AudioContext';
 import styles from './SponsoredCompetition.module.css';

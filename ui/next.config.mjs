@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  transpilePackages: ['@sterio/subscription-utils'],
   // // Enable static export for Amplify deployment
   // output: 'export',
   // trailingSlash: true,
@@ -12,7 +13,24 @@ const nextConfig = {
   // assetPrefix: process.env.NODE_ENV === 'production' ? './' : '',
 
   images: {
-    domains: ['pub-0b5b4b5c33744ae8907300ffc31c99c9.r2.dev', 'cdn-test.sterio.fm', 'cdn.sterio.fm', 'lh3.googleusercontent.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'pub-0b5b4b5c33744ae8907300ffc31c99c9.r2.dev',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn-test.sterio.fm',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.sterio.fm',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+    ],
   },
 };
 

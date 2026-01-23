@@ -5,7 +5,7 @@ import { FaTrophy, FaCalendarAlt, FaDollarSign, FaUsers, FaClock, FaPlay, FaPaus
 import { useUser } from '../contexts/UserContext';
 import { useAudio } from '../lib/AudioContext';
 import { competitionApi } from '../lib/api';
-import { formatCompetitionDateRange } from '../../shared/utils/formatting';
+import { formatCompetitionDateRange } from '@sterio/formatting-utils';
 import Track from './Track';
 import styles from './Competition.module.css';
 import TimeDisplay from './TimeDisplay';

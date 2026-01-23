@@ -1,0 +1,19 @@
+{
+  "name": "@sterio/formatting-utils",
+  "version": "1.0.0",
+  "description": "Formatting utilities for Sterio",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["formatting", "date", "time", "display"],
+  "author": "",
+  "license": "ISC"
+}

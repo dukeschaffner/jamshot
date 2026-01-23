@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useUser } from '../../../contexts/UserContext';
 import { FaTrophy, FaCalendarAlt, FaDollarSign, FaUsers, FaClock, FaPlay, FaPause, FaExclamationTriangle, FaCheckCircle, FaArrowLeft, FaShareAlt, FaHeart, FaRegHeart, FaRetweet, FaCodeBranch, FaMusic, FaEye, FaComment } from 'react-icons/fa';
 import { competitionApi, trackApi } from '../../../lib/api';
-import { formatCompetitionDateRange } from '../../../../shared/utils/formatting';
+import { formatCompetitionDateRange } from '@sterio/formatting-utils';
 import Competition from '../../../components/Competition';
 import MiniTrack from '../../../components/MiniTrack';
 import LoadingSpinner from '../../../components/LoadingSpinner';
