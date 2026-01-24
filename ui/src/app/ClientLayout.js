@@ -9,7 +9,7 @@ import { ToastProvider } from '../lib/ToastContext';
 import { UserProvider, useUser } from '../contexts/UserContext';
 import { FeatureFlagsProvider } from '../contexts/FeatureFlagsContext';
 import { MobileProvider } from '../contexts/MobileContext';
-import { NavigationGuardProvider } from 'next-navigation-guard';
+import { NavigationGuardProvider } from '../contexts/NavigationGuardContext';
 import { initGA, trackPageView, trackSearch } from '../lib/analytics';
 import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';

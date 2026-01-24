@@ -1,0 +1,18 @@
+lets implement a custom navigation guard rpvider since next-navigation-guard doesnt work. 
+
+for external navigation, well have to use:
+
+  const handler = (e: BeforeUnloadEvent) => {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+
+  window.addEventListener('beforeunload', handler)
+  return () => window.removeEventListener('beforeunload', handler)
+
+  for internal nav, we'll have to create a guardedLink component that will use the navigation guard context to determine if the link should be allowed to navigate.
+  replace all links in the nav bar with the guardedLink component.
+
+
+  h278 haggar
+  dg81 2021
