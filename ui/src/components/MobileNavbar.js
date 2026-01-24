@@ -1,9 +1,11 @@
 'use client';
 import Link from 'next/link';
+import GuardedLink from './GuardedLink';
 import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaSearch, FaUser, FaBell, FaUsers } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 import { useNotifications } from '../lib/NotificationContext';
+import { useNavigationGuard } from '../contexts/NavigationGuardContext';
 import MoreDropdown from './MoreDropdown';
 import Image from 'next/image';
 import styles from './Notifications.module.css';
@@ -11,18 +13,23 @@ import styles from './Notifications.module.css';
 export default function MobileNavbar() {
   const { user, isAuthenticated } = useUser();
   const { unreadCount } = useNotifications();
+  const { confirmNavigation } = useNavigationGuard();
   const pathname = usePathname();
   const router = useRouter();
 
   const handleSearchClick = () => {
+    // Check if navigation is allowed (e.g., no unsaved work)
+    if (!confirmNavigation()) {
+      return; // Navigation guard prevented search
+    }
     router.push('/search');
   };
 
   return (
     <nav className="mobile-navbar">
-      <Link href="/" className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`}>
+      <GuardedLink href="/" className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`}>
         <FaHome />
-      </Link>
+      </GuardedLink>
       
       <button
         onClick={handleSearchClick}
@@ -33,8 +40,8 @@ export default function MobileNavbar() {
 
       {/* Notifications - only show for authenticated users */}
       {isAuthenticated && (
-        <Link 
-          href="/notifications" 
+        <GuardedLink
+          href="/notifications"
           className={`mobile-nav-item ${pathname === '/notifications' ? 'active' : ''}`}
         >
           <div className="notification-icon-wrapper">
@@ -43,12 +50,12 @@ export default function MobileNavbar() {
               <span className={styles.notificationDot}></span>
             )}
           </div>
-        </Link>
+        </GuardedLink>
       )}
       
       {isAuthenticated && user ? (
-        <Link 
-          href={`/user/${user.username}`} 
+        <GuardedLink
+          href={`/user/${user.username}`}
           className={`mobile-nav-item ${pathname.startsWith('/user/') ? 'active' : ''}`}
         >
         <Image
@@ -58,14 +65,14 @@ export default function MobileNavbar() {
             width={30} 
             height={30}
         />
-        </Link>
+        </GuardedLink>
       ) : (
-        <Link 
-          href="/login" 
+        <GuardedLink
+          href="/login"
           className={`mobile-nav-item ${pathname === '/login' ? 'active' : ''}`}
         >
           <FaUser />
-        </Link>
+        </GuardedLink>
       )}
 
       {/* More dropdown - always visible */}

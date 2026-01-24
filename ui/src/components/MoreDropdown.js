@@ -2,10 +2,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import GuardedLink from './GuardedLink';
 import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper, FaCampground, FaUsers } from 'react-icons/fa';
 import { useMobile } from '../contexts/MobileContext';
 import { useUser } from '../contexts/UserContext';
 import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
+import { useNavigationGuard } from '../contexts/NavigationGuardContext';
 
 export default function MoreDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -14,6 +16,7 @@ export default function MoreDropdown() {
   const { isMobile } = useMobile();
   const { user, isAuthenticated, logout } = useUser();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { confirmNavigation } = useNavigationGuard();
 
   // Get camps link URL based on user state
   const getCampsLink = () => {
@@ -67,6 +70,10 @@ export default function MoreDropdown() {
   };
 
   const handleLogout = async () => {
+    // Check if navigation is allowed (e.g., no unsaved work)
+    if (!confirmNavigation()) {
+      return; // Navigation guard prevented logout
+    }
     await logout();
     setIsOpen(false);
   };
@@ -100,48 +107,48 @@ export default function MoreDropdown() {
                 </button>
               </div>
               <div className="mobile-more-modal-body">
-                <Link className="mobile-more-link" href={getCampsLink()} onClick={handleLinkClick}>
+                <GuardedLink className="mobile-more-link" href={getCampsLink()} onClick={handleLinkClick}>
                   <FaCampground />
                   <span>Camps</span>
-                </Link>
-                <Link className="mobile-more-link" href={getTeamsLink()} onClick={handleLinkClick}>
+                </GuardedLink>
+                <GuardedLink className="mobile-more-link" href={getTeamsLink()} onClick={handleLinkClick}>
                   <FaUsers />
                   <span>Teams</span>
-                </Link>
+                </GuardedLink>
                 {isFeatureEnabled('subscriptions', false) && (
-                  <Link className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
+                  <GuardedLink className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
                     <FaCrown />
                     <span>Subscribe</span>
-                  </Link>
+                  </GuardedLink>
                 )}
-                <Link className="mobile-more-link" href="/release-notes" onClick={handleLinkClick}>
+                <GuardedLink className="mobile-more-link" href="/release-notes" onClick={handleLinkClick}>
                   <FaNewspaper />
                   <span>Release Notes</span>
-                </Link>
-                <Link className="mobile-more-link" href="/help" onClick={handleLinkClick}>
+                </GuardedLink>
+                <GuardedLink className="mobile-more-link" href="/help" onClick={handleLinkClick}>
                   <FaQuestionCircle />
                   <span>Help</span>
-                </Link>
-                <Link className="mobile-more-link" href="/about" onClick={handleLinkClick}>
+                </GuardedLink>
+                <GuardedLink className="mobile-more-link" href="/about" onClick={handleLinkClick}>
                   <FaInfoCircle />
                   <span>About</span>
-                </Link>
-                <Link className="mobile-more-link" href="/faq" onClick={handleLinkClick}>
+                </GuardedLink>
+                <GuardedLink className="mobile-more-link" href="/faq" onClick={handleLinkClick}>
                   <FaQuestionCircle />
                   <span>FAQ</span>
-                </Link>
-                <Link className="mobile-more-link" href="/contact" onClick={handleLinkClick}>
+                </GuardedLink>
+                <GuardedLink className="mobile-more-link" href="/contact" onClick={handleLinkClick}>
                   <FaEnvelope />
                   <span>Contact</span>
-                </Link>
-                <Link className="mobile-more-link" href="/privacy" onClick={handleLinkClick}>
+                </GuardedLink>
+                <GuardedLink className="mobile-more-link" href="/privacy" onClick={handleLinkClick}>
                   <FaShieldAlt />
                   <span>Privacy Policy</span>
-                </Link>
-                <Link className="mobile-more-link" href="/terms" onClick={handleLinkClick}>
+                </GuardedLink>
+                <GuardedLink className="mobile-more-link" href="/terms" onClick={handleLinkClick}>
                   <FaGavel />
                   <span>Terms of Service</span>
-                </Link>
+                </GuardedLink>
                 {isAuthenticated && (
                   <button className="mobile-more-link" onClick={handleLogout}>
                     <FaSignOutAlt />
@@ -173,18 +180,18 @@ export default function MoreDropdown() {
           <div className="more-dropdown-header">
           </div>
           <div className="notification-body">
-            <Link className="nav-link" href={getCampsLink()} onClick={handleLinkClick}><FaCampground />Camps</Link>
-            <Link className="nav-link" href={getTeamsLink()} onClick={handleLinkClick}><FaUsers />Teams</Link>
+            <GuardedLink className="nav-link" href={getCampsLink()} onClick={handleLinkClick}><FaCampground />Camps</GuardedLink>
+            <GuardedLink className="nav-link" href={getTeamsLink()} onClick={handleLinkClick}><FaUsers />Teams</GuardedLink>
             {isFeatureEnabled('subscriptions', false) && (
-              <Link className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</Link>
+              <GuardedLink className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</GuardedLink>
             )}
-            <Link className="nav-link" href="/release-notes" onClick={handleLinkClick}><FaNewspaper />Release Notes</Link>
-            <Link className="nav-link" href="/help" onClick={handleLinkClick}><FaQuestionCircle />Help</Link>
-            <Link className="nav-link" href="/about" onClick={handleLinkClick}><FaInfoCircle />About</Link>
-            <Link className="nav-link" href="/faq" onClick={handleLinkClick}><FaQuestionCircle />FAQ</Link>
-            <Link className="nav-link" href="/contact" onClick={handleLinkClick}><FaEnvelope />Contact</Link>
-            <Link className="nav-link" href="/privacy" onClick={handleLinkClick}><FaShieldAlt />Privacy Policy</Link>
-            <Link className="nav-link" href="/terms" onClick={handleLinkClick}><FaGavel />Terms of Service</Link>
+            <GuardedLink className="nav-link" href="/release-notes" onClick={handleLinkClick}><FaNewspaper />Release Notes</GuardedLink>
+            <GuardedLink className="nav-link" href="/help" onClick={handleLinkClick}><FaQuestionCircle />Help</GuardedLink>
+            <GuardedLink className="nav-link" href="/about" onClick={handleLinkClick}><FaInfoCircle />About</GuardedLink>
+            <GuardedLink className="nav-link" href="/faq" onClick={handleLinkClick}><FaQuestionCircle />FAQ</GuardedLink>
+            <GuardedLink className="nav-link" href="/contact" onClick={handleLinkClick}><FaEnvelope />Contact</GuardedLink>
+            <GuardedLink className="nav-link" href="/privacy" onClick={handleLinkClick}><FaShieldAlt />Privacy Policy</GuardedLink>
+            <GuardedLink className="nav-link" href="/terms" onClick={handleLinkClick}><FaGavel />Terms of Service</GuardedLink>
           </div>
         </div>
       )}

@@ -16,7 +16,7 @@ import Looper from './components/Looper';
 import TrackHeader from './components/TrackHeader';
 import MusicalGrid from './components/MusicalGrid';
 import Takes from './components/Takes';
-import { useNavigationGuard } from 'next-navigation-guard';
+import { useNavigationGuardHook } from '../../contexts/NavigationGuardContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
@@ -71,9 +71,9 @@ function DAWContent({ track}) {
   const { showToast } = useToast();
   const [saved, setSaved] = useState(false);
 
-  useNavigationGuard({ 
-    enabled: !!recordingTrackHasAudio && !saved, 
-    confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.") 
+  useNavigationGuardHook({
+    enabled: !!recordingTrackHasAudio && !saved,
+    confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.")
   });
 
   const tracksAndTimelineRef = useRef(null);
