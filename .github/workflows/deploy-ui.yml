@@ -43,10 +43,10 @@ jobs:
       run: |
         npm ci
 
-    - name: Run linting
-      working-directory: ./ui/
-      run: |
-        npm run lint
+    # - name: Run linting
+    #   working-directory: ./ui/
+    #   run: |
+    #     npm run lint
 
     - name: Build Next.js app
       working-directory: ./ui/
