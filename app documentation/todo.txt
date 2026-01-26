@@ -78,6 +78,7 @@ RELEASE CHECKLIST
 
 
 TODO (after beta testing)
+- add soundcloud like waveform viz to track component feed view (maybe option to expand to show all tracks' waveforms stacked and/or switch between layer waveform and mixed waveform)
 - make navbar collapsible
 - dont save recording if stopped during count in.
 - load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
