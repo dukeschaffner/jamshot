@@ -7,6 +7,10 @@ on:
       - dev
     paths:
       - 'api/lambda/**'
+      - 'packages/db-config/**'
+      - 'packages/email/**'
+      - 'packages/subscription-utils/**'
+      - 'packages/validation-utils/**'
   workflow_dispatch:
     inputs:
       environment:

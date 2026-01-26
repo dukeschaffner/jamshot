@@ -7,6 +7,8 @@ on:
       - dev
     paths:
       - 'ui/**'
+      - 'packages/subscription-utils/**'
+      - 'packages/formatting-utils/**'
   workflow_dispatch:
     inputs:
       environment:

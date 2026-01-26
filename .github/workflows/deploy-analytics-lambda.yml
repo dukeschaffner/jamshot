@@ -7,6 +7,7 @@ on:
       - dev
     paths:
       - 'functions/lambda/analytics/**'
+      - 'packages/db-config/**'
   workflow_dispatch:
     inputs:
       environment:
