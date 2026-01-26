@@ -46,6 +46,38 @@ import { validateCompetitionEntry } from '../utils/competition.js';
 import { validateTeamAccess, validateTeamFolderAccess } from '../utils/teamUtils.js';
 import { isFeatureEnabled } from '../utils/featureFlags.js';
 
+/**
+ * Sanitizes error messages to prevent exposing detailed server-side errors to clients.
+ * Returns generic user-friendly error messages for audio processing and upload errors.
+ */
+function sanitizeErrorForClient(error, isProcessingError = false) {
+  // For known user-facing errors (like quota limits), return as-is
+  if (error && typeof error === 'string') {
+    // Check if it's a user-facing error (quota limits, validation errors, etc.)
+    const userFacingPatterns = [
+      /daily upload limit/i,
+      /total track limit/i,
+      /private tracks are not allowed/i,
+      /track not found/i,
+      /access denied/i,
+      /unauthorized/i,
+      /forbidden/i
+    ];
+    
+    if (userFacingPatterns.some(pattern => pattern.test(error))) {
+      return error;
+    }
+  }
+  
+  // For processing errors, return generic message
+  if (isProcessingError) {
+    return 'Audio processing failed. Please try uploading again or contact support if the issue persists.';
+  }
+  
+  // For upload errors, return generic message
+  return 'Upload failed. Please check your connection and try again. If the problem persists, contact support.';
+}
+
 async function getParser() {
   if (typeof mm.parseFile === 'function') {
     // Local dev: parseFile available directly
@@ -229,7 +261,8 @@ router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res
 
   } catch (err) {
     console.error('Upload initialization error:', err);
-    res.status(500).json({ error: `Failed to initialize upload: ${err.message}` });
+    const sanitizedError = sanitizeErrorForClient(err.message, false);
+    res.status(500).json({ error: sanitizedError });
   }
 });
 
@@ -737,7 +770,9 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       await fsPromises.unlink(localFilePath).catch(cleanupErr => console.error('Upload file cleanup error:', cleanupErr));
     }
 
-    res.status(500).json({ error: `Upload failed: ${err.message}` });
+    // Sanitize error message to prevent exposing server-side details
+    const sanitizedError = sanitizeErrorForClient(err.message, false);
+    res.status(500).json({ error: sanitizedError });
   }
 });
 
@@ -1067,16 +1102,22 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
       }
     }
 
+    // Sanitize processing error if present
+    const sanitizedError = track.processing_error 
+      ? sanitizeErrorForClient(track.processing_error, true)
+      : null;
+
     res.json({
       track_id: id,
       status: status,
-      error: track.processing_error,
+      error: sanitizedError,
       estimated_time_remaining: estimatedTimeRemaining
     });
 
   } catch (err) {
     console.error('Error fetching track status:', err);
-    res.status(500).json({ error: err.message });
+    const sanitizedError = sanitizeErrorForClient(err.message, false);
+    res.status(500).json({ error: sanitizedError });
   }
 });
 
