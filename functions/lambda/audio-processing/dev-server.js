@@ -1,19 +1,26 @@
-const { spawn } = require('child_process');
-const pg = require('pg');
-require('dotenv').config({ path: './.env' });
+import { spawn } from 'child_process';
+import { createLambdaPool } from '@sterio/db-config';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config({ path: join(__dirname, '.env') });
 
 // Database connection
-const pool = new pg.Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 5432,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-});
+const pool = createLambdaPool();
+
+const useBuilt = process.env.USE_BUILT === 'true';
 
 console.log('🎵 Jamshot Audio Processing Dev Server');
 console.log('=====================================');
+if (useBuilt) {
+  console.log('📦 Running with built code from /dist');
+} else {
+  console.log('📝 Running with source code');
+}
 console.log('Monitoring database for tracks needing processing...\n');
 
 // Track processing status to avoid duplicate processing
@@ -54,16 +61,20 @@ async function processTrack(track) {
   return new Promise((resolve, reject) => {
     console.log(`🎵 Processing track: ${track.title} (ID: ${track.id})`);
 
+    // Determine which lambda file to use based on USE_BUILT flag
+    const lambdaFile = useBuilt ? 'dist/index.mjs' : 'index.js';
+    const lambdaCwd = __dirname;
+
     // Spawn the audio processing lambda
     const lambdaProcess = spawn('node', [
-      'index.js'
+      lambdaFile
     ], {
-      cwd: __dirname,
+      cwd: lambdaCwd,
       env: {
         ...process.env,
         // Pass track data as environment variables (simulating EventBridge)
         TRACK_ID: track.id,
-        S3_KEY: track.audio_url.replace('tracks/', 'temp/tracks/'), // Convert to temp path
+        S3_KEY: track.audio_url?.replace('tracks/', 'temp/tracks/') || '', // Convert to temp path
       },
       stdio: ['pipe', 'pipe', 'pipe']
     });

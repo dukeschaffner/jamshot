@@ -36,15 +36,19 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Set up Node.js 22
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './functions/lambda/audio-processing/package-lock.json'
+        cache-dependency-path: './package-lock.json'
 
     - name: Install dependencies
       run: |
         npm ci
+
+    - name: Build Lambda package
+      run: |
+        npm run build
 
     # - name: Run tests
     #   run: |
@@ -52,18 +56,8 @@ jobs:
 
     - name: Create deployment package
       run: |
-        # Create deployment zip similar to existing script but CI-friendly
-        zip -r audio-processing-lambda.zip . \
-          -x ".env*" \
-          -x "test/*" \
-          -x "*.md" \
-          -x "package-lock.json" \
-          -x "scripts/*" \
-          -x ".git/*" \
-          -x "node_modules/.cache/*" \
-          -x "dev-server.js" \
-          -x "dev-start.js" \
-          -x "temp/*"
+        # Zip only the built dist folder containing bundled code and production dependencies
+        zip -r audio-processing-lambda.zip dist/
 
     # TEMPORARY: Using S3 storage instead of GitHub artifacts
     - name: Configure AWS credentials for S3 upload
