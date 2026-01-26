@@ -15,11 +15,38 @@
  *   node test/local-test.js all
  */
 
-// Load environment variables first
-require('dotenv').config({ path: './.env' });
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 
-const { handler, competitionEndHandler, curatedFollowupHandler, manualHandler } = require('..');
-const { pool } = require('../config/db');
+// Get the directory path in ESM
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables FIRST, before any other imports that might use them
+// This must happen synchronously before any modules that import email transport
+// Try .env in current directory first, then parent directory
+if (!process.env.DB_HOST) {
+    const envPath = path.join(__dirname, '.env');
+    const envPathParent = path.join(__dirname, '../.env');
+    if (existsSync(envPath)) {
+        dotenv.config({ path: envPath });
+    } else if (existsSync(envPathParent)) {
+        dotenv.config({ path: envPathParent });
+    } else {
+        console.warn('⚠️  No .env file found. Environment variables may not be loaded.');
+    }
+}
+
+// Now import modules that depend on environment variables
+// Using dynamic imports ensures env vars are loaded first
+const { createLambdaPool } = await import('@sterio/db-config');
+const { handler, competitionEndHandler, curatedFollowupHandler, manualHandler } = await import('./index.js');
+
+
+
+// Create database pool using shared package
+const pool = createLambdaPool();
 
 // Mock Lambda context
 const mockContext = {
@@ -220,11 +247,10 @@ async function main() {
   const testType = args[0];
   const competitionId = args[1];
   
-  // Check if .env file exists
-  if (!require('fs').existsSync('.env')) {
-    console.error('❌ .env file not found. Please copy .env.example to .env and configure it:');
-    console.error('   cp .env.example .env');
-    console.error('   # Edit .env with your database configuration');
+  // Check if .env file exists (already loaded above, but verify required vars)
+  if (!process.env.DB_HOST) {
+    console.error('❌ Database environment variables not found. Please ensure .env file exists and contains DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT');
+    console.error('   Expected location: .env in current directory or parent directory');
     process.exit(1);
   }
   
@@ -306,12 +332,13 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-// Run the test
-if (require.main === module) {
+// Run the test if this is the main module
+// In ESM, we check if the current file is being run directly
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('local-test.js')) {
   main();
 }
 
-module.exports = {
+export {
   testHandler,
   testCompetitionEndHandler,
   testCuratedFollowupHandler,

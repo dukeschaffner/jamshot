@@ -1,23 +1,16 @@
-const { pool } = require('../config/db');
-const AWS = require('aws-sdk');
-const nodemailer = require('nodemailer');
+import { createLambdaPool } from '@sterio/db-config';
+import {
+  sendCompetitionWinnerEmail,
+  sendCompetitionHostEmail,
+  sendCompetitionNoEntriesEmail,
+  sendCompetitionNoBackupWinnerEmail
+} from '@sterio/email';
+import AWS from 'aws-sdk';
 
-/**
- * Get the appropriate email address based on environment
- * @param {string} originalEmail - The original email address
- * @returns {string} - The email address to use (TEST_EMAIL in dev/test, original in production)
- */
-const getEmailAddress = (originalEmail) => {
-  const env = process.env.NODE_ENV;
-  const isDevOrTest = env === 'dev' || env === 'development' || env === 'test';
-  
-  if (isDevOrTest && process.env.TEST_EMAIL) {
-    console.log(`[EMAIL REDIRECT] ${originalEmail} -> ${process.env.TEST_EMAIL} (${env} environment)`);
-    return process.env.TEST_EMAIL;
-  }
-  
-  return originalEmail;
-};
+// Create database pool using shared package
+// Note: Environment variables are provided by Lambda runtime
+// For local development, load them in test/local files
+const pool = createLambdaPool();
 
 // Determine which event bus to use based on environment
 const getEventBusName = () => {
@@ -27,23 +20,6 @@ const getEventBusName = () => {
   // Default to test for safety in unknown environments
   return 'sterio-test-events';
 };
-
-if (!process.env.DB_HOST) {
-  require('dotenv').config();
-}
-
-const emailName = 'Duke from Sterio';
-
-// Create a transporter using custom SMTP credentials
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT, 10),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.EMAIL_PASSWORD
-  }
-});
 
 /**
  * Competition Processor class
@@ -341,7 +317,11 @@ class CompetitionProcessor {
     
     // Send email to host about no entries
     try {
-      await this.sendNoEntriesEmail(competition);
+      await sendCompetitionNoEntriesEmail(
+        competition.host_email,
+        competition.track_title,
+        competition.id
+      );
     } catch (error) {
       console.error('Error sending no entries email:', error);
     }
@@ -367,7 +347,11 @@ class CompetitionProcessor {
     
     // Send email to host
     try {
-      await this.sendNoBackupWinnerEmail(competition);
+      await sendCompetitionNoBackupWinnerEmail(
+        competition.host_email,
+        competition.track_title,
+        competition.id
+      );
     } catch (error) {
       console.error('Error sending no backup winner email:', error);
     }
@@ -466,10 +450,26 @@ class CompetitionProcessor {
   async sendEmailNotifications(competition, winner, allEntries, isBackupWinner = false) {
     try {
       // Send winner email
-      await this.sendWinnerEmail(competition, winner, allEntries, isBackupWinner);
+      await sendCompetitionWinnerEmail(
+        winner.email,
+        winner.name || winner.username,
+        competition.track_title,
+        isBackupWinner,
+        competition.prize_amount,
+        allEntries.length,
+        competition.id
+      );
       
       // Send host email
-      await this.sendHostEmail(competition, winner, allEntries, isBackupWinner);
+      await sendCompetitionHostEmail(
+        competition.host_email,
+        competition.track_title,
+        isBackupWinner,
+        winner.username,
+        winner.title,
+        allEntries.length,
+        competition.id
+      );
     } catch (error) {
       console.error('Error sending email notifications:', error);
     }
@@ -565,136 +565,6 @@ class CompetitionProcessor {
     // }
   }
 
-  /**
-   * Send winner notification email
-   * @param {Object} competition - Competition details
-   * @param {Object} winner - Winner details
-   * @param {Array} allEntries - All competition entries
-   * @param {boolean} isBackupWinner - Whether this is a backup winner
-   */
-  async sendWinnerEmail(competition, winner, allEntries, isBackupWinner = false) {
-    if (!winner.email) return;
-
-    const mailOptions = {
-      from: `"${emailName}" <${process.env.EMAIL}>`,
-      to: getEmailAddress(winner.email),
-      subject: '🎉 You won a competition on sterio.fm!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Congratulations ${winner.name || winner.username}!</h2>
-          <p>You won the competition for "${competition.track_title}"!</p>
-          ${isBackupWinner ? '<p><em>Note: You were selected as the winner after the host didn\'t choose within 24 hours.</em></p>' : ''}
-          ${competition.prize_amount ? `<p><strong>Prize:</strong> $${(competition.prize_amount / 100).toFixed(2)}</p>` : ''}
-          <p><strong>Total entries:</strong> ${allEntries.length}</p>
-
-          ${competition.prize_amount ? `
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #333; margin-top: 0;">💰 How to Collect Your Winnings</h3>
-            <p>Congratulations on your win! To receive your prize money, you'll need to complete a quick payout setup process:</p>
-            <ol style="color: #555;">
-              <li><strong>Contact our support team</strong> at <a href="mailto:hello@sterio.fm" style="color: #6772E5; text-decoration: none;">hello@sterio.fm</a> with your competition win details</li>
-              <li>Our team will guide you through setting up your payout method</li>
-              <li>Once verified, your prize will be transferred within 2-3 business days</li>
-            </ol>
-            <p style="margin-bottom: 0;"><em>Please allow 1-2 business days for our team to process your payout setup request.</em></p>
-          </div>
-          ` : ''}
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
-            ${competition.prize_amount ? `<a href="mailto:hello@sterio.fm?subject=Competition Win - Setup Payout&body=Hi, I won the competition for ${encodeURIComponent(competition.track_title)} and need help setting up my payout." style="background-color: #6772E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-left: 10px;">Contact Support for Payout</a>` : ''}
-          </div>
-        </div>
-      `
-    };
-
-    return transporter.sendMail(mailOptions);
-  }
-
-  /**
-   * Send host notification email
-   * @param {Object} competition - Competition details
-   * @param {Object} winner - Winner details
-   * @param {Array} allEntries - All competition entries
-   * @param {boolean} isBackupWinner - Whether this is a backup winner
-   */
-  async sendHostEmail(competition, winner, allEntries, isBackupWinner = false) {
-    if (!competition.host_email) return;
-
-    const mailOptions = {
-      from: `"${emailName}" <${process.env.EMAIL}>`,
-      to: getEmailAddress(competition.host_email),
-      subject: isBackupWinner 
-        ? 'Competition winner selected automatically' 
-        : 'Competition ended - Winner selected!',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">${isBackupWinner ? 'Competition winner selected automatically' : 'Your competition has ended!'}</h2>
-          <p>The competition for "${competition.track_title}" has ${isBackupWinner ? 'been completed' : 'ended'}.</p>
-          ${isBackupWinner ? '<p>Since you didn\'t select a winner within 24 hours, the winner was determined automatically:</p>' : ''}
-          <p><strong>Winner:</strong> ${winner.username} with "${winner.title}"</p>
-          <p><strong>Total entries:</strong> ${allEntries.length}</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Results</a>
-          </div>
-        </div>
-      `
-    };
-
-    return transporter.sendMail(mailOptions);
-  }
-
-  /**
-   * Send no entries notification email to host
-   * @param {Object} competition - Competition details
-   */
-  async sendNoEntriesEmail(competition) {
-    if (!competition.host_email) return;
-
-    const mailOptions = {
-      from: `"${emailName}" <${process.env.EMAIL}>`,
-      to: getEmailAddress(competition.host_email),
-      subject: 'Competition ended - No entries received',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Competition ended without entries</h2>
-          <p>The competition for "${competition.track_title}" has ended.</p>
-          <p>Unfortunately, no entries were received for this competition.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
-          </div>
-        </div>
-      `
-    };
-
-    return transporter.sendMail(mailOptions);
-  }
-
-  /**
-   * Send no backup winner notification email to host
-   * @param {Object} competition - Competition details
-   */
-  async sendNoBackupWinnerEmail(competition) {
-    if (!competition.host_email) return;
-
-    const mailOptions = {
-      from: `"${emailName}" <${process.env.EMAIL}>`,
-      to: getEmailAddress(competition.host_email),
-      subject: 'Competition ended - No winner selected',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Competition ended without a winner</h2>
-          <p>The competition for "${competition.track_title}" has ended.</p>
-          <p>No winner could be determined automatically. Please contact support if you need assistance.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}competition/${competition.id}" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Competition</a>
-          </div>
-        </div>
-      `
-    };
-
-    return transporter.sendMail(mailOptions);
-  }
 }
 
-module.exports = CompetitionProcessor;
+export default CompetitionProcessor;
