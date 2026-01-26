@@ -5,6 +5,7 @@ before launch:
 - post upload screen (or toast message)with option to copy track link or export video
 - add 5 user team/camp option
 - intro video use downloaded video after streaming through once
+- dont show audio processing specific error to users
 
 
 - DAW 

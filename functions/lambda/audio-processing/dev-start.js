@@ -1,9 +1,21 @@
 #!/usr/bin/env node
-const { spawn } = require('child_process');
-const path = require('path');
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Parse command line arguments
+const useBuilt = process.argv.includes('-b') || process.argv.includes('--built');
 
 console.log('🎵 Starting Jamshot Audio Processing Dev Server');
-console.log('==============================================\n');
+console.log('==============================================');
+if (useBuilt) {
+  console.log('📦 Using built code from /dist\n');
+} else {
+  console.log('📝 Using source code\n');
+}
 
 // Track all processes
 const processes = [];
@@ -79,7 +91,8 @@ try {
     'Audio Processing',
     'node',
     ['dev-server.js'],
-    __dirname
+    __dirname,
+    { USE_BUILT: useBuilt ? 'true' : 'false' }
   );
 
   console.log('🎵 Audio processing monitor started successfully!');

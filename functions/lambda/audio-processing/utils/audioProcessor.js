@@ -1,17 +1,31 @@
-const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const fs = require('fs');
-const fsPromises = require('fs').promises;
-const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
-const mm = require('music-metadata');
-const { Pool } = require('pg');
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import fs from 'fs';
+import fsPromises from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import ffmpeg from 'fluent-ffmpeg';
+import mm from 'music-metadata';
+import { createLambdaPool } from '@sterio/db-config';
+import crypto from 'crypto';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configure FFMPEG path based on platform
 if (process.platform === 'linux') {
   // Use the FFMPEG binary in the lambda directory on Linux (Azure)
-  const ffmpegPath = path.join(__dirname, '../ffmpeg');
-  ffmpeg.setFfmpegPath(ffmpegPath);
-  console.log('Using local FFMPEG binary:', ffmpegPath);
+  // In bundled dist, ffmpeg is in the root of dist folder (same as index.mjs)
+  // In development, it's one level up from utils/
+  let ffmpegPath = path.join(__dirname, '../ffmpeg');  // Try development path first
+  if (!fs.existsSync(ffmpegPath)) {
+    ffmpegPath = path.join(__dirname, './ffmpeg');  // Try bundled path
+  }
+  if (fs.existsSync(ffmpegPath)) {
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    console.log('Using local FFMPEG binary:', ffmpegPath);
+  } else {
+    console.warn('FFMPEG binary not found, relying on system installation');
+  }
 } else {
   // On other platforms (macOS/Windows), rely on system installation
   console.log('Using system-installed FFMPEG');
@@ -28,21 +42,7 @@ const s3Client = new S3Client({
 });
 
 // Database connection - Lambda optimized
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  ssl: process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test' || process.env.DB_SSL === 'true' ? {
-    rejectUnauthorized: false,
-    sslmode: 'require'
-  } : false,
-  // Lambda-specific optimizations
-  max: 1, // Limit connections for Lambda
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+const pool = createLambdaPool();
 
 class AudioProcessor {
   constructor() {
@@ -68,7 +68,7 @@ class AudioProcessor {
   // Generate track filename base (timestamp-guid format)
   generateTrackFilenameBase() {
     const timestamp = Date.now();
-    const guid = require('crypto').randomBytes(8).toString('hex');
+    const guid = crypto.randomBytes(8).toString('hex');
     return `${timestamp}-${guid}`;
   }
 
@@ -525,4 +525,4 @@ class AudioProcessor {
   }
 }
 
-module.exports = AudioProcessor;
+export default AudioProcessor;

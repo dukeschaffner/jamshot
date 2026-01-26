@@ -1,4 +1,4 @@
-const AudioProcessor = require('./utils/audioProcessor');
+import AudioProcessor from './utils/audioProcessor.js';
 
 /**
  * AWS Lambda handler for audio processing
@@ -16,7 +16,7 @@ const AudioProcessor = require('./utils/audioProcessor');
  */
 
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   console.log('🎵 Jamshot Audio Processing Lambda Started');
   console.log('Event:', JSON.stringify(event, null, 2));
   console.log('Context:', JSON.stringify(context, null, 2));
@@ -75,28 +75,35 @@ exports.handler = async (event, context) => {
  * Handler for track creation events
  * This is triggered when a new track is created
  */
-exports.trackCreatedHandler = async (event, context) => {
+export const trackCreatedHandler = async (event, context) => {
   console.log('🎵 Track created event received');
 
   const modifiedEvent = {
     track_id: event.detail?.track_id
   };
 
-  return exports.handler(modifiedEvent, context);
+  return handler(modifiedEvent, context);
 };
 
 /**
  * Handler for manual audio processing
  * Can be triggered via AWS Console or CLI for testing
  */
-exports.manualHandler = async (event, context) => {
+export const manualHandler = async (event, context) => {
   console.log('🔧 Manual audio processing triggered');
 
-  return exports.handler(event, context);
+  return handler(event, context);
 };
 
 // Local development: if this file is run directly, invoke the handler
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+import { resolve } from 'path';
+import { argv } from 'process';
+
+const __filename = fileURLToPath(import.meta.url);
+const isMainModule = process.argv[1] && resolve(process.argv[1]) === __filename;
+
+if (isMainModule) {
   console.log('🔧 Running in local development mode');
   (async () => {
     try {
@@ -106,7 +113,7 @@ if (require.main === module) {
       };
       console.log('🔍 Debug: Local event object:', event);
 
-      const result = await exports.handler(event, {});
+      const result = await handler(event, {});
       console.log('✅ Local execution completed:', result);
       process.exit(0);
     } catch (error) {
