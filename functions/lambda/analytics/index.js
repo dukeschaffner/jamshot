@@ -1,4 +1,4 @@
-const AnalyticsAggregator = require('./utils/analyticsAggregator');
+import AnalyticsAggregator from './utils/analyticsAggregator.js';
 
 /**
  * AWS Lambda handler for analytics aggregation
@@ -17,7 +17,7 @@ const AnalyticsAggregator = require('./utils/analyticsAggregator');
 
 //0 2 * * ? *
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   console.log('🎵 Jamshot Analytics Lambda Started');
   console.log('Event:', JSON.stringify(event, null, 2));
   console.log('Context:', JSON.stringify(context, null, 2));
@@ -105,7 +105,7 @@ exports.handler = async (event, context) => {
  * Handler for EventBridge timer events
  * This is the main entry point for scheduled analytics aggregation
  */
-exports.timerHandler = async (event, context) => {
+export const timerHandler = async (event, context) => {
   console.log('⏰ Timer-based analytics aggregation triggered');
   
   // For timer events, we typically want to run daily aggregation
@@ -128,19 +128,19 @@ exports.timerHandler = async (event, context) => {
     date: previousDay.toISOString().split('T')[0]
   };
   
-  return exports.handler(modifiedEvent, context);
+  return handler(modifiedEvent, context);
 };
 
 /**
  * Handler for manual cleanup operations
  * Can be triggered via AWS Console or CLI
  */
-exports.cleanupHandler = async (event, context) => {
+export const cleanupHandler = async (event, context) => {
   console.log('🧹 Manual cleanup triggered');
   
   const modifiedEvent = {
     period: 'cleanup'
   };
   
-  return exports.handler(modifiedEvent, context);
+  return handler(modifiedEvent, context);
 };

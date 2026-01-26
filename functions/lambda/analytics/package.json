@@ -2,25 +2,27 @@
   "name": "jamshot-analytics-lambda",
   "version": "1.0.0",
   "description": "AWS Lambda function for Jamshot analytics aggregation",
-  "main": "handler.js",
+  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "node test/local-test.js",
-    "test:all": "node test/local-test.js all",
-    "test:day": "node test/local-test.js day",
-    "test:week": "node test/local-test.js week",
-    "test:month": "node test/local-test.js month",
-    "test:year": "node test/local-test.js year",
-    "test:timer": "node test/local-test.js timer",
-    "test:cleanup": "node test/local-test.js cleanup",
-    "test:data": "node test/test-data-generator.js",
-    "test:data:generate": "node test/test-data-generator.js generate",
-    "test:data:cleanup": "node test/test-data-generator.js cleanup",
-    "test:data:reset": "node test/test-data-generator.js reset"
+    "start": "node index.js",
+    "build": "node esbuild.config.js",
+    "test": "node local.js",
+    "test:all": "node local.js all",
+    "test:day": "node local.js day",
+    "test:week": "node local.js week",
+    "test:month": "node local.js month",
+    "test:year": "node local.js year",
+    "test:timer": "node local.js timer",
+    "test:cleanup": "node local.js cleanup",
+    "test:built": "node test-built.js"
   },
   "dependencies": {
+    "@sterio/db-config": "file:../../../packages/db-config",
     "pg": "^8.11.3"
   },
   "devDependencies": {
+    "esbuild": "^0.23.0",
     "dotenv": "^16.3.1"
   },
   "engines": {
