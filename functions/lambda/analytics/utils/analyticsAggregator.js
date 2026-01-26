@@ -57,7 +57,7 @@ class AnalyticsAggregator {
 
   /**
    * Aggregate track analytics for a specific period
-   * Only processes tracks for users with basic or premium subscription tiers
+   * Processes tracks for all users
    */
   async aggregateTrackAnalytics(periodType, startDate, endDate) {
     const client = await this.pool.connect();
@@ -65,15 +65,13 @@ class AnalyticsAggregator {
     try {
       await client.query('BEGIN');
 
-      // Get all tracks with plays in the period for users with basic or premium subscription tiers
+      // Get all tracks with plays in the period
       const tracksQuery = `
         SELECT DISTINCT t.id, t.user_id, t.title
         FROM tracks t
         INNER JOIN track_plays tp ON t.id = tp.track_id
-        INNER JOIN users u ON t.user_id = u.id
         WHERE tp.created_at >= $1 AND tp.created_at <= $2
           AND t.user_id IS NOT NULL
-          AND u.subscription_tier IN ('basic', 'premium')
       `;
       
       const tracksResult = await client.query(tracksQuery, [startDate, endDate]);
@@ -256,7 +254,7 @@ class AnalyticsAggregator {
 
   /**
    * Aggregate user analytics for a specific period
-   * Only processes users with basic or premium subscription tiers
+   * Processes all users who have activity in the period
    */
   async aggregateUserAnalytics(periodType, startDate, endDate) {
     const client = await this.pool.connect();
@@ -264,7 +262,7 @@ class AnalyticsAggregator {
     try {
       await client.query('BEGIN');
 
-      // Get all users with basic or premium subscription tiers who have activity in the period
+      // Get all users who have activity in the period
       const usersQuery = `
         SELECT DISTINCT u.id, u.username
         FROM users u
@@ -272,7 +270,6 @@ class AnalyticsAggregator {
         INNER JOIN track_plays tp ON t.id = tp.track_id
         WHERE tp.created_at >= $1 AND tp.created_at <= $2
           AND u.id IS NOT NULL
-          AND u.subscription_tier IN ('basic', 'premium')
       `;
       
       const usersResult = await client.query(usersQuery, [startDate, endDate]);
