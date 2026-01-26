@@ -36,15 +36,19 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Set up Node.js 22
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './functions/lambda/competitions/package-lock.json'
+        cache-dependency-path: './package-lock.json'
 
     - name: Install dependencies
       run: |
         npm ci
+
+    - name: Build Lambda package
+      run: |
+        npm run build
 
     # - name: Run tests
     #   run: |
@@ -52,15 +56,8 @@ jobs:
 
     - name: Create deployment package
       run: |
-        # Create deployment zip similar to existing script but CI-friendly
-        zip -r competitions-lambda.zip . \
-          -x ".env*" \
-          -x "test/*" \
-          -x "*.md" \
-          -x "package-lock.json" \
-          -x "scripts/*" \
-          -x ".git/*" \
-          -x "node_modules/.cache/*"
+        # Zip only the built dist folder containing bundled code and production dependencies
+        zip -r competitions-lambda.zip dist/
 
     # TEMPORARY: Using S3 storage instead of GitHub artifacts
     - name: Configure AWS credentials for S3 upload
@@ -207,7 +204,7 @@ jobs:
             SMTP_PORT=${{ secrets.SMTP_PORT }},
             SMTP_SECURE=${{ secrets.SMTP_SECURE }},
             FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }},
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }},
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }}
           }"
 
     # - name: Create deployment tag

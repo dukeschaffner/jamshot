@@ -232,3 +232,115 @@ export const generateWaitlistConfirmationEmailTemplate = (confirmationUrl, refer
     </div>
   `;
 };
+
+/**
+ * Generate HTML template for competition winner email
+ * @param {string} winnerName - Winner's name or username
+ * @param {string} trackTitle - Title of the competition track
+ * @param {boolean} isBackupWinner - Whether this is a backup winner
+ * @param {number} prizeAmount - Prize amount in cents (optional)
+ * @param {number} entriesCount - Total number of entries
+ * @param {string} competitionUrl - URL to view the competition
+ * @returns {string} HTML email template
+ */
+export const generateCompetitionWinnerTemplate = (winnerName, trackTitle, isBackupWinner, prizeAmount, entriesCount, competitionUrl) => {
+  const prizeAmountDollars = prizeAmount ? (prizeAmount / 100).toFixed(2) : null;
+  const supportEmail = 'hello@sterio.fm';
+  const payoutSubject = encodeURIComponent(`Competition Win - Setup Payout`);
+  const payoutBody = encodeURIComponent(`Hi, I won the competition for ${trackTitle} and need help setting up my payout.`);
+
+  return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+      <h2 style="color: #171717; font-size: 2rem; font-weight: 700; margin-bottom: 16px;">🎉 Congratulations ${winnerName}!</h2>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">You won the competition for "<strong>${trackTitle}</strong>"!</p>
+      ${isBackupWinner ? '<p style="color: #555555; font-size: 0.95rem; line-height: 1.6; font-style: italic; margin-bottom: 16px;">Note: You were selected as the winner after the host didn\'t choose within 24 hours.</p>' : ''}
+      ${prizeAmountDollars ? `<p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 8px;"><strong>Prize:</strong> $${prizeAmountDollars}</p>` : ''}
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;"><strong>Total entries:</strong> ${entriesCount}</p>
+
+      ${prizeAmountDollars ? `
+      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #93E9BE;">
+        <h3 style="color: #171717; margin-top: 0; font-size: 1.3rem; font-weight: 600; margin-bottom: 12px;">💰 How to Collect Your Winnings</h3>
+        <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">Congratulations on your win! To receive your prize money, you'll need to complete a quick payout setup process:</p>
+        <ol style="color: #555555; font-size: 1rem; line-height: 1.8; padding-left: 20px; margin-bottom: 16px;">
+          <li style="margin-bottom: 8px;"><strong>Contact our support team</strong> at <a href="mailto:${supportEmail}" style="color: #93E9BE; text-decoration: none;">${supportEmail}</a> with your competition win details</li>
+          <li style="margin-bottom: 8px;">Our team will guide you through setting up your payout method</li>
+          <li style="margin-bottom: 0;">Once verified, your prize will be transferred within 2-3 business days</li>
+        </ol>
+        <p style="margin-bottom: 0; color: #555555; font-size: 0.95rem; line-height: 1.6; font-style: italic;">Please allow 1-2 business days for our team to process your payout setup request.</p>
+      </div>
+      ` : ''}
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${competitionUrl}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #171717; padding: 12px 24px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block; margin-right: ${prizeAmountDollars ? '10px' : '0'};">View Competition</a>
+        ${prizeAmountDollars ? `<a href="mailto:${supportEmail}?subject=${payoutSubject}&body=${payoutBody}" style="background-color: #6772E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block;">Contact Support for Payout</a>` : ''}
+      </div>
+    </div>
+  `;
+};
+
+/**
+ * Generate HTML template for competition host notification email
+ * @param {string} trackTitle - Title of the competition track
+ * @param {boolean} isBackupWinner - Whether this is a backup winner
+ * @param {string} winnerUsername - Winner's username
+ * @param {string} winnerTrackTitle - Winner's track title
+ * @param {number} entriesCount - Total number of entries
+ * @param {string} competitionUrl - URL to view the competition
+ * @returns {string} HTML email template
+ */
+export const generateCompetitionHostTemplate = (trackTitle, isBackupWinner, winnerUsername, winnerTrackTitle, entriesCount, competitionUrl) => {
+  const subject = isBackupWinner ? 'Competition winner selected automatically' : 'Your competition has ended!';
+  const heading = isBackupWinner ? 'Competition winner selected automatically' : 'Your competition has ended!';
+  const statusText = isBackupWinner ? 'been completed' : 'ended';
+
+  return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+      <h2 style="color: #171717; font-size: 2rem; font-weight: 700; margin-bottom: 16px;">${heading}</h2>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">The competition for "<strong>${trackTitle}</strong>" has ${statusText}.</p>
+      ${isBackupWinner ? '<p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">Since you didn\'t select a winner within 24 hours, the winner was determined automatically:</p>' : ''}
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 8px;"><strong>Winner:</strong> ${winnerUsername} with "<strong>${winnerTrackTitle}</strong>"</p>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;"><strong>Total entries:</strong> ${entriesCount}</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${competitionUrl}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #171717; padding: 12px 24px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block;">View Results</a>
+      </div>
+    </div>
+  `;
+};
+
+/**
+ * Generate HTML template for competition with no entries email
+ * @param {string} trackTitle - Title of the competition track
+ * @param {string} competitionUrl - URL to view the competition
+ * @returns {string} HTML email template
+ */
+export const generateCompetitionNoEntriesTemplate = (trackTitle, competitionUrl) => {
+  return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+      <h2 style="color: #171717; font-size: 2rem; font-weight: 700; margin-bottom: 16px;">Competition ended without entries</h2>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">The competition for "<strong>${trackTitle}</strong>" has ended.</p>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;">Unfortunately, no entries were received for this competition.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${competitionUrl}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #171717; padding: 12px 24px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block;">View Competition</a>
+      </div>
+    </div>
+  `;
+};
+
+/**
+ * Generate HTML template for competition with no backup winner email
+ * @param {string} trackTitle - Title of the competition track
+ * @param {string} competitionUrl - URL to view the competition
+ * @returns {string} HTML email template
+ */
+export const generateCompetitionNoBackupWinnerTemplate = (trackTitle, competitionUrl) => {
+  return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+      <h2 style="color: #171717; font-size: 2rem; font-weight: 700; margin-bottom: 16px;">Competition ended without a winner</h2>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 16px;">The competition for "<strong>${trackTitle}</strong>" has ended.</p>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6; margin-bottom: 24px;">No winner could be determined automatically. Please contact support if you need assistance.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${competitionUrl}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #171717; padding: 12px 24px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block;">View Competition</a>
+      </div>
+    </div>
+  `;
+};

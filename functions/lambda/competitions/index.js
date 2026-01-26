@@ -1,4 +1,4 @@
-const CompetitionProcessor = require('./utils/competitionProcessor');
+import CompetitionProcessor from './utils/competitionProcessor.js';
 
 /**
  * AWS Lambda handler for competition processing
@@ -15,7 +15,7 @@ const CompetitionProcessor = require('./utils/competitionProcessor');
  * }
  */
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   let taskLog = "Competition Lambda Started";
   taskLog += `\nEvent: ${JSON.stringify(event, null, 2)}`;
   
@@ -76,7 +76,7 @@ exports.handler = async (event, context) => {
  * Handler for competition end events
  * This is the main entry point for competition end processing
  */
-exports.competitionEndHandler = async (event, context) => {
+export const competitionEndHandler = async (event, context) => {
   console.log('🏁 Competition end handler triggered');
   
   const modifiedEvent = {
@@ -84,14 +84,14 @@ exports.competitionEndHandler = async (event, context) => {
     competition_id: event.competition_id || event.detail?.competition_id
   };
   
-  return exports.handler(modifiedEvent, context);
+  return handler(modifiedEvent, context);
 };
 
 /**
  * Handler for curated competition follow-up events
  * This handles 24-hour follow-up for curated competitions
  */
-exports.curatedFollowupHandler = async (event, context) => {
+export const curatedFollowupHandler = async (event, context) => {
   console.log('⏰ Curated competition follow-up handler triggered');
   
   const modifiedEvent = {
@@ -99,15 +99,15 @@ exports.curatedFollowupHandler = async (event, context) => {
     competition_id: event.competition_id || event.detail?.competition_id
   };
   
-  return exports.handler(modifiedEvent, context);
+  return handler(modifiedEvent, context);
 };
 
 /**
  * Handler for manual competition processing
  * Can be triggered via AWS Console or CLI for testing
  */
-exports.manualHandler = async (event, context) => {
+export const manualHandler = async (event, context) => {
   console.log('🔧 Manual competition processing triggered');
   
-  return exports.handler(event, context);
+  return handler(event, context);
 };

@@ -8,7 +8,11 @@ export {
   generateVerificationEmailTemplate,
   generatePasswordResetEmailTemplate,
   generateContactEmailTemplate,
-  generateWaitlistConfirmationEmailTemplate
+  generateWaitlistConfirmationEmailTemplate,
+  generateCompetitionWinnerTemplate,
+  generateCompetitionHostTemplate,
+  generateCompetitionNoEntriesTemplate,
+  generateCompetitionNoBackupWinnerTemplate
 } from './templates.js';
 
 // High-level email services
@@ -18,5 +22,9 @@ export {
   sendPasswordResetEmail,
   sendContactEmail,
   sendWaitlistConfirmationEmail,
-  sendCollaborationEmail
+  sendCollaborationEmail,
+  sendCompetitionWinnerEmail,
+  sendCompetitionHostEmail,
+  sendCompetitionNoEntriesEmail,
+  sendCompetitionNoBackupWinnerEmail
 } from './services.js';

@@ -6,7 +6,11 @@ import {
   generateVerificationEmailTemplate,
   generatePasswordResetEmailTemplate,
   generateContactEmailTemplate,
-  generateWaitlistConfirmationEmailTemplate
+  generateWaitlistConfirmationEmailTemplate,
+  generateCompetitionWinnerTemplate,
+  generateCompetitionHostTemplate,
+  generateCompetitionNoEntriesTemplate,
+  generateCompetitionNoBackupWinnerTemplate
 } from './templates.js';
 
 /**
@@ -187,5 +191,103 @@ export const sendCollaborationEmail = async (recipientEmail, collaboratorName, t
   };
 
   // Send the email
+  return await sendEmail(mailOptions);
+};
+
+/**
+ * Send competition winner email
+ * @param {string} winnerEmail - Winner's email address
+ * @param {string} winnerName - Winner's name or username
+ * @param {string} trackTitle - Title of the competition track
+ * @param {boolean} isBackupWinner - Whether this is a backup winner
+ * @param {number} prizeAmount - Prize amount in cents (optional)
+ * @param {number} entriesCount - Total number of entries
+ * @param {string} competitionId - Competition ID
+ * @returns {Promise} - Resolves when email is sent
+ */
+export const sendCompetitionWinnerEmail = async (winnerEmail, winnerName, trackTitle, isBackupWinner, prizeAmount, entriesCount, competitionId) => {
+  if (!winnerEmail) return null;
+
+  const competitionUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/competition/${competitionId}`;
+  const htmlContent = generateCompetitionWinnerTemplate(winnerName, trackTitle, isBackupWinner, prizeAmount, entriesCount, competitionUrl);
+
+  const mailOptions = {
+    to: winnerEmail,
+    subject: '🎉 You won a competition on sterio.fm!',
+    html: htmlContent
+  };
+
+  return await sendEmail(mailOptions);
+};
+
+/**
+ * Send competition host notification email
+ * @param {string} hostEmail - Host's email address
+ * @param {string} trackTitle - Title of the competition track
+ * @param {boolean} isBackupWinner - Whether this is a backup winner
+ * @param {string} winnerUsername - Winner's username
+ * @param {string} winnerTrackTitle - Winner's track title
+ * @param {number} entriesCount - Total number of entries
+ * @param {string} competitionId - Competition ID
+ * @returns {Promise} - Resolves when email is sent
+ */
+export const sendCompetitionHostEmail = async (hostEmail, trackTitle, isBackupWinner, winnerUsername, winnerTrackTitle, entriesCount, competitionId) => {
+  if (!hostEmail) return null;
+
+  const competitionUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/competition/${competitionId}`;
+  const htmlContent = generateCompetitionHostTemplate(trackTitle, isBackupWinner, winnerUsername, winnerTrackTitle, entriesCount, competitionUrl);
+
+  const mailOptions = {
+    to: hostEmail,
+    subject: isBackupWinner 
+      ? 'Competition winner selected automatically' 
+      : 'Competition ended - Winner selected!',
+    html: htmlContent
+  };
+
+  return await sendEmail(mailOptions);
+};
+
+/**
+ * Send competition no entries email to host
+ * @param {string} hostEmail - Host's email address
+ * @param {string} trackTitle - Title of the competition track
+ * @param {string} competitionId - Competition ID
+ * @returns {Promise} - Resolves when email is sent
+ */
+export const sendCompetitionNoEntriesEmail = async (hostEmail, trackTitle, competitionId) => {
+  if (!hostEmail) return null;
+
+  const competitionUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/competition/${competitionId}`;
+  const htmlContent = generateCompetitionNoEntriesTemplate(trackTitle, competitionUrl);
+
+  const mailOptions = {
+    to: hostEmail,
+    subject: 'Competition ended - No entries received',
+    html: htmlContent
+  };
+
+  return await sendEmail(mailOptions);
+};
+
+/**
+ * Send competition no backup winner email to host
+ * @param {string} hostEmail - Host's email address
+ * @param {string} trackTitle - Title of the competition track
+ * @param {string} competitionId - Competition ID
+ * @returns {Promise} - Resolves when email is sent
+ */
+export const sendCompetitionNoBackupWinnerEmail = async (hostEmail, trackTitle, competitionId) => {
+  if (!hostEmail) return null;
+
+  const competitionUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/competition/${competitionId}`;
+  const htmlContent = generateCompetitionNoBackupWinnerTemplate(trackTitle, competitionUrl);
+
+  const mailOptions = {
+    to: hostEmail,
+    subject: 'Competition ended - No winner selected',
+    html: htmlContent
+  };
+
   return await sendEmail(mailOptions);
 };
