@@ -36,31 +36,24 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Set up Node.js 22
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '22'
         cache: 'npm'
-        cache-dependency-path: './functions/lambda/analytics/package-lock.json'
+        cache-dependency-path: './package-lock.json'
 
     - name: Install dependencies
       run: |
         npm ci
 
-    # - name: Run tests
-    #   run: |
-    #     npm test
+    - name: Build Lambda package
+      run: |
+        npm run build
 
     - name: Create deployment package
       run: |
-        # Create deployment zip similar to existing script but CI-friendly
-        zip -r analytics-lambda.zip . \
-          -x ".env*" \
-          -x "test/*" \
-          -x "*.md" \
-          -x "package-lock.json" \
-          -x "scripts/*" \
-          -x ".git/*" \
-          -x "node_modules/.cache/*"
+        # Zip only the built dist folder containing bundled code and production dependencies
+        zip -r analytics-lambda.zip dist/
 
     # TEMPORARY: Using S3 storage instead of GitHub artifacts
     - name: Configure AWS credentials for S3 upload

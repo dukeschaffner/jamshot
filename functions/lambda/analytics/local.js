@@ -1,27 +1,20 @@
-#!/usr/bin/env node
-
 /**
- * Local Testing Script for Jamshot Analytics Lambda
- * 
- * This script allows you to test the Lambda function locally before deploying.
- * It simulates the Lambda runtime environment and event structure.
- * 
- * Usage:
- *   node test/local-test.js [period] [date]
- * 
- * Examples:
- *   node test/local-test.js                    # Test full aggregation
- *   node test/local-test.js day                # Test daily aggregation
- *   node test/local-test.js week               # Test weekly aggregation
- *   node test/local-test.js cleanup            # Test cleanup function
- *   node test/local-test.js day 2024-01-15    # Test with specific date
+ * Local execution support
  */
+import { handler, timerHandler, cleanupHandler } from './index.js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+import { createLambdaPool } from '@sterio/db-config';
 
-// Load environment variables first
-require('dotenv').config({ path: './.env' });
+// Get the directory path in ESM
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const { handler, timerHandler, cleanupHandler } = require('..');
-const { pool } = require('../config/db');
+// Load environment variables first, before importing db config
+if (!process.env.DB_HOST) {
+    dotenv.config({ path: path.join(__dirname, '.env') });
+}
 
 // Mock Lambda context
 const mockContext = {
@@ -38,31 +31,11 @@ const mockContext = {
   succeed: () => {}
 };
 
-async function testHandler(handlerName, event) {
-  console.log(`🧪 Testing ${handlerName}...`);
-  console.log('Event:', JSON.stringify(event, null, 2));
-  console.log('---');
-  
-  try {
-    const startTime = Date.now();
-    const result = await handler(event, mockContext);
-    const endTime = Date.now();
-    
-    console.log('✅ Test completed successfully!');
-    console.log(`⏱️  Execution time: ${endTime - startTime}ms`);
-    console.log('Result:', JSON.stringify(result, null, 2));
-    
-    return result;
-  } catch (error) {
-    console.error('❌ Test failed:', error);
-    throw error;
-  }
-}
-
 async function checkDatabaseConnection() {
   console.log('🔌 Testing database connection...');
   
   try {
+    const pool = createLambdaPool();
     const client = await pool.connect();
     const result = await client.query('SELECT NOW() as current_time, version() as db_version');
     client.release();
@@ -81,6 +54,7 @@ async function checkDataAvailability() {
   console.log('📊 Checking data availability...');
   
   try {
+    const pool = createLambdaPool();
     const client = await pool.connect();
     
     // Check for tracks
@@ -126,15 +100,17 @@ async function testTimerHandler() {
     resources: ['arn:aws:events:us-east-1:123456789012:rule/jamshot-analytics-timer']
   };
   
-  return await testHandler('timerHandler', event);
+  return await handler(event, mockContext);
 }
 
 async function testCleanupHandler() {
   console.log('🧹 Testing cleanup handler...');
   
-  const event = {};
+  const event = {
+    period: 'cleanup'
+  };
   
-  return await testHandler('cleanupHandler', event);
+  return await handler(event, mockContext);
 }
 
 async function testManualHandler(period, date) {
@@ -145,7 +121,7 @@ async function testManualHandler(period, date) {
     date: date
   };
   
-  return await testHandler('handler', event);
+  return await handler(event, mockContext);
 }
 
 async function runAllTests() {
@@ -193,14 +169,12 @@ async function main() {
   const date = args[2];
   
   // Check if .env file exists
-  if (!require('fs').existsSync('.env')) {
+  if (!fs.existsSync(path.join(__dirname, '.env'))) {
     console.error('❌ .env file not found. Please copy .env.example to .env and configure it:');
     console.error('   cp .env.example .env');
     console.error('   # Edit .env with your database configuration');
     process.exit(1);
   }
-  
-  // Environment variables already loaded at top of file
   
   console.log('🎵 Jamshot Analytics Lambda - Local Testing');
   console.log('==========================================');
@@ -237,7 +211,7 @@ async function main() {
       await testManualHandler(testType, date);
     } else {
       console.log('Usage:');
-      console.log('  node test/local-test.js [testType] [period] [date]');
+      console.log('  node local.js [testType] [period] [date]');
       console.log('');
       console.log('Test Types:');
       console.log('  all      - Run all tests');
@@ -249,11 +223,11 @@ async function main() {
       console.log('  year     - Test yearly aggregation');
       console.log('');
       console.log('Examples:');
-      console.log('  node test/local-test.js all');
-      console.log('  node test/local-test.js day');
-      console.log('  node test/local-test.js day 2024-01-15');
-      console.log('  node test/local-test.js timer');
-      console.log('  node test/local-test.js cleanup');
+      console.log('  node local.js all');
+      console.log('  node local.js day');
+      console.log('  node local.js day 2024-01-15');
+      console.log('  node local.js timer');
+      console.log('  node local.js cleanup');
       process.exit(1);
     }
     
@@ -275,14 +249,5 @@ process.on('SIGTERM', () => {
 });
 
 // Run the test
-if (require.main === module) {
-  main();
-}
+main();
 
-module.exports = {
-  testHandler,
-  testTimerHandler,
-  testCleanupHandler,
-  testManualHandler,
-  runAllTests
-};

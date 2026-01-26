@@ -1,4 +1,4 @@
-const { pool } = require('../config/db');
+import { createLambdaPool } from '@sterio/db-config';
 
 /**
  * Analytics Aggregator Utility for Lambda
@@ -7,6 +7,7 @@ const { pool } = require('../config/db');
 class AnalyticsAggregator {
   constructor() {
     this.timePeriods = ['day', 'week', 'month', 'year'];
+    this.pool = createLambdaPool();
   }
 
   /**
@@ -59,7 +60,7 @@ class AnalyticsAggregator {
    * Only processes tracks for users with basic or premium subscription tiers
    */
   async aggregateTrackAnalytics(periodType, startDate, endDate) {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       await client.query('BEGIN');
@@ -130,12 +131,11 @@ class AnalyticsAggregator {
         COUNT(l.id) as like_count,
         COUNT(c.id) as comment_count,
         COUNT(r.id) as repost_count,
-        COUNT(f.id) as share_count
+        0 as share_count
       FROM tracks t
       LEFT JOIN likes l ON t.id = l.track_id AND l.created_at >= $2 AND l.created_at <= $3
       LEFT JOIN comments c ON t.id = c.track_id AND c.created_at >= $2 AND c.created_at <= $3
       LEFT JOIN reposts r ON t.id = r.track_id AND r.created_at >= $2 AND r.created_at <= $3
-      LEFT JOIN follows f ON t.id = f.following_id AND f.created_at >= $2 AND f.created_at <= $3
       WHERE t.id = $1
     `;
     
@@ -259,7 +259,7 @@ class AnalyticsAggregator {
    * Only processes users with basic or premium subscription tiers
    */
   async aggregateUserAnalytics(periodType, startDate, endDate) {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       await client.query('BEGIN');
@@ -327,12 +327,11 @@ class AnalyticsAggregator {
         COUNT(l.id) as total_likes_received,
         COUNT(c.id) as total_comments_received,
         COUNT(r.id) as total_reposts_received,
-        COUNT(f.id) as total_followers_received
+        0 as total_followers_received
       FROM tracks t
       LEFT JOIN likes l ON t.id = l.track_id AND l.created_at >= $2 AND l.created_at <= $3
       LEFT JOIN comments c ON t.id = c.track_id AND c.created_at >= $2 AND c.created_at <= $3
       LEFT JOIN reposts r ON t.id = r.track_id AND r.created_at >= $2 AND r.created_at <= $3
-      LEFT JOIN follows f ON t.id = f.following_id AND f.created_at >= $2 AND f.created_at <= $3
       WHERE t.user_id = $1
     `;
     
@@ -529,7 +528,7 @@ class AnalyticsAggregator {
    * Also deletes track plays older than 1 week for free tier users
    */
   async cleanupOldData() {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
     
     try {
       const cutoffDate = new Date();
@@ -580,4 +579,4 @@ class AnalyticsAggregator {
   }
 }
 
-module.exports = AnalyticsAggregator;
+export default AnalyticsAggregator;
