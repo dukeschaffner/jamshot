@@ -1,0 +1,38 @@
+# Virtual environment
+venv/
+env/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Output directories
+test_output/
+real_output/
+
+# Generated images and videos
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.avi
+*.mov
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+temp_*
+
