@@ -6,6 +6,7 @@ before launch:
 - add 5 user team/camp option
 - intro video use downloaded video after streaming through once
 - dont show audio processing specific error to users
+- make sure mic stream closes when user navigates away from the page
 
 
 - DAW 

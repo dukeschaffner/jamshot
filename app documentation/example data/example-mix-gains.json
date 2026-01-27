@@ -1,0 +1,48 @@
+{
+    "stems": [
+      {
+        "gain": 0.8,
+        "order": 0,
+        "regions": [
+          {
+            "offset": 0,
+            "endTime": 1.665045995678979,
+            "startTime": 0.6650459956789787
+          },
+          {
+            "offset": 0,
+            "endTime": 12.000000000000002,
+            "startTime": 8.000000000000002
+          },
+          {
+            "offset": 0,
+            "endTime": 3.8855458370582365,
+            "startTime": 2.5
+          },
+          {
+            "offset": 0,
+            "endTime": 6.401538474455634,
+            "startTime": 5.015992637397398
+          }
+        ],
+        "track_id": 86
+      },
+      {
+        "gain": 0.8,
+        "order": 1,
+        "regions": [
+          {
+            "offset": 0.5,
+            "endTime": 13,
+            "startTime": 10.5
+          }
+        ],
+        "track_id": 98
+      },
+      {
+        "gain": 0.8,
+        "order": 2,
+        "track_id": 99
+      }
+    ]
+  }
