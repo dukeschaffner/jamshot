@@ -133,7 +133,10 @@ class FrameGenerationModule:
         # Draw title
         title = f"Track Collaboration - {len(tracks)} Artists"
         draw.text((PADDING, PADDING // 2), title, fill=TEXT_COLOR, font=self.font_large)
-        
+
+        leaf_track = [track for track in tracks if track.is_leaf_track][0]
+        duration = leaf_track.duration
+
         # Draw each track
         for i, track in enumerate(tracks):
             track_y_start = PADDING + i * track_spacing
@@ -149,7 +152,7 @@ class FrameGenerationModule:
             if track.peaks_data:
                 self.draw_waveform(draw, track.peaks_data, waveform_x, waveform_y, 
                                  waveform_width, waveform_height,
-                                 duration=track.duration, playback_time=playback_time)
+                                 duration=duration, playback_time=playback_time)
             else:
                 # Placeholder waveform
                 draw.rectangle([waveform_x, waveform_y + waveform_height//2 - 2, 
