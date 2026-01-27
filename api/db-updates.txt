@@ -191,3 +191,10 @@ create index "account_userId_idx" on "account" ("userId");
 create index "verification_identifier_idx" on "verification" ("identifier");
 
 ROLLBACK;
+
+-- Migration: Add waveform URL columns to tracks table
+-- Date: 2026-01-XX
+-- Adds columns to store R2 keys for pre-computed waveform peaks
+
+ALTER TABLE tracks ADD COLUMN waveform_url VARCHAR(1000);
+ALTER TABLE tracks ADD COLUMN combined_waveform_url VARCHAR(1000);

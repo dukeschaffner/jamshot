@@ -75,6 +75,11 @@ class AudioProcessor {
   async processAudio(trackId) {
     console.log(`🎵 Starting audio processing for track ${trackId}`);
 
+    // Declare variables at function scope for cleanup in catch block
+    let localFilePath = null;
+    let tempFilesToCleanup = [];
+    let s3Key = null;
+
     try {
       // Get track information from database
       const trackResult = await pool.query(
@@ -87,7 +92,8 @@ class AudioProcessor {
       }
 
       const track = trackResult.rows[0];
-      const s3Key = track.audio_url;
+      s3Key = track.audio_url;
+      const trackGuid = track.guid;
 
       // Extract filename base from the temp S3 key stored in audio_url
       const filenameBase = this.extractFilenameBaseFromTempKey(track.audio_url);
@@ -109,7 +115,7 @@ class AudioProcessor {
       // Download the raw audio file
       // Preserve original file extension from S3 key to avoid format detection issues
       const originalExtension = path.extname(s3Key) || '.mp3'; // fallback to .mp3 if no extension
-      const localFilePath = path.join(this.tempDir, `track-${trackId}-raw-${Date.now()}${originalExtension}`);
+      localFilePath = path.join(this.tempDir, `track-${trackId}-raw-${Date.now()}${originalExtension}`);
 
       if (s3Key) {
         // Download from provided S3 key
@@ -123,21 +129,74 @@ class AudioProcessor {
 
       // Determine if this is a collaboration or regular upload and get duration
       let duration = 0;
-      if (track.parent_track_id) {
-        const result = await this.processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
-        duration = result.duration;
-      } else {
-        const result = await this.processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
-        duration = result.duration;
+      let stemAudioPath = null;
+      let combinedAudioPath = null;
+      
+      try {
+        if (track.parent_track_id) {
+          const result = await this.processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
+          duration = result.duration;
+          stemAudioPath = result.stemAudioPath;
+          combinedAudioPath = result.combinedAudioPath;
+          tempFilesToCleanup = result.tempFiles || [];
+        } else {
+          const result = await this.processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl);
+          duration = result.duration;
+          stemAudioPath = result.stemAudioPath;
+          combinedAudioPath = result.combinedAudioPath;
+          tempFilesToCleanup = result.tempFiles || [];
+        }
+      } catch (processingError) {
+        // Clean up any temp files that were created before the error
+        await Promise.all(
+          tempFilesToCleanup.map(f => fsPromises.unlink(f).catch(() => {}))
+        );
+        // Also clean up the local file if it exists
+        await fsPromises.unlink(localFilePath).catch(() => {});
+        throw processingError;
       }
+
+      // Generate and save waveform peaks
+      let waveformUrl = null;
+      let combinedWaveformUrl = null;
+      
+      try {
+        console.log(`📊 Generating waveform peaks for track ${trackId}`);
+        
+        // Generate peaks for stem audio
+        if (stemAudioPath && fs.existsSync(stemAudioPath)) {
+          const stemPeaks = await this.generateWaveformPeaks(stemAudioPath, 256);
+          const stemWaveformKey = `waveforms/tracks/${trackGuid}/stem.json`;
+          await this.saveWaveformPeaks(stemPeaks, stemWaveformKey, 256);
+          waveformUrl = stemWaveformKey;
+          console.log(`✅ Generated stem waveform peaks: ${stemWaveformKey}`);
+        }
+        
+        // Generate peaks for combined audio
+        if (combinedAudioPath && fs.existsSync(combinedAudioPath)) {
+          const combinedPeaks = await this.generateWaveformPeaks(combinedAudioPath, 256);
+          const combinedWaveformKey = `waveforms/tracks/${trackGuid}/combined.json`;
+          await this.saveWaveformPeaks(combinedPeaks, combinedWaveformKey, 256);
+          combinedWaveformUrl = combinedWaveformKey;
+          console.log(`✅ Generated combined waveform peaks: ${combinedWaveformKey}`);
+        }
+      } catch (waveformError) {
+        console.error(`⚠️ Failed to generate waveform peaks:`, waveformError);
+        // Don't fail the entire processing if waveform generation fails
+      }
+
+      // Clean up temp files after waveform generation
+      await Promise.all(
+        tempFilesToCleanup.map(f => fsPromises.unlink(f).catch(() => {}))
+      );
 
       // Update processing status to 'completed' and set final URLs and duration
       await pool.query(
-        'UPDATE tracks SET processing_status = $1, audio_url = $2, combined_audio_url = $3, duration = $4 WHERE id = $5',
-        ['completed', finalAudioUrl, finalCombinedAudioUrl, duration, trackId]
+        'UPDATE tracks SET processing_status = $1, audio_url = $2, combined_audio_url = $3, duration = $4, waveform_url = $5, combined_waveform_url = $6 WHERE id = $7',
+        ['completed', finalAudioUrl, finalCombinedAudioUrl, duration, waveformUrl, combinedWaveformUrl, trackId]
       );
 
-      // Clean up temp file
+      // Clean up original temp file (other temp files cleaned up after waveform generation)
       await fsPromises.unlink(localFilePath).catch(err => console.error('Cleanup error:', err));
 
       console.log(`✅ Audio processing completed for track ${trackId}`);
@@ -151,11 +210,54 @@ class AudioProcessor {
     } catch (error) {
       console.error(`❌ Audio processing failed for track ${trackId}:`, error);
 
+      // Clean up local temporary files
+      const cleanupPromises = [];
+      
+      // Clean up the downloaded local file if it exists
+      if (localFilePath) {
+        cleanupPromises.push(
+          fsPromises.unlink(localFilePath).catch(err => 
+            console.error(`Failed to cleanup local file ${localFilePath}:`, err)
+          )
+        );
+      }
+
+      // Clean up any temp files that might have been created
+      if (tempFilesToCleanup && tempFilesToCleanup.length > 0) {
+        cleanupPromises.push(
+          ...tempFilesToCleanup.map(f => 
+            fsPromises.unlink(f).catch(err => 
+              console.error(`Failed to cleanup temp file ${f}:`, err)
+            )
+          )
+        );
+      }
+
+      // Wait for cleanup to complete (don't block on errors)
+      await Promise.all(cleanupPromises).catch(() => {});
+
+      // Delete temporary S3 file if it exists (from temp/tracks/)
+      if (s3Key && s3Key.startsWith('temp/tracks/')) {
+        try {
+          await s3Client.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: s3Key
+          }));
+          console.log(`🗑️ Deleted temporary S3 file: ${s3Key}`);
+        } catch (s3Error) {
+          console.error(`Failed to delete temporary S3 file ${s3Key}:`, s3Error);
+          // Don't throw - cleanup failures shouldn't block error reporting
+        }
+      }
+
       // Update processing status to 'failed'
       await pool.query(
         'UPDATE tracks SET processing_status = $1, processing_error = $2 WHERE id = $3',
         ['failed', error.message, trackId]
-      );
+      ).catch(dbError => {
+        console.error(`Failed to update track status to failed:`, dbError);
+        // Don't throw - we've already logged the original error
+      });
 
       throw error;
     }
@@ -244,16 +346,20 @@ class AudioProcessor {
 
     await this.uploadToS3(rawPath, finalAudioUrl);
 
-    // Clean up temp files (including rendered files and original downloaded stems)
-    await Promise.all([
-      ...localFiles.map(f => fsPromises.unlink(f).catch(() => {})),
-      ...renderedFiles.map(f => fsPromises.unlink(f).catch(() => {})),
-      ...downloadedStemFiles.map(f => fsPromises.unlink(f).catch(() => {})),
-      fsPromises.unlink(combinedPath).catch(() => {}),
-      fsPromises.unlink(rawPath).catch(() => {})
-    ]);
-
-    return { duration };
+    // Return paths before cleanup so waveform peaks can be generated
+    // Note: Caller is responsible for cleanup after waveform generation
+    return { 
+      duration,
+      stemAudioPath: rawPath,
+      combinedAudioPath: combinedPath,
+      tempFiles: [
+        ...localFiles,
+        ...renderedFiles,
+        ...downloadedStemFiles,
+        combinedPath,
+        rawPath
+      ]
+    };
   }
 
   /**
@@ -349,13 +455,14 @@ class AudioProcessor {
 
     await this.uploadToS3(rawPath, finalAudioUrl);
 
-    // Clean up temp files
-    await Promise.all([
-      fsPromises.unlink(normalizedPath).catch(() => {}),
-      fsPromises.unlink(rawPath).catch(() => {})
-    ]);
-
-    return { duration };
+    // Return paths before cleanup so waveform peaks can be generated
+    // Note: Caller is responsible for cleanup after waveform generation
+    return { 
+      duration,
+      stemAudioPath: rawPath,
+      combinedAudioPath: normalizedPath,
+      tempFiles: [normalizedPath, rawPath]
+    };
   }
 
   async downloadS3File(s3Key, localPath) {
@@ -522,6 +629,146 @@ class AudioProcessor {
     }
 
     return stems;
+  }
+
+  /**
+   * Generate waveform peaks from an audio file
+   * @param {string} audioFilePath - Path to the audio file
+   * @param {number} resolution - Number of peaks to generate (default: 256)
+   * @returns {Promise<Array>} Array of [min, max] peak pairs
+   */
+  async generateWaveformPeaks(audioFilePath, resolution = 256) {
+    return new Promise((resolve, reject) => {
+      const tempPcmPath = path.join(this.tempDir, `peaks-${Date.now()}-${Math.random().toString(36).substring(7)}.raw`);
+
+      // Use ffmpeg to extract raw PCM data (16-bit signed integers, mono, 44.1kHz)
+      ffmpeg(audioFilePath)
+        .audioFrequency(44100)
+        .audioChannels(1) // Convert to mono for peak calculation
+        .format('s16le') // 16-bit signed little-endian PCM
+        .on('error', (err) => {
+          console.error('❌ Failed to extract PCM data:', err);
+          fsPromises.unlink(tempPcmPath).catch(() => {});
+          reject(err);
+        })
+        .on('end', async () => {
+          try {
+            const pcmData = await fsPromises.readFile(tempPcmPath);
+            const peaks = this.processPcmToPeaks(pcmData, resolution);
+            await fsPromises.unlink(tempPcmPath).catch(() => {});
+            resolve(peaks);
+          } catch (error) {
+            await fsPromises.unlink(tempPcmPath).catch(() => {});
+            reject(error);
+          }
+        })
+        .save(tempPcmPath);
+    });
+  }
+
+  /**
+   * Process raw PCM data into waveform peaks
+   * @param {Buffer} pcmData - Raw PCM data (16-bit signed integers)
+   * @param {number} resolution - Number of peaks to generate
+   * @returns {Array} Array of [min, max] peak pairs normalized to [-1, 1]
+   */
+  processPcmToPeaks(pcmData, resolution) {
+    const peaks = [];
+    const sampleCount = pcmData.length / 2; // 16-bit = 2 bytes per sample
+    const samplesPerPeak = Math.floor(sampleCount / resolution);
+
+    for (let i = 0; i < resolution; i++) {
+      const startIdx = i * samplesPerPeak * 2; // *2 because each sample is 2 bytes
+      const endIdx = Math.min(startIdx + (samplesPerPeak * 2), pcmData.length);
+      
+      let min = 1;
+      let max = -1;
+
+      // Process samples in this segment
+      for (let j = startIdx; j < endIdx; j += 2) {
+        // Read 16-bit signed little-endian integer
+        const sample = pcmData.readInt16LE(j);
+        // Normalize to [-1, 1] range
+        const normalized = sample / 32768;
+        
+        min = Math.min(min, normalized);
+        max = Math.max(max, normalized);
+      }
+
+      // If no samples found, use zero
+      if (min === 1 && max === -1) {
+        min = 0;
+        max = 0;
+      }
+
+      peaks.push([min, max]);
+    }
+
+    return peaks;
+  }
+
+  /**
+   * Save waveform peaks as JSON to R2
+   * @param {Array} peaks - Array of [min, max] peak pairs
+   * @param {string} r2Key - R2 key where peaks will be stored
+   * @param {number} resolution - Resolution of the peaks (e.g., 256, 512)
+   * @returns {Promise<string>} R2 key where peaks were saved
+   */
+  async saveWaveformPeaks(peaks, r2Key, resolution = 256) {
+    let peaksData = { peaks: {} };
+
+    // Try to read existing peaks file if it exists
+    try {
+      const getCommand = new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: r2Key
+      });
+      const response = await s3Client.send(getCommand);
+      const existingData = await response.Body.transformToString();
+      peaksData = JSON.parse(existingData);
+      
+      // Ensure peaks object exists
+      if (!peaksData.peaks || typeof peaksData.peaks !== 'object') {
+        peaksData.peaks = {};
+      }
+    } catch (error) {
+      // File doesn't exist yet, start with empty structure
+      if (error.name !== 'NoSuchKey' && error.name !== 'NotFound') {
+        console.warn(`Could not read existing peaks file ${r2Key}:`, error.message);
+      }
+    }
+
+    // Add or update peaks for this resolution
+    peaksData.peaks[resolution.toString()] = peaks;
+
+    // Convert to JSON string
+    const peaksJson = JSON.stringify(peaksData);
+    const tempJsonPath = path.join(this.tempDir, `peaks-${Date.now()}.json`);
+
+    try {
+      // Write JSON to temp file
+      await fsPromises.writeFile(tempJsonPath, peaksJson, 'utf8');
+
+      // Upload to R2
+      const fileStream = fs.createReadStream(tempJsonPath);
+      const uploadParams = {
+        Bucket: process.env.R2_BUCKET,
+        Key: r2Key,
+        Body: fileStream,
+        ContentType: 'application/json'
+      };
+
+      await s3Client.send(new PutObjectCommand(uploadParams));
+      console.log(`📤 Uploaded waveform peaks (resolution ${resolution}) to ${r2Key}`);
+
+      // Clean up temp file
+      await fsPromises.unlink(tempJsonPath).catch(() => {});
+
+      return r2Key;
+    } catch (error) {
+      await fsPromises.unlink(tempJsonPath).catch(() => {});
+      throw error;
+    }
   }
 }
 
