@@ -4,8 +4,8 @@ from typing import List, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from utils.config import (
-    FRAME_WIDTH, FRAME_HEIGHT, TRACK_HEIGHT, PROFILE_PIC_SIZE, PADDING,
-    WAVEFORM_COLOR, BACKGROUND_COLOR, TEXT_COLOR, SECONDARY_TEXT_COLOR
+    FRAME_WIDTH, FRAME_HEIGHT, TRACK_HEIGHT, PADDING,
+    WAVEFORM_COLOR, ACCENT_COLOR, BACKGROUND_COLOR, TEXT_COLOR, SECONDARY_TEXT_COLOR
 )
 from utils.models import TrackData
 
@@ -21,11 +21,19 @@ class FrameGenerationModule:
         self.height = height
         self.track_height = track_height
         
+        # Calculate profile pic size as 1/15 of video height
+        self.profile_pic_size = self.height // 15
+        
         # Try to load a font, fall back to default if not available
+        # Scale font sizes proportionally with profile pic size
+        base_font_size_large = int(self.profile_pic_size * 0.25)  # ~25% of profile pic
+        base_font_size_medium = int(self.profile_pic_size * 0.19)  # ~19% of profile pic
+        base_font_size_small = int(self.profile_pic_size * 0.15)   # ~15% of profile pic
+        
         try:
-            self.font_large = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 24)
-            self.font_medium = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 18)
-            self.font_small = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 14)
+            self.font_large = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", base_font_size_large)
+            self.font_medium = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", base_font_size_medium)
+            self.font_small = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", base_font_size_small)
         except:
             self.font_large = ImageFont.load_default()
             self.font_medium = ImageFont.load_default()
@@ -87,7 +95,7 @@ class FrameGenerationModule:
             )
     
     def draw_profile_pic(self, draw: ImageDraw, image: Image, profile_pic_data: bytes, x: int, y: int, size: int):
-        """Draw circular profile picture"""
+        """Draw circular profile picture with rustic pink outline"""
         try:
             # Load profile picture
             profile_img = Image.open(io.BytesIO(profile_pic_data))
@@ -103,10 +111,16 @@ class FrameGenerationModule:
             profile_img.putalpha(mask)
             image.paste(profile_img, (x, y), profile_img)
             
+            # Draw rustic pink circle outline
+            outline_width = max(2, int(size * 0.04))  # 4% of size, minimum 2px
+            draw.ellipse([x, y, x + size, y + size], outline=ACCENT_COLOR, width=outline_width)
+            
         except Exception as e:
             print(f"⚠️  Error drawing profile pic: {e}")
-            # Draw placeholder circle
+            # Draw placeholder circle with outline
             draw.ellipse([x, y, x + size, y + size], fill=(100, 100, 100))
+            outline_width = max(2, int(size * 0.04))
+            draw.ellipse([x, y, x + size, y + size], outline=ACCENT_COLOR, width=outline_width)
     
     def generate_frame(self, tracks: List[TrackData], save_path: Optional[str] = None, 
                       playback_time: Optional[float] = None, verbose: bool = True) -> Image:
@@ -160,21 +174,28 @@ class FrameGenerationModule:
                              fill=(80, 80, 80))
             
             # Draw user/track details at bottom left of track section
-            details_y = track_y_end - PROFILE_PIC_SIZE - 5  # Bottom of section minus profile pic size
+            # Position profile pic so it fits within the track section
+            details_y = track_y_end - self.profile_pic_size - 5  # Bottom of section minus profile pic size
             
             # Draw profile picture
             if track.profile_pic_data:
                 self.draw_profile_pic(draw, image, track.profile_pic_data, 
-                                    PADDING, details_y, PROFILE_PIC_SIZE)
+                                    PADDING, details_y, self.profile_pic_size)
             else:
-                # Placeholder circle
-                draw.ellipse([PADDING, details_y, PADDING + PROFILE_PIC_SIZE, details_y + PROFILE_PIC_SIZE], 
+                # Placeholder circle with outline
+                draw.ellipse([PADDING, details_y, PADDING + self.profile_pic_size, details_y + self.profile_pic_size], 
                            fill=(100, 100, 100))
+                outline_width = max(2, int(self.profile_pic_size * 0.04))
+                draw.ellipse([PADDING, details_y, PADDING + self.profile_pic_size, details_y + self.profile_pic_size], 
+                           outline=ACCENT_COLOR, width=outline_width)
             
             # Draw username and track title
-            text_x = PADDING + PROFILE_PIC_SIZE + 15
+            # Position text to the right of profile pic with spacing proportional to profile pic size
+            text_x = PADDING + self.profile_pic_size + int(self.profile_pic_size * 0.3)  # 30% spacing
+            # Vertical spacing between username and title proportional to profile pic size
+            text_spacing = int(self.profile_pic_size * 0.26)  # ~26% spacing
             draw.text((text_x, details_y), track.username, fill=TEXT_COLOR, font=self.font_medium)
-            draw.text((text_x, details_y + 25), track.title, fill=SECONDARY_TEXT_COLOR, font=self.font_small)
+            draw.text((text_x, details_y + text_spacing), track.title, fill=SECONDARY_TEXT_COLOR, font=self.font_small)
         
         # Save if path provided
         if save_path:
