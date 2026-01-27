@@ -44,6 +44,7 @@ class DataCollectionModule:
                 raise ValueError(f"Track {track_id} not found")
             
             current_track = dict(current_track_row)
+            current_track['is_leaf_track'] = True
             
             # Get all ancestors (tracks up the tree to the root)
             ancestors = []
@@ -110,7 +111,8 @@ class DataCollectionModule:
                     waveform_url=waveform_url,
                     combined_waveform_url=combined_waveform_url,
                     combined_audio_url=combined_audio_url,
-                    mix_gains=mix_gains
+                    mix_gains=mix_gains,
+                    is_leaf_track=track_row.get('is_leaf_track', False)
                 )
                 tracks.append(track)
             

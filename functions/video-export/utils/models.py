@@ -19,4 +19,5 @@ class TrackData:
     peaks_data: Optional[List] = None  # Downloaded peaks data
     profile_pic_data: Optional[bytes] = None  # Downloaded profile pic data
     audio_file_path: Optional[str] = None  # Local path to downloaded audio file
+    is_leaf_track: bool = False  # Whether this is the leaf track (the track given as input)
 
