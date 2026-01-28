@@ -89,13 +89,17 @@ class VideoExportPipeline:
     def export_track_video(self, 
                           track_id: Union[int, str], 
                           duration: Optional[float] = None,
+                          start_time: Optional[float] = None,
+                          end_time: Optional[float] = None,
                           progress_callback: Optional[Callable[[int, int], None]] = None) -> Dict:
         """
         Generate full video for a track
         
         Args:
             track_id: Track ID to generate video for
-            duration: Video duration in seconds (defaults to longest track duration)
+            duration: Video duration in seconds (defaults to longest track duration, ignored if start_time/end_time provided)
+            start_time: Start timestamp in seconds (defaults to 0)
+            end_time: End timestamp in seconds (defaults to track duration)
             progress_callback: Optional callback function(current_frame, total_frames)
         
         Returns:
@@ -122,11 +126,20 @@ class VideoExportPipeline:
                 processed_tracks,
                 output_path,
                 duration=duration,
+                start_time=start_time,
+                end_time=end_time,
                 progress_callback=progress_callback
             )
             
             # Get video duration
-            if duration is None:
+            if start_time is not None or end_time is not None:
+                max_track_duration = max((track.duration for track in processed_tracks), default=30.0)
+                if start_time is None:
+                    start_time = 0.0
+                if end_time is None:
+                    end_time = max_track_duration
+                duration = end_time - start_time
+            elif duration is None:
                 duration = max((track.duration for track in processed_tracks), default=30.0)
             
             result = {
@@ -141,6 +154,8 @@ class VideoExportPipeline:
                 } for t in processed_tracks],
                 'video_path': video_path,
                 'duration': duration,
+                'start_time': start_time if start_time is not None else 0.0,
+                'end_time': end_time if end_time is not None else duration,
                 'fps': self.video_generator.fps,
                 'frame_size': (self.frame_generator.width, self.frame_generator.height)
             }
