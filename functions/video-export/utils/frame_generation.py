@@ -4,12 +4,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 from utils.config import (
     FRAME_WIDTH, FRAME_HEIGHT, TRACK_HEIGHT, PADDING,
-    BACKGROUND_COLOR, TEXT_COLOR
+    BACKGROUND_COLOR, TEXT_COLOR, SECONDARY_TEXT_COLOR
 )
 from utils.models import TrackData
 from utils.components.watermark import WatermarkComponent
 from utils.components.track_details import TrackDetailsComponent
 from utils.components.waveform import WaveformComponent
+from utils.components.add_track_button import AddTrackButtonComponent
 
 
 class FrameGenerationModule:
@@ -39,9 +40,11 @@ class FrameGenerationModule:
         self.watermark_component = WatermarkComponent(width, height)
         self.track_details_component = TrackDetailsComponent(self.profile_pic_size)
         self.waveform_component = WaveformComponent()
+        self.add_track_button_component = AddTrackButtonComponent(width, height)
     
     def generate_frame(self, tracks: List[TrackData], save_path: Optional[str] = None, 
-                      playback_time: Optional[float] = None, verbose: bool = True) -> Image:
+                      playback_time: Optional[float] = None, verbose: bool = True, 
+                      debug: bool = False) -> Image:
         """Generate a single frame with vertical stack of tracks
         
         Args:
@@ -49,6 +52,7 @@ class FrameGenerationModule:
             save_path: Optional path to save the frame
             playback_time: Optional playback time in seconds for coloring waveform bars
             verbose: Whether to print progress messages
+            debug: Whether to show track section borders for debugging
         """
         if verbose:
             print(f"🎨 Generating frame with {len(tracks)} tracks")
@@ -57,8 +61,9 @@ class FrameGenerationModule:
         image = Image.new('RGB', (self.width, self.height), BACKGROUND_COLOR)
         draw = ImageDraw.Draw(image)
         
-        # Calculate layout
-        available_height = self.height - 2 * PADDING
+        # Calculate layout - reserve space for add track button at bottom
+        button_reserved_height = self.add_track_button_component.get_reserved_height()
+        available_height = self.height - 2 * PADDING - button_reserved_height
         track_spacing = available_height // len(tracks) if len(tracks) > 0 else self.track_height
         
         # Draw title
@@ -95,9 +100,18 @@ class FrameGenerationModule:
             
             # Use track details component to draw profile pic, username, and track title
             self.track_details_component.draw_track_details(draw, image, track, PADDING, details_y)
+            
+            # Draw border at bottom of vertical section (only if debug mode)
+            if debug:
+                border_y = track_y_end - 1  # Position at bottom of section
+                draw.line([(PADDING, border_y), (self.width - PADDING, border_y)], 
+                         fill=SECONDARY_TEXT_COLOR, width=1)
         
         # Draw TikTok-style watermark using watermark component
         self.watermark_component.draw(image, playback_time)
+        
+        # Draw add track button at bottom center
+        self.add_track_button_component.draw(image)
         
         # Save if path provided
         if save_path:
