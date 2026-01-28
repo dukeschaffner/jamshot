@@ -1,13 +1,15 @@
 """PIL-based frame generation with SoundCloud-style waveforms"""
-import io
 from typing import List, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from utils.config import (
     FRAME_WIDTH, FRAME_HEIGHT, TRACK_HEIGHT, PADDING,
-    WAVEFORM_COLOR, ACCENT_COLOR, BACKGROUND_COLOR, TEXT_COLOR, SECONDARY_TEXT_COLOR
+    BACKGROUND_COLOR, TEXT_COLOR
 )
 from utils.models import TrackData
+from utils.components.watermark import WatermarkComponent
+from utils.components.track_details import TrackDetailsComponent
+from utils.components.waveform import WaveformComponent
 
 
 class FrameGenerationModule:
@@ -24,103 +26,19 @@ class FrameGenerationModule:
         # Calculate profile pic size as 1/15 of video height
         self.profile_pic_size = self.height // 15
         
-        # Try to load a font, fall back to default if not available
-        # Scale font sizes proportionally with profile pic size
+        # Try to load a font for title, fall back to default if not available
+        # Scale font size proportionally with profile pic size
         base_font_size_large = int(self.profile_pic_size * 0.25)  # ~25% of profile pic
-        base_font_size_medium = int(self.profile_pic_size * 0.19)  # ~19% of profile pic
-        base_font_size_small = int(self.profile_pic_size * 0.15)   # ~15% of profile pic
         
         try:
             self.font_large = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", base_font_size_large)
-            self.font_medium = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", base_font_size_medium)
-            self.font_small = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", base_font_size_small)
         except:
             self.font_large = ImageFont.load_default()
-            self.font_medium = ImageFont.load_default()
-            self.font_small = ImageFont.load_default()
-    
-    def draw_waveform(self, draw: ImageDraw, peaks: List, x: int, y: int, width: int, height: int, 
-                     duration: float = None, playback_time: float = None):
-        """Draw SoundCloud-style waveform from peaks data
         
-        Args:
-            draw: ImageDraw object
-            peaks: List of peak pairs [min, max]
-            x, y: Position of waveform
-            width, height: Dimensions of waveform
-            duration: Track duration in seconds (for playback coloring)
-            playback_time: Current playback time in seconds (None = no coloring)
-        """
-        if not peaks or len(peaks) == 0:
-            return
-        
-        # Calculate bar width
-        bar_width = max(1, width // len(peaks))
-        bar_spacing = max(1, bar_width // 4)
-        
-        center_y = y + height // 2
-        
-        # Determine if we should color by playback time
-        use_playback_coloring = playback_time is not None and duration is not None and duration > 0
-        
-        for i, peak_pair in enumerate(peaks):
-            if i * bar_width >= width:
-                break
-                
-            # Peak pair is [min, max]
-            min_val, max_val = peak_pair
-            
-            # Normalize to height (peaks are typically in range -1 to 1)
-            bar_height = int(abs(max_val - min_val) * height / 2)
-            bar_height = max(2, min(bar_height, height))  # Ensure visible bars
-            
-            bar_x = x + i * bar_width
-            bar_y1 = center_y - bar_height // 2
-            bar_y2 = center_y + bar_height // 2
-            
-            # Determine bar color based on playback time
-            if use_playback_coloring:
-                # Calculate the time position of this bar
-                bar_time = (i / len(peaks)) * duration
-                # If bar is earlier than playback time, it's played (orange), otherwise white
-                bar_color = WAVEFORM_COLOR if bar_time < playback_time else TEXT_COLOR
-            else:
-                # Default: all bars orange
-                bar_color = WAVEFORM_COLOR
-            
-            # Draw the waveform bar
-            draw.rectangle(
-                [bar_x, bar_y1, bar_x + bar_width - bar_spacing, bar_y2],
-                fill=bar_color
-            )
-    
-    def draw_profile_pic(self, draw: ImageDraw, image: Image, profile_pic_data: bytes, x: int, y: int, size: int):
-        """Draw circular profile picture with rustic pink outline"""
-        try:
-            # Load profile picture
-            profile_img = Image.open(io.BytesIO(profile_pic_data))
-            profile_img = profile_img.convert('RGB')
-            profile_img = profile_img.resize((size, size), Image.Resampling.LANCZOS)
-            
-            # Create circular mask
-            mask = Image.new('L', (size, size), 0)
-            mask_draw = ImageDraw.Draw(mask)
-            mask_draw.ellipse([0, 0, size, size], fill=255)
-            
-            # Apply mask and paste onto main image
-            profile_img.putalpha(mask)
-            image.paste(profile_img, (x, y), profile_img)
-            
-            # Draw rustic pink circle outline
-            outline_width = max(2, int(size * 0.04))  # 4% of size, minimum 2px
-            draw.ellipse([x, y, x + size, y + size], outline=ACCENT_COLOR, width=outline_width)
-            
-        except Exception as e:
-            print(f"⚠️  Error drawing profile pic: {e}")
-            # Draw placeholder circle with outline
-            draw.ellipse([x, y, x + size, y + size], fill=(100, 100, 100))
-            outline_width = max(2, int(size * 0.04))
-            draw.ellipse([x, y, x + size, y + size], outline=ACCENT_COLOR, width=outline_width)
+        # Initialize components
+        self.watermark_component = WatermarkComponent(width, height)
+        self.track_details_component = TrackDetailsComponent(self.profile_pic_size)
+        self.waveform_component = WaveformComponent()
     
     def generate_frame(self, tracks: List[TrackData], save_path: Optional[str] = None, 
                       playback_time: Optional[float] = None, verbose: bool = True) -> Image:
@@ -142,7 +60,6 @@ class FrameGenerationModule:
         # Calculate layout
         available_height = self.height - 2 * PADDING
         track_spacing = available_height // len(tracks) if len(tracks) > 0 else self.track_height
-        actual_track_height = min(self.track_height, track_spacing - 10)
         
         # Draw title
         title = f"Track Collaboration - {len(tracks)} Artists"
@@ -164,38 +81,23 @@ class FrameGenerationModule:
             waveform_y = track_y_start + (track_spacing - waveform_height) // 2
             
             if track.peaks_data:
-                self.draw_waveform(draw, track.peaks_data, waveform_x, waveform_y, 
-                                 waveform_width, waveform_height,
-                                 duration=duration, playback_time=playback_time)
+                self.waveform_component.draw(draw, track.peaks_data, waveform_x, waveform_y, 
+                                           waveform_width, waveform_height,
+                                           duration=duration, playback_time=playback_time)
             else:
                 # Placeholder waveform
-                draw.rectangle([waveform_x, waveform_y + waveform_height//2 - 2, 
-                              waveform_x + waveform_width, waveform_y + waveform_height//2 + 2], 
-                             fill=(80, 80, 80))
+                self.waveform_component.draw_placeholder(draw, waveform_x, waveform_y, 
+                                                        waveform_width, waveform_height)
             
             # Draw user/track details at bottom left of track section
             # Position profile pic so it fits within the track section
             details_y = track_y_end - self.profile_pic_size - 5  # Bottom of section minus profile pic size
             
-            # Draw profile picture
-            if track.profile_pic_data:
-                self.draw_profile_pic(draw, image, track.profile_pic_data, 
-                                    PADDING, details_y, self.profile_pic_size)
-            else:
-                # Placeholder circle with outline
-                draw.ellipse([PADDING, details_y, PADDING + self.profile_pic_size, details_y + self.profile_pic_size], 
-                           fill=(100, 100, 100))
-                outline_width = max(2, int(self.profile_pic_size * 0.04))
-                draw.ellipse([PADDING, details_y, PADDING + self.profile_pic_size, details_y + self.profile_pic_size], 
-                           outline=ACCENT_COLOR, width=outline_width)
-            
-            # Draw username and track title
-            # Position text to the right of profile pic with spacing proportional to profile pic size
-            text_x = PADDING + self.profile_pic_size + int(self.profile_pic_size * 0.3)  # 30% spacing
-            # Vertical spacing between username and title proportional to profile pic size
-            text_spacing = int(self.profile_pic_size * 0.26)  # ~26% spacing
-            draw.text((text_x, details_y), track.username, fill=TEXT_COLOR, font=self.font_medium)
-            draw.text((text_x, details_y + text_spacing), track.title, fill=SECONDARY_TEXT_COLOR, font=self.font_small)
+            # Use track details component to draw profile pic, username, and track title
+            self.track_details_component.draw_track_details(draw, image, track, PADDING, details_y)
+        
+        # Draw TikTok-style watermark using watermark component
+        self.watermark_component.draw(image, playback_time)
         
         # Save if path provided
         if save_path:
