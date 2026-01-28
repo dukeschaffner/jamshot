@@ -8,6 +8,7 @@ from utils.peaks_processing import PeaksProcessingModule
 from utils.frame_generation import FrameGenerationModule
 from utils.video_generation import VideoGenerationModule
 from utils.models import TrackData
+from utils.config import VIDEO_DURATION_LIMIT
 
 
 class VideoExportPipeline:
@@ -131,16 +132,42 @@ class VideoExportPipeline:
                 progress_callback=progress_callback
             )
             
-            # Get video duration
+            # Get video duration (matching logic from video_generation.py)
+            max_track_duration = max((track.duration for track in processed_tracks), default=30.0)
+            
             if start_time is not None or end_time is not None:
-                max_track_duration = max((track.duration for track in processed_tracks), default=30.0)
                 if start_time is None:
                     start_time = 0.0
                 if end_time is None:
                     end_time = max_track_duration
+                
+                # Ensure end_time doesn't exceed max_track_duration
+                if end_time > max_track_duration:
+                    end_time = max_track_duration
+                
                 duration = end_time - start_time
-            elif duration is None:
-                duration = max((track.duration for track in processed_tracks), default=30.0)
+                
+                # Enforce duration limit
+                if duration > VIDEO_DURATION_LIMIT:
+                    duration = VIDEO_DURATION_LIMIT
+                    end_time = start_time + duration
+                    if end_time > max_track_duration:
+                        end_time = max_track_duration
+                        start_time = max(0.0, end_time - duration)
+                        duration = end_time - start_time
+            else:
+                if duration is None:
+                    duration = max_track_duration
+                
+                # Enforce duration limit
+                if duration > VIDEO_DURATION_LIMIT:
+                    duration = VIDEO_DURATION_LIMIT
+                
+                start_time = 0.0
+                end_time = duration
+                if end_time > max_track_duration:
+                    end_time = max_track_duration
+                    duration = end_time - start_time
             
             result = {
                 'success': True,

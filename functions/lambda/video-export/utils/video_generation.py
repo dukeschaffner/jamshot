@@ -4,7 +4,7 @@ import tempfile
 from typing import List, Optional, Callable
 from moviepy import ImageSequenceClip, AudioFileClip, CompositeVideoClip
 
-from utils.config import VIDEO_FPS, VIDEO_CODEC, VIDEO_BITRATE
+from utils.config import VIDEO_FPS, VIDEO_CODEC, VIDEO_BITRATE, VIDEO_DURATION_LIMIT
 from utils.models import TrackData
 from utils.frame_generation import FrameGenerationModule
 
@@ -67,16 +67,38 @@ class VideoGenerationModule:
                 raise ValueError(f"start_time must be >= 0, got {start_time}")
             if end_time <= start_time:
                 raise ValueError(f"end_time must be > start_time, got start_time={start_time}, end_time={end_time}")
+            
+            # Clamp end_time to max_track_duration if it exceeds it
             if end_time > max_track_duration:
-                raise ValueError(f"end_time ({end_time}) exceeds track duration ({max_track_duration})")
+                end_time = max_track_duration
             
             duration = end_time - start_time
+            
+            # Enforce duration limit
+            if duration > VIDEO_DURATION_LIMIT:
+                # Clamp duration to limit and adjust end_time accordingly
+                duration = VIDEO_DURATION_LIMIT
+                end_time = start_time + duration
+                # Ensure end_time doesn't exceed max_track_duration
+                if end_time > max_track_duration:
+                    end_time = max_track_duration
+                    start_time = max(0.0, end_time - duration)
+                    duration = end_time - start_time
         else:
             # Use duration parameter or default to max track duration
             if duration is None:
                 duration = max_track_duration
             start_time = 0.0
             end_time = duration
+            
+            # Enforce duration limit
+            if duration > VIDEO_DURATION_LIMIT:
+                duration = VIDEO_DURATION_LIMIT
+                end_time = duration
+                # Ensure end_time doesn't exceed max_track_duration
+                if end_time > max_track_duration:
+                    end_time = max_track_duration
+                    duration = end_time - start_time
         
         print(f"🎬 Generating video: {duration:.2f}s @ {self.fps} FPS")
         print(f"⏱️  Time range: {start_time:.2f}s - {end_time:.2f}s")
