@@ -35,6 +35,8 @@ class VideoGenerationModule:
                       tracks: List[TrackData], 
                       output_path: str,
                       duration: Optional[float] = None,
+                      start_time: Optional[float] = None,
+                      end_time: Optional[float] = None,
                       progress_callback: Optional[Callable[[int, int], None]] = None) -> str:
         """
         Generate a full video from tracks
@@ -42,17 +44,42 @@ class VideoGenerationModule:
         Args:
             tracks: List of TrackData objects
             output_path: Path where video will be saved
-            duration: Video duration in seconds (defaults to longest track duration)
+            duration: Video duration in seconds (defaults to longest track duration, ignored if start_time/end_time provided)
+            start_time: Start timestamp in seconds (defaults to 0)
+            end_time: End timestamp in seconds (defaults to track duration)
             progress_callback: Optional callback function(current_frame, total_frames)
         
         Returns:
             Path to the generated video file
         """
-        # Determine video duration (use longest track duration if not specified)
-        if duration is None:
-            duration = max((track.duration for track in tracks), default=30.0)
+        # Determine video duration and time range
+        max_track_duration = max((track.duration for track in tracks), default=30.0)
+        
+        # If start_time or end_time are provided, use them to calculate duration
+        if start_time is not None or end_time is not None:
+            if start_time is None:
+                start_time = 0.0
+            if end_time is None:
+                end_time = max_track_duration
+            
+            # Validate time range
+            if start_time < 0:
+                raise ValueError(f"start_time must be >= 0, got {start_time}")
+            if end_time <= start_time:
+                raise ValueError(f"end_time must be > start_time, got start_time={start_time}, end_time={end_time}")
+            if end_time > max_track_duration:
+                raise ValueError(f"end_time ({end_time}) exceeds track duration ({max_track_duration})")
+            
+            duration = end_time - start_time
+        else:
+            # Use duration parameter or default to max track duration
+            if duration is None:
+                duration = max_track_duration
+            start_time = 0.0
+            end_time = duration
         
         print(f"🎬 Generating video: {duration:.2f}s @ {self.fps} FPS")
+        print(f"⏱️  Time range: {start_time:.2f}s - {end_time:.2f}s")
         print(f"📊 Total frames: {int(duration * self.fps)}")
         
         # Create temporary directory for frames
@@ -65,14 +92,17 @@ class VideoGenerationModule:
             frame_interval = duration / total_frames if total_frames > 0 else 0.1
             
             for frame_num in range(total_frames):
-                playback_time = frame_num * frame_interval
+                # Calculate relative playback time within the video (0 to duration)
+                relative_playback_time = frame_num * frame_interval
+                # Calculate absolute playback time for waveform rendering (start_time to end_time)
+                absolute_playback_time = start_time + relative_playback_time
                 
                 # Generate frame at this playback time
                 frame_path = os.path.join(frame_dir, f"frame_{frame_num:06d}.png")
                 self.frame_generator.generate_frame(
                     tracks, 
                     save_path=frame_path,
-                    playback_time=playback_time,
+                    playback_time=absolute_playback_time,
                     verbose=False  # Suppress per-frame messages during video generation
                 )
                 frame_paths.append(frame_path)
@@ -100,6 +130,31 @@ class VideoGenerationModule:
             # Load audio file first - blocking operation, will raise exception on failure
             print(f"🎵 Loading audio from {leaf_track.audio_file_path}")
             audio_clip = AudioFileClip(leaf_track.audio_file_path)
+            
+            # Trim audio to the specified time range if needed
+            # Use a small tolerance to handle floating point precision issues
+            duration_tolerance = 0.1  # 100ms tolerance
+            needs_trimming = (start_time > duration_tolerance or 
+                            abs(end_time - audio_clip.duration) > duration_tolerance)
+            
+            if needs_trimming:
+                try:
+                    # Trim audio to the specified range
+                    audio_clip = audio_clip.subclip(start_time, end_time)
+                    print(f"🎵 Trimmed audio to time range: {start_time:.2f}s - {end_time:.2f}s")
+                except (AttributeError, TypeError):
+                    # If subclip doesn't work, try subclipped (some MoviePy versions)
+                    try:
+                        audio_clip = audio_clip.subclipped(start_time, end_time)
+                        print(f"🎵 Trimmed audio to time range: {start_time:.2f}s - {end_time:.2f}s")
+                    except (AttributeError, TypeError):
+                        # If neither works, use set_start and set_duration
+                        try:
+                            audio_clip = audio_clip.set_start(start_time).set_duration(duration)
+                            print(f"🎵 Set audio start to {start_time:.2f}s and duration to {duration:.2f}s")
+                        except (AttributeError, TypeError):
+                            # Last resort: just log a warning
+                            print(f"⚠️  Could not trim audio clip, using full audio")
             
             # Create video from frame sequence
             video_clip = ImageSequenceClip(frame_paths, fps=self.fps)
