@@ -33,6 +33,7 @@ SECONDARY_TEXT_COLOR = (153, 153, 153)
 VIDEO_FPS = 30
 VIDEO_CODEC = 'libx264'
 VIDEO_BITRATE = '5000k'
+VIDEO_DURATION_LIMIT = 90.0  # Maximum video duration in seconds
 
 # Database connection pool
 db_pool = None
