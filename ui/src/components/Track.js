@@ -8,7 +8,7 @@ import LoadingSpinner from './LoadingSpinner';
 import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen, FaFileArchive } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen, FaFileArchive, FaVideo } from 'react-icons/fa';
 import JSZip from 'jszip';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
@@ -20,6 +20,8 @@ import { useToast } from '../lib/ToastContext';
 import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
 import MoveTrackModal from './teams/MoveTrackModal';
 import TrackTags from './TrackTags';
+import VideoExportModal from './VideoExportModal';
+import VideoExportStatusModal from './VideoExportStatusModal';
 export default function Track(
     { track, 
       allTracks, 
@@ -55,6 +57,9 @@ export default function Track(
   const [moveModalType, setMoveModalType] = useState(null); // 'folder' or 'room'
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [isExportingStems, setIsExportingStems] = useState(false);
+  const [showVideoExportModal, setShowVideoExportModal] = useState(false);
+  const [showVideoExportStatusModal, setShowVideoExportStatusModal] = useState(false);
+  const [videoExportId, setVideoExportId] = useState(null);
   const actionsMenuRef = useRef(null);
   const { showSuccess, showError } = useToast();
   const { isFeatureEnabled } = useFeatureFlags();
@@ -540,9 +545,54 @@ export default function Track(
                       <FaFileArchive /> {isExportingStems ? 'Exporting...' : 'Export Stems'}
                     </button>
                   )}
+                  
+                  {/* Generate Video option (only for track creator) */}
+                  {currentUser?.id === track.user_id && (
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowActionsMenu(false);
+                        setShowVideoExportModal(true);
+                      }}
+                    >
+                      <FaVideo /> Generate Video
+                    </button>
+                  )}
                 </div>
               )}
             </div>
+          )}
+          
+          {/* Video Export Modals */}
+          {showVideoExportModal && (
+            <VideoExportModal
+              isOpen={showVideoExportModal}
+              onClose={() => setShowVideoExportModal(false)}
+              track={track}
+              onExportStart={(exportId) => {
+                setVideoExportId(exportId);
+                setShowVideoExportModal(false);
+                setShowVideoExportStatusModal(true);
+              }}
+            />
+          )}
+          
+          {showVideoExportStatusModal && videoExportId && (
+            <VideoExportStatusModal
+              isOpen={showVideoExportStatusModal}
+              onClose={() => {
+                setShowVideoExportStatusModal(false);
+                setVideoExportId(null);
+              }}
+              trackId={track.id}
+              exportId={videoExportId}
+              onRetry={() => {
+                setShowVideoExportStatusModal(false);
+                setVideoExportId(null);
+                setShowVideoExportModal(true);
+              }}
+            />
           )}
           
           {/* Competition view button */}

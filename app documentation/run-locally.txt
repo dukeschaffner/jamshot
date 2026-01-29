@@ -4,6 +4,9 @@ stripe listen --forward-to localhost:5001/api/payments/webhook
 RUNNING AUDIO PROCESSING DEV SERVER: 
 node ./functions/lambda/audio-processing/dev-start.js
 
+RUNNING VIDEO EXPORT DEV SERVER:
+node ./functions/lambda/video-export/dev-start.js
+
 RUNNING EMAIL NOTIFICATIONS LAMBDA LOCALLY:
 node ./functions/lambda/email-notifications/index.js                    # Run based on current date (daily/weekly/monthly schedule)
 node ./functions/lambda/email-notifications/index.js daily              # Force daily emails only

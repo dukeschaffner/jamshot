@@ -6,6 +6,7 @@ import { dirname } from 'path';
 import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
 const __filename = import.meta.url ? fileURLToPath(import.meta.url) : __filename;
@@ -45,6 +46,7 @@ import { getGeolocationData } from '../utils/geolocation.js';
 import { validateCompetitionEntry } from '../utils/competition.js';
 import { validateTeamAccess, validateTeamFolderAccess } from '../utils/teamUtils.js';
 import { isFeatureEnabled } from '../utils/featureFlags.js';
+import { checkVideoExportLimit } from '../utils/videoExportUtils.js';
 
 /**
  * Sanitizes error messages to prevent exposing detailed server-side errors to clients.
@@ -96,6 +98,11 @@ async function getParser() {
 
 // Initialize EventBridge client for production audio processing triggers
 const eventBridgeClient = new EventBridgeClient({
+  region: process.env.AWS_REGION || 'us-east-2'
+});
+
+// Initialize Lambda client for video export processing
+const lambdaClient = new LambdaClient({
   region: process.env.AWS_REGION || 'us-east-2'
 });
 
@@ -1116,6 +1123,204 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
 
   } catch (err) {
     console.error('Error fetching track status:', err);
+    const sanitizedError = sanitizeErrorForClient(err.message, false);
+    res.status(500).json({ error: sanitizedError });
+  }
+});
+
+// Request video export for a track
+router.post('/:id/video-export', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const { start_time, duration } = req.body;
+
+  try {
+    // Verify user is track creator
+    const trackResult = await pool.query(
+      'SELECT id, user_id, guid, duration FROM tracks WHERE id = $1',
+      [id]
+    );
+
+    if (trackResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+
+    const track = trackResult.rows[0];
+    if (track.user_id !== userId) {
+      return res.status(403).json({ error: 'Only the track creator can export videos' });
+    }
+
+    // Check daily rate limit
+    const limitCheck = await checkVideoExportLimit(userId);
+    if (!limitCheck || !limitCheck.allowed) {
+      return res.status(429).json({
+        error: 'Daily video export limit reached',
+        message: `You've reached the daily limit of ${limitCheck?.limit || 5} video exports. Try again tomorrow.`,
+        count: limitCheck?.count || 0,
+        limit: limitCheck?.limit || 5
+      });
+    }
+
+    // Validate parameters
+    const startTime = start_time !== undefined ? parseFloat(start_time) : 0;
+    const videoDuration = duration !== undefined ? parseFloat(duration) : Math.min(track.duration, 90);
+    
+    if (startTime < 0 || startTime >= track.duration) {
+      return res.status(400).json({ error: 'Invalid start time' });
+    }
+
+    if (videoDuration <= 0 || videoDuration > 90) {
+      return res.status(400).json({ error: 'Duration must be between 0 and 90 seconds' });
+    }
+
+    if (startTime + videoDuration > track.duration) {
+      return res.status(400).json({ error: 'Start time + duration exceeds track duration' });
+    }
+
+    // Create video export record
+    const exportResult = await pool.query(
+      `INSERT INTO video_exports (track_id, user_id, status, start_time, duration)
+       VALUES ($1, $2, 'pending', $3, $4)
+       RETURNING id, track_id, user_id, status, start_time, duration, created_at`,
+      [id, userId, startTime, videoDuration]
+    );
+
+    const exportJob = exportResult.rows[0];
+
+    // Invoke Lambda function asynchronously
+    try {
+      if(process.env.NODE_ENV !== 'dev') { // dev
+        const lambdaFunctionName = 'sterio-video-export' + (process.env.NODE_ENV === 'production' ? '' : '-test');
+        
+        const invokeCommand = new InvokeCommand({
+          FunctionName: lambdaFunctionName,
+          InvocationType: 'Event', // Async invocation
+          Payload: JSON.stringify({
+            export_id: exportJob.id,
+            track_id: id,
+            track_guid: track.guid,
+            start_time: startTime,
+            duration: videoDuration
+          })
+        });
+
+        await lambdaClient.send(invokeCommand);
+      }
+      
+      // Update status to processing
+      await pool.query(
+        'UPDATE video_exports SET status = $1 WHERE id = $2',
+        ['processing', exportJob.id]
+      );
+
+      res.json({
+        export_id: exportJob.id,
+        track_id: id,
+        status: 'processing',
+        start_time: startTime,
+        duration: videoDuration,
+        created_at: exportJob.created_at
+      });
+    } catch (lambdaError) {
+      console.error('Error invoking video export Lambda:', lambdaError);
+      
+      // Update status to failed
+      await pool.query(
+        `UPDATE video_exports SET status = $1, error_message = $2 WHERE id = $3`,
+        ['failed', 'Video export service unavailable. Please try again later.', exportJob.id]
+      );
+
+      return res.status(500).json({
+        error: 'Failed to start video export',
+        message: 'Video export service unavailable. Please try again later.'
+      });
+    }
+
+  } catch (err) {
+    console.error('Error requesting video export:', err);
+    const sanitizedError = sanitizeErrorForClient(err.message, false);
+    res.status(500).json({ error: sanitizedError });
+  }
+});
+
+// Get video export status
+router.get('/:id/video-export/:exportId/status', betterAuthMiddleware, async (req, res) => {
+  const { id, exportId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Verify user owns the export
+    const exportResult = await pool.query(
+      `SELECT id, track_id, user_id, status, video_url, start_time, duration, 
+              error_message, created_at, updated_at
+       FROM video_exports
+       WHERE id = $1 AND track_id = $2 AND user_id = $3`,
+      [exportId, id, userId]
+    );
+
+    if (exportResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Video export not found' });
+    }
+
+    const exportJob = exportResult.rows[0];
+
+    res.json({
+      export_id: exportJob.id,
+      track_id: exportJob.track_id,
+      status: exportJob.status,
+      video_url: exportJob.video_url || null,
+      start_time: exportJob.start_time,
+      duration: exportJob.duration,
+      error_message: exportJob.error_message || null,
+      created_at: exportJob.created_at,
+      updated_at: exportJob.updated_at
+    });
+
+  } catch (err) {
+    console.error('Error fetching video export status:', err);
+    const sanitizedError = sanitizeErrorForClient(err.message, false);
+    res.status(500).json({ error: sanitizedError });
+  }
+});
+
+// Get video export download URL
+router.get('/:id/video-export/:exportId/download', betterAuthMiddleware, async (req, res) => {
+  const { id, exportId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Verify user owns the export and it's completed
+    const exportResult = await pool.query(
+      `SELECT id, track_id, user_id, status, video_url
+       FROM video_exports
+       WHERE id = $1 AND track_id = $2 AND user_id = $3`,
+      [exportId, id, userId]
+    );
+
+    if (exportResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Video export not found' });
+    }
+
+    const exportJob = exportResult.rows[0];
+
+    if (exportJob.status !== 'completed') {
+      return res.status(400).json({ 
+        error: 'Video export not completed',
+        status: exportJob.status
+      });
+    }
+
+    if (!exportJob.video_url) {
+      return res.status(404).json({ error: 'Video URL not available' });
+    }
+
+    // Return the video URL (R2 public URL)
+    res.json({
+      download_url: exportJob.video_url
+    });
+
+  } catch (err) {
+    console.error('Error fetching video export download:', err);
     const sanitizedError = sanitizeErrorForClient(err.message, false);
     res.status(500).json({ error: sanitizedError });
   }
