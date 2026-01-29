@@ -1,32 +1,13 @@
-track video export:
-- were going to workshop a track collab video export functionality
-- start with a jupyter notebook for rapid testing
-- code must be modular and reusable because once I confirm it's working as expected, I will be moving it to a lambda function
 
 
-requirements:
-phase 1:
-- accepts track id and optionally a flag to save files locally to a dir instead of r2
-- data collection module:
-    - fetches track tree from database getting these fields from each track:
-        - id
-        - title
-        - stem peaks url
-        - duration
-        - user_id
-        - username
-        - profile_pic_url
-    - for the leaf track (the track given as input) also get the combined audio url and the mix_gains
-    - download peaks json data from r2 (note that all peaks will have resolution 256). add the peaks data to the appropriate track object
-    - download profile pics from r2 and add to the appropriate track object (either in memory or in a local temp dir, whatever is best)
-
-- Placeholder peaks processing module:
-    - for now just accept list of track objects and return as is (later, we will be modifying the peaks data to handle applying edits, gains, etc)
-
-- PIL frame generation module:
-    - accepts list of track objects
-    - generates frame with a vertical stack of tracks, each having soundcloud style waveform visualization based on the peaks data with user profile pic, name, and track title
-
-that's it for phase 1. we will be adding more features in phase 2. i just need to confirm the image/frame generation is working as expected.
-
-
+- user can export a track video for a track that they made
+    - add generate video button to track ellipsis menu if user is the creator of the track
+        - shows confirmation modal with start time and durationoptions
+            - prefill duration to track duration if track is shorter than 90s or less, otherwise prefill to 90s
+    - limit users to 5 video exports per day
+    - video must be saved to r2 (videos/track guid.mp4)
+    - generation must be async. once valid video export is requested, show a modal with status indicator. 
+        - once status is success, show a download button
+        - once status is error, show a button to retry the export
+        - if status doesnt change to error or success after 2 min, show error status and retry button
+        - make sure error messages are user friendly (dont show technical details)

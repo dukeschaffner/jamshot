@@ -1,0 +1,206 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.dialog {
+  background: var(--background);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+  border: 1px solid var(--grey-2);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+body.dark-mode .dialog {
+  border-color: var(--dark-border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.statusContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statusIcon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+body.dark-mode .title {
+  color: var(--dark-text-primary);
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.closeButton:hover {
+  color: var(--text-primary);
+}
+
+body.dark-mode .closeButton {
+  color: var(--dark-text-secondary);
+}
+
+body.dark-mode .closeButton:hover {
+  color: var(--dark-text-primary);
+}
+
+.content {
+  margin-bottom: 24px;
+}
+
+.statusMessage {
+  font-size: 16px;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  font-weight: 500;
+}
+
+body.dark-mode .statusMessage {
+  color: var(--dark-text-primary);
+}
+
+.progressInfo {
+  padding: 12px;
+  background: var(--grey-1);
+  border-radius: 8px;
+}
+
+body.dark-mode .progressInfo {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.progressText {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+body.dark-mode .progressText {
+  color: var(--dark-text-secondary);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.downloadButton {
+  background: var(--seafoam);
+  color: var(--s2);
+}
+
+.downloadButton:hover {
+  background: var(--seafoam-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
+.retryButton {
+  background: var(--rustic-pink);
+  color: white;
+}
+
+.retryButton:hover {
+  background: var(--rustic-pink-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(233, 169, 161, 0.3);
+}
+
+.closeButtonAction {
+  background: var(--grey-1);
+  color: var(--text-primary);
+}
+
+.closeButtonAction:hover {
+  background: var(--grey-2);
+}
+
+body.dark-mode .closeButtonAction {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--dark-text-primary);
+}
+
+body.dark-mode .closeButtonAction:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+@media (max-width: 768px) {
+  .dialog {
+    padding: 20px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
