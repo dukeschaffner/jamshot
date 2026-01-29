@@ -6,7 +6,7 @@ import tempfile
 from typing import List, Optional, Union
 from psycopg2.extras import RealDictCursor
 
-from utils.config import get_db_connection, db_pool, R2_PUBLIC_URL
+from utils.config import get_db_connection, db_pool, R2_PUBLIC_URL, get_temp_dir
 from utils.models import TrackData
 
 
@@ -177,9 +177,10 @@ class DataCollectionModule:
         if not track.combined_audio_url:
             raise ValueError(f"No audio URL for track {track.id} ({track.title})")
         
-        # Create temporary directory if not provided
+        # Create temporary directory if not provided - use Lambda temp directory if in Lambda
         if output_dir is None:
-            output_dir = tempfile.mkdtemp(prefix="audio_download_")
+            temp_base = get_temp_dir()
+            output_dir = tempfile.mkdtemp(dir=temp_base, prefix="audio_download_")
         
         # Determine file extension from URL or default to .mp3
         audio_url = track.combined_audio_url

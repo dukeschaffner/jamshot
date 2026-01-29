@@ -8,7 +8,7 @@ from utils.peaks_processing import PeaksProcessingModule
 from utils.frame_generation import FrameGenerationModule
 from utils.video_generation import VideoGenerationModule
 from utils.models import TrackData
-from utils.config import VIDEO_DURATION_LIMIT
+from utils.config import VIDEO_DURATION_LIMIT, get_temp_dir
 
 
 class VideoExportPipeline:
@@ -16,7 +16,12 @@ class VideoExportPipeline:
     
     def __init__(self, save_locally: bool = False, local_dir: Optional[str] = None):
         self.save_locally = save_locally
-        self.local_dir = local_dir or tempfile.mkdtemp()
+        # Use Lambda temp directory if in Lambda, otherwise use system temp
+        if local_dir:
+            self.local_dir = local_dir
+        else:
+            temp_base = get_temp_dir()
+            self.local_dir = tempfile.mkdtemp(dir=temp_base, prefix="video_export_")
         
         # Initialize modules (no API URL needed anymore)
         self.data_collector = DataCollectionModule()
@@ -121,7 +126,9 @@ class VideoExportPipeline:
             if self.save_locally:
                 output_path = os.path.join(self.local_dir, f"track_{track_id}_video.mp4")
             else:
-                output_path = os.path.join(tempfile.gettempdir(), f"track_{track_id}_video.mp4")
+                # Use Lambda temp directory if in Lambda
+                temp_base = get_temp_dir()
+                output_path = os.path.join(temp_base, f"track_{track_id}_video.mp4")
             
             video_path = self.video_generator.generate_video(
                 processed_tracks,

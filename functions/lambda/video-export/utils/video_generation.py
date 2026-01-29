@@ -4,7 +4,7 @@ import tempfile
 from typing import List, Optional, Callable
 from moviepy import ImageSequenceClip, AudioFileClip, CompositeVideoClip
 
-from utils.config import VIDEO_FPS, VIDEO_CODEC, VIDEO_BITRATE, VIDEO_DURATION_LIMIT
+from utils.config import VIDEO_FPS, VIDEO_CODEC, VIDEO_BITRATE, VIDEO_DURATION_LIMIT, get_temp_dir
 from utils.models import TrackData
 from utils.frame_generation import FrameGenerationModule
 
@@ -104,8 +104,9 @@ class VideoGenerationModule:
         print(f"⏱️  Time range: {start_time:.2f}s - {end_time:.2f}s")
         print(f"📊 Total frames: {int(duration * self.fps)}")
         
-        # Create temporary directory for frames
-        frame_dir = tempfile.mkdtemp(prefix="video_frames_")
+        # Create temporary directory for frames - use Lambda temp directory if in Lambda
+        temp_base = get_temp_dir()
+        frame_dir = tempfile.mkdtemp(dir=temp_base, prefix="video_frames_")
         frame_paths = []
         
         try:
