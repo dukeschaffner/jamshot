@@ -9,6 +9,9 @@ env/
 test_output/
 real_output/
 
+# Package
+package/
+
 # Generated images and videos
 *.png
 *.jpg
