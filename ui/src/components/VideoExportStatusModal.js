@@ -115,21 +115,49 @@ export default function VideoExportStatusModal({
   }, [isOpen, trackId, exportId, pollStatus, stopPolling]);
 
   const handleDownload = async () => {
-    if (!videoUrl) {
-      // Try to get download URL from API
+    let finalUrl = videoUrl;
+    
+    // If no videoUrl, try to get download URL from API
+    if (!finalUrl) {
       try {
         const response = await trackApi.getVideoExportDownload(trackId, exportId);
-        const downloadUrl = response.data.download_url;
-        window.open(downloadUrl, '_blank');
+        finalUrl = response.data.download_url;
       } catch (err) {
         console.error('Error getting download URL:', err);
-        // Fallback to video_url if available
-        if (videoUrl) {
-          window.open(videoUrl, '_blank');
-        }
+        return;
       }
-    } else {
-      window.open(videoUrl, '_blank');
+    }
+    
+    if (!finalUrl) {
+      console.error('No download URL available');
+      return;
+    }
+
+    try {
+      // Fetch the video file as a blob
+      const response = await fetch(finalUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch video');
+      }
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and trigger download
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `video-export-${trackId}-${exportId}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Error downloading video:', err);
+      // Fallback to opening in new tab if download fails
+      window.open(finalUrl, '_blank');
     }
   };
 
@@ -177,7 +205,10 @@ export default function VideoExportStatusModal({
         }
       }}
     >
-      <div className={styles.dialog}>
+      <div 
+        className={styles.dialog}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.header}>
           <div className={styles.statusContainer}>
             {getStatusIcon()}

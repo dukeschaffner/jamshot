@@ -997,7 +997,7 @@ router.get('/:id/related', async (req, res) => {
     // Only include the parent track and current track on the first page
     let combinedTracks = [];
 
-    if (parseInt(page) === 1 && includeParent === 'true') {
+    if (parseInt(page) === 1 && includeParent === true) {
       // First, get the parent track if it exists
       let parentTrackQuery = `
         SELECT

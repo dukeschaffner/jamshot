@@ -20,6 +20,7 @@
   width: 100%;
   border: 1px solid var(--grey-2);
   box-shadow: 0 8px 24px var(--shadow);
+  cursor: default;
 }
 
 body.dark-mode .dialog {
@@ -32,6 +33,7 @@ body.dark-mode .dialog {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+  cursor: default;
 }
 
 .statusContainer {
@@ -63,6 +65,7 @@ body.dark-mode .dialog {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  cursor: default;
 }
 
 body.dark-mode .title {
@@ -96,6 +99,7 @@ body.dark-mode .closeButton:hover {
 
 .content {
   margin-bottom: 24px;
+  cursor: default;
 }
 
 .statusMessage {
@@ -103,6 +107,7 @@ body.dark-mode .closeButton:hover {
   color: var(--text-primary);
   margin: 0 0 16px 0;
   font-weight: 500;
+  cursor: default;
 }
 
 body.dark-mode .statusMessage {
@@ -113,6 +118,7 @@ body.dark-mode .statusMessage {
   padding: 12px;
   background: var(--grey-1);
   border-radius: 8px;
+  cursor: default;
 }
 
 body.dark-mode .progressInfo {
@@ -123,6 +129,7 @@ body.dark-mode .progressInfo {
   font-size: 14px;
   color: var(--text-secondary);
   margin: 0;
+  cursor: default;
 }
 
 body.dark-mode .progressText {
