@@ -18,12 +18,26 @@ export default function VideoExportStatusModal({
   const pollingTimeoutRef = useRef(null);
   const startTimeRef = useRef(Date.now());
   const pollIntervalRef = useRef(null);
+  const isPollingActiveRef = useRef(false); // Track if polling should continue
 
   const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
   const POLL_INTERVAL_MS = 3000; // 3 seconds
 
+  const stopPolling = useCallback(() => {
+    isPollingActiveRef.current = false;
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
+    }
+    setIsPolling(false);
+  }, []);
+
   const pollStatus = useCallback(async () => {
-    if (!trackId || !exportId || isPolling) return;
+    if (!trackId || !exportId || !isPollingActiveRef.current || isPolling) return;
 
     try {
       setIsPolling(true);
@@ -34,26 +48,10 @@ export default function VideoExportStatusModal({
       
       if (data.status === 'completed' && data.video_url) {
         setVideoUrl(data.video_url);
-        setIsPolling(false);
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-        if (pollingTimeoutRef.current) {
-          clearTimeout(pollingTimeoutRef.current);
-          pollingTimeoutRef.current = null;
-        }
+        stopPolling();
       } else if (data.status === 'failed') {
         setErrorMessage(data.error_message || 'Video generation failed. Please try again.');
-        setIsPolling(false);
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-        if (pollingTimeoutRef.current) {
-          clearTimeout(pollingTimeoutRef.current);
-          pollingTimeoutRef.current = null;
-        }
+        stopPolling();
       } else {
         // Still processing, continue polling
         setIsPolling(false);
@@ -63,7 +61,7 @@ export default function VideoExportStatusModal({
       setIsPolling(false);
       // Don't stop polling on error, might be temporary
     }
-  }, [trackId, exportId, isPolling]);
+  }, [trackId, exportId, stopPolling]);
 
   // Start polling when modal opens
   useEffect(() => {
@@ -72,29 +70,34 @@ export default function VideoExportStatusModal({
       setStatus('processing');
       setVideoUrl(null);
       setErrorMessage(null);
+      isPollingActiveRef.current = true;
 
       // Start polling immediately
       pollStatus();
 
       // Set up polling interval
       pollIntervalRef.current = setInterval(() => {
-        pollStatus();
+        if (isPollingActiveRef.current) {
+          pollStatus();
+        }
       }, POLL_INTERVAL_MS);
 
       // Set up timeout
       pollingTimeoutRef.current = setTimeout(() => {
-        if (status === 'processing' || status === 'pending') {
-          setStatus('failed');
-          setErrorMessage('Video generation timed out after 2 minutes. Please try again.');
-          setIsPolling(false);
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
+        if (isPollingActiveRef.current) {
+          setStatus((currentStatus) => {
+            if (currentStatus === 'processing' || currentStatus === 'pending') {
+              setErrorMessage('Video generation timed out after 2 minutes. Please try again.');
+              stopPolling();
+              return 'failed';
+            }
+            return currentStatus;
+          });
         }
       }, TIMEOUT_MS);
 
       return () => {
+        isPollingActiveRef.current = false;
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
@@ -104,8 +107,12 @@ export default function VideoExportStatusModal({
           pollingTimeoutRef.current = null;
         }
       };
+    } else {
+      // Modal closed, stop polling
+      isPollingActiveRef.current = false;
+      stopPolling();
     }
-  }, [isOpen, trackId, exportId, pollStatus, status]);
+  }, [isOpen, trackId, exportId, pollStatus, stopPolling]);
 
   const handleDownload = async () => {
     if (!videoUrl) {
@@ -134,14 +141,8 @@ export default function VideoExportStatusModal({
   };
 
   const handleClose = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-    if (pollingTimeoutRef.current) {
-      clearTimeout(pollingTimeoutRef.current);
-      pollingTimeoutRef.current = null;
-    }
+    isPollingActiveRef.current = false;
+    stopPolling();
     onClose();
   };
 
