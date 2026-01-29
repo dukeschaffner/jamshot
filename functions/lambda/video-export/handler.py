@@ -33,6 +33,10 @@ def get_user_friendly_error(error_message: str) -> str:
         return "Video generation failed. Please try again."
     elif 'not found' in error_lower:
         return "Track not found. Please try again."
+    elif 'disk' in error_lower or 'space' in error_lower or 'no space' in error_lower:
+        return "Video export failed due to insufficient resources. Please try again."
+    elif 'timeout' in error_lower or 'timed out' in error_lower:
+        return "Video export timed out. Please try again with a shorter duration."
     else:
         return "Video generation failed. Please try again."
 
@@ -99,6 +103,10 @@ def upload_video_to_r2(local_path: str, track_guid: str) -> str:
 def handler(event=None, context=None):
     """AWS Lambda handler for video export"""
     print("🎬 Video Export Lambda Started")
+    
+    # Log Lambda context information if available
+    if context:
+        print(f"Lambda Context: Function={context.function_name}, RemainingTime={context.get_remaining_time_in_millis() if hasattr(context, 'get_remaining_time_in_millis') else 'N/A'}ms")
     
     # Support both Lambda event and direct execution with environment variables
     if event is None:

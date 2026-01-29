@@ -3,8 +3,10 @@ import os
 import psycopg2.pool
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (only if not in Lambda)
+# Lambda provides env vars directly, so we don't need to load .env file
+if not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+    load_dotenv()
 
 # Database configuration from environment variables
 DB_HOST = os.getenv('DB_HOST', 'localhost')
@@ -37,6 +39,20 @@ VIDEO_DURATION_LIMIT = 90.0  # Maximum video duration in seconds
 
 # Database connection pool
 db_pool = None
+
+
+def is_lambda_environment():
+    """Check if running in AWS Lambda environment"""
+    return bool(os.getenv('AWS_LAMBDA_FUNCTION_NAME'))
+
+
+def get_temp_dir():
+    """Get temporary directory path - use /tmp in Lambda, system temp otherwise"""
+    if is_lambda_environment():
+        return '/tmp'
+    # Use system temp directory (tempfile.gettempdir() handles cross-platform)
+    import tempfile
+    return tempfile.gettempdir()
 
 
 def get_db_connection():
