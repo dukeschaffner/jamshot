@@ -84,7 +84,10 @@ export default function VideoExportModal({
         }
       }}
     >
-      <div className={styles.dialog}>
+      <div 
+        className={styles.dialog}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.header}>
           <FaVideo className={styles.icon} />
           <h2 className={styles.title}>Generate Video</h2>

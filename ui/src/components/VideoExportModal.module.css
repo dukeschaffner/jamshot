@@ -20,6 +20,7 @@
   width: 100%;
   border: 1px solid var(--grey-2);
   box-shadow: 0 8px 24px var(--shadow);
+  cursor: default;
 }
 
 body.dark-mode .dialog {
@@ -32,6 +33,7 @@ body.dark-mode .dialog {
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
+  cursor: default;
 }
 
 .icon {
@@ -45,6 +47,7 @@ body.dark-mode .dialog {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  cursor: default;
 }
 
 body.dark-mode .title {
@@ -53,6 +56,7 @@ body.dark-mode .title {
 
 .content {
   margin-bottom: 24px;
+  cursor: default;
 }
 
 .description {
@@ -60,6 +64,7 @@ body.dark-mode .title {
   color: var(--text-secondary);
   margin: 0 0 20px 0;
   line-height: 1.5;
+  cursor: default;
 }
 
 body.dark-mode .description {
@@ -74,6 +79,7 @@ body.dark-mode .description {
   margin-bottom: 20px;
   color: #dc2626;
   font-size: 14px;
+  cursor: default;
 }
 
 body.dark-mode .error {
@@ -98,6 +104,7 @@ body.dark-mode .error {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+  cursor: default;
 }
 
 body.dark-mode .label {
@@ -112,6 +119,7 @@ body.dark-mode .label {
   background: var(--background);
   color: var(--text-primary);
   transition: border-color 0.2s ease;
+  cursor: text;
 }
 
 body.dark-mode .input {
@@ -133,6 +141,7 @@ body.dark-mode .input {
 .hint {
   font-size: 12px;
   color: var(--text-secondary);
+  cursor: default;
 }
 
 body.dark-mode .hint {
@@ -147,6 +156,7 @@ body.dark-mode .hint {
   background: var(--grey-1);
   border-radius: 8px;
   font-size: 14px;
+  cursor: default;
 }
 
 body.dark-mode .trackInfo {
