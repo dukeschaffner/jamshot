@@ -27,13 +27,14 @@ router.post('/', contentCreationLimiter, async (req, res) => {
   }
 
   // Validate product version
-  const validVersions = ['10_users', '25_users', '50_users', '100_users'];
+  const validVersions = ['5_users', '10_users', '25_users', '50_users', '100_users'];
   if (!validVersions.includes(product_version)) {
     return res.status(400).json({ error: 'Invalid product version' });
   }
 
   // Set pricing based on product version
   const pricing = {
+    '5_users': { amount: 2900, name: 'Songwriting Camp (Up to 5 users)' },
     '10_users': { amount: 4900, name: 'Songwriting Camp (Up to 10 users)' },
     '25_users': { amount: 9900, name: 'Songwriting Camp (Up to 25 users)' },
     '50_users': { amount: 19900, name: 'Songwriting Camp (Up to 50 users)' },

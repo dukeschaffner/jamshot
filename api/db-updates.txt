@@ -234,3 +234,17 @@ CREATE TRIGGER update_video_export_timestamp
 BEFORE UPDATE ON video_exports
 FOR EACH ROW
 EXECUTE FUNCTION update_video_export_timestamp();
+
+-- Migration: Add 5_users option to teams and camps product_version
+-- Date: 2026-01-XX
+-- Adds support for 5 user plans in addition to existing 10, 25, 50, 100 user plans
+
+-- Update teams table CHECK constraint
+ALTER TABLE teams DROP CONSTRAINT IF EXISTS teams_product_version_check;
+ALTER TABLE teams ADD CONSTRAINT teams_product_version_check 
+  CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users', 'enterprise'));
+
+-- Update camps table CHECK constraint
+ALTER TABLE camps DROP CONSTRAINT IF EXISTS camps_product_version_check;
+ALTER TABLE camps ADD CONSTRAINT camps_product_version_check 
+  CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users'));
