@@ -22,13 +22,27 @@ function CreateCampClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showLargerOptions, setShowLargerOptions] = useState(false);
 
   // Pricing information
   const pricing = {
+    '5_users': { name: 'Up to 5 Users', price: '$29', description: 'Small groups, intimate sessions' },
     '10_users': { name: 'Up to 10 Users', price: '$49', description: 'Indie-friendly; low-friction' },
     '25_users': { name: 'Up to 25 Users', price: '$99', description: 'School programs, indie pro camps' },
     '50_users': { name: 'Up to 50 Users', price: '$199', description: 'Publisher/label camps' },
     '100_users': { name: 'Up to 100 Users', price: '$299', description: 'Large enterprise writing retreats' }
+  };
+
+  // Separate pricing into default (5, 10, 25) and larger (50, 100)
+  const defaultPricing = {
+    '5_users': pricing['5_users'],
+    '10_users': pricing['10_users'],
+    '25_users': pricing['25_users']
+  };
+
+  const largerPricing = {
+    '50_users': pricing['50_users'],
+    '100_users': pricing['100_users']
   };
 
   useEffect(() => {
@@ -45,6 +59,13 @@ function CreateCampClient() {
       start_date: tomorrow.toISOString().split('T')[0]
     }));
   }, [isAuthenticated, router]);
+
+  // Show larger options if a larger plan is selected
+  useEffect(() => {
+    if (formData.product_version === '50_users' || formData.product_version === '100_users') {
+      setShowLargerOptions(true);
+    }
+  }, [formData.product_version]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -178,7 +199,27 @@ function CreateCampClient() {
             </h3>
 
             <div className={sharedStyles.pricingOptions}>
-              {Object.entries(pricing).map(([version, info]) => (
+              {Object.entries(defaultPricing).map(([version, info]) => (
+                <label key={version} className={sharedStyles.pricingOption}>
+                  <input
+                    type="radio"
+                    name="product_version"
+                    value={version}
+                    checked={formData.product_version === version}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
+                  <div className={sharedStyles.pricingCard}>
+                    <div className={sharedStyles.pricingHeader}>
+                      <h4>{info.name}</h4>
+                      <span className={sharedStyles.price}>{info.price}</span>
+                    </div>
+                    <p className={sharedStyles.pricingDescription}>{info.description}</p>
+                  </div>
+                </label>
+              ))}
+              
+              {showLargerOptions && Object.entries(largerPricing).map(([version, info]) => (
                 <label key={version} className={sharedStyles.pricingOption}>
                   <input
                     type="radio"
@@ -198,6 +239,24 @@ function CreateCampClient() {
                 </label>
               ))}
             </div>
+            
+            {!showLargerOptions && Object.keys(largerPricing).length > 0 && (
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLargerOptions(true)}
+                  className={sharedStyles.cancelButton}
+                  style={{ 
+                    background: 'transparent', 
+                    border: '1px solid var(--border-color)', 
+                    color: 'var(--text-primary)',
+                    padding: '0.5rem 1rem'
+                  }}
+                >
+                  Need a larger team?
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Payment Preview */}

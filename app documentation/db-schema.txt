@@ -784,7 +784,7 @@ CREATE TABLE teams (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   created_by INT REFERENCES users(id) ON DELETE SET NULL NOT NULL,
-  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('10_users', '25_users', '50_users', '100_users', 'enterprise')),
+  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users', 'enterprise')),
   stripe_subscription_id VARCHAR(255), -- Stripe subscription ID for recurring billing
   stripe_customer_id VARCHAR(255), -- Stripe customer ID
   subscription_status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (subscription_status IN ('active', 'canceled', 'past_due', 'unpaid', 'trialing')),
@@ -873,7 +873,7 @@ CREATE TABLE camps (
   start_date TIMESTAMP NOT NULL,
   end_date TIMESTAMP NOT NULL,
   created_by INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('10_users', '25_users', '50_users', '100_users')),
+  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users')),
   stripe_payment_id VARCHAR(255),
   camp_code VARCHAR(64) UNIQUE NOT NULL, -- For invite links
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
