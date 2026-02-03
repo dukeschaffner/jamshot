@@ -3,7 +3,6 @@ TODO (MVP)
 before launch:
 - video export with waveform viz, showing user profile pics, names, watermark, etc
 - post upload screen (or toast message)with option to copy track link or export video
-- add 5 user team/camp option
 - intro video use downloaded video after streaming through once
 - dont show audio processing specific error to users
 - make sure mic stream closes when user navigates away from the page

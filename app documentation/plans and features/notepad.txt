@@ -20,11 +20,60 @@
     - confidence tiers/allow varying token amounts for bets?
 
 
-- loop listening mode
-    - track which tracks/collabs are "loops" - a loop is a track that is one or more loops (an even number of measures/bars) and if it's a collab, the original track region must not have been modified.
+loop listening mode
+- track which tracks/collabs are "loops" - a loop is a track that is one or more loops (an even multiple of measures/bars)
+    - for now, I can just manually mark track as loop in the db
+- tracks that have loop listening mode enabled will disable arrangement features in the DAW when collabing. this preserves the loop integrity/timing.
+- on the track tree page, users can listen in loop listening mode
     - this mode cycles through all the loop tracks in such a way that it sounds like a continuous loop/song.
-    - this can be done in the tree view where each track is a circle node in the tree graph
-    - really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
+- this can be done in the tree view where each track is a circle node in the tree graph
+- algorithmically navigates the tree, playing the tracks
+    - this naturally adds/removes/changes layers of the loop so the song/audio is always evolving
+    - users can also queue a track to play at the end of the current loop
+    - users can cycle a track so that it keeps playing
+- really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
+    - also potentially good for hip hop, lofi, trap, etc.
+
+Sterio loop listening mode stream
+- weekly event with guest hosts
+- hosts: me, Chris (digital marketing/content creator), Rob $tone or guest influencer host
+- root track: 
+    - posted 1 week before event (not public)
+    - ensure at least 10-15 tracks seeded before event
+        - monetize early access (VIP participation - $10 to get access before event to get your collab posted before the event)
+            - VIP tiers: early access $5, early access + guaranteed listen on stream $10
+        - if not enough tracks posted, have people do it for free with access code
+- this generates free content:
+    - "30 people collab on song in 1 hour" video
+    - clips from the stream (Rob reacting to collabs or writing a part, etc)
+- try to get sponsors for the event
+- A stream:
+    - me, Chris, and influencer host curating the listening and reacting to Chat
+- B stream:
+    - same as A stream, but when one of us gets inspiration, B stream follows one of us working on creating a new collab
+- browse the site on stream:
+    - if there's a cool track, go to their page and follow them
+    - briefly browse the feed
+- after the event, the collab tree can be turned into a mix for streaming services
+    - maybe even have a mixing competition: best mix gets shoutout on Rob's socials and sterio and gets posted to streaming services
+- allow users to link their socials to their sterio profile
+
+
+
+
+
+
+
+
+- may need to enable optional save .wav if generating mix for streaming services
+
+
+
+
+
+
+
+
 
 
 - "underrated" feed - low follows, high momentum
