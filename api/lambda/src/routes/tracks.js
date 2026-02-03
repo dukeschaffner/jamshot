@@ -2336,7 +2336,7 @@ router.get('/:id/related-test', async (req, res) => {
       const returnTrackDepth = trackDepth + 1;
 
       const dummyTrack = {
-        id: parseInt(`${returnTrackDepth}0990${i}`), // Fake ID to avoid conflicts
+        id: parseInt(`${returnTrackDepth}${id}${i}`), // Fake ID to avoid conflicts
         guid: `dummy-${i}`,
         user_id: userId || 1,
         title: `Depth ${returnTrackDepth} Track ${i}`,

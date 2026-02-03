@@ -19,11 +19,10 @@ import ColorLegend from './components/ColorLegend';
 import { useAudio } from '../../../lib/AudioContext';
 import { useMobile } from '../../../contexts/MobileContext';
 import { generateHierarchicalTreeNodesAndEdges } from './hierarchicalTreeRenderer';
-import { generateRadialTreeNodesAndEdges, generateRadialSubtreeNodesAndEdges } from './radialTreeRenderer';
 import styles from './TreeView.module.css';
 
 // Configuration constants
-const MAX_NODES_PER_LEVEL = 5;
+const MAX_NODES_PER_LEVEL = 20;
 const MAX_VISIBLE_NODES = 50;
 const MAX_LEVELS = 5;
 
@@ -48,7 +47,6 @@ export default function TrackTreePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedTrackId, setSelectedTrackId] = useState(null);
-  const [rootTrackId, setRootTrackId] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [hoveredNodePosition, setHoveredNodePosition] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -57,8 +55,6 @@ export default function TrackTreePage() {
   const hoverTimeoutRef = useRef(null);
   const isInternalNavigationRef = useRef(false);
   const lastLoadedTrackGuidRef = useRef(null);
-  const initialTreeRenderedRef = useRef(false);
-  const previousSelectedTrackIdRef = useRef(null);
 
   const testMode = true;
 
@@ -167,9 +163,6 @@ const fetchChildren = useCallback(async (parentTrackId) => {
         // Set selected track to the current track (last in array)
         const currentTrack = trackTree[trackTree.length - 1];
 
-        // Set root track id
-        setRootTrackId(trackTree[0].id);
-
         // Fetch children for all tracks in the tree
         const allChildrenData = await Promise.all(
           trackTree.map(track => {
@@ -187,24 +180,6 @@ const fetchChildren = useCallback(async (parentTrackId) => {
             newChildrenData.set(children[0].parent_track_id, children);
           }
         });
-
-        // Ensure parent->child relationships from trackTree are included in childrenData
-        for (let i = 1; i < trackTree.length; i++) {
-          const childTrack = trackTree[i];
-          const parentTrack = trackTree[i - 1];
-          const parentId = parentTrack.id;
-          
-          // Get existing children for this parent, or create new array
-          const existingChildren = newChildrenData.get(parentId) || [];
-          
-          // Check if this child is already in the children array
-          const childExists = existingChildren.some(child => child.id === childTrack.id);
-          
-          if (!childExists) {
-            // Add this child to the parent's children array
-            newChildrenData.set(parentId, [...existingChildren, childTrack]);
-          }
-        }
 
         // Set all state once with the complete data
         setTrackData(newTrackData);
@@ -227,120 +202,166 @@ const fetchChildren = useCallback(async (parentTrackId) => {
   }, [trackId, secret, fetchChildren, trackData]);
 
 
+
+  // Build tree structure: selected track + ancestors + their immediate children
+  const buildTreeStructure = useCallback(() => {
+    if (!selectedTrackId || !trackData.has(selectedTrackId)) return { nodes: [], edges: [], clusterNodes: [] };
+
+    const selectedTrack = trackData.get(selectedTrackId);
+    const structure = {
+      levels: new Map(), // level -> array of trackIds
+      clusterNodes: new Map(), // parentTrackId -> childCount (for unloaded children)
+    };
+
+    // Build ancestor chain
+    const ancestors = [];
+    let current = selectedTrack;
+    while (current && current.parent_track_id) {
+      const parent = trackData.get(current.parent_track_id);
+      if (parent) {
+        ancestors.unshift(parent);
+        current = parent;
+      } else {
+        break;
+      }
+    }
+
+    // Calculate selected track's level (0 = root)
+    const selectedLevel = ancestors.length;
+
+    // Add all tracks to their respective levels
+    // Level 0 = root, Level 1 = first collab, etc.
+    ancestors.forEach((ancestor, index) => {
+      const level = index;
+      if (!structure.levels.has(level)) {
+        structure.levels.set(level, []);
+      }
+      structure.levels.get(level).push(ancestor.id);
+    });
+
+    // Add selected track to its level
+    if (!structure.levels.has(selectedLevel)) {
+      structure.levels.set(selectedLevel, []);
+    }
+    if (!structure.levels.get(selectedLevel).includes(selectedTrackId)) {
+      structure.levels.get(selectedLevel).push(selectedTrackId);
+    }
+
+    // Add children for each ancestor and selected track
+    const allTracksToShow = [...ancestors, selectedTrack];
+    allTracksToShow.forEach(track => {
+      const children = childrenData.get(track.id) || [];
+      const trackLevel = track === selectedTrack ? selectedLevel : ancestors.indexOf(track);
+      const pagination = paginationData.get(track.id);
+
+      if (children.length > 0) {
+        // Children are loaded - show them
+        const childrenToShow = children.slice(0, MAX_NODES_PER_LEVEL);
+
+        childrenToShow.forEach((child) => {
+          const childLevel = trackLevel + 1;
+          if (childLevel <= MAX_LEVELS) {
+            if (!structure.levels.has(childLevel)) {
+              structure.levels.set(childLevel, []);
+            }
+            if (!structure.levels.get(childLevel).includes(child.id)) {
+              structure.levels.get(childLevel).push(child.id);
+
+              // if allTracksToShow doesnt contain the child, add a collab node
+              if(!allTracksToShow.some(t => t.id === child.id)) {
+                if (child.collab_count && child.collab_count > 0) {
+                  console.log('adding collab node', child.id);
+                  structure.clusterNodes.set(`collab-${child.id}`, {
+                    type: 'collab',
+                    count: child.collab_count,
+                    parentId: child.id
+                  });
+                }
+              }
+            }
+          }
+        });
+
+        // Handle cluster nodes based on pagination data
+        if (pagination) {
+          const currentPage = pagination.page;
+          const limit = pagination.limit;
+          const total = pagination.total;
+
+          // Calculate prev page cluster node count
+          const prevPageCount = currentPage > 1 ? (currentPage - 1) * limit : 0;
+          if (prevPageCount > 0) {
+            structure.clusterNodes.set(`prev-${track.id}`, {
+              type: 'prevPage',
+              count: prevPageCount,
+              parentId: track.id
+            });
+          }
+
+          // Calculate next page cluster node count (limited to one page worth)
+          const nextPageCount = Math.min(total - (currentPage * limit), limit);
+          if (nextPageCount > 0) {
+            structure.clusterNodes.set(`next-${track.id}`, {
+              type: 'nextPage',
+              count: nextPageCount,
+              parentId: track.id
+            });
+          }
+        } else {
+          // Fallback: if there are more children than shown, add to cluster nodes
+          const remainingChildren = children.length - MAX_NODES_PER_LEVEL;
+          if (remainingChildren > 0) {
+            structure.clusterNodes.set(track.id, remainingChildren);
+          }
+        }
+      }
+    });
+
+    // Sort tracks at each level by creation date (and ID as fallback) to maintain consistent order
+    // This ensures nodes don't change position when selected
+    structure.levels.forEach((trackIds, level) => {
+      const sorted = [...trackIds].sort((a, b) => {
+        const trackA = trackData.get(a);
+        const trackB = trackData.get(b);
+        if (!trackA || !trackB) return 0;
+        
+        // Sort by creation date first, then by ID for stability
+        const dateA = new Date(trackA.created_at).getTime();
+        const dateB = new Date(trackB.created_at).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        return a - b; // Fallback to ID comparison
+      });
+      structure.levels.set(level, sorted);
+    });
+
+    return structure;
+  }, [selectedTrackId, trackData, childrenData]);
+
   // Generate React Flow nodes and edges from tree structure using hierarchical renderer
   const generateNodesAndEdges = useCallback(() => {
-    if (!rootTrackId || !trackData || !childrenData || !selectedTrackId ) return;
-
-    generateRadialTreeNodesAndEdges({
-      rootTrackId,
+    const structure = buildTreeStructure();
+    generateHierarchicalTreeNodesAndEdges({
+      structure,
       trackData,
-      childrenData,
       selectedTrackId,
       setNodes,
       setEdges,
-      handleNodeClick, handleClusterNodeClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
-    });
-    initialTreeRenderedRef.current = true;
-  }, [rootTrackId, trackData, childrenData, selectedTrackId, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
-
-
-  const generateSubtreeNodesAndEdges = useCallback((node) => {
-    if (!selectedTrackId || !trackData || !childrenData || !previousSelectedTrackIdRef.current) return;
-    const handlers = {
       handleNodeClick,
       handleClusterNodeClick,
       setHoveredTrackId,
       setHoveredNodePosition,
-      hoverTimeoutRef,
-    }
-    generateRadialSubtreeNodesAndEdges({node, trackData, childrenData, selectedTrackId, setNodes, setEdges, handlers});
-  }, [selectedTrackId, trackData, childrenData, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
+      hoverTimeoutRef
+    });
+  }, [buildTreeStructure, trackData, selectedTrackId, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
 
   // Update nodes and edges when data changes
   useEffect(() => {
-    if (selectedTrackId && trackData.size > 0 && !initialTreeRenderedRef.current) {
+    if (selectedTrackId && trackData.size > 0) {
       generateNodesAndEdges();
     }
   }, [selectedTrackId, trackData, childrenData, paginationData, generateNodesAndEdges]);
-
-
-
-
-  // Handle node click
-  const handleNodeClick = useCallback(async (clickedTrackId) => {
-    // Don't do anything if this track is already selected
-    if (clickedTrackId === selectedTrackId) {
-      return;
-    }
-
-    const clickedTrack = trackData.get(clickedTrackId);
-    if (!clickedTrack) {
-      // Track not found, can't proceed
-      return;
-    }
-
-    // Mark this as internal navigation to prevent full reload
-    isInternalNavigationRef.current = true;
-
-    // Update URL without causing navigation/reload
-    const newUrl = `/tree2/${clickedTrack.guid}${secret ? `?secret=${secret}` : ''}`;
-    // Use window.history.pushState to update URL without triggering Next.js navigation/remount
-    window.history.pushState(null, '', newUrl);
-
-    previousSelectedTrackIdRef.current = selectedTrackId;
-
-    // Update selected track immediately
-    setSelectedTrackId(clickedTrackId);
-
-
-  }, [trackData, childrenData, nodes, secret, selectedTrackId, router, fetchChildren, generateSubtreeNodesAndEdges]);
-
-  useEffect(() => {
-    if (!selectedTrackId || !previousSelectedTrackIdRef.current) return;
-
-    const loadChildren = async () => {
-      const newTrackData = new Map(trackData);
-      const newChildrenData = new Map(childrenData);
-      // Fetch children if not already loaded
-      const hasChildren = childrenData.has(selectedTrackId);
-      if (!hasChildren) {
-        const children = await fetchChildren(selectedTrackId);
-        if (children && children.length > 0) {
-          // Store all tracks in trackData
-          
-          children.forEach(child => {
-            newTrackData.set(child.id, child);
-          });
-
-          // Store children in childrenData
-          newChildrenData.set(selectedTrackId, children);
-
-          setTrackData(newTrackData);
-          setChildrenData(newChildrenData);
-        }
-      }
-
-      const node = nodes.find(node => node.id === 'track-' + selectedTrackId);
-      if (node) {
-        const handlers = {
-          handleNodeClick,
-          handleClusterNodeClick,
-          setHoveredTrackId,
-          setHoveredNodePosition,
-          hoverTimeoutRef,
-        }
-        generateRadialSubtreeNodesAndEdges({node, trackData: newTrackData, childrenData: newChildrenData, selectedTrackId, setNodes, setEdges, handlers});
-      }
-    };
-
-    loadChildren();
-  }, [selectedTrackId]);
-
-  useEffect(() => {
-    console.log('nodes', nodes);
-  }, [nodes]);
-
-
 
   // Handle cluster node click (for pagination)
   const handleClusterNodeClick = useCallback(async (type, parentTrackId) => {
@@ -408,10 +429,51 @@ const fetchChildren = useCallback(async (parentTrackId) => {
     }
   }, [childrenData, paginationData, trackData, testMode, api]);
 
+  // Handle node click
+  const handleNodeClick = useCallback(async (clickedTrackId) => {
+    // Don't do anything if this track is already selected
+    if (clickedTrackId === selectedTrackId) {
+      return;
+    }
 
+    const clickedTrack = trackData.get(clickedTrackId);
+    if (!clickedTrack) {
+      // Track not found, can't proceed
+      return;
+    }
 
+    // Mark this as internal navigation to prevent full reload
+    isInternalNavigationRef.current = true;
 
+    // Update URL without causing navigation/reload
+    const newUrl = `/tree2/${clickedTrack.guid}${secret ? `?secret=${secret}` : ''}`;
+    const fullUrl = `${window.location.origin}${newUrl}`;
+    // Use window.history.pushState to update URL without triggering Next.js navigation/remount
+    window.history.pushState(null, '', newUrl);
 
+    // Update selected track immediately
+    setSelectedTrackId(clickedTrackId);
+
+    // Fetch children if not already loaded
+    const hasChildren = childrenData.has(clickedTrackId);
+    if (!hasChildren) {
+      const children = await fetchChildren(clickedTrackId);
+      if (children && children.length > 0) {
+        // Store all tracks in trackData
+        const newTrackData = new Map(trackData);
+        children.forEach(child => {
+          newTrackData.set(child.id, child);
+        });
+
+        // Store children in childrenData
+        const newChildrenData = new Map(childrenData);
+        newChildrenData.set(clickedTrackId, children);
+
+        setTrackData(newTrackData);
+        setChildrenData(newChildrenData);
+      }
+    }
+  }, [trackData, childrenData, secret, selectedTrackId, router, fetchChildren]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
