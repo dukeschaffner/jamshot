@@ -1,13 +1,17 @@
 'use client';
 
 import { memo, useRef } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, useViewport } from 'reactflow';
 import './TrackNode.module.css';
 
 function ClusterNode({ data }) {
   const { childCount, clusterType = 'legacy', onNodeClick, onNodeHover } = data;
   const nodeRef = useRef(null);
-  const size = 45; // Fixed size for all nodes
+  const { zoom } = useViewport();
+  const baseSize = 45; // Base size for nodes at zoom level 1
+  // Reduce scaling effect when zoomed out (zoom < 1), full effect when zoomed in (zoom >= 1)
+  const effectiveZoom = zoom >= 1 ? zoom : 1 + (zoom - 1) * 0.3;
+  const size = baseSize / effectiveZoom;
 
   const handleMouseEnter = () => {
     if (onNodeHover && nodeRef.current) {
@@ -36,13 +40,13 @@ function ClusterNode({ data }) {
         borderRadius: '50%',
         position: 'relative',
         cursor: 'pointer',
-        border: '2px solid var(--grey-3)',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+        border: `${2 / effectiveZoom}px solid var(--grey-3)`,
+        boxShadow: `0 ${2 / effectiveZoom}px ${8 / effectiveZoom}px rgba(0, 0, 0, 0.15)`,
         transition: 'all 0.2s ease',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '14px',
+        fontSize: `${14 / effectiveZoom}px`,
         fontWeight: 'bold',
         color: 'white',
       }}
