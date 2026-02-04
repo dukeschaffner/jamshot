@@ -40,7 +40,8 @@ export default function TrackTreePage() {
   const secret = searchParams.get('secret');
   const { isMobile } = useMobile();
   const { currentTrack, playTrack, togglePlayPause, isPlaying } = useAudio();
-
+  const [treeType, setTreeType] = useState('radial');
+  
   const [trackData, setTrackData] = useState(new Map()); // trackId -> track data
   const [childrenData, setChildrenData] = useState(new Map()); // trackId -> children array
   const [paginationData, setPaginationData] = useState(new Map()); // trackId -> pagination data
@@ -229,18 +230,6 @@ const fetchChildren = useCallback(async (parentTrackId) => {
     previousSelectedTrackIdRef.current = selectedTrackId;
   }, [rootTrackId, trackData, childrenData, selectedTrackId, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
 
-
-  const generateSubtreeNodesAndEdges = useCallback((node) => {
-    if (!selectedTrackId || !trackData || !childrenData || !previousSelectedTrackIdRef.current) return;
-    const handlers = {
-      handleNodeClick,
-      handleClusterNodeClick,
-      setHoveredTrackId,
-      setHoveredNodePosition,
-      hoverTimeoutRef,
-    }
-    generateRadialSubtreeNodesAndEdges({node, trackData, childrenData, selectedTrackId, setNodes, setEdges, handlers});
-  }, [selectedTrackId, trackData, childrenData, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
 
   // Update nodes and edges when data changes
   useEffect(() => {
