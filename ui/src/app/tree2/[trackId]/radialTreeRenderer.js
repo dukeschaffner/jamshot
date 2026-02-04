@@ -1,7 +1,7 @@
 import { MarkerType } from 'reactflow';
 
-const CHILDREN_LIMIT = 6;
-const RING_SPACING = 700;
+const CHILDREN_LIMIT = 11;
+const RING_SPACING = 300;
 const MIN_NODE_SPACING = 150;
 
 function radToDeg(rad) {
@@ -169,7 +169,7 @@ export function generateRadialTreeNodesAndEdges({
 
 
   // Add root track node
-  flowNodes.push(createNode(rootTrackId, 0, 0, trackData, 'trackNode', selectedTrackId, handlers));
+  flowNodes.push(createNode(rootTrackId, 0, 0, trackData, 'trackNode', selectedTrackId, 0, 0, 0, handlers));
 
   // Add children nodes
   const children = childrenData.get(rootTrackId);

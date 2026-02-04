@@ -23,7 +23,7 @@ import { generateRadialTreeNodesAndEdges, generateRadialSubtreeNodesAndEdges } f
 import styles from './TreeView.module.css';
 
 // Configuration constants
-const MAX_NODES_PER_LEVEL = 5;
+const MAX_NODES_PER_LEVEL = 10;
 const MAX_VISIBLE_NODES = 50;
 const MAX_LEVELS = 5;
 
@@ -55,7 +55,6 @@ export default function TrackTreePage() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const hoverTimeoutRef = useRef(null);
-  const isInternalNavigationRef = useRef(false);
   const lastLoadedTrackGuidRef = useRef(null);
   const initialTreeRenderedRef = useRef(false);
   const previousSelectedTrackIdRef = useRef(null);
@@ -72,20 +71,6 @@ export default function TrackTreePage() {
       router.replace(`/tree/${trackId}${secret ? `?secret=${secret}` : ''}`);
     }
   }, [isMobile, trackId, secret, router]);
-
-  // Handle browser back/forward navigation
-  useEffect(() => {
-    const handlePopState = () => {
-      // Reset the internal navigation flag when user uses browser navigation
-      isInternalNavigationRef.current = false;
-      // The useEffect will handle fetching the new track based on URL params
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, []);
 
 
 
@@ -241,6 +226,7 @@ const fetchChildren = useCallback(async (parentTrackId) => {
       handleNodeClick, handleClusterNodeClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
     });
     initialTreeRenderedRef.current = true;
+    previousSelectedTrackIdRef.current = selectedTrackId;
   }, [rootTrackId, trackData, childrenData, selectedTrackId, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
 
 
@@ -267,36 +253,28 @@ const fetchChildren = useCallback(async (parentTrackId) => {
 
 
   // Handle node click
-  const handleNodeClick = useCallback(async (clickedTrackId) => {
-    // Don't do anything if this track is already selected
-    if (clickedTrackId === selectedTrackId) {
+  const handleNodeClick = (clickedTrackId) => {
+    setSelectedTrackId(clickedTrackId);
+  }
+
+  useEffect(() => {
+    if (!selectedTrackId || !previousSelectedTrackIdRef.current) return;
+
+    if (selectedTrackId === previousSelectedTrackIdRef.current) {
       return;
     }
 
-    const clickedTrack = trackData.get(clickedTrackId);
-    if (!clickedTrack) {
-      // Track not found, can't proceed
-      return;
+    const selectedTrack = trackData.get(selectedTrackId);
+    if (!selectedTrack) {
+      throw new Error('Selected track not found');
     }
-
-    // Mark this as internal navigation to prevent full reload
-    isInternalNavigationRef.current = true;
 
     // Update URL without causing navigation/reload
-    const newUrl = `/tree2/${clickedTrack.guid}${secret ? `?secret=${secret}` : ''}`;
+    const newUrl = `/tree2/${selectedTrack.guid}${secret ? `?secret=${secret}` : ''}`;
     // Use window.history.pushState to update URL without triggering Next.js navigation/remount
     window.history.pushState(null, '', newUrl);
 
     previousSelectedTrackIdRef.current = selectedTrackId;
-
-    // Update selected track immediately
-    setSelectedTrackId(clickedTrackId);
-
-
-  }, [trackData, childrenData, nodes, secret, selectedTrackId, router, fetchChildren, generateSubtreeNodesAndEdges]);
-
-  useEffect(() => {
-    if (!selectedTrackId || !previousSelectedTrackIdRef.current) return;
 
     const loadChildren = async () => {
       const newTrackData = new Map(trackData);
@@ -335,10 +313,6 @@ const fetchChildren = useCallback(async (parentTrackId) => {
 
     loadChildren();
   }, [selectedTrackId]);
-
-  useEffect(() => {
-    console.log('nodes', nodes);
-  }, [nodes]);
 
 
 
@@ -464,6 +438,7 @@ const fetchChildren = useCallback(async (parentTrackId) => {
           fitView
           fitViewOptions={{ padding: 0.2 }}
           minZoom={0.001}
+          maxZoom={10}
         >
           <Background />
           <Controls />

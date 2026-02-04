@@ -1,16 +1,26 @@
 'use client';
 
 import { memo, useRef } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, useViewport } from 'reactflow';
 import Image from 'next/image';
 import { FaCheckCircle } from 'react-icons/fa';
 import { getTrackColor } from '../trackColorUtils';
 import './TrackNode.module.css';
 
 function TrackNode({ data }) {
-  const { track, isSelected, onNodeClick, onNodeHover } = data;
+  const { track, isSelected, onNodeClick, onNodeHover, ringNumber } = data;
   const nodeRef = useRef(null);
-  const size = 70; // Fixed size for all nodes
+  const { zoom } = useViewport();
+  const baseSize = 70; // Base size for nodes at zoom level 1
+  // Slightly decrease size with ring number (5% reduction per ring)
+  const ringSizeFactor = 1 - (ringNumber || 0) * 0.15;
+  const adjustedBaseSize = baseSize * ringSizeFactor;
+  // Reduce scaling effect when zoomed out (zoom < 1), full effect when zoomed in (zoom >= 1)
+  //const effectiveZoom = zoom >= 1 ? zoom : 1 + (zoom - 1) * 0.3;
+  const effectiveZoom = 1/ringSizeFactor;
+  // const size = adjustedBaseSize / effectiveZoom;
+  const size = adjustedBaseSize;
+
   const color = track ? getTrackColor(track) : 'var(--grey-2)'; // Color based on popularity and plays
 
   const handleMouseEnter = () => {
@@ -40,7 +50,7 @@ function TrackNode({ data }) {
         borderRadius: '50%',
         position: 'relative',
         cursor: 'pointer',
-        border: isSelected ? '3px solid var(--seafoam)' : '2px solid var(--grey-3)',
+        border: isSelected ? `${3 / effectiveZoom}px solid var(--seafoam)` : `${2 / effectiveZoom}px solid var(--grey-3)`,
         boxShadow: isSelected 
           ? '0 0 20px rgba(147, 233, 190, 0.5)' 
           : '0 2px 8px rgba(0, 0, 0, 0.15)',
@@ -60,12 +70,12 @@ function TrackNode({ data }) {
       <div
         style={{
           position: 'absolute',
-          bottom: '-5px',
-          right: '-5px',
-          width: 28,
-          height: 28,
+          bottom: `${-5 / effectiveZoom}px`,
+          right: `${-5 / effectiveZoom}px`,
+          width: `${28 / effectiveZoom}px`,
+          height: `${28 / effectiveZoom}px`,
           borderRadius: '50%',
-          border: '2px solid var(--background)',
+          border: `${2 / effectiveZoom}px solid var(--background)`,
           overflow: 'hidden',
           backgroundColor: 'var(--grey-1)',
         }}
@@ -86,19 +96,19 @@ function TrackNode({ data }) {
         <div
           style={{
             position: 'absolute',
-            bottom: '-7px',
-            right: '-7px',
+            bottom: `${-7 / effectiveZoom}px`,
+            right: `${-7 / effectiveZoom}px`,
             color: 'var(--seafoam)',
             backgroundColor: 'var(--background)',
             borderRadius: '50%',
-            width: 14,
-            height: 14,
+            width: `${14 / effectiveZoom}px`,
+            height: `${14 / effectiveZoom}px`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <FaCheckCircle size={10.5} />
+          <FaCheckCircle size={10.5 / effectiveZoom} />
         </div>
       )}
 
