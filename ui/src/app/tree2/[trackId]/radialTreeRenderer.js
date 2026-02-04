@@ -85,6 +85,7 @@ function buildSubtree(
 
   const children = childrenData.get(trackId);
   if (!children) return;
+  if (ringNumber > 4) return;
   if (children.length > CHILDREN_LIMIT) throw new Error('Too many children: ' + children.length);
 
   const radialSpacing = (endAngle - startAngle) / children.length;
@@ -121,7 +122,9 @@ export function generateRadialSubtreeNodesAndEdges({
   const startAngle = node.data.angle - sliceAngle / 2;
   const endAngle = node.data.angle + sliceAngle / 2;
 
-  buildSubtree(track.id, trackData, childrenData, selectedTrackId, ringNumber, startAngle, endAngle, flowNodes, flowEdges, handlers);
+  if (ringNumber <= 4) {
+    buildSubtree(track.id, trackData, childrenData, selectedTrackId, ringNumber, startAngle, endAngle, flowNodes, flowEdges, handlers);
+  }
 
   setNodes((nodes) => [...nodes, ...flowNodes]);
   setEdges((edges) => [...edges, ...flowEdges]);
