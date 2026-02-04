@@ -8,17 +8,36 @@ import { getTrackColor } from '../trackColorUtils';
 import './TrackNode.module.css';
 
 function TrackNode({ data }) {
-  const { track, isSelected, onNodeClick, onNodeHover, ringNumber } = data;
+  const { track, isSelected, onNodeClick, onNodeHover, ringNumber, type = 'radial' } = data;
   const nodeRef = useRef(null);
   // const { zoom } = useViewport();
   // Slightly decrease size with ring number (5% reduction per ring)
-  const ringSizeFactor = Math.max(.1, 1 - (ringNumber || 0) * 0.35);
+  
   // Reduce scaling effect when zoomed out (zoom < 1), full effect when zoomed in (zoom >= 1)
   //const effectiveZoom = zoom >= 1 ? zoom : 1 + (zoom - 1) * 0.3;
-  const effectiveZoom = 1/ringSizeFactor;
+  // const effectiveZoom = 1/ringSizeFactor;
   // const size = adjustedBaseSize / effectiveZoom;
+  let ringSizeFactor = 1;
   const baseSize = 70;
-  const size = baseSize * ringSizeFactor;
+  let size = baseSize;
+  if (type === 'radial') {
+    ringSizeFactor = Math.max(.1, 1 - (ringNumber || 0) * 0.35);
+    size = baseSize * ringSizeFactor;
+  }
+
+  const radialHandleStyle = {
+    left: '50%',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 1,
+    height: 1,
+    background: 'transparent',
+    border: 'none',
+  };
+
+  const heirarchicalHandleStyle = {
+    visibility: 'hidden',
+  };
 
   const color = track ? getTrackColor(track) : 'var(--grey-2)'; // Color based on popularity and plays
 
@@ -59,7 +78,7 @@ function TrackNode({ data }) {
       style={{
         width: baseSize,
         height: baseSize,
-        transform: `scale(${ringSizeFactor})`,
+        transform: type === 'radial' ? `scale(${ringSizeFactor})` : '',
         transformOrigin: 'center center',
         flexShrink: 0,
         backgroundColor: color,
@@ -77,7 +96,7 @@ function TrackNode({ data }) {
       <Handle
         type="target"
         position={Position.Top}
-        style={{ visibility: 'hidden' }}
+        style={type === 'radial' ? radialHandleStyle : heirarchicalHandleStyle}
       />
       
       {/* Avatar overlay */}
@@ -129,7 +148,7 @@ function TrackNode({ data }) {
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{ visibility: 'hidden' }}
+        style={type === 'radial' ? radialHandleStyle : heirarchicalHandleStyle}
       />
     </div>
     </div>

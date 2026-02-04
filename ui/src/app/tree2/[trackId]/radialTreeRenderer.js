@@ -96,6 +96,22 @@ function buildSubtree(
     const y = polarRadiansToCartesian(0, 0, RING_SPACING * ringNumber, currentAngle).y;
     flowNodes.push(createNode(child.id, x, y, trackData, 'trackNode', selectedTrackId, ringNumber, currentAngle, radialSpacing, handlers));
 
+    // Add edge from parent to child
+    flowEdges.push({
+      id: `edge-${trackId}-${child.id}`,
+      source: `track-${trackId}`,
+      target: `track-${child.id}`,
+      type: 'straight',
+      animated: false,
+      style: { stroke: '#86a699', strokeWidth: 2 },
+      // markerEnd: {
+      //   type: MarkerType.ArrowClosed,
+      //   width: 20,
+      //   height: 20,
+      //   color: '#86a699',
+      // },
+    });
+
     const subtreeStartAngle = currentAngle - radialSpacing / 2;
     const subtreeEndAngle = currentAngle + radialSpacing / 2;
     buildSubtree(child.id, trackData, childrenData, selectedTrackId, ringNumber + 1, subtreeStartAngle, subtreeEndAngle, flowNodes, flowEdges, handlers);
@@ -176,6 +192,11 @@ export function generateRadialTreeNodesAndEdges({
 
   // Add children nodes
   const children = childrenData.get(rootTrackId);
+  if (!children || children.length === 0) {
+    setNodes(flowNodes);
+    setEdges(flowEdges);
+    return;
+  }
   if (children.length > CHILDREN_LIMIT) throw new Error('Too many children: ' + children.length);
   const radialSpacing = 2 * Math.PI / children.length;
   let currentAngle = 0;
@@ -186,6 +207,21 @@ export function generateRadialTreeNodesAndEdges({
     const y = polarRadiansToCartesian(0, 0, RING_SPACING, currentAngle).y;
     flowNodes.push(createNode(child.id, x, y, trackData, 'trackNode', selectedTrackId, 1, currentAngle, radialSpacing, handlers));
    
+    // Add edge from root to child
+    flowEdges.push({
+      id: `edge-${rootTrackId}-${child.id}`,
+      source: `track-${rootTrackId}`,
+      target: `track-${child.id}`,
+      type: 'straight',
+      animated: false,
+      style: { stroke: '#86a699', strokeWidth: 2 },
+      // markerEnd: {
+      //   type: MarkerType.ArrowClosed,
+      //   width: 20,
+      //   height: 20,
+      //   color: '#86a699',
+      // },
+    });
 
     const subtreeStartAngle = currentAngle - radialSpacing / 2;
     const subtreeEndAngle = currentAngle + radialSpacing / 2;
