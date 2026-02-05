@@ -2335,11 +2335,12 @@ router.get('/:id/related-test', async (req, res) => {
       // Use the determined depth + 1 for returned tracks
       const returnTrackDepth = trackDepth + 1;
 
+      const dummyId = parseInt(`${returnTrackDepth}${id}${i}`);
       const dummyTrack = {
-        id: parseInt(`${returnTrackDepth}${id}${i}`), // Fake ID to avoid conflicts
-        guid: `dummy-${i}`,
+        id: dummyId, // Fake ID to avoid conflicts
+        guid: `dummy-${dummyId}`,
         user_id: userId || 1,
-        title: `Depth ${returnTrackDepth} Track ${i}`,
+        title: `${dummyId}: Depth ${returnTrackDepth} Track ${i}`,
         audio_url: signedAudioUrl,
         combined_audio_url: signedCombinedAudioUrl,
         duration: template.duration,

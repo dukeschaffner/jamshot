@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { FaQuestionCircle } from 'react-icons/fa';
-import { getTrackColor } from '../trackColorUtils';
+import { getTrackColor } from '../utils/trackColorUtils';
 import styles from './ColorLegend.module.css';
 
 /**
