@@ -29,12 +29,10 @@ function polarRadiansToCartesian(centerX, centerY, radius, angleInRadians) {
 
 
 
-
-function createNode(trackId, x, y, trackData, nodeType, selectedTrackId, ringNumber, angle, sliceAngle, handlers) {
-
+function createNode(trackId, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers) {
   return {
     id: `track-${trackId}`,
-    type: nodeType,
+    type: 'trackNode',
     position: { x, y },
     data: {
       track: trackData.get(trackId),
@@ -70,6 +68,33 @@ function createNode(trackId, x, y, trackData, nodeType, selectedTrackId, ringNum
 
 
 
+
+
+function createLoadChildrenNode(trackId, trackData, ringNumber, angle, onClick) {
+  const track = trackData.get(trackId);
+  if(!track) throw new Error('Track not found: ' + trackId);
+
+
+  if(track.collab_count && track.collab_count > 0) {
+    const x = polarRadiansToCartesian(0, 0, RING_SPACING * (ringNumber + 0.3), angle).x;
+    const y = polarRadiansToCartesian(0, 0, RING_SPACING * (ringNumber + 0.3), angle).y;
+    return {
+      id: `load-children-${trackId}`,
+      type: 'clusterNode',
+      position: { x, y },
+      data: {
+        childCount: track.collab_count,
+        clusterType: 'loadChildren',
+        type: 'radial',
+        ringNumber: ringNumber,
+        onNodeClick: onClick
+      },
+    };
+  }
+}
+
+
+
 function buildSubtree(
   trackId,
   trackData,
@@ -84,51 +109,73 @@ function buildSubtree(
 ) {
 
   const children = childrenData.get(trackId);
-  if (!children) return;
-  if (ringNumber > 4) return;
-  if (children.length > CHILDREN_LIMIT) throw new Error('Too many children: ' + children.length);
-
-  const radialSpacing = (endAngle - startAngle) / children.length;
-  let currentAngle = startAngle + radialSpacing / 2;
-
-  children.forEach(child => {
-    const x = polarRadiansToCartesian(0, 0, RING_SPACING * ringNumber, currentAngle).x;
-    const y = polarRadiansToCartesian(0, 0, RING_SPACING * ringNumber, currentAngle).y;
-    flowNodes.push(createNode(child.id, x, y, trackData, 'trackNode', selectedTrackId, ringNumber, currentAngle, radialSpacing, handlers));
-
-    // Add edge from parent to child
-    flowEdges.push({
-      id: `edge-${trackId}-${child.id}`,
-      source: `track-${trackId}`,
-      target: `track-${child.id}`,
-      type: 'straight',
-      animated: false,
-      style: { stroke: '#86a699', strokeWidth: 2 },
-      // markerEnd: {
-      //   type: MarkerType.ArrowClosed,
-      //   width: 20,
-      //   height: 20,
-      //   color: '#86a699',
-      // },
+  if (children) // not a leaf node: add children nodes and edges
+  {
+    if (ringNumber > 4) return;
+    if (children.length > CHILDREN_LIMIT) throw new Error('Too many children: ' + children.length);
+  
+    const radialSpacing = (endAngle - startAngle) / children.length;
+    let currentAngle = startAngle + radialSpacing / 2;
+  
+    children.forEach(child => {
+      const x = polarRadiansToCartesian(0, 0, RING_SPACING * ringNumber, currentAngle).x;
+      const y = polarRadiansToCartesian(0, 0, RING_SPACING * ringNumber, currentAngle).y;
+      flowNodes.push(createNode(child.id, x, y, trackData, selectedTrackId, ringNumber, currentAngle, radialSpacing, handlers));
+  
+      // Add edge from parent to child
+      flowEdges.push({
+        id: `edge-${trackId}-${child.id}`,
+        source: `track-${trackId}`,
+        target: `track-${child.id}`,
+        type: 'straight',
+        animated: false,
+        style: { stroke: '#86a699', strokeWidth: 2 },
+        // markerEnd: {
+        //   type: MarkerType.ArrowClosed,
+        //   width: 20,
+        //   height: 20,
+        //   color: '#86a699',
+        // },
+      });
+  
+      const subtreeStartAngle = currentAngle - radialSpacing / 2;
+      const subtreeEndAngle = currentAngle + radialSpacing / 2;
+      buildSubtree(child.id, trackData, childrenData, selectedTrackId, ringNumber + 1, subtreeStartAngle, subtreeEndAngle, flowNodes, flowEdges, handlers);
+      currentAngle += radialSpacing;
     });
+  }
+  else // leaf node: create cluster node if applicable
+  {
+    const angle = startAngle + (endAngle - startAngle) / 2;
+    const node = createLoadChildrenNode(trackId, trackData, ringNumber - 1, angle, () => handlers.handleLoadChildrenClick(trackId));
+    if(node){
+      flowNodes.push(node);
+      flowEdges.push({
+        id: `edge-load-children-${trackId}`,
+        source: `track-${trackId}`,
+        target: `load-children-${trackId}`,
+        type: 'straight',
+        animated: false,
+        style: { stroke: '#86a699', strokeWidth: 2 },
+      });
+    }
+  }
+  
 
-    const subtreeStartAngle = currentAngle - radialSpacing / 2;
-    const subtreeEndAngle = currentAngle + radialSpacing / 2;
-    buildSubtree(child.id, trackData, childrenData, selectedTrackId, ringNumber + 1, subtreeStartAngle, subtreeEndAngle, flowNodes, flowEdges, handlers);
-    currentAngle += radialSpacing;
-  });
 }
 
 
 export function generateRadialSubtreeNodesAndEdges({
   node,
-  trackData,
-  childrenData,
+  treeDataManager,
   selectedTrackId,
   setNodes,
   setEdges,
   handlers
 }) {
+  const trackData = treeDataManager.trackData;
+  const childrenData = treeDataManager.childrenData;
+
   const flowNodes = [];
   const flowEdges = [];
 
@@ -162,18 +209,21 @@ export function generateRadialSubtreeNodesAndEdges({
  * @param {Object} params.hoverTimeoutRef - Reference to hover timeout
  */
 export function generateRadialTreeNodesAndEdges({
-  rootTrackId,
-  trackData,
-  childrenData,
+  treeDataManager,
   selectedTrackId,
   setNodes,
   setEdges,
   handleNodeClick,
   handleClusterNodeClick,
+  handleLoadChildrenClick,
   setHoveredTrackId,
   setHoveredNodePosition,
   hoverTimeoutRef
 }) {
+
+  const rootTrackId = treeDataManager.rootTrackId;
+  const trackData = treeDataManager.trackData;
+  const childrenData = treeDataManager.childrenData;
 
   const flowNodes = [];
   const flowEdges = [];
@@ -181,6 +231,7 @@ export function generateRadialTreeNodesAndEdges({
   const handlers = {
     handleNodeClick: handleNodeClick,
     handleClusterNodeClick: handleClusterNodeClick,
+    handleLoadChildrenClick: handleLoadChildrenClick,
     setHoveredTrackId: setHoveredTrackId,
     setHoveredNodePosition: setHoveredNodePosition,
     hoverTimeoutRef: hoverTimeoutRef,
@@ -188,7 +239,7 @@ export function generateRadialTreeNodesAndEdges({
 
 
   // Add root track node
-  flowNodes.push(createNode(rootTrackId, 0, 0, trackData, 'trackNode', selectedTrackId, 0, 0, 0, handlers));
+  flowNodes.push(createNode(rootTrackId, 0, 0, trackData, selectedTrackId, 0, 0, 0, handlers));
 
   // Add children nodes
   const children = childrenData.get(rootTrackId);
@@ -205,7 +256,7 @@ export function generateRadialTreeNodesAndEdges({
   children.forEach(child => {
     const x = polarRadiansToCartesian(0, 0, RING_SPACING, currentAngle).x;
     const y = polarRadiansToCartesian(0, 0, RING_SPACING, currentAngle).y;
-    flowNodes.push(createNode(child.id, x, y, trackData, 'trackNode', selectedTrackId, 1, currentAngle, radialSpacing, handlers));
+    flowNodes.push(createNode(child.id, x, y, trackData, selectedTrackId, 1, currentAngle, radialSpacing, handlers));
    
     // Add edge from root to child
     flowEdges.push({
