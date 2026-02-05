@@ -3,16 +3,20 @@
 import { memo, useRef } from 'react';
 import { Handle, Position } from 'reactflow';
 import './TrackNode.module.css';
+import { BASE_CLUSTER_NODE_SIZE, RADIAL_TREE_CONFIG } from '../utils/config';
+
+const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
+
 
 function ClusterNode({ data }) {
   const { childCount, clusterType = 'legacy', onNodeClick, onNodeHover, type = 'radial', ringNumber } = data;
   const nodeRef = useRef(null);
   
-  const baseSize = 45;
+  const baseSize = BASE_CLUSTER_NODE_SIZE;
   let ringSizeFactor = 1;
   let size = baseSize;
   if (type === 'radial') {
-    ringSizeFactor = Math.max(.1, 1 - (ringNumber || 0) * 0.35);
+    ringSizeFactor = Math.max(.1, 1 - (ringNumber || 0) * RING_SIZE_FACTOR);
     size = baseSize * ringSizeFactor;
   }
 

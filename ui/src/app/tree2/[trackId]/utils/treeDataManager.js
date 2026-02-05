@@ -1,0 +1,275 @@
+
+import api from '../../../../lib/api';
+import { MAX_NODES_PER_LEVEL, PRUNING_METHOD, MAX_VISIBLE_NODES, PRUNING_METHODS } from './config';
+
+
+export class TreeDataManager {
+  constructor(secret) {
+    this.trackData = new Map();
+    this.childrenData = new Map();
+    this.paginationData = new Map();
+    this.usageData = new Map();
+    this.rootTrackId = null;
+    this.testMode = true;
+    this.secret = secret;
+  }
+
+  // Fetch children for a track
+  fetchChildren = async (parentTrackId) => {
+    let data = null;
+    if (this.testMode) {
+
+      const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
+        params: {
+          page: 1,
+          limit: MAX_NODES_PER_LEVEL,
+          includeChildCount: true,
+          includeParent: false
+        }
+      });
+      data = response.data;
+    }
+    else {
+      const response = await api.get(`/tracks/${parentTrackId}/related`, {
+        params: {
+          page: 1,
+          limit: MAX_NODES_PER_LEVEL,
+          includeChildCount: true,
+          includeParent: false
+        }
+      });
+      data = response.data;
+    }
+    return {id: parentTrackId, data: data};
+  }
+
+  fetchAndSetChildren = async (trackId) => {
+    const result = await this.fetchChildren(trackId);
+    const {id, data} = result;
+    const children = data.tracks;
+    if (children && children.length > 0) {
+      children.forEach(child => {
+        this.trackData.set(child.id, child);
+      });
+      this.childrenData.set(id, children);
+      this.paginationData.set(id, data.pagination);
+      this.recordUsage({tracks: children, rendered: false});
+    }
+  }
+
+
+
+  fetchTrackTree = async (trackId) => {      
+
+    const url = this.secret 
+      ? `/tracks/${trackId}/tree?secret=${this.secret}`
+      : `/tracks/${trackId}/tree`;
+    
+    const response = await api.get(url);
+    const trackTree = response.data; // [ancestors, current]
+    
+    if (trackTree.length === 0) {
+      throw new Error('Track not found');
+    }
+
+    // Store all tracks in trackData
+    trackTree.forEach(track => {
+      this.trackData.set(track.id, track);
+    });
+
+    // Set selected track to the current track (last in array)
+    const currentTrack = trackTree[trackTree.length - 1];
+
+    // Set root track id
+    this.rootTrackId = trackTree[0].id;
+
+    // Fetch children for all tracks in the tree
+    const allChildrenData = await Promise.all(
+      trackTree.map(track => {
+        return this.fetchChildren(track.id);
+      })
+    );
+
+    // Store all children in childrenData
+    allChildrenData.forEach(childData => {
+      const {id, data} = childData;
+      const children = data.tracks;
+      if (children.length > 0) {
+        children.forEach(child => {
+          this.trackData.set(child.id, child);
+        });
+        this.childrenData.set(id, children);
+        this.paginationData.set(id, data.pagination);
+      }
+    });
+
+    this.recordUsage({tracks: this.trackData.values(), rendered: false});
+
+    // Ensure parent->child relationships from trackTree are included in childrenData
+    for (let i = 1; i < trackTree.length; i++) {
+      const childTrack = trackTree[i];
+      const parentTrack = trackTree[i - 1];
+      const parentId = parentTrack.id;
+      
+      // Get existing children for this parent, or create new array
+      const existingChildren = this.childrenData.get(parentId) || [];
+      
+      // Check if this child is already in the children array
+      const childExists = existingChildren.some(child => child.id === childTrack.id);
+      
+      if (!childExists) {
+        // Add this child to the parent's children array
+        this.childrenData.set(parentId, [...existingChildren, childTrack]);
+      }
+    }
+  } 
+
+  //recursive function that returns an array of track ids from the root to the given track id
+  getAncestors = (trackId) => {
+    const ancestors = [];
+    let currentTrackId = trackId;
+    while(currentTrackId) {
+      ancestors.push(currentTrackId);
+      currentTrackId = this.trackData.get(currentTrackId).parent_track_id;
+    }
+    return ancestors;
+  }
+
+  recordUsage = ({trackId, trackIds, tracks, nodes, rendered, setTimestamp = true}) => {
+    const tracksToUpdate = new Set();
+    
+    // Collect all track IDs that need to be marked as used
+    if(trackId) {
+      tracksToUpdate.add(trackId);
+    }
+    if(tracks) {
+      tracks.forEach(track => {
+        tracksToUpdate.add(track.id);
+      });
+    }
+    if(trackIds) {
+      trackIds.forEach(trackId => {
+        tracksToUpdate.add(trackId);
+      });
+    }
+    if(nodes) {
+      nodes.forEach(node => {
+        if(node.type === 'trackNode') {
+          tracksToUpdate.add(node.data.track.id);
+        }
+      });
+    }
+
+    if(!setTimestamp) {
+      // Only update existing usage entries to set the rendered flag
+      tracksToUpdate.forEach(id => {
+        const existingUsage = this.usageData.get(id);
+        if (existingUsage) {
+          existingUsage.rendered = rendered;
+        }
+      });
+      return;
+    }
+
+    // For each track, also collect all its ancestors
+    const allTracksToUpdate = new Set(tracksToUpdate);
+    tracksToUpdate.forEach(id => {
+      // Only get ancestors if the track exists in trackData
+      if (this.trackData.has(id)) {
+        const ancestors = this.getAncestors(id);
+        ancestors.forEach(ancestorId => {
+          allTracksToUpdate.add(ancestorId);
+        });
+      }
+    });
+    
+    // Mark all tracks (original + ancestors) as used in a single pass
+    const now = new Date();
+    allTracksToUpdate.forEach(id => {
+      this.usageData.set(id, {rendered: rendered, lastAccessed: now});
+    });
+  }
+
+
+  // Check if a node is a leaf (has no rendered children)
+  isLeafNode = (trackId) => {
+    const children = this.childrenData.get(trackId);
+    if (!children || children.length === 0) {
+      return true;
+    }
+    // Check if any child is rendered
+    return !children.some(child => {
+      const usage = this.usageData.get(child.id);
+      return usage && usage.rendered;
+    });
+  }
+
+  pruneTree = () => {
+    const idsToPrune = new Set();
+
+    if (PRUNING_METHOD === PRUNING_METHODS.TOTAL_NODES_EXCEEDED) {
+      // Get all rendered nodes
+      const renderedNodes = [];
+      for (const [trackId, usage] of this.usageData.entries()) {
+        if (usage.rendered) {
+          renderedNodes.push({ trackId, lastAccessed: usage.lastAccessed });
+        }
+      }
+
+      console.log('renderedNodes', renderedNodes.length, 'of', MAX_VISIBLE_NODES);
+
+      // Check if we exceed max visible nodes
+      if (renderedNodes.length <= MAX_VISIBLE_NODES) {
+        return idsToPrune;
+      }
+
+      // Pre-filter to prunable non-leaf nodes once (layer > 1 and is not leaf), ordered by LRU first
+      const prunableNodes = renderedNodes.filter(node => {
+        const track = this.trackData.get(node.trackId);
+        if (!track) return false;
+        
+        const layer = track?.layer ?? 0;
+        if (layer === 0) return false;
+        
+        return !this.isLeafNode(node.trackId);
+      }).sort((a, b) => {
+        // Sort by LRU first (oldest lastAccessed first)
+        const lruDiff = a.lastAccessed - b.lastAccessed;
+        if (lruDiff !== 0) return lruDiff;
+        
+        // Then by layer (higher layers first)
+        const trackA = this.trackData.get(a.trackId);
+        const trackB = this.trackData.get(b.trackId);
+        const layerA = trackA?.layer ?? 0;
+        const layerB = trackB?.layer ?? 0;
+        return layerB - layerA;
+      });
+
+      if (prunableNodes.length === 0) {
+        return idsToPrune;
+      }
+
+      console.log('prunableNodes', prunableNodes.length);
+
+      while(renderedNodes.length - idsToPrune.size > MAX_VISIBLE_NODES) {
+        if (prunableNodes.length === 0) {
+          break;
+        }
+        
+        const prunableNode = prunableNodes.shift();
+        const children = this.childrenData.get(prunableNode.trackId);
+        
+        if (children && children.length > 0) {
+          children.forEach(child => {
+            idsToPrune.add(child.id);
+            console.log('pruned child', child.id);
+          });
+        }
+      }
+
+    }
+
+    return idsToPrune;
+  }
+};
+

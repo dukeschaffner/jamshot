@@ -18,10 +18,10 @@ import TrackPopover from './components/TrackPopover';
 import ColorLegend from './components/ColorLegend';
 import { useAudio } from '../../../lib/AudioContext';
 import { useMobile } from '../../../contexts/MobileContext';
-import { generateHierarchicalTreeNodesAndEdges } from './hierarchicalTreeRenderer';
-import { generateRadialTreeNodesAndEdges, generateRadialSubtreeNodesAndEdges } from './radialTreeRenderer';
+import { generateHierarchicalTreeNodesAndEdges } from './utils/hierarchicalTreeRenderer';
+import { generateRadialTree, generateRadialSubtree, animateNode, moveNodeToSubtreeStart} from './utils/radialTreeRenderer';
 import styles from './TreeView.module.css';
-import { TreeDataManager } from './treeDataManager.js';
+import { TreeDataManager } from './utils/treeDataManager.js';
 
 
 // Node types
@@ -57,6 +57,13 @@ export default function TrackTreePage() {
 
   const nodesRef = useRef([]);
 
+  const viewState = useRef({
+    selectedTrackId: null,
+    expandedTrackIds: new Set(),
+  });
+
+
+
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
@@ -70,6 +77,7 @@ export default function TrackTreePage() {
         try {
           treeDataManager.current = new TreeDataManager(secret);
           await treeDataManager.current.fetchTrackTree(trackId);
+          viewState.current.expandedTrackIds = new Set(treeDataManager.current.childrenData.keys());
           console.log(treeDataManager.current.trackData);
           // Set selectedTrackId to the current track (trackId from params)
           setSelectedTrackId(trackId);
@@ -94,13 +102,15 @@ export default function TrackTreePage() {
   const generateNodesAndEdges = useCallback(() => {
     if (!selectedTrackId ) return;
 
-    generateRadialTreeNodesAndEdges({
+    const { nodes } = generateRadialTree({
       treeDataManager: treeDataManager.current,
+      viewState: viewState.current,
       selectedTrackId,
       setNodes,
       setEdges,
       handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
     });
+    treeDataManager.current.recordUsage({nodes, rendered: true});
     initialTreeRenderedRef.current = true;
     previousSelectedTrackIdRef.current = selectedTrackId;
   }, [selectedTrackId, setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
@@ -122,11 +132,49 @@ export default function TrackTreePage() {
     );
   };
 
+  /**
+   * Deletes all nodes and edges associated with the given trackIds
+   * Handles regular nodes, cluster nodes, and load-children nodes
+   * Only calls setNodes and setEdges once at the end
+   * @param {string[]} trackIds - Array of track IDs to delete
+   */
+  const deleteNodes = (trackIds) => {
+    if (!trackIds || trackIds.length === 0 || trackIds.size === 0) return;
+
+    // Build a set of trackIds for quick lookup
+    const trackIdSet = new Set(trackIds);
+
+    // Helper function to check if a node should be deleted
+    const shouldDeleteNode = (node) => {
+      // Check if node ID starts with track-{trackId}
+      if (node.id.startsWith('track-')) {
+        const nodeTrackId = parseInt(node.id.replace('track-', ''));
+        return trackIdSet.has(nodeTrackId);
+      }
+      
+      // Check if node ID starts with load-children-{trackId}
+      if (node.id.startsWith('load-children-')) {
+        const nodeTrackId = parseInt(node.id.replace('load-children-', ''));
+        return trackIdSet.has(nodeTrackId);
+      }
+      
+      return false;
+    };
+
+    const nodeIdsToDelete = nodesRef.current.filter((n) => shouldDeleteNode(n)).map((n) => n.id);
+
+    setNodes((nds) => nds.filter((n) => !nodeIdsToDelete.includes(n.id)));
+    setEdges((eds) => eds.filter((e) => !nodeIdsToDelete.includes(e.source) && !nodeIdsToDelete.includes(e.target)));
+  };
+
 
   // Handle node click
-  const handleNodeClick = useCallback((clickedTrackId) => {
+  const handleNodeClick = (clickedTrackId) => {
     // setSelectedTrackId(clickedTrackId);
-  }, []);
+    if(treeType === 'radial') {
+      moveNodeToSubtreeStart(nodesRef.current.find(n => n.id === 'track-' + clickedTrackId), nodesRef.current, treeDataManager.current, viewState.current, setNodes);
+    }
+  };
 
   // Handle cluster node click (stub for now)
   const handleClusterNodeClick = useCallback(async (type, parentTrackId) => {
@@ -144,6 +192,7 @@ export default function TrackTreePage() {
 
     const node = nodesRef.current.find(node => node.id === 'track-' + clickedTrackId);
     if (node) {
+      viewState.current.expandedTrackIds.add(clickedTrackId);
       const handlers = {
         handleNodeClick,
         handleClusterNodeClick,
@@ -152,10 +201,39 @@ export default function TrackTreePage() {
         setHoveredNodePosition,
         hoverTimeoutRef,
       }
-      generateRadialSubtreeNodesAndEdges({node, treeDataManager: treeDataManager.current, selectedTrackId, setNodes, setEdges, handlers});
-    }
-    deleteNode("load-children-" + clickedTrackId);
 
+      // render the subtree (should replace load-children node with children nodes)
+      const { nodes } = generateRadialSubtree({node, treeDataManager: treeDataManager.current, viewState: viewState.current, selectedTrackId, setNodes, setEdges, handlers});
+      treeDataManager.current.recordUsage({nodes, rendered: true});
+
+      // delete the load-children node
+      deleteNode("load-children-" + clickedTrackId);
+
+      // prune the tree
+      const idsToPrune = treeDataManager.current.pruneTree();
+      if(idsToPrune.size > 0) {
+        console.log('idsToPrune', idsToPrune);
+        deleteNodes(idsToPrune);
+        treeDataManager.current.recordUsage({trackIds: idsToPrune, rendered: false, setTimestamp: false });
+
+        // Ensure parents whose children have been pruned show the load-children node instead of the subtree
+        const parentsToRerender = new Set();
+        idsToPrune.forEach(id => {
+          const parentId = treeDataManager.current.trackData.get(id).parent_track_id;
+          if(parentId) {
+            parentsToRerender.add(parentId);
+          }
+        });
+        parentsToRerender.forEach(id => {
+          // remove parent from expandedTrackIds
+          viewState.current.expandedTrackIds.delete(id);
+          const node = nodesRef.current.find(n => n.id === 'track-' + id);
+          generateRadialSubtree({node, treeDataManager: treeDataManager.current, viewState: viewState.current, selectedTrackId, setNodes, setEdges, handlers});
+          // This should just replace children with load-children nodes - no need to record usage
+        });
+      }
+    }
+    
   }
 
 

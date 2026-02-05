@@ -4,8 +4,11 @@ import { memo, useRef } from 'react';
 import { Handle, Position, useViewport } from 'reactflow';
 import Image from 'next/image';
 import { FaCheckCircle } from 'react-icons/fa';
-import { getTrackColor } from '../trackColorUtils';
+import { getTrackColor } from '../utils/trackColorUtils';
 import './TrackNode.module.css';
+import { BASE_NODE_SIZE, RADIAL_TREE_CONFIG } from '../utils/config';
+
+const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 
 function TrackNode({ data }) {
   const { track, isSelected, onNodeClick, onNodeHover, ringNumber, type = 'radial' } = data;
@@ -18,10 +21,10 @@ function TrackNode({ data }) {
   // const effectiveZoom = 1/ringSizeFactor;
   // const size = adjustedBaseSize / effectiveZoom;
   let ringSizeFactor = 1;
-  const baseSize = 70;
+  const baseSize = BASE_NODE_SIZE;
   let size = baseSize;
   if (type === 'radial') {
-    ringSizeFactor = Math.max(.1, 1 - (ringNumber || 0) * 0.35);
+    ringSizeFactor = Math.max(.1, 1 - (ringNumber || 0) * RING_SIZE_FACTOR);
     size = baseSize * ringSizeFactor;
   }
 
