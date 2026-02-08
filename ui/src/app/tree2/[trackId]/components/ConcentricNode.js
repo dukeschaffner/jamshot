@@ -47,25 +47,6 @@ function ConcentricNode({ data }) {
     }
   };
   
-  return(
-    <div
-    ref={nodeRef}
-    onClick={onNodeClick}
-    onMouseEnter={handleMouseEnter}
-    onMouseLeave={handleMouseLeave}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: color,
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'visible',
-      }}
-      >
-    </div>
-  )
 
   return (
     <div

@@ -34,6 +34,8 @@ function ClusterNode({ data }) {
     visibility: 'hidden',
   };
 
+  const handleStyle = type === 'radial' || type === 'concentric' ? radialHandleStyle : heirarchicalHandleStyle;
+
   return (
     <div
       ref={nodeRef}
@@ -74,7 +76,7 @@ function ClusterNode({ data }) {
         <Handle
           type="target"
           position={Position.Top}
-          style={type === 'radial' ? radialHandleStyle : heirarchicalHandleStyle}
+          style={handleStyle}
         />
 
         <span>
@@ -87,7 +89,7 @@ function ClusterNode({ data }) {
         <Handle
           type="source"
           position={Position.Bottom}
-          style={type === 'radial' ? radialHandleStyle : heirarchicalHandleStyle}
+          style={handleStyle}
         />
       </div>
     </div>
