@@ -23,6 +23,14 @@
   margin: 0;
 }
 
+.nodeHover {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nodeHover:hover {
+  transform: scale(1.1);
+}
+
 .debug-overlay {
   position: absolute;
   top: 10px;

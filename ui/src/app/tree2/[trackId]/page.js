@@ -20,7 +20,7 @@ import { generateRadialTree, generateRadialSubtree, animateNode, moveNodeToSubtr
 import styles from './TreeView.module.css';
 import { TreeDataManager } from './utils/treeDataManager.js';
 import ConcentricNode from './components/ConcentricNode';
-import { generateConcentricTree } from './utils/concentricRenderer';
+import { generateConcentricTree, handleConcentricNodeClick } from './utils/concentricRenderer';
 import DebugOverlay from './components/DebugOverlay';
 import { DEBUG_MODE } from './utils/config';
 
@@ -194,6 +194,19 @@ export default function TrackTreePage() {
     // setSelectedTrackId(clickedTrackId);
     if(treeType === 'radial') {
       moveNodeToSubtreeStart(nodesRef.current.find(n => n.id === 'track-' + clickedTrackId), nodesRef.current, treeDataManager.current, viewState.current, setNodes);
+    }
+    else if(treeType === 'concentric') {
+      if(viewState.current.expandedTrackIds.has(clickedTrackId)) {
+        handleConcentricNodeClick(clickedTrackId, treeDataManager.current, viewState.current);
+        generateConcentricTree({
+          treeDataManager: treeDataManager.current,
+          viewState: viewState.current,
+          selectedTrackId,
+          setNodes,
+          setEdges,
+          handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
+        });
+      }
     }
   };
 

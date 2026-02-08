@@ -5,7 +5,7 @@ import { Handle, Position } from 'reactflow';
 import Image from 'next/image';
 import { FaCheckCircle } from 'react-icons/fa';
 import { getTrackColor } from '../utils/trackColorUtils';
-import './TrackNode.module.css';
+import styles from '../TreeView.module.css';
 import { CONCENTRIC_CONFIG } from '../utils/config';
 
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
@@ -54,6 +54,7 @@ function ConcentricNode({ data }) {
     onClick={onNodeClick}
     onMouseEnter={handleMouseEnter}
     onMouseLeave={handleMouseLeave}
+    className={styles.nodeHover}
     style={{
       width: size,
       height: size,
