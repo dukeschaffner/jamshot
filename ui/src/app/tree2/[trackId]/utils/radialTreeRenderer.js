@@ -1,36 +1,10 @@
 import { MarkerType } from 'reactflow';
 
 import { RADIAL_TREE_CONFIG } from './config';
+import { polarRadiansToCartesian } from './renderUtils';
 
 const { CHILDREN_LIMIT, RING_SPACING } = RADIAL_TREE_CONFIG;
 // const MIN_NODE_SPACING = 150;
-
-// #region helper functions
-
-function radToDeg(rad) {
-  return rad * (180 / Math.PI);
-}
-
-function degToRad(deg) {
-  return deg * (Math.PI / 180);
-}
-
-function polarDegreesToCartesian(centerX, centerY, radius, angleInDegrees) {
-  const angleInRadians = degToRad(angleInDegrees);
-  return {
-    x: centerX + radius * Math.cos(angleInRadians),
-    y: centerY + radius * Math.sin(angleInRadians),
-  };
-}
-
-function polarRadiansToCartesian(centerX, centerY, radius, angleInRadians) {
-  return {
-    x: centerX + radius * Math.cos(angleInRadians),
-    y: centerY + radius * Math.sin(angleInRadians),
-  };
-}
-
-// #endregion
 
 
 
@@ -102,6 +76,24 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers)
     }
     return node;
   }
+}
+
+function createPaginationNode(trackId, clusterType, ringNumber, angle, handlers) {
+  const x = polarRadiansToCartesian(0, 0, RING_SPACING * (ringNumber + 0.15), angle).x;
+  const y = polarRadiansToCartesian(0, 0, RING_SPACING * (ringNumber + 0.15), angle).y;
+  const node = {
+    id: `${clusterType}-${trackId}`,
+    type: 'clusterNode',
+    position: { x, y },
+    data: {
+      childCount: 0,
+      clusterType: clusterType,
+      type: 'radial',
+      ringNumber: ringNumber,
+    },
+  };
+  // Click handlers will be added later
+  return node;
 }
 
 // #endregion

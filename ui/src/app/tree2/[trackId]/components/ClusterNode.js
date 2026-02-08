@@ -9,7 +9,7 @@ const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 
 
 function ClusterNode({ data }) {
-  const { childCount, clusterType = 'legacy', onNodeClick, onNodeHover, type = 'radial', ringNumber } = data;
+  const { childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber } = data;
   const nodeRef = useRef(null);
   
   const baseSize = BASE_CLUSTER_NODE_SIZE;
@@ -80,8 +80,6 @@ function ClusterNode({ data }) {
         <span>
           {clusterType === 'prevPage' && '<'}
           {clusterType === 'nextPage' && '>'}
-          {clusterType === 'collab' && '+'}
-          {clusterType === 'legacy' && '+'}
           {clusterType === 'loadChildren' && '+'}
           {childCount}
         </span>
