@@ -34,6 +34,8 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
       type: 'concentric',
     },
     zIndex: 1000 - ringNumber,
+    borderRadius: '50%',
+
   };
   if(handlers) {
     node.data.onNodeClick = () => handlers.handleNodeClick(trackId);
