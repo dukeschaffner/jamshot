@@ -42,6 +42,8 @@ function TrackNode({ data }) {
     visibility: 'hidden',
   };
 
+  const handleStyle = type === 'radial' || type === 'concentric' ? radialHandleStyle : heirarchicalHandleStyle;
+
   const color = track ? getTrackColor(track) : 'var(--grey-2)'; // Color based on popularity and plays
 
   const handleMouseEnter = () => {
@@ -59,6 +61,7 @@ function TrackNode({ data }) {
       onNodeHover(false, null);
     }
   };
+
 
   return (
     <div
@@ -99,7 +102,7 @@ function TrackNode({ data }) {
       <Handle
         type="target"
         position={Position.Top}
-        style={type === 'radial' ? radialHandleStyle : heirarchicalHandleStyle}
+        style={handleStyle}
       />
       
       {/* Avatar overlay */}
@@ -151,7 +154,7 @@ function TrackNode({ data }) {
       <Handle
         type="source"
         position={Position.Bottom}
-        style={type === 'radial' ? radialHandleStyle : heirarchicalHandleStyle}
+        style={handleStyle}
       />
     </div>
     </div>

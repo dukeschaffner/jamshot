@@ -1,8 +1,7 @@
-import { CONCENTRIC_CONFIG } from './config';
+import { BASE_NODE_SIZE, BASE_CLUSTER_NODE_SIZE, CONCENTRIC_CONFIG } from './config';
 import { polarRadiansToCartesian } from './renderUtils';
 
 const { OUTER_RING_RADIUS, CHILDREN_LIMIT, BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
-import { BASE_NODE_SIZE } from './config';
 // const { CHILDREN_LIMIT, RING_SPACING } = CONCENTRIC_CONFIG;
 
 
@@ -32,6 +31,7 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
       ringNumber: ringNumber,
       angle: angle,
       sliceAngle: sliceAngle,
+      type: 'concentric',
     },
     zIndex: 1000 - ringNumber,
   };
@@ -69,8 +69,8 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers)
 
 
   if(track.collab_count && track.collab_count > 0) {
-    const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS * (ringNumber + 0.1), angle).x;
-    const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS * (ringNumber + 0.1), angle).y;
+    const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS * (ringNumber + 0.3), angle).x - BASE_CLUSTER_NODE_SIZE / 2;
+    const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS * (ringNumber + 0.3), angle).y - BASE_CLUSTER_NODE_SIZE / 2;
     const node = {
       id: `load-children-${trackId}`,
       type: 'clusterNode',
@@ -80,6 +80,7 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers)
         clusterType: 'loadChildren',
         type: 'radial',
         ringNumber: ringNumber,
+        type: 'concentric',
       },
     };
     if(handlers) {
