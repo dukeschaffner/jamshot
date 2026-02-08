@@ -240,6 +240,26 @@ export function generateConcentricTree({
   return {nodes: flowNodes, edges: flowEdges};
 }
 
+
+export function handleConcentricNodeClick(trackId, treeDataManager, viewState) {
+  // Collect the clicked track ID and all its ancestors
+  const expandedIds = new Set();
+  let currentTrackId = trackId;
+  
+  // Traverse up the parent chain
+  while (currentTrackId) {
+    expandedIds.add(currentTrackId);
+    const track = treeDataManager.trackData.get(currentTrackId);
+    if (!track || !track.parent_track_id) {
+      break; // Reached root or track not found
+    }
+    currentTrackId = track.parent_track_id;
+  }
+  
+  // Set expandedTrackIds to only contain the clicked track and its ancestors
+  viewState.expandedTrackIds = expandedIds;
+}
+
 // #endregion
 
 
