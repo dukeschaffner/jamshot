@@ -6,6 +6,9 @@ before launch:
 - intro video use downloaded video after streaming through once
 - dont show audio processing specific error to users
 - make sure mic stream closes when user navigates away from the page
+- check cloudflare api cache
+- lambda concurrency
+- rate limiting
 
 
 - DAW 

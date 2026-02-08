@@ -18,3 +18,12 @@ export const RADIAL_TREE_CONFIG = {
     RING_SPACING: 300,
     RING_SIZE_FACTOR: 0.35,
 };
+
+export const CONCENTRIC_CONFIG = {
+    BASE_RING_SIZE: 350,
+    RING_SPACING: 50,
+    OUTER_RING_RADIUS: 300,
+    CHILDREN_LIMIT: 11,
+};
+
+export const DEBUG_MODE = true;
