@@ -62,6 +62,7 @@ function ConcentricNode({ data }) {
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'visible',
+      borderRadius: '50%',
     }}
     >
     <div
