@@ -7,15 +7,26 @@ import { FaCheckCircle } from 'react-icons/fa';
 import { getTrackColor } from '../utils/trackColorUtils';
 import styles from '../TreeView.module.css';
 import { CONCENTRIC_CONFIG } from '../utils/config';
+import {BASE_NODE_SIZE} from '../utils/config';
 
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 
 function ConcentricNode({ data }) {
-  const { track, isSelected, onNodeClick, onNodeHover, ringNumber } = data;
+  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner' } = data;
   const nodeRef = useRef(null);
 
-  const baseSize = BASE_RING_SIZE;
-  const size = baseSize + ringNumber * RING_SPACING;
+  const baseSize = BASE_NODE_SIZE;
+  if(size){
+
+  }
+  else if(type === 'inner') {
+    size = BASE_RING_SIZE + ringNumber * RING_SPACING;
+  }
+  else if(type === 'outer') {
+    size = BASE_NODE_SIZE;
+  }
+
+  // const baseSize = BASE_RING_SIZE;
   const ringSizeFactor = size / baseSize;
 
   const radialHandleStyle = {
@@ -93,6 +104,8 @@ function ConcentricNode({ data }) {
       />
       
       {/* Avatar overlay */}
+      {type !== 'inner' && (
+        <>
       <div
         style={{
           position: 'absolute',
@@ -136,6 +149,8 @@ function ConcentricNode({ data }) {
         >
           <FaCheckCircle size={10.5} />
         </div>
+      )}
+      </>
       )}
 
       <Handle

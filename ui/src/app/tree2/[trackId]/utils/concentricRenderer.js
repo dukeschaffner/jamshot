@@ -13,17 +13,17 @@ const { OUTER_RING_RADIUS, CHILDREN_LIMIT, BASE_RING_SIZE, RING_SPACING } = CONC
 
 function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers) {
   let size;
-  if(type === 'concentricNode') {
+  if(type === 'inner') {
     size = BASE_RING_SIZE + ringNumber * RING_SPACING;
   }
-  else if (type === 'trackNode') {
+  else if (type === 'outer') {
     size = BASE_NODE_SIZE;
   }
   x = x - size / 2;
   y = y - size / 2;
   const node = {
     id: `track-${trackId}`,
-    type: type,
+    type: 'concentricNode',
     position: { x, y },
     data: {
       track: trackData.get(trackId),
@@ -31,7 +31,7 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
       ringNumber: ringNumber,
       angle: angle,
       sliceAngle: sliceAngle,
-      type: 'concentric',
+      type: type,
     },
     zIndex: 1000 - ringNumber,
     borderRadius: '50%',
@@ -172,7 +172,7 @@ export function generateConcentricTree({
   let previousTrackId = null;
 
   while(!done) {
-    flowNodes.push(createNode(currentTrackId, 'concentricNode', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers));
+    flowNodes.push(createNode(currentTrackId, 'inner', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers));
     previousTrackId = currentTrackId;
     ringNumber++;
 
@@ -203,7 +203,7 @@ export function generateConcentricTree({
     children.forEach(child => {
       const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, currentAngle).x;
       const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, currentAngle).y;
-      flowNodes.push(createNode(child.id, 'trackNode', x, y, trackData, selectedTrackId, 1, currentAngle, radialSpacing, handlers));
+      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, currentAngle, radialSpacing, handlers));
     
       // Add edge from root to child
       flowEdges.push({
@@ -234,8 +234,12 @@ export function generateConcentricTree({
     });
   }
 
-  setNodes(flowNodes);
-  setEdges(flowEdges);
+  if(setNodes) {
+    setNodes(flowNodes);
+  }
+  if(setEdges) {
+    setEdges(flowEdges);
+  }
 
   return {nodes: flowNodes, edges: flowEdges};
 }
@@ -317,82 +321,368 @@ export function handleConcentricNodeClick(trackId, treeDataManager, viewState) {
 // }
 
 
-// export function animateNodeTransition(oldNodes, newNodes, setNodes, onComplete) {
-//   if (!setNodes) {
-//     console.warn('setNodes function is required for animation');
-//     if (onComplete) onComplete();
-//     return;
-//   }
+export function animateNodeExpand(oldNodes, newNodes, expandedTrackId, setNodes, newEdges, setEdges, onComplete) {
+  if (!setNodes) {
+    console.warn('setNodes function is required for animation');
+    if (onComplete) onComplete();
+    return;
+  }
 
-//   // Validate that arrays have the same length
-//   if (oldNodes.length !== newNodes.length) {
-//     throw new Error(`Node arrays have different lengths: oldNodes has ${oldNodes.length}, newNodes has ${newNodes.length}`);
-//   }
+  // Create maps for quick lookup
+  const oldNodesMap = new Map(oldNodes.map(node => [node.id, node]));
+  const newNodesMap = new Map(newNodes.map(node => [node.id, node]));
+  const newNodesIdSet = new Set(newNodes.map(node => node.id));
 
-//   // Create maps for quick lookup
-//   const oldNodesMap = new Map(oldNodes.map(node => [node.id, node]));
-//   const newNodesMap = new Map(newNodes.map(node => [node.id, node]));
+  // Find the expanded node
+  const expandedNodeId = `track-${expandedTrackId}`;
+  const expandedOldNode = oldNodesMap.get(expandedNodeId);
+  const expandedNewNode = newNodesMap.get(expandedNodeId);
 
-//   // Validate that each old node has a corresponding new node
-//   for (const oldNode of oldNodes) {
-//     if (!newNodesMap.has(oldNode.id)) {
-//       throw new Error(`Node with id "${oldNode.id}" exists in oldNodes but not in newNodes`);
-//     }
-//   }
+  if (!expandedOldNode || !expandedNewNode) {
+    console.warn('Expanded node not found in oldNodes or newNodes');
+    if (onComplete) onComplete();
+    return;
+  }
 
-//   // Validate that each new node has a corresponding old node
-//   for (const newNode of newNodes) {
-//     if (!oldNodesMap.has(newNode.id)) {
-//       throw new Error(`Node with id "${newNode.id}" exists in newNodes but not in oldNodes`);
-//     }
-//   }
+  // Calculate size for nodes
+  const getNodeSize = (node) => {
+    if (!node || !node.data) return BASE_NODE_SIZE;
+    if (node.data.type === 'inner') {
+      return BASE_RING_SIZE + (node.data.ringNumber || 0) * RING_SPACING;
+    }
+    return BASE_NODE_SIZE;
+  };
 
-//   // Create animation data for each node
-//   const animations = oldNodes.map(oldNode => {
-//     const newNode = newNodesMap.get(oldNode.id);
-//     return {
-//       id: oldNode.id,
-//       startX: oldNode.position.x,
-//       startY: oldNode.position.y,
-//       targetX: newNode.position.x,
-//       targetY: newNode.position.y,
-//     };
-//   });
+  // Identify old children (outer nodes that aren't the expanded one, plus their loadChildren)
+  const oldChildrenNodes = [];
+  const oldLoadChildrenNodes = [];
+  
+  // First, find the loadChildren node for the expanded node (before expansion)
+  const expandedLoadChildrenId = `load-children-${expandedTrackId}`;
+  const expandedLoadChildrenNode = oldNodesMap.get(expandedLoadChildrenId);
+  if (expandedLoadChildrenNode) {
+    oldLoadChildrenNodes.push(expandedLoadChildrenNode);
+  }
+  
+  oldNodes.forEach(node => {
+    // Skip inner nodes and the expanded node
+    if (node.data?.type === 'inner' || node.id === expandedNodeId) return;
+    
+    // Track nodes that are outer nodes (siblings of expanded node)
+    if (node.id.startsWith('track-') && node.data?.type === 'outer') {
+      oldChildrenNodes.push(node);
+      // Find associated loadChildren node
+      const loadChildrenId = `load-children-${node.id.replace('track-', '')}`;
+      const loadChildrenNode = oldNodesMap.get(loadChildrenId);
+      if (loadChildrenNode) {
+        oldLoadChildrenNodes.push(loadChildrenNode);
+      }
+    }
+  });
 
-//   const startTime = performance.now();
-//   const duration = 500;
+  // Identify new children (nodes in newNodes that weren't in oldNodes)
+  const newChildrenNodes = newNodes.filter(node => 
+    !oldNodesMap.has(node.id) && 
+    node.id.startsWith('track-') && 
+    node.data?.type === 'outer'
+  );
 
-//   function step(now) {
-//     const elapsed = now - startTime;
-//     const t = Math.min(elapsed / duration, 1);
+  // Identify new loadChildren nodes (associated with new children)
+  const newLoadChildrenNodes = [];
+  newChildrenNodes.forEach(childNode => {
+    const trackId = childNode.id.replace('track-', '');
+    const loadChildrenId = `load-children-${trackId}`;
+    const loadChildrenNode = newNodesMap.get(loadChildrenId);
+    if (loadChildrenNode && !oldNodesMap.has(loadChildrenId)) {
+      newLoadChildrenNodes.push(loadChildrenNode);
+    }
+  });
 
-//     // easeInOut cubic easing
-//     const easeT = t < 0.5
-//       ? 4 * t * t * t
-//       : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // Calculate animation data for expanded node
+  const expandedStartSize = getNodeSize(expandedOldNode);
+  const expandedTargetSize = getNodeSize(expandedNewNode);
+  const expandedStartX = expandedOldNode.position.x;
+  const expandedStartY = expandedOldNode.position.y;
+  const expandedTargetX = expandedNewNode.position.x;
+  const expandedTargetY = expandedNewNode.position.y;
 
-//     // Update all node positions using setNodes
-//     setNodes((nodes) =>
-//       nodes.map((n) => {
-//         const animation = animations.find(a => a.id === n.id);
-//         if (!animation) return n;
+  // Calculate animation data for old children (move to 0,0)
+  const oldChildrenAnimations = oldChildrenNodes.map(node => ({
+    id: node.id,
+    startX: node.position.x,
+    startY: node.position.y,
+    targetX: 0,
+    targetY: 0,
+  }));
 
-//         const currentX = animation.startX + (animation.targetX - animation.startX) * easeT;
-//         const currentY = animation.startY + (animation.targetY - animation.startY) * easeT;
+  const oldLoadChildrenAnimations = oldLoadChildrenNodes.map(node => ({
+    id: node.id,
+    startX: node.position.x,
+    startY: node.position.y,
+    targetX: 0,
+    targetY: 0,
+  }));
 
-//         return { ...n, position: { x: currentX, y: currentY } };
-//       })
-//     );
+  // Calculate animation data for new children (start from 0,0, move to final positions)
+  const newChildrenAnimations = newChildrenNodes.map(node => ({
+    id: node.id,
+    startX: 0,
+    startY: 0,
+    targetX: node.position.x,
+    targetY: node.position.y,
+    startSize: 0,
+    targetSize: getNodeSize(node),
+  }));
 
-//     if (t < 1) {
-//       requestAnimationFrame(step);
-//     } else {
-//       if (onComplete) onComplete();
-//     }
-//   }
+  // Calculate animation data for new loadChildren nodes (start from 0,0, move to final positions)
+  const newLoadChildrenAnimations = newLoadChildrenNodes.map(node => ({
+    id: node.id,
+    startX: 0,
+    startY: 0,
+    targetX: node.position.x,
+    targetY: node.position.y,
+  }));
 
-//   requestAnimationFrame(step);
-// }
+  // Phase 1: Expanded node grows and moves to center, old children move to (0,0)
+  const phase1Duration = 500;
+  const phase1bDuration = 200; // Fade out duration
+  const phase2Duration = 500;
+
+  function runPhase1() {
+    const startTime = performance.now();
+    const allPhase1Nodes = [expandedNodeId, ...oldChildrenNodes.map(n => n.id), ...oldLoadChildrenNodes.map(n => n.id)];
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / phase1Duration, 1);
+
+      // easeInOut cubic easing
+      const easeT = t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      setNodes((nodes) =>
+        nodes.map((n) => {
+          // Animate expanded node (position and size)
+          if (n.id === expandedNodeId) {
+            const currentX = expandedStartX + (expandedTargetX - expandedStartX) * easeT;
+            const currentY = expandedStartY + (expandedTargetY - expandedStartY) * easeT;
+            const currentSize = expandedStartSize + (expandedTargetSize - expandedStartSize) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              data: {
+                ...n.data,
+                size: currentSize,
+              },
+            };
+          }
+
+          // Animate old children to (0,0)
+          const childAnim = oldChildrenAnimations.find(a => a.id === n.id);
+          if (childAnim) {
+            const currentX = childAnim.startX + (childAnim.targetX - childAnim.startX) * easeT;
+            const currentY = childAnim.startY + (childAnim.targetY - childAnim.startY) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+            };
+          }
+
+          // Animate old loadChildren to (0,0)
+          const loadAnim = oldLoadChildrenAnimations.find(a => a.id === n.id);
+          if (loadAnim) {
+            const currentX = loadAnim.startX + (loadAnim.targetX - loadAnim.startX) * easeT;
+            const currentY = loadAnim.startY + (loadAnim.targetY - loadAnim.startY) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+            };
+          }
+
+          return n;
+        })
+      );
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        runPhase1b();
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  // Phase 1b: Old children disappear (fade out)
+  function runPhase1b() {
+    const startTime = performance.now();
+    const nodesToRemove = [...oldChildrenNodes.map(n => n.id), ...oldLoadChildrenNodes.map(n => n.id)];
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / phase1bDuration, 1);
+
+      setNodes((nodes) =>
+        nodes.map((n) => {
+          if (nodesToRemove.includes(n.id)) {
+            return {
+              ...n,
+              style: {
+                ...n.style,
+                opacity: 1 - t,
+              },
+            };
+          }
+          return n;
+        })
+      );
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // Remove old children nodes
+        setNodes((nodes) => nodes.filter(n => !nodesToRemove.includes(n.id)));
+        runPhase2();
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  // Phase 2: New children appear from (0,0) and move to final positions
+  function runPhase2() {
+    // Add new children nodes and loadChildren nodes at (0,0) with scale 0
+    setNodes((nodes) => {
+      const existingNodeIds = new Set(nodes.map(n => n.id));
+      const newChildrenToAdd = newChildrenNodes
+        .filter(node => !existingNodeIds.has(node.id))
+        .map(node => ({
+          ...node,
+          position: { x: 0, y: 0 },
+          data: {
+            ...node.data,
+            size: 0,
+          },
+          style: {
+            ...node.style,
+            opacity: 0,
+          },
+        }));
+      const newLoadChildrenToAdd = newLoadChildrenNodes
+        .filter(node => !existingNodeIds.has(node.id))
+        .map(node => ({
+          ...node,
+          position: { x: 0, y: 0 },
+          style: {
+            ...node.style,
+            opacity: 0,
+          },
+        }));
+      return [...nodes, ...newChildrenToAdd, ...newLoadChildrenToAdd];
+    });
+
+    // Update edges when new children nodes appear
+    if (setEdges && newEdges) {
+      setEdges(newEdges);
+    }
+
+    const startTime = performance.now();
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / phase2Duration, 1);
+
+      // easeInOut cubic easing
+      const easeT = t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      setNodes((nodes) =>
+        nodes.map((n) => {
+          // Animate new children nodes
+          const anim = newChildrenAnimations.find(a => a.id === n.id);
+          if (anim) {
+            const currentX = anim.startX + (anim.targetX - anim.startX) * easeT;
+            const currentY = anim.startY + (anim.targetY - anim.startY) * easeT;
+            const currentSize = anim.startSize + (anim.targetSize - anim.startSize) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              data: {
+                ...n.data,
+                size: currentSize,
+              },
+              style: {
+                ...n.style,
+                opacity: easeT,
+              },
+            };
+          }
+          // Animate new loadChildren nodes
+          const loadAnim = newLoadChildrenAnimations.find(a => a.id === n.id);
+          if (loadAnim) {
+            const currentX = loadAnim.startX + (loadAnim.targetX - loadAnim.startX) * easeT;
+            const currentY = loadAnim.startY + (loadAnim.targetY - loadAnim.startY) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              style: {
+                ...n.style,
+                opacity: easeT,
+              },
+            };
+          }
+          return n;
+        })
+      );
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // Finalize: update nodes to match newNodes exactly
+        setNodes((nodes) =>
+          nodes.map((n) => {
+            const newNode = newNodesMap.get(n.id);
+            if (newNode) {
+              return newNode;
+            }
+            return n;
+          }).filter(n => newNodesIdSet.has(n.id))
+        );
+        if (onComplete) onComplete();
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  // Update expanded node's zIndex and type before Phase 1
+  setNodes((nodes) =>
+    nodes.map((n) => {
+      if (n.id === expandedNodeId) {
+        return {
+          ...n,
+          zIndex: expandedNewNode.zIndex,
+          data: {
+            ...n.data,
+            type: expandedNewNode.data?.type,
+          },
+        };
+      }
+      if (n.id === expandedLoadChildrenId) {
+        return {
+          ...n,
+          zIndex: 0
+        };
+      }
+      return n;
+    })
+  );
+
+  // Start Phase 1
+  runPhase1();
+}
 
 
 // // TODO: performance can be improved by temp deleting descendant nodes and re-adding them after the animation

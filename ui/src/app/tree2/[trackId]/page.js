@@ -20,7 +20,7 @@ import { generateRadialTree, generateRadialSubtree, animateNode, moveNodeToSubtr
 import styles from './TreeView.module.css';
 import { TreeDataManager } from './utils/treeDataManager.js';
 import ConcentricNode from './components/ConcentricNode';
-import { generateConcentricTree, handleConcentricNodeClick } from './utils/concentricRenderer';
+import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand} from './utils/concentricRenderer';
 import DebugOverlay from './components/DebugOverlay';
 import { DEBUG_MODE } from './utils/config';
 
@@ -198,14 +198,13 @@ export default function TrackTreePage() {
     else if(treeType === 'concentric') {
       if(viewState.current.expandedTrackIds.has(clickedTrackId)) {
         handleConcentricNodeClick(clickedTrackId, treeDataManager.current, viewState.current);
-        generateConcentricTree({
+        const { nodes } = generateConcentricTree({
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
-          setNodes,
-          setEdges,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
         });
+        animateNodeExpand(nodesRef.current, nodes, clickedTrackId, setNodes);
       }
     }
   };
@@ -272,14 +271,13 @@ export default function TrackTreePage() {
       }
       else if(treeType === 'concentric') {
         // render the subtree (should replace load-children node with children nodes)
-        const { nodes } = generateConcentricTree({
+        const { nodes, edges } = generateConcentricTree({
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
-          setNodes,
-          setEdges,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
         });
+        animateNodeExpand(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         treeDataManager.current.recordUsage({nodes, rendered: true});
       }
     }
