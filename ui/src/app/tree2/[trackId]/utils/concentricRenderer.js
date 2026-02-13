@@ -685,6 +685,528 @@ export function animateNodeExpand(oldNodes, newNodes, expandedTrackId, setNodes,
 }
 
 
+export function animateNodeCollapse(oldNodes, newNodes, collapsedTrackId, setNodes, newEdges, setEdges, onComplete) {
+  if (!setNodes) {
+    console.warn('setNodes function is required for animation');
+    if (onComplete) onComplete();
+    return;
+  }
+
+  // Create maps for quick lookup
+  const oldNodesMap = new Map(oldNodes.map(node => [node.id, node]));
+  const newNodesMap = new Map(newNodes.map(node => [node.id, node]));
+  const newNodesIdSet = new Set(newNodes.map(node => node.id));
+
+  // Find the collapsed node (the clicked node)
+  const collapsedNodeId = `track-${collapsedTrackId}`;
+  const collapsedOldNode = oldNodesMap.get(collapsedNodeId);
+  const collapsedNewNode = newNodesMap.get(collapsedNodeId);
+
+  if (!collapsedOldNode || !collapsedNewNode) {
+    console.warn('Collapsed node not found in oldNodes or newNodes');
+    if (onComplete) onComplete();
+    return;
+  }
+
+  // Calculate size for nodes
+  const getNodeSize = (node) => {
+    if (!node || !node.data) return BASE_NODE_SIZE;
+    if (node.data.type === 'inner') {
+      return BASE_RING_SIZE + (node.data.ringNumber || 0) * RING_SPACING;
+    }
+    return BASE_NODE_SIZE;
+  };
+
+  // Phase 1: Identify nodes to collapse (children and loadChildren in the ring that are outside the clicked node)
+  // These are outer nodes that will be removed
+  const nodesToCollapse = [];
+  const loadChildrenToCollapse = [];
+  
+  oldNodes.forEach(node => {
+    // Skip inner nodes and the collapsed node itself
+    if (node.data?.type === 'inner' || node.id === collapsedNodeId) return;
+    
+    // Find outer nodes (children in the ring) that will be removed
+    if (node.id.startsWith('track-') && node.data?.type === 'outer') {
+      // Check if this node is not in newNodes (meaning it's being removed)
+      if (!newNodesMap.has(node.id)) {
+        nodesToCollapse.push(node);
+        // Find associated loadChildren node
+        const trackId = node.id.replace('track-', '');
+        const loadChildrenId = `load-children-${trackId}`;
+        const loadChildrenNode = oldNodesMap.get(loadChildrenId);
+        if (loadChildrenNode) {
+          loadChildrenToCollapse.push(loadChildrenNode);
+        }
+      }
+    }
+  });
+
+  // Phase 2a: Find the previously expanded child that needs to move from inner to outer
+  // This is a node that was inner in oldNodes but is outer in newNodes
+  let previouslyExpandedChild = null;
+  let previouslyExpandedChildLoadChildren = null;
+  
+  oldNodes.forEach(node => {
+    if (node.id.startsWith('track-') && node.data?.type === 'inner' && node.id !== collapsedNodeId) {
+      const newNode = newNodesMap.get(node.id);
+      if (newNode && newNode.data?.type === 'outer') {
+        previouslyExpandedChild = { oldNode: node, newNode: newNode };
+        // Find its loadChildren node in newNodes
+        const trackId = node.id.replace('track-', '');
+        const loadChildrenId = `load-children-${trackId}`;
+        const loadChildrenNode = newNodesMap.get(loadChildrenId);
+        if (loadChildrenNode) {
+          previouslyExpandedChildLoadChildren = loadChildrenNode;
+        }
+        return;
+      }
+    }
+  });
+
+  // Identify inner nodes that are being removed (not the collapsed node, not the previously expanded child)
+  // These should shrink and disappear during phase 1
+  const innerNodesToRemove = [];
+  oldNodes.forEach(node => {
+    if (node.id.startsWith('track-') && 
+        node.data?.type === 'inner' && 
+        node.id !== collapsedNodeId &&
+        node.id !== (previouslyExpandedChild?.oldNode?.id)) {
+      // Check if this node is not in newNodes (meaning it's being removed)
+      if (!newNodesMap.has(node.id)) {
+        innerNodesToRemove.push(node);
+      }
+    }
+  });
+
+  // Phase 2b: Identify new children (nodes in newNodes that weren't in oldNodes, excluding the previously expanded child)
+  const newChildrenNodes = newNodes.filter(node => 
+    !oldNodesMap.has(node.id) && 
+    node.id.startsWith('track-') && 
+    node.data?.type === 'outer' &&
+    node.id !== (previouslyExpandedChild?.newNode?.id)
+  );
+
+  // Identify new loadChildren nodes (associated with new children, including the one for previously expanded child)
+  const newLoadChildrenNodes = [];
+  
+  // Add loadChildren for previously expanded child if it exists
+  if (previouslyExpandedChildLoadChildren) {
+    newLoadChildrenNodes.push(previouslyExpandedChildLoadChildren);
+  }
+  
+  // Add loadChildren for other new children
+  newChildrenNodes.forEach(childNode => {
+    const trackId = childNode.id.replace('track-', '');
+    const loadChildrenId = `load-children-${trackId}`;
+    const loadChildrenNode = newNodesMap.get(loadChildrenId);
+    if (loadChildrenNode && !oldNodesMap.has(loadChildrenId)) {
+      newLoadChildrenNodes.push(loadChildrenNode);
+    }
+  });
+
+  // Calculate animation data for collapsed node (if it changes position/size)
+  const collapsedStartSize = getNodeSize(collapsedOldNode);
+  const collapsedTargetSize = getNodeSize(collapsedNewNode);
+  const collapsedStartX = collapsedOldNode.position.x;
+  const collapsedStartY = collapsedOldNode.position.y;
+  const collapsedTargetX = collapsedNewNode.position.x;
+  const collapsedTargetY = collapsedNewNode.position.y;
+
+  // Calculate animation data for nodes to collapse (move to 0,0)
+  const collapseAnimations = nodesToCollapse.map(node => ({
+    id: node.id,
+    startX: node.position.x,
+    startY: node.position.y,
+    targetX: 0,
+    targetY: 0,
+  }));
+
+  const loadChildrenCollapseAnimations = loadChildrenToCollapse.map(node => ({
+    id: node.id,
+    startX: node.position.x,
+    startY: node.position.y,
+    targetX: 0,
+    targetY: 0,
+  }));
+
+  // Calculate animation data for inner nodes to remove (shrink to 0,0 and fade out)
+  const innerNodesToRemoveAnimations = innerNodesToRemove.map(node => ({
+    id: node.id,
+    startX: node.position.x,
+    startY: node.position.y,
+    targetX: 0,
+    targetY: 0,
+    startSize: getNodeSize(node),
+    targetSize: 0,
+  }));
+
+  // Calculate animation data for previously expanded child (2a)
+  let previouslyExpandedChildAnimation = null;
+  if (previouslyExpandedChild) {
+    const oldNode = previouslyExpandedChild.oldNode;
+    const newNode = previouslyExpandedChild.newNode;
+    previouslyExpandedChildAnimation = {
+      id: oldNode.id,
+      startX: oldNode.position.x,
+      startY: oldNode.position.y,
+      targetX: newNode.position.x,
+      targetY: newNode.position.y,
+      startSize: getNodeSize(oldNode),
+      targetSize: getNodeSize(newNode),
+    };
+  }
+
+  // Calculate animation data for new children (2b) - start from 0,0, move to final positions
+  const newChildrenAnimations = newChildrenNodes.map(node => ({
+    id: node.id,
+    startX: 0,
+    startY: 0,
+    targetX: node.position.x,
+    targetY: node.position.y,
+    startSize: 0,
+    targetSize: getNodeSize(node),
+  }));
+
+  // Calculate animation data for new loadChildren nodes (2b) - start from 0,0, move to final positions
+  // Exclude the loadChildren for previously expanded child since it's handled separately
+  const newLoadChildrenAnimations = newLoadChildrenNodes
+    .filter(node => !previouslyExpandedChildLoadChildren || node.id !== previouslyExpandedChildLoadChildren.id)
+    .map(node => ({
+      id: node.id,
+      startX: 0,
+      startY: 0,
+      targetX: node.position.x,
+      targetY: node.position.y,
+    }));
+
+  // Animation durations
+  const phase1Duration = 500;
+  const phase1bDuration = 200; // Fade out duration
+  const phase2Duration = 500;
+
+  // Phase 1: Nodes to collapse move to (0,0), inner nodes shrink and fade out
+  function runPhase1() {
+    const startTime = performance.now();
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / phase1Duration, 1);
+
+      // easeInOut cubic easing
+      const easeT = t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      setNodes((nodes) =>
+        nodes.map((n) => {
+          // Animate collapsed node (if it changes position/size)
+          if (n.id === collapsedNodeId && (collapsedStartX !== collapsedTargetX || collapsedStartY !== collapsedTargetY || collapsedStartSize !== collapsedTargetSize)) {
+            const currentX = collapsedStartX + (collapsedTargetX - collapsedStartX) * easeT;
+            const currentY = collapsedStartY + (collapsedTargetY - collapsedStartY) * easeT;
+            const currentSize = collapsedStartSize + (collapsedTargetSize - collapsedStartSize) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              data: {
+                ...n.data,
+                size: currentSize,
+              },
+            };
+          }
+
+          // Animate inner nodes to remove (shrink to 0,0 and fade out)
+          const innerRemoveAnim = innerNodesToRemoveAnimations.find(a => a.id === n.id);
+          if (innerRemoveAnim) {
+            const currentX = innerRemoveAnim.startX + (innerRemoveAnim.targetX - innerRemoveAnim.startX) * easeT;
+            const currentY = innerRemoveAnim.startY + (innerRemoveAnim.targetY - innerRemoveAnim.startY) * easeT;
+            const currentSize = innerRemoveAnim.startSize + (innerRemoveAnim.targetSize - innerRemoveAnim.startSize) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              data: {
+                ...n.data,
+                size: currentSize,
+              },
+              style: {
+                ...n.style,
+                opacity: 1 - easeT,
+              },
+            };
+          }
+
+          // Animate nodes to collapse to (0,0)
+          const collapseAnim = collapseAnimations.find(a => a.id === n.id);
+          if (collapseAnim) {
+            const currentX = collapseAnim.startX + (collapseAnim.targetX - collapseAnim.startX) * easeT;
+            const currentY = collapseAnim.startY + (collapseAnim.targetY - collapseAnim.startY) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+            };
+          }
+
+          // Animate loadChildren to collapse to (0,0)
+          const loadCollapseAnim = loadChildrenCollapseAnimations.find(a => a.id === n.id);
+          if (loadCollapseAnim) {
+            const currentX = loadCollapseAnim.startX + (loadCollapseAnim.targetX - loadCollapseAnim.startX) * easeT;
+            const currentY = loadCollapseAnim.startY + (loadCollapseAnim.targetY - loadCollapseAnim.startY) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+            };
+          }
+
+          // Phase 2a: Animate previously expanded child to its new position in the ring (simultaneously with phase 1)
+          if (previouslyExpandedChildAnimation && n.id === previouslyExpandedChildAnimation.id) {
+            const currentX = previouslyExpandedChildAnimation.startX + (previouslyExpandedChildAnimation.targetX - previouslyExpandedChildAnimation.startX) * easeT;
+            const currentY = previouslyExpandedChildAnimation.startY + (previouslyExpandedChildAnimation.targetY - previouslyExpandedChildAnimation.startY) * easeT;
+            const currentSize = previouslyExpandedChildAnimation.startSize + (previouslyExpandedChildAnimation.targetSize - previouslyExpandedChildAnimation.startSize) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              data: {
+                ...n.data,
+                size: currentSize,
+              },
+            };
+          }
+
+          return n;
+        })
+      );
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        runPhase1b();
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  // Phase 1b: Nodes to collapse disappear (fade out)
+  function runPhase1b() {
+    const startTime = performance.now();
+    const nodesToRemove = [
+      ...nodesToCollapse.map(n => n.id), 
+      ...loadChildrenToCollapse.map(n => n.id),
+      ...innerNodesToRemove.map(n => n.id)
+    ];
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / phase1bDuration, 1);
+
+      setNodes((nodes) =>
+        nodes.map((n) => {
+          // Only fade out ring nodes (inner nodes already faded in phase 1)
+          const isRingNode = nodesToCollapse.some(node => node.id === n.id) || 
+                            loadChildrenToCollapse.some(node => node.id === n.id);
+          if (isRingNode && nodesToRemove.includes(n.id)) {
+            return {
+              ...n,
+              style: {
+                ...n.style,
+                opacity: 1 - t,
+              },
+            };
+          }
+          return n;
+        })
+      );
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // Remove collapsed nodes (ring nodes and inner nodes)
+        setNodes((nodes) => nodes.filter(n => !nodesToRemove.includes(n.id)));
+        runPhase2();
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  // Phase 2: New children appear (2b)
+  function runPhase2() {
+
+    // Add new children nodes and loadChildren nodes at (0,0) with scale 0
+    setNodes((nodes) => {
+      const existingNodeIds = new Set(nodes.map(n => n.id));
+      const newChildrenToAdd = newChildrenNodes
+        .filter(node => !existingNodeIds.has(node.id))
+        .map(node => ({
+          ...node,
+          position: { x: 0, y: 0 },
+          data: {
+            ...node.data,
+            size: 0,
+          },
+          style: {
+            ...node.style,
+            opacity: 0,
+          },
+        }));
+      
+      // Add loadChildren nodes (excluding the one for previously expanded child if it already exists)
+      const loadChildrenToAdd = newLoadChildrenNodes
+        .filter(node => {
+          // If this is the loadChildren for previously expanded child, check if it needs to be added
+          if (previouslyExpandedChild && node.id === previouslyExpandedChildLoadChildren?.id) {
+            // Only add if it doesn't exist yet
+            return !existingNodeIds.has(node.id);
+          }
+          return !existingNodeIds.has(node.id);
+        })
+        .map(node => ({
+          ...node,
+          position: { x: 0, y: 0 },
+          style: {
+            ...node.style,
+            opacity: 0,
+          },
+        }));
+      
+      return [...nodes, ...newChildrenToAdd, ...loadChildrenToAdd];
+    });
+
+    // Update edges when new children nodes appear
+    if (setEdges && newEdges) {
+      setEdges(newEdges);
+    }
+
+    const startTime = performance.now();
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / phase2Duration, 1);
+
+      // easeInOut cubic easing
+      const easeT = t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+      setNodes((nodes) =>
+        nodes.map((n) => {
+          // Phase 2b: Animate loadChildren for previously expanded child (appears with other new children)
+          if (previouslyExpandedChildLoadChildren && n.id === previouslyExpandedChildLoadChildren.id) {
+            // If it was just added, animate from 0,0
+            const wasJustAdded = !oldNodesMap.has(n.id);
+            const startX = wasJustAdded ? 0 : (previouslyExpandedChild?.oldNode?.position.x || 0);
+            const startY = wasJustAdded ? 0 : (previouslyExpandedChild?.oldNode?.position.y || 0);
+            const targetX = previouslyExpandedChildLoadChildren.position.x;
+            const targetY = previouslyExpandedChildLoadChildren.position.y;
+            
+            const currentX = startX + (targetX - startX) * easeT;
+            const currentY = startY + (targetY - startY) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              style: {
+                ...n.style,
+                opacity: wasJustAdded ? easeT : (n.style?.opacity || 1),
+              },
+            };
+          }
+
+          // Phase 2b: Animate new children nodes
+          const anim = newChildrenAnimations.find(a => a.id === n.id);
+          if (anim) {
+            const currentX = anim.startX + (anim.targetX - anim.startX) * easeT;
+            const currentY = anim.startY + (anim.targetY - anim.startY) * easeT;
+            const currentSize = anim.startSize + (anim.targetSize - anim.startSize) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              data: {
+                ...n.data,
+                size: currentSize,
+              },
+              style: {
+                ...n.style,
+                opacity: easeT,
+              },
+            };
+          }
+
+          // Phase 2b: Animate new loadChildren nodes
+          const loadAnim = newLoadChildrenAnimations.find(a => a.id === n.id);
+          if (loadAnim) {
+            const currentX = loadAnim.startX + (loadAnim.targetX - loadAnim.startX) * easeT;
+            const currentY = loadAnim.startY + (loadAnim.targetY - loadAnim.startY) * easeT;
+            return {
+              ...n,
+              position: { x: currentX, y: currentY },
+              style: {
+                ...n.style,
+                opacity: easeT,
+              },
+            };
+          }
+
+          return n;
+        })
+      );
+
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // Finalize: update nodes to match newNodes exactly
+        setNodes((nodes) =>
+          nodes.map((n) => {
+            const newNode = newNodesMap.get(n.id);
+            if (newNode) {
+              return newNode;
+            }
+            return n;
+          }).filter(n => newNodesIdSet.has(n.id))
+        );
+        if (onComplete) onComplete();
+      }
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  // Update collapsed node's zIndex and type before Phase 1 (if needed)
+  setNodes((nodes) =>
+    nodes.map((n) => {
+      if (n.id === collapsedNodeId) {
+        return {
+          ...n,
+          zIndex: collapsedNewNode.zIndex,
+          data: {
+            ...n.data,
+            type: collapsedNewNode.data?.type,
+            ringNumber: collapsedNewNode.data?.ringNumber,
+          },
+        };
+      }
+      // Update previously expanded child's type and zIndex before Phase 1 (for 2a animation)
+      if (previouslyExpandedChild && n.id === previouslyExpandedChild.oldNode.id) {
+        return {
+          ...n,
+          zIndex: previouslyExpandedChild.newNode.zIndex,
+          data: {
+            ...n.data,
+            type: previouslyExpandedChild.newNode.data?.type,
+            ringNumber: previouslyExpandedChild.newNode.data?.ringNumber,
+            angle: previouslyExpandedChild.newNode.data?.angle,
+            sliceAngle: previouslyExpandedChild.newNode.data?.sliceAngle,
+          },
+        };
+      }
+      return n;
+    })
+  );
+
+  // Start Phase 1
+  runPhase1();
+}
+
+
 // // TODO: performance can be improved by temp deleting descendant nodes and re-adding them after the animation
 // // OR delete edges, apply css transforms to the nodes, and rerender the subtree nodes after the animation
 

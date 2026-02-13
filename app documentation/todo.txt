@@ -9,6 +9,7 @@ before launch:
 - check cloudflare api cache
 - lambda concurrency
 - rate limiting
+- new collab email linked to orig track (maybe link to new track?)
 
 
 - DAW 
