@@ -182,7 +182,8 @@ export function generateConcentricTree({
       done = true;
       break;
     }
-    if (children.length > CHILDREN_LIMIT) throw new Error('Too many children: ' + children.length);
+    // Note: We no longer check CHILDREN_LIMIT here since we support pagination
+    // The UI pagination will limit how many children are displayed at once
 
     const expandedChild = children.find(child => viewState.expandedTrackIds.has(child.id));
     if(!expandedChild) {
@@ -194,12 +195,28 @@ export function generateConcentricTree({
 
 
 
-  const children = childrenData.get(previousTrackId);
+  const allChildren = childrenData.get(previousTrackId) || [];
+  
+  // Get UI pagination state for the parent showing children
+  const uiPagination = viewState.paginationByParent.get(previousTrackId) || {
+    page: 1,
+    pageSize: CHILDREN_LIMIT
+  };
+  
+  // Filter children based on UI pagination
+  const startIndex = (uiPagination.page - 1) * uiPagination.pageSize;
+  const endIndex = startIndex + uiPagination.pageSize;
+  const children = allChildren.slice(startIndex, endIndex);
+  
+  // Validate that we're not trying to display more than CHILDREN_LIMIT at once
+  if (children.length > CHILDREN_LIMIT) {
+    throw new Error(`Too many children to display: ${children.length} (limit: ${CHILDREN_LIMIT})`);
+  }
 
   let currentAngle = 0;
-  let radialSpacing = 2 * Math.PI / children.length;
+  const radialSpacing = children.length > 0 ? 2 * Math.PI / children.length : 0;
 
-  if(children) {
+  if(children && children.length > 0) {
     children.forEach(child => {
       const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, currentAngle).x;
       const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, currentAngle).y;
@@ -241,7 +258,7 @@ export function generateConcentricTree({
     setEdges(flowEdges);
   }
 
-  return {nodes: flowNodes, edges: flowEdges};
+  return {nodes: flowNodes, edges: flowEdges, parentTrackId: previousTrackId};
 }
 
 
