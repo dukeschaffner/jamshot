@@ -282,6 +282,7 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
   let isCompetitionEntry = false;
   let competitionId = null;
   let parentTrack = null;
+  let isLoop = false;
 
   let {
     title,
@@ -408,7 +409,7 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
   try {
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id, is_loop FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -428,6 +429,9 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       parsedTimeSignature = parentTrack.time_signature;
       // Use parent's metronome offset for collaborations
       parsedMetronomeOffset = parentTrack.metronome_offset || 0;
+      
+      // Inherit is_loop from parent track for collaborations
+      isLoop = parentTrack.is_loop || false;
 
       // Validate that collaboration isn't longer than parent track
       // if (duration > parentDuration) {
@@ -623,8 +627,8 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key, guid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, gen_random_uuid()) RETURNING *',
-        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key]
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key, guid, is_loop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, gen_random_uuid(), $22) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key, isLoop]
     );
 
     const trackId = result.rows[0].id;

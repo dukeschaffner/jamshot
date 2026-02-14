@@ -39,7 +39,7 @@ const TransportControls = ({
   const bpmControlRef = useRef(null);
   const menuRef = useRef(null);
 
-  const { isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo, isFullscreen, setIsFullscreen} = useDAW();
+  const { isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo, isFullscreen, setIsFullscreen, isLoop} = useDAW();
 
   const { isAuthenticated } = useUser();
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -157,12 +157,14 @@ const TransportControls = ({
   
   // Start editing BPM
   const startEditingBpm = () => {
+    if (isLoop) return; // Disable BPM editing in loop mode
     setBpmInputValue(metronomeBpm.toString());
     setIsEditingBpm(true);
   };
 
   // Start editing time signature
   const startEditingTimeSignature = () => {
+    if (isLoop) return; // Disable time signature editing in loop mode
     setIsEditingTimeSignature(true);
   };
 
@@ -300,8 +302,8 @@ const TransportControls = ({
         ) : (
         <span 
             onClick={startEditingBpm}
-            title="Click to edit BPM"
-            style={{ cursor: 'pointer' }}
+            title={isLoop ? "BPM is locked in loop mode" : "Click to edit BPM"}
+            style={{ cursor: isLoop ? 'not-allowed' : 'pointer', opacity: isLoop ? 0.6 : 1 }}
         >
             {metronomeBpm} BPM
         </span>
@@ -322,8 +324,8 @@ const TransportControls = ({
         )}
         <span 
         onClick={startEditingTimeSignature}
-        title="Click to edit Time Signature"
-        style={{ cursor: 'pointer' }}
+        title={isLoop ? "Time signature is locked in loop mode" : "Click to edit Time Signature"}
+        style={{ cursor: isLoop ? 'not-allowed' : 'pointer', opacity: isLoop ? 0.6 : 1 }}
         >
         {timeSignature}
         </span>

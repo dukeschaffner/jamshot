@@ -248,3 +248,9 @@ ALTER TABLE teams ADD CONSTRAINT teams_product_version_check
 ALTER TABLE camps DROP CONSTRAINT IF EXISTS camps_product_version_check;
 ALTER TABLE camps ADD CONSTRAINT camps_product_version_check 
   CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users'));
+
+-- Migration: Add is_loop flag to tracks table
+-- Date: 2026-01-XX
+-- Adds flag to indicate if a track is a loop, which disables arrangement features and locks BPM/time signature
+
+ALTER TABLE tracks ADD COLUMN is_loop BOOLEAN NOT NULL DEFAULT FALSE;
