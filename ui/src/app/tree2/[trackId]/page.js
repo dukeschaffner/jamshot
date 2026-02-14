@@ -22,7 +22,8 @@ import { TreeDataManager } from './utils/treeDataManager.js';
 import ConcentricNode from './components/ConcentricNode';
 import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand, animateNodeCollapse} from './utils/concentricRenderer';
 import DebugOverlay from './components/DebugOverlay';
-import { DEBUG_MODE } from './utils/config';
+import { DEBUG_MODE, CONCENTRIC_CONFIG, MAX_NODES_PER_LEVEL } from './utils/config';
+import PaginationButtons from './components/PaginationButtons';
 
 
 // Node types
@@ -49,6 +50,7 @@ export default function TrackTreePage() {
   const [selectedTrackId, setSelectedTrackId] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [hoveredNodePosition, setHoveredNodePosition] = useState(null);
+  const [concentricParentTrackId, setConcentricParentTrackId] = useState(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
@@ -82,7 +84,10 @@ export default function TrackTreePage() {
           await treeDataManager.current.fetchTrackTree(trackId);
           viewState.current.expandedTrackIds = new Set(treeDataManager.current.childrenData.keys());
           viewState.current.paginationByParent = new Map(
-            Array.from(treeDataManager.current.paginationData, ([id, pagination]) => [id, pagination.page])
+            Array.from(treeDataManager.current.paginationData, ([id, pagination]) => [
+              id, 
+              { page: pagination.page, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT }
+            ])
           );
           // Set selectedTrackId to the current track (trackId from params)
           setSelectedTrackId(trackId);
@@ -121,7 +126,7 @@ export default function TrackTreePage() {
       newNodes = nodes;
     }
     else if(treeType === 'concentric') {
-      const { nodes } = generateConcentricTree({
+      const { nodes, parentTrackId } = generateConcentricTree({
         treeDataManager: treeDataManager.current,
         viewState: viewState.current,
         selectedTrackId,
@@ -130,6 +135,7 @@ export default function TrackTreePage() {
         handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
       });
       newNodes = nodes;
+      setConcentricParentTrackId(parentTrackId);
     }
     treeDataManager.current.recordUsage({nodes: newNodes, rendered: true});
     initialTreeRenderedRef.current = true;
@@ -198,13 +204,14 @@ export default function TrackTreePage() {
     else if(treeType === 'concentric') {
       if(viewState.current.expandedTrackIds.has(clickedTrackId)) {
         handleConcentricNodeClick(clickedTrackId, treeDataManager.current, viewState.current);
-        const { nodes, edges } = generateConcentricTree({
+        const { nodes, edges, parentTrackId } = generateConcentricTree({
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
         });
         animateNodeCollapse(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
+        setConcentricParentTrackId(parentTrackId);
       }
     }
   };
@@ -226,7 +233,10 @@ export default function TrackTreePage() {
     const node = nodesRef.current.find(node => node.id === 'track-' + clickedTrackId);
     if (node) {
       viewState.current.expandedTrackIds.add(clickedTrackId);
-      viewState.current.paginationByParent.set(clickedTrackId, 1);
+      viewState.current.paginationByParent.set(clickedTrackId, {
+        page: 1,
+        pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT
+      });
 
       const handlers = {
         handleNodeClick,
@@ -271,7 +281,7 @@ export default function TrackTreePage() {
       }
       else if(treeType === 'concentric') {
         // render the subtree (should replace load-children node with children nodes)
-        const { nodes, edges } = generateConcentricTree({
+        const { nodes, edges, parentTrackId } = generateConcentricTree({
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
@@ -279,9 +289,67 @@ export default function TrackTreePage() {
         });
         animateNodeExpand(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         treeDataManager.current.recordUsage({nodes, rendered: true});
+        setConcentricParentTrackId(parentTrackId);
       }
     }
     
+  }
+
+  // Handle page navigation for concentric tree pagination
+  const handlePageChange = async (parentTrackId, newPage) => {
+    if (!treeDataManager.current || !viewState.current) return;
+
+    const uiPagination = viewState.current.paginationByParent.get(parentTrackId);
+    if (!uiPagination) return;
+
+    const { pageSize } = uiPagination;
+    const allChildren = treeDataManager.current.childrenData.get(parentTrackId) || [];
+    
+    // Calculate which children we need to display for the new UI page
+    const startIndex = (newPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    // Check if we have all needed children in cache
+    const hasAllChildren = allChildren.length >= endIndex;
+    
+    if (!hasAllChildren) {
+      // Need to fetch more children from API
+      // Calculate which API pages we need to fetch
+      const apiPageSize = MAX_NODES_PER_LEVEL; // API page size
+      const apiPagination = treeDataManager.current.paginationData.get(parentTrackId);
+      
+      if (apiPagination) {
+        // Fetch all API pages that contain the children we need
+        const firstNeededApiPage = Math.floor(startIndex / apiPageSize) + 1;
+        const lastNeededApiPage = Math.floor((endIndex - 1) / apiPageSize) + 1;
+        
+        // Fetch all needed pages (they will be appended to cache)
+        const fetchPromises = [];
+        for (let apiPage = firstNeededApiPage; apiPage <= lastNeededApiPage && apiPage <= apiPagination.pages; apiPage++) {
+          // Check if we already have enough children from this page
+          const pageStartIndex = (apiPage - 1) * apiPageSize;
+          const pageEndIndex = pageStartIndex + apiPageSize;
+          if (allChildren.length < pageEndIndex) {
+            fetchPromises.push(treeDataManager.current.fetchAndSetChildren(parentTrackId, apiPage));
+          }
+        }
+        
+        if (fetchPromises.length > 0) {
+          await Promise.all(fetchPromises);
+        }
+      }
+    }
+
+    // Update UI pagination state
+    viewState.current.paginationByParent.set(parentTrackId, {
+      page: newPage,
+      pageSize: pageSize
+    });
+
+    // Regenerate tree to show new page
+    if (treeType === 'concentric') {
+      generateNodesAndEdges();
+    }
   }
 
 
@@ -439,6 +507,14 @@ export default function TrackTreePage() {
         </ReactFlow>
         {DEBUG_MODE && (
           <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
+        )}
+        {treeType === 'concentric' && concentricParentTrackId && treeDataManager.current && (
+          <PaginationButtons
+            parentTrackId={concentricParentTrackId}
+            treeDataManager={treeDataManager.current}
+            viewState={viewState.current}
+            onPageChange={handlePageChange}
+          />
         )}
       </div>
 

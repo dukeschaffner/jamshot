@@ -14,14 +14,14 @@ export class TreeDataManager {
     this.secret = secret;
   }
 
-  // Fetch children for a track
-  fetchChildren = async (parentTrackId) => {
+  // Fetch children for a track with optional page number
+  fetchChildren = async (parentTrackId, page = 1) => {
     let data = null;
     if (this.testMode) {
 
       const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
         params: {
-          page: 1,
+          page: page,
           limit: MAX_NODES_PER_LEVEL,
           includeChildCount: true,
           includeParent: false
@@ -32,7 +32,7 @@ export class TreeDataManager {
     else {
       const response = await api.get(`/tracks/${parentTrackId}/related`, {
         params: {
-          page: 1,
+          page: page,
           limit: MAX_NODES_PER_LEVEL,
           includeChildCount: true,
           includeParent: false
@@ -43,17 +43,30 @@ export class TreeDataManager {
     return {id: parentTrackId, data: data};
   }
 
-  fetchAndSetChildren = async (trackId) => {
-    const result = await this.fetchChildren(trackId);
+  fetchAndSetChildren = async (trackId, page = 1) => {
+    const result = await this.fetchChildren(trackId, page);
     const {id, data} = result;
     const children = data.tracks;
     if (children && children.length > 0) {
+      // Store tracks in trackData
       children.forEach(child => {
         this.trackData.set(child.id, child);
       });
-      this.childrenData.set(id, children);
+      
+      // Append children instead of overwriting
+      const existingChildren = this.childrenData.get(id) || [];
+      const existingChildIds = new Set(existingChildren.map(child => child.id));
+      
+      // Only add children that don't already exist (avoid duplicates)
+      const newChildren = children.filter(child => !existingChildIds.has(child.id));
+      
+      if (newChildren.length > 0) {
+        this.childrenData.set(id, [...existingChildren, ...newChildren]);
+      }
+      
+      // Update pagination data (always use latest from API)
       this.paginationData.set(id, data.pagination);
-      this.recordUsage({tracks: children, rendered: false});
+      this.recordUsage({tracks: newChildren, rendered: false});
     }
   }
 
