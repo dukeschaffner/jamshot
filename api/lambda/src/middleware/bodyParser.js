@@ -7,7 +7,8 @@ const bodyParser = (req, res, next) => {
   try {
     // Skip body parsing for routes that need raw body access
     // Specifically, Stripe webhook needs raw body for signature verification
-    if (req.path === '/api/payments/webhook') {
+    // Check both with and without stage prefix (e.g., /test/api/payments/webhook or /api/payments/webhook)
+    if (req.path && req.path.includes('/api/payments/webhook')) {
       return next();
     }
 
