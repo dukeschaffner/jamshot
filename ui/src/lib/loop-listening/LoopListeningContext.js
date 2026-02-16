@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import LoopListeningEngine from './LoopListeningEngine';
+import { eventBus } from '../../components/DAW/misc/EventBus.js';
+import { DAW_EVENTS } from '../../components/DAW/misc/DAWEvents.js';
 
 const LoopListeningContext = createContext();
 
@@ -35,14 +37,6 @@ export function LoopListeningProvider({ children, rootTrack }) {
     
     if (!engineRef.current) {
       engineRef.current = new LoopListeningEngine(audioContextRef.current);
-      
-      // Set callbacks
-      engineRef.current.setCallbacks({
-        onTrackEnd: handleTrackEnd,
-        onProgressUpdate: (progress) => {
-          setProgress(progress);
-        }
-      });
     }
     
     // Set loop duration from root track if available
@@ -61,22 +55,6 @@ export function LoopListeningProvider({ children, rootTrack }) {
   }, [rootTrack]);
   
   /**
-   * Handle track end
-   */
-  const handleTrackEnd = useCallback((track) => {
-    // Add to played tracks
-    playedTracksRef.current.add(track.id);
-    
-    // Call tree page callback if set
-    if (onTrackEndCallbackRef.current) {
-      onTrackEndCallbackRef.current();
-    }
-    
-    // Move to next track
-    playNext();
-  }, []);
-  
-  /**
    * Play a track (starts loop mode)
    */
   const playTrack = useCallback(async (track) => {
@@ -86,10 +64,6 @@ export function LoopListeningProvider({ children, rootTrack }) {
     automaticQueueRef.current = [track];
     playedTracksRef.current.clear();
     
-    // Set as current track
-    setCurrentTrack(track);
-    setIsPlaying(true);
-    
     // Get loop duration from root track or use track duration
     let duration = loopDuration;
     if (!duration && rootTrack?.duration) {
@@ -98,7 +72,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
       setLoopDuration(duration);
     }
     
-    // Play the track
+    // Play the track (events will update state)
     await engineRef.current.playTrack(track, duration);
   }, [loopDuration, rootTrack]);
   
@@ -123,9 +97,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
       const nextTrack = manualQueueRef.current[0];
       manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
       
-      setCurrentTrack(nextTrack);
-      setIsPlaying(true);
-      
+      // Play the track (events will update state)
       await engineRef.current.playTrack(nextTrack);
       return;
     }
@@ -139,8 +111,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
       
       if (currentIndex >= 0 && currentIndex < automaticQueueRef.current.length - 1) {
         const nextTrack = automaticQueueRef.current[currentIndex + 1];
-        setCurrentTrack(nextTrack);
-        setIsPlaying(true);
+        // Play the track (events will update state)
         await engineRef.current.playTrack(nextTrack);
         return;
       }
@@ -172,8 +143,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
     
     if (currentIndex > 0) {
       const prevTrack = automaticQueueRef.current[currentIndex - 1];
-      setCurrentTrack(prevTrack);
-      setIsPlaying(true);
+      // Play the track (events will update state)
       await engineRef.current.playTrack(prevTrack);
     } else {
       // No previous track - restart current
@@ -189,11 +159,11 @@ export function LoopListeningProvider({ children, rootTrack }) {
     
     if (isPlaying) {
       engineRef.current.pause();
-      setIsPlaying(false);
+      // State will be updated via event
     } else {
       if (currentTrack) {
         await engineRef.current.resume();
-        setIsPlaying(true);
+        // State will be updated via event
       }
     }
   }, [isPlaying, currentTrack]);
@@ -205,7 +175,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
     if (!engineRef.current) return;
     
     await engineRef.current.seek(position);
-    setProgress(position);
+    // Progress will be updated via event
   }, []);
   
   /**
@@ -214,14 +184,12 @@ export function LoopListeningProvider({ children, rootTrack }) {
   const toggleCycle = useCallback(() => {
     if (!engineRef.current) return;
     
-    const newCycleMode = !isCycleMode;
-    setIsCycleMode(newCycleMode);
-    
-    if (newCycleMode) {
-      engineRef.current.enableCycleMode();
-    } else {
+    if (isCycleMode) {
       engineRef.current.disableCycleMode();
+    } else {
+      engineRef.current.enableCycleMode();
     }
+    // State will be updated via event
   }, [isCycleMode]);
   
   /**
@@ -231,9 +199,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
     if (engineRef.current) {
       engineRef.current.stop();
     }
-    setIsPlaying(false);
-    setCurrentTrack(null);
-    setProgress(0);
+    // State will be updated via event
   }, []);
   
   /**
@@ -259,7 +225,100 @@ export function LoopListeningProvider({ children, rootTrack }) {
       setLoopDuration(duration);
     }
   }, []);
-  
+
+  // Set up event listeners for state synchronization (after all callbacks are defined)
+  useEffect(() => {
+    // Handle track started
+    const handleTrackStarted = (data) => {
+      setCurrentTrack(data.track);
+      setIsPlaying(true);
+    };
+
+    // Handle track changed
+    const handleTrackChanged = (data) => {
+      setCurrentTrack(data.track);
+    };
+
+    // Handle track ended
+    const handleTrackEnded = (data) => {
+      const track = data.track;
+      
+      // Add to played tracks
+      playedTracksRef.current.add(track.id);
+      
+      // Call tree page callback if set
+      if (onTrackEndCallbackRef.current) {
+        onTrackEndCallbackRef.current();
+      }
+      
+      // Move to next track
+      playNext();
+    };
+
+    // Handle playback started
+    const handlePlaybackStarted = (data) => {
+      setIsPlaying(true);
+    };
+
+    // Handle playback stopped
+    const handlePlaybackStopped = () => {
+      setIsPlaying(false);
+      setCurrentTrack(null);
+      setProgress(0);
+    };
+
+    // Handle playback paused
+    const handlePlaybackPaused = () => {
+      setIsPlaying(false);
+    };
+
+    // Handle progress update
+    const handleProgressUpdate = (data) => {
+      setProgress(data.progress);
+    };
+
+    // Handle cycle mode changed
+    const handleCycleModeChanged = (data) => {
+      setIsCycleMode(data.enabled);
+    };
+
+    // Handle loop duration changed
+    const handleLoopDurationChanged = (data) => {
+      setLoopDuration(data.duration);
+    };
+
+    // Handle seek
+    const handleSeek = (data) => {
+      setProgress(data.position);
+    };
+
+    // Register event listeners
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.TRACK_STARTED, handleTrackStarted);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.TRACK_CHANGED, handleTrackChanged);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.TRACK_ENDED, handleTrackEnded);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, handlePlaybackStarted);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STOPPED, handlePlaybackStopped);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_PAUSED, handlePlaybackPaused);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.PROGRESS_UPDATE, handleProgressUpdate);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, handleCycleModeChanged);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.LOOP_DURATION_CHANGED, handleLoopDurationChanged);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.SEEK, handleSeek);
+
+    // Cleanup: remove event listeners
+    return () => {
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.TRACK_STARTED, handleTrackStarted);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.TRACK_CHANGED, handleTrackChanged);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.TRACK_ENDED, handleTrackEnded);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, handlePlaybackStarted);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STOPPED, handlePlaybackStopped);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_PAUSED, handlePlaybackPaused);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.PROGRESS_UPDATE, handleProgressUpdate);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, handleCycleModeChanged);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.LOOP_DURATION_CHANGED, handleLoopDurationChanged);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.SEEK, handleSeek);
+    };
+  }, [playNext, stop]);
+
   return (
     <LoopListeningContext.Provider
       value={{
