@@ -182,10 +182,11 @@ class LoopListeningEngine {
     let startTime;
     
     if (this.scheduleStartTime === null) {
-      // First track - start immediately with small delay
+      // First track or resuming from pause - start immediately with small delay
       startTime = now + 0.1;
       this.scheduleStartTime = startTime - offset; // Adjust for offset
-      this.loopStartTime = startTime;
+      // If offset > 0, we're resuming from a paused position, so adjust loopStartTime accordingly
+      this.loopStartTime = offset > 0 ? startTime - offset : startTime;
     } else if (offset > 0) {
       // Seeking - calculate startTime and update loopStartTime to match
       startTime = now + 0.1;
@@ -374,17 +375,23 @@ class LoopListeningEngine {
       await this.context.resume();
     }
     
-    // Get buffer and reschedule
+    // Get buffer and reschedule from current progress position
     const buffer = await this.getOrDecodeBuffer(this.currentTrack);
     if (buffer) {
       this.isPlaying = true;
+      
+      // Reset timing state so schedulePlayback can calculate correctly from resume position
+      // This is similar to seeking - we're starting fresh from the current progress
+      this.scheduleStartTime = null;
+      this.loopStartTime = null;
       
       // Emit playback started event
       this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, {
         track: this.currentTrack
       });
       
-      this.schedulePlayback(buffer, this.currentTrack);
+      // Resume from current progress position
+      this.schedulePlayback(buffer, this.currentTrack, this.currentProgress);
     }
   }
   
@@ -426,6 +433,9 @@ class LoopListeningEngine {
     // Clamp position to loop duration
     const seekPosition = Math.max(0, Math.min(position, this.loopDuration));
     
+    // Store whether we were playing before seeking
+    const wasPlaying = this.isPlaying;
+    
     // Cancel all sources and timeouts first
     // Clear loop end timeout
     if (this.loopEndTimeout) {
@@ -452,32 +462,39 @@ class LoopListeningEngine {
     // Stop progress updates
     this.stopProgressUpdates();
     
-    // Reschedule from new position
-    this.isPlaying = true;
-    const buffer = await this.getOrDecodeBuffer(this.currentTrack);
-    if (buffer) {
-      // Reset timing state for fresh start from seek position
-      const now = this.context.currentTime;
-      const startTime = now + 0.1; // Start playback slightly in the future
-      // Set loopStartTime so that progress calculation accounts for the offset
-      // When we calculate: elapsed = now - loopStartTime, we want it to equal seekPosition initially
-      // So: loopStartTime = now - seekPosition
-      // But we also need to account for the fact that playback starts at startTime
-      // So we set loopStartTime = startTime - seekPosition
-      this.loopStartTime = startTime - seekPosition;
-      this.scheduleStartTime = this.loopStartTime; // Keep them in sync for seeking
-      this.currentProgress = seekPosition;
-      
-      // Emit seek event
-      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.SEEK, {
-        position: seekPosition,
-        track: this.currentTrack
-      });
-      
-      // Schedule playback starting from the seek position offset
-      this.schedulePlayback(buffer, this.currentTrack, seekPosition);
+    // Update progress position
+    this.currentProgress = seekPosition;
+    
+    // Reset timing state for fresh start from seek position
+    const now = this.context.currentTime;
+    const startTime = now + 0.1; // Start playback slightly in the future
+    // Set loopStartTime so that progress calculation accounts for the offset
+    // When we calculate: elapsed = now - loopStartTime, we want it to equal seekPosition initially
+    // So: loopStartTime = now - seekPosition
+    // But we also need to account for the fact that playback starts at startTime
+    // So we set loopStartTime = startTime - seekPosition
+    this.loopStartTime = startTime - seekPosition;
+    this.scheduleStartTime = this.loopStartTime; // Keep them in sync for seeking
+    
+    // Emit seek event
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.SEEK, {
+      position: seekPosition,
+      track: this.currentTrack
+    });
+    
+    // Only schedule playback if we were playing before seeking
+    if (wasPlaying) {
+      this.isPlaying = true;
+      const buffer = await this.getOrDecodeBuffer(this.currentTrack);
+      if (buffer) {
+        // Schedule playback starting from the seek position offset
+        this.schedulePlayback(buffer, this.currentTrack, seekPosition);
+      } else {
+        console.error('Failed to get buffer for seek');
+        this.isPlaying = false;
+      }
     } else {
-      console.error('Failed to get buffer for seek');
+      // If paused, just update the position without starting playback
       this.isPlaying = false;
     }
   }
