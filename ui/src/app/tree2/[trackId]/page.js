@@ -16,6 +16,9 @@ import TrackPopover from './components/TrackPopover';
 import ColorLegend from './components/ColorLegend';
 import { useAudio } from '../../../lib/AudioContext';
 import { useMobile } from '../../../contexts/MobileContext';
+import { LoopListeningProvider } from '../../../lib/loop-listening/LoopListeningContext';
+import LoopListeningPlayer from '../../../components/loop-listening/LoopListeningPlayer';
+import LoopListeningSetup from './components/LoopListeningSetup';
 import { generateRadialTree, generateRadialSubtree, animateNode, moveNodeToSubtreeStart} from './utils/radialTreeRenderer';
 import styles from './TreeView.module.css';
 import { TreeDataManager } from './utils/treeDataManager.js';
@@ -58,6 +61,8 @@ export default function TrackTreePage() {
   const initialTreeRenderedRef = useRef(false);
   const previousSelectedTrackIdRef = useRef(null);
   const reactFlowContainerRef = useRef(null);
+  const [rootTrack, setRootTrack] = useState(null);
+  const [isLoopMode, setIsLoopMode] = useState(false);
 
   const nodesRef = useRef([]);
 
@@ -91,6 +96,15 @@ export default function TrackTreePage() {
           );
           // Set selectedTrackId to the current track (trackId from params)
           setSelectedTrackId(trackId);
+          
+          // Get root track and check if it's a loop track
+          const rootTrackId = treeDataManager.current.rootTrackId;
+          if (rootTrackId && treeDataManager.current.trackData.has(rootTrackId)) {
+            const root = treeDataManager.current.trackData.get(rootTrackId);
+            setRootTrack(root);
+            setIsLoopMode(root.is_loop || false);
+          }
+          
           setInitialLoadComplete(true);
         } catch (err) {
           console.error('Failed to load track tree:', err);
@@ -482,7 +496,7 @@ export default function TrackTreePage() {
     return null; // Will redirect
   }
 
-  return (
+  const pageContent = (
     <div className={styles['track-tree-page']} style={{ width: '100%', height: '100vh' }}>
       <div className={styles['about-header']} style={{ marginBottom: '0px', padding: '20px' }}>
         <h1 className={styles['about-title']}>Track Tree</h1>
@@ -524,6 +538,7 @@ export default function TrackTreePage() {
         <TrackPopover
           track={treeDataManager.current.trackData.get(hoveredTrackId)}
           position={hoveredNodePosition}
+          isLoopMode={isLoopMode}
           onClose={() => {
             if (hoverTimeoutRef.current) {
               clearTimeout(hoverTimeoutRef.current);
@@ -541,6 +556,22 @@ export default function TrackTreePage() {
           }}
         />
       )}
+      
+      {isLoopMode && (
+        <LoopListeningPlayer />
+      )}
     </div>
   );
+
+  // Wrap with LoopListeningProvider if in loop mode
+  if (isLoopMode && rootTrack) {
+    return (
+      <LoopListeningProvider rootTrack={rootTrack}>
+        <LoopListeningSetup />
+        {pageContent}
+      </LoopListeningProvider>
+    );
+  }
+
+  return pageContent;
 }
