@@ -109,7 +109,7 @@ class LoopListeningEngine {
    * Get buffer from cache or decode from S3
    */
   async getOrDecodeBuffer(track) {
-    const bufferKey = bufferRegistry.generateBufferKey(track.id, 'loop-listening');
+    const bufferKey = `${track.id}_loop-listening`;
     
     // Check cache first
     if (bufferRegistry.hasBuffer(bufferKey)) {
@@ -141,8 +141,11 @@ class LoopListeningEngine {
   
   /**
    * Schedule playback of a buffer
+   * @param {AudioBuffer} buffer - The audio buffer to play
+   * @param {Object} track - The track object
+   * @param {number} offset - Optional offset in seconds to start playback from (for seeking)
    */
-  schedulePlayback(buffer, track) {
+  schedulePlayback(buffer, track, offset = 0) {
     if (!this.loopDuration) {
       console.error('Loop duration not set');
       return;
@@ -150,7 +153,7 @@ class LoopListeningEngine {
     
     // Calculate how much of the buffer to play
     const bufferDuration = buffer.duration;
-    const playDuration = Math.min(bufferDuration, this.loopDuration);
+    const playDuration = Math.min(bufferDuration - offset, this.loopDuration);
     
     // Calculate when to start (aligned to loop duration)
     const now = this.context.currentTime;
@@ -159,8 +162,15 @@ class LoopListeningEngine {
     if (this.scheduleStartTime === null) {
       // First track - start immediately with small delay
       startTime = now + 0.1;
-      this.scheduleStartTime = startTime;
+      this.scheduleStartTime = startTime - offset; // Adjust for offset
       this.loopStartTime = startTime;
+    } else if (offset > 0) {
+      // Seeking - calculate startTime and update loopStartTime to match
+      startTime = now + 0.1;
+      // Update loopStartTime so progress calculation is correct: loopStartTime = startTime - offset
+      this.loopStartTime = startTime - offset;
+      // Update scheduleStartTime to keep them in sync
+      this.scheduleStartTime = this.loopStartTime;
     } else {
       // Calculate next loop boundary
       const elapsed = now - this.scheduleStartTime;
@@ -193,15 +203,16 @@ class LoopListeningEngine {
     source.buffer = buffer;
     source.connect(gainNode);
     
-    // Schedule playback
-    source.start(startTime, 0, playDuration);
+    // Schedule playback with offset
+    source.start(startTime, offset, playDuration);
     
     // Calculate when the loop should end (always loop duration, not buffer duration)
     const loopEndTime = startTime + this.loopDuration;
     
     // Schedule fade out at loop end (not buffer end)
-    gainNode.gain.linearRampToValueAtTime(0, loopEndTime - this.fadeDuration);
-    gainNode.gain.setValueAtTime(0, loopEndTime);
+    gainNode.gain.setValueAtTime(1, loopEndTime - this.fadeDuration);
+    gainNode.gain.linearRampToValueAtTime(0, loopEndTime);
+
     
     // Store source
     this.currentSource = source;
@@ -214,12 +225,23 @@ class LoopListeningEngine {
       // Don't clear currentSource here - it will be cleared when loop ends
     };
     
+    // Clear any existing loop end timeout before creating a new one
+    if (this.loopEndTimeout) {
+      clearTimeout(this.loopEndTimeout);
+      this.loopEndTimeout = null;
+    }
+    
     // Schedule loop end handler (when loop duration completes)
     // Calculate timeout based on scheduled start time, not current time
     const currentTime = this.context.currentTime;
     const timeoutMs = Math.max(0, (loopEndTime - currentTime) * 1000);
     
     const loopEndTimeout = setTimeout(() => {
+      // Check if this timeout is still the current one (might have been replaced)
+      if (this.loopEndTimeout !== loopEndTimeout) {
+        return;
+      }
+      
       this.scheduledSources.delete(source);
       this.currentSource = null;
       this.currentGainNode = null;
@@ -348,28 +370,60 @@ class LoopListeningEngine {
    * Seek within current loop
    */
   async seek(position) {
-    if (!this.currentTrack || !this.loopDuration) return;
+    if (!this.currentTrack || !this.loopDuration) {
+      return;
+    }
     
     // Clamp position to loop duration
     const seekPosition = Math.max(0, Math.min(position, this.loopDuration));
     
-    // Stop current playback
-    this.pause();
+    // Cancel all sources and timeouts first
+    // Clear loop end timeout
+    if (this.loopEndTimeout) {
+      clearTimeout(this.loopEndTimeout);
+      this.loopEndTimeout = null;
+    }
+    
+    // Stop all scheduled sources
+    this.scheduledSources.forEach(source => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Source may already be stopped
+      }
+    });
+    
+    // Clear all sources
+    this.scheduledSources.clear();
+    this.currentSource = null;
+    this.currentGainNode = null;
+    this.nextSource = null;
+    this.nextGainNode = null;
+    
+    // Stop progress updates
+    this.stopProgressUpdates();
     
     // Reschedule from new position
     this.isPlaying = true;
     const buffer = await this.getOrDecodeBuffer(this.currentTrack);
     if (buffer) {
-      // Adjust schedule start time to account for seek
-      if (this.scheduleStartTime !== null) {
-        const now = this.context.currentTime;
-        const elapsed = now - this.scheduleStartTime;
-        const loopsElapsed = Math.floor(elapsed / this.loopDuration);
-        this.scheduleStartTime = now - (loopsElapsed * this.loopDuration + seekPosition);
-        this.loopStartTime = now - seekPosition;
-      }
+      // Reset timing state for fresh start from seek position
+      const now = this.context.currentTime;
+      const startTime = now + 0.1; // Start playback slightly in the future
+      // Set loopStartTime so that progress calculation accounts for the offset
+      // When we calculate: elapsed = now - loopStartTime, we want it to equal seekPosition initially
+      // So: loopStartTime = now - seekPosition
+      // But we also need to account for the fact that playback starts at startTime
+      // So we set loopStartTime = startTime - seekPosition
+      this.loopStartTime = startTime - seekPosition;
+      this.scheduleStartTime = this.loopStartTime; // Keep them in sync for seeking
+      this.currentProgress = seekPosition;
       
-      this.schedulePlayback(buffer, this.currentTrack);
+      // Schedule playback starting from the seek position offset
+      this.schedulePlayback(buffer, this.currentTrack, seekPosition);
+    } else {
+      console.error('Failed to get buffer for seek');
+      this.isPlaying = false;
     }
   }
   
