@@ -5,6 +5,8 @@
 
 import { bufferRegistry } from '../../components/DAW/core/BufferRegistry.js';
 import { getAudioBufferFromS3 } from '../../components/DAW/misc/DAWUtils.js';
+import { eventBus } from '../../components/DAW/misc/EventBus.js';
+import { DAW_EVENTS } from '../../components/DAW/misc/DAWEvents.js';
 
 class LoopListeningEngine {
   constructor(audioContext) {
@@ -30,9 +32,9 @@ class LoopListeningEngine {
     // Progress update interval
     this.progressInterval = null;
     
-    // Callbacks
-    this.onTrackEnd = null;
-    this.onProgressUpdate = null;
+    // Event bus
+    this.eventBus = eventBus;
+    this.DAW_EVENTS = DAW_EVENTS;
     
     // Fade duration (micro fade)
     this.fadeDuration = 0.05; // 50ms fade
@@ -42,7 +44,16 @@ class LoopListeningEngine {
    * Set the loop duration (from root track)
    */
   setLoopDuration(duration) {
+    const previousDuration = this.loopDuration;
     this.loopDuration = duration;
+    
+    // Emit event if duration changed
+    if (previousDuration !== duration) {
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.LOOP_DURATION_CHANGED, {
+        duration,
+        previousDuration
+      });
+    }
   }
   
   /**
@@ -50,14 +61,6 @@ class LoopListeningEngine {
    */
   getLoopDuration() {
     return this.loopDuration;
-  }
-  
-  /**
-   * Set callbacks
-   */
-  setCallbacks({ onTrackEnd, onProgressUpdate }) {
-    this.onTrackEnd = onTrackEnd;
-    this.onProgressUpdate = onProgressUpdate;
   }
   
   /**
@@ -82,8 +85,17 @@ class LoopListeningEngine {
       return;
     }
     
+    const previousTrack = this.currentTrack;
     this.currentTrack = track;
     this.isPlaying = true;
+    
+    // Emit track changed event if track actually changed
+    if (previousTrack?.id !== track.id) {
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_CHANGED, {
+        track,
+        previousTrack
+      });
+    }
     
     // Resume context if suspended
     if (this.context.state === 'suspended') {
@@ -97,6 +109,16 @@ class LoopListeningEngine {
       this.isPlaying = false;
       return;
     }
+    
+    // Emit playback started event
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, {
+      track
+    });
+    
+    // Emit track started event
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_STARTED, {
+      track
+    });
     
     // Schedule playback
     this.schedulePlayback(buffer, track);
@@ -255,9 +277,11 @@ class LoopListeningEngine {
             this.schedulePlayback(buffer, this.currentTrack);
           }
         });
-      } else if (!this.isCycleMode && this.onTrackEnd) {
-        // Trigger track end callback
-        this.onTrackEnd(track);
+      } else if (!this.isCycleMode) {
+        // Emit track end event
+        this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_ENDED, {
+          track
+        });
       }
     }, timeoutMs);
     
@@ -283,9 +307,12 @@ class LoopListeningEngine {
       const elapsed = now - this.loopStartTime;
       this.currentProgress = Math.max(0, Math.min(elapsed, this.loopDuration));
       
-      if (this.onProgressUpdate) {
-        this.onProgressUpdate(this.currentProgress);
-      }
+      // Emit progress update event
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PROGRESS_UPDATE, {
+        progress: this.currentProgress,
+        loopDuration: this.loopDuration,
+        track: this.currentTrack
+      });
     }, 50); // Update every 50ms
   }
   
@@ -328,6 +355,12 @@ class LoopListeningEngine {
     this.currentGainNode = null;
     this.nextSource = null;
     this.nextGainNode = null;
+    
+    // Emit playback paused event
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_PAUSED, {
+      track: this.currentTrack,
+      progress: this.currentProgress
+    });
   }
   
   /**
@@ -345,6 +378,12 @@ class LoopListeningEngine {
     const buffer = await this.getOrDecodeBuffer(this.currentTrack);
     if (buffer) {
       this.isPlaying = true;
+      
+      // Emit playback started event
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, {
+        track: this.currentTrack
+      });
+      
       this.schedulePlayback(buffer, this.currentTrack);
     }
   }
@@ -353,6 +392,9 @@ class LoopListeningEngine {
    * Stop playback
    */
   stop() {
+    const wasPlaying = this.isPlaying;
+    const stoppedTrack = this.currentTrack;
+    
     this.pause();
     this.scheduleStartTime = null;
     this.loopStartTime = null;
@@ -363,6 +405,13 @@ class LoopListeningEngine {
     if (this.loopEndTimeout) {
       clearTimeout(this.loopEndTimeout);
       this.loopEndTimeout = null;
+    }
+    
+    // Emit playback stopped event (only if it was actually playing)
+    if (wasPlaying) {
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STOPPED, {
+        track: stoppedTrack
+      });
     }
   }
   
@@ -419,6 +468,12 @@ class LoopListeningEngine {
       this.scheduleStartTime = this.loopStartTime; // Keep them in sync for seeking
       this.currentProgress = seekPosition;
       
+      // Emit seek event
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.SEEK, {
+        position: seekPosition,
+        track: this.currentTrack
+      });
+      
       // Schedule playback starting from the seek position offset
       this.schedulePlayback(buffer, this.currentTrack, seekPosition);
     } else {
@@ -431,15 +486,26 @@ class LoopListeningEngine {
    * Enable cycle mode (repeat current track)
    */
   enableCycleMode() {
+    if (this.isCycleMode) return;
     this.isCycleMode = true;
+    
+    // Emit cycle mode changed event
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, {
+      enabled: true
+    });
   }
   
   /**
    * Disable cycle mode
    */
   disableCycleMode() {
+    if (!this.isCycleMode) return;
     this.isCycleMode = false;
-    // When current track ends, it will trigger onTrackEnd normally
+    
+    // Emit cycle mode changed event
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, {
+      enabled: false
+    });
   }
   
   /**
@@ -455,8 +521,6 @@ class LoopListeningEngine {
   destroy() {
     this.stop();
     this.stopProgressUpdates();
-    this.onTrackEnd = null;
-    this.onProgressUpdate = null;
   }
 }
 
