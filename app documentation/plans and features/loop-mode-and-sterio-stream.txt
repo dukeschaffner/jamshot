@@ -1,5 +1,5 @@
 
-loop listening mode
+loop listening mode (on tree page)
 - track which tracks/collabs are "loops" - a loop is a track that is one or more loops (an even multiple of measures/bars)
     - for now, I will just manually mark track as loop in the db
 - tracks that have loop listening mode enabled will disable arrangement features in the DAW when collabing. This includes editting regions and changing project duration. this preserves the loop integrity/timing.
@@ -12,6 +12,48 @@ loop listening mode
 - really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
     - also potentially good for hip hop, lofi, trap, etc.
 - bpm/time signature will be locked to the root track and cannot be changed
+
+
+
+
+
+
+loop listening player:
+- create new context and player for loop listening mode
+    - componentize and reuse compoenents from existing audio context and player (user image, track details, progress, etc)
+- web audio api based
+- similar to existing audio context and player (play, pause, seek, next, previous, loop, play tracking, displaying track details and progress, etc)
+- must have sample accurate playback. this means .mp3 files must be decoded before playback. must always have next track decoded as well to ensure smooth playback.
+    - when a new track starts, it must make sure the next track in the queue is ready by checking buffer cache, and if it is not found, it must get the audio buffer from s3 and decode it. this logic already exists in DAW, so make sure to reuse it. you can relocate shared logic if you need to.
+- keep buffer cache of decoded tracks to ensure smooth playback (reuse BufferRegistry from DAW)
+- lets say root (loop) track is 16.000 seconds
+    - then each collab will also be 16.000 seconds. 
+    - the player must schedule the next track to play precisely at the next multiple of 16.000 seconds.
+    - if a collab track is less than 16.000 seconds, the player plays the track until it ends, then plays the next track at the next multiple of 16.000 seconds.
+    - if a collab track is greater than 16.000 seconds, it should only schedule the first 16.000 seconds of the track.
+- must micro fade out current track and micro fade in next track to ensure smooth transition.
+- must have queue of tracks to play. when tracks ends, it should run an ontrackend callback belonging to the track tree page. for now, this callback shoould just log 'track ended'. later this will be used to add tracks to the queue.
+- must maintain set of tracks that have been played. once a track starts playing, it should be added to the set.
+- the play button on the track node popover should use this new player and not the existing audio context and player.
+- the track node popover should also have a queue button that will add the track to the queue.
+
+
+
+future considerations:
+- what happens when entire track tree has been played?
+- algorithmically added tracks should remain in the queue after being played (so prev/next buttons work correctly). may need to have different queues for algorithmically added tracks and user queued tracks.
+
+
+
+
+
+
+- make sure ToS clearly indicate that by uploading to the loop listening mode event track, they are granting Sterio a license to use the track for the event AND granting Sterio users a license to use the track for mixing purposes
+- save .wav copies of loop enabled tracks to S3 for mixing purposes
+- on track tree page, have a list view to browse ALL tree tracks, sortable/filterable
+- let users record over multiple loops instead of just one?
+
+
 
 Sterio loop listening mode stream
 - weekly event with guest hosts
@@ -39,6 +81,9 @@ Sterio loop listening mode stream
     - maybe even have a mixing competition: best mix gets shoutout on Rob's socials and sterio and gets posted to streaming services
 - allow users to link their socials to their sterio profile
 
-- make sure ToS clearly indicate that by uploading to the loop listening mode event track, they are granting Sterio a license to use the track for the event AND granting Sterio users a license to use the track for mixing purposes
-- save .wav copies of loop enabled tracks to S3 for mixing purposes
+
+
+
+
+
 

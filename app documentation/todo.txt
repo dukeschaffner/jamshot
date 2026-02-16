@@ -56,6 +56,10 @@ BUGS
 - when user is a part of expired camp, the camps link still navs to the camp page
 - right now if i click a track in the feed, it plays the current track and adds more tracks from the feed to the queue. the problem is that after the queue finishes playing, it does not queue up any more songs. when a song finisjes playing and there are no more songs in the queue, it should check to see if there are more tracks that can be added from the feed
 - google sign in - 429 error on profile pics
+- snow track - padding added at start and end (need to check buffer sample length at various points in upload flow)
+    - bass and pad true buffer length: 739584 44100 16.7706
+    - calculated dur: 16.6956
+    - wav duration: 16.6956
 
 ui issues:
 - more dropdown extends past the bottom of the screen
