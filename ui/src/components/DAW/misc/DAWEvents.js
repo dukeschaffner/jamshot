@@ -157,5 +157,19 @@ export const DAW_EVENTS = {
       REDO: 'undo:redo',
       STATE_CHANGE: 'undo:state:change',
       CLEAR: 'undo:clear'
+    },
+
+    // Loop Listening events
+    LOOP_LISTENING: {
+      TRACK_STARTED: 'loop_listening:track:started',
+      TRACK_ENDED: 'loop_listening:track:ended',
+      TRACK_CHANGED: 'loop_listening:track:changed',
+      PLAYBACK_STARTED: 'loop_listening:playback:started',
+      PLAYBACK_STOPPED: 'loop_listening:playback:stopped',
+      PLAYBACK_PAUSED: 'loop_listening:playback:paused',
+      PROGRESS_UPDATE: 'loop_listening:progress:update',
+      CYCLE_MODE_CHANGED: 'loop_listening:cycle_mode:changed',
+      LOOP_DURATION_CHANGED: 'loop_listening:loop_duration:changed',
+      SEEK: 'loop_listening:seek'
     }
   };
