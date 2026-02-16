@@ -4,10 +4,24 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { FaCheckCircle, FaPlay, FaPause } from 'react-icons/fa';
 import { useAudio } from '../../../../lib/AudioContext';
+import { useLoopListening } from '../../../../lib/loop-listening/LoopListeningContext';
 import styles from './TrackPopover.module.css';
 
-export default function TrackPopover({ track, position, onClose, onMouseEnter }) {
-  const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
+export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false }) {
+  const regularAudio = useAudio();
+  let loopListening;
+  
+  try {
+    loopListening = useLoopListening();
+  } catch (e) {
+    // Loop listening context not available, will use regular audio
+    loopListening = null;
+  }
+  
+  // Use loop listening if available and requested, otherwise use regular audio
+  const audioContext = (isLoopMode && loopListening) ? loopListening : regularAudio;
+  const { currentTrack, isPlaying, playTrack, togglePlayPause, queueTrack } = audioContext;
+  
   const popoverRef = useRef(null);
 
   const isCurrentTrack = currentTrack?.id === track?.id;
@@ -17,7 +31,13 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter })
     if (isCurrentTrack) {
       togglePlayPause();
     } else {
-      playTrack(track, []);
+      playTrack(track);
+    }
+  };
+  
+  const handleQueue = () => {
+    if (isLoopMode && queueTrack) {
+      queueTrack(track);
     }
   };
 
@@ -69,20 +89,30 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter })
           </div>
         </div>
 
-        <button
-          className={styles['popover-play-button']}
-          onClick={handlePlayPause}
-        >
-          {isCurrentlyPlaying ? (
-            <>
-              <FaPause /> Pause
-            </>
-          ) : (
-            <>
-              <FaPlay /> Play
-            </>
+        <div className={styles['popover-buttons']}>
+          <button
+            className={styles['popover-play-button']}
+            onClick={handlePlayPause}
+          >
+            {isCurrentlyPlaying ? (
+              <>
+                <FaPause /> Pause
+              </>
+            ) : (
+              <>
+                <FaPlay /> Play
+              </>
+            )}
+          </button>
+          {isLoopMode && queueTrack && (
+            <button
+              className={styles['popover-queue-button']}
+              onClick={handleQueue}
+            >
+              Queue
+            </button>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );
