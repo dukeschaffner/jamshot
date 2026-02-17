@@ -407,9 +407,10 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
 
   // Validate collaboration logic (but don't do audio processing yet)
   try {
+    let rootId = null;
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id, is_loop FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id, is_loop, root_id FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -417,6 +418,8 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       }
 
       parentTrack = parentResult.rows[0];
+      // Set root_id to parent's root_id (or parent's id if parent is root)
+      rootId = parentTrack.root_id || parent_track_id;
       const parentDuration = parentTrack.duration;
 
       // Store parent privacy status and secret token
@@ -627,11 +630,19 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key, guid, is_loop) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, gen_random_uuid(), $22) RETURNING *',
-        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key, isLoop]
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key, guid, is_loop, root_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, gen_random_uuid(), $22, $23) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key, isLoop, rootId]
     );
 
     const trackId = result.rows[0].id;
+
+    // If no parent (root track), set root_id to track's own id
+    if (!parent_track_id) {
+      await pool.query(
+        'UPDATE tracks SET root_id = $1 WHERE id = $1',
+        [trackId]
+      );
+    }
 
     // Phase 2: update stem for recording: change trackId to the new trackId
     const recordingStem = stemChainToInsert.find(s => s.track_id === 'recording');
@@ -2037,6 +2048,57 @@ router.get('/:id/tree', async (req, res) => {
     res.json([...processedAncestors, processedCurrentTrack]);
   } catch (err) {
     console.error('Error fetching track tree:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Poll for new tracks in a tree
+router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { secret } = req.query;
+  const { since } = req.query; // ISO timestamp string
+  
+  try {
+    // Check if the track exists and if user has access
+    const accessCheck = await checkTrackAccess(id, userId, secret);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
+    }
+
+    const rootId = accessCheck.track.id;
+    
+    // Default to 1 minute ago if since not provided
+    const sinceDate = since 
+      ? new Date(since) 
+      : new Date(Date.now() - 60 * 1000);
+    
+    // Validate since date
+    if (isNaN(sinceDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid since timestamp' });
+    }
+    
+    // Get new tracks in this tree since the given timestamp
+    // Only select: track name, user name, upload datetime, and parent track id
+    const result = await pool.query(`
+      SELECT 
+        t.title,
+        u.username,
+        t.created_at,
+        t.parent_track_id
+      FROM tracks t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.root_id = $1 
+        AND t.created_at > $2 
+        AND t.processing_status = 'completed'
+        AND t.id != $1
+      ORDER BY t.created_at DESC
+      LIMIT 50
+    `, [rootId, sinceDate]);
+    
+    res.json({ tracks: result.rows });
+  } catch (err) {
+    console.error('Error polling for new tracks:', err);
     res.status(500).json({ error: err.message });
   }
 });
