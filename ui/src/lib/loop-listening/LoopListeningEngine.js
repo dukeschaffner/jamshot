@@ -8,27 +8,28 @@ import { getAudioBufferFromS3 } from '../../components/DAW/misc/DAWUtils.js';
 import { eventBus } from '../../components/DAW/misc/EventBus.js';
 import { DAW_EVENTS } from '../../components/DAW/misc/DAWEvents.js';
 
+const SCHEDULE_NEXT_TRACK_THRESHOLD = 0.5;
+
 class LoopListeningEngine {
-  constructor(audioContext) {
+  constructor(audioContext, getNextTrack) {
     this.context = audioContext;
+    this.getNextTrack = getNextTrack;
     this.loopDuration = null; // Set from root track duration
     this.currentTrack = null;
+    this.nextTrack = null;
+    this.nextTrackScheduled = false;
     this.isPlaying = false;
     this.isCycleMode = false;
     this.currentProgress = 0; // Progress within current loop (0 to loopDuration)
     
     // Scheduling state
     this.scheduledSources = new Set(); // Track all scheduled sources
-    this.currentSource = null;
-    this.nextSource = null;
-    this.scheduleStartTime = null; // When playback started
     this.loopStartTime = null; // When current loop started
-    this.loopEndTimeout = null; // Timeout for loop end
     
     // Gain nodes for fade transitions
-    this.currentGainNode = null;
-    this.nextGainNode = null;
-    
+    this.gainNode = this.context.createGain();
+    this.gainNode.connect(this.context.destination);
+
     // Progress update interval
     this.progressInterval = null;
     
@@ -38,6 +39,7 @@ class LoopListeningEngine {
     
     // Fade duration (micro fade)
     this.fadeDuration = 0.05; // 50ms fade
+
   }
   
   /**
@@ -87,7 +89,6 @@ class LoopListeningEngine {
     
     const previousTrack = this.currentTrack;
     this.currentTrack = track;
-    this.isPlaying = true;
     
     // Emit track changed event if track actually changed
     if (previousTrack?.id !== track.id) {
@@ -102,29 +103,41 @@ class LoopListeningEngine {
       await this.context.resume();
     }
     
-    // Get or decode buffer
-    const buffer = await this.getOrDecodeBuffer(track);
-    if (!buffer) {
-      console.error('Failed to get buffer for track:', track.id);
-      this.isPlaying = false;
-      return;
-    }
-    
-    // Emit playback started event
-    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, {
-      track
-    });
-    
-    // Emit track started event
-    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_STARTED, {
-      track
-    });
-    
     // Schedule playback
-    this.schedulePlayback(buffer, track);
+    const result = await this.play();
+    if(result) {
+      // Emit playback started event
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, {
+        track
+      });
+      
+      // Emit track started event
+      this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_STARTED, {
+        track
+      });
+    }
     
     // Pre-decode next track if available (will be handled by context)
     // This is just for the first track - context will handle subsequent tracks
+  }
+
+  async next() {
+    if(!this.nextTrack) return;
+
+    const wasPlaying = this.isPlaying;
+    this.pause();
+
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_CHANGED, {
+      track: this.nextTrack,
+      previousTrack: this.currentTrack
+    });
+
+    this.currentTrack = this.nextTrack;
+    this.nextTrack = this.getNextTrack();
+
+    if(wasPlaying) {
+      await this.play();
+    }
   }
   
   /**
@@ -160,6 +173,26 @@ class LoopListeningEngine {
       return null;
     }
   }
+
+  addFades(gainNode, startTime, endTime) {
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(1, startTime + this.fadeDuration);
+    gainNode.gain.setValueAtTime(1, endTime - this.fadeDuration);
+    gainNode.gain.linearRampToValueAtTime(0, endTime);
+  }
+
+  scheduleBuffer(buffer, startTime, offset, playDuration) {
+    const source = this.context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.gainNode);
+    this.addFades(this.gainNode, startTime, startTime + this.loopDuration);
+    source.start(startTime, offset, playDuration);
+
+    this.scheduledSources.add(source);
+    source.onended = () => {
+      this.scheduledSources.delete(source);
+    };
+  }
   
   /**
    * Schedule playback of a buffer
@@ -167,10 +200,22 @@ class LoopListeningEngine {
    * @param {Object} track - The track object
    * @param {number} offset - Optional offset in seconds to start playback from (for seeking)
    */
-  schedulePlayback(buffer, track, offset = 0) {
+  async play(offset = 0) {
     if (!this.loopDuration) {
       console.error('Loop duration not set');
-      return;
+      this.isPlaying = false;
+      return false;
+    }
+
+    // Get buffer and reschedule from current progress position
+    const buffer = await this.getOrDecodeBuffer(this.currentTrack);
+    if (buffer) {
+      this.isPlaying = true;
+    }
+    else{
+      console.error('Failed to get buffer for track:', this.currentTrack.id);
+      this.isPlaying = false;
+      return false;
     }
     
     // Calculate how much of the buffer to play
@@ -178,119 +223,29 @@ class LoopListeningEngine {
     const playDuration = Math.min(bufferDuration - offset, this.loopDuration);
     
     // Calculate when to start (aligned to loop duration)
-    const now = this.context.currentTime;
-    let startTime;
+    const startTime = this.context.currentTime + 0.1;
+    this.loopStartTime = startTime - offset;
     
-    if (this.scheduleStartTime === null) {
-      // First track or resuming from pause - start immediately with small delay
-      startTime = now + 0.1;
-      this.scheduleStartTime = startTime - offset; // Adjust for offset
-      // If offset > 0, we're resuming from a paused position, so adjust loopStartTime accordingly
-      this.loopStartTime = offset > 0 ? startTime - offset : startTime;
-    } else if (offset > 0) {
-      // Seeking - calculate startTime and update loopStartTime to match
-      startTime = now + 0.1;
-      // Update loopStartTime so progress calculation is correct: loopStartTime = startTime - offset
-      this.loopStartTime = startTime - offset;
-      // Update scheduleStartTime to keep them in sync
-      this.scheduleStartTime = this.loopStartTime;
-    } else {
-      // Calculate next loop boundary
-      const elapsed = now - this.scheduleStartTime;
-      const loopsElapsed = Math.floor(elapsed / this.loopDuration);
-      const nextLoopStart = this.scheduleStartTime + (loopsElapsed + 1) * this.loopDuration;
-      startTime = Math.max(now + 0.01, nextLoopStart);
-      this.loopStartTime = startTime;
-    }
-    
-    // Stop any currently playing source
-    if (this.currentSource) {
-      try {
-        this.currentSource.stop();
-      } catch (e) {
-        // Source may already be stopped
-      }
-      this.currentSource = null;
-    }
-    
-    // Create gain node for fade
-    const gainNode = this.context.createGain();
-    gainNode.connect(this.context.destination);
-    
-    // Set initial gain to 0 for fade in
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(1, startTime + this.fadeDuration);
-    
-    // Create source
-    const source = this.context.createBufferSource();
-    source.buffer = buffer;
-    source.connect(gainNode);
-    
-    // Schedule playback with offset
-    source.start(startTime, offset, playDuration);
-    
-    // Calculate when the loop should end (always loop duration, not buffer duration)
-    const loopEndTime = startTime + this.loopDuration;
-    
-    // Schedule fade out at loop end (not buffer end)
-    gainNode.gain.setValueAtTime(1, loopEndTime - this.fadeDuration);
-    gainNode.gain.linearRampToValueAtTime(0, loopEndTime);
-
-    
-    // Store source
-    this.currentSource = source;
-    this.currentGainNode = gainNode;
-    this.scheduledSources.add(source);
-    
-    // Handle source completion (when buffer ends, which may be before loop ends)
-    source.onended = () => {
-      this.scheduledSources.delete(source);
-      // Don't clear currentSource here - it will be cleared when loop ends
-    };
-    
-    // Clear any existing loop end timeout before creating a new one
-    if (this.loopEndTimeout) {
-      clearTimeout(this.loopEndTimeout);
-      this.loopEndTimeout = null;
-    }
-    
-    // Schedule loop end handler (when loop duration completes)
-    // Calculate timeout based on scheduled start time, not current time
-    const currentTime = this.context.currentTime;
-    const timeoutMs = Math.max(0, (loopEndTime - currentTime) * 1000);
-    
-    const loopEndTimeout = setTimeout(() => {
-      // Check if this timeout is still the current one (might have been replaced)
-      if (this.loopEndTimeout !== loopEndTimeout) {
-        return;
-      }
-      
-      this.scheduledSources.delete(source);
-      this.currentSource = null;
-      this.currentGainNode = null;
-      this.loopEndTimeout = null;
-      
-      // If in cycle mode, reschedule the same track
-      if (this.isCycleMode && this.isPlaying && this.currentTrack) {
-        // Get buffer again and reschedule
-        this.getOrDecodeBuffer(this.currentTrack).then(buffer => {
-          if (buffer && this.isPlaying) {
-            this.schedulePlayback(buffer, this.currentTrack);
-          }
-        });
-      } else if (!this.isCycleMode) {
-        // Emit track end event
-        this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_ENDED, {
-          track
-        });
-      }
-    }, timeoutMs);
-    
-    // Store timeout for cleanup
-    this.loopEndTimeout = loopEndTimeout;
+    this.scheduleBuffer(buffer, startTime, offset, playDuration);
     
     // Start progress updates
     this.startProgressUpdates(startTime, playDuration);
+
+    return true;
+  }
+
+  scheduleNextTrack() {
+    if (!this.isPlaying || !this.currentTrack) return;
+
+    const track = this.cycleMode ? this.currentTrack : this.nextTrack;
+    if(!track) return;
+    this.getOrDecodeBuffer(track).then(buffer => {
+      const startTime = this.loopStartTime + this.loopDuration;
+      const bufferDuration = buffer.duration;
+      const playDuration = Math.min(bufferDuration, this.loopDuration);
+      this.scheduleBuffer(buffer, startTime, 0, playDuration);
+      this.nextTrackScheduled = true;
+    });
   }
   
   /**
@@ -314,6 +269,33 @@ class LoopListeningEngine {
         loopDuration: this.loopDuration,
         track: this.currentTrack
       });
+
+      if(this.loopDuration - this.currentProgress < SCHEDULE_NEXT_TRACK_THRESHOLD) {
+        this.scheduleNextTrack();
+      }
+      else if (this.currentProgress > this.loopDuration) { // new loop started
+        this.nextTrackScheduled = false;
+        this.loopStartTime = this.loopStartTime + this.loopDuration;
+
+        if(!this.cycleMode) {
+
+          this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_CHANGED, {
+            track: this.nextTrack,
+            previousTrack: this.currentTrack
+          });
+
+          if(!this.nextTrack) {
+            this.pause(); // no next track, so stop playback
+          }
+
+          this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_ENDED, {
+            track: this.currentTrack
+          });
+          
+          this.currentTrack = this.nextTrack;
+          this.nextTrack = this.getNextTrack();
+        }
+      }
     }, 50); // Update every 50ms
   }
   
@@ -326,6 +308,19 @@ class LoopListeningEngine {
       this.progressInterval = null;
     }
   }
+
+  stopAllSources() {
+    this.scheduledSources.forEach(source => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Source may already be stopped
+      }
+    });
+    this.scheduledSources.clear();
+    this.gainNode.gain.cancelScheduledValues(0);
+    this.nextTrackScheduled = false;
+  }
   
   /**
    * Pause playback
@@ -335,27 +330,8 @@ class LoopListeningEngine {
     
     this.isPlaying = false;
     this.stopProgressUpdates();
-    
-    // Clear loop end timeout
-    if (this.loopEndTimeout) {
-      clearTimeout(this.loopEndTimeout);
-      this.loopEndTimeout = null;
-    }
-    
-    // Stop all scheduled sources
-    this.scheduledSources.forEach(source => {
-      try {
-        source.stop();
-      } catch (e) {
-        // Source may already be stopped
-      }
-    });
-    
-    this.scheduledSources.clear();
-    this.currentSource = null;
-    this.currentGainNode = null;
-    this.nextSource = null;
-    this.nextGainNode = null;
+  
+    this.stopAllSources();
     
     // Emit playback paused event
     this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_PAUSED, {
@@ -380,18 +356,19 @@ class LoopListeningEngine {
     if (buffer) {
       this.isPlaying = true;
       
-      // Reset timing state so schedulePlayback can calculate correctly from resume position
-      // This is similar to seeking - we're starting fresh from the current progress
-      this.scheduleStartTime = null;
-      this.loopStartTime = null;
-      
       // Emit playback started event
       this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, {
         track: this.currentTrack
       });
       
       // Resume from current progress position
-      this.schedulePlayback(buffer, this.currentTrack, this.currentProgress);
+      const result = this.play(this.currentProgress);
+      if(result) {
+        // Emit playback started event
+        this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, {
+          track: this.currentTrack
+        });
+      }
     }
   }
   
@@ -403,16 +380,9 @@ class LoopListeningEngine {
     const stoppedTrack = this.currentTrack;
     
     this.pause();
-    this.scheduleStartTime = null;
     this.loopStartTime = null;
     this.currentProgress = 0;
     this.currentTrack = null;
-    
-    // Clear loop end timeout
-    if (this.loopEndTimeout) {
-      clearTimeout(this.loopEndTimeout);
-      this.loopEndTimeout = null;
-    }
     
     // Emit playback stopped event (only if it was actually playing)
     if (wasPlaying) {
@@ -436,28 +406,8 @@ class LoopListeningEngine {
     // Store whether we were playing before seeking
     const wasPlaying = this.isPlaying;
     
-    // Cancel all sources and timeouts first
-    // Clear loop end timeout
-    if (this.loopEndTimeout) {
-      clearTimeout(this.loopEndTimeout);
-      this.loopEndTimeout = null;
-    }
-    
     // Stop all scheduled sources
-    this.scheduledSources.forEach(source => {
-      try {
-        source.stop();
-      } catch (e) {
-        // Source may already be stopped
-      }
-    });
-    
-    // Clear all sources
-    this.scheduledSources.clear();
-    this.currentSource = null;
-    this.currentGainNode = null;
-    this.nextSource = null;
-    this.nextGainNode = null;
+    this.stopAllSources();
     
     // Stop progress updates
     this.stopProgressUpdates();
@@ -474,7 +424,6 @@ class LoopListeningEngine {
     // But we also need to account for the fact that playback starts at startTime
     // So we set loopStartTime = startTime - seekPosition
     this.loopStartTime = startTime - seekPosition;
-    this.scheduleStartTime = this.loopStartTime; // Keep them in sync for seeking
     
     // Emit seek event
     this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.SEEK, {
@@ -484,15 +433,7 @@ class LoopListeningEngine {
     
     // Only schedule playback if we were playing before seeking
     if (wasPlaying) {
-      this.isPlaying = true;
-      const buffer = await this.getOrDecodeBuffer(this.currentTrack);
-      if (buffer) {
-        // Schedule playback starting from the seek position offset
-        this.schedulePlayback(buffer, this.currentTrack, seekPosition);
-      } else {
-        console.error('Failed to get buffer for seek');
-        this.isPlaying = false;
-      }
+        this.play(seekPosition);
     } else {
       // If paused, just update the position without starting playback
       this.isPlaying = false;
@@ -505,6 +446,10 @@ class LoopListeningEngine {
   enableCycleMode() {
     if (this.isCycleMode) return;
     this.isCycleMode = true;
+
+    if(this.nextTrackScheduled) { // if next track is scheduled, schedule it again to account for the new cycle mode
+      this.scheduleNextTrack();
+    }
     
     // Emit cycle mode changed event
     this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, {
@@ -518,6 +463,10 @@ class LoopListeningEngine {
   disableCycleMode() {
     if (!this.isCycleMode) return;
     this.isCycleMode = false;
+
+    if(this.nextTrackScheduled) { // if next track is scheduled, schedule it again to account for the new cycle mode
+      this.scheduleNextTrack();
+    }
     
     // Emit cycle mode changed event
     this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, {
@@ -537,7 +486,12 @@ class LoopListeningEngine {
    */
   destroy() {
     this.stop();
-    this.stopProgressUpdates();
+    this.gainNode.disconnect();
+    this.gainNode = null;
+
+    if (this.context) {
+      this.context.close();
+    }
   }
 }
 
