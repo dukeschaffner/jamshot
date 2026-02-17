@@ -29,23 +29,21 @@ export function LoopListeningProvider({ children, rootTrack }) {
   // Previous track threshold (same as global player)
   const PREVIOUS_THRESHOLD = 2; // seconds
 
-  let queueIndex = 0;
+  const queueIndex = useRef(0);
 
   const getNextTrack = () => {
     // Check manual queue first
     if (manualQueueRef.current.length > 0) {
-      const nextTrack = manualQueueRef.current[0];
-      manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
-      return nextTrack;
+      return manualQueueRef.current[0];
     }
     
     // Check automatic queue
     if (automaticQueueRef.current.length > 0) {
       // Find next track in automatic queue (after current)
       
-      if (queueIndex >= 0 && queueIndex < automaticQueueRef.current.length - 1) {
-        queueIndex++;
-        return automaticQueueRef.current[queueIndex];
+      if (queueIndex.current >= 0 && queueIndex.current < automaticQueueRef.current.length - 1) {
+        queueIndex.current++;
+        return automaticQueueRef.current[queueIndex.current];
       }
     }
   return null;
@@ -84,7 +82,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
     
     // Clear automatic queue and add this track
     automaticQueueRef.current = [track];
-    queueIndex = 0;
+    queueIndex.current = 0;
     playedTracksRef.current.clear();
     
     // Get loop duration from root track or use track duration
@@ -107,6 +105,11 @@ export function LoopListeningProvider({ children, rootTrack }) {
     
     // Add to manual queue
     manualQueueRef.current = [...manualQueueRef.current, track];
+
+    // if no next track is set, set the next track to the queued track
+    if(!engineRef.current.hasNextTrack()) {
+      engineRef.current.setNextTrack(track);
+    }
   }, []);
 
   /**
@@ -134,9 +137,9 @@ export function LoopListeningProvider({ children, rootTrack }) {
       return;
     }
     
-    if (queueIndex > 0) {
-      queueIndex--;
-      const prevTrack = automaticQueueRef.current[queueIndex];
+    if (queueIndex.current > 0) {
+      queueIndex.current--;
+      const prevTrack = automaticQueueRef.current[queueIndex.current];
       // Play the track (events will update state)
       await engineRef.current.playTrack(prevTrack);
     } else {
@@ -231,6 +234,11 @@ export function LoopListeningProvider({ children, rootTrack }) {
     // Handle track changed
     const handleTrackChanged = (data) => {
       setCurrentTrack(data.track);
+
+      // if previous track came from manual queue, remove it from the queue
+      if (manualQueueRef.current[0]?.id === data.previousTrack?.id) {
+        manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
+      }
     };
 
     // Handle track ended
