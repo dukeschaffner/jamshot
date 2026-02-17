@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useLoopListening } from '../../../../lib/loop-listening/LoopListeningContext';
+import { useLoopListening } from '../utils/LoopListeningContext';
 
 /**
  * Helper component to set up loop listening callbacks

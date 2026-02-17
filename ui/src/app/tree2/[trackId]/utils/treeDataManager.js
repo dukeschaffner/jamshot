@@ -68,6 +68,12 @@ export class TreeDataManager {
       this.paginationData.set(id, data.pagination);
       this.recordUsage({tracks: newChildren, rendered: false});
     }
+    else if (children && children.length === 0) {
+      const existingChildren = this.childrenData.get(id)
+      if(existingChildren === undefined) {
+        this.childrenData.set(id, []); // empty array means no children exist
+      }
+    }
   }
 
 
@@ -215,6 +221,95 @@ export class TreeDataManager {
       const usage = this.usageData.get(child.id);
       return usage && usage.rendered;
     });
+  }
+
+  // Helper: Check if more children pages exist for a parent
+  hasMoreChildrenPages = (parentTrackId) => {
+    const pagination = this.paginationData.get(parentTrackId);
+    if (!pagination || !pagination.pages) {
+      return false;
+    }
+    
+    const loadedChildren = this.childrenData.get(parentTrackId) || [];
+    const loadedPages = Math.ceil(loadedChildren.length / MAX_NODES_PER_LEVEL);
+    
+    return loadedPages < pagination.pages;
+  }
+
+  // Helper: Get the next page number to load for a parent
+  getNextPageToLoad = (parentTrackId) => {
+    const loadedChildren = this.childrenData.get(parentTrackId) || [];
+    const loadedPages = Math.ceil(loadedChildren.length / MAX_NODES_PER_LEVEL);
+    return loadedPages + 1;
+  }
+
+  // Helper: Check if a track has children (either loaded or available via pagination)
+  hasChildren = (trackId) => {
+    const loadedChildren = this.childrenData.get(trackId);
+    if (loadedChildren && loadedChildren.length > 0) {
+      return true;
+    }
+    if(loadedChildren && loadedChildren.length === 0) {
+      return false; 
+    }
+    return null;
+  }
+
+  // Gets the next track after trackId doing depth first search
+  // Now async to support lazy loading of paginated children
+  getNextTrack = async (trackId) => {
+    if (!trackId) {
+      return null;
+    }
+    
+    if (this.hasChildren(trackId) === null) { // we don't know if it has children yet, attempt to fetch
+      await this.fetchAndSetChildren(trackId, 1);
+    }
+    if (this.hasChildren(trackId) === true) {
+      return this.childrenData.get(trackId)[0].id;
+    }
+
+    // No children available, move to sibling traversal
+    const getNextSiblingOrParentSiblingRecursive = async (currentTrackId) => {
+      if (!currentTrackId || currentTrackId === this.rootTrackId) {
+        return null;
+      }
+
+      const currentTrack = this.trackData.get(currentTrackId);
+      if (!currentTrack || !currentTrack.parent_track_id) {
+        return null;
+      }
+
+      const parentId = currentTrack.parent_track_id;
+      const siblings = this.childrenData.get(parentId) || [];
+      
+      // Find current track's index in siblings
+      const siblingIndex = siblings.findIndex(sibling => sibling.id === currentTrackId);
+      
+      // Check if there's a next sibling in loaded children
+      if (siblingIndex >= 0 && siblingIndex < siblings.length - 1) {
+        return siblings[siblingIndex + 1].id;
+      }
+      
+      // No next sibling in loaded children, check if more pages exist
+      if (this.hasMoreChildrenPages(parentId)) {
+        const nextPage = this.getNextPageToLoad(parentId);
+        await this.fetchAndSetChildren(parentId, nextPage);
+        
+        // Re-fetch siblings after loading new page
+        const updatedSiblings = this.childrenData.get(parentId) || [];
+        const updatedSiblingIndex = updatedSiblings.findIndex(sibling => sibling.id === currentTrackId);
+        
+        if (updatedSiblingIndex >= 0 && updatedSiblingIndex < updatedSiblings.length - 1) {
+          return updatedSiblings[updatedSiblingIndex + 1].id;
+        }
+      }
+      
+      // No more siblings available, recurse to parent
+      return getNextSiblingOrParentSiblingRecursive(parentId);
+    }
+    
+    return getNextSiblingOrParentSiblingRecursive(trackId);
   }
 
   pruneTree = () => {
