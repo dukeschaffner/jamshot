@@ -270,14 +270,11 @@ class LoopListeningEngine {
         track: this.currentTrack
       });
 
-      if(this.loopDuration - this.currentProgress < SCHEDULE_NEXT_TRACK_THRESHOLD) {
-        this.scheduleNextTrack();
-      }
-      else if (this.currentProgress > this.loopDuration) { // new loop started
+      if (elapsed > this.loopDuration) { // new loop started
         this.nextTrackScheduled = false;
         this.loopStartTime = this.loopStartTime + this.loopDuration;
 
-        if(!this.cycleMode) {
+        if(!this.isCycleMode) {
 
           this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_CHANGED, {
             track: this.nextTrack,
@@ -295,6 +292,9 @@ class LoopListeningEngine {
           this.currentTrack = this.nextTrack;
           this.nextTrack = this.getNextTrack();
         }
+      }
+      else if(!this.nextTrackScheduled && this.loopDuration - this.currentProgress < SCHEDULE_NEXT_TRACK_THRESHOLD) {
+        this.scheduleNextTrack();
       }
     }, 50); // Update every 50ms
   }
@@ -479,6 +479,14 @@ class LoopListeningEngine {
    */
   getProgress() {
     return this.currentProgress;
+  }
+
+  hasNextTrack() {
+    return this.nextTrack !== null;
+  }
+
+  setNextTrack(track) {
+    this.nextTrack = track;
   }
   
   /**
