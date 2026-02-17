@@ -16,8 +16,8 @@ import TrackPopover from './components/TrackPopover';
 import ColorLegend from './components/ColorLegend';
 import { useAudio } from '../../../lib/AudioContext';
 import { useMobile } from '../../../contexts/MobileContext';
-import { LoopListeningProvider } from '../../../lib/loop-listening/LoopListeningContext';
-import LoopListeningPlayer from '../../../components/loop-listening/LoopListeningPlayer';
+import { LoopListeningProvider } from './utils/LoopListeningContext';
+import LoopListeningPlayer from './components/LoopListeningPlayer';
 import LoopListeningSetup from './components/LoopListeningSetup';
 import { generateRadialTree, generateRadialSubtree, animateNode, moveNodeToSubtreeStart} from './utils/radialTreeRenderer';
 import styles from './TreeView.module.css';
@@ -566,7 +566,7 @@ export default function TrackTreePage() {
   // Wrap with LoopListeningProvider if in loop mode
   if (isLoopMode && rootTrack) {
     return (
-      <LoopListeningProvider rootTrack={rootTrack}>
+      <LoopListeningProvider rootTrack={rootTrack} treeDataManager={treeDataManager.current}>
         <LoopListeningSetup />
         {pageContent}
       </LoopListeningProvider>

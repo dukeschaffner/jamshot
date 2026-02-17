@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useLoopListening } from '../../lib/loop-listening/LoopListeningContext';
+import { useLoopListening } from '../utils/LoopListeningContext';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRedo, FaMusic, 
   FaCheckCircle } from 'react-icons/fa';
 import styles from './LoopListeningPlayer.module.css';
-import { useMobile } from '../../contexts/MobileContext';
+import { useMobile } from '../../../../contexts/MobileContext';
 
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { FaCheckCircle, FaPlay, FaPause } from 'react-icons/fa';
 import { useAudio } from '../../../../lib/AudioContext';
-import { useLoopListening } from '../../../../lib/loop-listening/LoopListeningContext';
+import { useLoopListening } from '../utils/LoopListeningContext';
 import styles from './TrackPopover.module.css';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false }) {

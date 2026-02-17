@@ -3,10 +3,10 @@
  * Handles buffer scheduling, fade transitions, and precise timing
  */
 
-import { bufferRegistry } from '../../components/DAW/core/BufferRegistry.js';
-import { getAudioBufferFromS3 } from '../../components/DAW/misc/DAWUtils.js';
-import { eventBus } from '../../components/DAW/misc/EventBus.js';
-import { DAW_EVENTS } from '../../components/DAW/misc/DAWEvents.js';
+import { bufferRegistry } from '../../../../components/DAW/core/BufferRegistry.js';
+import { getAudioBufferFromS3 } from '../../../../components/DAW/misc/DAWUtils.js';
+import { eventBus } from '../../../../components/DAW/misc/EventBus.js';
+import { DAW_EVENTS } from '../../../../components/DAW/misc/DAWEvents.js';
 
 const SCHEDULE_NEXT_TRACK_THRESHOLD = 0.5;
 
@@ -90,6 +90,9 @@ class LoopListeningEngine {
     const previousTrack = this.currentTrack;
     this.currentTrack = track;
     
+    // Set initial next track
+    this.nextTrack = await this.getNextTrack();
+    
     // Emit track changed event if track actually changed
     if (previousTrack?.id !== track.id) {
       this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.TRACK_CHANGED, {
@@ -133,7 +136,7 @@ class LoopListeningEngine {
     });
 
     this.currentTrack = this.nextTrack;
-    this.nextTrack = this.getNextTrack();
+    this.nextTrack = await this.getNextTrack();
 
     if(wasPlaying) {
       await this.play();
@@ -290,7 +293,13 @@ class LoopListeningEngine {
           });
           
           this.currentTrack = this.nextTrack;
-          this.nextTrack = this.getNextTrack();
+          // Handle async getNextTrack
+          this.getNextTrack().then(track => {
+            this.nextTrack = track;
+          }).catch(error => {
+            console.error('Error getting next track:', error);
+            this.nextTrack = null;
+          });
         }
       }
       else if(!this.nextTrackScheduled && this.loopDuration - this.currentProgress < SCHEDULE_NEXT_TRACK_THRESHOLD) {

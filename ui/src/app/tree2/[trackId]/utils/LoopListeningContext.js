@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import LoopListeningEngine from './LoopListeningEngine';
-import { eventBus } from '../../components/DAW/misc/EventBus.js';
-import { DAW_EVENTS } from '../../components/DAW/misc/DAWEvents.js';
+import { eventBus } from '../../../../components/DAW/misc/EventBus.js';
+import { DAW_EVENTS } from '../../../../components/DAW/misc/DAWEvents.js';
 
 const LoopListeningContext = createContext();
 
-export function LoopListeningProvider({ children, rootTrack }) {
+export function LoopListeningProvider({ children, rootTrack, treeDataManager }) {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -26,12 +26,15 @@ export function LoopListeningProvider({ children, rootTrack }) {
   // Track end callback (for tree page)
   const onTrackEndCallbackRef = useRef(null);
   
+  // Current track ref (to avoid stale closures in getNextTrack)
+  const currentTrackRef = useRef(null);
+  
   // Previous track threshold (same as global player)
   const PREVIOUS_THRESHOLD = 2; // seconds
 
   const queueIndex = useRef(0);
 
-  const getNextTrack = () => {
+  const getNextTrack = async () => {
     // Check manual queue first
     if (manualQueueRef.current.length > 0) {
       return manualQueueRef.current[0];
@@ -39,15 +42,32 @@ export function LoopListeningProvider({ children, rootTrack }) {
     
     // Check automatic queue
     if (automaticQueueRef.current.length > 0) {
+
       // Find next track in automatic queue (after current)
-      
       if (queueIndex.current >= 0 && queueIndex.current < automaticQueueRef.current.length - 1) {
         queueIndex.current++;
         return automaticQueueRef.current[queueIndex.current];
       }
+      else {
+        // Get next track from tree data manager
+        if (treeDataManager && currentTrackRef.current) {
+          try {
+            const nextTrackId = await treeDataManager.getNextTrack(currentTrackRef.current.id);
+            if (nextTrackId && treeDataManager.trackData.has(nextTrackId)) {
+              const nextTrack = treeDataManager.trackData.get(nextTrackId);
+              // Add to automatic queue
+              automaticQueueRef.current = [...automaticQueueRef.current, nextTrack];
+              queueIndex.current = automaticQueueRef.current.length - 1;
+              return nextTrack;
+            }
+          } catch (error) {
+            console.error('Error getting next track from tree data manager:', error);
+          }
+        }
+      }
     }
-  return null;
-}
+    return null;
+  }
   
   // Initialize audio context and engine
   useEffect(() => {
@@ -228,17 +248,21 @@ export function LoopListeningProvider({ children, rootTrack }) {
     // Handle track started
     const handleTrackStarted = (data) => {
       setCurrentTrack(data.track);
+      currentTrackRef.current = data.track;
       setIsPlaying(true);
     };
 
     // Handle track changed
     const handleTrackChanged = (data) => {
       setCurrentTrack(data.track);
+      currentTrackRef.current = data.track;
 
       // if previous track came from manual queue, remove it from the queue
       if (manualQueueRef.current[0]?.id === data.previousTrack?.id) {
         manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
       }
+
+
     };
 
     // Handle track ended
@@ -266,6 +290,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
     const handlePlaybackStopped = () => {
       setIsPlaying(false);
       setCurrentTrack(null);
+      currentTrackRef.current = null;
       setProgress(0);
     };
 
