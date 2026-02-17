@@ -28,6 +28,28 @@ export function LoopListeningProvider({ children, rootTrack }) {
   
   // Previous track threshold (same as global player)
   const PREVIOUS_THRESHOLD = 2; // seconds
+
+  let queueIndex = 0;
+
+  const getNextTrack = () => {
+    // Check manual queue first
+    if (manualQueueRef.current.length > 0) {
+      const nextTrack = manualQueueRef.current[0];
+      manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
+      return nextTrack;
+    }
+    
+    // Check automatic queue
+    if (automaticQueueRef.current.length > 0) {
+      // Find next track in automatic queue (after current)
+      
+      if (queueIndex >= 0 && queueIndex < automaticQueueRef.current.length - 1) {
+        queueIndex++;
+        return automaticQueueRef.current[queueIndex];
+      }
+    }
+  return null;
+}
   
   // Initialize audio context and engine
   useEffect(() => {
@@ -36,7 +58,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
     }
     
     if (!engineRef.current) {
-      engineRef.current = new LoopListeningEngine(audioContextRef.current);
+      engineRef.current = new LoopListeningEngine(audioContextRef.current, getNextTrack);
     }
     
     // Set loop duration from root track if available
@@ -62,6 +84,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
     
     // Clear automatic queue and add this track
     automaticQueueRef.current = [track];
+    queueIndex = 0;
     playedTracksRef.current.clear();
     
     // Get loop duration from root track or use track duration
@@ -85,40 +108,15 @@ export function LoopListeningProvider({ children, rootTrack }) {
     // Add to manual queue
     manualQueueRef.current = [...manualQueueRef.current, track];
   }, []);
-  
+
   /**
    * Play next track
    */
   const playNext = useCallback(async () => {
     if (!engineRef.current) return;
     
-    // Check manual queue first
-    if (manualQueueRef.current.length > 0) {
-      const nextTrack = manualQueueRef.current[0];
-      manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
-      
-      // Play the track (events will update state)
-      await engineRef.current.playTrack(nextTrack);
-      return;
-    }
+    await engineRef.current.next();
     
-    // Check automatic queue
-    if (automaticQueueRef.current.length > 0) {
-      // Find next track in automatic queue (after current)
-      const currentIndex = automaticQueueRef.current.findIndex(
-        t => t.id === currentTrack?.id
-      );
-      
-      if (currentIndex >= 0 && currentIndex < automaticQueueRef.current.length - 1) {
-        const nextTrack = automaticQueueRef.current[currentIndex + 1];
-        // Play the track (events will update state)
-        await engineRef.current.playTrack(nextTrack);
-        return;
-      }
-    }
-    
-    // No more tracks - stop playback
-    stop();
   }, [currentTrack]);
   
   /**
@@ -136,13 +134,9 @@ export function LoopListeningProvider({ children, rootTrack }) {
       return;
     }
     
-    // Find previous track in automatic queue
-    const currentIndex = automaticQueueRef.current.findIndex(
-      t => t.id === currentTrack.id
-    );
-    
-    if (currentIndex > 0) {
-      const prevTrack = automaticQueueRef.current[currentIndex - 1];
+    if (queueIndex > 0) {
+      queueIndex--;
+      const prevTrack = automaticQueueRef.current[queueIndex];
       // Play the track (events will update state)
       await engineRef.current.playTrack(prevTrack);
     } else {
@@ -252,7 +246,7 @@ export function LoopListeningProvider({ children, rootTrack }) {
       }
       
       // Move to next track
-      playNext();
+      //playNext();
     };
 
     // Handle playback started
