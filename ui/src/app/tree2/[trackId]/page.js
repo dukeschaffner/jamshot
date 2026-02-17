@@ -27,7 +27,11 @@ import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand, a
 import DebugOverlay from './components/DebugOverlay';
 import { DEBUG_MODE, CONCENTRIC_CONFIG, MAX_NODES_PER_LEVEL } from './utils/config';
 import PaginationButtons from './components/PaginationButtons';
+import api from '../../../lib/api';
+import { useToast } from '../../../lib/ToastContext';
 
+// Toggle for new tracks polling - set to false to disable
+const ENABLE_NEW_TRACKS_POLLING = true;
 
 // Node types
 const nodeTypes = {
@@ -43,6 +47,7 @@ export default function TrackTreePage() {
   const secret = searchParams.get('secret');
   const { isMobile } = useMobile();
   const { currentTrack, playTrack, togglePlayPause, isPlaying } = useAudio();
+  const { showInfo } = useToast();
   const [treeType, setTreeType] = useState('concentric');
   const treeDataManager = useRef(null);
   
@@ -63,6 +68,7 @@ export default function TrackTreePage() {
   const reactFlowContainerRef = useRef(null);
   const [rootTrack, setRootTrack] = useState(null);
   const [isLoopMode, setIsLoopMode] = useState(false);
+  const lastPollTimeRef = useRef(null);
 
   const nodesRef = useRef([]);
 
@@ -471,6 +477,77 @@ export default function TrackTreePage() {
       }
     };
   }, []);
+
+  // Poll for new tracks every 60 seconds
+  useEffect(() => {
+    if (!ENABLE_NEW_TRACKS_POLLING || !initialLoadComplete || !trackId) {
+      return;
+    }
+
+    // Initialize last poll time to now when polling starts
+    lastPollTimeRef.current = new Date();
+    let pollInterval;
+
+    const pollForNewTracks = async () => {
+      try {
+        // toISOString() returns UTC timestamp in ISO 8601 format (e.g., "2024-01-01T12:00:00.000Z")
+        // This matches the UTC timestamps stored in the database
+        const sinceTimestamp = lastPollTimeRef.current.toISOString();
+        let url = `/tracks/${trackId}/tree/new-tracks?since=${encodeURIComponent(sinceTimestamp)}`;
+        if (secret) {
+          url += `&secret=${encodeURIComponent(secret)}`;
+        }
+
+        const response = await api.get(url);
+        const { tracks } = response.data;
+
+        if (tracks && tracks.length > 0) {
+          // Update last poll time to the most recent track's created_at
+          // Database returns created_at in UTC, so we parse it and convert back to UTC ISO string
+          const mostRecentTrack = tracks.reduce((latest, track) => {
+            const trackTime = new Date(track.created_at);
+            const latestTime = new Date(latest.created_at);
+            return trackTime > latestTime ? track : latest;
+          });
+          // Ensure we store UTC timestamp - created_at from DB is already UTC
+          lastPollTimeRef.current = new Date(mostRecentTrack.created_at);
+
+          // Show toast notification
+          if (tracks.length === 1) {
+            const track = tracks[0];
+            showInfo(
+              'New Track Added',
+              `${track.username} added "${track.title}"`,
+              { duration: 6000 }
+            );
+          } else {
+            showInfo(
+              'New Tracks Added',
+              `${tracks.length} new tracks added to this tree`,
+              { duration: 6000 }
+            );
+          }
+        }
+      } catch (err) {
+        // Silently fail - don't show errors for polling
+        console.error('Error polling for new tracks:', err);
+      }
+    };
+
+    // Start polling after initial load (wait 60 seconds before first poll)
+    const initialDelay = setTimeout(() => {
+      pollForNewTracks();
+      // Then poll every 60 seconds
+      pollInterval = setInterval(pollForNewTracks, 60000);
+    }, 60000);
+
+    return () => {
+      clearTimeout(initialDelay);
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [initialLoadComplete, trackId, secret, showInfo]);
 
   if (loading) {
     return (
