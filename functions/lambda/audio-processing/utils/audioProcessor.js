@@ -541,6 +541,9 @@ class AudioProcessor {
       }
 
       ffmpegCommand
+        .on('start', commandLine => {
+          console.log('FFmpeg command:', commandLine);
+        })
         .on('end', () => {
           console.log(`✅ Audio mixing completed: ${outputPath}`);
           resolve();
@@ -560,6 +563,9 @@ class AudioProcessor {
         .audioBitrate('320k')
         .audioFrequency(44100)
         .audioChannels(2)
+        .on('start', commandLine => {
+          console.log('FFmpeg command:', commandLine);
+        })
         .on('end', () => {
           console.log(`✅ MP3 conversion completed: ${outputPath}`);
           resolve();
