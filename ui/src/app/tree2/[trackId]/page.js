@@ -23,10 +23,10 @@ import { generateRadialTree, generateRadialSubtree, animateNode, moveNodeToSubtr
 import styles from './TreeView.module.css';
 import { TreeDataManager } from './utils/treeDataManager.js';
 import ConcentricNode from './components/ConcentricNode';
-import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand, animateNodeCollapse} from './utils/concentricRenderer';
+import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand, animateNodeCollapse, getPageStartIndex} from './utils/concentricRenderer';
 import DebugOverlay from './components/DebugOverlay';
-import { DEBUG_MODE, CONCENTRIC_CONFIG, MAX_NODES_PER_LEVEL } from './utils/config';
-import PaginationButtons from './components/PaginationButtons';
+import { DEBUG_MODE, CONCENTRIC_CONFIG, MAX_NODES_PER_LEVEL, BASE_NODE_SIZE, BASE_CLUSTER_NODE_SIZE } from './utils/config';
+import { polarRadiansToCartesian } from './utils/renderUtils';
 import api from '../../../lib/api';
 import { useToast } from '../../../lib/ToastContext';
 
@@ -71,11 +71,15 @@ export default function TrackTreePage() {
   const lastPollTimeRef = useRef(null);
 
   const nodesRef = useRef([]);
+  const isScrollingRef = useRef(false);
 
   const viewState = useRef({
     selectedTrackId: null,
     expandedTrackIds: new Set(),
     paginationByParent: new Map(),
+    renderer: {
+      rotationOffset: 0, // Track rotation offset in radians
+    },
   });
 
 
@@ -315,43 +319,169 @@ export default function TrackTreePage() {
     
   }
 
-  // Handle page navigation for concentric tree pagination
-  const handlePageChange = async (parentTrackId, newPage) => {
-    if (!treeDataManager.current || !viewState.current) return;
+  // Handle radial scroll rotation
+  const handleRadialScroll = useCallback(async (event) => {
+    if (treeType !== 'concentric' || !concentricParentTrackId || !treeDataManager.current) {
+      return;
+    }
 
-    const uiPagination = viewState.current.paginationByParent.get(parentTrackId);
-    if (!uiPagination) return;
+    // Prevent default scroll behavior
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (isScrollingRef.current) return;
+    isScrollingRef.current = true;
+
+    const parentTrackId = concentricParentTrackId;
 
     const apiPagination = treeDataManager.current.paginationData.get(parentTrackId);
-    if (!apiPagination) return;
+    if (!apiPagination) {
+      isScrollingRef.current = false;
+      return;
+    }
 
-    const { pageSize } = uiPagination;
     const allChildren = treeDataManager.current.childrenData.get(parentTrackId) || [];
-    
-    // Calculate which children we need to display for the new UI page
-    const startIndex = (newPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    
-    // Check if we have all needed children in cache
-    const hasAllChildren = allChildren.length >= endIndex;
-    
-    if (!hasAllChildren && apiPagination.hasMore) {
-      const lastId = treeDataManager.current.getLastTrackId(parentTrackId);
-      await treeDataManager.current.fetchAndSetChildren(parentTrackId, lastId);
+
+    // If we have less than pageSize children and no more children to load, stop scrolling
+    if (allChildren.length <= CONCENTRIC_CONFIG.CHILDREN_LIMIT && !apiPagination.hasMore) {
+      isScrollingRef.current = false;
+      return;
     }
 
-    // Update UI pagination state
-    viewState.current.paginationByParent.set(parentTrackId, {
-      page: newPage,
-      pageSize: pageSize
-    });
+    // Calculate scroll delta (negative = scroll down/clockwise, positive = scroll up/counter-clockwise)
+    const delta = event.deltaY;
+    const scrollSensitivity = 0.005; // Adjust this to control scroll speed
+    const angleDelta = delta * scrollSensitivity;
 
-    // Regenerate tree to show new page
-    if (treeType === 'concentric') {
-      generateNodesAndEdges();
+    // Calculate slice angle for displayed children
+    const prevAngle = viewState.current.renderer.rotationOffset;
+    const newAngle = viewState.current.renderer.rotationOffset + angleDelta;
+
+    // Update rotation offset
+    viewState.current.renderer.rotationOffset = newAngle > 0 ? newAngle : 0;
+
+    const pageStartIndex = getPageStartIndex(parentTrackId, viewState.current);
+    const pageEndIndex = pageStartIndex + CONCENTRIC_CONFIG.CHILDREN_LIMIT - 1;
+    console.log(`page: ${pageStartIndex} - ${pageEndIndex}`);
+
+    if(pageEndIndex >= allChildren.length && apiPagination.hasMore) {
+      await treeDataManager.current.fetchAndSetChildren(parentTrackId, allChildren[allChildren.length - 1].id);
     }
-  }
+    else if(!apiPagination.hasMore && pageEndIndex >= allChildren.length) {
+      viewState.current.renderer.rotationOffset = prevAngle;
+      isScrollingRef.current = false;
+      return;
+    }
+    
 
+    generateNodesAndEdges();
+
+
+
+
+
+
+
+    
+    // // Normalize rotation offset to [0, sliceAngle) range
+    // while (viewState.current.renderer.rotationOffset >= sliceAngle) {
+    //   viewState.current.renderer.rotationOffset -= sliceAngle;
+      
+    //   // Scrolling forward (clockwise) - need more nodes at the end
+    //   const nextEndIndex = currentEndIndex + 1;
+    //   const hasAllNeeded = allChildren.length >= nextEndIndex;
+      
+    //   if (!hasAllNeeded && apiPagination.hasMore) {
+    //     // Load more children
+    //     const lastId = treeDataManager.current.getLastTrackId(parentTrackId);
+    //     await treeDataManager.current.fetchAndSetChildren(parentTrackId, lastId);
+    //     // Update allChildren after loading
+    //     const updatedChildren = treeDataManager.current.childrenData.get(parentTrackId) || [];
+    //     if (updatedChildren.length > allChildren.length) {
+    //       // Continue with updated data
+    //     }
+    //   }
+
+    //   // Update pagination to show new range (move forward by 1)
+    //   const newStartIndex = Math.min(currentStartIndex + 1, (treeDataManager.current.childrenData.get(parentTrackId) || []).length - pageSize);
+    //   const newPage = Math.floor(newStartIndex / pageSize) + 1;
+      
+    //   // Update UI pagination state
+    //   viewState.current.paginationByParent.set(parentTrackId, {
+    //     page: newPage,
+    //     pageSize: pageSize
+    //   });
+
+    //   // Regenerate tree with new pagination
+    //   generateNodesAndEdges();
+    //   isScrollingRef.current = false;
+    //   return;
+    // }
+    
+    // while (viewState.current.renderer.rotationOffset < 0) {
+    //   viewState.current.renderer.rotationOffset += sliceAngle;
+      
+    //   // Scrolling backward (counter-clockwise) - need more nodes at the start
+    //   if (currentStartIndex > 0) {
+    //     // Update pagination to show new range (move backward by 1)
+    //     const newStartIndex = Math.max(0, currentStartIndex - 1);
+    //     const newPage = Math.floor(newStartIndex / pageSize) + 1;
+        
+    //     // Update UI pagination state
+    //     viewState.current.paginationByParent.set(parentTrackId, {
+    //       page: newPage,
+    //       pageSize: pageSize
+    //     });
+
+    //     // Regenerate tree with new pagination
+    //     generateNodesAndEdges();
+    //     isScrollingRef.current = false;
+    //     return;
+    //   } else {
+    //     // Can't go back further, reset rotation offset
+    //     viewState.current.renderer.rotationOffset = 0;
+    //   }
+    // }
+
+    // // Just update angles without changing pagination - apply rotation to visible nodes
+    // setNodes((currentNodes) =>
+    //   currentNodes.map((node) => {
+    //     if (node.data?.type === 'outer' && node.data.angle !== undefined) {
+    //       const newAngle = ((node.data.angle + angleDelta) % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
+    //       const { x, y } = polarRadiansToCartesian(0, 0, CONCENTRIC_CONFIG.OUTER_RING_RADIUS, newAngle);
+    //       return {
+    //         ...node,
+    //         position: { x: x - BASE_NODE_SIZE / 2, y: y - BASE_NODE_SIZE / 2 },
+    //         data: {
+    //           ...node.data,
+    //           angle: newAngle,
+    //         },
+    //       };
+    //     }
+    //     // Also update load-children nodes
+    //     if (node.id.startsWith('load-children-') && node.data?.angle !== undefined) {
+    //       const newAngle = ((node.data.angle + angleDelta) % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
+    //       const ringNumber = node.data.ringNumber || 1;
+    //       const radius = CONCENTRIC_CONFIG.OUTER_RING_RADIUS * (ringNumber + 0.3);
+    //       const { x, y } = polarRadiansToCartesian(0, 0, radius, newAngle);
+    //       return {
+    //         ...node,
+    //         position: { x: x - BASE_CLUSTER_NODE_SIZE / 2, y: y - BASE_CLUSTER_NODE_SIZE / 2 },
+    //         data: {
+    //           ...node.data,
+    //           angle: newAngle,
+    //         },
+    //       };
+    //     }
+    //     return node;
+    //   })
+    // );
+
+    // Reset scrolling flag after a short delay
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 50);
+  }, [treeType, concentricParentTrackId, generateNodesAndEdges, setNodes]);
 
 
 
@@ -560,7 +690,11 @@ export default function TrackTreePage() {
         <p className={styles['about-subtitle']}>Explore all the different versions of this track</p>
       </div>
       
-      <div ref={reactFlowContainerRef} style={{ width: '100%', height: 'calc(100vh - 150px)', position: 'relative' }}>
+      <div 
+        ref={reactFlowContainerRef} 
+        style={{ width: '100%', height: 'calc(100vh - 150px)', position: 'relative' }}
+        onWheel={handleRadialScroll}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -572,20 +706,14 @@ export default function TrackTreePage() {
           fitViewOptions={{ padding: 0.2 }}
           minZoom={0.001}
           maxZoom={10}
+          zoomOnScroll={false}     // 🔥 disable built-in wheel zoom
+          panOnScroll={false}
         >
           <Background />
           <Controls />
         </ReactFlow>
         {DEBUG_MODE && (
           <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
-        )}
-        {treeType === 'concentric' && concentricParentTrackId && treeDataManager.current && (
-          <PaginationButtons
-            parentTrackId={concentricParentTrackId}
-            treeDataManager={treeDataManager.current}
-            viewState={viewState.current}
-            onPageChange={handlePageChange}
-          />
         )}
       </div>
 
