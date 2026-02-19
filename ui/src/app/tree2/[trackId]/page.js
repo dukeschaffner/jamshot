@@ -622,6 +622,13 @@ export default function TrackTreePage() {
           // Ensure we store UTC timestamp - created_at from DB is already UTC
           lastPollTimeRef.current = new Date(mostRecentTrack.created_at);
 
+          // Mark parent trackIds as having new kids available
+          tracks.forEach(track => {
+            if (track.parent_track_id) {
+              treeDataManager.current.markNewKidsAvailable(track.parent_track_id);
+            }
+          });
+
           // Show toast notification
           if (tracks.length === 1) {
             const track = tracks[0];
