@@ -97,7 +97,7 @@ export default function TrackTreePage() {
           viewState.current.paginationByParent = new Map(
             Array.from(treeDataManager.current.paginationData, ([id, pagination]) => [
               id, 
-              { page: pagination.page, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT }
+              { page: 1, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT }
             ])
           );
           // Set selectedTrackId to the current track (trackId from params)
@@ -322,6 +322,9 @@ export default function TrackTreePage() {
     const uiPagination = viewState.current.paginationByParent.get(parentTrackId);
     if (!uiPagination) return;
 
+    const apiPagination = treeDataManager.current.paginationData.get(parentTrackId);
+    if (!apiPagination) return;
+
     const { pageSize } = uiPagination;
     const allChildren = treeDataManager.current.childrenData.get(parentTrackId) || [];
     
@@ -332,32 +335,9 @@ export default function TrackTreePage() {
     // Check if we have all needed children in cache
     const hasAllChildren = allChildren.length >= endIndex;
     
-    if (!hasAllChildren) {
-      // Need to fetch more children from API
-      // Calculate which API pages we need to fetch
-      const apiPageSize = MAX_NODES_PER_LEVEL; // API page size
-      const apiPagination = treeDataManager.current.paginationData.get(parentTrackId);
-      
-      if (apiPagination) {
-        // Fetch all API pages that contain the children we need
-        const firstNeededApiPage = Math.floor(startIndex / apiPageSize) + 1;
-        const lastNeededApiPage = Math.floor((endIndex - 1) / apiPageSize) + 1;
-        
-        // Fetch all needed pages (they will be appended to cache)
-        const fetchPromises = [];
-        for (let apiPage = firstNeededApiPage; apiPage <= lastNeededApiPage && apiPage <= apiPagination.pages; apiPage++) {
-          // Check if we already have enough children from this page
-          const pageStartIndex = (apiPage - 1) * apiPageSize;
-          const pageEndIndex = pageStartIndex + apiPageSize;
-          if (allChildren.length < pageEndIndex) {
-            fetchPromises.push(treeDataManager.current.fetchAndSetChildren(parentTrackId, apiPage));
-          }
-        }
-        
-        if (fetchPromises.length > 0) {
-          await Promise.all(fetchPromises);
-        }
-      }
+    if (!hasAllChildren && apiPagination.hasMore) {
+      const lastId = treeDataManager.current.getLastTrackId(parentTrackId);
+      await treeDataManager.current.fetchAndSetChildren(parentTrackId, lastId);
     }
 
     // Update UI pagination state

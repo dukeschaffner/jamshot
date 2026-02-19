@@ -14,37 +14,33 @@ export class TreeDataManager {
     this.secret = secret;
   }
 
-  // Fetch children for a track with optional page number
-  fetchChildren = async (parentTrackId, page = 1) => {
+  // Fetch children for a track with optional lastId for cursor pagination
+  fetchChildren = async (parentTrackId, lastId = null) => {
     let data = null;
-    if (this.testMode) {
+    const params = {
+      limit: MAX_NODES_PER_LEVEL,
+      includeChildCount: true,
+      includeParent: false
+    };
+    
+    if (lastId) {
+      params.lastId = lastId;
+    }
 
-      const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
-        params: {
-          page: page,
-          limit: MAX_NODES_PER_LEVEL,
-          includeChildCount: true,
-          includeParent: false
-        }
-      });
+    if (this.testMode) {
+      const response = await api.get(`/tracks/${parentTrackId}/related-test`, { params });
       data = response.data;
     }
     else {
-      const response = await api.get(`/tracks/${parentTrackId}/related`, {
-        params: {
-          page: page,
-          limit: MAX_NODES_PER_LEVEL,
-          includeChildCount: true,
-          includeParent: false
-        }
-      });
+      const response = await api.get(`/tracks/${parentTrackId}/related2`, { params });
       data = response.data;
     }
+
     return {id: parentTrackId, data: data};
   }
 
-  fetchAndSetChildren = async (trackId, page = 1) => {
-    const result = await this.fetchChildren(trackId, page);
+  fetchAndSetChildren = async (trackId, lastId = null) => {
+    const result = await this.fetchChildren(trackId, lastId);
     const {id, data} = result;
     const children = data.tracks;
     if (children && children.length > 0) {
@@ -105,7 +101,7 @@ export class TreeDataManager {
     // Fetch children for all tracks in the tree
     const allChildrenData = await Promise.all(
       trackTree.map(track => {
-        return this.fetchChildren(track.id);
+        return this.fetchChildren(track.id, null);
       })
     );
 
@@ -226,21 +222,21 @@ export class TreeDataManager {
   // Helper: Check if more children pages exist for a parent
   hasMoreChildrenPages = (parentTrackId) => {
     const pagination = this.paginationData.get(parentTrackId);
-    if (!pagination || !pagination.pages) {
+    if (!pagination || pagination.hasMore === undefined) {
       return false;
     }
     
-    const loadedChildren = this.childrenData.get(parentTrackId) || [];
-    const loadedPages = Math.ceil(loadedChildren.length / MAX_NODES_PER_LEVEL);
-    
-    return loadedPages < pagination.pages;
+    return pagination.hasMore === true;
   }
 
-  // Helper: Get the next page number to load for a parent
-  getNextPageToLoad = (parentTrackId) => {
+  // Helper: Get the last track ID to use as cursor for next page load
+  getLastTrackId = (parentTrackId) => {
     const loadedChildren = this.childrenData.get(parentTrackId) || [];
-    const loadedPages = Math.ceil(loadedChildren.length / MAX_NODES_PER_LEVEL);
-    return loadedPages + 1;
+    if (loadedChildren.length === 0) {
+      return null;
+    }
+    // Return the ID of the last child track (for cursor-based pagination)
+    return loadedChildren[loadedChildren.length - 1].id;
   }
 
   // Helper: Check if a track has children (either loaded or available via pagination)
@@ -263,7 +259,7 @@ export class TreeDataManager {
     }
     
     if (this.hasChildren(trackId) === null) { // we don't know if it has children yet, attempt to fetch
-      await this.fetchAndSetChildren(trackId, 1);
+      await this.fetchAndSetChildren(trackId, null);
     }
     if (this.hasChildren(trackId) === true) {
       return this.childrenData.get(trackId)[0].id;
@@ -293,8 +289,8 @@ export class TreeDataManager {
       
       // No next sibling in loaded children, check if more pages exist
       if (this.hasMoreChildrenPages(parentId)) {
-        const nextPage = this.getNextPageToLoad(parentId);
-        await this.fetchAndSetChildren(parentId, nextPage);
+        const lastId = this.getLastTrackId(parentId);
+        await this.fetchAndSetChildren(parentId, lastId);
         
         // Re-fetch siblings after loading new page
         const updatedSiblings = this.childrenData.get(parentId) || [];
