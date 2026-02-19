@@ -8,7 +8,7 @@ import LoadingSpinner from './LoadingSpinner';
 import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
-import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen, FaFileArchive, FaVideo } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen, FaFileArchive, FaVideo, FaTrash } from 'react-icons/fa';
 import JSZip from 'jszip';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
@@ -60,6 +60,7 @@ export default function Track(
   const [showVideoExportModal, setShowVideoExportModal] = useState(false);
   const [showVideoExportStatusModal, setShowVideoExportStatusModal] = useState(false);
   const [videoExportId, setVideoExportId] = useState(null);
+  const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
   const actionsMenuRef = useRef(null);
   const { showSuccess, showError } = useToast();
   const { isFeatureEnabled } = useFeatureFlags();
@@ -295,6 +296,47 @@ export default function Track(
       showError('Failed to export stems. Please try again.');
     } finally {
       setIsExportingStems(false);
+    }
+  };
+
+  const handleDeleteTrack = async (e) => {
+    e.stopPropagation();
+    setShowActionsMenu(false);
+    
+    if (currentUser?.id !== track.user_id || isDeleteInProgress) return;
+    
+    // Confirm deletion with user
+    const hasChildren = track.child_count > 0 || track.collab_count > 0;
+    let confirmMessage = 'Are you sure you want to delete this track?';
+    
+    if (hasChildren) {
+      confirmMessage = 'This track has collaborations. Deleting it will remove your ownership, but the track will remain available for others. Continue?';
+    }
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    setIsDeleteInProgress(true);
+    
+    try {
+      // Use numeric ID for API calls
+      const response = await api.delete(`/tracks/${track.id}`);
+      
+      // Show appropriate message based on deletion type
+      if (response.data.soft_delete) {
+        alert('Track has been removed from your profile but remains available for collaborations.');
+      } else {
+        alert('Track has been permanently deleted.');
+      }
+      
+      // Refresh current page
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to delete track:', err);
+      alert('Failed to delete track. Please try again later.');
+    } finally {
+      setIsDeleteInProgress(false);
     }
   };
 
@@ -557,6 +599,18 @@ export default function Track(
                       }}
                     >
                       <FaVideo /> Generate Video
+                    </button>
+                  )}
+                  
+                  {/* Delete Track option (only for track owner) */}
+                  {currentUser?.id === track.user_id && (
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={handleDeleteTrack}
+                      disabled={isDeleteInProgress}
+                      style={{ color: 'var(--red)' }}
+                    >
+                      <FaTrash /> {isDeleteInProgress ? 'Deleting...' : 'Delete Track'}
                     </button>
                   )}
                 </div>
