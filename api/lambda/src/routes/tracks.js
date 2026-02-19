@@ -2479,7 +2479,7 @@ router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
 router.get('/:id/related-test', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
-  const { lastId, limit = 5, includeParent = true, maxLikes = 1000, maxPlays = 10000, includeChildCount = false} = req.query;
+  const { lastId, limit = 5, includeParent = true, maxLikes = 1000, maxPlays = 10000, includeChildCount = false, orderBy = 'newest'} = req.query;
 
   const limitNum = parseInt(limit);
   const maxLikesNum = parseInt(maxLikes);
@@ -2531,10 +2531,23 @@ router.get('/:id/related-test', async (req, res) => {
 
     // Generate dummy tracks
     const dummyTracks = [];
-    const startIndex = parseInt(lastId) || 0 + 1;
-    const endIndex = startIndex + numToGenerate;
+    let startIndex, endIndex;
+    if (orderBy === 'newest') {
+      startIndex = parseInt(lastId) || 0 + 1;
+      endIndex = startIndex + numToGenerate;
+    } else {
+      startIndex = parseInt(lastId) || 0 - 1;
+      endIndex = startIndex - numToGenerate;
+    }
 
-    for (let i = startIndex; i < endIndex; i++) {
+    // Determine loop direction based on start/end indices
+    const isAscending = startIndex < endIndex;
+    const increment = isAscending ? 1 : -1;
+    const condition = isAscending 
+      ? (i) => i < endIndex 
+      : (i) => i > endIndex;
+
+    for (let i = startIndex; condition(i); i += increment) {
       // Use the determined depth + 1 for returned tracks
       const returnTrackDepth = trackDepth + 1;
 

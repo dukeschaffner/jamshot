@@ -9,18 +9,20 @@ export class TreeDataManager {
     this.childrenData = new Map();
     this.paginationData = new Map();
     this.usageData = new Map();
+    this.newKidsAvailable = new Set(); // Track which trackIds have new children to load
     this.rootTrackId = null;
     this.testMode = true;
     this.secret = secret;
   }
 
   // Fetch children for a track with optional lastId for cursor pagination
-  fetchChildren = async (parentTrackId, lastId = null) => {
+  fetchChildren = async (parentTrackId, lastId = null, orderBy = 'newest') => {
     let data = null;
     const params = {
       limit: MAX_NODES_PER_LEVEL,
       includeChildCount: true,
-      includeParent: false
+      includeParent: false,
+      orderBy: orderBy
     };
     
     if (lastId) {
@@ -374,6 +376,71 @@ export class TreeDataManager {
     }
 
     return idsToPrune;
+  }
+
+  // Mark a trackId as having new kids available
+  markNewKidsAvailable = (trackId) => {
+    if (trackId) {
+      this.newKidsAvailable.add(trackId);
+    }
+  }
+
+  // Check if a trackId has new kids available
+  hasNewKidsAvailable = (trackId) => {
+    return this.newKidsAvailable.has(trackId);
+  }
+
+  // Clear the new kids flag for a trackId (e.g., when they load the new kids)
+  clearNewKidsAvailable = (trackId) => {
+    if (trackId) {
+      this.newKidsAvailable.delete(trackId);
+    }
+  }
+
+  // Fetch and set new children (older children that were added before the currently loaded ones)
+  fetchAndSetNewChildren = async (trackId) => {
+    const existingChildren = this.childrenData.get(trackId) || [];
+    
+    let firstChildId = null;
+
+    // Get the first (oldest) child's ID to use as cursor
+    if(existingChildren.length > 0) {
+      firstChildId = existingChildren[0].id;
+    }
+
+    // Fetch children with oldest first ordering, using first child ID as cursor
+    const result = await this.fetchChildren(trackId, firstChildId, 'oldest');
+    const {id, data} = result;
+    const newChildren = data.tracks;
+
+    if (newChildren && newChildren.length > 0) {
+      // Store tracks in trackData
+      newChildren.forEach(child => {
+        this.trackData.set(child.id, child);
+      });
+      
+      // Prepend new children to the beginning of the array (they're older)
+      const existingChildIds = new Set(existingChildren.map(child => child.id));
+      
+      // Only add children that don't already exist (avoid duplicates)
+      const uniqueNewChildren = newChildren.filter(child => !existingChildIds.has(child.id));
+      
+      if (uniqueNewChildren.length > 0) {
+        // Reverse to maintain newest-to-oldest order (API returns oldest-to-newest with orderBy='oldest')
+        const reversedNewChildren = uniqueNewChildren.reverse();
+        this.childrenData.set(id, [...reversedNewChildren, ...existingChildren]);
+      }
+      
+      this.recordUsage({tracks: uniqueNewChildren, rendered: false});
+    }
+
+    // Check if there are still more children available
+    const pagination = data.pagination;
+    if (!pagination || !pagination.hasMore) {
+      // No more children, remove from newKidsAvailable set
+      this.clearNewKidsAvailable(trackId);
+    }
+    // If hasMore is true, leave it in the set (still has new kids)
   }
 };
 
