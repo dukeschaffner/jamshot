@@ -1083,6 +1083,134 @@ router.get('/:id/related', async (req, res) => {
   }
 });
 
+router.get('/:id/related2', async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { lastId, limit = 5, orderBy = 'newest', includeParent = true, includeChildCount = false } = req.query;
+  
+  const limitNum = parseInt(limit);
+  const orderByNewest = orderBy !== 'oldest'; // Default to newest
+  const includeChildCountBool = includeChildCount === 'true';
+
+  let baseQuery;
+  let queryParams;
+  if (userId) {
+    baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
+    queryParams = [id, userId];
+  } else {
+    baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
+    queryParams = [id];
+  }
+
+  try {
+    // Only include the parent track on the first request (when lastId is not provided)
+    let combinedTracks = [];
+    
+    if (!lastId && includeParent === 'true') {
+      // First, get the parent track if it exists
+      let parentTrackQuery = `
+        SELECT
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE (t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)) AND t.processing_status = 'completed'
+      `;
+
+      const parentTrackResult = await pool.query(parentTrackQuery, queryParams);
+
+      // Add parent track if it exists
+      if (parentTrackResult.rows.length > 0) {
+        combinedTracks.push(parentTrackResult.rows[0]);
+      }
+    }
+    
+    // Build the query for child tracks with cursor pagination using ID
+    let childTracksQuery = `
+      SELECT
+        ${baseQuery}
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
+    `;
+    
+    // Add cursor condition based on order using ID
+    if (lastId) {
+      if (orderByNewest) {
+        // For newest first, get tracks with ID less than the cursor (assuming IDs are sequential)
+        // We still order by created_at to respect the orderBy parameter
+        childTracksQuery += ` AND t.id < $${queryParams.length + 1}`;
+        queryParams.push(lastId);
+      } else {
+        // For oldest first, get tracks with ID greater than the cursor
+        childTracksQuery += ` AND t.id > $${queryParams.length + 1}`;
+        queryParams.push(lastId);
+      }
+    }
+    
+    // Add ordering by created_at to respect orderBy parameter
+    if (orderByNewest) {
+      childTracksQuery += ` ORDER BY t.created_at DESC`;
+    } else {
+      childTracksQuery += ` ORDER BY t.created_at ASC`;
+    }
+    
+    // Add limit
+    childTracksQuery += ` LIMIT $${queryParams.length + 1}`;
+    queryParams.push(limitNum);
+    
+    // Execute query for child tracks
+    const childTracksResult = await pool.query(childTracksQuery, queryParams);
+    
+    // Add child tracks
+    combinedTracks = [...combinedTracks, ...childTracksResult.rows];
+    
+    // Process tracks
+    const processedTracks = await Promise.all(combinedTracks.map(track => processTrack(track, userId)));
+    
+    // Calculate hasMore using a separate query with ID as cursor
+    let hasMore = false;
+    if (processedTracks.length > 0) {
+      // Use the last child track (not parent) for hasMore calculation
+      const childTracks = processedTracks.filter(track => track.parent_track_id === parseInt(id));
+      if (childTracks.length > 0) {
+        const lastTrackId = childTracks[childTracks.length - 1].id;
+        
+        // Check if there are more tracks after the last one using ID
+        let hasMoreQuery = `
+          SELECT 1
+          FROM tracks
+          WHERE parent_track_id = $1 
+            AND processing_status = 'completed'
+        `;
+        
+        const hasMoreParams = [id];
+        
+        if (orderByNewest) {
+          hasMoreQuery += ` AND id < $2 ORDER BY created_at DESC LIMIT 1`;
+          hasMoreParams.push(lastTrackId);
+        } else {
+          hasMoreQuery += ` AND id > $2 ORDER BY created_at ASC LIMIT 1`;
+          hasMoreParams.push(lastTrackId);
+        }
+        
+        const hasMoreResult = await pool.query(hasMoreQuery, hasMoreParams);
+        hasMore = hasMoreResult.rows.length > 0;
+      }
+    }
+    
+    res.json({
+      tracks: processedTracks,
+      pagination: {
+        hasMore
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get track processing status
 router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
@@ -2351,11 +2479,9 @@ router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
 router.get('/:id/related-test', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
-  const { page = 1, limit = 5, includeParent = true, count = 50, maxLikes = 1000, maxPlays = 10000, includeChildCount = false} = req.query;
+  const { lastId, limit = 5, includeParent = true, maxLikes = 1000, maxPlays = 10000, includeChildCount = false} = req.query;
 
-  const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  const countNum = parseInt(count);
   const maxLikesNum = parseInt(maxLikes);
   const maxPlaysNum = parseInt(maxPlays);
   const includeChildCountBool = includeChildCount === 'true';
@@ -2392,16 +2518,27 @@ router.get('/:id/related-test', async (req, res) => {
     const signedAudioUrl = generateSignedUrl(template.audio_url);
     const signedCombinedAudioUrl = template.combined_audio_url ? generateSignedUrl(template.combined_audio_url) : signedAudioUrl;
 
+    let numToGenerate = Math.floor(Math.random() * limit * 2);
+    let hasMore = false;
+    if (numToGenerate === 0) {
+      numToGenerate = 1;
+    }
+    if (numToGenerate > limitNum) {
+      hasMore = true;
+      numToGenerate = limitNum;
+    }
+
+
     // Generate dummy tracks
     const dummyTracks = [];
-    const startIndex = offset;
-    const endIndex = Math.min(offset + limitNum, countNum);
+    const startIndex = parseInt(lastId) || 0 + 1;
+    const endIndex = startIndex + numToGenerate;
 
     for (let i = startIndex; i < endIndex; i++) {
       // Use the determined depth + 1 for returned tracks
       const returnTrackDepth = trackDepth + 1;
 
-      const dummyId = parseInt(`${returnTrackDepth}${id}${i}`);
+      const dummyId = parseInt(`${returnTrackDepth}${i}`);
       const dummyTrack = {
         id: dummyId, // Fake ID to avoid conflicts
         guid: `dummy-${dummyId}`,
@@ -2412,7 +2549,7 @@ router.get('/:id/related-test', async (req, res) => {
         duration: template.duration,
         layer: returnTrackDepth,
         parent_track_id: parseInt(id),
-        created_at: new Date(Date.now() - (countNum - i) * 1000 * 60 * 60), // Spread out creation times
+        created_at: new Date(Date.now() - (numToGenerate - i) * 1000 * 60 * 60), // Spread out creation times
         play_count: Math.floor(Math.random() * maxPlaysNum),
         metronome_bpm: null,
         time_signature: '4/4',
@@ -2440,18 +2577,10 @@ router.get('/:id/related-test', async (req, res) => {
       dummyTracks.push(dummyTrack);
     }
 
-    // Calculate pagination based on the count parameter
-    const totalCount = countNum;
-    const totalPages = Math.ceil(totalCount / limitNum);
-
     res.json({
       tracks: dummyTracks,
       pagination: {
-        total: totalCount,
-        page: parseInt(page),
-        limit: limitNum,
-        pages: totalPages,
-        hasMore: parseInt(page) < totalPages
+        hasMore: hasMore
       }
     });
   } catch (err) {

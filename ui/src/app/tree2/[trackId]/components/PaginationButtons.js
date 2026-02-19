@@ -27,9 +27,10 @@ export default function PaginationButtons({
   }
 
   const { page: currentPage, pageSize } = uiPagination;
-  const totalPages = apiPagination.pages || 1;
   const hasPrevious = currentPage > 1;
-  const hasNext = currentPage < totalPages;
+  const lastTrackIndex = currentPage * pageSize - 1;
+  const children = treeDataManager.childrenData.get(parentTrackId) || [];
+  const hasNext = apiPagination.hasMore || lastTrackIndex < children.length - 1;
 
   if (!hasPrevious && !hasNext) {
     return null;
@@ -45,9 +46,9 @@ export default function PaginationButtons({
       >
         Previous
       </button>
-      <span className={styles['pagination-info']}>
+      {/* <span className={styles['pagination-info']}>
         Page {currentPage} of {totalPages}
-      </span>
+      </span> */}
       <button
         className={styles['pagination-button']}
         disabled={!hasNext}
