@@ -5,7 +5,21 @@ const { OUTER_RING_RADIUS, CHILDREN_LIMIT, BASE_RING_SIZE, RING_SPACING } = CONC
 // const { CHILDREN_LIMIT, RING_SPACING } = CONCENTRIC_CONFIG;
 
 
+export function getPageStartIndex(parentTrackId, viewState) {
+  const angle = viewState.renderer?.rotationOffset || 0;
 
+  // slice = 2pi / children limit
+  // 0 -> index 0
+  // slice -> index 1
+  // 2*slice -> index 2
+  // ...
+  // 2*Math.PI -> index children limit
+  // 2*Math.PI + slice -> index 1
+  // 2*Math.PI + 2*slice -> index 2
+  // ...
+  // 2*Math.PI + 2*Math.PI -> index children limit
+  return Math.floor(angle * CHILDREN_LIMIT/ (2 * Math.PI));
+}
 
 
 
@@ -80,9 +94,9 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers)
       data: {
         childCount: track.collab_count,
         clusterType: 'loadChildren',
-        type: 'radial',
-        ringNumber: ringNumber,
         type: 'concentric',
+        ringNumber: ringNumber,
+        angle: angle, // Store angle so it can be rotated with scroll
       },
     };
     if(handlers) {
@@ -197,15 +211,11 @@ export function generateConcentricTree({
 
   const allChildren = childrenData.get(previousTrackId) || [];
   
-  // Get UI pagination state for the parent showing children
-  const uiPagination = viewState.paginationByParent.get(previousTrackId) || {
-    page: 1,
-    pageSize: CHILDREN_LIMIT
-  };
+
   
   // Filter children based on UI pagination
-  const startIndex = (uiPagination.page - 1) * uiPagination.pageSize;
-  const endIndex = startIndex + uiPagination.pageSize;
+  const startIndex = getPageStartIndex(previousTrackId, viewState);
+  const endIndex = startIndex + CONCENTRIC_CONFIG.CHILDREN_LIMIT - 1;
   const children = allChildren.slice(startIndex, endIndex);
   
   // Validate that we're not trying to display more than CHILDREN_LIMIT at once
@@ -213,14 +223,26 @@ export function generateConcentricTree({
     throw new Error(`Too many children to display: ${children.length} (limit: ${CHILDREN_LIMIT})`);
   }
 
-  let currentAngle = 0;
+  // Get rotation offset from viewState
+  const rotationOffset = viewState.renderer?.rotationOffset || 0;
+  const sliceAngle = 2 * Math.PI / CHILDREN_LIMIT;
+
+  // first current angle should always be - slice angle to 0
+  let currentAngle = - (rotationOffset % sliceAngle); // Start with rotation offset
   const radialSpacing = children.length > 0 ? 2 * Math.PI / children.length : 0;
+  let idx = 1;
 
   if(children && children.length > 0) {
     children.forEach(child => {
-      const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, currentAngle).x;
-      const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, currentAngle).y;
-      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, currentAngle, radialSpacing, handlers));
+      // Normalize angle to [0, 2π /)
+      const normalizedAngle = ((currentAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+      if(idx === 1) {
+        console.log(`normalizedAngle: ${normalizedAngle}`);
+        idx = 0;
+      }
+      const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).x;
+      const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).y;
+      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers));
     
       // Add edge from root to child
       flowEdges.push({
@@ -232,11 +254,10 @@ export function generateConcentricTree({
         style: { stroke: '#86a699', strokeWidth: 2 },
       });
 
-      // 
-
-      const node = createLoadChildrenNode(child.id, treeDataManager.trackData, 1, currentAngle, handlers);
-      if(node){
-        flowNodes.push(node);
+      // Create load-children node with the same normalized angle
+      const loadChildrenNode = createLoadChildrenNode(child.id, treeDataManager.trackData, 1, normalizedAngle, handlers);
+      if(loadChildrenNode){
+        flowNodes.push(loadChildrenNode);
         flowEdges.push({
           id: `edge-load-children-${child.id}`,
           source: `track-${child.id}`,
