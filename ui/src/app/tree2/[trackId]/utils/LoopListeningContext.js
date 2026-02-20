@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import LoopListeningEngine from './LoopListeningEngine';
 import { eventBus } from '../../../../components/DAW/misc/EventBus.js';
 import { DAW_EVENTS } from '../../../../components/DAW/misc/DAWEvents.js';
+import { getAudioBufferFromS3 } from '../../../../components/DAW/misc/DAWUtils.js';
+import { bufferRegistry } from '../../../../components/DAW/core/BufferRegistry.js';
 
 const LoopListeningContext = createContext();
 
@@ -42,28 +44,25 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     
     // Check automatic queue
     if (automaticQueueRef.current.length > 0) {
-
       // Find next track in automatic queue (after current)
       if (queueIndex.current >= 0 && queueIndex.current < automaticQueueRef.current.length - 1) {
         queueIndex.current++;
         return automaticQueueRef.current[queueIndex.current];
       }
-      else {
-        // Get next track from tree data manager
-        if (treeDataManager && currentTrackRef.current) {
-          try {
-            const nextTrackId = await treeDataManager.getNextTrack(currentTrackRef.current.id);
-            if (nextTrackId && treeDataManager.trackData.has(nextTrackId)) {
-              const nextTrack = treeDataManager.trackData.get(nextTrackId);
-              // Add to automatic queue
-              automaticQueueRef.current = [...automaticQueueRef.current, nextTrack];
-              queueIndex.current = automaticQueueRef.current.length - 1;
-              return nextTrack;
-            }
-          } catch (error) {
-            console.error('Error getting next track from tree data manager:', error);
-          }
+    }
+    // Get next track from tree data manager
+    if (treeDataManager && currentTrackRef.current) {
+      try {
+        const nextTrackId = await treeDataManager.getNextTrack(currentTrackRef.current.id);
+        if (nextTrackId && treeDataManager.trackData.has(nextTrackId)) {
+          const nextTrack = treeDataManager.trackData.get(nextTrackId);
+          // Add to automatic queue
+          automaticQueueRef.current = [...automaticQueueRef.current, nextTrack];
+          queueIndex.current = automaticQueueRef.current.length - 1;
+          return nextTrack;
         }
+      } catch (error) {
+        console.error('Error getting next track from tree data manager:', error);
       }
     }
     return null;
@@ -79,11 +78,52 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       engineRef.current = new LoopListeningEngine(audioContextRef.current, getNextTrack);
     }
     
-    // Set loop duration from root track if available
-    if (rootTrack && rootTrack.duration) {
-      const duration = rootTrack.duration;
-      engineRef.current.setLoopDuration(duration);
-      setLoopDuration(duration);
+    // Decode root track audio and set loop duration from decoded buffer
+    if (rootTrack) {
+      const audioUrl = rootTrack.combined_audio_url || rootTrack.audio_url;
+      if (audioUrl && audioContextRef.current) {
+        const bufferKey = `${rootTrack.id}_root-loop`;
+        
+        // Check if buffer is already in registry
+        if (bufferRegistry.hasBuffer(bufferKey)) {
+          const buffer = bufferRegistry.getBuffer(bufferKey);
+          const duration = buffer.duration;
+          if (engineRef.current) {
+            engineRef.current.setLoopDuration(duration);
+            setLoopDuration(duration);
+          }
+        } else {
+          // Decode and store in registry
+          getAudioBufferFromS3(audioUrl, audioContextRef.current)
+            .then((buffer) => {
+              // Store buffer in registry
+              bufferRegistry.storeBuffer(bufferKey, buffer, {
+                name: 'root-loop',
+                trackId: rootTrack.id
+              });
+              
+              const duration = buffer.duration;
+              if (engineRef.current) {
+                engineRef.current.setLoopDuration(duration);
+                setLoopDuration(duration);
+              }
+            })
+            .catch((error) => {
+              console.error('Error decoding root track audio:', error);
+              // Fallback to track duration if available
+              if (rootTrack.duration) {
+                const duration = rootTrack.duration;
+                engineRef.current.setLoopDuration(duration);
+                setLoopDuration(duration);
+              }
+            });
+        }
+      } else if (rootTrack.duration) {
+        // Fallback to track duration if no audio URL
+        const duration = rootTrack.duration;
+        engineRef.current.setLoopDuration(duration);
+        setLoopDuration(duration);
+      }
     }
     
     return () => {
@@ -104,6 +144,8 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     automaticQueueRef.current = [track];
     queueIndex.current = 0;
     playedTracksRef.current.clear();
+    currentTrackRef.current = track;
+    setCurrentTrack(track);
     
     // Get loop duration from root track or use track duration
     let duration = loopDuration;

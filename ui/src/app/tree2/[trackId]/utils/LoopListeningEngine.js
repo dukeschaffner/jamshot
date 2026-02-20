@@ -18,6 +18,7 @@ class LoopListeningEngine {
     this.currentTrack = null;
     this.nextTrack = null;
     this.nextTrackScheduled = false;
+    this.schedulingNextTrack = false;
     this.isPlaying = false;
     this.isCycleMode = false;
     this.currentProgress = 0; // Progress within current loop (0 to loopDuration)
@@ -38,7 +39,7 @@ class LoopListeningEngine {
     this.DAW_EVENTS = DAW_EVENTS;
     
     // Fade duration (micro fade)
-    this.fadeDuration = 0.05; // 50ms fade
+    this.fadeDuration = 0.01; // 50ms fade
 
   }
   
@@ -188,7 +189,7 @@ class LoopListeningEngine {
     const source = this.context.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gainNode);
-    this.addFades(this.gainNode, startTime, startTime + this.loopDuration);
+    this.addFades(this.gainNode, startTime, startTime + playDuration);
     source.start(startTime, offset, playDuration);
 
     this.scheduledSources.add(source);
@@ -238,16 +239,24 @@ class LoopListeningEngine {
   }
 
   scheduleNextTrack() {
-    if (!this.isPlaying || !this.currentTrack) return;
+    if (!this.isPlaying || !this.currentTrack || this.nextTrackScheduled || this.schedulingNextTrack) return;
+    this.schedulingNextTrack = true;
 
-    const track = this.cycleMode ? this.currentTrack : this.nextTrack;
-    if(!track) return;
+    const track = this.isCycleMode ? this.currentTrack : this.nextTrack;
+    if(!track) {
+      this.schedulingNextTrack = false;
+      return;
+    }
     this.getOrDecodeBuffer(track).then(buffer => {
       const startTime = this.loopStartTime + this.loopDuration;
       const bufferDuration = buffer.duration;
       const playDuration = Math.min(bufferDuration, this.loopDuration);
       this.scheduleBuffer(buffer, startTime, 0, playDuration);
       this.nextTrackScheduled = true;
+      this.schedulingNextTrack = false;
+    }).catch(error => {
+      console.error('Error scheduling next track:', error);
+      this.schedulingNextTrack = false;
     });
   }
   
