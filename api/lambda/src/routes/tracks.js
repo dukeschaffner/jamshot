@@ -2487,6 +2487,21 @@ router.get('/:id/related-test', async (req, res) => {
   const includeChildCountBool = includeChildCount === 'true';
 
   try {
+    // Fetch all available instruments from the database
+    const instrumentsResult = await pool.query('SELECT * FROM instruments ORDER BY name');
+    const allInstruments = instrumentsResult.rows;
+
+    // Helper function to randomly select 0-4 instruments
+    const getRandomInstruments = () => {
+      if (allInstruments.length === 0) return [];
+      const numInstruments = Math.floor(Math.random() * 5); // 0-4 instruments
+      if (numInstruments === 0) return [];
+      
+      // Shuffle and take first N instruments
+      const shuffled = [...allInstruments].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, numInstruments);
+    };
+
     // First look up the track with the given id to determine depth
     const trackLookup = await pool.query('SELECT layer FROM tracks WHERE id = $1', [id]);
     let trackDepth;
@@ -2580,7 +2595,7 @@ router.get('/:id/related-test', async (req, res) => {
         is_liked: userId ? Math.random() > 0.7 : false, // 30% chance of being liked
         is_reposted: userId ? Math.random() > 0.9 : false, // 10% chance of being reposted
         genres: [],
-        instruments: [],
+        instruments: getRandomInstruments(), // Randomly assign 0-4 instruments
         elements: [],
         instrument_requests: [],
         element_requests: [],

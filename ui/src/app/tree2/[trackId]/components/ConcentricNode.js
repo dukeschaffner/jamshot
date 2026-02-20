@@ -8,6 +8,7 @@ import { getTrackColor } from '../utils/trackColorUtils';
 import styles from '../TreeView.module.css';
 import { CONCENTRIC_CONFIG } from '../utils/config';
 import {BASE_NODE_SIZE} from '../utils/config';
+import { getInstrumentIcon, getFirstInstrument, getAdditionalInstrumentCount } from '../utils/instrumentIcons';
 
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 
@@ -40,7 +41,18 @@ function ConcentricNode({ data }) {
   };
 
 
-  const color = track ? getTrackColor(track) : 'var(--grey-2)'; // Color based on popularity and plays
+  // const color = track ? getTrackColor(track) : 'var(--grey-2)'; // Color based on popularity and plays
+  const color = 'var(--seafoam)';
+
+  // Get instrument information for non-inner nodes
+  const firstInstrument = type !== 'inner' ? getFirstInstrument(track) : null;
+  const additionalCount = type !== 'inner' ? getAdditionalInstrumentCount(track) : 0;
+  const InstrumentIcon = firstInstrument ? getInstrumentIcon(firstInstrument.name) : null;
+
+  // Get all instruments for inner nodes
+  const allInstruments = type === 'inner' && track?.instruments && Array.isArray(track.instruments) 
+    ? track.instruments 
+    : [];
 
   const handleMouseEnter = () => {
     if (onNodeHover && nodeRef.current) {
@@ -109,10 +121,10 @@ function ConcentricNode({ data }) {
       <div
         style={{
           position: 'absolute',
-          bottom: '-5px',
-          right: '-5px',
-          width: '28px',
-          height: '28px',
+          // bottom: '-5px',
+          // right: '-5px',
+          width: '100%',
+          height: '100%',
           borderRadius: '50%',
           border: '2px solid var(--background)',
           overflow: 'hidden',
@@ -122,8 +134,8 @@ function ConcentricNode({ data }) {
         <Image
           src={track?.profile_pic_url || '/avatar.svg'}
           alt={track?.username || 'Artist'}
-          width={28}
-          height={28}
+          width={100}
+          height={100}
           style={{
             width: '100%',
             height: '100%',
@@ -140,18 +152,67 @@ function ConcentricNode({ data }) {
             color: 'var(--seafoam)',
             backgroundColor: 'var(--background)',
             borderRadius: '50%',
-            width: '14px',
-            height: '14px',
+            width: '25px',
+            height: '25px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <FaCheckCircle size={10.5} />
+          <FaCheckCircle size={20} />
         </div>
       )}
+      {/* Instrument tag icon */}
+      {InstrumentIcon && (
+        <>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-7px',
+            left: '-7px',
+            color: 'var(--text-primary)',
+            backgroundColor: 'var(--background)',
+            borderRadius: '50%',
+            width: '30px',
+            height: '30px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid var(--grey-3)',
+            fontSize: '10px',
+            zIndex: 1000,
+          }}
+        >
+          <InstrumentIcon size={20} />
+         
+        </div>
+        {additionalCount > 0 && (
+            <div
+            style={{
+              position: 'absolute',
+              bottom: '-7px',
+              left: '-2px',
+              color: 'var(--text-primary)',
+              backgroundColor: 'var(--grey-2)',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid var(--grey-3)',
+              fontSize: '10px',
+              zIndex: 999,
+            }}
+          />
+          )}
+        </>
+      )}
+      
       </>
       )}
+
+      
 
       <Handle
         type="source"
@@ -159,6 +220,108 @@ function ConcentricNode({ data }) {
         style={radialHandleStyle}
       />
     </div>
+    {/* Avatar overlay */}
+    {type === 'inner' && (
+      <div
+      style={{
+        position: 'absolute',
+        // bottom: '-5px',
+        right: '0px',
+        transform: 'translateX(50%)',
+        width: '70px',
+        height: '70px',
+        borderRadius: '50%',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+          borderRadius: '50%',
+          border: '2px solid var(--background)',
+          overflow: 'hidden',
+          backgroundColor: 'var(--grey-1)',
+        }}
+      >
+        <Image
+          src={track?.profile_pic_url || '/avatar.svg'}
+          alt={track?.username || 'Artist'}
+          width={100}
+          height={100}
+          style={{
+            width: '70px',
+            height: '70px',
+            objectFit: 'cover',
+          }}
+        />
+      </div>
+      {track?.verified && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-4px',
+            right: '-4px',
+            color: 'var(--seafoam)',
+            backgroundColor: 'var(--background)',
+            borderRadius: '50%',
+            width: '25px',
+            height: '25px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <FaCheckCircle size={20} />
+        </div>
+      )}
+      </div>
+      )}
+      {/* Instrument tags for inner nodes - positioned along bottom inner edge */}
+      {type === 'inner' && allInstruments.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: `${(size - baseSize * ringSizeFactor) / 2 + 10}px`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            flexWrap: 'wrap',
+            width: `${baseSize * ringSizeFactor * 0.9}px`,
+            zIndex: 1000,
+          }}
+        >
+          {allInstruments.map((instrument, index) => {
+            const instrumentName = typeof instrument === 'string' ? instrument : instrument.name;
+            const InstrumentIconComponent = getInstrumentIcon(instrumentName);
+            return (
+              <div
+                key={instrument.id || index}
+                style={{
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--background)',
+                  borderRadius: '50%',
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid var(--grey-3)',
+                  fontSize: '10px',
+                  zIndex: 1000,
+                  flexShrink: 0,
+                }}
+                title={instrumentName}
+              >
+                <InstrumentIconComponent size={20} />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
