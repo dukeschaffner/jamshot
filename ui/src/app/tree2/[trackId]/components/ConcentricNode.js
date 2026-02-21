@@ -43,6 +43,9 @@ function ConcentricNode({ data }) {
 
   // const color = track ? getTrackColor(track) : 'var(--grey-2)'; // Color based on popularity and plays
   const color = 'var(--seafoam)';
+  const gradientBackground = type === 'inner' 
+    ? 'linear-gradient(120deg, var(--seafoam), var(--rustic-pink))'
+    : color;
 
   // Get instrument information for non-inner nodes
   const firstInstrument = type !== 'inner' ? getFirstInstrument(track) : null;
@@ -97,11 +100,11 @@ function ConcentricNode({ data }) {
         transform: `scale(${ringSizeFactor})`,
         transformOrigin: 'center center',
         flexShrink: 0,
-        backgroundColor: color,
+        background: gradientBackground,
         borderRadius: '50%',
         position: 'relative',
         cursor: 'pointer',
-        border: isSelected ? `3px solid var(--seafoam)` : `2px solid var(--grey-3)`,
+        // border: isSelected ? `3px solid var(--seafoam)` : `2px solid var(--grey-3)`,
         boxShadow: isSelected 
           ? '0 0 20px rgba(147, 233, 190, 0.5)' 
           : '0 2px 8px rgba(0, 0, 0, 0.15)',
@@ -227,9 +230,9 @@ function ConcentricNode({ data }) {
         position: 'absolute',
         // bottom: '-5px',
         right: '0px',
-        transform: 'translateX(50%)',
-        width: '70px',
-        height: '70px',
+        // transform: 'scale(0.8)',
+        width: '50px',
+        height: '50px',
         borderRadius: '50%',
       }}
     >
@@ -250,8 +253,8 @@ function ConcentricNode({ data }) {
           width={100}
           height={100}
           style={{
-            width: '70px',
-            height: '70px',
+            width: '50px',
+            height: '50px',
             objectFit: 'cover',
           }}
         />
@@ -282,7 +285,7 @@ function ConcentricNode({ data }) {
         <div
           style={{
             position: 'absolute',
-            bottom: `${(size - baseSize * ringSizeFactor) / 2 + 10}px`,
+            bottom: `${(size - baseSize * ringSizeFactor) / 2 + 4}px`,
             left: '50%',
             transform: 'translateX(-50%)',
             display: 'flex',
