@@ -1,4 +1,4 @@
-import { MarkerType } from 'reactflow';
+import { MarkerType } from '@xyflow/react';
 
 // Hierarchical Tree Renderer
 // Generates React Flow nodes and edges for a hierarchical tree layout

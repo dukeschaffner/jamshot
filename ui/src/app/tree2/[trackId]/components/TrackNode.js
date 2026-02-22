@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useRef } from 'react';
-import { Handle, Position, useViewport } from 'reactflow';
+import { Handle, Position, useViewport } from '@xyflow/react';
 import Image from 'next/image';
 import { FaCheckCircle } from 'react-icons/fa';
 import { getTrackColor } from '../utils/trackColorUtils';
