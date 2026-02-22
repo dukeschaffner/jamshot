@@ -56,7 +56,7 @@ export function getPageStartIndex(parentTrackId, viewState) {
 
 // #region nodes
 
-function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers, currentTrack) {
+function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers, currentTrack, canScroll = false) {
   let size;
   if(type === 'inner') {
     size = BASE_RING_SIZE + ringNumber * RING_SPACING;
@@ -78,6 +78,7 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
       sliceAngle: sliceAngle,
       type: type,
       currentTrack: currentTrack,
+      canScroll: canScroll,
     },
     zIndex: 1000 - ringNumber,
     borderRadius: '50%',
@@ -111,7 +112,7 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
 }
 
 
-function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers) {
+function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers, canScroll = false) {
   const track = trackData.get(trackId);
   if(!track) throw new Error('Track not found: ' + trackId);
 
@@ -129,6 +130,7 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers)
         type: 'concentric',
         ringNumber: ringNumber,
         angle: angle, // Store angle so it can be rotated with scroll
+        canScroll: canScroll, // Store whether scrolling is possible
       },
     };
     if(handlers) {
@@ -193,7 +195,8 @@ export function generateConcentricTree({
   setHoveredTrackId,
   setHoveredNodePosition,
   hoverTimeoutRef,
-  currentTrack
+  currentTrack,
+  canScroll = false
 }) {
 
   const rootTrackId = treeDataManager.rootTrackId;
@@ -276,10 +279,11 @@ export function generateConcentricTree({
       }
       const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).x;
       const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).y;
-      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers, currentTrack));
+      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers, currentTrack, canScroll));
     
       // Calculate opacity for edges based on target node's angle
-      const edgeOpacity = calculateOpacityFromAngle(normalizedAngle);
+      // Only apply fading if scrolling is possible
+      const edgeOpacity = canScroll ? calculateOpacityFromAngle(normalizedAngle) : 1;
       
       // Add edge from root to child
       flowEdges.push({
@@ -292,7 +296,7 @@ export function generateConcentricTree({
       });
 
       // Create load-children node with the same normalized angle
-      const loadChildrenNode = createLoadChildrenNode(child.id, treeDataManager.trackData, 1, normalizedAngle, handlers);
+      const loadChildrenNode = createLoadChildrenNode(child.id, treeDataManager.trackData, 1, normalizedAngle, handlers, canScroll);
       if(loadChildrenNode){
         flowNodes.push(loadChildrenNode);
         flowEdges.push({

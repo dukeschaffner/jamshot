@@ -95,6 +95,23 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
     },
   });
 
+  // Calculate if scrolling is possible
+  const canScroll = useMemo(() => {
+    if (treeType !== 'concentric' || !concentricParentTrackId || !treeDataManager.current) {
+      return false;
+    }
+
+    const apiPagination = treeDataManager.current.paginationData.get(concentricParentTrackId);
+    if (!apiPagination) {
+      return false;
+    }
+
+    const allChildren = treeDataManager.current.childrenData.get(concentricParentTrackId) || [];
+    
+    // Scrolling is possible if we have more children than the limit OR there's more data to load
+    return allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore;
+  }, [treeType, concentricParentTrackId, treeDataManager]);
+
 
 
   useEffect(() => {
@@ -137,23 +154,24 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
       });
       newNodes = nodes;
     }
-    else if(treeType === 'concentric') {
-      const { nodes, parentTrackId } = generateConcentricTree({
-        treeDataManager: treeDataManager.current,
-        viewState: viewState.current,
-        selectedTrackId,
-        setNodes,
-        setEdges,
-        handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
-        currentTrack
-      });
-      newNodes = nodes;
-      setConcentricParentTrackId(parentTrackId);
-    }
+      else if(treeType === 'concentric') {
+        const { nodes, parentTrackId } = generateConcentricTree({
+          treeDataManager: treeDataManager.current,
+          viewState: viewState.current,
+          selectedTrackId,
+          setNodes,
+          setEdges,
+          handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
+          currentTrack,
+          canScroll: canScroll
+        });
+        newNodes = nodes;
+        setConcentricParentTrackId(parentTrackId);
+      }
     treeDataManager.current.recordUsage({nodes: newNodes, rendered: true});
     initialTreeRenderedRef.current = true;
     previousSelectedTrackIdRef.current = selectedTrackId;
-  }, [selectedTrackId, treeType,setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef]);
+  }, [selectedTrackId, treeType,setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef, canScroll]);
 
 
   // Update nodes and edges when data changes
@@ -237,12 +255,21 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
     else if(treeType === 'concentric') {
       if(viewState.current.expandedTrackIds.has(clickedTrackId)) {
         handleConcentricNodeClick(clickedTrackId, treeDataManager.current, viewState.current);
+        // Calculate canScroll for the new parent (after collapse)
+        // We need to determine the new parent first - it will be the parent of clickedTrackId
+        const clickedTrack = treeDataManager.current.trackData.get(clickedTrackId);
+        const newParentId = clickedTrack?.parent_track_id;
+        const apiPagination = newParentId ? treeDataManager.current.paginationData.get(newParentId) : null;
+        const allChildren = newParentId ? (treeDataManager.current.childrenData.get(newParentId) || []) : [];
+        const canScrollForNode = newParentId && apiPagination && (allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore);
+        
         const { nodes, edges, parentTrackId } = generateConcentricTree({
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
-          currentTrack
+          currentTrack,
+          canScroll: canScrollForNode
         });
         animateNodeCollapse(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         setConcentricParentTrackId(parentTrackId);
@@ -314,13 +341,20 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
         }
       }
       else if(treeType === 'concentric') {
+        // Calculate canScroll for this specific case
+        const parentId = treeDataManager.current.trackData.get(clickedTrackId)?.parent_track_id;
+        const apiPagination = parentId ? treeDataManager.current.paginationData.get(parentId) : null;
+        const allChildren = parentId ? (treeDataManager.current.childrenData.get(parentId) || []) : [];
+        const canScrollForNode = parentId && apiPagination && (allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore);
+        
         // render the subtree (should replace load-children node with children nodes)
         const { nodes, edges, parentTrackId } = generateConcentricTree({
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
-          currentTrack
+          currentTrack,
+          canScroll: canScrollForNode
         });
         animateNodeExpand(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         treeDataManager.current.recordUsage({nodes, rendered: true});
@@ -614,7 +648,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
         >
           <Background />
           <Controls showInteractive={false}/>
-          <RadialScrollSeam />
+          {canScroll && <RadialScrollSeam />}
         </ReactFlow>
         {DEBUG_MODE && (
           <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />

@@ -12,15 +12,16 @@ import { getInstrumentIcon, getFirstInstrument, getAdditionalInstrumentCount } f
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 
 function ConcentricNode({ data }) {
-  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle } = data;
+  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle, canScroll = false } = data;
   const nodeRef = useRef(null);
   
   // Check if this outer node is the currently playing track
   const isCurrentlyPlaying = type === 'outer' && track?.id === currentTrack?.id;
 
   // Calculate opacity for outer nodes based on angle (fade near top of circle)
+  // Only apply fading if scrolling is possible
   let opacity = 1;
-  if (type === 'outer' && angle !== undefined) {
+  if (type === 'outer' && angle !== undefined && canScroll) {
     // Top of circle is at 3π/2 (or -π/2) in standard polar coordinates
     const topAngle = 3 * Math.PI / 2;
     // Calculate distance from top, handling wrap-around
@@ -30,7 +31,7 @@ function ConcentricNode({ data }) {
       angleFromTop = 2 * Math.PI - angleFromTop;
     }
     
-    // Start fading at ±20 degrees from top, fully transparent at ±5 degrees
+    // Start fading at ±30 degrees from top, fully transparent at ±5 degrees
     const fadeStart = 30 * (Math.PI / 180); // 0.3491 radians
     const fadeEnd = 5 * (Math.PI / 180); // 0.0873 radians
     if (angleFromTop <= fadeStart) {
@@ -38,7 +39,7 @@ function ConcentricNode({ data }) {
         // Fully transparent at ±5° and closer
         opacity = 0;
       } else {
-        // Linear fade from full opacity at ±20° to transparent at ±5°
+        // Linear fade from full opacity at ±30° to transparent at ±5°
         opacity = (angleFromTop - fadeEnd) / (fadeStart - fadeEnd);
       }
     }
