@@ -4,6 +4,37 @@ import { polarRadiansToCartesian } from './renderUtils';
 const { OUTER_RING_RADIUS, CHILDREN_LIMIT, BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 // const { CHILDREN_LIMIT, RING_SPACING } = CONCENTRIC_CONFIG;
 
+/**
+ * Calculate opacity based on angle for fading near top of circle
+ * @param {number} angle - Angle in radians [0, 2π)
+ * @returns {number} Opacity value [0, 1]
+ */
+function calculateOpacityFromAngle(angle) {
+  if (angle === undefined) return 1;
+  
+  // Top of circle is at 3π/2 (or -π/2) in standard polar coordinates
+  const topAngle = 3 * Math.PI / 2;
+  // Calculate distance from top, handling wrap-around
+  let angleFromTop = Math.abs(angle - topAngle);
+  // Handle wrap-around (if angle is near 0 or 2π, check distance via the other direction)
+  if (angleFromTop > Math.PI) {
+    angleFromTop = 2 * Math.PI - angleFromTop;
+  }
+  
+  // Start fading at ±20 degrees from top, fully transparent at ±5 degrees
+  const fadeStart = 20 * (Math.PI / 180); // 0.3491 radians
+  const fadeEnd = 5 * (Math.PI / 180); // 0.0873 radians
+  if (angleFromTop <= fadeStart) {
+    if (angleFromTop <= fadeEnd) {
+      // Fully transparent at ±5° and closer
+      return 0;
+    } else {
+      // Linear fade from full opacity at ±20° to transparent at ±5°
+      return (angleFromTop - fadeEnd) / (fadeStart - fadeEnd);
+    }
+  }
+  return 1;
+}
 
 export function getPageStartIndex(parentTrackId, viewState) {
   const angle = viewState.renderer?.rotationOffset || 0;
@@ -230,8 +261,9 @@ export function generateConcentricTree({
   const sliceAngle = 2 * Math.PI / CHILDREN_LIMIT;
 
   // first current angle should always be - slice angle to 0
-  let currentAngle = - (rotationOffset % sliceAngle); // Start with rotation offset
-  const radialSpacing = children.length > 0 ? 2 * Math.PI / children.length : 0;
+  let currentAngle = - (rotationOffset % sliceAngle) - Math.PI / 3; // Start with rotation offset
+  const numChildren = allChildren.length > CHILDREN_LIMIT - 1 ? CHILDREN_LIMIT - 1 : allChildren.length;
+  const radialSpacing = numChildren > 0 ? 2 * Math.PI / numChildren : 0;
   let idx = 1;
 
   if(children && children.length > 0) {
@@ -246,6 +278,9 @@ export function generateConcentricTree({
       const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).y;
       flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers, currentTrack));
     
+      // Calculate opacity for edges based on target node's angle
+      const edgeOpacity = calculateOpacityFromAngle(normalizedAngle);
+      
       // Add edge from root to child
       flowEdges.push({
         id: `edge-${rootTrackId}-${child.id}`,
@@ -253,7 +288,7 @@ export function generateConcentricTree({
         target: `track-${child.id}`,
         type: 'straight',
         animated: false,
-        style: { stroke: '#86a699', strokeWidth: 2 },
+        style: { stroke: '#86a699', strokeWidth: 2, opacity: edgeOpacity },
       });
 
       // Create load-children node with the same normalized angle
@@ -266,7 +301,7 @@ export function generateConcentricTree({
           target: `load-children-${child.id}`,
           type: 'straight',
           animated: false,
-          style: { stroke: '#86a699', strokeWidth: 2 },
+          style: { stroke: '#86a699', strokeWidth: 2, opacity: edgeOpacity },
         });
       }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useRef } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position } from '@xyflow/react';
 import './TrackNode.module.css';
 import { BASE_CLUSTER_NODE_SIZE, RADIAL_TREE_CONFIG } from '../utils/config';
 
@@ -9,8 +9,34 @@ const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 
 
 function ClusterNode({ data }) {
-  const { childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber } = data;
+  const { childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber, angle } = data;
   const nodeRef = useRef(null);
+  
+  // Calculate opacity for load children nodes based on angle (fade near top of circle)
+  let opacity = 1;
+  if (type === 'concentric' && clusterType === 'loadChildren' && angle !== undefined) {
+    // Top of circle is at 3π/2 (or -π/2) in standard polar coordinates
+    const topAngle = 3 * Math.PI / 2;
+    // Calculate distance from top, handling wrap-around
+    let angleFromTop = Math.abs(angle - topAngle);
+    // Handle wrap-around (if angle is near 0 or 2π, check distance via the other direction)
+    if (angleFromTop > Math.PI) {
+      angleFromTop = 2 * Math.PI - angleFromTop;
+    }
+    
+    // Start fading at ±20 degrees from top, fully transparent at ±5 degrees
+    const fadeStart = 20 * (Math.PI / 180); // 0.3491 radians
+    const fadeEnd = 5 * (Math.PI / 180); // 0.0873 radians
+    if (angleFromTop <= fadeStart) {
+      if (angleFromTop <= fadeEnd) {
+        // Fully transparent at ±5° and closer
+        opacity = 0;
+      } else {
+        // Linear fade from full opacity at ±20° to transparent at ±5°
+        opacity = (angleFromTop - fadeEnd) / (fadeStart - fadeEnd);
+      }
+    }
+  }
   
   const baseSize = BASE_CLUSTER_NODE_SIZE;
   let ringSizeFactor = 1;
@@ -48,6 +74,7 @@ function ClusterNode({ data }) {
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'visible',
+        opacity: opacity,
       }}
     >
       <div

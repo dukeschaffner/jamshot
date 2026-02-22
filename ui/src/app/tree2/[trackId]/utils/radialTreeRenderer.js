@@ -1,4 +1,4 @@
-import { MarkerType } from 'reactflow';
+import { MarkerType } from '@xyflow/react';
 
 import { RADIAL_TREE_CONFIG } from './config';
 import { polarRadiansToCartesian } from './renderUtils';

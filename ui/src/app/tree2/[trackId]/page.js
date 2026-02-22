@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import ReactFlow, {
+import {
+  ReactFlow,
   Background,
   Controls,
   useNodesState,
   useEdgesState,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import TrackNode from './components/TrackNode';
 import ClusterNode from './components/ClusterNode';
@@ -30,6 +31,7 @@ import api from '../../../lib/api';
 import { useToast } from '../../../lib/ToastContext';
 import { useLoopListening } from './utils/LoopListeningContext';
 import { useAudio } from '../../../lib/AudioContext';
+import RadialScrollSeam from './components/RadialScrollSeam';
 
 // Toggle for new tracks polling - set to false to disable
 const ENABLE_NEW_TRACKS_POLLING = true;
@@ -371,120 +373,23 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
 
     const pageStartIndex = getPageStartIndex(parentTrackId, viewState.current);
     const pageEndIndex = pageStartIndex + CONCENTRIC_CONFIG.CHILDREN_LIMIT - 1;
-    console.log(`page: ${pageStartIndex} - ${pageEndIndex}`);
 
     if(pageEndIndex >= allChildren.length && apiPagination.hasMore) {
       await treeDataManager.current.fetchAndSetChildren(parentTrackId, allChildren[allChildren.length - 1].id);
     }
     else if(!apiPagination.hasMore && pageEndIndex >= allChildren.length) {
-      viewState.current.renderer.rotationOffset = prevAngle;
-      isScrollingRef.current = false;
-      return;
+      const sliceAngle = 2 * Math.PI / CONCENTRIC_CONFIG.CHILDREN_LIMIT;
+      const maxAngle = sliceAngle * (allChildren.length - CONCENTRIC_CONFIG.CHILDREN_LIMIT + 4);
+      if(newAngle > maxAngle) {
+        viewState.current.renderer.rotationOffset = maxAngle;
+        isScrollingRef.current = false;
+        return;
+      }
     }
     
 
     generateNodesAndEdges();
 
-
-
-
-
-
-
-    
-    // // Normalize rotation offset to [0, sliceAngle) range
-    // while (viewState.current.renderer.rotationOffset >= sliceAngle) {
-    //   viewState.current.renderer.rotationOffset -= sliceAngle;
-      
-    //   // Scrolling forward (clockwise) - need more nodes at the end
-    //   const nextEndIndex = currentEndIndex + 1;
-    //   const hasAllNeeded = allChildren.length >= nextEndIndex;
-      
-    //   if (!hasAllNeeded && apiPagination.hasMore) {
-    //     // Load more children
-    //     const lastId = treeDataManager.current.getLastTrackId(parentTrackId);
-    //     await treeDataManager.current.fetchAndSetChildren(parentTrackId, lastId);
-    //     // Update allChildren after loading
-    //     const updatedChildren = treeDataManager.current.childrenData.get(parentTrackId) || [];
-    //     if (updatedChildren.length > allChildren.length) {
-    //       // Continue with updated data
-    //     }
-    //   }
-
-    //   // Update pagination to show new range (move forward by 1)
-    //   const newStartIndex = Math.min(currentStartIndex + 1, (treeDataManager.current.childrenData.get(parentTrackId) || []).length - pageSize);
-    //   const newPage = Math.floor(newStartIndex / pageSize) + 1;
-      
-    //   // Update UI pagination state
-    //   viewState.current.paginationByParent.set(parentTrackId, {
-    //     page: newPage,
-    //     pageSize: pageSize
-    //   });
-
-    //   // Regenerate tree with new pagination
-    //   generateNodesAndEdges();
-    //   isScrollingRef.current = false;
-    //   return;
-    // }
-    
-    // while (viewState.current.renderer.rotationOffset < 0) {
-    //   viewState.current.renderer.rotationOffset += sliceAngle;
-      
-    //   // Scrolling backward (counter-clockwise) - need more nodes at the start
-    //   if (currentStartIndex > 0) {
-    //     // Update pagination to show new range (move backward by 1)
-    //     const newStartIndex = Math.max(0, currentStartIndex - 1);
-    //     const newPage = Math.floor(newStartIndex / pageSize) + 1;
-        
-    //     // Update UI pagination state
-    //     viewState.current.paginationByParent.set(parentTrackId, {
-    //       page: newPage,
-    //       pageSize: pageSize
-    //     });
-
-    //     // Regenerate tree with new pagination
-    //     generateNodesAndEdges();
-    //     isScrollingRef.current = false;
-    //     return;
-    //   } else {
-    //     // Can't go back further, reset rotation offset
-    //     viewState.current.renderer.rotationOffset = 0;
-    //   }
-    // }
-
-    // // Just update angles without changing pagination - apply rotation to visible nodes
-    // setNodes((currentNodes) =>
-    //   currentNodes.map((node) => {
-    //     if (node.data?.type === 'outer' && node.data.angle !== undefined) {
-    //       const newAngle = ((node.data.angle + angleDelta) % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
-    //       const { x, y } = polarRadiansToCartesian(0, 0, CONCENTRIC_CONFIG.OUTER_RING_RADIUS, newAngle);
-    //       return {
-    //         ...node,
-    //         position: { x: x - BASE_NODE_SIZE / 2, y: y - BASE_NODE_SIZE / 2 },
-    //         data: {
-    //           ...node.data,
-    //           angle: newAngle,
-    //         },
-    //       };
-    //     }
-    //     // Also update load-children nodes
-    //     if (node.id.startsWith('load-children-') && node.data?.angle !== undefined) {
-    //       const newAngle = ((node.data.angle + angleDelta) % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
-    //       const ringNumber = node.data.ringNumber || 1;
-    //       const radius = CONCENTRIC_CONFIG.OUTER_RING_RADIUS * (ringNumber + 0.3);
-    //       const { x, y } = polarRadiansToCartesian(0, 0, radius, newAngle);
-    //       return {
-    //         ...node,
-    //         position: { x: x - BASE_CLUSTER_NODE_SIZE / 2, y: y - BASE_CLUSTER_NODE_SIZE / 2 },
-    //         data: {
-    //           ...node.data,
-    //           angle: newAngle,
-    //         },
-    //       };
-    //     }
-    //     return node;
-    //   })
-    // );
 
     // Reset scrolling flag after a short delay
     setTimeout(() => {
@@ -709,6 +614,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
         >
           <Background />
           <Controls showInteractive={false}/>
+          <RadialScrollSeam />
         </ReactFlow>
         {DEBUG_MODE && (
           <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
