@@ -9,12 +9,13 @@ const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 
 
 function ClusterNode({ data }) {
-  const { childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber, angle } = data;
+  const { childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber, angle, canScroll = false } = data;
   const nodeRef = useRef(null);
   
   // Calculate opacity for load children nodes based on angle (fade near top of circle)
+  // Only apply fading if scrolling is possible
   let opacity = 1;
-  if (type === 'concentric' && clusterType === 'loadChildren' && angle !== undefined) {
+  if (type === 'concentric' && clusterType === 'loadChildren' && angle !== undefined && canScroll) {
     // Top of circle is at 3π/2 (or -π/2) in standard polar coordinates
     const topAngle = 3 * Math.PI / 2;
     // Calculate distance from top, handling wrap-around
