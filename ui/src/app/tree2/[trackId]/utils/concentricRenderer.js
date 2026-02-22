@@ -25,7 +25,7 @@ export function getPageStartIndex(parentTrackId, viewState) {
 
 // #region nodes
 
-function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers) {
+function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers, currentTrack) {
   let size;
   if(type === 'inner') {
     size = BASE_RING_SIZE + ringNumber * RING_SPACING;
@@ -46,6 +46,7 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
       angle: angle,
       sliceAngle: sliceAngle,
       type: type,
+      currentTrack: currentTrack,
     },
     zIndex: 1000 - ringNumber,
     borderRadius: '50%',
@@ -160,7 +161,8 @@ export function generateConcentricTree({
   handleLoadChildrenClick,
   setHoveredTrackId,
   setHoveredNodePosition,
-  hoverTimeoutRef
+  hoverTimeoutRef,
+  currentTrack
 }) {
 
   const rootTrackId = treeDataManager.rootTrackId;
@@ -186,7 +188,7 @@ export function generateConcentricTree({
   let previousTrackId = null;
 
   while(!done) {
-    flowNodes.push(createNode(currentTrackId, 'inner', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers));
+    flowNodes.push(createNode(currentTrackId, 'inner', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers, currentTrack));
     previousTrackId = currentTrackId;
     ringNumber++;
 
@@ -242,7 +244,7 @@ export function generateConcentricTree({
       }
       const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).x;
       const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).y;
-      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers));
+      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers, currentTrack));
     
       // Add edge from root to child
       flowEdges.push({

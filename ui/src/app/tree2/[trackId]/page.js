@@ -14,7 +14,6 @@ import TrackNode from './components/TrackNode';
 import ClusterNode from './components/ClusterNode';
 import TrackPopover from './components/TrackPopover';
 import ColorLegend from './components/ColorLegend';
-import { useAudio } from '../../../lib/AudioContext';
 import { useMobile } from '../../../contexts/MobileContext';
 import { LoopListeningProvider } from './utils/LoopListeningContext';
 import LoopListeningPlayer from './components/LoopListeningPlayer';
@@ -29,6 +28,8 @@ import { DEBUG_MODE, CONCENTRIC_CONFIG, MAX_NODES_PER_LEVEL, BASE_NODE_SIZE, BAS
 import { polarRadiansToCartesian } from './utils/renderUtils';
 import api from '../../../lib/api';
 import { useToast } from '../../../lib/ToastContext';
+import { useLoopListening } from './utils/LoopListeningContext';
+import { useAudio } from '../../../lib/AudioContext';
 
 // Toggle for new tracks polling - set to false to disable
 const ENABLE_NEW_TRACKS_POLLING = true;
@@ -40,21 +41,31 @@ const nodeTypes = {
   concentricNode: ConcentricNode,
 };
 
-export default function TrackTreePage() {
+// Component that uses regular audio (when not in loop mode)
+function TrackTreeContentWithAudio({ treeDataManager, rootTrack, isLoopMode }) {
+  const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
+  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
+}
+
+// Component that uses loop listening (when in loop mode, inside provider)
+function TrackTreeContentWithLoopListening({ treeDataManager, rootTrack, isLoopMode }) {
+  const { currentTrack, isPlaying, playTrack, togglePlayPause } = useLoopListening();
+  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
+}
+
+// Main content component that receives audio context and other props
+function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause, treeDataManager: treeDataManagerProp, rootTrack: rootTrackProp, isLoopMode: isLoopModeProp }) {
   const { trackId } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const secret = searchParams.get('secret');
   const { isMobile } = useMobile();
-  const { currentTrack, playTrack, togglePlayPause, isPlaying } = useAudio();
   const { showInfo } = useToast();
   const [treeType, setTreeType] = useState('concentric');
-  const treeDataManager = useRef(null);
+  const treeDataManager = treeDataManagerProp;
   
   
-  const [loading, setLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const [error, setError] = useState(null);
   const [selectedTrackId, setSelectedTrackId] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [hoveredNodePosition, setHoveredNodePosition] = useState(null);
@@ -66,8 +77,8 @@ export default function TrackTreePage() {
   const initialTreeRenderedRef = useRef(false);
   const previousSelectedTrackIdRef = useRef(null);
   const reactFlowContainerRef = useRef(null);
-  const [rootTrack, setRootTrack] = useState(null);
-  const [isLoopMode, setIsLoopMode] = useState(false);
+  const rootTrack = rootTrackProp;
+  const isLoopMode = isLoopModeProp;
   const lastPollTimeRef = useRef(null);
 
   const nodesRef = useRef([]);
@@ -89,46 +100,21 @@ export default function TrackTreePage() {
   }, [nodes]);
 
 
-  // Check if mobile - redirect to old tree view
+  // Initialize tree data from props (treeDataManager should already be initialized by outer component)
   useEffect(() => {
-    if (!isMobile && isMobile !== undefined) {
-      const loadTree = async () => {
-        setLoading(true);
-        try {
-          treeDataManager.current = new TreeDataManager(secret);
-          await treeDataManager.current.fetchTrackTree(trackId);
-          viewState.current.expandedTrackIds = new Set(treeDataManager.current.childrenData.keys());
-          viewState.current.paginationByParent = new Map(
-            Array.from(treeDataManager.current.paginationData, ([id, pagination]) => [
-              id, 
-              { page: 1, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT }
-            ])
-          );
-          // Set selectedTrackId to the current track (trackId from params)
-          setSelectedTrackId(trackId);
-          
-          // Get root track and check if it's a loop track
-          const rootTrackId = treeDataManager.current.rootTrackId;
-          if (rootTrackId && treeDataManager.current.trackData.has(rootTrackId)) {
-            const root = treeDataManager.current.trackData.get(rootTrackId);
-            setRootTrack(root);
-            setIsLoopMode(root.is_loop || false);
-          }
-          
-          setInitialLoadComplete(true);
-        } catch (err) {
-          console.error('Failed to load track tree:', err);
-          setError(err.message || 'Failed to load track tree');
-        } finally {
-          setLoading(false);
-        }
-      };
-      loadTree();
-    } else if (isMobile) {
-      // Redirect to old tree view on mobile
-      router.replace(`/tree/${trackId}${secret ? `?secret=${secret}` : ''}`);
+    if (treeDataManagerProp && treeDataManagerProp.current && treeDataManagerProp.current.trackData) {
+      viewState.current.expandedTrackIds = new Set(treeDataManagerProp.current.childrenData.keys());
+      viewState.current.paginationByParent = new Map(
+        Array.from(treeDataManagerProp.current.paginationData, ([id, pagination]) => [
+          id, 
+          { page: 1, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT }
+        ])
+      );
+      // Set selectedTrackId to the current track (trackId from params)
+      setSelectedTrackId(trackId);
+      setInitialLoadComplete(true);
     }
-  }, [isMobile, trackId, secret, router]);
+  }, [treeDataManagerProp, trackId]);
 
 
 
@@ -156,7 +142,8 @@ export default function TrackTreePage() {
         selectedTrackId,
         setNodes,
         setEdges,
-        handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
+        handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
+        currentTrack
       });
       newNodes = nodes;
       setConcentricParentTrackId(parentTrackId);
@@ -173,6 +160,26 @@ export default function TrackTreePage() {
       generateNodesAndEdges();
     }
   }, [initialLoadComplete, selectedTrackId, generateNodesAndEdges]);
+
+  // Update node data when currentTrack changes (for pulsing gradient effect)
+  useEffect(() => {
+    if (treeType === 'concentric' && nodes.length > 0) {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.type === 'concentricNode' && node.data) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                currentTrack: currentTrack,
+              },
+            };
+          }
+          return node;
+        })
+      );
+    }
+  }, [currentTrack, treeType, setNodes]);
 
 
 
@@ -232,7 +239,8 @@ export default function TrackTreePage() {
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
-          handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
+          handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
+          currentTrack
         });
         animateNodeCollapse(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         setConcentricParentTrackId(parentTrackId);
@@ -309,7 +317,8 @@ export default function TrackTreePage() {
           treeDataManager: treeDataManager.current,
           viewState: viewState.current,
           selectedTrackId,
-          handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef
+          handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
+          currentTrack
         });
         animateNodeExpand(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         treeDataManager.current.recordUsage({nodes, rendered: true});
@@ -486,13 +495,13 @@ export default function TrackTreePage() {
 
 
   useEffect(() => {
-    if (!selectedTrackId || !previousSelectedTrackIdRef.current) return;
+    if (!selectedTrackId || !previousSelectedTrackIdRef.current || !treeDataManager.current) return;
 
     if (selectedTrackId === previousSelectedTrackIdRef.current) {
       return;
     }
 
-    const selectedTrack = trackData.get(selectedTrackId);
+    const selectedTrack = treeDataManager.current.trackData.get(selectedTrackId);
     if (!selectedTrack) {
       throw new Error('Selected track not found');
     }
@@ -666,31 +675,12 @@ export default function TrackTreePage() {
     };
   }, [initialLoadComplete, trackId, secret, showInfo]);
 
-  if (loading) {
-    return (
-      <div className="track-detail-page loading">
-        <LoadingSpinner size="medium" />
-        <p>Loading track tree...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="track-detail-page error">
-        <p>{error}</p>
-        <button onClick={() => router.back()} className="back-button">
-          Go Back
-        </button>
-      </div>
-    );
-  }
-
+  // Loading and error are handled by outer component
   if (isMobile) {
     return null; // Will redirect
   }
 
-  const pageContent = (
+  return (
     <div className={styles['track-tree-page']} style={{ width: '100%', height: '100vh' }}>
       <div className={styles['about-header']} style={{ marginBottom: '0px', padding: '20px' }}>
         <h1 className={styles['about-title']}>Track Tree</h1>
@@ -715,9 +705,10 @@ export default function TrackTreePage() {
           maxZoom={10}
           zoomOnScroll={false}     // 🔥 disable built-in wheel zoom
           panOnScroll={false}
+          nodesDraggable={false}
         >
           <Background />
-          <Controls />
+          <Controls showInteractive={false}/>
         </ReactFlow>
         {DEBUG_MODE && (
           <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
@@ -726,7 +717,7 @@ export default function TrackTreePage() {
 
       <ColorLegend />
 
-      {hoveredTrackId && treeDataManager.current.trackData.has(hoveredTrackId) && hoveredNodePosition && (
+      {hoveredTrackId && treeDataManager.current && treeDataManager.current.trackData.has(hoveredTrackId) && hoveredNodePosition && (
         <TrackPopover
           track={treeDataManager.current.trackData.get(hoveredTrackId)}
           position={hoveredNodePosition}
@@ -754,16 +745,101 @@ export default function TrackTreePage() {
       )}
     </div>
   );
+}
+
+// Outer component that handles setup
+export default function TrackTreePage() {
+  const { trackId } = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const secret = searchParams.get('secret');
+  const { isMobile } = useMobile();
+  
+  const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [error, setError] = useState(null);
+  const [rootTrack, setRootTrack] = useState(null);
+  const [isLoopMode, setIsLoopMode] = useState(false);
+  const treeDataManager = useRef(null);
+
+  // Check if mobile - redirect to old tree view
+  useEffect(() => {
+    if (!isMobile && isMobile !== undefined) {
+      const loadTree = async () => {
+        setLoading(true);
+        try {
+          treeDataManager.current = new TreeDataManager(secret);
+          await treeDataManager.current.fetchTrackTree(trackId);
+          
+          // Get root track and check if it's a loop track
+          const rootTrackId = treeDataManager.current.rootTrackId;
+          if (rootTrackId && treeDataManager.current.trackData.has(rootTrackId)) {
+            const root = treeDataManager.current.trackData.get(rootTrackId);
+            setRootTrack(root);
+            setIsLoopMode(root.is_loop || false);
+          }
+          
+          setInitialLoadComplete(true);
+        } catch (err) {
+          console.error('Failed to load track tree:', err);
+          setError(err.message || 'Failed to load track tree');
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadTree();
+    } else if (isMobile) {
+      // Redirect to old tree view on mobile
+      router.replace(`/tree/${trackId}${secret ? `?secret=${secret}` : ''}`);
+    }
+  }, [isMobile, trackId, secret, router]);
+
+  // Only render content once tree is loaded
+  if (!initialLoadComplete || !treeDataManager.current) {
+    if (loading) {
+      return (
+        <div className="track-detail-page loading">
+          <LoadingSpinner size="medium" />
+          <p>Loading track tree...</p>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="track-detail-page loading">
+        <LoadingSpinner size="medium" />
+        <p>Loading track tree...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="track-detail-page error">
+        <p>{error}</p>
+        <button onClick={() => router.back()} className="back-button">
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return null; // Will redirect
+  }
 
   // Wrap with LoopListeningProvider if in loop mode
   if (isLoopMode && rootTrack) {
     return (
       <LoopListeningProvider rootTrack={rootTrack} treeDataManager={treeDataManager.current}>
         <LoopListeningSetup />
-        {pageContent}
+        <TrackTreeContentWithLoopListening treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />
       </LoopListeningProvider>
     );
   }
 
-  return pageContent;
+  return <TrackTreeContentWithAudio treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
 }

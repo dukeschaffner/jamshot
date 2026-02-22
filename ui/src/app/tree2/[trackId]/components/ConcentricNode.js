@@ -13,8 +13,12 @@ import { getInstrumentIcon, getFirstInstrument, getAdditionalInstrumentCount } f
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 
 function ConcentricNode({ data }) {
-  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner' } = data;
+  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack } = data;
   const nodeRef = useRef(null);
+  
+  // Check if this outer node is the currently playing track
+  const isCurrentlyPlaying = type === 'outer' && track?.id === currentTrack?.id;
+
 
   const baseSize = BASE_NODE_SIZE;
   if(size){
@@ -92,6 +96,23 @@ function ConcentricNode({ data }) {
       borderRadius: '50%',
     }}
     >
+    {/* Pulsing/rotating gradient circle for currently playing outer node */}
+    {isCurrentlyPlaying && (
+      <div
+        className={styles.playingGradientCircle}
+        style={{
+          position: 'absolute',
+          width: `${baseSize * ringSizeFactor * 1.15}px`,
+          height: `${baseSize * ringSizeFactor * 1.15}px`,
+          borderRadius: '50%',
+          background: 'linear-gradient(120deg, var(--seafoam), var(--rustic-pink))',
+          zIndex: -1,
+          transform: 'translate(-50%, -50%)',
+          top: '50%',
+          left: '50%',
+        }}
+      />
+    )}
     <div
       className={`track-node ${isSelected ? 'selected' : ''}`}
       style={{

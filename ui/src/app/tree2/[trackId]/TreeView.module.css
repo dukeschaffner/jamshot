@@ -68,3 +68,22 @@
   font-weight: 600;
 }
 
+.playingGradientCircle {
+  animation: pulseRotate 3s ease-in-out infinite;
+}
+
+@keyframes pulseRotate {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(1.15);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg) scale(1);
+    opacity: 0.6;
+  }
+}
+
