@@ -32,6 +32,7 @@ import { useToast } from '../../../lib/ToastContext';
 import { useLoopListening } from './utils/LoopListeningContext';
 import { useAudio } from '../../../lib/AudioContext';
 import RadialScrollSeam from './components/RadialScrollSeam';
+import LoadNewTracksButton from './components/LoadNewTracksButton';
 
 // Toggle for new tracks polling - set to false to disable
 const ENABLE_NEW_TRACKS_POLLING = true;
@@ -71,10 +72,11 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
   const [selectedTrackId, setSelectedTrackId] = useState(null);
   const [hoveredTrackId, setHoveredTrackId] = useState(null);
   const [hoveredNodePosition, setHoveredNodePosition] = useState(null);
-  const [concentricParentTrackId, setConcentricParentTrackId] = useState(null);
+  const concentricParentTrackIdRef = useRef(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const [hasNewTracks, setHasNewTracks] = useState(false);
   const hoverTimeoutRef = useRef(null);
   const initialTreeRenderedRef = useRef(false);
   const previousSelectedTrackIdRef = useRef(null);
@@ -97,20 +99,20 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
 
   // Calculate if scrolling is possible
   const canScroll = useMemo(() => {
-    if (treeType !== 'concentric' || !concentricParentTrackId || !treeDataManager.current) {
+    if (treeType !== 'concentric' || !concentricParentTrackIdRef.current || !treeDataManager.current) {
       return false;
     }
 
-    const apiPagination = treeDataManager.current.paginationData.get(concentricParentTrackId);
+    const apiPagination = treeDataManager.current.paginationData.get(concentricParentTrackIdRef.current);
     if (!apiPagination) {
       return false;
     }
 
-    const allChildren = treeDataManager.current.childrenData.get(concentricParentTrackId) || [];
+    const allChildren = treeDataManager.current.childrenData.get(concentricParentTrackIdRef.current) || [];
     
     // Scrolling is possible if we have more children than the limit OR there's more data to load
     return allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore;
-  }, [treeType, concentricParentTrackId, treeDataManager]);
+  }, [treeType, concentricParentTrackIdRef.current, treeDataManager]);
 
 
 
@@ -166,17 +168,17 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
           canScroll: canScroll
         });
         newNodes = nodes;
-        setConcentricParentTrackId(parentTrackId);
+        concentricParentTrackIdRef.current = parentTrackId;
       }
     treeDataManager.current.recordUsage({nodes: newNodes, rendered: true});
     initialTreeRenderedRef.current = true;
     previousSelectedTrackIdRef.current = selectedTrackId;
-  }, [selectedTrackId, treeType,setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef, canScroll]);
+  }, [selectedTrackId, treeType,setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef, canScroll, currentTrack]);
 
 
   // Update nodes and edges when data changes
   useEffect(() => {
-    if (initialLoadComplete && selectedTrackId) {
+    if (initialLoadComplete && selectedTrackId && !initialTreeRenderedRef.current) {
       generateNodesAndEdges();
     }
   }, [initialLoadComplete, selectedTrackId, generateNodesAndEdges]);
@@ -254,6 +256,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
     }
     else if(treeType === 'concentric') {
       if(viewState.current.expandedTrackIds.has(clickedTrackId)) {
+        viewState.current.renderer.rotationOffset = 0;
         handleConcentricNodeClick(clickedTrackId, treeDataManager.current, viewState.current);
         // Calculate canScroll for the new parent (after collapse)
         // We need to determine the new parent first - it will be the parent of clickedTrackId
@@ -272,7 +275,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
           canScroll: canScrollForNode
         });
         animateNodeCollapse(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
-        setConcentricParentTrackId(parentTrackId);
+        concentricParentTrackIdRef.current = parentTrackId;
       }
     }
   };
@@ -346,6 +349,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
         const apiPagination = parentId ? treeDataManager.current.paginationData.get(parentId) : null;
         const allChildren = parentId ? (treeDataManager.current.childrenData.get(parentId) || []) : [];
         const canScrollForNode = parentId && apiPagination && (allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore);
+        viewState.current.renderer.rotationOffset = 0;
         
         // render the subtree (should replace load-children node with children nodes)
         const { nodes, edges, parentTrackId } = generateConcentricTree({
@@ -358,26 +362,44 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
         });
         animateNodeExpand(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         treeDataManager.current.recordUsage({nodes, rendered: true});
-        setConcentricParentTrackId(parentTrackId);
+        concentricParentTrackIdRef.current = parentTrackId;
       }
     }
     
   }
 
+  // Handle loading new tracks (older children)
+  const handleLoadNewTracks = useCallback(async () => {
+    if (!concentricParentTrackIdRef.current || !treeDataManager.current) {
+      return;
+    }
+
+    const parentTrackId = concentricParentTrackIdRef.current;
+    
+    // Fetch and set new children
+    await treeDataManager.current.fetchAndSetNewChildren(parentTrackId);
+    
+    // Reset rotation offset to 0
+    viewState.current.renderer.rotationOffset = 0;
+    
+    // Re-render the tree
+    generateNodesAndEdges();
+  }, [concentricParentTrackIdRef.current, generateNodesAndEdges]);
+
   // Handle radial scroll rotation
   const handleRadialScroll = useCallback(async (event) => {
-    if (treeType !== 'concentric' || !concentricParentTrackId || !treeDataManager.current) {
+    if (treeType !== 'concentric' || !concentricParentTrackIdRef.current || !treeDataManager.current) {
       return;
     }
 
     // Prevent default scroll behavior
-    event.preventDefault();
+    // event.preventDefault();
     event.stopPropagation();
 
     if (isScrollingRef.current) return;
     isScrollingRef.current = true;
 
-    const parentTrackId = concentricParentTrackId;
+    const parentTrackId = concentricParentTrackIdRef.current;
 
     const apiPagination = treeDataManager.current.paginationData.get(parentTrackId);
     if (!apiPagination) {
@@ -429,7 +451,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
     setTimeout(() => {
       isScrollingRef.current = false;
     }, 50);
-  }, [treeType, concentricParentTrackId, generateNodesAndEdges, setNodes]);
+  }, [treeType, concentricParentTrackIdRef.current, generateNodesAndEdges, setNodes]);
 
 
 
@@ -536,6 +558,15 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
     };
   }, []);
 
+  useEffect(() => {
+    if (treeDataManager.current && treeDataManager.current.newKidsAvailable.has(concentricParentTrackIdRef.current)) {
+      setHasNewTracks(true);
+    }
+    else {
+      setHasNewTracks(false);
+    }
+  }, [concentricParentTrackIdRef.current]);
+
   // Poll for new tracks every 60 seconds
   useEffect(() => {
     if (!ENABLE_NEW_TRACKS_POLLING || !initialLoadComplete || !trackId) {
@@ -574,6 +605,9 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
           tracks.forEach(track => {
             if (track.parent_track_id) {
               treeDataManager.current.markNewKidsAvailable(track.parent_track_id);
+              if(track.parent_track_id === concentricParentTrackIdRef.current) {
+                setHasNewTracks(true);
+              }
             }
           });
 
@@ -621,10 +655,6 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
 
   return (
     <div className={styles['track-tree-page']} style={{ width: '100%', height: '100vh' }}>
-      <div className={styles['about-header']} style={{ marginBottom: '0px', padding: '20px' }}>
-        <h1 className={styles['about-title']}>Track Tree</h1>
-        <p className={styles['about-subtitle']}>Explore all the different versions of this track</p>
-      </div>
       
       <div 
         ref={reactFlowContainerRef} 
@@ -649,6 +679,10 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
           <Background />
           <Controls showInteractive={false}/>
           {canScroll && <RadialScrollSeam />}
+          <LoadNewTracksButton 
+            hasNewTracks={hasNewTracks}
+            onLoadNewTracks={handleLoadNewTracks}
+          />
         </ReactFlow>
         {DEBUG_MODE && (
           <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
@@ -709,6 +743,9 @@ export default function TrackTreePage() {
         setLoading(true);
         try {
           treeDataManager.current = new TreeDataManager(secret);
+          if(DEBUG_MODE) {
+            window.treeDataManager = treeDataManager.current;
+          }
           await treeDataManager.current.fetchTrackTree(trackId);
           
           // Get root track and check if it's a loop track
