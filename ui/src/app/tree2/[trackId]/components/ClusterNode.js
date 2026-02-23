@@ -4,12 +4,15 @@ import { memo, useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import './TrackNode.module.css';
 import { BASE_CLUSTER_NODE_SIZE, RADIAL_TREE_CONFIG } from '../utils/config';
+import PlayingIndicator from '../../../../components/PlayingIndicator';
+import { useLoopListening } from '../utils/LoopListeningContext';
 
 const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 
 
 function ClusterNode({ data }) {
-  const { childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber, angle, canScroll = false } = data;
+  const { trackId, childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber, angle, canScroll = false } = data;
+  const { trackPath } = useLoopListening();
   const nodeRef = useRef(null);
   
   // Calculate opacity for load children nodes based on angle (fade near top of circle)
@@ -113,6 +116,17 @@ function ClusterNode({ data }) {
           {clusterType === 'loadChildren' && '+'}
           {childCount}
         </span>
+
+        {/* Show playing indicator if the track is in the track path AND it's not the last track in the path */}
+        {trackPath.includes(trackId) && trackPath[trackPath.length - 1] !== trackId && (
+          <div style={{ 
+            position: 'absolute',
+            right: 0,
+            transform: 'translateX(150%)',
+            }}>
+            <PlayingIndicator size={30} />
+          </div>
+        )}
 
         <Handle
           type="source"

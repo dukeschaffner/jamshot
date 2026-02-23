@@ -16,6 +16,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
   const [isCycleMode, setIsCycleMode] = useState(false);
   const [loopDuration, setLoopDuration] = useState(null);
   const [playedTracks, setPlayedTracks] = useState(new Set()); // Track which tracks have been played
+  const [trackPath, setTrackPath] = useState([]); // Array of track IDs from root to current track
   
   // Queues
   const automaticQueueRef = useRef([]); // History queue (tracks remain after playing)
@@ -294,6 +295,12 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       setCurrentTrack(data.track);
       currentTrackRef.current = data.track;
       setIsPlaying(true);
+      
+      // Update track path when track changes
+      if (treeDataManager && data.track?.id) {
+        const path = treeDataManager.getTrackPath(data.track.id);
+        setTrackPath(path);
+      }
     };
 
     // Handle track changed
@@ -306,7 +313,11 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
         manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
       }
 
-
+      // Update track path when track changes
+      if (treeDataManager && data.track?.id) {
+        const path = treeDataManager.getTrackPath(data.track.id);
+        setTrackPath(path);
+      }
     };
 
     // Handle track ended
@@ -336,17 +347,12 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       setIsPlaying(false);
       setCurrentTrack(null);
       currentTrackRef.current = null;
-      setProgress(0);
+      setTrackPath([]);
     };
 
     // Handle playback paused
     const handlePlaybackPaused = () => {
       setIsPlaying(false);
-    };
-
-    // Handle progress update
-    const handleProgressUpdate = (data) => {
-      setProgress(data.progress);
     };
 
     // Handle cycle mode changed
@@ -359,10 +365,6 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       setLoopDuration(data.duration);
     };
 
-    // Handle seek
-    const handleSeek = (data) => {
-      setProgress(data.position);
-    };
 
     // Register event listeners
     eventBus.on(DAW_EVENTS.LOOP_LISTENING.TRACK_STARTED, handleTrackStarted);
@@ -371,10 +373,8 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     eventBus.on(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, handlePlaybackStarted);
     eventBus.on(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STOPPED, handlePlaybackStopped);
     eventBus.on(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_PAUSED, handlePlaybackPaused);
-    eventBus.on(DAW_EVENTS.LOOP_LISTENING.PROGRESS_UPDATE, handleProgressUpdate);
     eventBus.on(DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, handleCycleModeChanged);
     eventBus.on(DAW_EVENTS.LOOP_LISTENING.LOOP_DURATION_CHANGED, handleLoopDurationChanged);
-    eventBus.on(DAW_EVENTS.LOOP_LISTENING.SEEK, handleSeek);
 
     // Cleanup: remove event listeners
     return () => {
@@ -384,10 +384,8 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       eventBus.off(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED, handlePlaybackStarted);
       eventBus.off(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STOPPED, handlePlaybackStopped);
       eventBus.off(DAW_EVENTS.LOOP_LISTENING.PLAYBACK_PAUSED, handlePlaybackPaused);
-      eventBus.off(DAW_EVENTS.LOOP_LISTENING.PROGRESS_UPDATE, handleProgressUpdate);
       eventBus.off(DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, handleCycleModeChanged);
       eventBus.off(DAW_EVENTS.LOOP_LISTENING.LOOP_DURATION_CHANGED, handleLoopDurationChanged);
-      eventBus.off(DAW_EVENTS.LOOP_LISTENING.SEEK, handleSeek);
     };
   }, [playNext, stop]);
 
@@ -396,10 +394,10 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       value={{
         currentTrack,
         isPlaying,
-        progress,
         isCycleMode,
         loopDuration,
         playedTracks,
+        trackPath,
         playTrack,
         queueTrack,
         togglePlayPause,

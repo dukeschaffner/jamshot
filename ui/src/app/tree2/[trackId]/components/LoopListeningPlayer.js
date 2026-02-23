@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useLoopListening } from '../utils/LoopListeningContext';
+import { eventBus } from '../../../../components/DAW/misc/EventBus.js';
+import { DAW_EVENTS } from '../../../../components/DAW/misc/DAWEvents.js';
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRedo, FaMusic, 
   FaCheckCircle } from 'react-icons/fa';
 import styles from './LoopListeningPlayer.module.css';
@@ -19,7 +21,6 @@ export default function LoopListeningPlayer() {
   const { 
     currentTrack, 
     isPlaying, 
-    progress, 
     loopDuration,
     togglePlayPause, 
     seek, 
@@ -30,6 +31,9 @@ export default function LoopListeningPlayer() {
   } = useLoopListening();
   
   const { isMobile } = useMobile();
+  
+  // Local progress state managed by this component
+  const [progress, setProgress] = useState(0);
   
   // Track if user is currently dragging the progress bar
   const [isDragging, setIsDragging] = useState(false);
@@ -168,6 +172,27 @@ export default function LoopListeningPlayer() {
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
   }, [isDragging, currentTrack, loopDuration]);
+
+  // Listen for progress and seek events to manage local progress state
+  useEffect(() => {
+    const handleProgressUpdate = (data) => {
+      setProgress(data.progress);
+    };
+
+    const handleSeek = (data) => {
+      setProgress(data.position);
+    };
+
+    // Register event listeners
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.PROGRESS_UPDATE, handleProgressUpdate);
+    eventBus.on(DAW_EVENTS.LOOP_LISTENING.SEEK, handleSeek);
+
+    // Cleanup: remove event listeners
+    return () => {
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.PROGRESS_UPDATE, handleProgressUpdate);
+      eventBus.off(DAW_EVENTS.LOOP_LISTENING.SEEK, handleSeek);
+    };
+  }, []);
   
   // Navigation functions
   const navigateToTrack = (e) => {
