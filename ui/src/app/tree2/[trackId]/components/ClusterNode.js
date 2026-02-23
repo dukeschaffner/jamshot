@@ -75,6 +75,14 @@ function ClusterNode({ data }) {
 
   const handleStyle = type === 'radial' || type === 'concentric' ? radialHandleStyle : heirarchicalHandleStyle;
 
+  // Determine if node is on left side of circle (angles between π/2 and 3π/2)
+  const isLeftSide = angle !== undefined && angle >= Math.PI / 2 && angle <= 3 * Math.PI / 2;
+  const playingIndicatorStyle = {
+    position: 'absolute',
+    [isLeftSide ? 'left' : 'right']: 0,
+    transform: isLeftSide ? 'translateX(-150%)' : 'translateX(150%)',
+  };
+
   return (
     <div
       ref={nodeRef}
@@ -129,11 +137,8 @@ function ClusterNode({ data }) {
 
         {/* Show playing indicator if the track is in the track path AND it's not the last track in the path */}
         {trackPath.includes(trackId) && trackPath[trackPath.length - 1] !== trackId && isPlaying && (
-          <div style={{ 
-            position: 'absolute',
-            right: 0,
-            transform: 'translateX(150%)',
-            }}
+          <div 
+            style={playingIndicatorStyle}
             onClick={handlePlayingIndicatorClick}
           >
             <PlayingIndicator size={30} title="Go to playing track" />

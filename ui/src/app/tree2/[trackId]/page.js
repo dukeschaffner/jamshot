@@ -207,25 +207,38 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     }
   }, [currentTrack, playedTracks, treeType, setNodes]);
 
+  const getRotationOffsetForTrack = (trackId) => {
+    const track = treeDataManager.current.trackData.get(trackId);
+    if(!track || !track.parent_track_id) return 0;
+    const children = treeDataManager.current.childrenData.get(track.parent_track_id);
+    if(!children || children.length <= CONCENTRIC_CONFIG.CHILDREN_LIMIT) return 0;
+    const trackIndex = children.findIndex(child => child.id === trackId);
+    if(trackIndex === -1) return 0;
+    const sliceAngle = 2 * Math.PI / CONCENTRIC_CONFIG.CHILDREN_LIMIT;
+    return Math.max(0, (trackIndex - 6) * sliceAngle);
+  };
+
 
   const navigateToPlayingTrack = useCallback(() => {
-    viewState.current.expandedTrackIds = new Set(trackPath);
-    viewState.current.renderer.rotationOffset = 0;
+    viewState.current.expandedTrackIds = new Set(trackPath.slice(0, trackPath.length - 1));
+    viewState.current.renderer.rotationOffset = getRotationOffsetForTrack(currentTrack.id);
+
+    generateNodesAndEdges();
         
     // render the subtree (should replace load-children node with children nodes)
-    const { nodes, edges, parentTrackId } = generateConcentricTree({
-      treeDataManager: treeDataManager.current,
-      viewState: viewState.current,
-      selectedTrackId,
-      handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
-      currentTrack,
-      playedTracks: playedTracks
-    });
-    setNodes(nodes);
-    setEdges(edges);
-    // animateNodeExpand(nodesRef.current, nodes, parentTrackId, setNodes, edges, setEdges);
-    treeDataManager.current.recordUsage({nodes, rendered: true});
-    concentricParentTrackIdRef.current = parentTrackId;
+    // const { nodes, edges, parentTrackId } = generateConcentricTree({
+    //   treeDataManager: treeDataManager.current,
+    //   viewState: viewState.current,
+    //   selectedTrackId,
+    //   handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
+    //   currentTrack,
+    //   playedTracks: playedTracks
+    // });
+    // setNodes(nodes);
+    // setEdges(edges);
+    // // animateNodeExpand(nodesRef.current, nodes, parentTrackId, setNodes, edges, setEdges);
+    // treeDataManager.current.recordUsage({nodes, rendered: true});
+    // concentricParentTrackIdRef.current = parentTrackId;
   }, [currentTrack, trackPath, playedTracks]);
 
 
