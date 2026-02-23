@@ -142,23 +142,6 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers,
   }
 }
 
-function createPaginationNode(trackId, clusterType, ringNumber, angle, handlers) {
-  const x = polarRadiansToCartesian(0, 0, RING_SPACING * (ringNumber + 0.15), angle).x;
-  const y = polarRadiansToCartesian(0, 0, RING_SPACING * (ringNumber + 0.15), angle).y;
-  const node = {
-    id: `${clusterType}-${trackId}`,
-    type: 'clusterNode',
-    position: { x, y },
-    data: {
-      childCount: 0,
-      clusterType: clusterType,
-      type: 'radial',
-      ringNumber: ringNumber,
-    },
-  };
-  // Click handlers will be added later
-  return node;
-}
 
 // #endregion
 
@@ -198,7 +181,6 @@ export function generateConcentricTree({
   setHoveredNodePosition,
   hoverTimeoutRef,
   currentTrack,
-  canScroll = false,
   playedTracks = new Set()
 }) {
 
@@ -246,10 +228,12 @@ export function generateConcentricTree({
     currentTrackId = expandedChild.id;
   }
 
-
-
   const allChildren = childrenData.get(previousTrackId) || [];
-  
+  let canScroll = false;
+  const apiPagination = treeDataManager.paginationData.get(previousTrackId);
+  if (apiPagination) {
+    canScroll = allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore;
+  }
 
   
   // Filter children based on UI pagination
