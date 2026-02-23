@@ -33,6 +33,7 @@ import { useLoopListening } from './utils/LoopListeningContext';
 import { useAudio } from '../../../lib/AudioContext';
 import RadialScrollSeam from './components/RadialScrollSeam';
 import LoadNewTracksButton from './components/LoadNewTracksButton';
+import { bufferRegistry } from '../../../components/DAW/core/BufferRegistry.js';
 
 // Toggle for new tracks polling - set to false to disable
 const ENABLE_NEW_TRACKS_POLLING = true;
@@ -773,6 +774,13 @@ export default function TrackTreePage() {
       // Redirect to old tree view on mobile
       router.replace(`/tree/${trackId}${secret ? `?secret=${secret}` : ''}`);
     }
+
+    // Cleanup on unmount
+    return () => {
+      // Clear the buffer registry
+      bufferRegistry.buffers.clear();
+      bufferRegistry.metadata.clear();
+    };
   }, [isMobile, trackId, secret, router]);
 
   // Only render content once tree is loaded
