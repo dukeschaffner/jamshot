@@ -12,7 +12,7 @@ const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 
 function ClusterNode({ data }) {
   const { trackId, childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber, angle, canScroll = false } = data;
-  const { trackPath } = useLoopListening();
+  const { trackPath, isPlaying } = useLoopListening();
   const nodeRef = useRef(null);
   
   // Calculate opacity for load children nodes based on angle (fade near top of circle)
@@ -118,7 +118,7 @@ function ClusterNode({ data }) {
         </span>
 
         {/* Show playing indicator if the track is in the track path AND it's not the last track in the path */}
-        {trackPath.includes(trackId) && trackPath[trackPath.length - 1] !== trackId && (
+        {trackPath.includes(trackId) && trackPath[trackPath.length - 1] !== trackId && isPlaying && (
           <div style={{ 
             position: 'absolute',
             right: 0,

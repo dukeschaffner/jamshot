@@ -56,7 +56,7 @@ export function getPageStartIndex(parentTrackId, viewState) {
 
 // #region nodes
 
-function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers, currentTrack, canScroll = false, playedTracks = new Set()) {
+function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers, currentTrack, canScroll = false, playedTracks = new Set(), expandedTrackIds = []) {
   let size;
   if(type === 'inner') {
     size = BASE_RING_SIZE + ringNumber * RING_SPACING;
@@ -80,6 +80,7 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
       currentTrack: currentTrack,
       canScroll: canScroll,
       playedTracks: playedTracks,
+      expandedTrackIds: expandedTrackIds,
     },
     zIndex: 1000 - ringNumber,
     borderRadius: '50%',
@@ -205,9 +206,11 @@ export function generateConcentricTree({
   let ringNumber = 0;
   let currentTrackId = rootTrackId;
   let previousTrackId = null;
+  const expandedTrackIds = [];
 
   while(!done) {
-    flowNodes.push(createNode(currentTrackId, 'inner', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers, currentTrack, false, playedTracks));
+    expandedTrackIds.push(currentTrackId);
+    flowNodes.push(createNode(currentTrackId, 'inner', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers, currentTrack, false, playedTracks, expandedTrackIds));
     previousTrackId = currentTrackId;
     ringNumber++;
 
