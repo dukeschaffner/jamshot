@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useRef } from 'react';
+import { memo, useRef, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import Image from 'next/image';
 import { FaCheckCircle } from 'react-icons/fa';
@@ -8,18 +8,59 @@ import styles from '../TreeView.module.css';
 import { CONCENTRIC_CONFIG } from '../utils/config';
 import {BASE_NODE_SIZE} from '../utils/config';
 import { getInstrumentIcon, getFirstInstrument, getAdditionalInstrumentCount } from '../utils/instrumentIcons';
+import { useLoopListening } from '../utils/LoopListeningContext';
+import PlayingIndicator from '../../../../components/PlayingIndicator';
 
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 
+
+function isNonvisibleDescendantPlaying(nodeTrackId, type, trackPath, expandedTrackIds) {
+  if(type !== 'inner') {
+    return false;
+  }
+  const currentTrackId = trackPath[trackPath.length - 1];
+  if(!currentTrackId) {
+    return false;
+  }
+  if(expandedTrackIds.includes(currentTrackId)) {
+    return false;
+  }
+  const currentPlayingTrackParentId = trackPath[trackPath.length - 2];
+  if(!currentPlayingTrackParentId) {
+    return false;
+  }
+  const lastExpandedTrackId = expandedTrackIds[expandedTrackIds.length - 1];
+  if(lastExpandedTrackId === currentPlayingTrackParentId || lastExpandedTrackId === nodeTrackId) {
+    return false;
+  }
+  let deepestCommonAncestor = trackPath[0];
+  for(let i = 1; i < trackPath.length; i++) {
+    if(expandedTrackIds.includes(trackPath[i])) {
+      deepestCommonAncestor = trackPath[i];
+    }
+    else {
+      break;
+    }
+  }
+  return deepestCommonAncestor === nodeTrackId;
+}
+
 function ConcentricNode({ data }) {
-  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle, canScroll = false, playedTracks = new Set() } = data;
+  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle, canScroll = false, playedTracks = new Set(), expandedTrackIds = [] } = data;
+  const { trackPath, isPlaying } = useLoopListening();
   const nodeRef = useRef(null);
-  
+
   // Check if this outer node is the currently playing track
-  const isCurrentlyPlaying = type === 'outer' && track?.id === currentTrack?.id;
+  const isCurrentlyPlaying = type === 'outer' && track?.id === currentTrack?.id && isPlaying;
+  
+  // Check if this inner node is the currently playing track
+  const isInnerCurrentlyPlaying = type === 'inner' && track?.id === currentTrack?.id && isPlaying;
   
   // Check if this track has been played
   const isPlayed = track?.id && playedTracks.has(track.id);
+
+  const hasNonvisibleDescendantPlaying = isNonvisibleDescendantPlaying(track?.id, type, trackPath, expandedTrackIds) && isPlaying;
+
 
   // Calculate opacity for outer nodes based on angle (fade near top of circle)
   // Only apply fading if scrolling is possible
@@ -154,11 +195,11 @@ function ConcentricNode({ data }) {
       />
     )}
     <div
-      className={`track-node ${isSelected ? 'selected' : ''}`}
+      className={`track-node ${isSelected ? 'selected' : ''} ${isInnerCurrentlyPlaying ? styles.innerPlaying : ''}`}
       style={{
         width: baseSize,
         height: baseSize,
-        transform: `scale(${ringSizeFactor})`,
+        transform: isInnerCurrentlyPlaying ? undefined : `scale(${ringSizeFactor})`,
         transformOrigin: 'center center',
         flexShrink: 0,
         background: gradientBackground,
@@ -170,6 +211,7 @@ function ConcentricNode({ data }) {
           ? '0 0 20px rgba(147, 233, 190, 0.5)' 
           : '0 2px 8px rgba(0, 0, 0, 0.15)',
         transition: 'all 0.2s ease',
+        '--base-scale': `${ringSizeFactor}`,
       }}
 
     >
@@ -352,6 +394,20 @@ function ConcentricNode({ data }) {
         </div>
       )}
       </div>
+      )}
+        {/* Playing indicator for inner nodes */}
+        {hasNonvisibleDescendantPlaying && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '0px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
+          }}
+        >
+          <PlayingIndicator size={30} color="black" />
+        </div>
       )}
       {/* Instrument tags for inner nodes - positioned along bottom inner edge */}
       {type === 'inner' && allInstruments.length > 0 && (

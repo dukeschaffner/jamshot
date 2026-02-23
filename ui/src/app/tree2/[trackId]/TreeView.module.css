@@ -87,3 +87,20 @@
   }
 }
 
+.innerPlaying {
+  animation: innerPulseRotate 3s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+@keyframes innerPulseRotate {
+  0% {
+    transform: scale(var(--base-scale, 1)) rotate(0deg);
+  }
+  50% {
+    transform: scale(calc(var(--base-scale, 1) * 1.06)) rotate(180deg);
+  }
+  100% {
+    transform: scale(var(--base-scale, 1)) rotate(360deg);
+  }
+}
+
