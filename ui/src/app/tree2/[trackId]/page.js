@@ -30,7 +30,7 @@ import { polarRadiansToCartesian } from './utils/renderUtils';
 import api from '../../../lib/api';
 import { useToast } from '../../../lib/ToastContext';
 import { useLoopListening } from './utils/LoopListeningContext';
-import { useAudio } from '../../../lib/AudioContext';
+// import { useAudio } from '../../../lib/AudioContext';
 import RadialScrollSeam from './components/RadialScrollSeam';
 import LoadNewTracksButton from './components/LoadNewTracksButton';
 import { bufferRegistry } from '../../../components/DAW/core/BufferRegistry.js';
@@ -46,10 +46,10 @@ const nodeTypes = {
 };
 
 // Component that uses regular audio (when not in loop mode)
-function TrackTreeContentWithAudio({ treeDataManager, rootTrack, isLoopMode }) {
-  const { currentTrack, isPlaying, playTrack, togglePlayPause, playedTracks } = useAudio();
-  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} playedTracks={playedTracks} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
-}
+// function TrackTreeContentWithAudio({ treeDataManager, rootTrack, isLoopMode }) {
+//   const { currentTrack, isPlaying, playTrack, togglePlayPause, playedTracks } = useAudio();
+//   return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} playedTracks={playedTracks} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
+// }
 
 // Component that uses loop listening (when in loop mode, inside provider)
 function TrackTreeContentWithLoopListening({ treeDataManager, rootTrack, isLoopMode }) {
@@ -97,6 +97,8 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
       rotationOffset: 0, // Track rotation offset in radians
     },
   });
+
+  console.log('rendering');
 
   // Calculate if scrolling is possible
   const canScroll = useMemo(() => {
@@ -830,5 +832,5 @@ export default function TrackTreePage() {
     );
   }
 
-  return <TrackTreeContentWithAudio treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
+  // return <TrackTreeContentWithAudio treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
 }

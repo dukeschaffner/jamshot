@@ -152,6 +152,17 @@ export class TreeDataManager {
     return ancestors;
   }
 
+  // Returns an array of track IDs from root to the given track ID following parent-child relationships
+  getTrackPath = (trackId) => {
+    if (!trackId || !this.trackData.has(trackId)) {
+      return [];
+    }
+    // getAncestors returns [trackId, parentId, ..., rootId]
+    // Reverse to get [rootId, ..., parentId, trackId]
+    const ancestors = this.getAncestors(trackId);
+    return ancestors.reverse();
+  }
+
   recordUsage = ({trackId, trackIds, tracks, nodes, rendered, setTimestamp = true}) => {
     const tracksToUpdate = new Set();
     

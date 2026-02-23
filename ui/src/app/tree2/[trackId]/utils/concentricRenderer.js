@@ -126,6 +126,7 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers,
       type: 'clusterNode',
       position: { x, y },
       data: {
+        trackId: trackId,
         childCount: track.collab_count,
         clusterType: 'loadChildren',
         type: 'concentric',
