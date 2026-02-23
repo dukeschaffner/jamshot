@@ -267,16 +267,11 @@ export function generateConcentricTree({
   let currentAngle = - (rotationOffset % sliceAngle) - Math.PI / 3; // Start with rotation offset
   const numChildren = allChildren.length > CHILDREN_LIMIT - 1 ? CHILDREN_LIMIT - 1 : allChildren.length;
   const radialSpacing = numChildren > 0 ? 2 * Math.PI / numChildren : 0;
-  let idx = 1;
 
   if(children && children.length > 0) {
     children.forEach(child => {
       // Normalize angle to [0, 2π /)
       const normalizedAngle = ((currentAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
-      if(idx === 1) {
-        console.log(`normalizedAngle: ${normalizedAngle}`);
-        idx = 0;
-      }
       const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).x;
       const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).y;
       flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers, currentTrack, canScroll));
