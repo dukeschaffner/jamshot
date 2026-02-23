@@ -46,18 +46,18 @@ const nodeTypes = {
 
 // Component that uses regular audio (when not in loop mode)
 function TrackTreeContentWithAudio({ treeDataManager, rootTrack, isLoopMode }) {
-  const { currentTrack, isPlaying, playTrack, togglePlayPause } = useAudio();
-  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
+  const { currentTrack, isPlaying, playTrack, togglePlayPause, playedTracks } = useAudio();
+  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} playedTracks={playedTracks} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
 }
 
 // Component that uses loop listening (when in loop mode, inside provider)
 function TrackTreeContentWithLoopListening({ treeDataManager, rootTrack, isLoopMode }) {
-  const { currentTrack, isPlaying, playTrack, togglePlayPause } = useLoopListening();
-  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
+  const { currentTrack, isPlaying, playTrack, togglePlayPause, playedTracks } = useLoopListening();
+  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} playedTracks={playedTracks} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
 }
 
 // Main content component that receives audio context and other props
-function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause, treeDataManager: treeDataManagerProp, rootTrack: rootTrackProp, isLoopMode: isLoopModeProp }) {
+function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause, playedTracks, treeDataManager: treeDataManagerProp, rootTrack: rootTrackProp, isLoopMode: isLoopModeProp }) {
   const { trackId } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -165,7 +165,8 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
           setEdges,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
           currentTrack,
-          canScroll: canScroll
+          canScroll: canScroll,
+          playedTracks: playedTracks
         });
         newNodes = nodes;
         concentricParentTrackIdRef.current = parentTrackId;
@@ -173,7 +174,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
     treeDataManager.current.recordUsage({nodes: newNodes, rendered: true});
     initialTreeRenderedRef.current = true;
     previousSelectedTrackIdRef.current = selectedTrackId;
-  }, [selectedTrackId, treeType,setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef, canScroll, currentTrack]);
+  }, [selectedTrackId, treeType,setNodes, setEdges, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef, canScroll, currentTrack, playedTracks]);
 
 
   // Update nodes and edges when data changes
@@ -183,7 +184,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
     }
   }, [initialLoadComplete, selectedTrackId, generateNodesAndEdges]);
 
-  // Update node data when currentTrack changes (for pulsing gradient effect)
+  // Update node data when currentTrack or playedTracks changes (for pulsing gradient effect and faded style)
   useEffect(() => {
     if (treeType === 'concentric' && nodes.length > 0) {
       setNodes((nds) =>
@@ -194,6 +195,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
               data: {
                 ...node.data,
                 currentTrack: currentTrack,
+                playedTracks: playedTracks,
               },
             };
           }
@@ -201,7 +203,7 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
         })
       );
     }
-  }, [currentTrack, treeType, setNodes]);
+  }, [currentTrack, playedTracks, treeType, setNodes]);
 
 
 
@@ -272,7 +274,8 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
           selectedTrackId,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
           currentTrack,
-          canScroll: canScrollForNode
+          canScroll: canScrollForNode,
+          playedTracks: playedTracks
         });
         animateNodeCollapse(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         concentricParentTrackIdRef.current = parentTrackId;
@@ -358,7 +361,8 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
           selectedTrackId,
           handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
           currentTrack,
-          canScroll: canScrollForNode
+          canScroll: canScrollForNode,
+          playedTracks: playedTracks
         });
         animateNodeExpand(nodesRef.current, nodes, clickedTrackId, setNodes, edges, setEdges);
         treeDataManager.current.recordUsage({nodes, rendered: true});

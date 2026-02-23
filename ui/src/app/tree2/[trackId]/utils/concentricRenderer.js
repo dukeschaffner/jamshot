@@ -56,7 +56,7 @@ export function getPageStartIndex(parentTrackId, viewState) {
 
 // #region nodes
 
-function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers, currentTrack, canScroll = false) {
+function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber, angle, sliceAngle, handlers, currentTrack, canScroll = false, playedTracks = new Set()) {
   let size;
   if(type === 'inner') {
     size = BASE_RING_SIZE + ringNumber * RING_SPACING;
@@ -79,6 +79,7 @@ function createNode(trackId, type, x, y, trackData, selectedTrackId, ringNumber,
       type: type,
       currentTrack: currentTrack,
       canScroll: canScroll,
+      playedTracks: playedTracks,
     },
     zIndex: 1000 - ringNumber,
     borderRadius: '50%',
@@ -196,7 +197,8 @@ export function generateConcentricTree({
   setHoveredNodePosition,
   hoverTimeoutRef,
   currentTrack,
-  canScroll = false
+  canScroll = false,
+  playedTracks = new Set()
 }) {
 
   const rootTrackId = treeDataManager.rootTrackId;
@@ -222,7 +224,7 @@ export function generateConcentricTree({
   let previousTrackId = null;
 
   while(!done) {
-    flowNodes.push(createNode(currentTrackId, 'inner', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers, currentTrack));
+    flowNodes.push(createNode(currentTrackId, 'inner', 0, 0, trackData, selectedTrackId, ringNumber, 0, 0, handlers, currentTrack, false, playedTracks));
     previousTrackId = currentTrackId;
     ringNumber++;
 
@@ -274,7 +276,7 @@ export function generateConcentricTree({
       const normalizedAngle = ((currentAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
       const x = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).x;
       const y = polarRadiansToCartesian(0, 0, OUTER_RING_RADIUS, normalizedAngle).y;
-      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers, currentTrack, canScroll));
+      flowNodes.push(createNode(child.id, 'outer', x, y, trackData, selectedTrackId, 1, normalizedAngle, radialSpacing, handlers, currentTrack, canScroll, playedTracks));
     
       // Calculate opacity for edges based on target node's angle
       // Only apply fading if scrolling is possible

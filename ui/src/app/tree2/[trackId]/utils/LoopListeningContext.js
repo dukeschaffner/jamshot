@@ -15,11 +15,12 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
   const [progress, setProgress] = useState(0);
   const [isCycleMode, setIsCycleMode] = useState(false);
   const [loopDuration, setLoopDuration] = useState(null);
+  const [playedTracks, setPlayedTracks] = useState(new Set()); // Track which tracks have been played
   
   // Queues
   const automaticQueueRef = useRef([]); // History queue (tracks remain after playing)
   const manualQueueRef = useRef([]); // User-queued tracks (removed when played)
-  const playedTracksRef = useRef(new Set()); // Track which tracks have been played
+  const playedTracksRef = useRef(new Set()); // Track which tracks have been played (for internal use)
   
   // Engine and audio context
   const engineRef = useRef(null);
@@ -144,6 +145,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     automaticQueueRef.current = [track];
     queueIndex.current = 0;
     playedTracksRef.current.clear();
+    setPlayedTracks(new Set()); // Clear state as well
     currentTrackRef.current = track;
     setCurrentTrack(track);
     
@@ -313,6 +315,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       
       // Add to played tracks
       playedTracksRef.current.add(track.id);
+      setPlayedTracks(new Set(playedTracksRef.current)); // Update state
       
       // Call tree page callback if set
       if (onTrackEndCallbackRef.current) {
@@ -396,6 +399,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
         progress,
         isCycleMode,
         loopDuration,
+        playedTracks,
         playTrack,
         queueTrack,
         togglePlayPause,
