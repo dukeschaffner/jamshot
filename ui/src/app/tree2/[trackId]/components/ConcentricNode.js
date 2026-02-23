@@ -10,6 +10,7 @@ import {BASE_NODE_SIZE} from '../utils/config';
 import { getInstrumentIcon, getFirstInstrument, getAdditionalInstrumentCount } from '../utils/instrumentIcons';
 import { useLoopListening } from '../utils/LoopListeningContext';
 import PlayingIndicator from '../../../../components/PlayingIndicator';
+import { useTreeInteractions } from '../utils/TreeInteractionsContext';
 
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 
@@ -48,6 +49,9 @@ function isNonvisibleDescendantPlaying(nodeTrackId, type, trackPath, expandedTra
 function ConcentricNode({ data }) {
   let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle, canScroll = false, playedTracks = new Set(), expandedTrackIds = [] } = data;
   const { trackPath, isPlaying } = useLoopListening();
+
+  const { navigateToPlayingTrack } = useTreeInteractions();
+
   const nodeRef = useRef(null);
 
   // Check if this outer node is the currently playing track
@@ -60,6 +64,12 @@ function ConcentricNode({ data }) {
   const isPlayed = track?.id && playedTracks.has(track.id);
 
   const hasNonvisibleDescendantPlaying = isNonvisibleDescendantPlaying(track?.id, type, trackPath, expandedTrackIds) && isPlaying;
+
+  const handlePlayingIndicatorClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigateToPlayingTrack();
+  };
 
 
   // Calculate opacity for outer nodes based on angle (fade near top of circle)
@@ -405,8 +415,9 @@ function ConcentricNode({ data }) {
             transform: 'translateX(-50%)',
             zIndex: 1000,
           }}
+          onClick={handlePlayingIndicatorClick}
         >
-          <PlayingIndicator size={30} color="black" />
+          <PlayingIndicator size={30} color="black" title="Go to playing track" />
         </div>
       )}
       {/* Instrument tags for inner nodes - positioned along bottom inner edge */}

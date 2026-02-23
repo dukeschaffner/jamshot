@@ -3,9 +3,11 @@
 import { memo, useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import './TrackNode.module.css';
+import styles from '../TreeView.module.css';
 import { BASE_CLUSTER_NODE_SIZE, RADIAL_TREE_CONFIG } from '../utils/config';
 import PlayingIndicator from '../../../../components/PlayingIndicator';
 import { useLoopListening } from '../utils/LoopListeningContext';
+import { useTreeInteractions } from '../utils/TreeInteractionsContext';
 
 const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 
@@ -13,7 +15,14 @@ const { RING_SIZE_FACTOR } = RADIAL_TREE_CONFIG;
 function ClusterNode({ data }) {
   const { trackId, childCount, clusterType, onNodeClick, onNodeHover, type = 'radial', ringNumber, angle, canScroll = false } = data;
   const { trackPath, isPlaying } = useLoopListening();
+  const { navigateToPlayingTrack } = useTreeInteractions();
   const nodeRef = useRef(null);
+
+  const handlePlayingIndicatorClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigateToPlayingTrack();
+  };
   
   // Calculate opacity for load children nodes based on angle (fade near top of circle)
   // Only apply fading if scrolling is possible
@@ -70,6 +79,7 @@ function ClusterNode({ data }) {
     <div
       ref={nodeRef}
       onClick={onNodeClick}
+      className={styles.nodeHover}
       style={{
         width: size,
         height: size,
@@ -123,8 +133,10 @@ function ClusterNode({ data }) {
             position: 'absolute',
             right: 0,
             transform: 'translateX(150%)',
-            }}>
-            <PlayingIndicator size={30} />
+            }}
+            onClick={handlePlayingIndicatorClick}
+          >
+            <PlayingIndicator size={30} title="Go to playing track" />
           </div>
         )}
 

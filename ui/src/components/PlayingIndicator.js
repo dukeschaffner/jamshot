@@ -1,6 +1,11 @@
+'use client';
+import { useState, useRef } from 'react';
 import styles from './PlayingIndicator.module.css';
 
-export default function PlayingIndicator({ size = 16, className = '', color }) {
+export default function PlayingIndicator({ size = 16, className = '', color, title }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const containerRef = useRef(null);
+  
   const barWidth = Math.max(2, size / 6);
   const barGap = Math.max(2, size / 8);
   const containerHeight = size;
@@ -20,11 +25,15 @@ export default function PlayingIndicator({ size = 16, className = '', color }) {
   
   return (
     <div 
+      ref={containerRef}
       className={`${styles.container} ${className}`}
       style={{
         height: `${containerHeight}px`,
         gap: `${barGap}px`,
+        position: 'relative',
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div 
         className={styles.bar}
@@ -38,6 +47,15 @@ export default function PlayingIndicator({ size = 16, className = '', color }) {
         className={styles.bar}
         style={barStyle}
       />
+      {title && isHovered && (
+        <div 
+          className={styles.popover}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {title}
+        </div>
+      )}
     </div>
   );
 }
