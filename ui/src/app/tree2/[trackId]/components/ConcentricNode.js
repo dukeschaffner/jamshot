@@ -47,8 +47,8 @@ function isNonvisibleDescendantPlaying(nodeTrackId, type, trackPath, expandedTra
 }
 
 function ConcentricNode({ data }) {
-  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle, canScroll = false, playedTracks = new Set(), expandedTrackIds = [] } = data;
-  const { trackPath, isPlaying } = useLoopListening();
+  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', angle, canScroll = false, playedTracks = new Set(), expandedTrackIds = [] } = data;
+  const { trackPath, isPlaying, currentTrack } = useLoopListening();
 
   const { navigateToPlayingTrack } = useTreeInteractions();
 
