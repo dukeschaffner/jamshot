@@ -12,11 +12,14 @@ import { getInstrumentIcon, getFirstInstrument, getAdditionalInstrumentCount } f
 const { BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
 
 function ConcentricNode({ data }) {
-  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle, canScroll = false } = data;
+  let { track, isSelected, onNodeClick, onNodeHover, ringNumber, size = null, type = 'inner', currentTrack, angle, canScroll = false, playedTracks = new Set() } = data;
   const nodeRef = useRef(null);
   
   // Check if this outer node is the currently playing track
   const isCurrentlyPlaying = type === 'outer' && track?.id === currentTrack?.id;
+  
+  // Check if this track has been played
+  const isPlayed = track?.id && playedTracks.has(track.id);
 
   // Calculate opacity for outer nodes based on angle (fade near top of circle)
   // Only apply fading if scrolling is possible
@@ -42,6 +45,16 @@ function ConcentricNode({ data }) {
         // Linear fade from full opacity at ±30° to transparent at ±5°
         opacity = (angleFromTop - fadeEnd) / (fadeStart - fadeEnd);
       }
+    }
+  }
+  
+  let playedOverlayOpacity = 0;
+  if (isPlayed) {
+    if (type === 'inner') {
+      playedOverlayOpacity = 0.3;
+    } 
+    else if (type === 'outer') {
+      playedOverlayOpacity = 0.5;
     }
   }
 
@@ -160,6 +173,18 @@ function ConcentricNode({ data }) {
       }}
 
     >
+        <div
+          className={styles.playedOverlay}
+          style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            borderRadius: '50%',
+            backgroundColor: 'var(--grey-1)',
+            opacity: playedOverlayOpacity,
+            zIndex: 1,
+          }}
+        />
       <Handle
         type="target"
         position={Position.Top}
