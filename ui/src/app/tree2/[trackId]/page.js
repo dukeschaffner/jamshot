@@ -33,6 +33,8 @@ import { useLoopListening } from './utils/LoopListeningContext';
 // import { useAudio } from '../../../lib/AudioContext';
 import RadialScrollSeam from './components/RadialScrollSeam';
 import LoadNewTracksButton from './components/LoadNewTracksButton';
+import GoToPlayingTrackButton from './components/GoToPlayingTrackButton';
+import { TreeInteractionsProvider } from './utils/TreeInteractionsContext';
 import { bufferRegistry } from '../../../components/DAW/core/BufferRegistry.js';
 
 // Toggle for new tracks polling - set to false to disable
@@ -53,12 +55,12 @@ const nodeTypes = {
 
 // Component that uses loop listening (when in loop mode, inside provider)
 function TrackTreeContentWithLoopListening({ treeDataManager, rootTrack, isLoopMode }) {
-  const { currentTrack, isPlaying, playTrack, togglePlayPause, playedTracks } = useLoopListening();
-  return <TrackTreeContent currentTrack={currentTrack} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} playedTracks={playedTracks} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
+  const { currentTrack, trackPath, isPlaying, playTrack, togglePlayPause, playedTracks } = useLoopListening();
+  return <TrackTreeContent currentTrack={currentTrack} trackPath={trackPath} isPlaying={isPlaying} playTrack={playTrack} togglePlayPause={togglePlayPause} playedTracks={playedTracks} treeDataManager={treeDataManager} rootTrack={rootTrack} isLoopMode={isLoopMode} />;
 }
 
 // Main content component that receives audio context and other props
-function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause, playedTracks, treeDataManager: treeDataManagerProp, rootTrack: rootTrackProp, isLoopMode: isLoopModeProp }) {
+function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, togglePlayPause, playedTracks, treeDataManager: treeDataManagerProp, rootTrack: rootTrackProp, isLoopMode: isLoopModeProp }) {
   const { trackId } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,8 +99,6 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
       rotationOffset: 0, // Track rotation offset in radians
     },
   });
-
-  console.log('rendering');
 
   // Calculate if scrolling is possible
   const canScroll = useMemo(() => {
@@ -206,6 +206,27 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
       );
     }
   }, [currentTrack, playedTracks, treeType, setNodes]);
+
+
+  const navigateToPlayingTrack = useCallback(() => {
+    viewState.current.expandedTrackIds = new Set(trackPath);
+    viewState.current.renderer.rotationOffset = 0;
+        
+    // render the subtree (should replace load-children node with children nodes)
+    const { nodes, edges, parentTrackId } = generateConcentricTree({
+      treeDataManager: treeDataManager.current,
+      viewState: viewState.current,
+      selectedTrackId,
+      handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
+      currentTrack,
+      playedTracks: playedTracks
+    });
+    setNodes(nodes);
+    setEdges(edges);
+    // animateNodeExpand(nodesRef.current, nodes, parentTrackId, setNodes, edges, setEdges);
+    treeDataManager.current.recordUsage({nodes, rendered: true});
+    concentricParentTrackIdRef.current = parentTrackId;
+  }, [currentTrack, trackPath, playedTracks]);
 
 
 
@@ -470,74 +491,6 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
 
 
 
-  // // Handle cluster node click (for pagination)
-  // const handleClusterNodeClick = useCallback(async (type, parentTrackId) => {
-  //   const pagination = paginationData.get(parentTrackId);
-  //   if (!pagination) return;
-
-  //   let newPage;
-  //   if (type === 'prevPage' && pagination.page > 1) {
-  //     newPage = pagination.page - 1;
-  //   } else if (type === 'nextPage' && pagination.page < pagination.pages) {
-  //     newPage = pagination.page + 1;
-  //   } else {
-  //     return; // Invalid navigation
-  //   }
-
-  //   // Fetch children for the new page
-  //   try {
-  //     let data = null;
-  //     if (testMode) {
-  //       const response = await api.get(`/tracks/${parentTrackId}/related-test`, {
-  //         params: {
-  //           page: newPage,
-  //           limit: MAX_NODES_PER_LEVEL,
-  //           includeChildCount: true,
-  //           includeParent: false,
-  //           depth: trackData.get(parentTrackId)?.depth || 0
-  //         }
-  //       });
-  //       data = response.data;
-  //     }
-  //     else {
-  //       const response = await api.get(`/tracks/${parentTrackId}/related`, {
-  //         params: {
-  //           page: newPage,
-  //           limit: MAX_NODES_PER_LEVEL,
-  //           includeChildCount: true,
-  //           includeParent: false
-  //         }
-  //       });
-  //       data = response.data;
-  //     }
-
-  //     const { tracks, pagination: newPagination } = data;
-
-  //     // Update children data with new page data
-  //     const newChildrenData = new Map(childrenData);
-  //     newChildrenData.set(parentTrackId, tracks);
-
-  //     // Update pagination data
-  //     const newPaginationData = new Map(paginationData);
-  //     newPaginationData.set(parentTrackId, newPagination);
-
-  //     // Store all tracks in trackData
-  //     const newTrackData = new Map(trackData);
-  //     tracks.forEach(track => {
-  //       newTrackData.set(track.id, track);
-  //     });
-
-  //     setTrackData(newTrackData);
-  //     setChildrenData(newChildrenData);
-  //     setPaginationData(newPaginationData);
-
-  //   } catch (err) {
-  //     console.error(`Failed to fetch page ${newPage} children for track ${parentTrackId}:`, err);
-  //   }
-  // }, [childrenData, paginationData, trackData, testMode, api]);
-
-
-
 
 
 
@@ -646,40 +599,42 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
   }
 
   return (
-    <div className={styles['track-tree-page']} style={{ width: '100%', height: '100vh' }}>
-      
-      <div 
-        ref={reactFlowContainerRef} 
-        style={{ width: '100%', height: 'calc(100vh - 150px)', position: 'relative' }}
-        onWheel={handleRadialScroll}
-      >
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
-          onInit={setReactFlowInstance}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.001}
-          maxZoom={10}
-          zoomOnScroll={false}     // 🔥 disable built-in wheel zoom
-          panOnScroll={false}
-          nodesDraggable={false}
+    <TreeInteractionsProvider navigateToPlayingTrack={navigateToPlayingTrack}>
+      <div className={styles['track-tree-page']} style={{ width: '100%', height: '100vh' }}>
+        
+        <div 
+          ref={reactFlowContainerRef} 
+          style={{ width: '100%', height: 'calc(100vh - 150px)', position: 'relative' }}
+          onWheel={handleRadialScroll}
         >
-          <Background />
-          <Controls showInteractive={false}/>
-          {canScroll && <RadialScrollSeam />}
-          <LoadNewTracksButton 
-            hasNewTracks={hasNewTracks}
-            onLoadNewTracks={handleLoadNewTracks}
-          />
-        </ReactFlow>
-        {DEBUG_MODE && (
-          <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
-        )}
-      </div>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            nodeTypes={nodeTypes}
+            onInit={setReactFlowInstance}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.001}
+            maxZoom={10}
+            zoomOnScroll={false}     // 🔥 disable built-in wheel zoom
+            panOnScroll={false}
+            nodesDraggable={false}
+          >
+            <Background />
+            <Controls showInteractive={false}/>
+            {canScroll && <RadialScrollSeam />}
+            <LoadNewTracksButton 
+              hasNewTracks={hasNewTracks}
+              onLoadNewTracks={handleLoadNewTracks}
+            />
+            <GoToPlayingTrackButton />
+          </ReactFlow>
+          {DEBUG_MODE && (
+            <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
+          )}
+        </div>
 
       <ColorLegend />
 
@@ -709,7 +664,8 @@ function TrackTreeContent({ currentTrack, isPlaying, playTrack, togglePlayPause,
       {isLoopMode && (
         <LoopListeningPlayer />
       )}
-    </div>
+      </div>
+    </TreeInteractionsProvider>
   );
 }
 
