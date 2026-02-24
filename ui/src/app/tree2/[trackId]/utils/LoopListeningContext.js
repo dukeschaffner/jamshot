@@ -6,6 +6,7 @@ import { eventBus } from '../../../../components/DAW/misc/EventBus.js';
 import { DAW_EVENTS } from '../../../../components/DAW/misc/DAWEvents.js';
 import { getAudioBufferFromS3 } from '../../../../components/DAW/misc/DAWUtils.js';
 import { bufferRegistry } from '../../../../components/DAW/core/BufferRegistry.js';
+import api from '../../../../lib/api';
 
 const LoopListeningContext = createContext();
 
@@ -37,6 +38,93 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
   const PREVIOUS_THRESHOLD = 2; // seconds
 
   const queueIndex = useRef(0);
+
+  // Refs for play counter and analytics
+  const listeningTimeRef = useRef(0);
+  const playRecordedRef = useRef(false);
+  const playIdRef = useRef(null);
+  const thresholdRef = useRef(0); // threshold for recording initial play
+  const discoveryMethodRef = useRef('tree_page');
+
+  // Used for counting plays
+  const updateListeningTime = useCallback(() => {
+    if (isPlaying && engineRef.current) {
+      listeningTimeRef.current += 1; // Add one second
+      console.log('listening time', listeningTimeRef.current);
+    }
+  }, [isPlaying]);
+
+  // Check and record initial play based on listening criteria
+  const checkAndRecordPlay = useCallback(() => {
+    if (!currentTrack || playRecordedRef.current) return;
+    
+    // Use loop duration as track duration for threshold calculation
+    const duration = loopDuration || currentTrack.duration || 0;
+    thresholdRef.current = duration < 30 ? duration * 0.9 : 30;
+    
+    // Record initial play if:
+    // 1. User listened to at least 30 seconds, OR
+    // 2. For tracks < 30 seconds, user listened to at least 90% of the track
+    if (listeningTimeRef.current >= thresholdRef.current) {
+      recordInitialPlay();
+    }
+  }, [currentTrack, loopDuration]);
+
+  // Record initial play via API
+  const recordInitialPlay = useCallback(async () => {
+    if (!currentTrack || playRecordedRef.current) return;
+    
+    // Set flag first to prevent retries even if the request fails
+    playRecordedRef.current = true;
+    
+    try {
+      // Get referrer URL for discovery method
+      const referrerUrl = typeof document !== 'undefined' ? (document.referrer || null) : null;
+      
+      const response = await api.post(`/tracks/${currentTrack.id}/play`, {
+        discovery_method: discoveryMethodRef.current,
+        referrer_url: referrerUrl
+      });
+      
+      if (response?.data?.play_id) {
+        playIdRef.current = response.data.play_id;
+      }
+    } catch (err) {
+      console.error('Failed to record initial play:', err);
+      // Don't reset the flag - prevent retries on failure
+    }
+  }, [currentTrack]);
+
+  // Update play with final analytics data
+  const updatePlay = useCallback(async (skipped = false, track = null) => {
+    const trackToUpdate = track || currentTrack;
+    if (!trackToUpdate) return;
+    if (listeningTimeRef.current < thresholdRef.current) return;
+    if(!playIdRef.current) return;
+    
+    try {
+      // Calculate final analytics data
+      const listenDuration = listeningTimeRef.current;
+      const trackDuration = loopDuration || trackToUpdate.duration || 0;
+      const isCompletePlay = listenDuration >= trackDuration * 0.98;
+
+      let skipTime = null;
+      if (skipped && engineRef.current) {
+        skipTime = engineRef.current.getProgress();
+      }
+
+      await api.post(`/tracks/${trackToUpdate.id}/play`, {
+        listen_duration: listenDuration,
+        is_complete_play: isCompletePlay,
+        skip_time: skipTime,
+        play_id: playIdRef.current
+      }).catch(err => {
+        console.error('Failed to update play:', err);
+      });
+    } catch (err) {
+      console.error('Failed to update play:', err);
+    }
+  }, [currentTrack, loopDuration]);
 
   const getNextTrack = async () => {
     // Check manual queue first
@@ -288,6 +376,13 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     }
   }, []);
 
+  /**
+   * Function to set discovery method for analytics
+   */
+  const setDiscoveryMethod = useCallback((method) => {
+    discoveryMethodRef.current = method;
+  }, []);
+
   // Set up event listeners for state synchronization (after all callbacks are defined)
   useEffect(() => {
     // Handle track started
@@ -305,6 +400,11 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
 
     // Handle track changed
     const handleTrackChanged = (data) => {
+      // Update play analytics for previous track before changing
+      if (data.previousTrack) {
+        updatePlay(true, data.previousTrack);
+      }
+      
       setCurrentTrack(data.track);
       currentTrackRef.current = data.track;
 
@@ -387,7 +487,27 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       eventBus.off(DAW_EVENTS.LOOP_LISTENING.CYCLE_MODE_CHANGED, handleCycleModeChanged);
       eventBus.off(DAW_EVENTS.LOOP_LISTENING.LOOP_DURATION_CHANGED, handleLoopDurationChanged);
     };
-  }, [playNext, stop]);
+  }, [playNext, stop, updatePlay]);
+
+  // Interval to check for play recording and track analytics
+  useEffect(() => {
+    if (!currentTrack) return;
+    
+    // Reset analytics state for new track
+    listeningTimeRef.current = 0;
+    playRecordedRef.current = false;
+    playIdRef.current = null;
+    
+    // Set up interval to track listening time and check for play recording
+    const interval = setInterval(() => {
+      updateListeningTime();
+      checkAndRecordPlay();
+    }, 1000);
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [currentTrack, updateListeningTime, checkAndRecordPlay]);
 
   return (
     <LoopListeningContext.Provider
@@ -409,6 +529,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
         setOnTrackEnd,
         addToAutomaticQueue,
         setLoopDuration: setLoopDurationValue,
+        setDiscoveryMethod,
       }}
     >
       {children}
