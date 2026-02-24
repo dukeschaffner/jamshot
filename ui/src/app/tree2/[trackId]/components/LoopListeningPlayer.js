@@ -10,6 +10,8 @@ import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRedo, FaMusic,
   FaCheckCircle } from 'react-icons/fa';
 import styles from './LoopListeningPlayer.module.css';
 import { useMobile } from '../../../../contexts/MobileContext';
+import { useTreeInteractions } from '../utils/TreeInteractionsContext';
+import PlayingIndicator from '../../../../components/PlayingIndicator';
 
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -29,6 +31,8 @@ export default function LoopListeningPlayer() {
     isCycleMode,
     toggleCycle
   } = useLoopListening();
+
+  const { navigateToPlayingTrack } = useTreeInteractions();
   
   const { isMobile } = useMobile();
   
@@ -301,7 +305,14 @@ export default function LoopListeningPlayer() {
           </div>
         
         <div className={styles.volumeContainer}>
-          {/* Volume controls can be added here later */}
+          <div className="pill-btn sm" onClick={navigateToPlayingTrack}>
+            Show Track
+            {isPlaying && (
+              <div style={{ marginLeft: '8px' }}>
+                <PlayingIndicator size={20} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
   );
