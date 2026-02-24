@@ -107,19 +107,18 @@ function ClusterNode({ data }) {
           transform: type === 'radial' ? `scale(${ringSizeFactor})` : '',
           transformOrigin: 'center center',
           flexShrink: 0,
-          backgroundColor: '#808080', // Grey color for cluster nodes
+          backgroundColor: 'var(--grey-2)', // Grey color for cluster nodes
           borderRadius: '50%',
           position: 'relative',
           cursor: 'pointer',
-          border: `2px solid var(--grey-3)`,
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
           transition: 'all 0.2s ease',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '14px',
-          fontWeight: 'bold',
-          color: 'white',
+          fontWeight: '900',
+          color: 'var(--text-primary)',
         }}
       >
         <Handle

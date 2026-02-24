@@ -33,7 +33,6 @@ import { useLoopListening } from './utils/LoopListeningContext';
 // import { useAudio } from '../../../lib/AudioContext';
 import RadialScrollSeam from './components/RadialScrollSeam';
 import LoadNewTracksButton from './components/LoadNewTracksButton';
-import GoToPlayingTrackButton from './components/GoToPlayingTrackButton';
 import { TreeInteractionsProvider } from './utils/TreeInteractionsContext';
 import { bufferRegistry } from '../../../components/DAW/core/BufferRegistry.js';
 
@@ -516,6 +515,39 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     };
   }, []);
 
+  // Handle spacebar for play/pause
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Only handle spacebar
+      if (event.code !== 'Space' && event.key !== ' ') {
+        return;
+      }
+
+      // Don't trigger if user is typing in an input field
+      const target = event.target;
+      const isInputElement = 
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable;
+
+      if (isInputElement) {
+        return;
+      }
+
+      // Prevent default behavior (scrolling)
+      event.preventDefault();
+
+      // Toggle play/pause
+      togglePlayPause();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [togglePlayPause]);
+
   useEffect(() => {
     if (treeDataManager.current && treeDataManager.current.newKidsAvailable.has(concentricParentTrackIdRef.current)) {
       setHasNewTracks(true);
@@ -613,11 +645,11 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
 
   return (
     <TreeInteractionsProvider navigateToPlayingTrack={navigateToPlayingTrack}>
-      <div className={styles['track-tree-page']} style={{ width: '100%', height: '100vh' }}>
+      <div className={styles['track-tree-page']} style={{ width: '100%', height: '100%' }}>
         
         <div 
           ref={reactFlowContainerRef} 
-          style={{ width: '100%', height: 'calc(100vh - 150px)', position: 'relative' }}
+          style={{ width: '100%', height: '100%', position: 'relative' }}
           onWheel={handleRadialScroll}
         >
           <ReactFlow
@@ -642,14 +674,13 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
               hasNewTracks={hasNewTracks}
               onLoadNewTracks={handleLoadNewTracks}
             />
-            <GoToPlayingTrackButton />
           </ReactFlow>
           {DEBUG_MODE && (
             <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
           )}
         </div>
 
-      <ColorLegend />
+      {/* <ColorLegend /> */}
 
       {hoveredTrackId && treeDataManager.current && treeDataManager.current.trackData.has(hoveredTrackId) && hoveredNodePosition && (
         <TrackPopover
