@@ -78,7 +78,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const [hasNewTracks, setHasNewTracks] = useState(false);
+  const [newTrackCount, setNewTrackCount] = useState(0);
   const hoverTimeoutRef = useRef(null);
   const initialTreeRenderedRef = useRef(false);
   const previousSelectedTrackIdRef = useRef(null);
@@ -554,11 +554,12 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
   }, [concentricParentTrackIdRef.current]);
 
   const checkAndSetHasNewTracks = () => {
-    if (treeDataManager.current && treeDataManager.current.newKidsAvailable.has(concentricParentTrackIdRef.current)) {
-      setHasNewTracks(true);
+    if (treeDataManager.current && concentricParentTrackIdRef.current) {
+      const count = treeDataManager.current.getNewKidsCount(concentricParentTrackIdRef.current);
+      setNewTrackCount(count);
     }
     else {
-      setHasNewTracks(false);
+      setNewTrackCount(0);
     }
   };
 
@@ -597,12 +598,21 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
           lastPollTimeRef.current = new Date(mostRecentTrack.created_at);
 
           // Mark parent trackIds as having new kids available
+          // Count new tracks per parent
+          const newTracksByParent = new Map();
           tracks.forEach(track => {
             if (track.parent_track_id) {
-              treeDataManager.current.markNewKidsAvailable(track.parent_track_id);
-              if(track.parent_track_id === concentricParentTrackIdRef.current) {
-                setHasNewTracks(true);
-              }
+              const currentCount = newTracksByParent.get(track.parent_track_id) || 0;
+              newTracksByParent.set(track.parent_track_id, currentCount + 1);
+            }
+          });
+          
+          // Update counts for each parent
+          newTracksByParent.forEach((count, parentId) => {
+            treeDataManager.current.markNewKidsAvailable(parentId, count);
+            if(parentId === concentricParentTrackIdRef.current) {
+              const totalCount = treeDataManager.current.getNewKidsCount(parentId);
+              setNewTrackCount(totalCount);
             }
           });
 
@@ -676,7 +686,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
             <Controls showInteractive={false}/>
             {canScroll && <RadialScrollSeam />}
             <LoadNewTracksButton 
-              hasNewTracks={hasNewTracks}
+              newTrackCount={newTrackCount}
               onLoadNewTracks={handleLoadNewTracks}
             />
           </ReactFlow>

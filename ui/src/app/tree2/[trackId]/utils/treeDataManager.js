@@ -9,7 +9,7 @@ export class TreeDataManager {
     this.childrenData = new Map();
     this.paginationData = new Map();
     this.usageData = new Map();
-    this.newKidsAvailable = new Set(); // Track which trackIds have new children to load
+    this.newKidsAvailable = new Map(); // Track which trackIds have new children to load (value = count)
     this.rootTrackId = null;
     this.testMode = true;
     this.secret = secret;
@@ -389,16 +389,23 @@ export class TreeDataManager {
     return idsToPrune;
   }
 
-  // Mark a trackId as having new kids available
-  markNewKidsAvailable = (trackId) => {
+  // Mark a trackId as having new kids available (increment count)
+  markNewKidsAvailable = (trackId, count = 1) => {
     if (trackId) {
-      this.newKidsAvailable.add(trackId);
+      const currentCount = this.newKidsAvailable.get(trackId) || 0;
+      this.newKidsAvailable.set(trackId, currentCount + count);
     }
   }
 
   // Check if a trackId has new kids available
   hasNewKidsAvailable = (trackId) => {
-    return this.newKidsAvailable.has(trackId);
+    const count = this.newKidsAvailable.get(trackId) || 0;
+    return count > 0;
+  }
+
+  // Get the count of new kids available for a trackId
+  getNewKidsCount = (trackId) => {
+    return this.newKidsAvailable.get(trackId) || 0;
   }
 
   // Clear the new kids flag for a trackId (e.g., when they load the new kids)
@@ -423,6 +430,7 @@ export class TreeDataManager {
     const result = await this.fetchChildren(trackId, firstChildId, 'oldest');
     const {id, data} = result;
     const newChildren = data.tracks;
+    let uniqueNewChildren = [];
 
     if (newChildren && newChildren.length > 0) {
       // Store tracks in trackData
@@ -434,7 +442,7 @@ export class TreeDataManager {
       const existingChildIds = new Set(existingChildren.map(child => child.id));
       
       // Only add children that don't already exist (avoid duplicates)
-      const uniqueNewChildren = newChildren.filter(child => !existingChildIds.has(child.id));
+      uniqueNewChildren = newChildren.filter(child => !existingChildIds.has(child.id));
       
       if (uniqueNewChildren.length > 0) {
         // Reverse to maintain newest-to-oldest order (API returns oldest-to-newest with orderBy='oldest')
@@ -448,10 +456,23 @@ export class TreeDataManager {
     // Check if there are still more children available
     const pagination = data.pagination;
     if (!pagination || !pagination.hasMore) {
-      // No more children, remove from newKidsAvailable set
+      // No more children, remove from newKidsAvailable map
       this.clearNewKidsAvailable(trackId);
+    } else {
+      // If hasMore is true, decrement count by number loaded (but keep it if still > 0)
+      // We don't know exact count available, so we'll let polling update it
+      const loadedCount = uniqueNewChildren.length;
+      if (loadedCount > 0) {
+        const currentCount = this.newKidsAvailable.get(trackId) || 0;
+        const newCount = Math.max(0, currentCount - loadedCount);
+        if (newCount > 0) {
+          this.newKidsAvailable.set(trackId, newCount);
+        } else {
+          // Keep a minimum of 1 if hasMore is true (there are still more available)
+          this.newKidsAvailable.set(trackId, 1);
+        }
+      }
     }
-    // If hasMore is true, leave it in the set (still has new kids)
   }
 };
 

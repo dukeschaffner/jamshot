@@ -4,11 +4,15 @@ import { CONCENTRIC_CONFIG } from '../utils/config';
 
 const { OUTER_RING_RADIUS } = CONCENTRIC_CONFIG;
  
-export default function LoadNewTracksButton({ hasNewTracks, onLoadNewTracks }) {
+export default function LoadNewTracksButton({ newTrackCount, onLoadNewTracks }) {
 
-  if(!hasNewTracks) {
+  if(newTrackCount <= 0) {
     return null;
   }
+
+  const buttonText = newTrackCount === 1 
+    ? 'Load 1 New Track' 
+    : `Load ${newTrackCount} New Tracks`;
 
   return (
     <ViewportPortal>
@@ -32,7 +36,7 @@ export default function LoadNewTracksButton({ hasNewTracks, onLoadNewTracks }) {
         }}
         onClick={onLoadNewTracks}
       >
-          Load New Tracks
+          {buttonText}
       </div>
     </ViewportPortal>
   );
