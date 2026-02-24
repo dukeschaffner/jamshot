@@ -6,7 +6,7 @@ const { OUTER_RING_RADIUS } = CONCENTRIC_CONFIG;
  
 export default function LoadNewTracksButton({ hasNewTracks, onLoadNewTracks }) {
 
-  if(hasNewTracks) {
+  if(!hasNewTracks) {
     return null;
   }
 
@@ -15,7 +15,7 @@ export default function LoadNewTracksButton({ hasNewTracks, onLoadNewTracks }) {
       <div
         style={{ 
           pointerEvents: 'all',
-            transform: `translateX(-50%) translateY(-${OUTER_RING_RADIUS * 1.60}px)`,
+            transform: `translateX(${OUTER_RING_RADIUS * 1.10}px) translateY(-${OUTER_RING_RADIUS * 1.10}px)`,
             position: 'absolute',
             backgroundColor: 'var(--grey-2)',
             boxShadow: '0 0 10px 0 rgba(0, 0, 0, 0.5)',

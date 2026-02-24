@@ -409,6 +409,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     
     // Re-render the tree
     generateNodesAndEdges();
+    checkAndSetHasNewTracks();
   }, [concentricParentTrackIdRef.current, generateNodesAndEdges]);
 
   // Handle radial scroll rotation
@@ -549,13 +550,17 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
   }, [togglePlayPause]);
 
   useEffect(() => {
+    checkAndSetHasNewTracks();
+  }, [concentricParentTrackIdRef.current]);
+
+  const checkAndSetHasNewTracks = () => {
     if (treeDataManager.current && treeDataManager.current.newKidsAvailable.has(concentricParentTrackIdRef.current)) {
       setHasNewTracks(true);
     }
     else {
       setHasNewTracks(false);
     }
-  }, [concentricParentTrackIdRef.current]);
+  };
 
   // Poll for new tracks every 60 seconds
   useEffect(() => {

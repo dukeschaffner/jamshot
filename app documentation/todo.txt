@@ -39,6 +39,7 @@ before launch:
     - plays for all tracks by that user
 - check competition hosting restriction for free tier users
 - input monitoring level in audio settings
+- timer function to update track plays in aggregate instead of on play endpoint
 
 
 
