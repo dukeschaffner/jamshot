@@ -610,11 +610,26 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
           // Update counts for each parent
           newTracksByParent.forEach((count, parentId) => {
             treeDataManager.current.markNewKidsAvailable(parentId, count);
+            
+            // Update collab_count on the parent track in trackData
+            const parentTrack = treeDataManager.current.trackData.get(parentId);
+            if (parentTrack) {
+              const currentCollabCount = parentTrack.collab_count || 0;
+              parentTrack.collab_count = currentCollabCount + count;
+              // Update the trackData map with the modified track
+              treeDataManager.current.trackData.set(parentId, parentTrack);
+            }
+            
             if(parentId === concentricParentTrackIdRef.current) {
               const totalCount = treeDataManager.current.getNewKidsCount(parentId);
               setNewTrackCount(totalCount);
             }
           });
+          
+          // Rerender nodes to reflect updated collab_count
+          if (initialLoadComplete && selectedTrackId) {
+            generateNodesAndEdges();
+          }
 
           // Show toast notification
           if (tracks.length === 1) {
@@ -651,7 +666,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
         clearInterval(pollInterval);
       }
     };
-  }, [initialLoadComplete, trackId, secret, showInfo]);
+  }, [initialLoadComplete, trackId, secret, showInfo, selectedTrackId, generateNodesAndEdges]);
 
   // Loading and error are handled by outer component
   if (isMobile) {
