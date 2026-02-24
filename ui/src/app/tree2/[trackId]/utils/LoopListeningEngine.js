@@ -231,6 +231,9 @@ class LoopListeningEngine {
     this.loopStartTime = startTime - offset;
     
     this.scheduleBuffer(buffer, startTime, offset, playDuration);
+
+    // Emit playback paused event
+    this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STARTED);
     
     // Start progress updates
     this.startProgressUpdates(startTime, playDuration);
