@@ -578,7 +578,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
         // toISOString() returns UTC timestamp in ISO 8601 format (e.g., "2024-01-01T12:00:00.000Z")
         // This matches the UTC timestamps stored in the database
         const sinceTimestamp = lastPollTimeRef.current.toISOString();
-        let url = `/tracks/${trackId}/tree/new-tracks?since=${encodeURIComponent(sinceTimestamp)}`;
+        let url = `/tracks/${treeDataManager.current.rootTrackId}/tree/new-tracks?since=${encodeURIComponent(sinceTimestamp)}`;
         if (secret) {
           url += `&secret=${encodeURIComponent(secret)}`;
         }
