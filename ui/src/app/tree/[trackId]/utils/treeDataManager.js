@@ -11,7 +11,7 @@ export class TreeDataManager {
     this.usageData = new Map();
     this.newKidsAvailable = new Map(); // Track which trackIds have new children to load (value = count)
     this.rootTrackId = null;
-    this.testMode = true;
+    this.testMode = false;
     this.secret = secret;
   }
 
