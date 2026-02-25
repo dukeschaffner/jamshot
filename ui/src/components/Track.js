@@ -589,7 +589,7 @@ export default function Track(
                   )}
                   
                   {/* Generate Video option (only for track creator) */}
-                  {currentUser?.id === track.user_id && (
+                  {/* {currentUser?.id === track.user_id && (
                     <button
                       className={styles.actionMenuItem}
                       onClick={(e) => {
@@ -600,7 +600,7 @@ export default function Track(
                     >
                       <FaVideo /> Generate Video
                     </button>
-                  )}
+                  )} */}
                   
                   {/* Delete Track option (only for track owner) */}
                   {currentUser?.id === track.user_id && (
