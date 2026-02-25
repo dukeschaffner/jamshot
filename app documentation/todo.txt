@@ -10,6 +10,10 @@ before launch:
 - lambda concurrency
 - rate limiting
 - new collab email linked to orig track (maybe link to new track?)
+- make sure we have this index for privacy clause
+CREATE INDEX idx_follows_lookup
+ON follows(follower_id, following_id);
+- infinite scroll continuously retries if error occurs on fetch
 
 
 - DAW 
@@ -39,7 +43,6 @@ before launch:
     - plays for all tracks by that user
 - check competition hosting restriction for free tier users
 - input monitoring level in audio settings
-- timer function to update track plays in aggregate instead of on play endpoint
 
 
 
@@ -84,6 +87,11 @@ RELEASE CHECKLIST
 - Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
 - VonGon partnership
 - upgrade neon
+
+
+
+SCALABILITY TASKS:
+- timer function to update track plays, likes, reposts, comments, collabs in aggregate instead of on play endpoint
 
 
 
