@@ -595,13 +595,15 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
             return trackTime > latestTime ? track : latest;
           });
           // Ensure we store UTC timestamp - created_at from DB is already UTC
-          lastPollTimeRef.current = new Date(mostRecentTrack.created_at);
+          // Add 1ms buffer to avoid fetching the same track again due to timestamp precision issues
+          const mostRecentTime = new Date(mostRecentTrack.created_at);
+          lastPollTimeRef.current = new Date(mostRecentTime.getTime() + 1);
 
           // Mark parent trackIds as having new kids available
           // Count new tracks per parent
           const newTracksByParent = new Map();
           tracks.forEach(track => {
-            if (track.parent_track_id) {
+            if (track.parent_track_id && !treeDataManager.current.trackData.has(track.id)) {
               const currentCount = newTracksByParent.get(track.parent_track_id) || 0;
               newTracksByParent.set(track.parent_track_id, currentCount + 1);
             }
