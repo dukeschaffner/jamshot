@@ -1,4 +1,4 @@
-import { MarkerType } from 'reactflow';
+import { MarkerType } from '@xyflow/react';
 
 // Hierarchical Tree Renderer
 // Generates React Flow nodes and edges for a hierarchical tree layout
@@ -432,6 +432,7 @@ export function generateHierarchicalTreeNodesAndEdges({
         data: {
           childCount: displayCount,
           clusterType: typeof clusterData === 'object' ? clusterData.type : 'legacy',
+          type: 'hierarchical',
           onNodeClick: clickHandler,
           onNodeHover: (hovering, nodePosition) => {
             // Clear any existing timeout
@@ -539,6 +540,7 @@ export function generateHierarchicalTreeNodesAndEdges({
                 data: {
                   childCount: displayCount,
                   clusterType: clusterData.type,
+                  type: 'hierarchical',
                   onNodeClick: clickHandler,
                   onNodeHover: (hovering, nodePosition) => {
                     // Clear any existing timeout
@@ -660,6 +662,7 @@ export function generateHierarchicalTreeNodesAndEdges({
               data: {
                 childCount: displayCount,
                 clusterType: typeof clusterData === 'object' ? clusterData.type : 'collab',
+                type: 'hierarchical',
                 onNodeClick: clickHandler,
                 onNodeHover: (hovering, nodePosition) => {
                   // Clear any existing timeout
