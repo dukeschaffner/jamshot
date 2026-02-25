@@ -146,3 +146,8 @@ body.dark-mode .popover-queue-button:hover {
   background: var(--grey-3);
 }
 
+.popover-tags {
+  padding-top: 8px;
+  border-top: 1px solid var(--grey-2);
+}
+

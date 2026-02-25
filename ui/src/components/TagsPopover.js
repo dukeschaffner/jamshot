@@ -70,6 +70,7 @@ export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, a
   const hasAnyTags = hasGenres || hasInstruments || hasElements || hasInstrumentRequests || hasElementRequests;
   if (!hasAnyTags) return null;
 
+
   return (
     <div
       ref={popoverRef}
@@ -78,7 +79,7 @@ export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, a
         position: 'fixed',
         top: `${position.top}px`,
         left: `${position.left}px`,
-        zIndex: 1000,
+        zIndex: 10000,
       }}
       onMouseEnter={onMouseEnter} // Keep popover open when hovering over it
       onMouseLeave={onClose}
