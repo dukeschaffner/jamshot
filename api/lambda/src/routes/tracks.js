@@ -2286,6 +2286,8 @@ router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res
     
     // Get new tracks in this tree since the given timestamp
     // Only select: track name, user name, upload datetime, and parent track id
+    // Use >= instead of > to include tracks created at the exact timestamp
+    // Convert to ISO string to ensure proper timezone handling with PostgreSQL
     const result = await pool.query(`
       SELECT 
         t.title,
@@ -2295,12 +2297,12 @@ router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res
       FROM tracks t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.root_id = $1 
-        AND t.created_at > $2 
+        AND t.created_at >= $2::timestamptz
         AND t.processing_status = 'completed'
         AND t.id != $1
       ORDER BY t.created_at DESC
       LIMIT 50
-    `, [rootId, sinceDate]);
+    `, [rootId, sinceDate.toISOString()]);
     
     res.json({ tracks: result.rows });
   } catch (err) {
