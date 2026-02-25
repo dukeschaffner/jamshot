@@ -9,7 +9,7 @@ export class TreeDataManager {
     this.childrenData = new Map();
     this.paginationData = new Map();
     this.usageData = new Map();
-    this.newKidsAvailable = new Map(); // Track which trackIds have new children to load (value = count)
+    this.newKidsAvailable = new Map(); // Track which trackIds have new children to load (value = array of new track IDs)
     this.rootTrackId = null;
     this.testMode = false;
     this.secret = secret;
@@ -65,6 +65,18 @@ export class TreeDataManager {
       // Update pagination data (always use latest from API)
       this.paginationData.set(id, data.pagination);
       this.recordUsage({tracks: newChildren, rendered: false});
+      
+      // Remove fetched child IDs from newKidsAvailable map if present
+      const fetchedChildIds = new Set(children.map(child => child.id));
+      const currentNewKids = this.newKidsAvailable.get(id);
+      if (currentNewKids && currentNewKids.length > 0) {
+        const remainingIds = currentNewKids.filter(childId => !fetchedChildIds.has(childId));
+        if (remainingIds.length > 0) {
+          this.newKidsAvailable.set(id, remainingIds);
+        } else {
+          this.newKidsAvailable.delete(id);
+        }
+      }
     }
     else if (children && children.length === 0) {
       const existingChildren = this.childrenData.get(id)
@@ -389,23 +401,29 @@ export class TreeDataManager {
     return idsToPrune;
   }
 
-  // Mark a trackId as having new kids available (increment count)
-  markNewKidsAvailable = (trackId, count = 1) => {
-    if (trackId) {
-      const currentCount = this.newKidsAvailable.get(trackId) || 0;
-      this.newKidsAvailable.set(trackId, currentCount + count);
+  // Mark a trackId as having new kids available (add track IDs to array)
+  markNewKidsAvailable = (trackId, newTrackIds) => {
+    if (trackId && newTrackIds && newTrackIds.length > 0) {
+      const currentIds = this.newKidsAvailable.get(trackId) || [];
+      const existingIdsSet = new Set(currentIds);
+      // Only add track IDs that aren't already in the array
+      const uniqueNewIds = newTrackIds.filter(id => !existingIdsSet.has(id));
+      if (uniqueNewIds.length > 0) {
+        this.newKidsAvailable.set(trackId, [...currentIds, ...uniqueNewIds]);
+      }
     }
   }
 
   // Check if a trackId has new kids available
   hasNewKidsAvailable = (trackId) => {
-    const count = this.newKidsAvailable.get(trackId) || 0;
-    return count > 0;
+    const trackIds = this.newKidsAvailable.get(trackId) || [];
+    return trackIds.length > 0;
   }
 
   // Get the count of new kids available for a trackId
   getNewKidsCount = (trackId) => {
-    return this.newKidsAvailable.get(trackId) || 0;
+    const trackIds = this.newKidsAvailable.get(trackId) || [];
+    return trackIds.length;
   }
 
   // Clear the new kids flag for a trackId (e.g., when they load the new kids)
@@ -459,17 +477,18 @@ export class TreeDataManager {
       // No more children, remove from newKidsAvailable map
       this.clearNewKidsAvailable(trackId);
     } else {
-      // If hasMore is true, decrement count by number loaded (but keep it if still > 0)
-      // We don't know exact count available, so we'll let polling update it
-      const loadedCount = uniqueNewChildren.length;
-      if (loadedCount > 0) {
-        const currentCount = this.newKidsAvailable.get(trackId) || 0;
-        const newCount = Math.max(0, currentCount - loadedCount);
-        if (newCount > 0) {
-          this.newKidsAvailable.set(trackId, newCount);
+      // Remove loaded track IDs from the newKidsAvailable array
+      if (uniqueNewChildren.length > 0) {
+        const loadedTrackIds = new Set(uniqueNewChildren.map(child => child.id));
+        const currentIds = this.newKidsAvailable.get(trackId) || [];
+        const remainingIds = currentIds.filter(id => !loadedTrackIds.has(id));
+        
+        if (remainingIds.length > 0) {
+          this.newKidsAvailable.set(trackId, remainingIds);
         } else {
-          // Keep a minimum of 1 if hasMore is true (there are still more available)
-          this.newKidsAvailable.set(trackId, 1);
+          // If all tracked IDs are loaded but hasMore is true, keep empty array
+          // Polling will update it with new track IDs as they come in
+          this.newKidsAvailable.set(trackId, []);
         }
       }
     }
