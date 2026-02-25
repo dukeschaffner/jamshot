@@ -288,3 +288,30 @@ WHERE root_id IS NULL;
 
 -- Create index for efficient polling queries
 CREATE INDEX idx_tracks_root_id_created_at ON tracks(root_id, created_at);
+
+-- Migration: Add count columns to tracks table
+-- Date: 2026-01-XX
+-- Adds collab_count, like_count, repost_count, and comment_count columns to tracks table
+-- These columns will be maintained by application logic instead of calculating via subqueries
+
+ALTER TABLE tracks ADD COLUMN collab_count INT NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN like_count INT NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN repost_count INT NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN comment_count INT NOT NULL DEFAULT 0;
+
+-- Backfill existing data
+UPDATE tracks SET collab_count = (
+  SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = tracks.id
+);
+
+UPDATE tracks SET like_count = (
+  SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id
+);
+
+UPDATE tracks SET repost_count = (
+  SELECT COUNT(*) FROM reposts WHERE reposts.track_id = tracks.id
+);
+
+UPDATE tracks SET comment_count = (
+  SELECT COUNT(*) FROM comments WHERE comments.track_id = tracks.id
+);

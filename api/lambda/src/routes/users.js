@@ -1132,9 +1132,9 @@ router.get('/by-username/:username/reposts', async (req, res) => {
              u.profile_pic_url,
              r.created_at as repost_date,
              ru.username as reposted_by_username,
-             COALESCE(l.like_count, 0) as like_count,
-             COALESCE(p.play_count, 0) as play_count,
-             COALESCE(c.collab_count, 0) as collab_count,
+             COALESCE(t.like_count, 0) as like_count,
+             COALESCE(t.play_count, 0) as play_count,
+             COALESCE(t.collab_count, 0) as collab_count,
              ot.title as original_title,
              CASE WHEN ul.user_id IS NOT NULL THEN true ELSE false END as is_liked,
              true as is_reposted
@@ -1142,9 +1142,6 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       JOIN tracks t ON r.track_id = t.id
       JOIN users u ON t.user_id = u.id
       JOIN users ru ON r.user_id = ru.id
-      LEFT JOIN (SELECT track_id, COUNT(*) as like_count FROM likes GROUP BY track_id) l ON t.id = l.track_id
-      LEFT JOIN (SELECT track_id, COUNT(*) as play_count FROM plays GROUP BY track_id) p ON t.id = p.track_id
-      LEFT JOIN (SELECT parent_track_id, COUNT(*) as collab_count FROM tracks WHERE parent_track_id IS NOT NULL GROUP BY parent_track_id) c ON t.id = c.parent_track_id
       LEFT JOIN tracks ot ON t.parent_track_id = ot.id
       LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
       WHERE r.user_id = $1

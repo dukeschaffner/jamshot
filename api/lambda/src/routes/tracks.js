@@ -662,6 +662,12 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
     // Create notification for parent track owner if this is a collaboration
     if (parent_track_id) {
       try {
+        // Increment collab_count on parent track
+        await pool.query(
+          'UPDATE tracks SET collab_count = collab_count + 1 WHERE id = $1',
+          [parent_track_id]
+        );
+        
         const parentTrackOwner = await pool.query(
           'SELECT user_id FROM tracks WHERE id = $1',
           [parent_track_id]
@@ -1483,20 +1489,39 @@ router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, r
     // Don't create notification if liking your own track
     const trackOwnerId = trackCheck.rows[0].user_id;
     
-    await pool.query(
-      'INSERT INTO likes (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [userId, id]
-    );
-    
-    // Create notification for track owner (if not liking own track)
-    if (trackOwnerId !== userId) {
-      await pool.query(
-        'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-        [trackOwnerId, 'like', id]
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const result = await client.query(
+        'INSERT INTO likes (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
+        [userId, id]
       );
+      
+      // Only increment if a new like was actually inserted
+      if (result.rows.length > 0) {
+        await client.query(
+          'UPDATE tracks SET like_count = like_count + 1 WHERE id = $1',
+          [id]
+        );
+      }
+      
+      // Create notification for track owner (if not liking own track)
+      if (trackOwnerId !== userId && result.rows.length > 0) {
+        await client.query(
+          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+          [trackOwnerId, 'like', id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Liked' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    res.status(200).json({ message: 'Liked' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1507,11 +1532,31 @@ router.delete('/:id/like', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
-    await pool.query(
-      'DELETE FROM likes WHERE user_id = $1 AND track_id = $2',
-      [userId, id]
-    );
-    res.status(200).json({ message: 'Unliked' });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const result = await client.query(
+        'DELETE FROM likes WHERE user_id = $1 AND track_id = $2',
+        [userId, id]
+      );
+      
+      // Only decrement if a like was actually deleted
+      if (result.rowCount > 0) {
+        await client.query(
+          'UPDATE tracks SET like_count = GREATEST(0, like_count - 1) WHERE id = $1',
+          [id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Unliked' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1727,34 +1772,55 @@ router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async 
       }
     }
     
-    // Insert the comment
-    const result = await pool.query(
-      'INSERT INTO comments (user_id, track_id, content, parent_comment_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [userId, id, content, parent_comment_id || null]
-    );
-    
-    // Get user info for the response
-    const userInfo = await pool.query(
-      'SELECT username, name, verified, profile_pic_url FROM users WHERE id = $1',
-      [userId]
-    );
-    
-    // Create notification (if not commenting on own track or replying to own comment)
-    if (notifyUserId !== userId) {
-      await pool.query(
-        'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
-        [notifyUserId, 'comment', id, userId]
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Insert the comment
+      const result = await client.query(
+        'INSERT INTO comments (user_id, track_id, content, parent_comment_id) VALUES ($1, $2, $3, $4) RETURNING *',
+        [userId, id, content, parent_comment_id || null]
       );
+      
+      // Only increment comment_count for top-level comments (not replies)
+      // Replies have parent_comment_id set, so we only count direct track comments
+      if (!parent_comment_id) {
+        await client.query(
+          'UPDATE tracks SET comment_count = comment_count + 1 WHERE id = $1',
+          [id]
+        );
+      }
+      
+      // Get user info for the response
+      const userInfo = await client.query(
+        'SELECT username, name, verified, profile_pic_url FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      // Create notification (if not commenting on own track or replying to own comment)
+      if (notifyUserId !== userId) {
+        await client.query(
+          'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+          [notifyUserId, 'comment', id, userId]
+        );
+      }
+      
+      await client.query('COMMIT');
+      
+      const comment = {
+        ...result.rows[0],
+        ...userInfo.rows[0],
+        reply_count: 0,
+        is_owner: true
+      };
+      
+      res.status(201).json(comment);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    const comment = {
-      ...result.rows[0],
-      ...userInfo.rows[0],
-      reply_count: 0,
-      is_owner: true
-    };
-    
-    res.status(201).json(comment);
   } catch (err) {
     console.error('Error creating comment:', err);
     res.status(500).json({ error: err.message });
@@ -1832,24 +1898,53 @@ router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res) => 
   const userId = req.user.id;
   
   try {
-    // Check if comment exists and belongs to the user
-    const commentCheck = await pool.query(
-      'SELECT * FROM comments WHERE id = $1',
-      [commentId]
-    );
-    
-    if (commentCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Comment not found' });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Check if comment exists and belongs to the user
+      const commentCheck = await client.query(
+        'SELECT track_id, parent_comment_id FROM comments WHERE id = $1',
+        [commentId]
+      );
+      
+      if (commentCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Comment not found' });
+      }
+      
+      const comment = commentCheck.rows[0];
+      
+      // Verify ownership
+      const ownershipCheck = await client.query(
+        'SELECT user_id FROM comments WHERE id = $1',
+        [commentId]
+      );
+      
+      if (ownershipCheck.rows[0].user_id !== userId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'You can only delete your own comments' });
+      }
+      
+      // Delete the comment (cascade will handle replies)
+      await client.query('DELETE FROM comments WHERE id = $1', [commentId]);
+      
+      // Only decrement comment_count for top-level comments (not replies)
+      if (!comment.parent_comment_id) {
+        await client.query(
+          'UPDATE tracks SET comment_count = GREATEST(0, comment_count - 1) WHERE id = $1',
+          [comment.track_id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.json({ message: 'Comment deleted successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    if (commentCheck.rows[0].user_id !== userId) {
-      return res.status(403).json({ error: 'You can only delete your own comments' });
-    }
-    
-    // Delete the comment (cascade will handle replies)
-    await pool.query('DELETE FROM comments WHERE id = $1', [commentId]);
-    
-    res.json({ message: 'Comment deleted successfully' });
   } catch (err) {
     console.error('Error deleting comment:', err);
     res.status(500).json({ error: err.message });
@@ -1867,9 +1962,9 @@ router.get('/search', async (req, res) => {
         t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
         u.username, u.verified, u.profile_pic_url,
         t2.title AS original_title,
-        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+        t.collab_count,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+        t.like_count
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
@@ -1938,19 +2033,38 @@ router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req,
       return res.status(403).json({ error: 'Cannot repost tracks from private accounts' });
     }
 
-    // Create repost
-    await pool.query(
-      'INSERT INTO reposts (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [userId, id]
-    );
-
-    // Create notification for track owner
-    await pool.query(
-      'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-      [track.user_id, 'repost', id]
-    );
-
-    res.status(200).json({ message: 'Track reposted successfully' });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Create repost
+      const result = await client.query(
+        'INSERT INTO reposts (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
+        [userId, id]
+      );
+      
+      // Only increment if a new repost was actually inserted
+      if (result.rows.length > 0) {
+        await client.query(
+          'UPDATE tracks SET repost_count = repost_count + 1 WHERE id = $1',
+          [id]
+        );
+        
+        // Create notification for track owner
+        await client.query(
+          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+          [track.user_id, 'repost', id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Track reposted successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error('Repost error:', err);
     res.status(500).json({ error: err.message });
@@ -1962,16 +2076,34 @@ router.delete('/:id/repost', betterAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
   try {
-    const result = await pool.query(
-      'DELETE FROM reposts WHERE user_id = $1 AND track_id = $2',
-      [userId, id]
-    );
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Repost not found' });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const result = await client.query(
+        'DELETE FROM reposts WHERE user_id = $1 AND track_id = $2',
+        [userId, id]
+      );
+      
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Repost not found' });
+      }
+      
+      // Decrement repost count
+      await client.query(
+        'UPDATE tracks SET repost_count = GREATEST(0, repost_count - 1) WHERE id = $1',
+        [id]
+      );
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Track unreposted successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    res.status(200).json({ message: 'Track unreposted successfully' });
   } catch (err) {
     console.error('Unrepost error:', err);
     res.status(500).json({ error: err.message });
