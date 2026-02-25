@@ -8,7 +8,7 @@ import { contentCreationLimiter } from '../middleware/rateLimiting.js';
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } from '../utils/subscriptionUtils.js';
 
 // Create a checkout session for donations
-router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res, next) => {
   try {
     const { amount } = req.body;
     
@@ -44,13 +44,12 @@ router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, 
 
     res.json({ id: session.id, url: session.url });
   } catch (error) {
-    console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    next(error);
   }
 });
 
 // Create a subscription checkout session
-router.post('/create-subscription-session', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.post('/create-subscription-session', contentCreationLimiter, authMiddleware, async (req, res, next) => {
   try {
     const { tier } = req.body;
     
@@ -61,13 +60,12 @@ router.post('/create-subscription-session', contentCreationLimiter, authMiddlewa
     // Use the helper function
     return await createNewSubscriptionSession(tier, req.user, res);
   } catch (error) {
-    console.error('Error creating subscription session:', error);
-    res.status(500).json({ error: 'Failed to create subscription session' });
+    next(error);
   }
 });
 
 // Cancel subscription
-router.post('/cancel-subscription', authMiddleware, async (req, res) => {
+router.post('/cancel-subscription', authMiddleware, async (req, res, next) => {
   try {
     const userResult = await db.query(
       'SELECT subscription_tier, subscription_expires_at, stripe_subscription_id FROM users WHERE id = $1',
@@ -87,13 +85,12 @@ router.post('/cancel-subscription', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Subscription will be canceled at the end of the current period' });
   } catch (error) {
-    console.error('Error canceling subscription:', error);
-    res.status(500).json({ error: 'Failed to cancel subscription' });
+    next(error);
   }
 });
 
 // Modify existing subscription (upgrade/downgrade/switch tiers)
-router.post('/modify-subscription', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.post('/modify-subscription', contentCreationLimiter, authMiddleware, async (req, res, next) => {
   try {
     const { tier: newTier } = req.body;
     const userResult = await db.query(
@@ -189,10 +186,7 @@ router.post('/modify-subscription', contentCreationLimiter, authMiddleware, asyn
     });
 
   } catch (error) {
-    console.error('Error modifying subscription:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to modify subscription'
-    });
+    next(error);
   }
 });
 
@@ -250,7 +244,7 @@ async function createNewSubscriptionSession(tier, user, res) {
 }
 
 // Get current subscription status
-router.get('/subscription-status', authMiddleware, async (req, res) => {
+router.get('/subscription-status', authMiddleware, async (req, res, next) => {
   try {
     // Fetch user from database to ensure we have the latest data
     const userResult = await db.query(
@@ -272,41 +266,30 @@ router.get('/subscription-status', authMiddleware, async (req, res) => {
     };
 
     if (user.stripe_subscription_id && subscriptionStatus.tier !== SUBSCRIPTION_TIERS.FREE) {
-      try {
-        const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
-        subscriptionStatus.is_active = subscription.status === 'active';
-        subscriptionStatus.cancel_at_period_end = subscription.cancel_at_period_end;
-        subscriptionStatus.current_period_end = new Date(subscription.current_period_end * 1000);
-      } catch (error) {
-        console.error('Error retrieving subscription from Stripe:', error);
-      }
+      const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+      subscriptionStatus.is_active = subscription.status === 'active';
+      subscriptionStatus.cancel_at_period_end = subscription.cancel_at_period_end;
+      subscriptionStatus.current_period_end = new Date(subscription.current_period_end * 1000);
     }
 
     res.json(subscriptionStatus);
   } catch (error) {
-    console.error('Error getting subscription status:', error);
-    res.status(500).json({ error: 'Failed to get subscription status' });
+    next(error);
   }
 });
 
 // Stripe webhook handler
-router.post('/webhook', async (req, res) => {
+router.post('/webhook', async (req, res, next) => {
   const sig = req.headers['stripe-signature'];
 
-  let event;
-
   try {
-    event = stripe.webhooks.constructEvent(
+
+    let event = stripe.webhooks.constructEvent(
       req.body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
-  } catch (err) {
-    console.error(`Webhook Error: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
 
-  try {
     // Handle the event
     switch (event.type) {
       case 'checkout.session.completed':
@@ -336,13 +319,12 @@ router.post('/webhook', async (req, res) => {
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
-  } catch (error) {
-    console.error('Error processing webhook:', error);
-    return res.status(500).send('Webhook processing failed');
-  }
 
-  // Return a 200 response to acknowledge receipt of the event
-  res.send();
+    // Return a 200 response to acknowledge receipt of the event
+    res.send();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Webhook helper functions
@@ -625,31 +607,24 @@ async function handleCampCreation(session) {
     productVersion
   } = session.metadata;
 
-  try {
-    // Generate unique camp code
-    const crypto = require('crypto');
-    const campCode = crypto.randomBytes(16).toString('hex');
+  // Generate unique camp code
+  const crypto = require('crypto');
+  const campCode = crypto.randomBytes(16).toString('hex');
 
-    // Create camp
-    const campResult = await db.query(
-      `INSERT INTO camps (name, start_date, end_date, created_by, product_version, camp_code, stripe_payment_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [campName, startDate, endDate, userId, productVersion, campCode, session.id]
-    );
+  // Create camp
+  const campResult = await db.query(
+    `INSERT INTO camps (name, start_date, end_date, created_by, product_version, camp_code, stripe_payment_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *`,
+    [campName, startDate, endDate, userId, productVersion, campCode, session.id]
+  );
 
-    // Add creator as owner to user_camps
-    await db.query(
-      `INSERT INTO user_camps (user_id, camp_id, role)
-       VALUES ($1, $2, 'owner')`,
-      [userId, campResult.rows[0].id]
-    );
-
-    console.log(`Camp "${campName}" created successfully for user ${userId} after payment ${session.id}`);
-  } catch (error) {
-    console.error('Error creating camp in webhook:', error);
-    throw error; // Re-throw to ensure webhook processing fails appropriately
-  }
+  // Add creator as owner to user_camps
+  await db.query(
+    `INSERT INTO user_camps (user_id, camp_id, role)
+      VALUES ($1, $2, 'owner')`,
+    [userId, campResult.rows[0].id]
+  );
 }
 
 async function handleTeamCreation(session) {
@@ -659,49 +634,42 @@ async function handleTeamCreation(session) {
     productVersion
   } = session.metadata;
 
-  try {
-    // Get subscription ID from session (for subscription mode)
-    const subscriptionId = session.subscription;
-    const customerId = session.customer;
+  // Get subscription ID from session (for subscription mode)
+  const subscriptionId = session.subscription;
+  const customerId = session.customer;
 
-    if (!subscriptionId) {
-      console.error('No subscription ID found in session');
-      return;
-    }
-
-    // Generate unique team code
-    const crypto = require('crypto');
-    const teamCode = crypto.randomBytes(16).toString('hex');
-
-    // Create team
-    const teamResult = await db.query(
-      `INSERT INTO teams (name, created_by, product_version, stripe_subscription_id, stripe_customer_id, subscription_status, subscription_expires_at, team_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [
-        teamName,
-        userId,
-        productVersion,
-        subscriptionId,
-        customerId,
-        'active',
-        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now, will be updated by subscription.updated webhook
-        teamCode
-      ]
-    );
-
-    // Add creator as owner to team_members
-    await db.query(
-      `INSERT INTO team_members (user_id, team_id, role)
-       VALUES ($1, $2, 'owner')`,
-      [userId, teamResult.rows[0].id]
-    );
-
-    console.log(`Team "${teamName}" created successfully for user ${userId} after subscription ${subscriptionId}`);
-  } catch (error) {
-    console.error('Error creating team in webhook:', error);
-    throw error; // Re-throw to ensure webhook processing fails appropriately
+  if (!subscriptionId) {
+    console.error('No subscription ID found in session');
+    return;
   }
+
+  // Generate unique team code
+  const crypto = require('crypto');
+  const teamCode = crypto.randomBytes(16).toString('hex');
+
+  // Create team
+  const teamResult = await db.query(
+    `INSERT INTO teams (name, created_by, product_version, stripe_subscription_id, stripe_customer_id, subscription_status, subscription_expires_at, team_code)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *`,
+    [
+      teamName,
+      userId,
+      productVersion,
+      subscriptionId,
+      customerId,
+      'active',
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now, will be updated by subscription.updated webhook
+      teamCode
+    ]
+  );
+
+  // Add creator as owner to team_members
+  await db.query(
+    `INSERT INTO team_members (user_id, team_id, role)
+      VALUES ($1, $2, 'owner')`,
+    [userId, teamResult.rows[0].id]
+  );
 }
 
 export default router; 

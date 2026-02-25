@@ -5,13 +5,12 @@ import pool from '../config/db.js';
 const router = express.Router();
 
 // Get all genres
-router.get('/genres', async (req, res) => {
+router.get('/genres', async (req, res, nexxt) => {
   try {
     const result = await pool.query('SELECT * FROM genres ORDER BY name');
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching genres:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
@@ -21,19 +20,17 @@ router.get('/instruments', async (req, res) => {
     const result = await pool.query('SELECT * FROM instruments ORDER BY name');
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching instruments:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
 // Get all elements
-router.get('/elements', async (req, res) => {
+router.get('/elements', async (req, res, next) => {
   try {
     const result = await pool.query('SELECT * FROM elements ORDER BY name');
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching elements:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
@@ -102,7 +99,7 @@ router.get('/elements', async (req, res) => {
 // });
 
 // Get genres for a track
-router.get('/track/:trackId/genres', async (req, res) => {
+router.get('/track/:trackId/genres', async (req, res, next) => {
   try {
     const { trackId } = req.params;
     const result = await pool.query(
@@ -114,13 +111,12 @@ router.get('/track/:trackId/genres', async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching track genres:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
 // Get instruments for a track
-router.get('/track/:trackId/instruments', async (req, res) => {
+router.get('/track/:trackId/instruments', async (req, res, next) => {
   try {
     const { trackId } = req.params;
     const result = await pool.query(
@@ -132,13 +128,12 @@ router.get('/track/:trackId/instruments', async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching track instruments:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
 // Update track genres
-router.post('/track/:trackId/genres', authMiddleware, async (req, res) => {
+router.post('/track/:trackId/genres', authMiddleware, async (req, res, next) => {
   try {
     const { trackId } = req.params;
     const { genreIds } = req.body;
@@ -174,13 +169,12 @@ router.post('/track/:trackId/genres', authMiddleware, async (req, res) => {
     res.status(200).json({ message: 'Track genres updated successfully' });
   } catch (error) {
     await pool.query('ROLLBACK');
-    console.error('Error updating track genres:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
 // Update track instruments
-router.post('/track/:trackId/instruments', authMiddleware, async (req, res) => {
+router.post('/track/:trackId/instruments', authMiddleware, async (req, res, next) => {
   try {
     const { trackId } = req.params;
     const { instrumentIds } = req.body;
@@ -216,8 +210,7 @@ router.post('/track/:trackId/instruments', authMiddleware, async (req, res) => {
     res.status(200).json({ message: 'Track instruments updated successfully' });
   } catch (error) {
     await pool.query('ROLLBACK');
-    console.error('Error updating track instruments:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 

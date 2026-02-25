@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(betterAuthMiddleware);
 
 // Get user's notifications
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   const userId = req.user.id;
   
   // Add pagination parameters
@@ -115,13 +115,12 @@ router.get('/', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching notifications:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get unread notification count
-router.get('/count', async (req, res) => {
+router.get('/count', async (req, res, next) => {
   const userId = req.user.id;
   try {
     const result = await pool.query(
@@ -131,13 +130,12 @@ router.get('/count', async (req, res) => {
     
     res.json({ count: parseInt(result.rows[0].count, 10) });
   } catch (err) {
-    console.error('Error fetching notification count:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Mark notification as read
-router.put('/:id/read', async (req, res) => {
+router.put('/:id/read', async (req, res, next) => {
   const { id } = req.params;
   const userId = req.user.id;
   
@@ -153,13 +151,12 @@ router.put('/:id/read', async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error marking notification as read:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Mark all notifications as read
-router.put('/read-all', async (req, res) => {
+router.put('/read-all', async (req, res, next) => {
   const userId = req.user.id;
   
   try {
@@ -170,13 +167,12 @@ router.put('/read-all', async (req, res) => {
     
     res.json({ message: 'All notifications marked as read' });
   } catch (err) {
-    console.error('Error marking all notifications as read:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete a notification
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   const { id } = req.params;
   const userId = req.user.id;
   
@@ -192,13 +188,12 @@ router.delete('/:id', async (req, res) => {
     
     res.json({ message: 'Notification deleted successfully' });
   } catch (err) {
-    console.error('Error deleting notification:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user's notification preferences
-router.get('/preferences', async (req, res) => {
+router.get('/preferences', async (req, res, next) => {
   const userId = req.user.id;
   
   try {
@@ -218,32 +213,31 @@ router.get('/preferences', async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error fetching notification preferences:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Update user's notification preferences
-router.put('/preferences', async (req, res) => {
-  const userId = req.user.id;
-  const { activity_summary_frequency, collab_email_enabled } = req.body;
-  
-  // Validate activity_summary_frequency
-  const validFrequencies = ['daily', 'weekly', 'monthly', 'none'];
-  if (activity_summary_frequency && !validFrequencies.includes(activity_summary_frequency)) {
-    return res.status(400).json({ 
-      error: 'Invalid activity_summary_frequency. Must be one of: daily, weekly, monthly, none' 
-    });
-  }
-  
-  // Validate collab_email_enabled
-  if (collab_email_enabled !== undefined && typeof collab_email_enabled !== 'boolean') {
-    return res.status(400).json({ 
-      error: 'collab_email_enabled must be a boolean' 
-    });
-  }
-  
+router.put('/preferences', async (req, res, next) => {
   try {
+    const userId = req.user.id;
+    const { activity_summary_frequency, collab_email_enabled } = req.body;
+    
+    // Validate activity_summary_frequency
+    const validFrequencies = ['daily', 'weekly', 'monthly', 'none'];
+    if (activity_summary_frequency && !validFrequencies.includes(activity_summary_frequency)) {
+      return res.status(400).json({ 
+        error: 'Invalid activity_summary_frequency. Must be one of: daily, weekly, monthly, none' 
+      });
+    }
+    
+    // Validate collab_email_enabled
+    if (collab_email_enabled !== undefined && typeof collab_email_enabled !== 'boolean') {
+      return res.status(400).json({ 
+        error: 'collab_email_enabled must be a boolean' 
+      });
+    }
+  
     // Build dynamic update query
     const updates = [];
     const values = [];
@@ -286,8 +280,7 @@ router.put('/preferences', async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error updating notification preferences:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
