@@ -600,24 +600,24 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
           lastPollTimeRef.current = new Date(mostRecentTime.getTime() + 1);
 
           // Mark parent trackIds as having new kids available
-          // Count new tracks per parent
+          // Collect new track IDs per parent
           const newTracksByParent = new Map();
           tracks.forEach(track => {
             if (track.parent_track_id && !treeDataManager.current.trackData.has(track.id)) {
-              const currentCount = newTracksByParent.get(track.parent_track_id) || 0;
-              newTracksByParent.set(track.parent_track_id, currentCount + 1);
+              const currentIds = newTracksByParent.get(track.parent_track_id) || [];
+              newTracksByParent.set(track.parent_track_id, [...currentIds, track.id]);
             }
           });
           
-          // Update counts for each parent
-          newTracksByParent.forEach((count, parentId) => {
-            treeDataManager.current.markNewKidsAvailable(parentId, count);
+          // Update track IDs for each parent
+          newTracksByParent.forEach((trackIds, parentId) => {
+            treeDataManager.current.markNewKidsAvailable(parentId, trackIds);
             
             // Update collab_count on the parent track in trackData
             const parentTrack = treeDataManager.current.trackData.get(parentId);
             if (parentTrack) {
               const currentCollabCount = parentTrack.collab_count || 0;
-              parentTrack.collab_count = currentCollabCount + count;
+              parentTrack.collab_count = currentCollabCount + trackIds.length;
               // Update the trackData map with the modified track
               treeDataManager.current.trackData.set(parentId, parentTrack);
             }
