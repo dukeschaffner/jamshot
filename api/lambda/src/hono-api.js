@@ -56,6 +56,17 @@ app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
   }
 });
 
+
+
+
+
+
+
+
+
+
+
+
 // Health check endpoint
 app.get(`${stagePrefix}/`, (c) => {
   console.log(`[HONO HANDLER] Health check endpoint hit: ${c.req.method} ${c.req.path}`);

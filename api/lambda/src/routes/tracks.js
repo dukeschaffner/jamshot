@@ -211,19 +211,19 @@ const handleMulterError = (error, req, res, next) => {
 
 
 // Initialize upload by generating pre-signed S3 URL
-router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res) => {
-  const { filename, fileSize, is_camp_track, team_id } = req.body;
-  const userId = req.user.id;
-
-  if (!filename || !fileSize) {
-    return res.status(400).json({ error: 'filename and fileSize are required' });
-  }
-
-  if (fileSize > 100 * 1024 * 1024) { // 100MB limit
-    return res.status(400).json({ error: 'File size exceeds maximum limit of 100MB' });
-  }
-
+router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { filename, fileSize, is_camp_track, team_id } = req.body;
+    const userId = req.user.id;
+
+    if (!filename || !fileSize) {
+      return res.status(400).json({ error: 'filename and fileSize are required' });
+    }
+
+    if (fileSize > 100 * 1024 * 1024) { // 100MB limit
+      return res.status(400).json({ error: 'File size exceeds maximum limit of 100MB' });
+    }
+
     // Skip quota validations for camp tracks and team uploads
     if (!is_camp_track && !team_id) {
       // Check user's subscription limits (but don't consume them yet)
@@ -265,71 +265,62 @@ router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res
       expiresAt: uploadData.expiresAt,
       maxSize: 100 * 1024 * 1024 // 100MB
     });
-
   } catch (err) {
-    console.error('Upload initialization error:', err);
-    const sanitizedError = sanitizeErrorForClient(err.message, false);
-    res.status(500).json({ error: sanitizedError });
+    next(err);
   }
 });
 
 // Process upload after S3 upload is complete
-router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => {
-  const userId = req.user.id;
-  let layer = 0;
-  let parentIsPrivate = false;
-  let parentSecretToken = null;
-  let isCompetitionEntry = false;
-  let competitionId = null;
-  let parentTrack = null;
-  let isLoop = false;
-
-  let {
-    title,
-    parent_track_id,
-    enter_competition,
-    s3Key,
-    parsedGenreIds,
-    parsedInstrumentIds,
-    parsedElementIds,
-    parsedInstrumentRequestIds,
-    parsedElementRequestIds,
-    parsedMetronomeBpm,
-    parsedStems,
-    parsedTimeSignature,
-    isPrivate,
-    allowDownload,
-    parsedMetronomeOffset,
-    camp_id,
-    room_id,
-    team_id,
-    folder_id,
-    key
-  } = parseTrackUploadBody(req.body);
-
-  if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
-
-  // Validate S3 key format
-  if (!s3Key.startsWith('uploads/temp/') || !s3Key.includes(`/${userId}/`)) {
-    return res.status(400).json({ error: 'Invalid S3 key format' });
-  }
-
-  // Download file from S3 for validation
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-  const localFilePath = path.join(tempDir, `validation-${Date.now()}-${path.basename(s3Key)}`);
-
+router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
-    await downloadS3File(s3Key, localFilePath);
-    console.log('Successfully downloaded file from S3 for validation');
-  } catch (downloadError) {
-    console.error('Failed to download file from S3:', downloadError);
-    return res.status(400).json({ error: 'Failed to access uploaded file. Please try uploading again.' });
-  }
+    const userId = req.user.id;
+    let layer = 0;
+    let parentIsPrivate = false;
+    let parentSecretToken = null;
+    let isCompetitionEntry = false;
+    let competitionId = null;
+    let parentTrack = null;
+    let isLoop = false;
 
-  // Skip quota validations for camp tracks and team uploads
-  if (!camp_id && !team_id) {
-    try {
+    let {
+      title,
+      parent_track_id,
+      enter_competition,
+      s3Key,
+      parsedGenreIds,
+      parsedInstrumentIds,
+      parsedElementIds,
+      parsedInstrumentRequestIds,
+      parsedElementRequestIds,
+      parsedMetronomeBpm,
+      parsedStems,
+      parsedTimeSignature,
+      isPrivate,
+      allowDownload,
+      parsedMetronomeOffset,
+      camp_id,
+      room_id,
+      team_id,
+      folder_id,
+      key
+    } = parseTrackUploadBody(req.body);
+
+    if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
+
+    // Validate S3 key format
+    if (!s3Key.startsWith('uploads/temp/') || !s3Key.includes(`/${userId}/`)) {
+      return res.status(400).json({ error: 'Invalid S3 key format' });
+    }
+
+    // Download file from S3 for validation
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    var localFilePath = path.join(tempDir, `validation-${Date.now()}-${path.basename(s3Key)}`);
+
+    await downloadS3File(s3Key, localFilePath);
+
+    // Skip quota validations for camp tracks and team uploads
+    if (!camp_id && !team_id) {
       // Get user and subscription for quota checks and later use
       const userResult = await pool.query(
         'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
@@ -354,15 +345,9 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       if (totalQuotaCheck) {
         return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
       }
-    } catch (err) {
-      console.error('Error checking user subscription limits:', err);
-      return res.status(500).json({ error: `Failed to check user subscription limits` });
     }
-  }
 
-  let duration;
-
-  try {
+    let duration;
     const parser = await getParser();
     const metadata = await parser.parseFile(localFilePath);
     duration = metadata.format.duration;
@@ -371,22 +356,11 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
     if (duration > 5 * 60) {
       return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 5 minutes' });
     }
-  } catch (err) {
-    console.error('❌ Audio metadata parsing failed:', {
-      error: err.message,
-      stack: err.stack,
-      filePath: localFilePath,
-      fileExists: fs.existsSync(localFilePath)
-    });
-    return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
-  }
 
-  let stemChain = [];
-  try {
+
+
     // Get the complete stem chain for mixing
-    stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
-
-    // Validate stem chain and parsedStems
+    let stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
     const validation = validateAndUpdateStemChain(stemChain, parsedStems);
     if (!validation.valid) {
       return res.status(400).json({
@@ -394,19 +368,14 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
         message: validation.error
       });
     }
-  } catch (err) {
-    console.error('Error validating stem chain and parsedStems:', err);
-    return res.status(500).json({ error: `Failed to validate stem chain and parsedStems: ${err.message}` });
-  }
 
 
-  // Set audio_url to the permanent temp S3 location for audio processing lambda
-  // The lambda will extract the base and derive final URLs
-  const permanentTempKey = s3Key.replace('uploads/temp/', 'temp/tracks/');
-  const audioUrl = permanentTempKey;
+    // Set audio_url to the permanent temp S3 location for audio processing lambda
+    // The lambda will extract the base and derive final URLs
+    const audioUrl = s3Key.replace('uploads/temp/', 'temp/tracks/');
 
-  // Validate collaboration logic (but don't do audio processing yet)
-  try {
+    // Validate collaboration logic (but don't do audio processing yet)
+
     let rootId = null;
     if (parent_track_id) {
       const parentResult = await pool.query(
@@ -584,22 +553,17 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
         return res.status(400).json({ error: 'Invalid team product version' });
       }
 
-      // Check team upload quotas
-      try {
-        // Check if team has reached their daily upload limit
-        const teamDailyQuotaCheck = await checkTeamDailyUploadQuota(team_id, team, teamPlan);
-        if (teamDailyQuotaCheck) {
-          return res.status(teamDailyQuotaCheck.status).json(teamDailyQuotaCheck.body);
-        }
 
-        // Check if team has reached their total track limit
-        const teamTotalQuotaCheck = await checkTeamTotalUploadQuota(team_id, team, teamPlan);
-        if (teamTotalQuotaCheck) {
-          return res.status(teamTotalQuotaCheck.status).json(teamTotalQuotaCheck.body);
-        }
-      } catch (err) {
-        console.error('Error checking team upload quotas:', err);
-        return res.status(500).json({ error: 'Failed to check team upload quotas' });
+      // Check if team has reached their daily upload limit
+      const teamDailyQuotaCheck = await checkTeamDailyUploadQuota(team_id, team, teamPlan);
+      if (teamDailyQuotaCheck) {
+        return res.status(teamDailyQuotaCheck.status).json(teamDailyQuotaCheck.body);
+      }
+
+      // Check if team has reached their total track limit
+      const teamTotalQuotaCheck = await checkTeamTotalUploadQuota(team_id, team, teamPlan);
+      if (teamTotalQuotaCheck) {
+        return res.status(teamTotalQuotaCheck.status).json(teamTotalQuotaCheck.body);
       }
 
       // Validate folder access if folder_id is provided
@@ -791,35 +755,31 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       processing_status: 'processing'
     });
   } catch (err) {
-    console.error('Upload error:', err);
-
     // Clean up downloaded file on error
     if (localFilePath) {
       await fsPromises.unlink(localFilePath).catch(cleanupErr => console.error('Upload file cleanup error:', cleanupErr));
     }
 
-    // Sanitize error message to prevent exposing server-side details
-    const sanitizedError = sanitizeErrorForClient(err.message, false);
-    res.status(500).json({ error: sanitizedError });
+    next(err);
   }
 });
 
 // Get "For You" feed (mixed content - followed users + popular)
-router.get('/feed/for-you', async (req, res) => {
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  // Parse tag filter parameters
-  const tagFilters = {};
-  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
-  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
-  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
-  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
-  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
-
+router.get('/feed/for-you', async (req, res, next) => {
   try {
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    // Parse tag filter parameters
+    const tagFilters = {};
+    if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+    if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+    if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+    if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+    if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
     let query;
     let queryParams;
 
@@ -841,31 +801,30 @@ router.get('/feed/for-you', async (req, res) => {
 
     res.json(tracks);
   } catch (err) {
-    console.error('Feed error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get Following feed (just followed artists)
-router.get('/feed/following', async (req, res) => {
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  // Parse tag filter parameters
-  const tagFilters = {};
-  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
-  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
-  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
-  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
-  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
-
+router.get('/feed/following', async (req, res, next) => {
   try {
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Parse tag filter parameters
+    const tagFilters = {};
+    if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+    if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+    if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+    if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+    if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
     // Use the standardized following feed query function
     const query = getFollowingFeedQuery(2, 3, tagFilters);
     const queryParams = [userId, limitNum, offset];
@@ -877,27 +836,26 @@ router.get('/feed/following', async (req, res) => {
 
     res.json(tracks);
   } catch (err) {
-    console.error('Following feed error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get Popular feed (globally popular tracks)
-router.get('/feed/popular', async (req, res) => {
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  // Parse tag filter parameters
-  const tagFilters = {};
-  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
-  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
-  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
-  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
-  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
-
+router.get('/feed/popular', async (req, res, next) => {
   try {
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    // Parse tag filter parameters
+    const tagFilters = {};
+    if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+    if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+    if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+    if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+    if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
     // Use the standardized popular feed query function
     let query;
     let queryParams;
@@ -916,19 +874,18 @@ router.get('/feed/popular', async (req, res) => {
 
     res.json(tracks);
   } catch (err) {
-    console.error('Popular feed error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 
 // Get Track and Versions
-router.get('/:id', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
-  
+router.get('/:id', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query; // Secret token for private tracks
+    
     // Check if the track exists and if user has access
     const accessCheck = await checkTrackAccess(id, userId, secret);
     if (!accessCheck.hasAccess) {
@@ -964,16 +921,16 @@ router.get('/:id', optionalBetterAuthMiddleware, async (req, res) => {
     
     res.json(tracks);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get stem chain for DAW loading
-router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-
+router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
     // Check if user has access to the track
     const accessCheck = await checkTrackAccess(id, userId);
     if (!accessCheck.hasAccess) {
@@ -991,30 +948,29 @@ router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res) => {
 
     res.json(stemsWithSignedUrls);
   } catch (err) {
-    console.error('Stem chain retrieval error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-router.get('/:id/related', async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, includeParent = true, includeChildCount = false } = req.query;
-  
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  let baseQuery;
-  let queryParams;
-  const includeChildCountBool = includeChildCount === 'true';
-  if (userId) {
-    baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
-    queryParams = [id, userId];
-  } else {
-    baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
-    queryParams = [id];
-  }
+router.get('/:id/related', async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, includeParent = true, includeChildCount = false } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    let baseQuery;
+    let queryParams;
+    const includeChildCountBool = includeChildCount === 'true';
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
+      queryParams = [id];
+    }
     // Only include the parent track and current track on the first page
     let combinedTracks = [];
 
@@ -1085,30 +1041,30 @@ router.get('/:id/related', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-router.get('/:id/related2', async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { lastId, limit = 5, orderBy = 'newest', includeParent = true, includeChildCount = false } = req.query;
-  
-  const limitNum = parseInt(limit);
-  const orderByNewest = orderBy !== 'oldest'; // Default to newest
-  const includeChildCountBool = includeChildCount === 'true';
-
-  let baseQuery;
-  let queryParams;
-  if (userId) {
-    baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
-    queryParams = [id, userId];
-  } else {
-    baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
-    queryParams = [id];
-  }
-
+router.get('/:id/related2', async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { lastId, limit = 5, orderBy = 'newest', includeParent = true, includeChildCount = false } = req.query;
+    
+    const limitNum = parseInt(limit);
+    const orderByNewest = orderBy !== 'oldest'; // Default to newest
+    const includeChildCountBool = includeChildCount === 'true';
+
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
+      queryParams = [id];
+    }
+
     // Only include the parent track on the first request (when lastId is not provided)
     let combinedTracks = [];
     
@@ -1213,16 +1169,16 @@ router.get('/:id/related2', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get track processing status
-router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-
+router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
     // Check if track exists and user has access
     const accessCheck = await checkTrackAccess(id, userId);
     if (!accessCheck.hasAccess) {
@@ -1271,215 +1227,213 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error fetching track status:', err);
-    const sanitizedError = sanitizeErrorForClient(err.message, false);
-    res.status(500).json({ error: sanitizedError });
+    next(err);
   }
 });
 
 // Request video export for a track
-router.post('/:id/video-export', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  const { start_time, duration } = req.body;
+// router.post('/:id/video-export', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
+//   const { id } = req.params;
+//   const userId = req.user.id;
+//   const { start_time, duration } = req.body;
 
-  try {
-    // Verify user is track creator
-    const trackResult = await pool.query(
-      'SELECT id, user_id, guid, duration FROM tracks WHERE id = $1',
-      [id]
-    );
+//   try {
+//     // Verify user is track creator
+//     const trackResult = await pool.query(
+//       'SELECT id, user_id, guid, duration FROM tracks WHERE id = $1',
+//       [id]
+//     );
 
-    if (trackResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Track not found' });
-    }
+//     if (trackResult.rows.length === 0) {
+//       return res.status(404).json({ error: 'Track not found' });
+//     }
 
-    const track = trackResult.rows[0];
-    if (track.user_id !== userId) {
-      return res.status(403).json({ error: 'Only the track creator can export videos' });
-    }
+//     const track = trackResult.rows[0];
+//     if (track.user_id !== userId) {
+//       return res.status(403).json({ error: 'Only the track creator can export videos' });
+//     }
 
-    // Check daily rate limit
-    const limitCheck = await checkVideoExportLimit(userId);
-    if (!limitCheck || !limitCheck.allowed) {
-      return res.status(429).json({
-        error: 'Daily video export limit reached',
-        message: `You've reached the daily limit of ${limitCheck?.limit || 5} video exports. Try again tomorrow.`,
-        count: limitCheck?.count || 0,
-        limit: limitCheck?.limit || 5
-      });
-    }
+//     // Check daily rate limit
+//     const limitCheck = await checkVideoExportLimit(userId);
+//     if (!limitCheck || !limitCheck.allowed) {
+//       return res.status(429).json({
+//         error: 'Daily video export limit reached',
+//         message: `You've reached the daily limit of ${limitCheck?.limit || 5} video exports. Try again tomorrow.`,
+//         count: limitCheck?.count || 0,
+//         limit: limitCheck?.limit || 5
+//       });
+//     }
 
-    // Validate parameters
-    const startTime = start_time !== undefined ? parseFloat(start_time) : 0;
-    const videoDuration = duration !== undefined ? parseFloat(duration) : Math.min(track.duration, 90);
+//     // Validate parameters
+//     const startTime = start_time !== undefined ? parseFloat(start_time) : 0;
+//     const videoDuration = duration !== undefined ? parseFloat(duration) : Math.min(track.duration, 90);
     
-    if (startTime < 0 || startTime >= track.duration) {
-      return res.status(400).json({ error: 'Invalid start time' });
-    }
+//     if (startTime < 0 || startTime >= track.duration) {
+//       return res.status(400).json({ error: 'Invalid start time' });
+//     }
 
-    if (videoDuration <= 0 || videoDuration > 90) {
-      return res.status(400).json({ error: 'Duration must be between 0 and 90 seconds' });
-    }
+//     if (videoDuration <= 0 || videoDuration > 90) {
+//       return res.status(400).json({ error: 'Duration must be between 0 and 90 seconds' });
+//     }
 
-    if (startTime + videoDuration > track.duration) {
-      return res.status(400).json({ error: 'Start time + duration exceeds track duration' });
-    }
+//     if (startTime + videoDuration > track.duration) {
+//       return res.status(400).json({ error: 'Start time + duration exceeds track duration' });
+//     }
 
-    // Create video export record
-    const exportResult = await pool.query(
-      `INSERT INTO video_exports (track_id, user_id, status, start_time, duration)
-       VALUES ($1, $2, 'pending', $3, $4)
-       RETURNING id, track_id, user_id, status, start_time, duration, created_at`,
-      [id, userId, startTime, videoDuration]
-    );
+//     // Create video export record
+//     const exportResult = await pool.query(
+//       `INSERT INTO video_exports (track_id, user_id, status, start_time, duration)
+//        VALUES ($1, $2, 'pending', $3, $4)
+//        RETURNING id, track_id, user_id, status, start_time, duration, created_at`,
+//       [id, userId, startTime, videoDuration]
+//     );
 
-    const exportJob = exportResult.rows[0];
+//     const exportJob = exportResult.rows[0];
 
-    // Invoke Lambda function asynchronously
-    try {
-      if(process.env.NODE_ENV !== 'dev') { // dev
-        const lambdaFunctionName = 'sterio-video-export' + (process.env.NODE_ENV === 'production' ? '' : '-test');
+//     // Invoke Lambda function asynchronously
+//     try {
+//       if(process.env.NODE_ENV !== 'dev') { // dev
+//         const lambdaFunctionName = 'sterio-video-export' + (process.env.NODE_ENV === 'production' ? '' : '-test');
         
-        const invokeCommand = new InvokeCommand({
-          FunctionName: lambdaFunctionName,
-          InvocationType: 'Event', // Async invocation
-          Payload: JSON.stringify({
-            export_id: exportJob.id,
-            track_id: id,
-            track_guid: track.guid,
-            start_time: startTime,
-            duration: videoDuration
-          })
-        });
+//         const invokeCommand = new InvokeCommand({
+//           FunctionName: lambdaFunctionName,
+//           InvocationType: 'Event', // Async invocation
+//           Payload: JSON.stringify({
+//             export_id: exportJob.id,
+//             track_id: id,
+//             track_guid: track.guid,
+//             start_time: startTime,
+//             duration: videoDuration
+//           })
+//         });
 
-        await lambdaClient.send(invokeCommand);
-      }
+//         await lambdaClient.send(invokeCommand);
+//       }
       
-      // Update status to processing
-      await pool.query(
-        'UPDATE video_exports SET status = $1 WHERE id = $2',
-        ['processing', exportJob.id]
-      );
+//       // Update status to processing
+//       await pool.query(
+//         'UPDATE video_exports SET status = $1 WHERE id = $2',
+//         ['processing', exportJob.id]
+//       );
 
-      res.json({
-        export_id: exportJob.id,
-        track_id: id,
-        status: 'processing',
-        start_time: startTime,
-        duration: videoDuration,
-        created_at: exportJob.created_at
-      });
-    } catch (lambdaError) {
-      console.error('Error invoking video export Lambda:', lambdaError);
+//       res.json({
+//         export_id: exportJob.id,
+//         track_id: id,
+//         status: 'processing',
+//         start_time: startTime,
+//         duration: videoDuration,
+//         created_at: exportJob.created_at
+//       });
+//     } catch (lambdaError) {
+//       console.error('Error invoking video export Lambda:', lambdaError);
       
-      // Update status to failed
-      await pool.query(
-        `UPDATE video_exports SET status = $1, error_message = $2 WHERE id = $3`,
-        ['failed', 'Video export service unavailable. Please try again later.', exportJob.id]
-      );
+//       // Update status to failed
+//       await pool.query(
+//         `UPDATE video_exports SET status = $1, error_message = $2 WHERE id = $3`,
+//         ['failed', 'Video export service unavailable. Please try again later.', exportJob.id]
+//       );
 
-      return res.status(500).json({
-        error: 'Failed to start video export',
-        message: 'Video export service unavailable. Please try again later.'
-      });
-    }
+//       return res.status(500).json({
+//         error: 'Failed to start video export',
+//         message: 'Video export service unavailable. Please try again later.'
+//       });
+//     }
 
-  } catch (err) {
-    console.error('Error requesting video export:', err);
-    const sanitizedError = sanitizeErrorForClient(err.message, false);
-    res.status(500).json({ error: sanitizedError });
-  }
-});
+//   } catch (err) {
+//     console.error('Error requesting video export:', err);
+//     const sanitizedError = sanitizeErrorForClient(err.message, false);
+//     res.status(500).json({ error: sanitizedError });
+//   }
+// });
 
-// Get video export status
-router.get('/:id/video-export/:exportId/status', betterAuthMiddleware, async (req, res) => {
-  const { id, exportId } = req.params;
-  const userId = req.user.id;
+// // Get video export status
+// router.get('/:id/video-export/:exportId/status', betterAuthMiddleware, async (req, res) => {
+//   const { id, exportId } = req.params;
+//   const userId = req.user.id;
 
-  try {
-    // Verify user owns the export
-    const exportResult = await pool.query(
-      `SELECT id, track_id, user_id, status, video_url, start_time, duration, 
-              error_message, created_at, updated_at
-       FROM video_exports
-       WHERE id = $1 AND track_id = $2 AND user_id = $3`,
-      [exportId, id, userId]
-    );
+//   try {
+//     // Verify user owns the export
+//     const exportResult = await pool.query(
+//       `SELECT id, track_id, user_id, status, video_url, start_time, duration, 
+//               error_message, created_at, updated_at
+//        FROM video_exports
+//        WHERE id = $1 AND track_id = $2 AND user_id = $3`,
+//       [exportId, id, userId]
+//     );
 
-    if (exportResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Video export not found' });
-    }
+//     if (exportResult.rows.length === 0) {
+//       return res.status(404).json({ error: 'Video export not found' });
+//     }
 
-    const exportJob = exportResult.rows[0];
+//     const exportJob = exportResult.rows[0];
 
-    res.json({
-      export_id: exportJob.id,
-      track_id: exportJob.track_id,
-      status: exportJob.status,
-      video_url: exportJob.video_url || null,
-      start_time: exportJob.start_time,
-      duration: exportJob.duration,
-      error_message: exportJob.error_message || null,
-      created_at: exportJob.created_at,
-      updated_at: exportJob.updated_at
-    });
+//     res.json({
+//       export_id: exportJob.id,
+//       track_id: exportJob.track_id,
+//       status: exportJob.status,
+//       video_url: exportJob.video_url || null,
+//       start_time: exportJob.start_time,
+//       duration: exportJob.duration,
+//       error_message: exportJob.error_message || null,
+//       created_at: exportJob.created_at,
+//       updated_at: exportJob.updated_at
+//     });
 
-  } catch (err) {
-    console.error('Error fetching video export status:', err);
-    const sanitizedError = sanitizeErrorForClient(err.message, false);
-    res.status(500).json({ error: sanitizedError });
-  }
-});
+//   } catch (err) {
+//     console.error('Error fetching video export status:', err);
+//     const sanitizedError = sanitizeErrorForClient(err.message, false);
+//     res.status(500).json({ error: sanitizedError });
+//   }
+// });
 
-// Get video export download URL
-router.get('/:id/video-export/:exportId/download', betterAuthMiddleware, async (req, res) => {
-  const { id, exportId } = req.params;
-  const userId = req.user.id;
+// // Get video export download URL
+// router.get('/:id/video-export/:exportId/download', betterAuthMiddleware, async (req, res) => {
+//   const { id, exportId } = req.params;
+//   const userId = req.user.id;
 
-  try {
-    // Verify user owns the export and it's completed
-    const exportResult = await pool.query(
-      `SELECT id, track_id, user_id, status, video_url
-       FROM video_exports
-       WHERE id = $1 AND track_id = $2 AND user_id = $3`,
-      [exportId, id, userId]
-    );
+//   try {
+//     // Verify user owns the export and it's completed
+//     const exportResult = await pool.query(
+//       `SELECT id, track_id, user_id, status, video_url
+//        FROM video_exports
+//        WHERE id = $1 AND track_id = $2 AND user_id = $3`,
+//       [exportId, id, userId]
+//     );
 
-    if (exportResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Video export not found' });
-    }
+//     if (exportResult.rows.length === 0) {
+//       return res.status(404).json({ error: 'Video export not found' });
+//     }
 
-    const exportJob = exportResult.rows[0];
+//     const exportJob = exportResult.rows[0];
 
-    if (exportJob.status !== 'completed') {
-      return res.status(400).json({ 
-        error: 'Video export not completed',
-        status: exportJob.status
-      });
-    }
+//     if (exportJob.status !== 'completed') {
+//       return res.status(400).json({ 
+//         error: 'Video export not completed',
+//         status: exportJob.status
+//       });
+//     }
 
-    if (!exportJob.video_url) {
-      return res.status(404).json({ error: 'Video URL not available' });
-    }
+//     if (!exportJob.video_url) {
+//       return res.status(404).json({ error: 'Video URL not available' });
+//     }
 
-    // Return the video URL (R2 public URL)
-    res.json({
-      download_url: exportJob.video_url
-    });
+//     // Return the video URL (R2 public URL)
+//     res.json({
+//       download_url: exportJob.video_url
+//     });
 
-  } catch (err) {
-    console.error('Error fetching video export download:', err);
-    const sanitizedError = sanitizeErrorForClient(err.message, false);
-    res.status(500).json({ error: sanitizedError });
-  }
-});
+//   } catch (err) {
+//     console.error('Error fetching video export download:', err);
+//     const sanitizedError = sanitizeErrorForClient(err.message, false);
+//     res.status(500).json({ error: sanitizedError });
+//   }
+// });
 
 // Like a Track
-router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
     // Check if track exists and get track owner
     const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
     if (trackCheck.rows.length === 0) {
@@ -1488,7 +1442,7 @@ router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, r
     
     // Don't create notification if liking your own track
     const trackOwnerId = trackCheck.rows[0].user_id;
-    
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -1523,15 +1477,16 @@ router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, r
       client.release();
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Unlike a Track
-router.delete('/:id/like', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.delete('/:id/like', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -1558,20 +1513,21 @@ router.delete('/:id/like', betterAuthMiddleware, async (req, res) => {
       client.release();
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get users who liked a track
-router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { page = 1, limit = 20 } = req.query;
-  
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-  
+router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { page = 1, limit = 20 } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+  
+
     // First check if track exists and if user has access
     const trackCheck = await pool.query(
       'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
@@ -1637,21 +1593,20 @@ router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching track likes:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get comments for a track with pagination
-router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { page = 1, limit = 10, parent_id = null } = req.query;
-  
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-  
+router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { page = 1, limit = 10, parent_id = null } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+  
     // First check if track exists and if user has access
     const trackCheck = await pool.query(
       'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
@@ -1714,30 +1669,29 @@ router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching comments:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Comment on a Track
-router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const { content, parent_comment_id } = req.body;
-  const userId = req.user.id;
-  
-  // Validate comment content length
-  const MAX_COMMENT_LENGTH = 1000;
-  if (!content || typeof content !== 'string') {
-    return res.status(400).json({ error: 'Comment content is required' });
-  }
-  if (content.trim().length === 0) {
-    return res.status(400).json({ error: 'Comment content cannot be empty' });
-  }
-  if (content.length > MAX_COMMENT_LENGTH) {
-    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
-  }
-  
+router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const { content, parent_comment_id } = req.body;
+    const userId = req.user.id;
+    
+    // Validate comment content length
+    const MAX_COMMENT_LENGTH = 1000;
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+    if (content.trim().length === 0) {
+      return res.status(400).json({ error: 'Comment content cannot be empty' });
+    }
+    if (content.length > MAX_COMMENT_LENGTH) {
+      return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+    }
+
     // Check if track exists and get track owner
     const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
     if (trackCheck.rows.length === 0) {
@@ -1822,30 +1776,29 @@ router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async 
       client.release();
     }
   } catch (err) {
-    console.error('Error creating comment:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Update a comment
-router.put('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
-  const { commentId } = req.params;
-  const { content } = req.body;
-  const userId = req.user.id;
-  
-  // Validate comment content length
-  const MAX_COMMENT_LENGTH = 1000;
-  if (!content || typeof content !== 'string') {
-    return res.status(400).json({ error: 'Comment content is required' });
-  }
-  if (content.trim().length === 0) {
-    return res.status(400).json({ error: 'Comment content cannot be empty' });
-  }
-  if (content.length > MAX_COMMENT_LENGTH) {
-    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
-  }
-  
+router.put('/comments/:commentId', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { commentId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+    
+    // Validate comment content length
+    const MAX_COMMENT_LENGTH = 1000;
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+    if (content.trim().length === 0) {
+      return res.status(400).json({ error: 'Comment content cannot be empty' });
+    }
+    if (content.length > MAX_COMMENT_LENGTH) {
+      return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+    }
+
     // Check if comment exists and belongs to the user
     const commentCheck = await pool.query(
       'SELECT * FROM comments WHERE id = $1',
@@ -1887,17 +1840,16 @@ router.put('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
     
     res.json(comment);
   } catch (err) {
-    console.error('Error updating comment:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete a comment
-router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
-  const { commentId } = req.params;
-  const userId = req.user.id;
-  
+router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { commentId } = req.params;
+    const userId = req.user.id;
+  
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -1946,17 +1898,16 @@ router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res) => 
       client.release();
     }
   } catch (err) {
-    console.error('Error deleting comment:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Search tracks by genre or instrument
-router.get('/search', async (req, res) => {
-  const { genreId, instrumentId } = req.query;
-  const userId = req.user?.id;
-  
+router.get('/search', async (req, res, next) => {
   try {
+    const { genreId, instrumentId } = req.query;
+    const userId = req.user?.id;
+  
     let query = `
       SELECT DISTINCT
         t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
@@ -1994,16 +1945,15 @@ router.get('/search', async (req, res) => {
     
     res.json(tracks);
   } catch (err) {
-    console.error('Search error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Repost a Track
-router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
     // Check if track exists and get track privacy info along with creator's account privacy
     const trackCheck = await pool.query(`
       SELECT t.user_id, t.is_private, u.is_private as creator_is_private
@@ -2066,16 +2016,15 @@ router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req,
       client.release();
     }
   } catch (err) {
-    console.error('Repost error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Unrepost a Track
-router.delete('/:id/repost', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.delete('/:id/repost', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -2105,27 +2054,26 @@ router.delete('/:id/repost', betterAuthMiddleware, async (req, res) => {
       client.release();
     }
   } catch (err) {
-    console.error('Unrepost error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Record initial play for a track
 // This endpoint is called when a user starts listening to a track
-router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
-  const { id } = req.params;
-  const { 
-    discovery_method = 'unknown', 
-    referrer_url = null,
-    listen_duration = null,
-    is_complete_play = null,
-    skip_time = null,
-    play_id = null
-  } = req.body;
-  const userId = req.user?.id; // Optional - can be null for anonymous plays
-  const isUpdate = listen_duration !== null || is_complete_play !== null || skip_time !== null;
-  
+router.post('/:id/play', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const { 
+      discovery_method = 'unknown', 
+      referrer_url = null,
+      listen_duration = null,
+      is_complete_play = null,
+      skip_time = null,
+      play_id = null
+    } = req.body;
+    const userId = req.user?.id; // Optional - can be null for anonymous plays
+    const isUpdate = listen_duration !== null || is_complete_play !== null || skip_time !== null;
+
     // Check if track exists
     const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [id]);
     if (trackCheck.rows.length === 0) {
@@ -2225,18 +2173,17 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       client.release();
     }
   } catch (err) {
-    console.error('Error recording play:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get full track tree (ancestors and children)
-router.get('/:id/tree', async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
-  
+router.get('/:id/tree', async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query; // Secret token for private tracks
+  
     // Check if the track exists and if user has access
     const accessCheck = await checkTrackAccess(id, userId, secret);
     if (!accessCheck.hasAccess) {
@@ -2307,19 +2254,18 @@ router.get('/:id/tree', async (req, res) => {
     
     res.json([...processedAncestors, processedCurrentTrack]);
   } catch (err) {
-    console.error('Error fetching track tree:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Poll for new tracks in a tree
-router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query;
-  const { since } = req.query; // ISO timestamp string
-  
+router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query;
+    const { since } = req.query; // ISO timestamp string
+  
     // Check if the track exists and if user has access
     const accessCheck = await checkTrackAccess(id, userId, secret);
     if (!accessCheck.hasAccess) {
@@ -2358,18 +2304,17 @@ router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res
     
     res.json({ tracks: result.rows });
   } catch (err) {
-    console.error('Error polling for new tracks:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Toggle track privacy. Only root tracks can control their privacy status.
-router.put('/:id/privacy', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  const { is_private } = req.body;
-  
+router.put('/:id/privacy', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { is_private } = req.body;
+  
     // Check if subscriptions feature is enabled
     const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
     
@@ -2440,17 +2385,16 @@ router.put('/:id/privacy', betterAuthMiddleware, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error toggling track privacy:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete a track
-router.delete('/:id', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  
+router.delete('/:id', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
+  
     const result = await deleteTrack(id, userId);
     
     if (result.soft_delete) {
@@ -2465,17 +2409,16 @@ router.delete('/:id', betterAuthMiddleware, async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('Error deleting track:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Generate a share link with a secret token for a private track
-router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  
+router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
+  
     // Check if the track exists and belongs to the user
     const trackCheck = await pool.query(
       'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
@@ -2506,62 +2449,60 @@ router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, 
     }
 
   } catch (error) {
-    console.error('Error generating share link:', error);
-    res.status(500).json({ error: 'Failed to generate share link' });
+    next(error);
   }
 });
 
 // Refresh signed URL for a track
-router.get('/:id/refresh-url', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
+// router.get('/:id/refresh-url', optionalBetterAuthMiddleware, async (req, res, next) => {
+//   try {
+//     const { id } = req.params;
+//     const userId = req.user?.id;
+//     const { secret } = req.query; // Secret token for private tracks
   
-  try {
-    // Check if the track exists and if user has access
-    const accessCheck = await checkTrackAccess(id, userId, secret);
-    if (!accessCheck.hasAccess) {
-      return res.status(accessCheck.status).json({ error: accessCheck.error });
-    }
+//     // Check if the track exists and if user has access
+//     const accessCheck = await checkTrackAccess(id, userId, secret);
+//     if (!accessCheck.hasAccess) {
+//       return res.status(accessCheck.status).json({ error: accessCheck.error });
+//     }
     
-    // Get the track details
-    const result = await pool.query(
-      `SELECT t.*, u.username as username, u.profile_pic_url as user_profile_pic
-       FROM tracks t
-       JOIN users u ON t.user_id = u.id
-       WHERE t.id = $1 AND t.processing_status = 'completed'`,
-      [id]
-    );
+//     // Get the track details
+//     const result = await pool.query(
+//       `SELECT t.*, u.username as username, u.profile_pic_url as user_profile_pic
+//        FROM tracks t
+//        JOIN users u ON t.user_id = u.id
+//        WHERE t.id = $1 AND t.processing_status = 'completed'`,
+//       [id]
+//     );
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Track not found' });
-    }
+//     if (result.rows.length === 0) {
+//       return res.status(404).json({ error: 'Track not found' });
+//     }
     
-    const trackData = result.rows[0];
+//     const trackData = result.rows[0];
     
-    // Generate new signed URLs using our utility function
-    const audioUrl = generateSignedUrl(trackData.audio_url);
-    const combinedAudioUrl = generateSignedUrl(trackData.combined_audio_url || trackData.audio_url);
+//     // Generate new signed URLs using our utility function
+//     const audioUrl = generateSignedUrl(trackData.audio_url);
+//     const combinedAudioUrl = generateSignedUrl(trackData.combined_audio_url || trackData.audio_url);
     
-    // Return just the URLs
-    res.json({ 
-      audio_url: audioUrl, 
-      combined_audio_url: combinedAudioUrl,
-      track_id: trackData.id
-    });
-  } catch (err) {
-    console.error('Error refreshing track URL:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+//     // Return just the URLs
+//     res.json({ 
+//       audio_url: audioUrl, 
+//       combined_audio_url: combinedAudioUrl,
+//       track_id: trackData.id
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// });
 
 // Download a track
-router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
-  
+router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query; // Secret token for private tracks
+  
     // Check if the track exists and if user has access
     const accessCheck = await checkTrackAccess(id, userId, secret);
     if (!accessCheck.hasAccess) {
@@ -2602,8 +2543,7 @@ router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
       track_id: trackData.id
     });
   } catch (err) {
-    console.error('Error generating download URL:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
