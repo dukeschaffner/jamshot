@@ -152,10 +152,10 @@ function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, i
     u.username, u.verified, u.profile_pic_url, u.is_private AS creator_is_private,
     t2.title AS original_title,
     ${includeDetails ? 'u2.username AS original_username,' : ''}
-    ${includeChildCount ? '(SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,' : ''}
-    (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-    (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
-    (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count
+    ${includeChildCount ? 't.collab_count,' : ''}
+    t.like_count,
+    t.repost_count,
+    t.comment_count
   `;
   
   // Only include user-specific fields if authenticated
@@ -721,7 +721,7 @@ async function deleteTrack(trackId, userId, options = {}) {
   try {
     // Get track details
     const trackCheck = await pool.query(
-      'SELECT user_id, audio_url, combined_audio_url, waveform_url, combined_waveform_url, guid FROM tracks WHERE id = $1',
+      'SELECT user_id, parent_track_id, audio_url, combined_audio_url, waveform_url, combined_waveform_url, guid FROM tracks WHERE id = $1',
       [trackId]
     );
     
@@ -730,8 +730,11 @@ async function deleteTrack(trackId, userId, options = {}) {
       throw new Error('Track not found');
     }
     
+    const track = trackCheck.rows[0];
+    const parentTrackId = track.parent_track_id;
+    
     // Ownership check (skip for user deletion)
-    if (!skipOwnershipCheck && trackCheck.rows[0].user_id !== userId) {
+    if (!skipOwnershipCheck && track.user_id !== userId) {
       if (returnResult) return { success: false, error: 'Permission denied' };
       throw new Error('You do not have permission to delete this track');
     }
@@ -755,14 +758,22 @@ async function deleteTrack(trackId, userId, options = {}) {
       return { success: true, soft_delete: true, message: 'Track soft-deleted because it has collaborations' };
     } else {
       // Hard delete - remove track and delete files from S3
-      const audioUrl = trackCheck.rows[0].audio_url;
-      const combinedAudioUrl = trackCheck.rows[0].combined_audio_url;
-      const waveformUrl = trackCheck.rows[0].waveform_url;
-      const combinedWaveformUrl = trackCheck.rows[0].combined_waveform_url;
-      const guid = trackCheck.rows[0].guid;
+      const audioUrl = track.audio_url;
+      const combinedAudioUrl = track.combined_audio_url;
+      const waveformUrl = track.waveform_url;
+      const combinedWaveformUrl = track.combined_waveform_url;
+      const guid = track.guid;
       
       // Delete from database first
       await pool.query('DELETE FROM tracks WHERE id = $1', [trackId]);
+      
+      // Decrement collab_count on parent track if this was a collaboration
+      if (parentTrackId) {
+        await pool.query(
+          'UPDATE tracks SET collab_count = GREATEST(0, collab_count - 1) WHERE id = $1',
+          [parentTrackId]
+        );
+      }
       
       // Delete files from S3 (including waveform files)
       await deleteTrackS3Files(audioUrl, combinedAudioUrl, waveformUrl, combinedWaveformUrl, guid);

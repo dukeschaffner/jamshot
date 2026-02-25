@@ -45,9 +45,9 @@ router.get('/', async (req, res) => {
           t.layer, t.parent_track_id, t.play_count, t.metronome_bpm, t.created_at,
           u.username, u.verified, u.profile_pic_url,
           t2.title AS original_title,
-          (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+          t.collab_count,
           EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-          (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
+          t.like_count,
           EXISTS(SELECT 1 FROM reposts WHERE user_id = $1 AND track_id = t.id) AS is_reposted,
           CASE WHEN t.title ILIKE $3 THEN 0 ELSE 1 END AS title_match_order
         FROM tracks t
