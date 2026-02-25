@@ -107,6 +107,111 @@ router.get('/me', betterAuthMiddleware, async (req, res, next) => {
   }
 });
 
+// Get user's tracks
+router.get('/:userId/tracks', async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user?.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    // Check if the user account is private
+    const userResult = await pool.query(
+      'SELECT is_private FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const isPrivate = userResult.rows[0].is_private;
+    
+    // If account is private, check if the current user is following them
+    if (isPrivate && currentUserId !== userId) {
+      // Check if the current user is following this user
+      const isFollowing = currentUserId ? await pool.query(
+        'SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2) as is_following',
+        [currentUserId, userId]
+      ) : { rows: [{ is_following: false }] };
+      
+      // If not following, return empty array with pagination info
+      if (!isFollowing.rows[0].is_following) {
+        return res.json({
+          tracks: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            hasMore: false
+          }
+        });
+      }
+    }
+
+    let baseQuery;
+    let queryParams;
+    if (currentUserId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2);
+      queryParams = [userId, currentUserId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false);
+      queryParams = [userId];
+    }
+
+    // Count total tracks
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tracks t
+      WHERE t.user_id = $1
+      AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
+      AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
+    `;
+
+    const resultQuery = `
+      SELECT
+        ${baseQuery}
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
+      WHERE t.user_id = $1
+      AND t.processing_status = 'completed'
+      AND t.team_id IS NULL
+      AND t.camp_id IS NULL
+      AND (t.is_private = FALSE OR t.user_id = $${queryParams.length})
+      ORDER BY t.created_at DESC
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
+
+    const [countResult, result] = await Promise.all([
+      pool.query(countQuery, queryParams),
+      pool.query(resultQuery, [...queryParams, limit, offset])
+    ]);
+
+    // Use the processTrack utility function to process all tracks
+    const tracks = await Promise.all(result.rows.map(track => processTrack(track, currentUserId)));
+
+    const totalCount = parseInt(countResult.rows[0].total);
+    const hasMore = totalCount > offset + limit;
+
+    res.json({
+      tracks,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        hasMore
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 // Follow a user
 router.post('/follow/:userId', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
@@ -890,38 +995,52 @@ router.get('/by-username/:username/tracks', async (req, res, next) => {
       AND (t.is_private = FALSE OR t.user_id = $2)
     `;
     
-    // Get tracks with additional info
-    const tracksQuery = `
-      SELECT t.*, 
-             u.username, 
-             u.verified,
-             u.profile_pic_url,
-             COALESCE(l.like_count, 0) as like_count,
-             COALESCE(p.play_count, 0) as play_count,
-             COALESCE(c.collab_count, 0) as collab_count,
-             ot.title as original_title,
-             CASE WHEN ul.user_id IS NOT NULL THEN true ELSE false END as is_liked,
-             CASE WHEN ur.user_id IS NOT NULL THEN true ELSE false END as is_reposted
-      FROM tracks t
-      JOIN users u ON t.user_id = u.id
-      LEFT JOIN (SELECT track_id, COUNT(*) as like_count FROM likes GROUP BY track_id) l ON t.id = l.track_id
-      LEFT JOIN (SELECT track_id, COUNT(*) as play_count FROM plays GROUP BY track_id) p ON t.id = p.track_id
-      LEFT JOIN (SELECT parent_track_id, COUNT(*) as collab_count FROM tracks WHERE parent_track_id IS NOT NULL GROUP BY parent_track_id) c ON t.id = c.parent_track_id
-      LEFT JOIN tracks ot ON t.parent_track_id = ot.id
-      LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
-      LEFT JOIN reposts ur ON t.id = ur.track_id AND ur.user_id = $2
-      WHERE t.user_id = $1
-      AND t.processing_status = 'completed'
-      AND t.team_id IS NULL
-      AND t.camp_id IS NULL
-      AND (t.is_private = FALSE OR t.user_id = $2)
-      ORDER BY t.created_at DESC
-      LIMIT $3 OFFSET $4
-    `;
+    // Get tracks with additional info using standardized query
+    let baseQuery;
+    let queryParams;
+    let tracksQuery;
+    
+    if (currentUserId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, true, true);
+      queryParams = [userId, currentUserId, limit, offset];
+      tracksQuery = `
+        SELECT
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        WHERE t.user_id = $1
+        AND t.processing_status = 'completed'
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        AND (t.is_private = FALSE OR t.user_id = $2)
+        ORDER BY t.created_at DESC
+        LIMIT $3 OFFSET $4
+      `;
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, true, true);
+      queryParams = [userId, limit, offset];
+      tracksQuery = `
+        SELECT
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        WHERE t.user_id = $1
+        AND t.processing_status = 'completed'
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        AND t.is_private = FALSE
+        ORDER BY t.created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+    }
     
     const [countResult, tracksResult] = await Promise.all([
       pool.query(countQuery, [userId, currentUserId || null]),
-      pool.query(tracksQuery, [userId, currentUserId || null, limit, offset])
+      pool.query(tracksQuery, queryParams)
     ]);
     
     const totalCount = parseInt(countResult.rows[0].total);
@@ -996,37 +1115,60 @@ router.get('/by-username/:username/reposts', async (req, res, next) => {
       AND t.camp_id IS NULL
     `;
     
-    // Get reposts with additional info
-    const repostsQuery = `
-      SELECT t.*, 
-             u.username, 
-             u.verified,
-             u.profile_pic_url,
-             r.created_at as repost_date,
-             ru.username as reposted_by_username,
-             COALESCE(t.like_count, 0) as like_count,
-             COALESCE(t.play_count, 0) as play_count,
-             COALESCE(t.collab_count, 0) as collab_count,
-             ot.title as original_title,
-             CASE WHEN ul.user_id IS NOT NULL THEN true ELSE false END as is_liked,
-             true as is_reposted
-      FROM reposts r
-      JOIN tracks t ON r.track_id = t.id
-      JOIN users u ON t.user_id = u.id
-      JOIN users ru ON r.user_id = ru.id
-      LEFT JOIN tracks ot ON t.parent_track_id = ot.id
-      LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
-      WHERE r.user_id = $1
-      AND t.is_private = FALSE
-      AND t.team_id IS NULL
-      AND t.camp_id IS NULL
-      ORDER BY r.created_at DESC
-      LIMIT $3 OFFSET $4
-    `;
+    // Get reposts with additional info using standardized query
+    let baseQuery;
+    let queryParams;
+    let repostsQuery;
+    
+    if (currentUserId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, true, true);
+      queryParams = [userId, currentUserId, limit, offset];
+      repostsQuery = `
+        SELECT
+          ${baseQuery},
+          r.created_at as reposted_at,
+          ru.username as reposted_by_username,
+          TRUE AS is_repost
+        FROM reposts r
+        JOIN tracks t ON r.track_id = t.id
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        LEFT JOIN users ru ON r.user_id = ru.id
+        WHERE r.user_id = $1
+        AND t.is_private = FALSE
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        ORDER BY r.created_at DESC
+        LIMIT $3 OFFSET $4
+      `;
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, true, true);
+      queryParams = [userId, limit, offset];
+      repostsQuery = `
+        SELECT
+          ${baseQuery},
+          r.created_at as reposted_at,
+          ru.username as reposted_by_username,
+          TRUE AS is_repost
+        FROM reposts r
+        JOIN tracks t ON r.track_id = t.id
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        LEFT JOIN users ru ON r.user_id = ru.id
+        WHERE r.user_id = $1
+        AND t.is_private = FALSE
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        ORDER BY r.created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+    }
     
     const [countResult, repostsResult] = await Promise.all([
       pool.query(countQuery, [userId]),
-      pool.query(repostsQuery, [userId, currentUserId || null, limit, offset])
+      pool.query(repostsQuery, queryParams)
     ]);
     
     const totalCount = parseInt(countResult.rows[0].total);
