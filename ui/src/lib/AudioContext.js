@@ -14,6 +14,7 @@ export function AudioProvider({ children }) {
   const [isShuffleOn, setIsShuffleOn] = useState(false);
   const [isLoopOn, setIsLoopOn] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [playedTracks, setPlayedTracks] = useState(new Set()); // Track which tracks have been played
   const soundRef = useRef(null);
   const shuffledIndicesRef = useRef([]);
   const currentPositionRef = useRef(0);
@@ -62,6 +63,11 @@ export function AudioProvider({ children }) {
 
   // Handle track end based on loop state
   const handleTrackEnd = useCallback(() => {
+    // Add current track to played tracks if it exists
+    if (currentTrack && !isLoopOn) {
+      setPlayedTracks(prev => new Set([...prev, currentTrack.id]));
+    }
+    
     if (isLoopOn) {
       updatePlay();
 
@@ -72,7 +78,7 @@ export function AudioProvider({ children }) {
     } else {
       playNext(false);
     }
-  }, [isLoopOn, playNext]);
+  }, [isLoopOn, playNext, currentTrack]);
 
   // Update the ref whenever handleTrackEnd changes
   useEffect(() => {
@@ -315,6 +321,8 @@ export function AudioProvider({ children }) {
     setCurrentIndex(0);
     setCurrentTrack(track);
     setIsPlaying(true);
+    // Clear played tracks when starting a new playlist
+    setPlayedTracks(new Set());
   };
 
   const togglePlayPause = () => {
@@ -418,6 +426,7 @@ export function AudioProvider({ children }) {
         currentIndex, 
         isShuffleOn,
         isLoopOn,
+        playedTracks,
         playTrack, 
         togglePlayPause, 
         seek, 

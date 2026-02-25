@@ -248,3 +248,70 @@ ALTER TABLE teams ADD CONSTRAINT teams_product_version_check
 ALTER TABLE camps DROP CONSTRAINT IF EXISTS camps_product_version_check;
 ALTER TABLE camps ADD CONSTRAINT camps_product_version_check 
   CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users'));
+
+-- Migration: Add is_loop flag to tracks table
+-- Date: 2026-01-XX
+-- Adds flag to indicate if a track is a loop, which disables arrangement features and locks BPM/time signature
+
+ALTER TABLE tracks ADD COLUMN is_loop BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Migration: Add root_id column to tracks table
+-- Date: 2026-01-XX
+-- Adds root_id column to track the root track of a tree for efficient polling of new tracks
+
+ALTER TABLE tracks ADD COLUMN root_id INT REFERENCES tracks(id) ON DELETE SET NULL;
+
+-- Backfill root_id for existing tracks
+-- For root tracks (no parent), root_id = id
+-- For child tracks, traverse up to find root and set root_id
+UPDATE tracks t1
+SET root_id = (
+  WITH RECURSIVE root_finder AS (
+    SELECT id, parent_track_id, id as current_root
+    FROM tracks
+    WHERE id = t1.id
+    
+    UNION ALL
+    
+    SELECT t.id, t.parent_track_id, 
+           CASE WHEN t.parent_track_id IS NULL THEN t.id ELSE rf.current_root END
+    FROM tracks t
+    JOIN root_finder rf ON t.id = rf.parent_track_id
+    WHERE t.parent_track_id IS NOT NULL
+  )
+  SELECT current_root
+  FROM root_finder
+  WHERE parent_track_id IS NULL
+  LIMIT 1
+)
+WHERE root_id IS NULL;
+
+-- Create index for efficient polling queries
+CREATE INDEX idx_tracks_root_id_created_at ON tracks(root_id, created_at);
+
+-- Migration: Add count columns to tracks table
+-- Date: 2026-01-XX
+-- Adds collab_count, like_count, repost_count, and comment_count columns to tracks table
+-- These columns will be maintained by application logic instead of calculating via subqueries
+
+ALTER TABLE tracks ADD COLUMN collab_count INT NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN like_count INT NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN repost_count INT NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN comment_count INT NOT NULL DEFAULT 0;
+
+-- Backfill existing data
+UPDATE tracks SET collab_count = (
+  SELECT COUNT(*) FROM tracks t2 WHERE t2.parent_track_id = tracks.id
+);
+
+UPDATE tracks SET like_count = (
+  SELECT COUNT(*) FROM likes WHERE likes.track_id = tracks.id
+);
+
+UPDATE tracks SET repost_count = (
+  SELECT COUNT(*) FROM reposts WHERE reposts.track_id = tracks.id
+);
+
+UPDATE tracks SET comment_count = (
+  SELECT COUNT(*) FROM comments WHERE comments.track_id = tracks.id
+);

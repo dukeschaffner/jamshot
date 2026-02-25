@@ -1,0 +1,328 @@
+.loopPlayer {
+    grid-area: player;
+    background-color: var(--white);
+    border-top: 1px solid var(--gray);
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "songInfo controls volume"
+        "songInfo progress volume";
+
+    align-items: center;
+    padding: 0 24px;
+    height: 80px;
+    box-shadow: 0 -2px 10px var(--shadow);
+    z-index: 99;
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  @media (max-width: 768px) {
+    .loopPlayer {
+      grid-template-areas:
+        "songInfo songInfo controls"
+        "progress progress progress";
+      grid-template-columns: 1fr 1fr 42px;
+      grid-template-rows: 1fr auto;
+      position: fixed;
+      bottom: 70px;
+      width: 100%;
+      padding: 0 10px;
+    }
+    .progressContainer {
+      gap: 0px !important;
+    }
+  }
+  
+  /* Hide player when not in use */
+  .app-container:not(.player-visible) .loopPlayer {
+    display: none;
+  }
+  
+  body.dark-mode .loopPlayer {
+    background-color: var(--dark-card-bg);
+    border-top: 1px solid var(--dark-border-color);
+    box-shadow: 0 -2px 10px var(--dark-shadow);
+  }
+  
+  .nowPlaying {
+    grid-area: songInfo;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .nowPlayingImg {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    object-fit: cover;
+  }
+  
+  .nowPlayingInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .nowPlayingTitle {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--dark);
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .nowPlayingTitle {
+    color: var(--dark-text-primary);
+  }
+  
+  .nowPlayingArtist {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  body.dark-mode .nowPlayingArtist {
+    color: var(--dark-text-secondary);
+  }
+  
+  .controlButtons {
+    grid-area: controls;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    justify-content: center;
+  }
+  
+  .controlButton {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: color 0.2s;
+  }
+  
+  body.dark-mode .controlButton {
+    color: var(--dark-text-secondary);
+  }
+  
+  .controlButton:hover, .controlButton.active {
+    color: var(--seafoam);
+  }
+  
+  body.dark-mode .controlButton:hover, 
+  body.dark-mode .controlButton.active {
+    color: var(--seafoam);
+  }
+  
+  .controlButton.playPause {
+    width: 42px;
+    height: 42px;
+    background-color: var(--seafoam);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+  }
+  
+  .controlButton.playPause:hover {
+    background-color: var(--rustic-pink);
+    color: white;
+  }
+
+  .repeatButton svg {
+    transform: scaleX(-1);
+  }
+  
+  .progressContainer {
+    grid-area: progress;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    align-self: start;
+  }
+  
+  .time {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+  }
+  
+  body.dark-mode .time {
+    color: var(--dark-text-secondary);
+  }
+  
+  .progressBar {
+    flex-grow: 1;
+    height: 6px;
+    background-color: var(--gray);
+    border-radius: 3px;
+    margin: 0 8px;
+    position: relative;
+    cursor: pointer;
+    transition: height 0.2s ease;
+  }
+  
+  .progressBar:hover {
+    height: 8px;
+  }
+  
+  body.dark-mode .progressBar {
+    background-color: var(--dark-border-color);
+  }
+  
+  .progress {
+    height: 100%;
+    background: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+    border-radius: 3px;
+    position: relative;
+  }
+  
+  .progress::after {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    background-color: var(--rustic-pink);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .progressBar:hover .progress::after {
+    opacity: 1;
+  }
+  
+  .volumeContainer {
+    grid-area: volume;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+/* Mobile Player Track Info */
+.mobilePlayerTrackInfo {
+  text-align: center;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.mobilePlayerTrackTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+body.dark-mode .mobilePlayerTrackTitle {
+  color: var(--dark-text-primary);
+}
+
+.mobilePlayerTrackArtist {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+body.dark-mode .mobilePlayerTrackArtist {
+  color: var(--dark-text-secondary);
+}
+
+/* Mobile Player Progress Section */
+.mobilePlayerProgressSection {
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+.mobilePlayerProgressBar {
+  margin-bottom: 1rem;
+  height: 8px !important;
+  border-radius: 4px;
+}
+
+.mobilePlayerProgressBar:hover {
+  height: 10px !important;
+}
+
+.mobilePlayerTimeDisplay {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+/* Mobile Player Controls */
+.mobilePlayerControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 1rem;
+  width: 100%;
+}
+
+.mobileControlButton {
+  font-size: 1.5rem !important;
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobilePlayButton {
+  width: 64px !important;
+  height: 64px !important;
+  font-size: 1.8rem !important;
+  flex-shrink: 0;
+}
+
+/* Mobile Player Image */
+.mobilePlayerImage {
+  width: 280px;
+  height: 280px;
+  border-radius: 16px;
+  object-fit: cover;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  margin-bottom: 2rem;
+}
+
+.mobilePlayerImagePlaceholder {
+  width: 280px;
+  height: 280px;
+  border-radius: 16px;
+  background-color: var(--gray-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+body.dark-mode .mobilePlayerImagePlaceholder {
+  background-color: var(--dark-hover-color);
+}
+
+.mobilePlayerImagePlaceholder svg {
+  font-size: 4rem;
+  color: var(--text-secondary);
+}
+

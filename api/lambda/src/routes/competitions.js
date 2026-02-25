@@ -42,11 +42,11 @@ router.get('/sponsored', async (req, res) => {
         u.verified,
         u.profile_pic_url,
         t2.title AS original_title,
-        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+        t.collab_count,
         ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $3 AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
-        (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
+        t.like_count,
+        t.comment_count,
+        t.repost_count,
         (SELECT COUNT(*) FROM tracks WHERE competition_id = c.id AND is_competition_entry = true) AS entry_count,
         ${userId ? 'EXISTS(SELECT 1 FROM tracks WHERE competition_id = c.id AND user_id = $4 AND is_competition_entry = true) AS has_entered,' : 'false AS has_entered,'}
         ${userId ? 'c.host_id = $5 AS is_host' : 'false AS is_host'}

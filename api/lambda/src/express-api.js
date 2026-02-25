@@ -19,6 +19,9 @@ import featureFlagsRoutes from './routes/featureFlags.js';
 import express from 'express';
 import cors from 'cors';
 import { bodyParser } from './middleware/bodyParser.js';
+import { asyncContextMiddleware } from './middleware/asyncContext.js';
+import { requestLoggerMiddleware } from './middleware/requestLogger.js';
+import { logger } from './utils/logger.js';
 
 
 const app = express();
@@ -86,6 +89,12 @@ if (process.env.NODE_ENV === 'dev') {
   app.use(bodyParser);
 }
 
+// Set up async local storage context with correlation ID and user ID
+app.use(asyncContextMiddleware);
+
+// Request logger middleware to log all HTTP requests
+app.use(requestLoggerMiddleware);
+
 // Register routes with conditional stage prefix
 app.use(`${stagePrefix}/api/tracks`, trackRoutes);
 app.use(`${stagePrefix}/api/users`, userRoutes);
@@ -111,11 +120,26 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  logger.error({
+    message: err.message,
+    stack: err.stack,
+    route: req.originalUrl,
+    method: req.method,
+    userId: req.user?.id,
+    correlationId: req.correlationId,
+  });
+
   if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({ error: 'CORS policy violation' });
+    return res.status(403).json({ 
+      error: 'CORS policy violation',
+      correlationId: req.correlationId,
+    });
   }
-  res.status(500).json({ error: 'Internal server error' });
+
+  res.status(500).json({
+    error: 'Internal Server Error',
+    correlationId: req.correlationId,
+  });
 });
 
 export default app;
