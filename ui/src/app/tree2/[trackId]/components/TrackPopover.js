@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { FaCheckCircle, FaPlay, FaPause } from 'react-icons/fa';
 import { useAudio } from '../../../../lib/AudioContext';
 import { useLoopListening } from '../utils/LoopListeningContext';
+import TrackTags from '../../../../components/TrackTags';
 import styles from './TrackPopover.module.css';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false }) {
@@ -112,6 +113,10 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
               Queue
             </button>
           )}
+        </div>
+
+        <div className={styles['popover-tags']}>
+          <TrackTags track={track} variant="light" />
         </div>
       </div>
     </div>
