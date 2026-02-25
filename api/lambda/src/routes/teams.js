@@ -22,36 +22,36 @@ async function checkTeamAdmin(teamId, userId) {
 router.use(authMiddleware);
 
 // Create team checkout session (team will be created in webhook after successful subscription payment)
-router.post('/', contentCreationLimiter, async (req, res) => {
-  const { name, product_version } = req.body;
-
-  // Validate required fields
-  if (!name || !product_version) {
-    return res.status(400).json({ error: 'Team name and product version are required' });
-  }
-
-  // Validate product version using shared config
-  if (!isValidTeamProductVersion(product_version)) {
-    return res.status(400).json({ error: 'Invalid product version' });
-  }
-
-  // Get team plan from extended config (includes Stripe price IDs)
-  const teamPlan = TEAM_PLANS[product_version];
-  if (!teamPlan) {
-    return res.status(400).json({ error: 'Invalid product version' });
-  }
-
-  // Enterprise plan requires contact, no checkout session
-  if (product_version === TEAM_PRODUCT_VERSIONS.ENTERPRISE) {
-    return res.status(400).json({ error: 'Enterprise plan requires contacting sales. Please reach out for custom pricing.' });
-  }
-
-  // Check if Stripe price ID is configured
-  if (!teamPlan.stripe_price_id) {
-    return res.status(500).json({ error: 'Team plan not configured. Please contact support.' });
-  }
-
+router.post('/', contentCreationLimiter, async (req, res, next) => {
   try {
+    const { name, product_version } = req.body;
+
+    // Validate required fields
+    if (!name || !product_version) {
+      return res.status(400).json({ error: 'Team name and product version are required' });
+    }
+
+    // Validate product version using shared config
+    if (!isValidTeamProductVersion(product_version)) {
+      return res.status(400).json({ error: 'Invalid product version' });
+    }
+
+    // Get team plan from extended config (includes Stripe price IDs)
+    const teamPlan = TEAM_PLANS[product_version];
+    if (!teamPlan) {
+      return res.status(400).json({ error: 'Invalid product version' });
+    }
+
+    // Enterprise plan requires contact, no checkout session
+    if (product_version === TEAM_PRODUCT_VERSIONS.ENTERPRISE) {
+      return res.status(400).json({ error: 'Enterprise plan requires contacting sales. Please reach out for custom pricing.' });
+    }
+
+    // Check if Stripe price ID is configured
+    if (!teamPlan.stripe_price_id) {
+      return res.status(500).json({ error: 'Team plan not configured. Please contact support.' });
+    }
+
     // Get user from database to get email
     const userResult = await pool.query(
       'SELECT email FROM users WHERE id = $1',
@@ -98,20 +98,19 @@ router.post('/', contentCreationLimiter, async (req, res) => {
 
     res.json({ sessionId: session.id, url: session.url });
   } catch (error) {
-    console.error('Error creating team checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    next(error);
   }
 });
 
 // Get team creation success details
-router.get('/created', apiEndpointLimiter, async (req, res) => {
-  const { session_id } = req.query;
-
-  if (!session_id) {
-    return res.status(400).json({ error: 'Session ID is required' });
-  }
-
+router.get('/created', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
     // Get session details from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
@@ -135,20 +134,19 @@ router.get('/created', apiEndpointLimiter, async (req, res) => {
 
     res.json(teamResult.rows[0]);
   } catch (error) {
-    console.error('Error retrieving team creation details:', error);
-    res.status(500).json({ error: 'Failed to retrieve team details' });
+    next(error);
   }
 });
 
 // Validate team access via invite code
-router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
-  const { code } = req.body;
-
-  if (!code) {
-    return res.status(400).json({ error: 'Team code is required' });
-  }
-
+router.post('/validate-code', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Team code is required' });
+    }
+
     const teamResult = await pool.query(
       `SELECT t.*, u.username as admin_username, u.name as admin_name
        FROM teams t
@@ -211,13 +209,12 @@ router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error validating team code:', error);
-    res.status(500).json({ error: 'Failed to validate team code' });
+    next(error);
   }
 });
 
 // Get team details with members and folders
-router.get('/:id', apiEndpointLimiter, async (req, res) => {
+router.get('/:id', apiEndpointLimiter, async (req, res, next) => {
   try {
     const teamId = parseInt(req.params.id);
 
@@ -230,21 +227,20 @@ router.get('/:id', apiEndpointLimiter, async (req, res) => {
 
     res.json(teamDetails.team);
   } catch (error) {
-    console.error('Error fetching team:', error);
-    res.status(500).json({ error: 'Failed to fetch team details' });
+    next(error);
   }
 });
 
 // Update team settings (admin/owner only)
-router.put('/:id', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const { name } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Team name is required' });
-  }
-
+router.put('/:id', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Team name is required' });
+    }
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
     if (!isAdminOrOwner) {
@@ -262,21 +258,20 @@ router.put('/:id', apiEndpointLimiter, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating team:', error);
-    res.status(500).json({ error: 'Failed to update team' });
+    next(error);
   }
 });
 
 // Invite user to team
-router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const { username } = req.body;
-
-  if (!username) {
-    return res.status(400).json({ error: 'Username is required' });
-  }
-
+router.post('/:id/invite', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
     if (!isAdminOrOwner) {
@@ -322,16 +317,15 @@ router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
       user: invitedUser
     });
   } catch (error) {
-    console.error('Error inviting user:', error);
-    res.status(500).json({ error: 'Failed to invite user' });
+    next(error);
   }
 });
 
 // Get team members list
-router.get('/:id/members', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-
+router.get('/:id/members', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+
     // Verify user has access to team
     const accessCheck = await validateTeamAccess(teamId, req.user.id);
     if (!accessCheck.valid) {
@@ -349,27 +343,26 @@ router.get('/:id/members', apiEndpointLimiter, async (req, res) => {
 
     res.json({ members: membersResult.rows });
   } catch (error) {
-    console.error('Error fetching team members:', error);
-    res.status(500).json({ error: 'Failed to fetch team members' });
+    next(error);
   }
 });
 
 // Update member role (owner/admin can change roles, but admins cannot demote admins)
-router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const userId = req.params.userId;
-  const { role } = req.body;
-
-  if (!role) {
-    return res.status(400).json({ error: 'Role is required' });
-  }
-
-  // Validate role
-  if (!['admin', 'contributor', 'viewer'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role. Must be admin, contributor, or viewer' });
-  }
-
+router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const userId = req.params.userId;
+    const { role } = req.body;
+
+    if (!role) {
+      return res.status(400).json({ error: 'Role is required' });
+    }
+
+    // Validate role
+    if (!['admin', 'contributor', 'viewer'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be admin, contributor, or viewer' });
+    }
+
     // Check if user is owner or admin
     const isOwner = await checkTeamOwner(teamId, req.user.id);
     const isAdmin = await checkTeamAdmin(teamId, req.user.id);
@@ -418,17 +411,16 @@ router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) =
 
     res.json({ message: 'Member role updated successfully' });
   } catch (error) {
-    console.error('Error updating member role:', error);
-    res.status(500).json({ error: 'Failed to update member role' });
+    next(error);
   }
 });
 
 // Remove member from team (admin/owner only)
-router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const userId = req.params.userId;
-
+router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const userId = req.params.userId;
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
     if (!isAdminOrOwner) {
@@ -471,17 +463,16 @@ router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
 
     res.json({ message: 'Member removed successfully' });
   } catch (error) {
-    console.error('Error removing team member:', error);
-    res.status(500).json({ error: 'Failed to remove member' });
+    next(error);
   }
 });
 
 // Get team tracks feed (paginated)
-router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const { sort_by = 'recent', page = 1, limit = 20 } = req.query;
-  
+router.get('/:id/tracks', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const { sort_by = 'recent', page = 1, limit = 20 } = req.query;
+  
     // Verify user has access to team
     const accessCheck = await validateTeamAccess(teamId, req.user.id);
     if (!accessCheck.valid) {
@@ -543,16 +534,15 @@ router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching team tracks:', error);
-    res.status(500).json({ error: 'Failed to fetch tracks' });
+    next(error);
   }
 });
 
 // Get team folders list
-router.get('/:id/folders', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-
+router.get('/:id/folders', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+
     // Verify user has access to team
     const accessCheck = await validateTeamAccess(teamId, req.user.id);
     if (!accessCheck.valid) {
@@ -571,21 +561,20 @@ router.get('/:id/folders', apiEndpointLimiter, async (req, res) => {
 
     res.json({ folders: foldersResult.rows });
   } catch (error) {
-    console.error('Error fetching team folders:', error);
-    res.status(500).json({ error: 'Failed to fetch folders' });
+    next(error);
   }
 });
 
 // Create folder (admin/contributor)
-router.post('/:id/folders', contentCreationLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const { name, parent_folder_id } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Folder name is required' });
-  }
-
+router.post('/:id/folders', contentCreationLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const { name, parent_folder_id } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Folder name is required' });
+    }
+
     // Verify user has access and is admin or contributor
     const accessCheck = await validateTeamAccess(teamId, req.user.id);
     if (!accessCheck.valid) {
@@ -627,22 +616,21 @@ router.post('/:id/folders', contentCreationLimiter, async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating folder:', error);
-    res.status(500).json({ error: 'Failed to create folder' });
+    next(error);
   }
 });
 
 // Update folder name (admin/contributor)
-router.put('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const folderId = parseInt(req.params.folderId);
-  const { name } = req.body;
+router.put('/:id/folders/:folderId', apiEndpointLimiter, async (req, res, next) => {
+  try{
+    const teamId = parseInt(req.params.id);
+    const folderId = parseInt(req.params.folderId);
+    const { name } = req.body;
 
-  if (!name) {
-    return res.status(400).json({ error: 'Folder name is required' });
-  }
+    if (!name) {
+      return res.status(400).json({ error: 'Folder name is required' });
+    }
 
-  try {
     // Validate folder access
     const folderValidation = await validateTeamFolderAccess(folderId, teamId, req.user.id);
     if (!folderValidation.valid) {
@@ -674,17 +662,16 @@ router.put('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating folder:', error);
-    res.status(500).json({ error: 'Failed to update folder' });
+    next(error);
   }
 });
 
 // Delete folder (admin/owner only)
-router.delete('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const folderId = parseInt(req.params.folderId);
-
+router.delete('/:id/folders/:folderId', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const folderId = parseInt(req.params.folderId);
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkTeamAdminOrOwner(teamId, req.user.id);
     if (!isAdminOrOwner) {
@@ -719,18 +706,17 @@ router.delete('/:id/folders/:folderId', apiEndpointLimiter, async (req, res) => 
 
     res.json({ message: 'Folder deleted successfully' });
   } catch (error) {
-    console.error('Error deleting folder:', error);
-    res.status(500).json({ error: 'Failed to delete folder' });
+    next(error);
   }
 });
 
 // Get tracks in folder (paginated)
-router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const folderId = parseInt(req.params.folderId);
-  const { page = 1, limit = 20 } = req.query;
-  
+router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const folderId = parseInt(req.params.folderId);
+    const { page = 1, limit = 20 } = req.query;
+
     // Validate folder access
     const folderValidation = await validateTeamFolderAccess(folderId, teamId, req.user.id);
     if (!folderValidation.valid) {
@@ -782,18 +768,17 @@ router.get('/:id/folders/:folderId/tracks', apiEndpointLimiter, async (req, res)
       }
     });
   } catch (error) {
-    console.error('Error fetching folder tracks:', error);
-    res.status(500).json({ error: 'Failed to fetch tracks' });
+    next(error);
   }
 });
 
 // Move track to folder (admin/contributor)
-router.patch('/:id/tracks/:trackId/folder', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const trackId = parseInt(req.params.trackId);
-  const { folder_id } = req.body;
-
+router.patch('/:id/tracks/:trackId/folder', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const trackId = parseInt(req.params.trackId);
+    const { folder_id } = req.body;
+
     // Verify user has access to team
     const accessCheck = await validateTeamAccess(teamId, req.user.id);
     if (!accessCheck.valid) {
@@ -844,16 +829,15 @@ router.patch('/:id/tracks/:trackId/folder', apiEndpointLimiter, async (req, res)
       message: 'Track moved successfully'
     });
   } catch (error) {
-    console.error('Error moving track:', error);
-    res.status(500).json({ error: 'Failed to move track' });
+    next(error);
   }
 });
 
 // Get team subscription status (owner only)
-router.get('/:id/subscription-status', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-
+router.get('/:id/subscription-status', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+
     // Check if user is owner
     const isOwner = await checkTeamOwner(teamId, req.user.id);
     if (!isOwner) {
@@ -893,17 +877,16 @@ router.get('/:id/subscription-status', apiEndpointLimiter, async (req, res) => {
 
     res.json(subscriptionStatus);
   } catch (error) {
-    console.error('Error getting team subscription status:', error);
-    res.status(500).json({ error: 'Failed to get subscription status' });
+    next(error);
   }
 });
 
 // Modify team subscription (upgrade/downgrade) - owner only
-router.post('/:id/modify-subscription', contentCreationLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-  const { product_version: newProductVersion } = req.body;
-
+router.post('/:id/modify-subscription', contentCreationLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+    const { product_version: newProductVersion } = req.body;
+
     // Check if user is owner
     const isOwner = await checkTeamOwner(teamId, req.user.id);
     if (!isOwner) {
@@ -1022,18 +1005,15 @@ router.post('/:id/modify-subscription', contentCreationLimiter, async (req, res)
     });
 
   } catch (error) {
-    console.error('Error modifying team subscription:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to modify subscription'
-    });
+    next(error);
   }
 });
 
 // Cancel team subscription (owner only)
-router.post('/:id/cancel-subscription', apiEndpointLimiter, async (req, res) => {
-  const teamId = parseInt(req.params.id);
-
+router.post('/:id/cancel-subscription', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const teamId = parseInt(req.params.id);
+
     // Check if user is owner
     const isOwner = await checkTeamOwner(teamId, req.user.id);
     if (!isOwner) {
@@ -1063,8 +1043,7 @@ router.post('/:id/cancel-subscription', apiEndpointLimiter, async (req, res) => 
 
     res.json({ message: 'Subscription will be canceled at the end of the current period' });
   } catch (error) {
-    console.error('Error canceling team subscription:', error);
-    res.status(500).json({ error: 'Failed to cancel subscription' });
+    next(error);
   }
 });
 

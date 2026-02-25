@@ -4,17 +4,7 @@ import { optionalBetterAuthMiddleware as optionalAuthMiddleware } from '../middl
 const router = express.Router();
 import pool from '../config/db.js';
 import { searchLimiter } from '../middleware/rateLimiting.js';
-import { S3Client } from '@aws-sdk/client-s3';
 import { getTrackPrivacyClause } from '../utils/trackUtils.js';
-
-const s3Client = new S3Client({
-  region: 'auto', // R2 uses 'auto' region
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-  endpoint: process.env.R2_ENDPOINT,
-});
 
 // Apply optional auth middleware to all routes
 router.use(optionalAuthMiddleware);
@@ -23,7 +13,7 @@ router.use(optionalAuthMiddleware);
 router.use(searchLimiter);
 
 // Search for tracks and users
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   const { query, type } = req.query;
   const userId = req.user?.id;
   
@@ -143,8 +133,7 @@ router.get('/', async (req, res) => {
       query
     });
   } catch (err) {
-    console.error('Search error:', err);
-    res.status(500).json({ error: 'An error occurred while searching' });
+    next(err);
   }
 });
 

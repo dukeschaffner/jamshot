@@ -9,13 +9,12 @@ import { getAllFeatureFlags } from '../utils/featureFlags.js';
  */
 
 // Get all feature flags (public endpoint, no auth required)
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const flags = await getAllFeatureFlags();
     res.json(flags);
   } catch (err) {
-    console.error('Error fetching feature flags:', err);
-    res.status(500).json({ error: 'Failed to fetch feature flags' });
+    next(err);
   }
 });
 

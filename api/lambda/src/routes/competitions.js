@@ -14,7 +14,7 @@ import { isFeatureEnabled } from '../utils/featureFlags.js';
 router.use(optionalAuthMiddleware);
 
 // GET /competitions/sponsored - Get active sponsored competition
-router.get('/sponsored', async (req, res) => {
+router.get('/sponsored', async (req, res, next) => {
   const userId = req.user?.id;
   
   try {
@@ -109,13 +109,12 @@ router.get('/sponsored', async (req, res) => {
     
     res.json({ competition });
   } catch (err) {
-    console.error('Error fetching sponsored competition:', err);
-    res.status(500).json({ error: 'Failed to fetch sponsored competition' });
+    next(err);
   }
 });
 
 // GET /competitions - Browse competitions with filtering
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   const userId = req.user?.id;
   const { 
     page = 1, 
@@ -212,6 +211,9 @@ router.get('/', async (req, res) => {
         t.layer,
         t.parent_track_id,
         t.play_count,
+        t.like_count,
+        t.comment_count,
+        t.repost_count,
         t.is_private,
         t.metronome_bpm,
         t.time_signature,
@@ -224,9 +226,6 @@ router.get('/', async (req, res) => {
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
         ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $' + (selectParamOffset + 1) + ' AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
-        (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
         (SELECT COUNT(*) FROM tracks WHERE competition_id = c.id AND is_competition_entry = true) AS entry_count,
         ${userId ? 'EXISTS(SELECT 1 FROM tracks WHERE competition_id = c.id AND user_id = $' + (selectParamOffset + 2) + ' AND is_competition_entry = true) AS has_entered,' : 'false AS has_entered,'}
         ${userId ? 'c.host_id = $' + (selectParamOffset + 3) + ' AS is_host' : 'false AS is_host'}
@@ -321,13 +320,12 @@ router.get('/', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching competitions:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /competitions/:id - Get specific competition details
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   const { id } = req.params;
   const userId = req.user?.id;
   
@@ -343,6 +341,9 @@ router.get('/:id', async (req, res) => {
         t.layer,
         t.parent_track_id,
         t.play_count,
+        t.like_count,
+        t.comment_count,
+        t.repost_count,
         t.is_private,
         t.metronome_bpm,
         t.time_signature,
@@ -355,9 +356,6 @@ router.get('/:id', async (req, res) => {
         t2.title AS original_title,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
         ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-        (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count,
-        (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
         (SELECT COUNT(*) FROM tracks WHERE competition_id = c.id AND is_competition_entry = true) AS entry_count,
         ${userId ? 'EXISTS(SELECT 1 FROM tracks WHERE competition_id = c.id AND user_id = $2 AND is_competition_entry = true) AS has_entered,' : 'false AS has_entered,'}
         ${userId ? 'c.host_id = $2 AS is_host' : 'false AS is_host'}
@@ -412,13 +410,12 @@ router.get('/:id', async (req, res) => {
     
     res.json(competition);
   } catch (err) {
-    console.error('Error fetching competition:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /competitions/create - Create new competition (with payment integration)
-router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) => {
+router.post('/create', contentCreationLimiter, authMiddleware, async (req, res, next) => {
   const {
     track_id,
     startdate,
@@ -593,14 +590,7 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
         [competition.id, track_id]
       );
 
-      // Schedule the competition end event
-      try {
-        await scheduleCompetitionEnd(competition.id, finalEndDate, winner_selection_method);
-        console.log(`Competition end scheduled for ID: ${competition.id}`);
-      } catch (scheduleError) {
-        console.error('Error scheduling competition end:', scheduleError);
-        // Don't fail the request if scheduling fails - log and continue
-      }
+      await scheduleCompetitionEnd(competition.id, finalEndDate, winner_selection_method);
 
       return res.status(201).json({
         competition,
@@ -651,13 +641,12 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res) 
     });
     
   } catch (err) {
-    console.error('Error creating competition:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // PUT /competitions/:id - Update competition (host only)
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res, next) => {
   const { id } = req.params;
   const userId = req.user.id;
   const { 
@@ -783,13 +772,12 @@ router.put('/:id', authMiddleware, async (req, res) => {
     res.json(result.rows[0]);
     
   } catch (err) {
-    console.error('Error updating competition:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // DELETE /competitions/:id - Cancel/delete competition (with entry validation)
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res, next) => {
   const { id } = req.params;
   const userId = req.user.id;
   
@@ -857,13 +845,12 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
     
   } catch (err) {
-    console.error('Error deleting competition:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /competitions/:id/entries - Get competition entries
-router.get('/:id/entries', async (req, res) => {
+router.get('/:id/entries', async (req, res, next) => {
   const { id: competitionId } = req.params;
   const userId = req.user?.id;
   const { page = 1, limit = 10 } = req.query;
@@ -930,8 +917,7 @@ router.get('/:id/entries', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching competition entries:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

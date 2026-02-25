@@ -1,0 +1,153 @@
+.track-popover {
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 250px;
+  max-width: 300px;
+  padding: 16px;
+  pointer-events: auto;
+}
+
+.popover-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.popover-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.popover-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.popover-artist-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.popover-artist-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.popover-artist-name .verified-icon {
+  color: var(--seafoam);
+  font-size: 14px;
+}
+
+.popover-track-title {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover-stats {
+  display: flex;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--grey-2);
+}
+
+.popover-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.popover-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.popover-play-button {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--grey-1);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.popover-play-button:hover {
+  background: var(--grey-2);
+  transform: translateY(-1px);
+}
+
+body.dark-mode .popover-play-button {
+  background: var(--grey-2);
+}
+
+body.dark-mode .popover-play-button:hover {
+  background: var(--grey-3);
+}
+
+.popover-queue-button {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--grey-1);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.popover-queue-button:hover {
+  background: var(--grey-2);
+  transform: translateY(-1px);
+}
+
+body.dark-mode .popover-queue-button {
+  background: var(--grey-2);
+}
+
+body.dark-mode .popover-queue-button:hover {
+  background: var(--grey-3);
+}
+
+.popover-tags {
+  padding-top: 8px;
+  border-top: 1px solid var(--grey-2);
+}
+
