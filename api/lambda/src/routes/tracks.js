@@ -2288,7 +2288,7 @@ router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res
     // Only select: track name, user name, upload datetime, and parent track id
     // Use >= instead of > to include tracks created at the exact timestamp
     // Convert to ISO string to ensure proper timezone handling with PostgreSQL
-    const queryText = `
+    const result = await pool.query(`
       SELECT 
         t.title,
         u.username,
@@ -2297,25 +2297,12 @@ router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res
       FROM tracks t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.root_id = $1 
-        AND t.created_at >= $2::timestamptz
+        AND t.created_at > $2::timestamptz
         AND t.processing_status = 'completed'
         AND t.id != $1
       ORDER BY t.created_at DESC
       LIMIT 50
-    `;
-    const queryParams = [rootId, sinceDate.toISOString()];
-    // Render query with parameter substitution for logging
-    const renderedQuery = queryText
-      .replace(/\$1/g, () => {
-        const val = queryParams[0];
-        return typeof val === 'string' ? `'${val.replace(/'/g, "''")}'` : val == null ? 'NULL' : String(val);
-      })
-      .replace(/\$2/g, () => {
-        const val = queryParams[1];
-        return typeof val === 'string' ? `'${val.replace(/'/g, "''")}'` : val == null ? 'NULL' : String(val);
-      });
-    console.log('Rendered query:', renderedQuery.trim());
-    const result = await pool.query(queryText, queryParams);
+    `, [rootId, sinceDate.toISOString()]);
     
     res.json({ tracks: result.rows });
   } catch (err) {
