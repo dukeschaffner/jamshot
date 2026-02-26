@@ -13,7 +13,8 @@ export default function TrackMeta({
   track,
   showDownload = false,
   variant = 'default',
-  className = ''
+  className = '',
+  onTrackLikeUpdate,
 }) {
   const { user: currentUser, isAuthenticated } = useUser();
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
@@ -46,14 +47,18 @@ export default function TrackMeta({
       
       if (isLiked) {
         await api.delete(`/tracks/${track.id}/like`);
+        const newCount = Math.max(0, Number(likeCount) - 1);
         setIsLiked(false);
-        setLikeCount(prevCount => Math.max(0, Number(prevCount) - 1));
+        setLikeCount(newCount);
         trackUnlike(track.id, track.title, track.username);
+        onTrackLikeUpdate?.(track.id, { is_liked: false, like_count: newCount });
       } else {
         await api.post(`/tracks/${track.id}/like`);
+        const newCount = Number(likeCount) + 1;
         setIsLiked(true);
-        setLikeCount(prevCount => Number(prevCount) + 1);
+        setLikeCount(newCount);
         trackLike(track.id, track.title, track.username);
+        onTrackLikeUpdate?.(track.id, { is_liked: true, like_count: newCount });
       }
       
     } catch (err) {

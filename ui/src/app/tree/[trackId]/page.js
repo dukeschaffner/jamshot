@@ -35,6 +35,8 @@ import RadialScrollSeam from './components/RadialScrollSeam';
 import LoadNewTracksButton from './components/LoadNewTracksButton';
 import { TreeInteractionsProvider } from './utils/TreeInteractionsContext';
 import { bufferRegistry } from '../../../components/DAW/core/BufferRegistry.js';
+import SidePanel from './components/SidePanel';
+import ActivityFeed from './components/ActivityFeed';
 
 // Toggle for new tracks polling - set to false to disable
 const ENABLE_NEW_TRACKS_POLLING = true;
@@ -79,6 +81,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [newTrackCount, setNewTrackCount] = useState(0);
+  const [activityFeedTracks, setActivityFeedTracks] = useState([]);
   const hoverTimeoutRef = useRef(null);
   const initialTreeRenderedRef = useRef(false);
   const previousSelectedTrackIdRef = useRef(null);
@@ -629,6 +632,14 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
             }
           });
           
+          // Add tracks to activity feed (most recent first)
+          setActivityFeedTracks(prevTracks => {
+            const newTracks = tracks.filter(track => 
+              !prevTracks.some(existing => existing.id === track.id)
+            );
+            return [...newTracks, ...prevTracks].slice(0, 50); // Keep only last 50 tracks
+          });
+
           // Rerender nodes to reflect updated collab_count
           if (initialLoadComplete && selectedTrackId) {
             generateNodesAndEdges();
@@ -678,11 +689,12 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
 
   return (
     <TreeInteractionsProvider navigateToPlayingTrack={navigateToPlayingTrack}>
-      <div className={styles['track-tree-page']} style={{ width: '100%', height: '100%' }}>
+      <div className={styles['track-tree-page']} style={{ width: '100%', height: '100%', display: 'flex' }}>
         
+        {/* Main content area */}
         <div 
           ref={reactFlowContainerRef} 
-          style={{ width: '100%', height: '100%', position: 'relative' }}
+          style={{ flex: 1, height: '100%', position: 'relative' }}
           onWheel={handleRadialScroll}
         >
           <ReactFlow
@@ -711,36 +723,48 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
           {DEBUG_MODE && (
             <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
           )}
+
+          {/* <ColorLegend /> */}
+
+          {hoveredTrackId && treeDataManager.current && treeDataManager.current.trackData.has(hoveredTrackId) && hoveredNodePosition && (
+            <TrackPopover
+              track={treeDataManager.current.trackData.get(hoveredTrackId)}
+              position={hoveredNodePosition}
+              isLoopMode={isLoopMode}
+              onTrackLikeUpdate={(trackId, updates) => {
+                const t = treeDataManager.current?.trackData.get(trackId);
+                if (t) {
+                  if (updates.is_liked !== undefined) t.is_liked = updates.is_liked;
+                  if (updates.like_count !== undefined) t.like_count = updates.like_count;
+                }
+              }}
+              onClose={() => {
+                if (hoverTimeoutRef.current) {
+                  clearTimeout(hoverTimeoutRef.current);
+                  hoverTimeoutRef.current = null;
+                }
+                setHoveredTrackId(null);
+                setHoveredNodePosition(null);
+              }}
+              onMouseEnter={() => {
+                // Cancel any pending hide timeout when mouse enters popover
+                if (hoverTimeoutRef.current) {
+                  clearTimeout(hoverTimeoutRef.current);
+                  hoverTimeoutRef.current = null;
+                }
+              }}
+            />
+          )}
+          
+          {isLoopMode && (
+            <LoopListeningPlayer />
+          )}
         </div>
 
-      {/* <ColorLegend /> */}
-
-      {hoveredTrackId && treeDataManager.current && treeDataManager.current.trackData.has(hoveredTrackId) && hoveredNodePosition && (
-        <TrackPopover
-          track={treeDataManager.current.trackData.get(hoveredTrackId)}
-          position={hoveredNodePosition}
-          isLoopMode={isLoopMode}
-          onClose={() => {
-            if (hoverTimeoutRef.current) {
-              clearTimeout(hoverTimeoutRef.current);
-              hoverTimeoutRef.current = null;
-            }
-            setHoveredTrackId(null);
-            setHoveredNodePosition(null);
-          }}
-          onMouseEnter={() => {
-            // Cancel any pending hide timeout when mouse enters popover
-            if (hoverTimeoutRef.current) {
-              clearTimeout(hoverTimeoutRef.current);
-              hoverTimeoutRef.current = null;
-            }
-          }}
-        />
-      )}
-      
-      {isLoopMode && (
-        <LoopListeningPlayer />
-      )}
+        {/* Side Panel */}
+        <SidePanel>
+          <ActivityFeed tracks={activityFeedTracks} />
+        </SidePanel>
       </div>
     </TreeInteractionsProvider>
   );

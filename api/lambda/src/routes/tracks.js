@@ -2285,14 +2285,14 @@ router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res
     }
     
     // Get new tracks in this tree since the given timestamp
-    // Only select: track name, user name, upload datetime, and parent track id
-    // Use >= instead of > to include tracks created at the exact timestamp
-    // Convert to ISO string to ensure proper timezone handling with PostgreSQL
+    // Include user profile_pic_url and verified for activity feed display
     const result = await pool.query(`
       SELECT 
         t.id,
         t.title,
         u.username,
+        u.profile_pic_url,
+        u.verified,
         t.created_at,
         t.parent_track_id
       FROM tracks t

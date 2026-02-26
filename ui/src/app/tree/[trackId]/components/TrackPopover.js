@@ -10,7 +10,7 @@ import TrackTags from '../../../../components/TrackTags';
 import TrackMeta from '../../../../components/TrackMeta';
 import styles from './TrackPopover.module.css';
 
-export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false }) {
+export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false, onTrackLikeUpdate }) {
   const router = useRouter();
   const regularAudio = useAudio();
   let loopListening;
@@ -113,7 +113,7 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
         </div>
 
         <div className={styles['popover-meta']}>
-          <TrackMeta track={track} variant="mini" />
+          <TrackMeta track={track} variant="mini" onTrackLikeUpdate={onTrackLikeUpdate} />
         </div>
 
         <div className={styles['popover-buttons']}>
