@@ -738,6 +738,13 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
                   if (updates.like_count !== undefined) t.like_count = updates.like_count;
                 }
               }}
+              onTrackRepostUpdate={(trackId, updates) => {
+                const t = treeDataManager.current?.trackData.get(trackId);
+                if (t) {
+                  if (updates.is_reposted !== undefined) t.is_reposted = updates.is_reposted;
+                  if (updates.repost_count !== undefined) t.repost_count = updates.repost_count;
+                }
+              }}
               onClose={() => {
                 if (hoverTimeoutRef.current) {
                   clearTimeout(hoverTimeoutRef.current);
