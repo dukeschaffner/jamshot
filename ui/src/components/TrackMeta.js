@@ -15,6 +15,7 @@ export default function TrackMeta({
   variant = 'default',
   className = '',
   onTrackLikeUpdate,
+  onTrackRepostUpdate,
 }) {
   const { user: currentUser, isAuthenticated } = useUser();
   const [isLiked, setIsLiked] = useState(track.is_liked || false);
@@ -104,12 +105,16 @@ export default function TrackMeta({
     try {
       if (isReposted) {
         await api.delete(`/tracks/${track.id}/repost`);
+        const newCount = Math.max(0, Number(repostCount) - 1);
         setIsReposted(false);
-        setRepostCount(prevCount => Math.max(0, Number(prevCount) - 1));
+        setRepostCount(newCount);
+        onTrackRepostUpdate?.(track.id, { is_reposted: false, repost_count: newCount });
       } else {
         await api.post(`/tracks/${track.id}/repost`);
+        const newCount = Number(repostCount) + 1;
         setIsReposted(true);
-        setRepostCount(prevCount => Number(prevCount) + 1);
+        setRepostCount(newCount);
+        onTrackRepostUpdate?.(track.id, { is_reposted: true, repost_count: newCount });
       }
     } catch (err) {
       console.error('Failed to toggle repost:', err);
