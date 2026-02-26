@@ -563,7 +563,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     }
   };
 
-  // Poll for new tracks every 60 seconds
+  // Poll for new tracks every 60 seconds (only when tab is focused)
   useEffect(() => {
     if (!ENABLE_NEW_TRACKS_POLLING || !initialLoadComplete || !trackId) {
       return;
@@ -574,6 +574,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     let pollInterval;
 
     const pollForNewTracks = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         // toISOString() returns UTC timestamp in ISO 8601 format (e.g., "2024-01-01T12:00:00.000Z")
         // This matches the UTC timestamps stored in the database

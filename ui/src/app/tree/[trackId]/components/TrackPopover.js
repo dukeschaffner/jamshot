@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { FaCheckCircle, FaPlay, FaPause } from 'react-icons/fa';
 import { useAudio } from '../../../../lib/AudioContext';
 import { useLoopListening } from '../utils/LoopListeningContext';
 import TrackTags from '../../../../components/TrackTags';
+import TrackMeta from '../../../../components/TrackMeta';
 import styles from './TrackPopover.module.css';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false }) {
+  const router = useRouter();
   const regularAudio = useAudio();
   let loopListening;
   
@@ -42,6 +45,20 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
     }
   };
 
+  const navigateToUserProfile = (e) => {
+    e.stopPropagation();
+    if (track?.username) {
+      router.push(`/user/${track.username}`);
+    }
+  };
+
+  const navigateToTrack = (e) => {
+    e.stopPropagation();
+    if (track?.guid) {
+      router.push(`/track/${track.guid}`);
+    }
+  };
+
   if (!track) return null;
 
   return (
@@ -66,28 +83,37 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
             alt={track?.username || 'Artist'}
             width={40}
             height={40}
-            className={styles['popover-avatar']}
+            className={`${styles['popover-avatar']} ${track?.username ? styles.clickable : ''}`}
+            onClick={track?.username ? navigateToUserProfile : undefined}
+            role={track?.username ? 'button' : undefined}
           />
           <div className={styles['popover-artist-info']}>
             <div className={styles['popover-artist-name']}>
-              {track?.username || 'Unknown Artist'}
+              <span
+                className={track?.username ? 'link-underline' : ''}
+                onClick={track?.username ? navigateToUserProfile : undefined}
+                role={track?.username ? 'button' : undefined}
+              >
+                {track?.username || 'Unknown Artist'}
+              </span>
               {track?.verified && (
                 <FaCheckCircle className={styles['verified-icon']} />
               )}
             </div>
-            <div className={styles['popover-track-title']}>{track?.title}</div>
+            <div className={styles['popover-track-title']}>
+              <span
+                className={track?.guid ? 'link-underline' : ''}
+                onClick={track?.guid ? navigateToTrack : undefined}
+                role={track?.guid ? 'button' : undefined}
+              >
+                {track?.title}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className={styles['popover-stats']}>
-          <div className={styles['popover-stat']}>
-            <span className={styles['stat-label']}>Plays:</span>
-            <span className={styles['stat-value']}>{track?.play_count || 0}</span>
-          </div>
-          <div className={styles['popover-stat']}>
-            <span className={styles['stat-label']}>Likes:</span>
-            <span className={styles['stat-value']}>{track?.like_count || 0}</span>
-          </div>
+        <div className={styles['popover-meta']}>
+          <TrackMeta track={track} variant="mini" />
         </div>
 
         <div className={styles['popover-buttons']}>

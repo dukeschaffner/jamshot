@@ -49,6 +49,7 @@ export function NotificationProvider({ children }) {
   };
 
   const fetchUnreadCount = async () => {
+    if (document.visibilityState !== 'visible') return;
     if (!isAuthenticated) {
       setUnreadCount(0);
       return;
