@@ -16,7 +16,7 @@ const SidePanel = ({ children, className = '' }) => {
   // Constants for panel constraints
   const MIN_WIDTH = 200;
   const MAX_WIDTH = 600;
-  const COLLAPSED_WIDTH = 0;
+  const COLLAPSED_WIDTH = 32; /* Narrow strip so toggle stays visible without causing page overflow */
 
   const handleExpandCollapse = useCallback(() => {
     if (isExpanded) {
@@ -79,10 +79,10 @@ const SidePanel = ({ children, className = '' }) => {
   return (
     <div 
       ref={panelRef}
-      className={`${styles.sidePanel} ${className} ${isExpanded ? '' : styles.collapsed}`}
+      className={`${styles.sidePanel} ${className} ${isExpanded ? '' : styles.collapsed} ${isDragging ? styles.dragging : ''}`}
       style={{ 
         width: `${currentWidth}px`,
-        minWidth: isExpanded ? `${MIN_WIDTH}px` : '0px'
+        minWidth: isExpanded ? `${MIN_WIDTH}px` : `${COLLAPSED_WIDTH}px`
       }}
     >
       {/* Resize Handle - always visible for the button */}
@@ -109,7 +109,7 @@ const SidePanel = ({ children, className = '' }) => {
             className={`${styles.arrow} ${isExpanded ? styles.expanded : styles.collapsed}`}
           >
             <path 
-              d={isExpanded ? "M8 3L5 6L8 9" : "M4 3L7 6L4 9"} 
+              d={isExpanded ? "M4 3L7 6L4 9" : "M8 3L5 6L8 9"} 
               stroke="currentColor" 
               strokeWidth="1.5" 
               strokeLinecap="round" 
