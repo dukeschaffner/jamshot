@@ -694,7 +694,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
         {/* Main content area */}
         <div 
           ref={reactFlowContainerRef} 
-          style={{ flex: 1, height: '100%', position: 'relative' }}
+          style={{ flex: 1, height: '100%', minWidth: 0, position: 'relative' }}
           onWheel={handleRadialScroll}
         >
           <ReactFlow

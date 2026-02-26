@@ -9,9 +9,15 @@
   flex-direction: row;
 }
 
+/* Disable width transition while dragging so edge follows mouse */
+.sidePanel.dragging {
+  transition: none;
+}
+
 .sidePanel.collapsed {
   border-left: none;
   background-color: transparent;
+  flex-shrink: 0; /* Reserve space so we don't rely on overflow */
 }
 
 body.dark-mode .sidePanel {
@@ -32,10 +38,9 @@ body.dark-mode .sidePanel {
   z-index: 10; /* Ensure it's above other content */
 }
 
-/* When collapsed, make the resize handle wider so button is more accessible */
+/* When collapsed, resize handle fills the narrow strip (no negative margin = no overflow) */
 .sidePanel.collapsed .resizeHandle {
-  width: 32px;
-  margin-right: -24px; /* Overlap into the main content area slightly */
+  width: 100%;
 }
 
 .resizeHandle:hover {
@@ -70,15 +75,6 @@ body.dark-mode .resizeHandle:hover {
   box-shadow: 0 2px 4px var(--shadow);
 }
 
-/* When collapsed, position the button more prominently */
-.sidePanel.collapsed .expandButton {
-  right: 4px;
-  left: auto;
-  transform: translateY(-50%);
-  background-color: var(--seafoam-light);
-  border-color: var(--seafoam);
-}
-
 body.dark-mode .expandButton {
   background-color: var(--grey-1);
   border-color: var(--grey-3);
@@ -106,12 +102,13 @@ body.dark-mode .expandButton:hover {
   transition: transform 0.2s ease;
 }
 
+/* Arrow direction is from path only; no rotation to avoid state/transition glitches */
 .arrow.expanded {
   transform: rotate(0deg);
 }
 
 .arrow.collapsed {
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
 
 .panelContent {

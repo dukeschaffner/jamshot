@@ -50,7 +50,6 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
   const updateListeningTime = useCallback(() => {
     if (isPlaying && engineRef.current) {
       listeningTimeRef.current += 1; // Add one second
-      console.log('listening time', listeningTimeRef.current);
     }
   }, [isPlaying]);
 
@@ -283,7 +282,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     
     // Check if we should restart current track (threshold check)
     const currentProgress = engineRef.current.getProgress();
-    
+
     if (currentProgress > PREVIOUS_THRESHOLD) {
       // Restart current track
       await seek(0);
@@ -291,7 +290,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     }
     
     if (queueIndex.current > 0) {
-      queueIndex.current--;
+      queueIndex.current = Math.max(0, queueIndex.current - 2);
       const prevTrack = automaticQueueRef.current[queueIndex.current];
       // Play the track (events will update state)
       await engineRef.current.playTrack(prevTrack);

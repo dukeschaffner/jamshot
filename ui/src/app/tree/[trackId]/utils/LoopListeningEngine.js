@@ -76,7 +76,7 @@ class LoopListeningEngine {
     }
     
     // Stop current playback
-    this.stop();
+    this.stop(false);
     
     // Set loop duration if provided
     if (loopDuration) {
@@ -396,7 +396,7 @@ class LoopListeningEngine {
   /**
    * Stop playback
    */
-  stop() {
+  stop(send_event = true) {
     const wasPlaying = this.isPlaying;
     const stoppedTrack = this.currentTrack;
     
@@ -406,7 +406,7 @@ class LoopListeningEngine {
     this.currentTrack = null;
     
     // Emit playback stopped event (only if it was actually playing)
-    if (wasPlaying) {
+    if (wasPlaying && send_event) {
       this.eventBus.emit(this.DAW_EVENTS.LOOP_LISTENING.PLAYBACK_STOPPED, {
         track: stoppedTrack
       });
