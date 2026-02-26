@@ -1,11 +1,7 @@
 TODO (MVP)
 
 before launch:
-- video export with waveform viz, showing user profile pics, names, watermark, etc
-- post upload screen (or toast message)with option to copy track link or export video
-- intro video use downloaded video after streaming through once
 - dont show audio processing specific error to users
-- make sure mic stream closes when user navigates away from the page
 - check cloudflare api cache
 - lambda concurrency
 - rate limiting
@@ -47,6 +43,9 @@ ON follows(follower_id, following_id);
     - plays for all tracks by that user
 - check competition hosting restriction for free tier users
 - input monitoring level in audio settings
+- video export with waveform viz, showing user profile pics, names, watermark, etc
+- post upload screen (or toast message)with option to copy track link or export video
+- intro video use downloaded video after streaming through once
 
 
 

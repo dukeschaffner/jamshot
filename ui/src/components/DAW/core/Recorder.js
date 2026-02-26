@@ -322,6 +322,13 @@ class Recorder {
       this.stopRecording();
     }
     
+    // Always stop all tracks in the recording stream, regardless of ownership
+    // This ensures the browser tab indicator (red dot) is cleared when navigating away
+    if (this.recordingStream) {
+      this.recordingStream.getTracks().forEach(track => track.stop());
+      this.recordingStream = null;
+    }
+    
     // Remove event listeners
     this.eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, this.handlePlaybackStarted);
     this.eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleAudioInputDeviceChange);
