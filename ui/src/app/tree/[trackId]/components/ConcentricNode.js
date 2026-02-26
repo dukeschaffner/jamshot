@@ -433,7 +433,7 @@ function ConcentricNode({ data }) {
             justifyContent: 'center',
             gap: '4px',
             flexWrap: 'wrap',
-            width: `${baseSize * ringSizeFactor * 0.9}px`,
+            // width: `${baseSize * ringSizeFactor * 0.9}px`,
             zIndex: 1000,
           }}
         >
