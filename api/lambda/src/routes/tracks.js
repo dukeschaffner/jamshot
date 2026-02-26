@@ -2290,6 +2290,7 @@ router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res
     // Convert to ISO string to ensure proper timezone handling with PostgreSQL
     const result = await pool.query(`
       SELECT 
+        t.id,
         t.title,
         u.username,
         t.created_at,
