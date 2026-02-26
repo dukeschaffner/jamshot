@@ -259,7 +259,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     manualQueueRef.current = [...manualQueueRef.current, track];
 
     // if no next track is set, set the next track to the queued track
-    if(!engineRef.current.hasNextTrack()) {
+    if(manualQueueRef.current.length === 1) {
       engineRef.current.setNextTrack(track);
     }
   }, []);
@@ -407,8 +407,8 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
       setCurrentTrack(data.track);
       currentTrackRef.current = data.track;
 
-      // if previous track came from manual queue, remove it from the queue
-      if (manualQueueRef.current[0]?.id === data.previousTrack?.id) {
+      // if new track came from manual queue, remove it from the queue
+      if (manualQueueRef.current[0]?.id === data.track?.id) {
         manualQueueRef.current = manualQueueRef.current.slice(1); // Remove from queue
       }
 
