@@ -732,6 +732,7 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res, nex
                 track_id: trackId,
                 user_id: userId,
                 s3_key: permanentTempKey,
+                correlation_id: req.correlationId,
                 created_at: new Date().toISOString()
               }),
               EventBusName: getEventBusName()

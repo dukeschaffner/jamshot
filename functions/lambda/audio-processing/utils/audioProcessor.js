@@ -7,6 +7,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import mm from 'music-metadata';
 import { createLambdaPool } from '@sterio/db-config';
 import crypto from 'crypto';
+import { logger } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,13 +23,8 @@ if (process.platform === 'linux') {
   }
   if (fs.existsSync(ffmpegPath)) {
     ffmpeg.setFfmpegPath(ffmpegPath);
-    console.log('Using local FFMPEG binary:', ffmpegPath);
   } else {
-    console.warn('FFMPEG binary not found, relying on system installation');
   }
-} else {
-  // On other platforms (macOS/Windows), rely on system installation
-  console.log('Using system-installed FFMPEG');
 }
 
 // Cloudflare R2 setup
@@ -73,7 +69,6 @@ class AudioProcessor {
   }
 
   async processAudio(trackId) {
-    console.log(`🎵 Starting audio processing for track ${trackId}`);
 
     // Declare variables at function scope for cleanup in catch block
     let localFilePath = null;
@@ -102,9 +97,6 @@ class AudioProcessor {
       const finalAudioUrl = `tracks/${this.generateStandardTrackFilename('raw', filenameBase)}`;
       const finalCombinedAudioUrl = `tracks/${this.generateStandardTrackFilename('processed', filenameBase)}`;
 
-      console.log(`📝 Derived final URLs from base "${filenameBase}":`);
-      console.log(`  Raw: ${finalAudioUrl}`);
-      console.log(`  Processed: ${finalCombinedAudioUrl}`);
 
       // Update processing status to 'processing'
       await pool.query(
@@ -119,13 +111,11 @@ class AudioProcessor {
 
       if (s3Key) {
         // Download from provided S3 key
-        console.log(`📥 Downloading from S3 key: ${s3Key} to ${localFilePath}`);
         await this.downloadS3File(s3Key, localFilePath);
       } else {
         throw new Error(`Could not locate audio file for track ${trackId}`);
       }
 
-      console.log(`📥 Downloaded raw audio file to ${localFilePath}`);
 
       // Determine if this is a collaboration or regular upload and get duration
       let duration = 0;
@@ -161,7 +151,6 @@ class AudioProcessor {
       let combinedWaveformUrl = null;
       
       try {
-        console.log(`📊 Generating waveform peaks for track ${trackId}`);
         
         // Generate peaks for stem audio
         if (stemAudioPath && fs.existsSync(stemAudioPath)) {
@@ -169,7 +158,6 @@ class AudioProcessor {
           const stemWaveformKey = `waveforms/tracks/${trackGuid}/stem.json`;
           await this.saveWaveformPeaks(stemPeaks, stemWaveformKey, 256);
           waveformUrl = stemWaveformKey;
-          console.log(`✅ Generated stem waveform peaks: ${stemWaveformKey}`);
         }
         
         // Generate peaks for combined audio
@@ -178,10 +166,9 @@ class AudioProcessor {
           const combinedWaveformKey = `waveforms/tracks/${trackGuid}/combined.json`;
           await this.saveWaveformPeaks(combinedPeaks, combinedWaveformKey, 256);
           combinedWaveformUrl = combinedWaveformKey;
-          console.log(`✅ Generated combined waveform peaks: ${combinedWaveformKey}`);
         }
       } catch (waveformError) {
-        console.error(`⚠️ Failed to generate waveform peaks:`, waveformError);
+        logger.error({ message: 'Failed to generate waveform peaks', error: waveformError?.message, stack: waveformError?.stack });
         // Don't fail the entire processing if waveform generation fails
       }
 
@@ -197,9 +184,8 @@ class AudioProcessor {
       );
 
       // Clean up original temp file (other temp files cleaned up after waveform generation)
-      await fsPromises.unlink(localFilePath).catch(err => console.error('Cleanup error:', err));
+      await fsPromises.unlink(localFilePath).catch(err => logger.error({ message: 'Cleanup error', error: err?.message }));
 
-      console.log(`✅ Audio processing completed for track ${trackId}`);
 
       return {
         status: 'success',
@@ -208,7 +194,6 @@ class AudioProcessor {
       };
 
     } catch (error) {
-      console.error(`❌ Audio processing failed for track ${trackId}:`, error);
 
       // Clean up local temporary files
       const cleanupPromises = [];
@@ -217,7 +202,7 @@ class AudioProcessor {
       if (localFilePath) {
         cleanupPromises.push(
           fsPromises.unlink(localFilePath).catch(err => 
-            console.error(`Failed to cleanup local file ${localFilePath}:`, err)
+            logger.error({ message: 'Failed to cleanup local file', localFilePath, error: err?.message })
           )
         );
       }
@@ -227,7 +212,7 @@ class AudioProcessor {
         cleanupPromises.push(
           ...tempFilesToCleanup.map(f => 
             fsPromises.unlink(f).catch(err => 
-              console.error(`Failed to cleanup temp file ${f}:`, err)
+              logger.error({ message: 'Failed to cleanup temp file', file: f, error: err?.message })
             )
           )
         );
@@ -243,9 +228,9 @@ class AudioProcessor {
             Bucket: process.env.R2_BUCKET,
             Key: s3Key
           }));
-          console.log(`🗑️ Deleted temporary S3 file: ${s3Key}`);
+          logger.info({ message: 'Deleted temporary S3 file', s3Key });
         } catch (s3Error) {
-          console.error(`Failed to delete temporary S3 file ${s3Key}:`, s3Error);
+          logger.error({ message: 'Failed to delete temporary S3 file', s3Key, error: s3Error?.message });
           // Don't throw - cleanup failures shouldn't block error reporting
         }
       }
@@ -255,7 +240,7 @@ class AudioProcessor {
         'UPDATE tracks SET processing_status = $1, processing_error = $2 WHERE id = $3',
         ['failed', error.message, trackId]
       ).catch(dbError => {
-        console.error(`Failed to update track status to failed:`, dbError);
+        logger.error({ message: 'Failed to update track status to failed', error: dbError?.message });
         // Don't throw - we've already logged the original error
       });
 
@@ -264,7 +249,6 @@ class AudioProcessor {
   }
 
   async processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl) {
-    console.log(`🎵 Processing collaboration for track ${track.id}`);
 
     // Get stem chain
     const stemChain = await this.getStemChain(track.id);
@@ -281,7 +265,7 @@ class AudioProcessor {
       }
 
       if (!stem.audio_url) {
-        console.warn(`Stem ${stem.track_id} has no audio_url, skipping`);
+        logger.warn({ message: 'Stem has no audio_url, skipping', stem_track_id: stem.track_id });
         continue;
       }
 
@@ -296,7 +280,7 @@ class AudioProcessor {
         // Render the stem with regions if present
         let renderedPath = stemLocalPath;
         if (stem.regions && stem.regions.length > 0) {
-          console.log(`🎨 Rendering stem ${stem.track_id} with ${stem.regions.length} regions`);
+          logger.info({ message: 'Rendering stem', stem_track_id: stem.track_id, regionCount: stem.regions.length });
           renderedPath = path.join(this.tempDir, `rendered-stem-${stem.track_id}-${Date.now()}.mp3`);
           await this.renderStemWithRegions(stemLocalPath, renderedPath, stem.regions);
           renderedFiles.push(renderedPath); // Track for cleanup
@@ -305,12 +289,11 @@ class AudioProcessor {
         localFiles.push(renderedPath);
         gainValues.push(stem.gain);
       } catch (downloadError) {
-        console.error(`Failed to download stem ${stem.track_id}:`, downloadError);
         // Clean up already downloaded files
         await Promise.all(localFiles.map(f => fsPromises.unlink(f).catch(() => {})));
         await Promise.all(renderedFiles.map(f => fsPromises.unlink(f).catch(() => {})));
         await Promise.all(downloadedStemFiles.map(f => fsPromises.unlink(f).catch(() => {})));
-        throw new Error(`Failed to download stem audio file for track ${stem.track_id}`);
+        throw downloadError;
       }
     }
 
@@ -327,8 +310,6 @@ class AudioProcessor {
     const recordingGain = recordingStem?.gain || 1.0;
     gainValues.push(recordingGain);
 
-    console.log('Local files before combining:', localFiles);
-    console.log('Gain values for mixing:', gainValues);
 
     // Mix the audio files
     const combinedPath = path.join(this.tempDir, `combined-${track.id}-${Date.now()}.mp3`);
@@ -425,11 +406,11 @@ class AudioProcessor {
         .complexFilter(filterParts)
         .outputOptions(['-map', '[trimmed]'])
         .on('end', () => {
-          console.log(`✅ Stem rendering completed: ${outputPath}`);
+          logger.info({ message: 'Stem rendering completed', outputPath });
           resolve();
         })
         .on('error', (err) => {
-          console.error('❌ Stem rendering failed:', err);
+          logger.error({ message: 'Stem rendering failed', error: err?.message, stack: err?.stack });
           reject(err);
         })
         .save(outputPath);
@@ -437,7 +418,6 @@ class AudioProcessor {
   }
 
   async processRegularUpload(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl) {
-    console.log(`🎵 Processing regular upload for track ${track.id}`);
 
     // Normalize the audio
     const normalizedPath = path.join(this.tempDir, `normalized-${track.id}-${Date.now()}.mp3`);
@@ -492,7 +472,6 @@ class AudioProcessor {
     };
 
     await s3Client.send(new PutObjectCommand(uploadParams));
-    console.log(`📤 Uploaded ${s3Key} to S3`);
   }
 
   async combineAudioFiles(inputFiles, outputPath, gainValues, targetLufs = null, truePeak = null) {
@@ -542,14 +521,13 @@ class AudioProcessor {
 
       ffmpegCommand
         .on('start', commandLine => {
-          console.log('FFmpeg command:', commandLine);
         })
         .on('end', () => {
-          console.log(`✅ Audio mixing completed: ${outputPath}`);
+          logger.info({ message: 'Audio mixing completed', outputPath });
           resolve();
         })
         .on('error', (err) => {
-          console.error('❌ Audio mixing failed:', err);
+          logger.error({ message: 'Audio mixing failed', error: err?.message, stack: err?.stack });
           reject(err);
         })
         .save(outputPath);
@@ -564,14 +542,13 @@ class AudioProcessor {
         .audioFrequency(44100)
         .audioChannels(2)
         .on('start', commandLine => {
-          console.log('FFmpeg command:', commandLine);
         })
         .on('end', () => {
-          console.log(`✅ MP3 conversion completed: ${outputPath}`);
+          logger.info({ message: 'MP3 conversion completed', outputPath });
           resolve();
         })
         .on('error', (err) => {
-          console.error('❌ MP3 conversion failed:', err);
+          logger.error({ message: 'MP3 conversion failed', error: err?.message, stack: err?.stack });
           reject(err);
         })
         .save(outputPath);
@@ -584,7 +561,7 @@ class AudioProcessor {
       const metadata = await mm.parseFile(filePath);
       return metadata.format.duration || 0;
     } catch (error) {
-      console.error('Error extracting audio duration:', error);
+      logger.error({ message: 'Error extracting audio duration', error: error?.message });
       return 0;
     }
   }
@@ -616,7 +593,7 @@ class AudioProcessor {
           [stem.track_id]
         );
         if (stemTrackResult.rows.length === 0) {
-          console.warn(`Stem track ${stem.track_id} not found, skipping`);
+          logger.warn({ message: 'Stem track not found, skipping', stem_track_id: stem.track_id });
           continue;
         }
         else {
@@ -653,7 +630,7 @@ class AudioProcessor {
         .audioChannels(1) // Convert to mono for peak calculation
         .format('s16le') // 16-bit signed little-endian PCM
         .on('error', (err) => {
-          console.error('❌ Failed to extract PCM data:', err);
+          logger.error({ message: 'Failed to extract PCM data', error: err?.message });
           fsPromises.unlink(tempPcmPath).catch(() => {});
           reject(err);
         })
@@ -740,7 +717,7 @@ class AudioProcessor {
     } catch (error) {
       // File doesn't exist yet, start with empty structure
       if (error.name !== 'NoSuchKey' && error.name !== 'NotFound') {
-        console.warn(`Could not read existing peaks file ${r2Key}:`, error.message);
+        logger.warn({ message: 'Could not read existing peaks file', r2Key, error: error.message });
       }
     }
 
@@ -765,7 +742,6 @@ class AudioProcessor {
       };
 
       await s3Client.send(new PutObjectCommand(uploadParams));
-      console.log(`📤 Uploaded waveform peaks (resolution ${resolution}) to ${r2Key}`);
 
       // Clean up temp file
       await fsPromises.unlink(tempJsonPath).catch(() => {});
