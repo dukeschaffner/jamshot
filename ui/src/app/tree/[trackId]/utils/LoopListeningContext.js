@@ -37,7 +37,8 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
   // Previous track threshold (same as global player)
   const PREVIOUS_THRESHOLD = 2; // seconds
 
-  const queueIndex = useRef(0);
+  const queueIndex = useRef(0); // Index of the current track (if current track is from the automatic queue, otherwise the index of the last played track from the automatic queue)
+  const nextTrackIsFromAutomaticQueue = useRef(false); // Whether the next track is from the automatic queue
 
   // Refs for play counter and analytics
   const listeningTimeRef = useRef(0);
@@ -128,6 +129,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
   const getNextTrack = async () => {
     // Check manual queue first
     if (manualQueueRef.current.length > 0) {
+      nextTrackIsFromAutomaticQueue.current = false;
       return manualQueueRef.current[0];
     }
     
@@ -135,19 +137,21 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     if (automaticQueueRef.current.length > 0) {
       // Find next track in automatic queue (after current)
       if (queueIndex.current >= 0 && queueIndex.current < automaticQueueRef.current.length - 1) {
-        queueIndex.current++;
-        return automaticQueueRef.current[queueIndex.current];
+        nextTrackIsFromAutomaticQueue.current = true;
+        return automaticQueueRef.current[queueIndex.current + 1];
       }
     }
     // Get next track from tree data manager
     if (treeDataManager && currentTrackRef.current) {
       try {
-        const nextTrackId = await treeDataManager.getNextTrack(currentTrackRef.current.id);
+        const lastAutomaticQueueIndex = Math.max(0, automaticQueueRef.current.length - 1);
+        const lastAutomaticQueueTrack = automaticQueueRef.current[lastAutomaticQueueIndex];
+        const nextTrackId = await treeDataManager.getNextTrack(lastAutomaticQueueTrack.id);
         if (nextTrackId && treeDataManager.trackData.has(nextTrackId)) {
           const nextTrack = treeDataManager.trackData.get(nextTrackId);
           // Add to automatic queue
           automaticQueueRef.current = [...automaticQueueRef.current, nextTrack];
-          queueIndex.current = automaticQueueRef.current.length - 1;
+          nextTrackIsFromAutomaticQueue.current = true;
           return nextTrack;
         }
       } catch (error) {
@@ -260,6 +264,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
 
     // if no next track is set, set the next track to the queued track
     if(manualQueueRef.current.length === 1) {
+      nextTrackIsFromAutomaticQueue.current = false;
       engineRef.current.setNextTrack(track);
     }
   }, []);
@@ -290,7 +295,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     }
     
     if (queueIndex.current > 0) {
-      queueIndex.current = Math.max(0, queueIndex.current - 2);
+      queueIndex.current = Math.max(0, queueIndex.current - 1);
       const prevTrack = automaticQueueRef.current[queueIndex.current];
       // Play the track (events will update state)
       await engineRef.current.playTrack(prevTrack);
@@ -399,6 +404,9 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
 
     // Handle track changed
     const handleTrackChanged = (data) => {
+      if(nextTrackIsFromAutomaticQueue.current) {
+        queueIndex.current = automaticQueueRef.current.indexOf(data.track);
+      }
       // Update play analytics for previous track before changing
       if (data.previousTrack) {
         updatePlay(true, data.previousTrack);

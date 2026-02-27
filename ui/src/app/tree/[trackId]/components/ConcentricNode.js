@@ -383,6 +383,19 @@ function ConcentricNode({ data }) {
             objectFit: 'cover',
           }}
         />
+        {isPlayed && (
+          <div
+            className={styles.playedOverlay}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              backgroundColor: 'var(--grey-1)',
+              opacity: playedOverlayOpacity,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
       </div>
       {track?.verified && (
         <div

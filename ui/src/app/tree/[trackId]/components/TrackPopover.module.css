@@ -129,6 +129,10 @@ body.dark-mode .popover-play-button:hover {
   transition: all 0.2s ease;
 }
 
+.popover-queue-button .popover-queue-icon {
+  margin-right: 8px;
+}
+
 .popover-queue-button:hover {
   background: var(--grey-2);
   transform: translateY(-1px);
