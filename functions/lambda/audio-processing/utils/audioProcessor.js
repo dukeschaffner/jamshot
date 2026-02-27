@@ -40,6 +40,9 @@ const s3Client = new S3Client({
 // Database connection - Lambda optimized
 const pool = createLambdaPool();
 
+// When true, use two-pass loudnorm (measure then encode); when false, use single-pass with fallback values.
+const USE_MEASUREMENT_PASS = process.env.USE_MEASUREMENT_PASS === 'true';
+
 class AudioProcessor {
   constructor() {
     if (process.env.NODE_ENV === 'development') {
@@ -311,9 +314,9 @@ class AudioProcessor {
     gainValues.push(recordingGain);
 
 
-    // Mix the audio files
+    // Mix the audio files (normalize to same loudness as regular upload: -16 LUFS, -1 dBTP)
     const combinedPath = path.join(this.tempDir, `combined-${track.id}-${Date.now()}.mp3`);
-    await this.combineAudioFiles(localFiles, combinedPath, gainValues);
+    await this.combineAudioFiles(localFiles, combinedPath, gainValues, -16, -1);
 
     // Extract duration from the combined audio file
     const duration = await this.getAudioDuration(combinedPath);
@@ -474,53 +477,122 @@ class AudioProcessor {
     await s3Client.send(new PutObjectCommand(uploadParams));
   }
 
+  /**
+   * Parse loudnorm JSON from FFmpeg stderr (pass 1 with print_format=json).
+   * Returns { measured_I, measured_LRA, measured_TP, measured_thresh, offset } or null if unparseable.
+   */
+  parseLoudnormStderr(stderrText) {
+    if (!stderrText || typeof stderrText !== 'string') return null;
+    // FFmpeg prints JSON to stderr, often multiline with prefix (e.g. [Parsed_loudnorm_3 @ 0x...])
+    const idx = stderrText.indexOf('"input_i"');
+    if (idx === -1) return null;
+    const start = stderrText.lastIndexOf('{', idx);
+    if (start === -1) return null;
+    const end = stderrText.indexOf('}', idx);
+    if (end === -1) return null;
+    const jsonStr = stderrText.slice(start, end + 1);
+    try {
+      const obj = JSON.parse(jsonStr);
+      const measured_I = obj.input_i != null ? String(obj.input_i) : null;
+      const measured_LRA = obj.input_lra != null ? String(obj.input_lra) : null;
+      const measured_TP = obj.input_tp != null ? String(obj.input_tp) : null;
+      const measured_thresh = obj.input_thresh != null ? String(obj.input_thresh) : null;
+      const offset = obj.target_offset != null ? String(obj.target_offset) : null;
+      if (measured_I == null || offset == null) return null;
+      return { measured_I, measured_LRA: measured_LRA ?? '11.0', measured_TP: measured_TP ?? '-1.0', measured_thresh: measured_thresh ?? '-30.0', offset };
+    } catch {
+      return null;
+    }
+  }
+
   async combineAudioFiles(inputFiles, outputPath, gainValues, targetLufs = null, truePeak = null) {
+    const lra = 11;
+    const tp = truePeak ?? -1;
+
+    // Build base filter: per-input gain + amix (used for both passes when normalizing)
+    const baseFilterParts = [];
+    const inputs = [];
+    inputFiles.forEach((file, index) => {
+      inputs.push(`[${index}:a]`);
+      if (gainValues && gainValues[index] !== undefined && gainValues[index] !== 1.0) {
+        baseFilterParts.push(`${inputs[index]}volume=${gainValues[index]}[a${index}]`);
+        inputs[index] = `[a${index}]`;
+      }
+    });
+    const mixInputs = inputs.join('');
+    baseFilterParts.push(`${mixInputs}amix=inputs=${inputFiles.length}:normalize=0[aout]`);
+
+    // Two-pass loudness normalization when enabled; otherwise single-pass with fallback values
+    if (targetLufs !== null) {
+      let measured = null;
+      if (USE_MEASUREMENT_PASS) {
+        try {
+          measured = await this.runLoudnormMeasurementPass(inputFiles, baseFilterParts, targetLufs, lra, tp);
+        } catch (err) {
+          logger.warn({ message: 'Loudnorm measurement pass failed, using fallback', error: err?.message });
+        }
+      }
+      const useMeasured = measured?.measured_I != null && measured?.offset != null;
+      if (useMeasured) {
+        logger.info({
+          message: 'Loudnorm two-pass: using measured values',
+          measured_I: measured.measured_I,
+          measured_LRA: measured.measured_LRA,
+          measured_TP: measured.measured_TP,
+          measured_thresh: measured.measured_thresh,
+          offset: measured.offset
+        });
+      }
+      // With real measured values: linear two-pass style. Without: dynamic single-pass (no fake measured_*).
+      const loudnormParams = useMeasured
+        ? `[aout]loudnorm=I=${targetLufs}:LRA=${lra}:TP=${tp}:measured_I=${measured.measured_I}:measured_LRA=${measured.measured_LRA}:measured_TP=${measured.measured_TP}:measured_thresh=${measured.measured_thresh}:offset=${measured.offset}:linear=true[out]`
+        : `[aout]loudnorm=I=${targetLufs}:LRA=${lra}:TP=${tp}[out]`;
+
+      await this.runFfmpegCombine(inputFiles, [...baseFilterParts, loudnormParams], outputPath, '[out]');
+      return;
+    }
+
+    // No normalization: single pass, map mixed output
+    await this.runFfmpegCombine(inputFiles, baseFilterParts, outputPath, '[aout]');
+  }
+
+  runLoudnormMeasurementPass(inputFiles, baseFilterParts, targetLufs, lra, tp) {
+    return new Promise((resolve, reject) => {
+      const filterParts = [...baseFilterParts, `[aout]loudnorm=I=${targetLufs}:LRA=${lra}:TP=${tp}:print_format=json[measured]`];
+      const nullPath = path.join(this.tempDir, `loudnorm-measure-${Date.now()}`);
+      const ffmpegCommand = ffmpeg();
+      inputFiles.forEach(f => ffmpegCommand.input(f));
+      let stderr = '';
+      ffmpegCommand
+        .complexFilter(filterParts)
+        .outputOptions(['-map', '[measured]', '-f', 'null'])
+        .on('stderr', (line) => { stderr += line + '\n'; })
+        .on('end', () => {
+          fsPromises.unlink(nullPath).catch(() => {});
+          const parsed = this.parseLoudnormStderr(stderr);
+          resolve(parsed && parsed.measured_I != null && parsed.offset != null ? parsed : {});
+        })
+        .on('error', (err) => {
+          fsPromises.unlink(nullPath).catch(() => {});
+          reject(err);
+        })
+        .save(nullPath);
+    });
+  }
+
+  runFfmpegCombine(inputFiles, filterParts, outputPath, mapLabel) {
     return new Promise((resolve, reject) => {
       const ffmpegCommand = ffmpeg();
-
-      // Build complex filter for volume adjustments and mixing
-      const filterParts = [];
-      const inputs = [];
-
-      inputFiles.forEach((file, index) => {
-        ffmpegCommand.input(file);
-        inputs.push(`[${index}:a]`); // Audio stream reference
-
-        // Apply gain if specified (not 1.0)
-        if (gainValues && gainValues[index] !== undefined && gainValues[index] !== 1.0) {
-          filterParts.push(`${inputs[index]}volume=${gainValues[index]}[a${index}]`);
-          inputs[index] = `[a${index}]`; // Update reference to filtered output
-        }
-      });
-
-      // Mix all inputs
-      const mixInputs = inputs.join('');
-      filterParts.push(`${mixInputs}amix=inputs=${inputFiles.length}:normalize=0[aout]`);
-
-      // Apply loudness normalization if specified
-      if (targetLufs !== null) {
-        const lra = 11; // Loudness Range (11 LU is typical for modern music)
-        filterParts.push(`[aout]loudnorm=I=${targetLufs}:LRA=${lra}:TP=${truePeak || -1}:measured_I=-23.0:measured_LRA=11.0:measured_TP=-1.0:measured_thresh=-30.0:offset=0.0:linear=true`);
-      }
-
-      // Set up audio processing
+      inputFiles.forEach(f => ffmpegCommand.input(f));
       ffmpegCommand
         .audioCodec('libmp3lame')
         .audioBitrate('320k')
         .audioFrequency(44100)
-        .audioChannels(2);
-
-      // Apply the complex filter
-      if (filterParts.length > 0) {
-        ffmpegCommand.complexFilter(filterParts);
-        if (targetLufs === null) {
-          // If no loudness normalization, map the mixed output directly
-          ffmpegCommand.outputOptions(['-map', '[aout]']);
-        }
-      }
-
-      ffmpegCommand
+        .audioChannels(2)
+        .complexFilter(filterParts)
+        .outputOptions(['-map', mapLabel])
         .on('start', commandLine => {
+          console.log(commandLine);
         })
         .on('end', () => {
           logger.info({ message: 'Audio mixing completed', outputPath });

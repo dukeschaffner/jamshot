@@ -14,6 +14,10 @@ before launch:
 
 
 
+ffmpeg -i /Users/dukeschaffner/Documents/CODING/apps/jamshot/functions/lambda/audio-processing/temp/rendered-stem-86-1772206741094.mp3 -i /Users/dukeschaffner/Documents/CODING/apps/jamshot/functions/lambda/audio-processing/temp/track-131-raw-1772206739868.wav -y -filter_complex [0:a]volume=0.1335378950598343[a0];[a0][1:a]amix=inputs=2:normalize=0[aout] -acodec libmp3lame -b:a 320k -ar 44100 -ac 2 -map [aout] /Users/dukeschaffner/Documents/CODING/apps/jamshot/functions/lambda/audio-processing/temp/combined-131-1772206741622.mp3
+
+
+
 - DAW 
   - handle stereo input devices
   - region looping
