@@ -304,10 +304,10 @@ class AudioProcessor {
     // Add the new recording
     localFiles.push(localFilePath);
 
-    // Get recording gain from mix_gains
+    // Get recording gain from mix_gains (track_id may be number or string from JSON)
     const mixGains = track.mix_gains?.stems || [];
-    const recordingStem = mixGains.find(s => s.track_id === track.id.toString());
-    const recordingGain = recordingStem?.gain || 1.0;
+    const recordingStem = mixGains.find(s => String(s.track_id) === String(track.id));
+    const recordingGain = recordingStem?.gain ?? 1.0;
     gainValues.push(recordingGain);
 
 
