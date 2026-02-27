@@ -1,4 +1,6 @@
+import crypto from 'crypto';
 import AudioProcessor from './utils/audioProcessor.js';
+import { asyncLocalStorage, logger } from './utils/logger.js';
 
 /**
  * AWS Lambda handler for audio processing
@@ -13,62 +15,58 @@ import AudioProcessor from './utils/audioProcessor.js';
  *   "track_id": "123",
  *   "s3_key": "temp/tracks/123/raw-filename.mp3"
  * }
+ * EventBridge detail may include correlation_id (from API) for request tracing.
  */
 
-
 export const handler = async (event, context) => {
-  console.log('🎵 Jamshot Audio Processing Lambda Started');
-  console.log('Event:', JSON.stringify(event, null, 2));
-  console.log('Context:', JSON.stringify(context, null, 2));
+  const correlationId = event.detail?.correlation_id ?? event.correlation_id ?? crypto.randomUUID();
+  const trackId = event.track_id ?? event.detail?.track_id ?? process.env.TRACK_ID;
 
-  console.log('🔍 Debug: Creating AudioProcessor instance');
-  const processor = new AudioProcessor();
-  console.log('🔍 Debug: AudioProcessor instance created successfully');
+  const invocationContext = {
+    correlationId,
+    track_id: trackId,
+  };
 
-  try {
-    // Parse event parameters (support both EventBridge format and environment variables for local dev)
-    const trackId = event.track_id || event.detail?.track_id || process.env.TRACK_ID;
+  return asyncLocalStorage.run(invocationContext, async () => {
 
-    console.log('🔍 Debug: Environment variables:');
-    console.log(`  TRACK_ID: ${process.env.TRACK_ID}`);
-    console.log('🔍 Debug: Parsed values:');
-    console.log(`  trackId: ${trackId}`);
+    const processor = new AudioProcessor();
 
-    if (!trackId) {
-      throw new Error('track_id is required in event');
+    try {
+      if (!trackId) {
+        throw new Error('track_id is required in event');
+      }
+
+
+      const result = await processor.processAudio(trackId);
+
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ ...result, correlationId }),
+      };
+    } catch (error) {
+      logger.error({
+        message: 'Error during audio processing',
+        error: error.message,
+        stack: error.stack,
+        track_id: trackId,
+      });
+
+      const errorResult = {
+        status: 'error',
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString(),
+        track_id: trackId,
+        correlationId,
+      };
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify(errorResult),
+      };
     }
-
-    console.log(`🎵 Processing audio for track: ${trackId}`);
-
-    // Process the audio
-    console.log('🔍 Debug: Calling processor.processAudio()');
-    const result = await processor.processAudio(trackId);
-    console.log('🔍 Debug: processor.processAudio() completed');
-
-    console.log('✅ Audio processing completed successfully!');
-    console.log('Result:', JSON.stringify(result, null, 2));
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(result)
-    };
-
-  } catch (error) {
-    console.error('❌ Error during audio processing:', error);
-
-    const errorResult = {
-      status: 'error',
-      error: error.message,
-      stack: error.stack,
-      timestamp: new Date().toISOString(),
-      track_id: event.track_id || event.detail?.track_id
-    };
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify(errorResult)
-    };
-  }
+  });
 };
 
 /**
@@ -76,12 +74,11 @@ export const handler = async (event, context) => {
  * This is triggered when a new track is created
  */
 export const trackCreatedHandler = async (event, context) => {
-  console.log('🎵 Track created event received');
-
   const modifiedEvent = {
-    track_id: event.detail?.track_id
+    ...event,
+    track_id: event.detail?.track_id,
+    detail: { ...event.detail, correlation_id: event.detail?.correlation_id },
   };
-
   return handler(modifiedEvent, context);
 };
 
@@ -90,8 +87,6 @@ export const trackCreatedHandler = async (event, context) => {
  * Can be triggered via AWS Console or CLI for testing
  */
 export const manualHandler = async (event, context) => {
-  console.log('🔧 Manual audio processing triggered');
-
   return handler(event, context);
 };
 

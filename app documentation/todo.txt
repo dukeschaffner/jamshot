@@ -71,7 +71,6 @@ ui issues:
 
 
 NEEDS VERIFICATION:
-- email notifications
 - ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
 - what if project end is dragged before parent stem region ends?
   - daw sometimes gets initialized twice (causes undo/redo bug)
