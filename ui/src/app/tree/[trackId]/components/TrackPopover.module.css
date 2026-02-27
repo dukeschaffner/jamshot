@@ -61,6 +61,15 @@
   white-space: nowrap;
 }
 
+.popover-timestamp {
+  margin-top: -4px;
+}
+
+.popover-timestamp :global(.time-display) {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 .popover-meta {
   padding-top: 8px;
   border-top: 1px solid var(--grey-2);

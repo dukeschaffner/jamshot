@@ -8,6 +8,7 @@ import { useAudio } from '../../../../lib/AudioContext';
 import { useLoopListening } from '../utils/LoopListeningContext';
 import TrackTags from '../../../../components/TrackTags';
 import TrackMeta from '../../../../components/TrackMeta';
+import TimeDisplay from '../../../../components/TimeDisplay';
 import styles from './TrackPopover.module.css';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false, onTrackLikeUpdate, onTrackRepostUpdate }) {
@@ -111,6 +112,12 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
             </div>
           </div>
         </div>
+
+        {track?.created_at && (
+          <div className={styles['popover-timestamp']}>
+            <TimeDisplay timestamp={track.created_at} />
+          </div>
+        )}
 
         <div className={styles['popover-meta']}>
           <TrackMeta track={track} variant="mini" onTrackLikeUpdate={onTrackLikeUpdate} onTrackRepostUpdate={onTrackRepostUpdate} />
