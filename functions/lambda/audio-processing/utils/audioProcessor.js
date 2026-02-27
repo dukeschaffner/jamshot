@@ -37,8 +37,12 @@ const s3Client = new S3Client({
   endpoint: process.env.R2_ENDPOINT,
 });
 
-// Database connection - Lambda optimized
-const pool = createLambdaPool();
+// Database connection - Lambda optimized (lazy so tests can use combineAudioFiles without DB)
+let _pool = null;
+function getPool() {
+  if (!_pool) _pool = createLambdaPool();
+  return _pool;
+}
 
 // When true, use two-pass loudnorm (measure then encode); when false, use single-pass with fallback values.
 const USE_MEASUREMENT_PASS = process.env.USE_MEASUREMENT_PASS === 'true';
@@ -80,7 +84,7 @@ class AudioProcessor {
 
     try {
       // Get track information from database
-      const trackResult = await pool.query(
+      const trackResult = await getPool().query(
         'SELECT * FROM tracks WHERE id = $1',
         [trackId]
       );
@@ -102,7 +106,7 @@ class AudioProcessor {
 
 
       // Update processing status to 'processing'
-      await pool.query(
+      await getPool().query(
         'UPDATE tracks SET processing_status = $1 WHERE id = $2',
         ['processing', trackId]
       );
@@ -181,7 +185,7 @@ class AudioProcessor {
       );
 
       // Update processing status to 'completed' and set final URLs and duration
-      await pool.query(
+      await getPool().query(
         'UPDATE tracks SET processing_status = $1, audio_url = $2, combined_audio_url = $3, duration = $4, waveform_url = $5, combined_waveform_url = $6 WHERE id = $7',
         ['completed', finalAudioUrl, finalCombinedAudioUrl, duration, waveformUrl, combinedWaveformUrl, trackId]
       );
@@ -239,7 +243,7 @@ class AudioProcessor {
       }
 
       // Update processing status to 'failed'
-      await pool.query(
+      await getPool().query(
         'UPDATE tracks SET processing_status = $1, processing_error = $2 WHERE id = $3',
         ['failed', error.message, trackId]
       ).catch(dbError => {
@@ -284,7 +288,7 @@ class AudioProcessor {
         let renderedPath = stemLocalPath;
         if (stem.regions && stem.regions.length > 0) {
           logger.info({ message: 'Rendering stem', stem_track_id: stem.track_id, regionCount: stem.regions.length });
-          renderedPath = path.join(this.tempDir, `rendered-stem-${stem.track_id}-${Date.now()}.mp3`);
+          renderedPath = path.join(this.tempDir, `rendered-stem-${stem.track_id}-${Date.now()}.wav`);
           await this.renderStemWithRegions(stemLocalPath, renderedPath, stem.regions);
           renderedFiles.push(renderedPath); // Track for cleanup
         }
@@ -400,10 +404,9 @@ class AudioProcessor {
       // Trim to maxEndTime duration
       filterParts.push(`[aout]atrim=0:${maxEndTime}[trimmed]`);
       
-      // Set up audio processing
+      // Set up audio processing (WAV intermediate to avoid extra MP3 encode and generational loss)
       ffmpegCommand
-        .audioCodec('libmp3lame')
-        .audioBitrate('320k')
+        .audioCodec('pcm_s16le')
         .audioFrequency(44100)
         .audioChannels(2)
         .complexFilter(filterParts)
@@ -586,7 +589,7 @@ class AudioProcessor {
       inputFiles.forEach(f => ffmpegCommand.input(f));
       ffmpegCommand
         .audioCodec('libmp3lame')
-        .audioBitrate('320k')
+        .audioBitrate('192k')
         .audioFrequency(44100)
         .audioChannels(2)
         .complexFilter(filterParts)
@@ -610,11 +613,9 @@ class AudioProcessor {
     return new Promise((resolve, reject) => {
       ffmpeg(inputPath)
         .audioCodec('libmp3lame')
-        .audioBitrate('320k')
+        .audioBitrate('192k')
         .audioFrequency(44100)
         .audioChannels(2)
-        .on('start', commandLine => {
-        })
         .on('end', () => {
           logger.info({ message: 'MP3 conversion completed', outputPath });
           resolve();
@@ -642,7 +643,7 @@ class AudioProcessor {
     const stems = [];
 
     // Get the mix_gains from the current track
-    const trackResult = await pool.query(
+    const trackResult = await getPool().query(
       'SELECT mix_gains, audio_url FROM tracks WHERE id = $1',
       [trackId]
     );
@@ -660,7 +661,7 @@ class AudioProcessor {
         audioUrl = trackResult.rows[0].audio_url;
       }
       else {
-        const stemTrackResult = await pool.query(
+        const stemTrackResult = await getPool().query(
           'SELECT audio_url FROM tracks WHERE id = $1',
           [stem.track_id]
         );
