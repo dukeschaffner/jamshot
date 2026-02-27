@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { FaCheckCircle, FaPlay, FaPause } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaPlay, FaPause } from 'react-icons/fa';
 import { useAudio } from '../../../../lib/AudioContext';
 import { useLoopListening } from '../utils/LoopListeningContext';
 import TrackTags from '../../../../components/TrackTags';
@@ -28,6 +28,8 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
   const { currentTrack, isPlaying, playTrack, togglePlayPause, queueTrack } = audioContext;
   
   const popoverRef = useRef(null);
+  const queueFeedbackTimeoutRef = useRef(null);
+  const [showQueuedFeedback, setShowQueuedFeedback] = useState(false);
 
   const isCurrentTrack = currentTrack?.id === track?.id;
   const isCurrentlyPlaying = isCurrentTrack && isPlaying;
@@ -43,8 +45,20 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
   const handleQueue = () => {
     if (isLoopMode && queueTrack) {
       queueTrack(track);
+      if (queueFeedbackTimeoutRef.current) clearTimeout(queueFeedbackTimeoutRef.current);
+      setShowQueuedFeedback(true);
+      queueFeedbackTimeoutRef.current = setTimeout(() => {
+        setShowQueuedFeedback(false);
+        queueFeedbackTimeoutRef.current = null;
+      }, 1000);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (queueFeedbackTimeoutRef.current) clearTimeout(queueFeedbackTimeoutRef.current);
+    };
+  }, []);
 
   const navigateToUserProfile = (e) => {
     e.stopPropagation();
@@ -143,7 +157,14 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
               className={styles['popover-queue-button']}
               onClick={handleQueue}
             >
-              Queue
+              {showQueuedFeedback ? (
+                <>
+                  <span className={styles['popover-queue-icon']} aria-hidden><FaCheck /></span>
+                  Queued
+                </>
+              ) : (
+                'Queue'
+              )}
             </button>
           )}
         </div>
