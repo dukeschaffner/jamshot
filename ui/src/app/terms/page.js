@@ -14,7 +14,7 @@ export default function TermsOfServicePage() {
           Please read these terms carefully before using Sterio. By using our service, you agree to these terms.
         </p>
         <p className="text-sm text-secondary mt-2">
-          Last updated: {new Date().toLocaleDateString()}
+          Last updated: March 2, 2025
         </p>
       </div>
 
@@ -99,7 +99,7 @@ export default function TermsOfServicePage() {
               <li>Be original or properly licensed</li>
               <li>Not infringe on others&apos; intellectual property rights</li>
               <li>Not contain illegal or harmful material</li>
-              <li>Comply with our Community Guidelines</li>
+              <li>Comply with the content standards set out in these Terms</li>
             </ul>
           </div>
         </section>
@@ -122,8 +122,8 @@ export default function TermsOfServicePage() {
               <li>Interfere with the proper functioning of the Service</li>
             </ul>
             
-            <h3>Community Guidelines</h3>
-            <p>We strive to maintain a positive community. Content that violates our guidelines includes:</p>
+            <h3>Content Standards</h3>
+            <p>We strive to maintain a positive community. Content that violates these standards includes:</p>
             <ul>
               <li>Hate speech or discriminatory content</li>
               <li>Explicit sexual content</li>
