@@ -76,13 +76,23 @@ export default function TermsOfServicePage() {
           </h2>
           <div className={styles.sectionContent}>
             <h3>Your Content</h3>
-            <p>You retain all rights to the original content you create and upload to Sterio. However, by uploading content, you grant us:</p>
+            <p>You retain all rights to the original content you create and upload to Sterio. However, by uploading content, you grant us a non-exclusive, irrevocable, worldwide, royalty-free, sublicensable license to:</p>
             <ul>
-              <li>A non-exclusive, irrevocable, worldwide, royalty-free license to use, display, and distribute your content</li>
-              <li>The right to make your content available to other users for collaboration</li>
-              <li>The right to create derivative works through the collaboration process</li>
-              <li>The right to promote your content within the platform</li>
+              <li>Host, stream, publicly perform, use, display, and distribute your content</li>
+              <li>Remix or create derivative works from your content in accordance with the Service&apos;s features and these Terms</li>
+              <li>Make your content available to other users for collaboration</li>
+              <li>Promote your content on and off the platform, including in marketing and promotional materials</li>
             </ul>
+            <p>This license does not entitle you to any compensation unless we have explicitly agreed in writing to compensate you.</p>
+            
+            <h3>Stream Events</h3>
+            <p>When you participate in Sterio events (including livestreams), you grant Sterio and its users the rights above, and additionally you grant Sterio the right to:</p>
+            <ul>
+              <li>Live stream your content as part of the event</li>
+              <li>Record the livestream and create clips or highlights</li>
+              <li>Use those recordings and clips for promotional purposes (e.g., social media, marketing, recap content)</li>
+            </ul>
+            <p>By uploading to an event track, you also grant other Sterio users a license to use your content for mixing and creation within the Service as permitted by the event. Participation in events does not entitle you to compensation unless we have explicitly agreed in writing.</p>
             
             <h3>Collaboration Rights</h3>
             <p>When you collaborate on tracks:</p>
