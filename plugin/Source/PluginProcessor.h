@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "auth/AuthManager.h"
 
 //==============================================================================
 /** Transport state read from the host DAW. Used for stem playback sync (Increment 5). */
@@ -55,6 +56,8 @@ private:
     TransportState transportState;
 
     void updateTransportFromHost();
+
+    AuthManager authManager;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };

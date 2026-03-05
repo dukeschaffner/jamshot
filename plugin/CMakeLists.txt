@@ -9,6 +9,9 @@ set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefi
 
 # Use JUCE from Downloads folder. Override with -DJUCE_PATH=/path/to/JUCE if needed.
 set(JUCE_PATH "$ENV{HOME}/Downloads/JUCE" CACHE PATH "Path to JUCE source directory")
+
+# Auth URL for plugin login. Default localhost for dev. Use -DSTERIO_PLUGIN_AUTH_URL="https://sterio.fm" for production.
+set(STERIO_PLUGIN_AUTH_URL "http://localhost:3000" CACHE STRING "Auth URL for plugin login flow")
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/JUCE-build)
 
 juce_add_plugin(SterioPlugin
@@ -24,22 +27,38 @@ juce_add_plugin(SterioPlugin
 
 target_sources(SterioPlugin
     PRIVATE
+        Source/auth/AuthCallbackServer.cpp
+        Source/auth/AuthCallbackServer.h
+        Source/auth/AuthManager.cpp
+        Source/auth/AuthManager.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
         Source/PluginProcessor.cpp
         Source/PluginProcessor.h
+        Source/ui/LoginView.cpp
+        Source/ui/LoginView.h
 )
 
 source_group("Sterio" FILES
+    Source/auth/AuthCallbackServer.cpp
+    Source/auth/AuthCallbackServer.h
+    Source/auth/AuthManager.cpp
+    Source/auth/AuthManager.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
+    Source/ui/LoginView.cpp
+    Source/ui/LoginView.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")
 
+target_include_directories(SterioPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
+
 target_compile_definitions(SterioPlugin
+    PRIVATE
+        STERIO_PLUGIN_AUTH_URL="${STERIO_PLUGIN_AUTH_URL}"
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0

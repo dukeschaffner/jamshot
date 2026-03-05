@@ -12,6 +12,7 @@ SterioPluginProcessor::SterioPluginProcessor()
 #endif
       )
 {
+    authManager.loadTokens();
 }
 
 SterioPluginProcessor::~SterioPluginProcessor()
@@ -177,7 +178,7 @@ bool SterioPluginProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* SterioPluginProcessor::createEditor()
 {
-    return new SterioPluginEditor(*this);
+    return new SterioPluginEditor(*this, authManager);
 }
 
 //==============================================================================
@@ -190,6 +191,7 @@ void SterioPluginProcessor::setStateInformation(const void* data, int sizeInByte
 {
     juce::ignoreUnused(data, sizeInBytes);
 }
+
 
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
