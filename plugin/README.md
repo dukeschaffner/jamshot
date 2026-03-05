@@ -29,11 +29,19 @@ cmake .. -DJUCE_PATH=/path/to/JUCE
 - **Windows**: `Sterio_artefacts/Release/VST3/Sterio.vst3`
 - **Linux**: `Sterio_artefacts/Release/VST3/Sterio.vst3`
 
-## Increment 1 (Current)
+## Increment 1
 
 - Plugin shell with pass-through audio
 - Host transport sync: reads playhead position, isPlaying, BPM from the DAW
 - Minimal editor showing transport status for testing
+
+## Increment 2 (Current)
+
+- Login to Sterio via system browser
+  - Click "Log in to Sterio" to open the website
+  - Log in on the site; the plugin receives the token via localhost callback
+- Token storage in `~/Library/Application Support/Sterio/` (macOS)
+- Login/Logout UI with auth status display
 
 ## Testing
 
@@ -41,3 +49,4 @@ cmake .. -DJUCE_PATH=/path/to/JUCE
 2. Copy the VST3 (or AU) to your system plugin folder, or load from the build output
 3. Open a DAW (Reaper, Logic, etc.), add the plugin to a track
 4. Start/stop transport — the editor should show "Playing"/"Stopped", time, and BPM
+5. (Increment 2) Click "Log in to Sterio", log in on the website, then confirm the plugin shows "Logged in"
