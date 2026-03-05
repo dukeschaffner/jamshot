@@ -27,6 +27,9 @@ juce_add_plugin(SterioPlugin
 
 target_sources(SterioPlugin
     PRIVATE
+        Source/api/ApiConfig.h
+        Source/api/SterioApiClient.cpp
+        Source/api/SterioApiClient.h
         Source/auth/AuthCallbackServer.cpp
         Source/auth/AuthCallbackServer.h
         Source/auth/AuthManager.cpp
@@ -37,9 +40,14 @@ target_sources(SterioPlugin
         Source/PluginProcessor.h
         Source/ui/LoginView.cpp
         Source/ui/LoginView.h
+        Source/ui/TrackListPanel.cpp
+        Source/ui/TrackListPanel.h
 )
 
 source_group("Sterio" FILES
+    Source/api/ApiConfig.h
+    Source/api/SterioApiClient.cpp
+    Source/api/SterioApiClient.h
     Source/auth/AuthCallbackServer.cpp
     Source/auth/AuthCallbackServer.h
     Source/auth/AuthManager.cpp
@@ -50,6 +58,8 @@ source_group("Sterio" FILES
     Source/PluginProcessor.h
     Source/ui/LoginView.cpp
     Source/ui/LoginView.h
+    Source/ui/TrackListPanel.cpp
+    Source/ui/TrackListPanel.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")

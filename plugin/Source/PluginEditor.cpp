@@ -1,16 +1,29 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+using namespace juce;
+
 //==============================================================================
 SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& authManager)
     : AudioProcessorEditor(&p)
     , processorRef(p)
     , authManagerRef(authManager)
-    , loginView(authManager)
+    , loginView(authManager, apiClient)
+    , trackListPanel(apiClient)
 {
-    setSize(400, 280);
+    setSize(500, 400);
 
     addAndMakeVisible(loginView);
+    addAndMakeVisible(trackListPanel);
+
+    // Set up track selection callback
+    trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
+        onTrackSelected(track);
+    });
+
+    // Set initial API token if available
+    if (authManagerRef.isLoggedIn())
+        apiClient.setAccessToken(authManagerRef.getAccessToken());
 
     startTimerHz(30);
 }
@@ -22,48 +35,51 @@ SterioPluginEditor::~SterioPluginEditor()
 
 void SterioPluginEditor::timerCallback()
 {
-    repaint();
-}
-
-
-void SterioPluginEditor::paint(juce::Graphics& g)
-{
-    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
-
-    g.setColour(juce::Colours::white);
-    g.setFont(20.0f);
-    g.drawText("Sterio", getLocalBounds().removeFromTop(40), juce::Justification::centred, true);
-
-    // Auth status (Increment 2)
-    juce::String authStatus = authManagerRef.isLoggedIn() ? "Logged in" : "Not logged in";
-    g.setFont(12.0f);
-    g.setColour(juce::Colours::lightgrey);
-    g.drawText(authStatus, getLocalBounds().removeFromTop(60).withTrimmedTop(40), juce::Justification::centred, true);
-
-    // Transport status
-    auto state = processorRef.getTransportState();
-    juce::String status;
-    if (state.hasValidPosition)
+    // Update API token when login state changes
+    if (authManagerRef.isLoggedIn())
     {
-        status = state.isPlaying ? "Playing" : "Stopped";
-        status += " | " + juce::String(state.timeInSeconds, 2) + " s";
-        status += " | " + juce::String(state.bpm, 1) + " BPM";
+        apiClient.setAccessToken(authManagerRef.getAccessToken());
+
+        // Load tracks if we have a username but no tracks loaded yet
+        auto username = loginView.getUsername();
+        if (!username.isEmpty() && trackListPanel.getSelectedTrack() == nullptr)
+        {
+            trackListPanel.setUsername(username);
+        }
     }
     else
     {
-        status = "No transport info";
+        // Clear tracks when logged out
+        trackListPanel.clearTracks();
     }
 
-    g.setColour(juce::Colours::white);
-    g.setFont(14.0f);
-    g.drawText(status, getLocalBounds().withTrimmedTop(60), juce::Justification::centred, true);
+    repaint();
+}
+
+void SterioPluginEditor::paint(Graphics& g)
+{
+    g.fillAll(getLookAndFeel().findColour(ResizableWindow::backgroundColourId));
+
+    g.setColour(Colours::white);
+    g.setFont(20.0f);
+    g.drawText("Sterio Plugin", getLocalBounds().removeFromTop(40), Justification::centred, true);
 }
 
 void SterioPluginEditor::resized()
 {
     auto r = getLocalBounds().reduced(10);
 
-    // Login view
-    auto loginRow = r.removeFromTop(50).withTrimmedTop(10);
+    // Login view at top
+    auto loginRow = r.removeFromTop(50);
     loginView.setBounds(loginRow);
+
+    // Track list panel takes remaining space
+    r.removeFromTop(10);
+    trackListPanel.setBounds(r);
+}
+
+void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
+{
+    // TODO: In Increment 4, this will trigger stem loading
+    DBG("Track selected: " + track.title + " by " + track.username);
 }
