@@ -122,3 +122,8 @@ UPDATE tracks SET repost_count = (
 UPDATE tracks SET comment_count = (
   SELECT COUNT(*) FROM comments WHERE comments.track_id = tracks.id
 );
+
+
+
+
+ALTER TYPE discovery_method ADD VALUE 'tree_page';

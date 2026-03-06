@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "GlobalErrorHandler.h"
 
 using namespace juce;
 
@@ -20,6 +21,9 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
     trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
         onTrackSelected(track);
     });
+
+    // Set up track loader
+    trackLoader.setApiClient(&apiClient);
 
     // Set initial API token if available
     if (authManagerRef.isLoggedIn())
@@ -78,8 +82,60 @@ void SterioPluginEditor::resized()
     trackListPanel.setBounds(r);
 }
 
+void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
+{
+    loadedStems = stems;
+
+    for (int i = 0; i < stems.size(); ++i)
+    {
+        const auto& stem = stems[i];
+        DBG("PluginEditor::onStemsLoaded() - Stem " + juce::String(i) +
+            ": trackId=" + juce::String(stem.trackId) +
+            ", gain=" + juce::String(stem.gain) +
+            ", order=" + juce::String(stem.order) +
+            ", audioBuffer=" + juce::String(stem.audioBuffer.getNumSamples()) + " samples, " +
+            juce::String(stem.audioBuffer.getNumChannels()) + " channels" +
+            ", regions=" + juce::String(stem.regions.size()));
+    }
+
+    // TODO: Pass stems to processor for playback (Increment 5)
+}
+
+void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::String& errorMessage)
+{
+    DBG("PluginEditor::onStemsLoadError() - Failed to load stems for track '" +
+        track.title + "': " + errorMessage);
+
+    // Clear any partial state
+    loadedStems.clear();
+
+    // Use global error handler for consistent error reporting
+    GlobalErrorHandler::handleError("TrackLoader",
+        "Failed to load stems for '" + track.title + "': " + errorMessage);
+}
+
 void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
 {
-    // TODO: In Increment 4, this will trigger stem loading
-    DBG("Track selected: " + track.title + " by " + track.username);
+
+    // Clear any previously loaded stems
+    loadedStems.clear();
+
+    // Load stems asynchronously to avoid blocking UI
+
+    juce::Thread::launch([this, track]() {
+        try {
+            auto stems = trackLoader.loadStemsForTrack(track.id);
+
+            // Update UI on main thread
+            juce::MessageManager::callAsync([this, stems]() {
+                onStemsLoaded(stems);
+            });
+        }
+        catch (const std::exception& e) {
+            // Handle errors on main thread
+            juce::MessageManager::callAsync([this, track, errorMsg = juce::String(e.what())]() {
+                onStemsLoadError(track, errorMsg);
+            });
+        }
+    });
 }
