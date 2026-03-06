@@ -1,0 +1,247 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.dialog {
+  background: var(--background);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+  border: 1px solid var(--grey-2);
+  box-shadow: 0 8px 24px var(--shadow);
+  cursor: default;
+}
+
+body.dark-mode .dialog {
+  border-color: var(--dark-border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  cursor: default;
+}
+
+.icon {
+  font-size: 24px;
+  color: var(--seafoam);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  cursor: default;
+}
+
+body.dark-mode .title {
+  color: var(--dark-text-primary);
+}
+
+.content {
+  margin-bottom: 24px;
+  cursor: default;
+}
+
+.description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+  cursor: default;
+}
+
+body.dark-mode .description {
+  color: var(--dark-text-secondary);
+}
+
+.error {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+  color: #dc2626;
+  font-size: 14px;
+  cursor: default;
+}
+
+body.dark-mode .error {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #f87171;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+body.dark-mode .label {
+  color: var(--dark-text-primary);
+}
+
+.input {
+  padding: 10px 12px;
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--background);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease;
+  cursor: text;
+}
+
+body.dark-mode .input {
+  border-color: var(--dark-border-color);
+  background: var(--dark-card-bg);
+  color: var(--dark-text-primary);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--seafoam);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+body.dark-mode .hint {
+  color: var(--dark-text-secondary);
+}
+
+.trackInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--grey-1);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: default;
+}
+
+body.dark-mode .trackInfo {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.trackInfoLabel {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+body.dark-mode .trackInfoLabel {
+  color: var(--dark-text-secondary);
+}
+
+.trackInfoValue {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+body.dark-mode .trackInfoValue {
+  color: var(--dark-text-primary);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  background: var(--grey-1);
+  color: var(--text-primary);
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: var(--grey-2);
+}
+
+body.dark-mode .cancelButton {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--dark-text-primary);
+}
+
+body.dark-mode .cancelButton:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.generateButton {
+  background: var(--seafoam);
+  color: var(--s2);
+}
+
+.generateButton:hover:not(:disabled) {
+  background: var(--seafoam-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
+@media (max-width: 768px) {
+  .dialog {
+    padding: 20px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .button {
+    width: 100%;
+  }
+}
+

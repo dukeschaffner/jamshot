@@ -5,7 +5,7 @@ import { sendContactEmail } from '../utils/emailService.js';
 import { contactLimiter } from '../middleware/rateLimiting.js';
 
 // POST /contact
-router.post('/', contactLimiter, async (req, res) => {
+router.post('/', contactLimiter, async (req, res, next) => {
   const { name, email, message } = req.body;
 
   if (!name || !email || !message) {
@@ -16,7 +16,7 @@ router.post('/', contactLimiter, async (req, res) => {
     await sendContactEmail({ name, email, message });
     res.status(200).json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to send email' });
+    next(err);
   }
 });
 

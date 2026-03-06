@@ -66,6 +66,7 @@ function DAWContent({ track}) {
     contextMenuPosition,
     showContextMenu,
     setShowContextMenu,
+    isLoop,
   } = useDAW();
 
   const { showToast } = useToast();
@@ -407,11 +408,13 @@ function DAWContent({ track}) {
                     <Playhead/>
                   </div>
                   
-                  <ProjectEndOverlay 
-                    containerRef={tracksAndTimelineRef}
-                    duration={duration}
-                    zoom={zoom}
-                  />
+                  {!isLoop && (
+                    <ProjectEndOverlay 
+                      containerRef={tracksAndTimelineRef}
+                      duration={duration}
+                      zoom={zoom}
+                    />
+                  )}
                   
                 </div>
                 {zoom > 1 && (

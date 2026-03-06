@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { FaTimes, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import api from '../lib/api';
@@ -122,7 +123,7 @@ export default function UserListModal({
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div 
       className="modal-overlay active"
       onClick={(e) => {
@@ -201,4 +202,9 @@ export default function UserListModal({
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 } 

@@ -148,14 +148,14 @@ function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, i
   const baseQuery = `
     t.id, t.guid, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature, t.allow_download,
-    t.competition_id, t.is_competition_entry,
+    t.competition_id, t.is_competition_entry, t.waveform_url, t.combined_waveform_url, t.is_loop,
     u.username, u.verified, u.profile_pic_url, u.is_private AS creator_is_private,
     t2.title AS original_title,
     ${includeDetails ? 'u2.username AS original_username,' : ''}
-    ${includeChildCount ? '(SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,' : ''}
-    (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count,
-    (SELECT COUNT(*) FROM reposts WHERE track_id = t.id) AS repost_count,
-    (SELECT COUNT(*) FROM comments WHERE track_id = t.id) AS comment_count
+    ${includeChildCount ? 't.collab_count,' : ''}
+    t.like_count,
+    t.repost_count,
+    t.comment_count
   `;
   
   // Only include user-specific fields if authenticated
@@ -474,6 +474,8 @@ async function processTrack(track, userId = null) {
   // Convert S3 URLs to signed URLs
   let audioUrl = track.audio_url;
   let combinedAudioUrl = track.combined_audio_url || track.audio_url;
+  let waveformUrl = track.waveform_url;
+  let combinedWaveformUrl = track.combined_waveform_url;
 
   // Generate signed URLs if paths are S3 paths
   if (audioUrl) {
@@ -482,6 +484,15 @@ async function processTrack(track, userId = null) {
 
   if (combinedAudioUrl) {
     combinedAudioUrl = generateSignedUrl(combinedAudioUrl);
+  }
+
+  // Generate public URLs for waveform files
+  if (waveformUrl && waveformUrl.startsWith('waveforms/')) {
+    waveformUrl = `${process.env.R2_PUBLIC_URL}/${waveformUrl}`;
+  }
+
+  if (combinedWaveformUrl && combinedWaveformUrl.startsWith('waveforms/')) {
+    combinedWaveformUrl = `${process.env.R2_PUBLIC_URL}/${combinedWaveformUrl}`;
   }
 
   // Get genres, instruments, elements, and request tags
@@ -527,6 +538,8 @@ async function processTrack(track, userId = null) {
     ...track,
     audio_url: audioUrl,
     combined_audio_url: combinedAudioUrl,
+    waveform_url: waveformUrl,
+    combined_waveform_url: combinedWaveformUrl,
     genres: genresResult.rows,
     instruments: instrumentsResult.rows,
     elements: elementsResult.rows,
@@ -708,7 +721,7 @@ async function deleteTrack(trackId, userId, options = {}) {
   try {
     // Get track details
     const trackCheck = await pool.query(
-      'SELECT user_id, audio_url, combined_audio_url FROM tracks WHERE id = $1',
+      'SELECT user_id, parent_track_id, audio_url, combined_audio_url, waveform_url, combined_waveform_url, guid FROM tracks WHERE id = $1',
       [trackId]
     );
     
@@ -717,8 +730,11 @@ async function deleteTrack(trackId, userId, options = {}) {
       throw new Error('Track not found');
     }
     
+    const track = trackCheck.rows[0];
+    const parentTrackId = track.parent_track_id;
+    
     // Ownership check (skip for user deletion)
-    if (!skipOwnershipCheck && trackCheck.rows[0].user_id !== userId) {
+    if (!skipOwnershipCheck && track.user_id !== userId) {
       if (returnResult) return { success: false, error: 'Permission denied' };
       throw new Error('You do not have permission to delete this track');
     }
@@ -742,14 +758,25 @@ async function deleteTrack(trackId, userId, options = {}) {
       return { success: true, soft_delete: true, message: 'Track soft-deleted because it has collaborations' };
     } else {
       // Hard delete - remove track and delete files from S3
-      const audioUrl = trackCheck.rows[0].audio_url;
-      const combinedAudioUrl = trackCheck.rows[0].combined_audio_url;
+      const audioUrl = track.audio_url;
+      const combinedAudioUrl = track.combined_audio_url;
+      const waveformUrl = track.waveform_url;
+      const combinedWaveformUrl = track.combined_waveform_url;
+      const guid = track.guid;
       
       // Delete from database first
       await pool.query('DELETE FROM tracks WHERE id = $1', [trackId]);
       
-      // Delete files from S3
-      await deleteTrackS3Files(audioUrl, combinedAudioUrl);
+      // Decrement collab_count on parent track if this was a collaboration
+      if (parentTrackId) {
+        await pool.query(
+          'UPDATE tracks SET collab_count = GREATEST(0, collab_count - 1) WHERE id = $1',
+          [parentTrackId]
+        );
+      }
+      
+      // Delete files from S3 (including waveform files)
+      await deleteTrackS3Files(audioUrl, combinedAudioUrl, waveformUrl, combinedWaveformUrl, guid);
       
       return { success: true, soft_delete: false, message: 'Track permanently deleted' };
     }
@@ -762,19 +789,23 @@ async function deleteTrack(trackId, userId, options = {}) {
 }
 
 /**
- * Delete track audio files from R2
+ * Delete track audio files and waveform peaks from R2
  * @param {string} audioUrl - The original audio file R2 key
  * @param {string} combinedAudioUrl - The combined/processed audio file R2 key
+ * @param {string} waveformUrl - The stem waveform peaks R2 key
+ * @param {string} combinedWaveformUrl - The combined waveform peaks R2 key
+ * @param {string} guid - The track GUID for constructing waveform paths if URLs are missing
  */
-async function deleteTrackS3Files(audioUrl, combinedAudioUrl) {
+async function deleteTrackS3Files(audioUrl, combinedAudioUrl, waveformUrl = null, combinedWaveformUrl = null, guid = null) {
   const deletePromises = [];
 
+  // Delete audio files
   if (audioUrl && audioUrl.startsWith('tracks/')) {
     deletePromises.push(
       s3Client.send(new DeleteObjectCommand({
         Bucket: process.env.R2_BUCKET,
         Key: audioUrl
-      }))
+      })).catch(err => console.error(`Error deleting audio file ${audioUrl}:`, err))
     );
   }
 
@@ -783,8 +814,51 @@ async function deleteTrackS3Files(audioUrl, combinedAudioUrl) {
       s3Client.send(new DeleteObjectCommand({
         Bucket: process.env.R2_BUCKET,
         Key: combinedAudioUrl
-      }))
+      })).catch(err => console.error(`Error deleting combined audio file ${combinedAudioUrl}:`, err))
     );
+  }
+
+  // Delete waveform files
+  if (waveformUrl && waveformUrl.startsWith('waveforms/')) {
+    deletePromises.push(
+      s3Client.send(new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: waveformUrl
+      })).catch(err => console.error(`Error deleting waveform file ${waveformUrl}:`, err))
+    );
+  }
+
+  if (combinedWaveformUrl && combinedWaveformUrl.startsWith('waveforms/')) {
+    deletePromises.push(
+      s3Client.send(new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: combinedWaveformUrl
+      })).catch(err => console.error(`Error deleting combined waveform file ${combinedWaveformUrl}:`, err))
+    );
+  }
+
+  // If waveform URLs are missing but we have a GUID, try to delete default paths
+  if (guid && (!waveformUrl || !combinedWaveformUrl)) {
+    const defaultStemPath = `waveforms/tracks/${guid}/stem.json`;
+    const defaultCombinedPath = `waveforms/tracks/${guid}/combined.json`;
+    
+    if (!waveformUrl) {
+      deletePromises.push(
+        s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET,
+          Key: defaultStemPath
+        })).catch(() => {}) // Silently fail if file doesn't exist
+      );
+    }
+    
+    if (!combinedWaveformUrl) {
+      deletePromises.push(
+        s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.R2_BUCKET,
+          Key: defaultCombinedPath
+        })).catch(() => {}) // Silently fail if file doesn't exist
+      );
+    }
   }
 
   if (deletePromises.length > 0) {

@@ -13,7 +13,7 @@ import { isFeatureEnabled } from '../utils/featureFlags.js';
  */
 
 // Get track analytics for a specific track
-router.get('/tracks/:trackId', authMiddleware, async (req, res) => {
+router.get('/tracks/:trackId', authMiddleware, async (req, res, next) => {
   try {
     const { trackId } = req.params;
     const { period = 'day', start_date, end_date } = req.query;
@@ -124,13 +124,12 @@ router.get('/tracks/:trackId', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching track analytics:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get streams by user for a specific track
-router.get('/tracks/:trackId/streams', authMiddleware, async (req, res) => {
+router.get('/tracks/:trackId/streams', authMiddleware, async (req, res, next) => {
   try {
     const { trackId } = req.params;
     const { start_date, end_date } = req.query;
@@ -256,13 +255,12 @@ router.get('/tracks/:trackId/streams', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching track streams:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get track analytics overview for the authenticated user
-router.get('/users/me/tracks', authMiddleware, async (req, res) => {
+router.get('/users/me/tracks', authMiddleware, async (req, res, next) => {
   try {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
@@ -347,13 +345,12 @@ router.get('/users/me/tracks', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching user track analytics:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get user analytics for the authenticated user
-router.get('/users/me', authMiddleware, async (req, res) => {
+router.get('/users/me', authMiddleware, async (req, res, next) => {
   try {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
@@ -451,13 +448,12 @@ router.get('/users/me', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching user analytics:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get user analytics for a specific user - requires authentication and users can only access their own analytics
-router.get('/users/:username', authMiddleware, async (req, res) => {
+router.get('/users/:username', authMiddleware, async (req, res, next) => {
   try {
     const { username } = req.params;
     const { period = 'day', start_date, end_date } = req.query;
@@ -563,13 +559,12 @@ router.get('/users/:username', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching user analytics:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get platform-wide analytics (admin only)
-router.get('/platform', authMiddleware, async (req, res) => {
+router.get('/platform', authMiddleware, async (req, res, next) => {
   try {
     const { period = 'day', start_date, end_date } = req.query;
     const userId = req.user.id;
@@ -657,8 +652,7 @@ router.get('/platform', authMiddleware, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching platform analytics:', error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 

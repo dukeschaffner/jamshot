@@ -33,27 +33,72 @@ CREATE TABLE users (
 CREATE INDEX idx_users_subscription_tier ON users(subscription_tier);
 CREATE INDEX idx_users_subscription_expires_at ON users(subscription_expires_at); 
 
+-- Better Auth tables
+CREATE TABLE session (
+  id TEXT NOT NULL PRIMARY KEY,
+  expiresAt TIMESTAMPTZ NOT NULL,
+  token TEXT NOT NULL UNIQUE,
+  createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updatedAt TIMESTAMPTZ NOT NULL,
+  ipAddress TEXT,
+  userAgent TEXT,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE account (
+  id TEXT NOT NULL PRIMARY KEY,
+  accountId TEXT NOT NULL,
+  providerId TEXT NOT NULL,
+  userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  accessToken TEXT,
+  refreshToken TEXT,
+  idToken TEXT,
+  accessTokenExpiresAt TIMESTAMPTZ,
+  refreshTokenExpiresAt TIMESTAMPTZ,
+  scope TEXT,
+  password TEXT,
+  createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updatedAt TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE verification (
+  id TEXT NOT NULL PRIMARY KEY,
+  identifier TEXT NOT NULL,
+  value TEXT NOT NULL,
+  expiresAt TIMESTAMPTZ NOT NULL,
+  createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updatedAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX session_userId_idx ON session(userId);
+CREATE INDEX account_userId_idx ON account(userId);
+CREATE INDEX verification_identifier_idx ON verification(identifier);
+
 
 
 CREATE TABLE tracks (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE, -- Who uploaded it
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- Who uploaded it
   title VARCHAR(100) NOT NULL,
   audio_url VARCHAR(1000) NOT NULL, -- S3 URL for the clip
   combined_audio_url VARCHAR(1000),
+  waveform_url VARCHAR(1000), -- R2 URL for pre-computed waveform peaks
+  combined_waveform_url VARCHAR(1000), -- R2 URL for combined waveform peaks
   duration FLOAT NOT NULL, -- Seconds, for UI display
   layer INT NOT NULL, -- 0-4 (max 5 collaborators)
   parent_track_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Null for originals, links to parent for versions
+  root_id INT REFERENCES tracks(id) ON DELETE SET NULL, -- Root track of the collaboration tree
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   play_count INT DEFAULT 0,
   is_private BOOLEAN NOT NULL DEFAULT FALSE,
+  is_loop BOOLEAN NOT NULL DEFAULT FALSE, -- Indicates if track is a loop (disables arrangement features)
   metronome_bpm INTEGER,
   metronome_offset FLOAT DEFAULT 0,
   time_signature VARCHAR(10) NOT NULL DEFAULT '4/4',
   secret_token VARCHAR(64), -- For secure sharing of private tracks
   allow_download BOOLEAN NOT NULL DEFAULT TRUE,
   is_competition_entry BOOLEAN NOT NULL DEFAULT FALSE,
-  competition_id INT REFERENCES competitions(id) ON DELETE SET NULL -- used to indicate both competition entries and hosted competitions
+  competition_id INT REFERENCES competitions(id) ON DELETE SET NULL, -- used to indicate both competition entries and hosted competitions
   processing_status TEXT DEFAULT 'completed' CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed')),
   processing_error TEXT,
   team_id INT REFERENCES teams(id) ON DELETE CASCADE,
@@ -62,17 +107,55 @@ CREATE TABLE tracks (
   room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
   key VARCHAR(10), -- Musical key (e.g., "C Major", "A Minor")
   guid UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+  collab_count INT NOT NULL DEFAULT 0, -- Number of collaborations (maintained by application logic)
+  like_count INT NOT NULL DEFAULT 0, -- Number of likes (maintained by application logic)
+  repost_count INT NOT NULL DEFAULT 0, -- Number of reposts (maintained by application logic)
+  comment_count INT NOT NULL DEFAULT 0 -- Number of comments (maintained by application logic)
 );
 
 CREATE INDEX idx_tracks_guid ON tracks(guid);
 CREATE INDEX idx_tracks_processing_status ON tracks(processing_status);
+CREATE INDEX idx_tracks_root_id_created_at ON tracks(root_id, created_at);
+
+-- Video exports table for tracking video export jobs
+CREATE TABLE video_exports (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE NOT NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  video_url VARCHAR(1000), -- R2 URL when completed
+  start_time FLOAT, -- Start timestamp in seconds
+  duration FLOAT, -- Duration in seconds
+  error_message TEXT, -- User-friendly error message
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_video_exports_user_id ON video_exports(user_id);
+CREATE INDEX idx_video_exports_track_id ON video_exports(track_id);
+CREATE INDEX idx_video_exports_status ON video_exports(status);
+CREATE INDEX idx_video_exports_created_at ON video_exports(created_at);
+
+-- Trigger to automatically update updated_at timestamp for video_exports
+CREATE OR REPLACE FUNCTION update_video_export_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_video_export_timestamp
+BEFORE UPDATE ON video_exports
+FOR EACH ROW
+EXECUTE FUNCTION update_video_export_timestamp();
 
 
 
 
 CREATE TABLE likes (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, track_id) -- Prevent duplicate likes
@@ -82,7 +165,7 @@ CREATE TABLE likes (
 
 CREATE TABLE comments (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -103,8 +186,8 @@ CREATE TABLE featured_tracks (
 
 CREATE TABLE follows (
   id SERIAL PRIMARY KEY,
-  follower_id INT REFERENCES users(id) ON DELETE CASCADE,
-  following_id INT REFERENCES users(id) ON DELETE CASCADE,
+  follower_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  following_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (follower_id, following_id) -- No duplicate follows
 );
@@ -116,12 +199,12 @@ CREATE TYPE activity_summary_frequency AS ENUM ('daily', 'weekly', 'monthly', 'n
 
 CREATE TABLE notifications (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   type notification_type NOT NULL,
   related_track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  related_user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  related_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   competition_id INT REFERENCES competitions(id) ON DELETE CASCADE
 
 ); 
@@ -133,7 +216,7 @@ CREATE INDEX idx_notifications_type ON notifications(type);
 
 CREATE TABLE notification_preferences (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   activity_summary_frequency activity_summary_frequency NOT NULL DEFAULT 'weekly',
   collab_email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -301,7 +384,7 @@ INSERT INTO elements (name) VALUES
 
 CREATE TABLE reposts (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, track_id) -- Prevent duplicate reposts
@@ -313,7 +396,7 @@ CREATE TABLE reposts (
 CREATE TABLE track_plays (
   id SERIAL PRIMARY KEY,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
-  user_id INT REFERENCES users(id) ON DELETE SET NULL, -- Can be NULL for anonymous plays,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL, -- Can be NULL for anonymous plays,
   listen_duration FLOAT, -- Seconds listened,
   discovery_method discovery_method DEFAULT 'unknown',
   ip_address VARCHAR(45),
@@ -338,8 +421,8 @@ CREATE INDEX IF NOT EXISTS idx_track_plays_user_id_created_at ON track_plays(use
 
 CREATE TABLE follow_requests (
   id SERIAL PRIMARY KEY,
-  requester_id INT REFERENCES users(id) ON DELETE CASCADE,
-  target_id INT REFERENCES users(id) ON DELETE CASCADE,
+  requester_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  target_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (requester_id, target_id) -- Prevent duplicate requests
 );
@@ -348,7 +431,7 @@ CREATE TABLE follow_requests (
 
 CREATE TABLE refresh_tokens (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   token VARCHAR(255) UNIQUE NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -364,7 +447,7 @@ CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 
 CREATE TABLE payments (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
   amount DECIMAL(10, 2) NOT NULL,
   currency VARCHAR(3) NOT NULL DEFAULT 'USD',
   stripe_payment_id VARCHAR(255) NOT NULL,
@@ -426,8 +509,8 @@ CREATE TRIGGER trigger_notification_preferences_updated_at
 CREATE TABLE track_mentions (
   id SERIAL PRIMARY KEY,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
-  mentioned_user_id INT REFERENCES users(id) ON DELETE CASCADE,
-  mentioned_by_user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  mentioned_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  mentioned_by_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (track_id, mentioned_user_id) -- Prevent duplicate mentions
 );
@@ -463,6 +546,7 @@ CREATE TYPE discovery_method AS ENUM (
   'home_feed',
   'user_page', 
   'track_page',
+  'tree_page',
   'search',
   'direct_link',
   'share',
@@ -498,7 +582,7 @@ CREATE TYPE time_period AS ENUM (
 -- Table for tracking user engagement events
 CREATE TABLE user_engagement (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   engagement_type engagement_type NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -526,7 +610,7 @@ CREATE INDEX idx_geo_cache_ip_address ON geo_cache(ip_address);
 CREATE TABLE analytics_aggregates (
   id SERIAL PRIMARY KEY,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   period_type time_period NOT NULL,
   period_start DATE NOT NULL,
   period_end DATE NOT NULL,
@@ -555,7 +639,7 @@ CREATE INDEX idx_analytics_aggregates_period ON analytics_aggregates(period_type
 -- Table for user analytics aggregates
 CREATE TABLE user_analytics_aggregates (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   period_type time_period NOT NULL,
   period_start DATE NOT NULL,
   period_end DATE NOT NULL,
@@ -697,15 +781,15 @@ CREATE TABLE competitions (
   title VARCHAR(255), -- Used for sponsored competitions only
   description TEXT, -- Used for sponsored competitions only
   prize_amount INT, -- In cents, null for sponsored competitions with non-cash prizes
-  host_id INT REFERENCES users(id) ON DELETE SET NULL, -- Null for sponsored competitions
+  host_id TEXT REFERENCES users(id) ON DELETE SET NULL, -- Null for sponsored competitions
   pinned BOOLEAN NOT NULL DEFAULT FALSE,
   sponsored BOOLEAN NOT NULL DEFAULT FALSE,
   sponsor_name VARCHAR(255), -- Used for sponsored competitions only
   image_url VARCHAR(1000), -- Used for sponsored competitions only
   voucher_code VARCHAR(100), -- For gifted/preconfigured competitions
   winner_selection_method VARCHAR(20) NOT NULL CHECK (winner_selection_method IN ('curated', 'automated')),
-  winner_id INT REFERENCES users(id) ON DELETE SET NULL,
-  backup_winner_id INT REFERENCES users(id) ON DELETE SET NULL, -- Determined at competition end if not automated
+  winner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  backup_winner_id TEXT REFERENCES users(id) ON DELETE SET NULL, -- Determined at competition end if not automated
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -744,7 +828,7 @@ CREATE INDEX idx_notifications_competition_id ON notifications(competition_id);
 -- Create payouts table for tracking prize payouts
 CREATE TABLE payouts (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   amount INT NOT NULL, -- In cents
   type VARCHAR(50) NOT NULL, -- e.g., 'competition_prize'
   stripe_transfer_id VARCHAR(255) NOT NULL,
@@ -783,8 +867,8 @@ CREATE INDEX idx_release_notes_show_toast ON release_notes(show_toast_message, p
 CREATE TABLE teams (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  created_by INT REFERENCES users(id) ON DELETE SET NULL NOT NULL,
-  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('10_users', '25_users', '50_users', '100_users', 'enterprise')),
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL NOT NULL,
+  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users', 'enterprise')),
   stripe_subscription_id VARCHAR(255), -- Stripe subscription ID for recurring billing
   stripe_customer_id VARCHAR(255), -- Stripe customer ID
   subscription_status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (subscription_status IN ('active', 'canceled', 'past_due', 'unpaid', 'trialing')),
@@ -797,7 +881,7 @@ CREATE TABLE teams (
 -- Create team_members junction table (many-to-many relationship)
 CREATE TABLE team_members (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   team_id INT REFERENCES teams(id) ON DELETE CASCADE NOT NULL,
   role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'contributor', 'viewer', 'owner')) DEFAULT 'contributor',
   joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -810,7 +894,7 @@ CREATE TABLE team_folders (
   team_id INT REFERENCES teams(id) ON DELETE CASCADE NOT NULL,
   name VARCHAR(100) NOT NULL,
   parent_folder_id INT REFERENCES team_folders(id) ON DELETE CASCADE, -- For nested folders
-  created_by INT REFERENCES users(id) ON DELETE SET NULL NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (team_id, name, parent_folder_id) -- Folder names must be unique within a team and parent folder
@@ -872,8 +956,8 @@ CREATE TABLE camps (
   name VARCHAR(100) NOT NULL,
   start_date TIMESTAMP NOT NULL,
   end_date TIMESTAMP NOT NULL,
-  created_by INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('10_users', '25_users', '50_users', '100_users')),
+  created_by TEXT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  product_version VARCHAR(20) NOT NULL CHECK (product_version IN ('5_users', '10_users', '25_users', '50_users', '100_users')),
   stripe_payment_id VARCHAR(255),
   camp_code VARCHAR(64) UNIQUE NOT NULL, -- For invite links
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -885,7 +969,7 @@ CREATE TABLE rooms (
   id SERIAL PRIMARY KEY,
   camp_id INT REFERENCES camps(id) ON DELETE CASCADE NOT NULL,
   name VARCHAR(50) NOT NULL,
-  created_by INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  created_by TEXT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (camp_id, name) -- Room names must be unique within a camp
 );
@@ -893,7 +977,7 @@ CREATE TABLE rooms (
 -- Create user_camps junction table (many-to-many relationship)
 CREATE TABLE user_camps (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   camp_id INT REFERENCES camps(id) ON DELETE CASCADE NOT NULL,
   role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'contributor', 'owner')) DEFAULT 'contributor',
   joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -903,7 +987,7 @@ CREATE TABLE user_camps (
 -- Create user_rooms junction table (many-to-many relationship)
 CREATE TABLE user_rooms (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
   room_id INT REFERENCES rooms(id) ON DELETE CASCADE NOT NULL,
   assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, room_id) -- User can only be in each room once

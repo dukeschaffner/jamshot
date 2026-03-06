@@ -22,6 +22,9 @@ yarn-error.log*
 logs
 *.log
 
+# Test combine script output (copies + combined file)
+temp-combine-test/
+test_tracks/
 # Runtime data
 pids
 *.pid

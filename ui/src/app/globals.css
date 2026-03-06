@@ -2363,3 +2363,16 @@ body.dark-mode .continue-anyway-btn:hover {
   max-width: 280px;
   line-height: 1.5;
 }
+
+
+.react-flow__node-trackNode {
+  border-radius: 50%;
+}
+
+.react-flow__node-concentricNode {
+  border-radius: 50%;
+}
+
+.react-flow__node-clusterNode {
+  border-radius: 50%;
+}

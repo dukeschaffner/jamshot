@@ -52,6 +52,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Loop mode state - extracted from trackData
+  const [isLoop, setIsLoop] = useState(false);
+
   // Function for components to update grid lines
   const updateGridLines = useCallback((newGridLines) => {
     setGridLines(newGridLines);
@@ -100,10 +103,12 @@ export function DAWProvider({ children, trackData, isCollab }) {
         let metronomeBpm = null;
         let timeSignature = null;
         let metronomeOffset = null;
+        let isLoopMode = false;
         if(trackData && trackData.length > 0) {
           metronomeBpm = trackData[0].metronome_bpm;
           timeSignature = trackData[0].time_signature;
           metronomeOffset = trackData[0].metronome_offset;
+          isLoopMode = trackData[0].is_loop || false;
         }
         
         // Load existing tracks if provided
@@ -139,6 +144,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
         if(metronomeOffset) {
           setMetronomeOffset(metronomeOffset);
         }
+        setIsLoop(isLoopMode);
 
 
         // when in dev env, save objects to window for debugging
@@ -678,6 +684,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
       // Fullscreen
       isFullscreen,
       setIsFullscreen,
+      // Loop mode
+      isLoop,
     }}>
       {children}
     </DAWContext.Provider>

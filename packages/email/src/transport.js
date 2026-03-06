@@ -36,7 +36,6 @@ if (process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.EMAIL && proce
         connectionTimeout: 10000, // 10 seconds
         socketTimeout: 10000 // 10 seconds
     });
-    console.log('✅ Email transporter initialized successfully');
 } else {
     throw new Error('Email transporter not initialized - missing required environment variables');
 }

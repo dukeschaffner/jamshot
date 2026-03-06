@@ -284,6 +284,15 @@ const createApiMethods = (apiClient) => {
     
     getUserTracks: (userId, page = 1, limit = 50) => 
       api.get(`/users/${userId}/tracks?page=${page}&limit=${limit}`),
+    
+    requestVideoExport: (trackId, startTime, duration) => 
+      api.post(`/tracks/${trackId}/video-export`, { start_time: startTime, duration }),
+    
+    getVideoExportStatus: (trackId, exportId) => 
+      api.get(`/tracks/${trackId}/video-export/${exportId}/status`),
+    
+    getVideoExportDownload: (trackId, exportId) => 
+      api.get(`/tracks/${trackId}/video-export/${exportId}/download`),
   };
 
   // User API methods

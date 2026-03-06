@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import Link from 'next/link';
 import GuardedLink from './GuardedLink';
 import { usePathname, useRouter } from 'next/navigation';
-import { FaHome, FaUpload, FaSearch, FaSun, FaMoon, FaTrophy, FaUsers } from 'react-icons/fa';
+import { FaHome, FaUpload, FaSearch, FaSun, FaMoon, FaTrophy } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
 import { useMobile } from '../contexts/MobileContext';
 import { useNavigationGuard } from '../contexts/NavigationGuardContext';
