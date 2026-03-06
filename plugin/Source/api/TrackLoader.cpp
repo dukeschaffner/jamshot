@@ -31,7 +31,7 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
     auto stemDataResult = downloadStemData(trackId);
     if (stemDataResult.failed())
     {
-        throw std::runtime_error("Failed to download stem metadata: " + stemDataResult.getErrorMessage());
+        throw std::runtime_error(("Failed to download stem metadata: " + stemDataResult.getErrorMessage()).toStdString());
     }
 
     // Parse stem data
@@ -53,11 +53,21 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
         auto audioResult = downloadAndDecodeAudio(audioUrl);
         if (audioResult.failed())
         {
-            throw std::runtime_error("Failed to download/decode audio for stem " + String(stem.trackId) +
-                ": " + audioResult.getErrorMessage());
+            throw std::runtime_error(("Failed to download/decode audio for stem " + String(stem.trackId) +
+                ": " + audioResult.getErrorMessage()).toStdString());
         }
 
         stem.audioBuffer = *audioResult;
+
+        // If stem has no regions, create a default region covering the entire stem
+        if (stem.regions.isEmpty())
+        {
+            StemRegion defaultRegion;
+            defaultRegion.startTime = 0.0;
+            defaultRegion.endTime = stem.audioBuffer.getNumSamples() / 44100.0; // Assuming 44.1kHz sample rate
+            defaultRegion.offset = 0.0;
+            stem.regions.add(defaultRegion);
+        }
     }
 
     return stems;
@@ -77,7 +87,7 @@ ApiResult<var> TrackLoader::downloadStemData(const String& trackId)
 
     if (result.failed())
     {
-        throw std::runtime_error("API request failed: " + result.getErrorMessage());
+        throw std::runtime_error(("API request failed: " + result.getErrorMessage()).toStdString());
     }
 
     return result;
@@ -103,7 +113,7 @@ ApiResult<AudioBuffer<float>> TrackLoader::downloadAndDecodeAudio(const String& 
     if (httpStatus != 200)
     {
         String responseText = stream->readEntireStreamAsString();
-        throw std::runtime_error("HTTP " + String(httpStatus) + ": " + responseText);
+        throw std::runtime_error(("HTTP " + String(httpStatus) + ": " + responseText).toStdString());
     }
 
     // Read entire stream into memory for seekable access (required for MP3 decoding)
@@ -118,7 +128,7 @@ ApiResult<AudioBuffer<float>> TrackLoader::downloadAndDecodeAudio(const String& 
     auto bytesRead = stream->read(static_cast<char*>(audioData.getData()), static_cast<int>(totalLength));
     if (bytesRead != totalLength)
     {
-        throw std::runtime_error("Failed to read complete audio data (" + String(bytesRead) + "/" + String(totalLength) + " bytes)");
+        throw std::runtime_error(("Failed to read complete audio data (" + String(bytesRead) + "/" + String(totalLength) + " bytes)").toStdString());
     }
 
     // Create memory input stream for seekable access

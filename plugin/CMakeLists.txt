@@ -30,6 +30,7 @@ target_sources(SterioPlugin
     PRIVATE
         Source/GlobalErrorHandler.cpp
         Source/GlobalErrorHandler.h
+        Source/TransportState.h
         Source/api/ApiConfig.h
         Source/api/SterioApiClient.cpp
         Source/api/SterioApiClient.h
@@ -39,6 +40,8 @@ target_sources(SterioPlugin
         Source/auth/AuthCallbackServer.h
         Source/auth/AuthManager.cpp
         Source/auth/AuthManager.h
+        Source/playback/StemPlaybackEngine.cpp
+        Source/playback/StemPlaybackEngine.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
         Source/PluginProcessor.cpp
@@ -52,6 +55,7 @@ target_sources(SterioPlugin
 source_group("Sterio" FILES
     Source/GlobalErrorHandler.cpp
     Source/GlobalErrorHandler.h
+    Source/TransportState.h
     Source/api/ApiConfig.h
     Source/api/SterioApiClient.cpp
     Source/api/SterioApiClient.h
@@ -61,6 +65,8 @@ source_group("Sterio" FILES
     Source/auth/AuthCallbackServer.h
     Source/auth/AuthManager.cpp
     Source/auth/AuthManager.h
+    Source/playback/StemPlaybackEngine.cpp
+    Source/playback/StemPlaybackEngine.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/PluginProcessor.cpp
