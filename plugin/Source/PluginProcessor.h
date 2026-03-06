@@ -2,17 +2,9 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "auth/AuthManager.h"
+#include "playback/StemPlaybackEngine.h"
+#include "TransportState.h"
 
-//==============================================================================
-/** Transport state read from the host DAW. Used for stem playback sync (Increment 5). */
-struct TransportState
-{
-    int64_t timeInSamples{ 0 };
-    double timeInSeconds{ 0.0 };
-    bool isPlaying{ false };
-    double bpm{ 120.0 };
-    bool hasValidPosition{ false };
-};
 
 //==============================================================================
 class SterioPluginProcessor final : public juce::AudioProcessor
@@ -51,6 +43,9 @@ public:
     /** Returns the current transport state from the host. Thread-safe for UI reads. */
     TransportState getTransportState() const;
 
+    /** Set stems for playback. Called by editor when stems are loaded (Increment 5). */
+    void setStems(const juce::Array<StemTrack>& stems);
+
 private:
     mutable juce::CriticalSection transportLock;
     TransportState transportState;
@@ -58,6 +53,9 @@ private:
     void updateTransportFromHost();
 
     AuthManager authManager;
+
+    // Stem playback engine (Increment 5)
+    StemPlaybackEngine playbackEngine;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };

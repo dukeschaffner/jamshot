@@ -86,6 +86,9 @@ void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
 {
     loadedStems = stems;
 
+    // Pass stems to processor for playback (Increment 5)
+    processorRef.setStems(stems);
+
     for (int i = 0; i < stems.size(); ++i)
     {
         const auto& stem = stems[i];
@@ -97,8 +100,6 @@ void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
             juce::String(stem.audioBuffer.getNumChannels()) + " channels" +
             ", regions=" + juce::String(stem.regions.size()));
     }
-
-    // TODO: Pass stems to processor for playback (Increment 5)
 }
 
 void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::String& errorMessage)

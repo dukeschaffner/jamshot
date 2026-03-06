@@ -151,6 +151,11 @@ TransportState SterioPluginProcessor::getTransportState() const
     return transportState;
 }
 
+void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& stems)
+{
+    playbackEngine.setStems(stems);
+}
+
 void SterioPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ignoreUnused(midiMessages);
@@ -164,14 +169,9 @@ void SterioPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // Pass-through for now (Increment 1). Stem playback will replace this in Increment 5.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* dest = buffer.getWritePointer(channel);
-        auto* src = buffer.getReadPointer(channel);
-        if (dest != src)
-            buffer.copyFrom(channel, 0, buffer, channel, 0, buffer.getNumSamples());
-    }
+    // Stem playback (Increment 5) - Using StemPlaybackEngine
+    const auto transport = getTransportState();
+    playbackEngine.processBlock(buffer, transport);
 }
 
 //==============================================================================
