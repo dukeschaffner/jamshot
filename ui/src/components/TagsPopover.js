@@ -1,5 +1,6 @@
 'use client';
 import { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './TagsPopover.module.css';
 
 export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, anchorElement }) {
@@ -70,7 +71,7 @@ export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, a
   const hasAnyTags = hasGenres || hasInstruments || hasElements || hasInstrumentRequests || hasElementRequests;
   if (!hasAnyTags) return null;
 
-  return (
+  const popoverContent = (
     <div
       ref={popoverRef}
       className={styles.popover}
@@ -78,7 +79,7 @@ export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, a
         position: 'fixed',
         top: `${position.top}px`,
         left: `${position.left}px`,
-        zIndex: 1000,
+        zIndex: 10000,
       }}
       onMouseEnter={onMouseEnter} // Keep popover open when hovering over it
       onMouseLeave={onClose}
@@ -151,5 +152,7 @@ export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, a
       </div>
     </div>
   );
+
+  return createPortal(popoverContent, document.body);
 }
 

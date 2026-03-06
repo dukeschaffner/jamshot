@@ -62,7 +62,7 @@ const upload = multer({
 router.use(optionalBetterAuthMiddleware);
 
 // Get current user details
-router.get('/me', betterAuthMiddleware, async (req, res) => {
+router.get('/me', betterAuthMiddleware, async (req, res, next) => {
   try {
     const userResult = await pool.query(
       'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
@@ -103,38 +103,19 @@ router.get('/me', betterAuthMiddleware, async (req, res) => {
     
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get user profile
-router.get('/:userId', async (req, res) => {
-  const { userId } = req.params;
-  try {
-    const result = await pool.query(
-      'SELECT id, username, name, bio, verified, profile_pic_url, is_private FROM users WHERE id = $1',
-      [userId]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user's tracks
-router.get('/:userId/tracks', async (req, res) => {
-  const { userId } = req.params;
-  const currentUserId = req.user?.id;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  const offset = (page - 1) * limit;
-  
+router.get('/:userId/tracks', async (req, res, next) => {
   try {
+    const { userId } = req.params;
+    const currentUserId = req.user?.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
     // Check if the user account is private
     const userResult = await pool.query(
       'SELECT is_private FROM users WHERE id = $1',
@@ -227,12 +208,13 @@ router.get('/:userId/tracks', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
+
 // Follow a user
-router.post('/follow/:userId', interactionLimiter, betterAuthMiddleware, async (req, res) => {
+router.post('/follow/:userId', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   const { userId } = req.params;
   const followerId = req.user.id;
   
@@ -300,12 +282,12 @@ router.post('/follow/:userId', interactionLimiter, betterAuthMiddleware, async (
     
     res.status(200).json({ message: 'Followed successfully' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Unfollow a user
-router.delete('/follow/:userId', betterAuthMiddleware, async (req, res) => {
+router.delete('/follow/:userId', betterAuthMiddleware, async (req, res, next) => {
   const { userId } = req.params;
   const followerId = req.user.id;
   try {
@@ -318,12 +300,12 @@ router.delete('/follow/:userId', betterAuthMiddleware, async (req, res) => {
     }
     res.status(200).json({ message: 'Unfollowed successfully' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get follow stats
-router.get('/:userId/stats', async (req, res) => {
+router.get('/:userId/stats', async (req, res, next) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
   try {
@@ -356,12 +338,12 @@ router.get('/:userId/stats', async (req, res) => {
       hasRequestedToFollow: hasRequestedToFollow
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user's followers with pagination
-router.get('/:userId/followers', optionalBetterAuthMiddleware, async (req, res) => {
+router.get('/:userId/followers', optionalBetterAuthMiddleware, async (req, res, next) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -423,13 +405,12 @@ router.get('/:userId/followers', optionalBetterAuthMiddleware, async (req, res) 
     });
     
   } catch (err) {
-    console.error('Get followers error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get users the specified user is following with pagination
-router.get('/:userId/following', optionalBetterAuthMiddleware, async (req, res) => {
+router.get('/:userId/following', optionalBetterAuthMiddleware, async (req, res, next) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -491,13 +472,12 @@ router.get('/:userId/following', optionalBetterAuthMiddleware, async (req, res) 
     });
     
   } catch (err) {
-    console.error('Get following error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user's reposted tracks
-router.get('/:userId/reposts', async (req, res) => {
+router.get('/:userId/reposts', async (req, res, next) => {
   const { userId } = req.params;
   const currentUserId = req.user?.id; // Optional chaining in case user is not authenticated
   const page = parseInt(req.query.page) || 1;
@@ -597,13 +577,12 @@ router.get('/:userId/reposts', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Get reposts error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Update user profile
-router.put('/me', betterAuthMiddleware, async (req, res) => {
+router.put('/me', betterAuthMiddleware, async (req, res, next) => {
   try {
     let { username, name, bio, is_private } = req.body;
     
@@ -662,12 +641,12 @@ router.put('/me', betterAuthMiddleware, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Complete profile - update date of birth and terms/privacy acceptance (for OAuth signups)
-router.put('/me/complete-profile', betterAuthMiddleware, async (req, res) => {
+router.put('/me/complete-profile', betterAuthMiddleware, async (req, res, next) => {
   try {
     const { dateOfBirth, acceptTerms } = req.body;
     const { validateDateOfBirth } = await import('@sterio/validation-utils');
@@ -720,13 +699,12 @@ router.put('/me/complete-profile', betterAuthMiddleware, async (req, res) => {
       user: result.rows[0]
     });
   } catch (err) {
-    console.error('Complete profile error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Upload and update profile image
-router.post('/me/profile-image', uploadLimiter, betterAuthMiddleware, upload.single('image'), async (req, res) => {
+router.post('/me/profile-image', uploadLimiter, betterAuthMiddleware, upload.single('image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -809,13 +787,12 @@ router.post('/me/profile-image', uploadLimiter, betterAuthMiddleware, upload.sin
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Profile image upload error:', err);
-    res.status(500).json({ error: 'Failed to upload profile image' });
+    next(err);
   }
 });
 
 // Toggle account privacy
-router.put('/me/privacy', betterAuthMiddleware, async (req, res) => {
+router.put('/me/privacy', betterAuthMiddleware, async (req, res, next) => {
   try {
     const { is_private } = req.body;
     
@@ -830,12 +807,12 @@ router.put('/me/privacy', betterAuthMiddleware, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get pending follow requests for current user
-router.get('/me/follow-requests', betterAuthMiddleware, async (req, res) => {
+router.get('/me/follow-requests', betterAuthMiddleware, async (req, res, next) => {
   try {
     const result = await pool.query(`
       SELECT fr.id, fr.created_at, 
@@ -848,12 +825,12 @@ router.get('/me/follow-requests', betterAuthMiddleware, async (req, res) => {
     
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Accept a follow request
-router.post('/follow-requests/:requestId/accept', interactionLimiter, betterAuthMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/accept', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   const { requestId } = req.params;
   
   try {
@@ -897,12 +874,12 @@ router.post('/follow-requests/:requestId/accept', interactionLimiter, betterAuth
     res.json({ message: 'Follow request accepted' });
   } catch (err) {
     await pool.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Reject a follow request
-router.post('/follow-requests/:requestId/reject', interactionLimiter, betterAuthMiddleware, async (req, res) => {
+router.post('/follow-requests/:requestId/reject', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   const { requestId } = req.params;
   
   try {
@@ -940,12 +917,12 @@ router.post('/follow-requests/:requestId/reject', interactionLimiter, betterAuth
     res.json({ message: 'Follow request rejected' });
   } catch (err) {
     await pool.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user profile by username
-router.get('/by-username/:username', async (req, res) => {
+router.get('/by-username/:username', async (req, res, next) => {
   const { username } = req.params;
   try {
     const result = await pool.query(
@@ -959,12 +936,12 @@ router.get('/by-username/:username', async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user's tracks by username
-router.get('/by-username/:username/tracks', async (req, res) => {
+router.get('/by-username/:username/tracks', async (req, res, next) => {
   const { username } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -1018,38 +995,52 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       AND (t.is_private = FALSE OR t.user_id = $2)
     `;
     
-    // Get tracks with additional info
-    const tracksQuery = `
-      SELECT t.*, 
-             u.username, 
-             u.verified,
-             u.profile_pic_url,
-             COALESCE(l.like_count, 0) as like_count,
-             COALESCE(p.play_count, 0) as play_count,
-             COALESCE(c.collab_count, 0) as collab_count,
-             ot.title as original_title,
-             CASE WHEN ul.user_id IS NOT NULL THEN true ELSE false END as is_liked,
-             CASE WHEN ur.user_id IS NOT NULL THEN true ELSE false END as is_reposted
-      FROM tracks t
-      JOIN users u ON t.user_id = u.id
-      LEFT JOIN (SELECT track_id, COUNT(*) as like_count FROM likes GROUP BY track_id) l ON t.id = l.track_id
-      LEFT JOIN (SELECT track_id, COUNT(*) as play_count FROM plays GROUP BY track_id) p ON t.id = p.track_id
-      LEFT JOIN (SELECT parent_track_id, COUNT(*) as collab_count FROM tracks WHERE parent_track_id IS NOT NULL GROUP BY parent_track_id) c ON t.id = c.parent_track_id
-      LEFT JOIN tracks ot ON t.parent_track_id = ot.id
-      LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
-      LEFT JOIN reposts ur ON t.id = ur.track_id AND ur.user_id = $2
-      WHERE t.user_id = $1
-      AND t.processing_status = 'completed'
-      AND t.team_id IS NULL
-      AND t.camp_id IS NULL
-      AND (t.is_private = FALSE OR t.user_id = $2)
-      ORDER BY t.created_at DESC
-      LIMIT $3 OFFSET $4
-    `;
+    // Get tracks with additional info using standardized query
+    let baseQuery;
+    let queryParams;
+    let tracksQuery;
+    
+    if (currentUserId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, true, true);
+      queryParams = [userId, currentUserId, limit, offset];
+      tracksQuery = `
+        SELECT
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        WHERE t.user_id = $1
+        AND t.processing_status = 'completed'
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        AND (t.is_private = FALSE OR t.user_id = $2)
+        ORDER BY t.created_at DESC
+        LIMIT $3 OFFSET $4
+      `;
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, true, true);
+      queryParams = [userId, limit, offset];
+      tracksQuery = `
+        SELECT
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        WHERE t.user_id = $1
+        AND t.processing_status = 'completed'
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        AND t.is_private = FALSE
+        ORDER BY t.created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+    }
     
     const [countResult, tracksResult] = await Promise.all([
       pool.query(countQuery, [userId, currentUserId || null]),
-      pool.query(tracksQuery, [userId, currentUserId || null, limit, offset])
+      pool.query(tracksQuery, queryParams)
     ]);
     
     const totalCount = parseInt(countResult.rows[0].total);
@@ -1065,12 +1056,12 @@ router.get('/by-username/:username/tracks', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user's reposts by username
-router.get('/by-username/:username/reposts', async (req, res) => {
+router.get('/by-username/:username/reposts', async (req, res, next) => {
   const { username } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -1124,40 +1115,60 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       AND t.camp_id IS NULL
     `;
     
-    // Get reposts with additional info
-    const repostsQuery = `
-      SELECT t.*, 
-             u.username, 
-             u.verified,
-             u.profile_pic_url,
-             r.created_at as repost_date,
-             ru.username as reposted_by_username,
-             COALESCE(l.like_count, 0) as like_count,
-             COALESCE(p.play_count, 0) as play_count,
-             COALESCE(c.collab_count, 0) as collab_count,
-             ot.title as original_title,
-             CASE WHEN ul.user_id IS NOT NULL THEN true ELSE false END as is_liked,
-             true as is_reposted
-      FROM reposts r
-      JOIN tracks t ON r.track_id = t.id
-      JOIN users u ON t.user_id = u.id
-      JOIN users ru ON r.user_id = ru.id
-      LEFT JOIN (SELECT track_id, COUNT(*) as like_count FROM likes GROUP BY track_id) l ON t.id = l.track_id
-      LEFT JOIN (SELECT track_id, COUNT(*) as play_count FROM plays GROUP BY track_id) p ON t.id = p.track_id
-      LEFT JOIN (SELECT parent_track_id, COUNT(*) as collab_count FROM tracks WHERE parent_track_id IS NOT NULL GROUP BY parent_track_id) c ON t.id = c.parent_track_id
-      LEFT JOIN tracks ot ON t.parent_track_id = ot.id
-      LEFT JOIN likes ul ON t.id = ul.track_id AND ul.user_id = $2
-      WHERE r.user_id = $1
-      AND t.is_private = FALSE
-      AND t.team_id IS NULL
-      AND t.camp_id IS NULL
-      ORDER BY r.created_at DESC
-      LIMIT $3 OFFSET $4
-    `;
+    // Get reposts with additional info using standardized query
+    let baseQuery;
+    let queryParams;
+    let repostsQuery;
+    
+    if (currentUserId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, true, true);
+      queryParams = [userId, currentUserId, limit, offset];
+      repostsQuery = `
+        SELECT
+          ${baseQuery},
+          r.created_at as reposted_at,
+          ru.username as reposted_by_username,
+          TRUE AS is_repost
+        FROM reposts r
+        JOIN tracks t ON r.track_id = t.id
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        LEFT JOIN users ru ON r.user_id = ru.id
+        WHERE r.user_id = $1
+        AND t.is_private = FALSE
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        ORDER BY r.created_at DESC
+        LIMIT $3 OFFSET $4
+      `;
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, true, true);
+      queryParams = [userId, limit, offset];
+      repostsQuery = `
+        SELECT
+          ${baseQuery},
+          r.created_at as reposted_at,
+          ru.username as reposted_by_username,
+          TRUE AS is_repost
+        FROM reposts r
+        JOIN tracks t ON r.track_id = t.id
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN users u2 ON t2.user_id = u2.id
+        LEFT JOIN users ru ON r.user_id = ru.id
+        WHERE r.user_id = $1
+        AND t.is_private = FALSE
+        AND t.team_id IS NULL
+        AND t.camp_id IS NULL
+        ORDER BY r.created_at DESC
+        LIMIT $2 OFFSET $3
+      `;
+    }
     
     const [countResult, repostsResult] = await Promise.all([
       pool.query(countQuery, [userId]),
-      pool.query(repostsQuery, [userId, currentUserId || null, limit, offset])
+      pool.query(repostsQuery, queryParams)
     ]);
     
     const totalCount = parseInt(countResult.rows[0].total);
@@ -1173,12 +1184,12 @@ router.get('/by-username/:username/reposts', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Follow a user by username
-router.post('/follow/username/:username', interactionLimiter, betterAuthMiddleware, async (req, res) => {
+router.post('/follow/username/:username', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   const { username } = req.params;
   const followerId = req.user.id;
   
@@ -1254,12 +1265,12 @@ router.post('/follow/username/:username', interactionLimiter, betterAuthMiddlewa
       return res.status(200).json({ message: 'Now following user' });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Unfollow a user by username
-router.delete('/follow/username/:username', betterAuthMiddleware, async (req, res) => {
+router.delete('/follow/username/:username', betterAuthMiddleware, async (req, res, next) => {
   const { username } = req.params;
   const followerId = req.user.id;
   
@@ -1290,12 +1301,12 @@ router.delete('/follow/username/:username', betterAuthMiddleware, async (req, re
     
     res.status(200).json({ message: 'Unfollowed user' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get user's liked tracks by username
-router.get('/:username/liked', async (req, res) => {
+router.get('/:username/liked', async (req, res, next) => {
   const { username } = req.params;
   const currentUserId = req.user?.id;
   const page = parseInt(req.query.page) || 1;
@@ -1398,12 +1409,12 @@ router.get('/:username/liked', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete user account
-router.delete('/me', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
+router.delete('/me', contentCreationLimiter, betterAuthMiddleware, async (req, res, next) => {
   const userId = req.user.id;
   const { password } = req.body;
   
@@ -1480,8 +1491,7 @@ router.delete('/me', contentCreationLimiter, betterAuthMiddleware, async (req, r
     });
     
   } catch (err) {
-    console.error('Error deleting account:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

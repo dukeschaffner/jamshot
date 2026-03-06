@@ -187,11 +187,19 @@ function TrackContent() {
 
 
   // Create tabs configuration
+  // Hide collab tab if track is layer 4
   const tabs = [
-    { key: 'collab', label: 'Collab' },
+    ...(track?.layer < 4 ? [{ key: 'collab', label: 'Collab' }] : []),
     { key: 'comments', label: 'Comments' },
     ...(isTrackOwner ? [{ key: 'edit', label: 'Edit' }] : [])
   ];
+
+  // Switch to comments tab if collab tab is hidden and activeTab is 'collab'
+  useEffect(() => {
+    if (track?.layer >= 4 && activeTab === 'collab') {
+      setActiveTab('comments');
+    }
+  }, [track?.layer, activeTab]);
 
   if (loading) {
     return (

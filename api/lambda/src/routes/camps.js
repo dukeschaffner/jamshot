@@ -18,34 +18,36 @@ function generateCampCode() {
 }
 
 // Create camp checkout session (camp will be created in webhook after successful payment)
-router.post('/', contentCreationLimiter, async (req, res) => {
-  const { name, start_date, product_version } = req.body;
-
-  // Validate required fields
-  if (!name || !product_version) {
-    return res.status(400).json({ error: 'Camp name and product version are required' });
-  }
-
-  // Validate product version
-  const validVersions = ['10_users', '25_users', '50_users', '100_users'];
-  if (!validVersions.includes(product_version)) {
-    return res.status(400).json({ error: 'Invalid product version' });
-  }
-
-  // Set pricing based on product version
-  const pricing = {
-    '10_users': { amount: 4900, name: 'Songwriting Camp (Up to 10 users)' },
-    '25_users': { amount: 9900, name: 'Songwriting Camp (Up to 25 users)' },
-    '50_users': { amount: 19900, name: 'Songwriting Camp (Up to 50 users)' },
-    '100_users': { amount: 29900, name: 'Songwriting Camp (Up to 100 users)' }
-  };
-
-  const productInfo = pricing[product_version];
-  if (!productInfo) {
-    return res.status(400).json({ error: 'Invalid product version' });
-  }
-
+router.post('/', contentCreationLimiter, async (req, res, next) => {
   try {
+    const { name, start_date, product_version } = req.body;
+
+    // Validate required fields
+    if (!name || !product_version) {
+      return res.status(400).json({ error: 'Camp name and product version are required' });
+    }
+
+    // Validate product version
+    const validVersions = ['5_users', '10_users', '25_users', '50_users', '100_users'];
+    if (!validVersions.includes(product_version)) {
+      return res.status(400).json({ error: 'Invalid product version' });
+    }
+
+    // Set pricing based on product version
+    const pricing = {
+      '5_users': { amount: 2900, name: 'Songwriting Camp (Up to 5 users)' },
+      '10_users': { amount: 4900, name: 'Songwriting Camp (Up to 10 users)' },
+      '25_users': { amount: 9900, name: 'Songwriting Camp (Up to 25 users)' },
+      '50_users': { amount: 19900, name: 'Songwriting Camp (Up to 50 users)' },
+      '100_users': { amount: 29900, name: 'Songwriting Camp (Up to 100 users)' }
+    };
+
+    const productInfo = pricing[product_version];
+    if (!productInfo) {
+      return res.status(400).json({ error: 'Invalid product version' });
+    }
+
+
     // Set start date to now if not provided
     const startDate = start_date ? new Date(start_date) : new Date();
     const endDate = new Date(startDate);
@@ -82,20 +84,19 @@ router.post('/', contentCreationLimiter, async (req, res) => {
 
     res.json({ sessionId: session.id, url: session.url });
   } catch (error) {
-    console.error('Error creating camp checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    next(error);
   }
 });
 
 // Get camp creation success details
-router.get('/created', apiEndpointLimiter, async (req, res) => {
-  const { session_id } = req.query;
-
-  if (!session_id) {
-    return res.status(400).json({ error: 'Session ID is required' });
-  }
-
+router.get('/created', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
     // Get session details from Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
 
@@ -119,13 +120,12 @@ router.get('/created', apiEndpointLimiter, async (req, res) => {
 
     res.json(campResult.rows[0]);
   } catch (error) {
-    console.error('Error retrieving camp creation details:', error);
-    res.status(500).json({ error: 'Failed to retrieve camp details' });
+    next(error);
   }
 });
 
 // Get camp details with rooms and members
-router.get('/:id', apiEndpointLimiter, async (req, res) => {
+router.get('/:id', apiEndpointLimiter, async (req, res, next) => {
   try {
     const campId = parseInt(req.params.id);
 
@@ -138,17 +138,16 @@ router.get('/:id', apiEndpointLimiter, async (req, res) => {
 
     res.json(campDetails.camp);
   } catch (error) {
-    console.error('Error fetching camp:', error);
-    res.status(500).json({ error: 'Failed to fetch camp details' });
+    next(error);
   }
 });
 
 // Update camp settings (admin/owner only)
-router.put('/:id', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const { name } = req.body;
-
+router.put('/:id', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const { name } = req.body;
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
@@ -167,21 +166,20 @@ router.put('/:id', apiEndpointLimiter, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating camp:', error);
-    res.status(500).json({ error: 'Failed to update camp' });
+    next(error);
   }
 });
 
 // Create a room in the camp (admin/owner only)
-router.post('/:id/rooms', contentCreationLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const { name } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ error: 'Room name is required' });
-  }
-
+router.post('/:id/rooms', contentCreationLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Room name is required' });
+    }
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
@@ -208,17 +206,16 @@ router.post('/:id/rooms', contentCreationLimiter, async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating room:', error);
-    res.status(500).json({ error: 'Failed to create room' });
+    next(error);
   }
 });
 
 // Delete room (admin/owner only)
-router.delete('/:id/rooms/:roomId', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const roomId = parseInt(req.params.roomId);
-
+router.delete('/:id/rooms/:roomId', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const roomId = parseInt(req.params.roomId);
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
@@ -244,21 +241,20 @@ router.delete('/:id/rooms/:roomId', apiEndpointLimiter, async (req, res) => {
 
     res.json({ message: 'Room deleted successfully' });
   } catch (error) {
-    console.error('Error deleting room:', error);
-    res.status(500).json({ error: 'Failed to delete room' });
+    next(error);
   }
 });
 
 // Invite user to camp
-router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const { username } = req.body;
-
-  if (!username) {
-    return res.status(400).json({ error: 'Username is required' });
-  }
-
+router.post('/:id/invite', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
@@ -305,27 +301,26 @@ router.post('/:id/invite', apiEndpointLimiter, async (req, res) => {
       user: invitedUser
     });
   } catch (error) {
-    console.error('Error inviting user:', error);
-    res.status(500).json({ error: 'Failed to invite user' });
+    next(error);
   }
 });
 
 // Update member role (owner/admin can change roles, but admins cannot demote admins)
-router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const userId = req.params.userId;
-  const { role } = req.body;
-
-  if (!role) {
-    return res.status(400).json({ error: 'Role is required' });
-  }
-
-  // Validate role
-  if (!['admin', 'contributor'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role. Must be admin or contributor' });
-  }
-
+router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const userId = req.params.userId;
+    const { role } = req.body;
+
+    if (!role) {
+      return res.status(400).json({ error: 'Role is required' });
+    }
+
+    // Validate role
+    if (!['admin', 'contributor'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be admin or contributor' });
+    }
+
     // Check if user is owner or admin
     const isOwner = await checkCampOwner(campId, req.user.id);
     const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
@@ -374,17 +369,16 @@ router.patch('/:id/members/:userId/role', apiEndpointLimiter, async (req, res) =
 
     res.json({ message: 'Member role updated successfully' });
   } catch (error) {
-    console.error('Error updating camp member role:', error);
-    res.status(500).json({ error: 'Failed to update member role' });
+    next(error);
   }
 });
 
 // Remove member from camp (admin/owner only)
-router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const userId = req.params.userId;
-
+router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const userId = req.params.userId;
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
     if (!isAdminOrOwner) {
@@ -427,22 +421,21 @@ router.delete('/:id/members/:userId', apiEndpointLimiter, async (req, res) => {
 
     res.json({ message: 'Member removed successfully' });
   } catch (error) {
-    console.error('Error removing camp member:', error);
-    res.status(500).json({ error: 'Failed to remove member' });
+    next(error);
   }
 });
 
 // Add/remove user from room (admin/owner only)
-router.put('/:id/rooms/:roomId/users', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const roomId = parseInt(req.params.roomId);
-  const { user_id, action } = req.body; // action: 'add' or 'remove'
-
-  if (!user_id || !action || !['add', 'remove'].includes(action)) {
-    return res.status(400).json({ error: 'Valid user_id and action (add/remove) are required' });
-  }
-
+router.put('/:id/rooms/:roomId/users', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const roomId = parseInt(req.params.roomId);
+    const { user_id, action } = req.body; // action: 'add' or 'remove'
+
+    if (!user_id || !action || !['add', 'remove'].includes(action)) {
+      return res.status(400).json({ error: 'Valid user_id and action (add/remove) are required' });
+    }
+
     // Check if user is admin or owner
     const isAdminOrOwner = await checkCampAdminOrOwner(campId, req.user.id);
 
@@ -497,20 +490,19 @@ router.put('/:id/rooms/:roomId/users', apiEndpointLimiter, async (req, res) => {
       res.json({ message: 'User removed from room successfully' });
     }
   } catch (error) {
-    console.error('Error managing room users:', error);
-    res.status(500).json({ error: 'Failed to manage room users' });
+    next(error);
   }
 });
 
 // Validate camp access via invite code
-router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
-  const { code } = req.body;
-
-  if (!code) {
-    return res.status(400).json({ error: 'Camp code is required' });
-  }
-
+router.post('/validate-code', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: 'Camp code is required' });
+    }
+
     const campResult = await pool.query(
       `SELECT c.*, u.username as admin_username, u.name as admin_name
        FROM camps c
@@ -568,17 +560,16 @@ router.post('/validate-code', apiEndpointLimiter, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error validating camp code:', error);
-    res.status(500).json({ error: 'Failed to validate camp code' });
+    next(error);
   }
 });
 
 // Get beats in camp (tracks with no parent)
-router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const { sort_by = 'recent', page = 1, limit = 20 } = req.query;
-  
+router.get('/:id/beats', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const { sort_by = 'recent', page = 1, limit = 20 } = req.query;
+  
     // Verify user has access to camp
     const accessCheck = await pool.query(
       'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
@@ -643,17 +634,16 @@ router.get('/:id/beats', apiEndpointLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching camp beats:', error);
-    res.status(500).json({ error: 'Failed to fetch beats' });
+    next(error);
   }
 });
 
 // Get tracks in camp (collabs on beats)
-router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const { sort_by = 'recent', room_id, page = 1, limit = 20 } = req.query;
-  
+router.get('/:id/tracks', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const { sort_by = 'recent', room_id, page = 1, limit = 20 } = req.query;
+  
     // Verify user has access to camp
     const accessCheck = await pool.query(
       'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
@@ -740,18 +730,17 @@ router.get('/:id/tracks', apiEndpointLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching camp tracks:', error);
-    res.status(500).json({ error: 'Failed to fetch tracks' });
+    next(error);
   }
 });
 
 // Get room tracks
-router.get('/:id/rooms/:roomId/tracks', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const roomId = parseInt(req.params.roomId);
-  const { page = 1, limit = 20 } = req.query;
-  
+router.get('/:id/rooms/:roomId/tracks', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const roomId = parseInt(req.params.roomId);
+    const { page = 1, limit = 20 } = req.query;
+  
     // Verify user has access to camp
     const accessCheck = await pool.query(
       'SELECT id FROM user_camps WHERE user_id = $1 AND camp_id = $2',
@@ -815,18 +804,17 @@ router.get('/:id/rooms/:roomId/tracks', apiEndpointLimiter, async (req, res) => 
       }
     });
   } catch (error) {
-    console.error('Error fetching room tracks:', error);
-    res.status(500).json({ error: 'Failed to fetch tracks' });
+    next(error);
   }
 });
 
 // Move track to room (camp member only, for non-beat tracks)
-router.patch('/:id/tracks/:trackId/room', apiEndpointLimiter, async (req, res) => {
-  const campId = parseInt(req.params.id);
-  const trackId = parseInt(req.params.trackId);
-  const { room_id } = req.body;
-
+router.patch('/:id/tracks/:trackId/room', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const campId = parseInt(req.params.id);
+    const trackId = parseInt(req.params.trackId);
+    const { room_id } = req.body;
+
     // Verify user has access to camp
     const accessCheck = await validateCampAccess(campId, req.user.id);
     if (!accessCheck.valid) {
@@ -879,8 +867,7 @@ router.patch('/:id/tracks/:trackId/room', apiEndpointLimiter, async (req, res) =
       message: 'Track moved successfully'
     });
   } catch (error) {
-    console.error('Error moving track to room:', error);
-    res.status(500).json({ error: 'Failed to move track' });
+    next(error);
   }
 });
 

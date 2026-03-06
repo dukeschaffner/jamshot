@@ -6,6 +6,7 @@ import { dirname } from 'path';
 import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { betterAuthMiddleware, optionalBetterAuthMiddleware } from '../middleware/betterAuthMiddleware.js';
 
 const __filename = import.meta.url ? fileURLToPath(import.meta.url) : __filename;
@@ -45,6 +46,39 @@ import { getGeolocationData } from '../utils/geolocation.js';
 import { validateCompetitionEntry } from '../utils/competition.js';
 import { validateTeamAccess, validateTeamFolderAccess } from '../utils/teamUtils.js';
 import { isFeatureEnabled } from '../utils/featureFlags.js';
+import { checkVideoExportLimit } from '../utils/videoExportUtils.js';
+
+/**
+ * Sanitizes error messages to prevent exposing detailed server-side errors to clients.
+ * Returns generic user-friendly error messages for audio processing and upload errors.
+ */
+function sanitizeErrorForClient(error, isProcessingError = false) {
+  // For known user-facing errors (like quota limits), return as-is
+  if (error && typeof error === 'string') {
+    // Check if it's a user-facing error (quota limits, validation errors, etc.)
+    const userFacingPatterns = [
+      /daily upload limit/i,
+      /total track limit/i,
+      /private tracks are not allowed/i,
+      /track not found/i,
+      /access denied/i,
+      /unauthorized/i,
+      /forbidden/i
+    ];
+    
+    if (userFacingPatterns.some(pattern => pattern.test(error))) {
+      return error;
+    }
+  }
+  
+  // For processing errors, return generic message
+  if (isProcessingError) {
+    return 'Audio processing failed. Please try uploading again or contact support if the issue persists.';
+  }
+  
+  // For upload errors, return generic message
+  return 'Upload failed. Please check your connection and try again. If the problem persists, contact support.';
+}
 
 async function getParser() {
   if (typeof mm.parseFile === 'function') {
@@ -64,6 +98,11 @@ async function getParser() {
 
 // Initialize EventBridge client for production audio processing triggers
 const eventBridgeClient = new EventBridgeClient({
+  region: process.env.AWS_REGION || 'us-east-2'
+});
+
+// Initialize Lambda client for video export processing
+const lambdaClient = new LambdaClient({
   region: process.env.AWS_REGION || 'us-east-2'
 });
 
@@ -172,19 +211,19 @@ const handleMulterError = (error, req, res, next) => {
 
 
 // Initialize upload by generating pre-signed S3 URL
-router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res) => {
-  const { filename, fileSize, is_camp_track, team_id } = req.body;
-  const userId = req.user.id;
-
-  if (!filename || !fileSize) {
-    return res.status(400).json({ error: 'filename and fileSize are required' });
-  }
-
-  if (fileSize > 100 * 1024 * 1024) { // 100MB limit
-    return res.status(400).json({ error: 'File size exceeds maximum limit of 100MB' });
-  }
-
+router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { filename, fileSize, is_camp_track, team_id } = req.body;
+    const userId = req.user.id;
+
+    if (!filename || !fileSize) {
+      return res.status(400).json({ error: 'filename and fileSize are required' });
+    }
+
+    if (fileSize > 100 * 1024 * 1024) { // 100MB limit
+      return res.status(400).json({ error: 'File size exceeds maximum limit of 100MB' });
+    }
+
     // Skip quota validations for camp tracks and team uploads
     if (!is_camp_track && !team_id) {
       // Check user's subscription limits (but don't consume them yet)
@@ -226,69 +265,62 @@ router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res
       expiresAt: uploadData.expiresAt,
       maxSize: 100 * 1024 * 1024 // 100MB
     });
-
   } catch (err) {
-    console.error('Upload initialization error:', err);
-    res.status(500).json({ error: `Failed to initialize upload: ${err.message}` });
+    next(err);
   }
 });
 
 // Process upload after S3 upload is complete
-router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => {
-  const userId = req.user.id;
-  let layer = 0;
-  let parentIsPrivate = false;
-  let parentSecretToken = null;
-  let isCompetitionEntry = false;
-  let competitionId = null;
-  let parentTrack = null;
-
-  let {
-    title,
-    parent_track_id,
-    enter_competition,
-    s3Key,
-    parsedGenreIds,
-    parsedInstrumentIds,
-    parsedElementIds,
-    parsedInstrumentRequestIds,
-    parsedElementRequestIds,
-    parsedMetronomeBpm,
-    parsedStems,
-    parsedTimeSignature,
-    isPrivate,
-    allowDownload,
-    parsedMetronomeOffset,
-    camp_id,
-    room_id,
-    team_id,
-    folder_id,
-    key
-  } = parseTrackUploadBody(req.body);
-
-  if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
-
-  // Validate S3 key format
-  if (!s3Key.startsWith('uploads/temp/') || !s3Key.includes(`/${userId}/`)) {
-    return res.status(400).json({ error: 'Invalid S3 key format' });
-  }
-
-  // Download file from S3 for validation
-  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
-  const localFilePath = path.join(tempDir, `validation-${Date.now()}-${path.basename(s3Key)}`);
-
+router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
-    await downloadS3File(s3Key, localFilePath);
-    console.log('Successfully downloaded file from S3 for validation');
-  } catch (downloadError) {
-    console.error('Failed to download file from S3:', downloadError);
-    return res.status(400).json({ error: 'Failed to access uploaded file. Please try uploading again.' });
-  }
+    const userId = req.user.id;
+    let layer = 0;
+    let parentIsPrivate = false;
+    let parentSecretToken = null;
+    let isCompetitionEntry = false;
+    let competitionId = null;
+    let parentTrack = null;
+    let isLoop = false;
 
-  // Skip quota validations for camp tracks and team uploads
-  if (!camp_id && !team_id) {
-    try {
+    let {
+      title,
+      parent_track_id,
+      enter_competition,
+      s3Key,
+      parsedGenreIds,
+      parsedInstrumentIds,
+      parsedElementIds,
+      parsedInstrumentRequestIds,
+      parsedElementRequestIds,
+      parsedMetronomeBpm,
+      parsedStems,
+      parsedTimeSignature,
+      isPrivate,
+      allowDownload,
+      parsedMetronomeOffset,
+      camp_id,
+      room_id,
+      team_id,
+      folder_id,
+      key
+    } = parseTrackUploadBody(req.body);
+
+    if (!s3Key) return res.status(400).json({ error: 's3Key is required' });
+
+    // Validate S3 key format
+    if (!s3Key.startsWith('uploads/temp/') || !s3Key.includes(`/${userId}/`)) {
+      return res.status(400).json({ error: 'Invalid S3 key format' });
+    }
+
+    // Download file from S3 for validation
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    var localFilePath = path.join(tempDir, `validation-${Date.now()}-${path.basename(s3Key)}`);
+
+    await downloadS3File(s3Key, localFilePath);
+
+    // Skip quota validations for camp tracks and team uploads
+    if (!camp_id && !team_id) {
       // Get user and subscription for quota checks and later use
       const userResult = await pool.query(
         'SELECT subscription_tier, subscription_expires_at FROM users WHERE id = $1',
@@ -313,15 +345,9 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       if (totalQuotaCheck) {
         return res.status(totalQuotaCheck.status).json(totalQuotaCheck.body);
       }
-    } catch (err) {
-      console.error('Error checking user subscription limits:', err);
-      return res.status(500).json({ error: `Failed to check user subscription limits` });
     }
-  }
 
-  let duration;
-
-  try {
+    let duration;
     const parser = await getParser();
     const metadata = await parser.parseFile(localFilePath);
     duration = metadata.format.duration;
@@ -330,22 +356,11 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
     if (duration > 5 * 60) {
       return res.status(400).json({ error: 'Track duration exceeds the maximum limit of 5 minutes' });
     }
-  } catch (err) {
-    console.error('❌ Audio metadata parsing failed:', {
-      error: err.message,
-      stack: err.stack,
-      filePath: localFilePath,
-      fileExists: fs.existsSync(localFilePath)
-    });
-    return res.status(500).json({ error: `Failed to parse audio metadata: ${err.message}` });
-  }
 
-  let stemChain = [];
-  try {
+
+
     // Get the complete stem chain for mixing
-    stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
-
-    // Validate stem chain and parsedStems
+    let stemChain = parent_track_id ? await getStemChain(parent_track_id) : [];
     const validation = validateAndUpdateStemChain(stemChain, parsedStems);
     if (!validation.valid) {
       return res.status(400).json({
@@ -353,22 +368,18 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
         message: validation.error
       });
     }
-  } catch (err) {
-    console.error('Error validating stem chain and parsedStems:', err);
-    return res.status(500).json({ error: `Failed to validate stem chain and parsedStems: ${err.message}` });
-  }
 
 
-  // Set audio_url to the permanent temp S3 location for audio processing lambda
-  // The lambda will extract the base and derive final URLs
-  const permanentTempKey = s3Key.replace('uploads/temp/', 'temp/tracks/');
-  const audioUrl = permanentTempKey;
+    // Set audio_url to the permanent temp S3 location for audio processing lambda
+    // The lambda will extract the base and derive final URLs
+    const audioUrl = s3Key.replace('uploads/temp/', 'temp/tracks/');
 
-  // Validate collaboration logic (but don't do audio processing yet)
-  try {
+    // Validate collaboration logic (but don't do audio processing yet)
+
+    let rootId = null;
     if (parent_track_id) {
       const parentResult = await pool.query(
-        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id FROM tracks WHERE id = $1',
+        'SELECT duration, is_private, secret_token, layer, metronome_bpm, time_signature, metronome_offset, team_id, team_folder_id, is_loop, root_id FROM tracks WHERE id = $1',
         [parent_track_id]
       );
       if (parentResult.rows.length === 0) {
@@ -376,6 +387,8 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       }
 
       parentTrack = parentResult.rows[0];
+      // Set root_id to parent's root_id (or parent's id if parent is root)
+      rootId = parentTrack.root_id || parent_track_id;
       const parentDuration = parentTrack.duration;
 
       // Store parent privacy status and secret token
@@ -388,6 +401,9 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       parsedTimeSignature = parentTrack.time_signature;
       // Use parent's metronome offset for collaborations
       parsedMetronomeOffset = parentTrack.metronome_offset || 0;
+      
+      // Inherit is_loop from parent track for collaborations
+      isLoop = parentTrack.is_loop || false;
 
       // Validate that collaboration isn't longer than parent track
       // if (duration > parentDuration) {
@@ -537,22 +553,17 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
         return res.status(400).json({ error: 'Invalid team product version' });
       }
 
-      // Check team upload quotas
-      try {
-        // Check if team has reached their daily upload limit
-        const teamDailyQuotaCheck = await checkTeamDailyUploadQuota(team_id, team, teamPlan);
-        if (teamDailyQuotaCheck) {
-          return res.status(teamDailyQuotaCheck.status).json(teamDailyQuotaCheck.body);
-        }
 
-        // Check if team has reached their total track limit
-        const teamTotalQuotaCheck = await checkTeamTotalUploadQuota(team_id, team, teamPlan);
-        if (teamTotalQuotaCheck) {
-          return res.status(teamTotalQuotaCheck.status).json(teamTotalQuotaCheck.body);
-        }
-      } catch (err) {
-        console.error('Error checking team upload quotas:', err);
-        return res.status(500).json({ error: 'Failed to check team upload quotas' });
+      // Check if team has reached their daily upload limit
+      const teamDailyQuotaCheck = await checkTeamDailyUploadQuota(team_id, team, teamPlan);
+      if (teamDailyQuotaCheck) {
+        return res.status(teamDailyQuotaCheck.status).json(teamDailyQuotaCheck.body);
+      }
+
+      // Check if team has reached their total track limit
+      const teamTotalQuotaCheck = await checkTeamTotalUploadQuota(team_id, team, teamPlan);
+      if (teamTotalQuotaCheck) {
+        return res.status(teamTotalQuotaCheck.status).json(teamTotalQuotaCheck.body);
       }
 
       // Validate folder access if folder_id is provided
@@ -583,11 +594,19 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
     };
 
     const result = await pool.query(
-        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key, guid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, gen_random_uuid()) RETURNING *',
-        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key]
+        'INSERT INTO tracks (user_id, title, audio_url, duration, parent_track_id, metronome_bpm, layer, time_signature, is_private, secret_token, metronome_offset, allow_download, is_competition_entry, competition_id, mix_gains, processing_status, camp_id, room_id, team_id, team_folder_id, key, guid, is_loop, root_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, gen_random_uuid(), $22, $23) RETURNING *',
+        [userId, title, audioUrl, duration, parent_track_id || null, parsedMetronomeBpm, layer, parsedTimeSignature, isPrivate, parentSecretToken, parsedMetronomeOffset, allowDownload, isCompetitionEntry, competitionId, JSON.stringify(mixGainsToInsert), 'processing', camp_id, room_id, team_id, folder_id, key, isLoop, rootId]
     );
 
     const trackId = result.rows[0].id;
+
+    // If no parent (root track), set root_id to track's own id
+    if (!parent_track_id) {
+      await pool.query(
+        'UPDATE tracks SET root_id = $1 WHERE id = $1',
+        [trackId]
+      );
+    }
 
     // Phase 2: update stem for recording: change trackId to the new trackId
     const recordingStem = stemChainToInsert.find(s => s.track_id === 'recording');
@@ -607,6 +626,12 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
     // Create notification for parent track owner if this is a collaboration
     if (parent_track_id) {
       try {
+        // Increment collab_count on parent track
+        await pool.query(
+          'UPDATE tracks SET collab_count = collab_count + 1 WHERE id = $1',
+          [parent_track_id]
+        );
+        
         const parentTrackOwner = await pool.query(
           'SELECT user_id FROM tracks WHERE id = $1',
           [parent_track_id]
@@ -707,6 +732,7 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
                 track_id: trackId,
                 user_id: userId,
                 s3_key: permanentTempKey,
+                correlation_id: req.correlationId,
                 created_at: new Date().toISOString()
               }),
               EventBusName: getEventBusName()
@@ -730,33 +756,31 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res) => 
       processing_status: 'processing'
     });
   } catch (err) {
-    console.error('Upload error:', err);
-
     // Clean up downloaded file on error
     if (localFilePath) {
       await fsPromises.unlink(localFilePath).catch(cleanupErr => console.error('Upload file cleanup error:', cleanupErr));
     }
 
-    res.status(500).json({ error: `Upload failed: ${err.message}` });
+    next(err);
   }
 });
 
 // Get "For You" feed (mixed content - followed users + popular)
-router.get('/feed/for-you', async (req, res) => {
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  // Parse tag filter parameters
-  const tagFilters = {};
-  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
-  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
-  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
-  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
-  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
-
+router.get('/feed/for-you', async (req, res, next) => {
   try {
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    // Parse tag filter parameters
+    const tagFilters = {};
+    if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+    if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+    if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+    if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+    if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
     let query;
     let queryParams;
 
@@ -778,31 +802,30 @@ router.get('/feed/for-you', async (req, res) => {
 
     res.json(tracks);
   } catch (err) {
-    console.error('Feed error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get Following feed (just followed artists)
-router.get('/feed/following', async (req, res) => {
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  // Parse tag filter parameters
-  const tagFilters = {};
-  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
-  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
-  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
-  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
-  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
-
+router.get('/feed/following', async (req, res, next) => {
   try {
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Parse tag filter parameters
+    const tagFilters = {};
+    if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+    if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+    if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+    if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+    if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
     // Use the standardized following feed query function
     const query = getFollowingFeedQuery(2, 3, tagFilters);
     const queryParams = [userId, limitNum, offset];
@@ -814,27 +837,26 @@ router.get('/feed/following', async (req, res) => {
 
     res.json(tracks);
   } catch (err) {
-    console.error('Following feed error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get Popular feed (globally popular tracks)
-router.get('/feed/popular', async (req, res) => {
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  // Parse tag filter parameters
-  const tagFilters = {};
-  if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
-  if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
-  if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
-  if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
-  if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
-
+router.get('/feed/popular', async (req, res, next) => {
   try {
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, genreIds, instrumentIds, elementIds, instrumentRequestIds, elementRequestIds } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    // Parse tag filter parameters
+    const tagFilters = {};
+    if (genreIds) tagFilters.genreIds = genreIds.split(',').map(id => parseInt(id));
+    if (instrumentIds) tagFilters.instrumentIds = instrumentIds.split(',').map(id => parseInt(id));
+    if (elementIds) tagFilters.elementIds = elementIds.split(',').map(id => parseInt(id));
+    if (instrumentRequestIds) tagFilters.instrumentRequestIds = instrumentRequestIds.split(',').map(id => parseInt(id));
+    if (elementRequestIds) tagFilters.elementRequestIds = elementRequestIds.split(',').map(id => parseInt(id));
+
     // Use the standardized popular feed query function
     let query;
     let queryParams;
@@ -853,19 +875,18 @@ router.get('/feed/popular', async (req, res) => {
 
     res.json(tracks);
   } catch (err) {
-    console.error('Popular feed error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 
 // Get Track and Versions
-router.get('/:id', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
-  
+router.get('/:id', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query; // Secret token for private tracks
+    
     // Check if the track exists and if user has access
     const accessCheck = await checkTrackAccess(id, userId, secret);
     if (!accessCheck.hasAccess) {
@@ -901,16 +922,16 @@ router.get('/:id', optionalBetterAuthMiddleware, async (req, res) => {
     
     res.json(tracks);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get stem chain for DAW loading
-router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-
+router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
     // Check if user has access to the track
     const accessCheck = await checkTrackAccess(id, userId);
     if (!accessCheck.hasAccess) {
@@ -928,34 +949,33 @@ router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res) => {
 
     res.json(stemsWithSignedUrls);
   } catch (err) {
-    console.error('Stem chain retrieval error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-router.get('/:id/related', async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { page = 1, limit = 5, includeParent = true, includeChildCount = false } = req.query;
-  
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-
-  let baseQuery;
-  let queryParams;
-  const includeChildCountBool = includeChildCount === 'true';
-  if (userId) {
-    baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
-    queryParams = [id, userId];
-  } else {
-    baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
-    queryParams = [id];
-  }
+router.get('/:id/related', async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { page = 1, limit = 5, includeParent = true, includeChildCount = false } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    let baseQuery;
+    let queryParams;
+    const includeChildCountBool = includeChildCount === 'true';
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
+      queryParams = [id];
+    }
     // Only include the parent track and current track on the first page
     let combinedTracks = [];
 
-    if (parseInt(page) === 1 && includeParent === 'true') {
+    if (parseInt(page) === 1 && includeParent === true) {
       // First, get the parent track if it exists
       let parentTrackQuery = `
         SELECT
@@ -1022,16 +1042,144 @@ router.get('/:id/related', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
+  }
+});
+
+router.get('/:id/related2', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { lastId, limit = 5, orderBy = 'newest', includeParent = true, includeChildCount = false } = req.query;
+    
+    const limitNum = parseInt(limit);
+    const orderByNewest = orderBy !== 'oldest'; // Default to newest
+    const includeChildCountBool = includeChildCount === 'true';
+
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
+      queryParams = [id];
+    }
+
+    // Only include the parent track on the first request (when lastId is not provided)
+    let combinedTracks = [];
+    
+    if (!lastId && includeParent === 'true') {
+      // First, get the parent track if it exists
+      let parentTrackQuery = `
+        SELECT
+          ${baseQuery}
+        FROM tracks t
+        LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE (t.id = (SELECT parent_track_id FROM tracks WHERE id = $1)) AND t.processing_status = 'completed'
+      `;
+
+      const parentTrackResult = await pool.query(parentTrackQuery, queryParams);
+
+      // Add parent track if it exists
+      if (parentTrackResult.rows.length > 0) {
+        combinedTracks.push(parentTrackResult.rows[0]);
+      }
+    }
+    
+    // Build the query for child tracks with cursor pagination using ID
+    let childTracksQuery = `
+      SELECT
+        ${baseQuery}
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
+    `;
+    
+    // Add cursor condition based on order using ID
+    if (lastId) {
+      if (orderByNewest) {
+        // For newest first, get tracks with ID less than the cursor (assuming IDs are sequential)
+        // We still order by created_at to respect the orderBy parameter
+        childTracksQuery += ` AND t.id < $${queryParams.length + 1}`;
+        queryParams.push(lastId);
+      } else {
+        // For oldest first, get tracks with ID greater than the cursor
+        childTracksQuery += ` AND t.id > $${queryParams.length + 1}`;
+        queryParams.push(lastId);
+      }
+    }
+    
+    // Add ordering by created_at to respect orderBy parameter
+    if (orderByNewest) {
+      childTracksQuery += ` ORDER BY t.created_at DESC`;
+    } else {
+      childTracksQuery += ` ORDER BY t.created_at ASC`;
+    }
+    
+    // Add limit
+    childTracksQuery += ` LIMIT $${queryParams.length + 1}`;
+    queryParams.push(limitNum);
+    
+    // Execute query for child tracks
+    const childTracksResult = await pool.query(childTracksQuery, queryParams);
+    
+    // Add child tracks
+    combinedTracks = [...combinedTracks, ...childTracksResult.rows];
+    
+    // Process tracks
+    const processedTracks = await Promise.all(combinedTracks.map(track => processTrack(track, userId)));
+    
+    // Calculate hasMore using a separate query with ID as cursor
+    let hasMore = false;
+    if (processedTracks.length > 0) {
+      // Use the last child track (not parent) for hasMore calculation
+      const childTracks = processedTracks.filter(track => track.parent_track_id === parseInt(id));
+      if (childTracks.length > 0) {
+        const lastTrackId = childTracks[childTracks.length - 1].id;
+        
+        // Check if there are more tracks after the last one using ID
+        let hasMoreQuery = `
+          SELECT 1
+          FROM tracks
+          WHERE parent_track_id = $1 
+            AND processing_status = 'completed'
+        `;
+        
+        const hasMoreParams = [id];
+        
+        if (orderByNewest) {
+          hasMoreQuery += ` AND id < $2 ORDER BY created_at DESC LIMIT 1`;
+          hasMoreParams.push(lastTrackId);
+        } else {
+          hasMoreQuery += ` AND id > $2 ORDER BY created_at ASC LIMIT 1`;
+          hasMoreParams.push(lastTrackId);
+        }
+        
+        const hasMoreResult = await pool.query(hasMoreQuery, hasMoreParams);
+        hasMore = hasMoreResult.rows.length > 0;
+      }
+    }
+    
+    res.json({
+      tracks: processedTracks,
+      pagination: {
+        hasMore
+      }
+    });
+  } catch (err) {
+    next(err);
   }
 });
 
 // Get track processing status
-router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-
+router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
     // Check if track exists and user has access
     const accessCheck = await checkTrackAccess(id, userId);
     if (!accessCheck.hasAccess) {
@@ -1067,24 +1215,226 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res) => {
       }
     }
 
+    // Sanitize processing error if present
+    const sanitizedError = track.processing_error 
+      ? sanitizeErrorForClient(track.processing_error, true)
+      : null;
+
     res.json({
       track_id: id,
       status: status,
-      error: track.processing_error,
+      error: sanitizedError,
       estimated_time_remaining: estimatedTimeRemaining
     });
 
   } catch (err) {
-    console.error('Error fetching track status:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
+// Request video export for a track
+// router.post('/:id/video-export', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
+//   const { id } = req.params;
+//   const userId = req.user.id;
+//   const { start_time, duration } = req.body;
+
+//   try {
+//     // Verify user is track creator
+//     const trackResult = await pool.query(
+//       'SELECT id, user_id, guid, duration FROM tracks WHERE id = $1',
+//       [id]
+//     );
+
+//     if (trackResult.rows.length === 0) {
+//       return res.status(404).json({ error: 'Track not found' });
+//     }
+
+//     const track = trackResult.rows[0];
+//     if (track.user_id !== userId) {
+//       return res.status(403).json({ error: 'Only the track creator can export videos' });
+//     }
+
+//     // Check daily rate limit
+//     const limitCheck = await checkVideoExportLimit(userId);
+//     if (!limitCheck || !limitCheck.allowed) {
+//       return res.status(429).json({
+//         error: 'Daily video export limit reached',
+//         message: `You've reached the daily limit of ${limitCheck?.limit || 5} video exports. Try again tomorrow.`,
+//         count: limitCheck?.count || 0,
+//         limit: limitCheck?.limit || 5
+//       });
+//     }
+
+//     // Validate parameters
+//     const startTime = start_time !== undefined ? parseFloat(start_time) : 0;
+//     const videoDuration = duration !== undefined ? parseFloat(duration) : Math.min(track.duration, 90);
+    
+//     if (startTime < 0 || startTime >= track.duration) {
+//       return res.status(400).json({ error: 'Invalid start time' });
+//     }
+
+//     if (videoDuration <= 0 || videoDuration > 90) {
+//       return res.status(400).json({ error: 'Duration must be between 0 and 90 seconds' });
+//     }
+
+//     if (startTime + videoDuration > track.duration) {
+//       return res.status(400).json({ error: 'Start time + duration exceeds track duration' });
+//     }
+
+//     // Create video export record
+//     const exportResult = await pool.query(
+//       `INSERT INTO video_exports (track_id, user_id, status, start_time, duration)
+//        VALUES ($1, $2, 'pending', $3, $4)
+//        RETURNING id, track_id, user_id, status, start_time, duration, created_at`,
+//       [id, userId, startTime, videoDuration]
+//     );
+
+//     const exportJob = exportResult.rows[0];
+
+//     // Invoke Lambda function asynchronously
+//     try {
+//       if(process.env.NODE_ENV !== 'dev') { // dev
+//         const lambdaFunctionName = 'sterio-video-export' + (process.env.NODE_ENV === 'production' ? '' : '-test');
+        
+//         const invokeCommand = new InvokeCommand({
+//           FunctionName: lambdaFunctionName,
+//           InvocationType: 'Event', // Async invocation
+//           Payload: JSON.stringify({
+//             export_id: exportJob.id,
+//             track_id: id,
+//             track_guid: track.guid,
+//             start_time: startTime,
+//             duration: videoDuration
+//           })
+//         });
+
+//         await lambdaClient.send(invokeCommand);
+//       }
+      
+//       // Update status to processing
+//       await pool.query(
+//         'UPDATE video_exports SET status = $1 WHERE id = $2',
+//         ['processing', exportJob.id]
+//       );
+
+//       res.json({
+//         export_id: exportJob.id,
+//         track_id: id,
+//         status: 'processing',
+//         start_time: startTime,
+//         duration: videoDuration,
+//         created_at: exportJob.created_at
+//       });
+//     } catch (lambdaError) {
+//       console.error('Error invoking video export Lambda:', lambdaError);
+      
+//       // Update status to failed
+//       await pool.query(
+//         `UPDATE video_exports SET status = $1, error_message = $2 WHERE id = $3`,
+//         ['failed', 'Video export service unavailable. Please try again later.', exportJob.id]
+//       );
+
+//       return res.status(500).json({
+//         error: 'Failed to start video export',
+//         message: 'Video export service unavailable. Please try again later.'
+//       });
+//     }
+
+//   } catch (err) {
+//     console.error('Error requesting video export:', err);
+//     const sanitizedError = sanitizeErrorForClient(err.message, false);
+//     res.status(500).json({ error: sanitizedError });
+//   }
+// });
+
+// // Get video export status
+// router.get('/:id/video-export/:exportId/status', betterAuthMiddleware, async (req, res) => {
+//   const { id, exportId } = req.params;
+//   const userId = req.user.id;
+
+//   try {
+//     // Verify user owns the export
+//     const exportResult = await pool.query(
+//       `SELECT id, track_id, user_id, status, video_url, start_time, duration, 
+//               error_message, created_at, updated_at
+//        FROM video_exports
+//        WHERE id = $1 AND track_id = $2 AND user_id = $3`,
+//       [exportId, id, userId]
+//     );
+
+//     if (exportResult.rows.length === 0) {
+//       return res.status(404).json({ error: 'Video export not found' });
+//     }
+
+//     const exportJob = exportResult.rows[0];
+
+//     res.json({
+//       export_id: exportJob.id,
+//       track_id: exportJob.track_id,
+//       status: exportJob.status,
+//       video_url: exportJob.video_url || null,
+//       start_time: exportJob.start_time,
+//       duration: exportJob.duration,
+//       error_message: exportJob.error_message || null,
+//       created_at: exportJob.created_at,
+//       updated_at: exportJob.updated_at
+//     });
+
+//   } catch (err) {
+//     console.error('Error fetching video export status:', err);
+//     const sanitizedError = sanitizeErrorForClient(err.message, false);
+//     res.status(500).json({ error: sanitizedError });
+//   }
+// });
+
+// // Get video export download URL
+// router.get('/:id/video-export/:exportId/download', betterAuthMiddleware, async (req, res) => {
+//   const { id, exportId } = req.params;
+//   const userId = req.user.id;
+
+//   try {
+//     // Verify user owns the export and it's completed
+//     const exportResult = await pool.query(
+//       `SELECT id, track_id, user_id, status, video_url
+//        FROM video_exports
+//        WHERE id = $1 AND track_id = $2 AND user_id = $3`,
+//       [exportId, id, userId]
+//     );
+
+//     if (exportResult.rows.length === 0) {
+//       return res.status(404).json({ error: 'Video export not found' });
+//     }
+
+//     const exportJob = exportResult.rows[0];
+
+//     if (exportJob.status !== 'completed') {
+//       return res.status(400).json({ 
+//         error: 'Video export not completed',
+//         status: exportJob.status
+//       });
+//     }
+
+//     if (!exportJob.video_url) {
+//       return res.status(404).json({ error: 'Video URL not available' });
+//     }
+
+//     // Return the video URL (R2 public URL)
+//     res.json({
+//       download_url: exportJob.video_url
+//     });
+
+//   } catch (err) {
+//     console.error('Error fetching video export download:', err);
+//     const sanitizedError = sanitizeErrorForClient(err.message, false);
+//     res.status(500).json({ error: sanitizedError });
+//   }
+// });
+
 // Like a Track
-router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
     // Check if track exists and get track owner
     const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
     if (trackCheck.rows.length === 0) {
@@ -1093,51 +1443,92 @@ router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, r
     
     // Don't create notification if liking your own track
     const trackOwnerId = trackCheck.rows[0].user_id;
-    
-    await pool.query(
-      'INSERT INTO likes (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [userId, id]
-    );
-    
-    // Create notification for track owner (if not liking own track)
-    if (trackOwnerId !== userId) {
-      await pool.query(
-        'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-        [trackOwnerId, 'like', id]
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const result = await client.query(
+        'INSERT INTO likes (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
+        [userId, id]
       );
+      
+      // Only increment if a new like was actually inserted
+      if (result.rows.length > 0) {
+        await client.query(
+          'UPDATE tracks SET like_count = like_count + 1 WHERE id = $1',
+          [id]
+        );
+      }
+      
+      // Create notification for track owner (if not liking own track)
+      if (trackOwnerId !== userId && result.rows.length > 0) {
+        await client.query(
+          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+          [trackOwnerId, 'like', id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Liked' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    res.status(200).json({ message: 'Liked' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Unlike a Track
-router.delete('/:id/like', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.delete('/:id/like', betterAuthMiddleware, async (req, res, next) => {
   try {
-    await pool.query(
-      'DELETE FROM likes WHERE user_id = $1 AND track_id = $2',
-      [userId, id]
-    );
-    res.status(200).json({ message: 'Unliked' });
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const result = await client.query(
+        'DELETE FROM likes WHERE user_id = $1 AND track_id = $2',
+        [userId, id]
+      );
+      
+      // Only decrement if a like was actually deleted
+      if (result.rowCount > 0) {
+        await client.query(
+          'UPDATE tracks SET like_count = GREATEST(0, like_count - 1) WHERE id = $1',
+          [id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Unliked' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get users who liked a track
-router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { page = 1, limit = 20 } = req.query;
-  
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-  
+router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { page = 1, limit = 20 } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+  
+
     // First check if track exists and if user has access
     const trackCheck = await pool.query(
       'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
@@ -1203,21 +1594,20 @@ router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching track likes:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get comments for a track with pagination
-router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { page = 1, limit = 10, parent_id = null } = req.query;
-  
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const limitNum = parseInt(limit);
-  
+router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { page = 1, limit = 10, parent_id = null } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+  
     // First check if track exists and if user has access
     const trackCheck = await pool.query(
       'SELECT id, user_id, is_private FROM tracks WHERE id = $1',
@@ -1280,30 +1670,29 @@ router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching comments:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Comment on a Track
-router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const { content, parent_comment_id } = req.body;
-  const userId = req.user.id;
-  
-  // Validate comment content length
-  const MAX_COMMENT_LENGTH = 1000;
-  if (!content || typeof content !== 'string') {
-    return res.status(400).json({ error: 'Comment content is required' });
-  }
-  if (content.trim().length === 0) {
-    return res.status(400).json({ error: 'Comment content cannot be empty' });
-  }
-  if (content.length > MAX_COMMENT_LENGTH) {
-    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
-  }
-  
+router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const { content, parent_comment_id } = req.body;
+    const userId = req.user.id;
+    
+    // Validate comment content length
+    const MAX_COMMENT_LENGTH = 1000;
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+    if (content.trim().length === 0) {
+      return res.status(400).json({ error: 'Comment content cannot be empty' });
+    }
+    if (content.length > MAX_COMMENT_LENGTH) {
+      return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+    }
+
     // Check if track exists and get track owner
     const trackCheck = await pool.query('SELECT user_id FROM tracks WHERE id = $1', [id]);
     if (trackCheck.rows.length === 0) {
@@ -1338,59 +1727,79 @@ router.post('/:id/comment', contentCreationLimiter, betterAuthMiddleware, async 
       }
     }
     
-    // Insert the comment
-    const result = await pool.query(
-      'INSERT INTO comments (user_id, track_id, content, parent_comment_id) VALUES ($1, $2, $3, $4) RETURNING *',
-      [userId, id, content, parent_comment_id || null]
-    );
-    
-    // Get user info for the response
-    const userInfo = await pool.query(
-      'SELECT username, name, verified, profile_pic_url FROM users WHERE id = $1',
-      [userId]
-    );
-    
-    // Create notification (if not commenting on own track or replying to own comment)
-    if (notifyUserId !== userId) {
-      await pool.query(
-        'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
-        [notifyUserId, 'comment', id, userId]
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Insert the comment
+      const result = await client.query(
+        'INSERT INTO comments (user_id, track_id, content, parent_comment_id) VALUES ($1, $2, $3, $4) RETURNING *',
+        [userId, id, content, parent_comment_id || null]
       );
+      
+      // Only increment comment_count for top-level comments (not replies)
+      // Replies have parent_comment_id set, so we only count direct track comments
+      if (!parent_comment_id) {
+        await client.query(
+          'UPDATE tracks SET comment_count = comment_count + 1 WHERE id = $1',
+          [id]
+        );
+      }
+      
+      // Get user info for the response
+      const userInfo = await client.query(
+        'SELECT username, name, verified, profile_pic_url FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      // Create notification (if not commenting on own track or replying to own comment)
+      if (notifyUserId !== userId) {
+        await client.query(
+          'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+          [notifyUserId, 'comment', id, userId]
+        );
+      }
+      
+      await client.query('COMMIT');
+      
+      const comment = {
+        ...result.rows[0],
+        ...userInfo.rows[0],
+        reply_count: 0,
+        is_owner: true
+      };
+      
+      res.status(201).json(comment);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    const comment = {
-      ...result.rows[0],
-      ...userInfo.rows[0],
-      reply_count: 0,
-      is_owner: true
-    };
-    
-    res.status(201).json(comment);
   } catch (err) {
-    console.error('Error creating comment:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Update a comment
-router.put('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
-  const { commentId } = req.params;
-  const { content } = req.body;
-  const userId = req.user.id;
-  
-  // Validate comment content length
-  const MAX_COMMENT_LENGTH = 1000;
-  if (!content || typeof content !== 'string') {
-    return res.status(400).json({ error: 'Comment content is required' });
-  }
-  if (content.trim().length === 0) {
-    return res.status(400).json({ error: 'Comment content cannot be empty' });
-  }
-  if (content.length > MAX_COMMENT_LENGTH) {
-    return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
-  }
-  
+router.put('/comments/:commentId', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { commentId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+    
+    // Validate comment content length
+    const MAX_COMMENT_LENGTH = 1000;
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+    if (content.trim().length === 0) {
+      return res.status(400).json({ error: 'Comment content cannot be empty' });
+    }
+    if (content.length > MAX_COMMENT_LENGTH) {
+      return res.status(400).json({ error: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters` });
+    }
+
     // Check if comment exists and belongs to the user
     const commentCheck = await pool.query(
       'SELECT * FROM comments WHERE id = $1',
@@ -1432,55 +1841,82 @@ router.put('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
     
     res.json(comment);
   } catch (err) {
-    console.error('Error updating comment:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete a comment
-router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res) => {
-  const { commentId } = req.params;
-  const userId = req.user.id;
-  
+router.delete('/comments/:commentId', betterAuthMiddleware, async (req, res, next) => {
   try {
-    // Check if comment exists and belongs to the user
-    const commentCheck = await pool.query(
-      'SELECT * FROM comments WHERE id = $1',
-      [commentId]
-    );
-    
-    if (commentCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Comment not found' });
+    const { commentId } = req.params;
+    const userId = req.user.id;
+  
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Check if comment exists and belongs to the user
+      const commentCheck = await client.query(
+        'SELECT track_id, parent_comment_id FROM comments WHERE id = $1',
+        [commentId]
+      );
+      
+      if (commentCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Comment not found' });
+      }
+      
+      const comment = commentCheck.rows[0];
+      
+      // Verify ownership
+      const ownershipCheck = await client.query(
+        'SELECT user_id FROM comments WHERE id = $1',
+        [commentId]
+      );
+      
+      if (ownershipCheck.rows[0].user_id !== userId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'You can only delete your own comments' });
+      }
+      
+      // Delete the comment (cascade will handle replies)
+      await client.query('DELETE FROM comments WHERE id = $1', [commentId]);
+      
+      // Only decrement comment_count for top-level comments (not replies)
+      if (!comment.parent_comment_id) {
+        await client.query(
+          'UPDATE tracks SET comment_count = GREATEST(0, comment_count - 1) WHERE id = $1',
+          [comment.track_id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.json({ message: 'Comment deleted successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    if (commentCheck.rows[0].user_id !== userId) {
-      return res.status(403).json({ error: 'You can only delete your own comments' });
-    }
-    
-    // Delete the comment (cascade will handle replies)
-    await pool.query('DELETE FROM comments WHERE id = $1', [commentId]);
-    
-    res.json({ message: 'Comment deleted successfully' });
   } catch (err) {
-    console.error('Error deleting comment:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Search tracks by genre or instrument
-router.get('/search', async (req, res) => {
-  const { genreId, instrumentId } = req.query;
-  const userId = req.user?.id;
-  
+router.get('/search', async (req, res, next) => {
   try {
+    const { genreId, instrumentId } = req.query;
+    const userId = req.user?.id;
+  
     let query = `
       SELECT DISTINCT
         t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration, t.layer, t.parent_track_id, t.play_count,
         u.username, u.verified, u.profile_pic_url,
         t2.title AS original_title,
-        (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
+        t.collab_count,
         EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
-        (SELECT COUNT(*) FROM likes WHERE track_id = t.id) AS like_count
+        t.like_count
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
@@ -1510,16 +1946,15 @@ router.get('/search', async (req, res) => {
     
     res.json(tracks);
   } catch (err) {
-    console.error('Search error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Repost a Track
-router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
     // Check if track exists and get track privacy info along with creator's account privacy
     const trackCheck = await pool.query(`
       SELECT t.user_id, t.is_private, u.is_private as creator_is_private
@@ -1549,62 +1984,97 @@ router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req,
       return res.status(403).json({ error: 'Cannot repost tracks from private accounts' });
     }
 
-    // Create repost
-    await pool.query(
-      'INSERT INTO reposts (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [userId, id]
-    );
-
-    // Create notification for track owner
-    await pool.query(
-      'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-      [track.user_id, 'repost', id]
-    );
-
-    res.status(200).json({ message: 'Track reposted successfully' });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Create repost
+      const result = await client.query(
+        'INSERT INTO reposts (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
+        [userId, id]
+      );
+      
+      // Only increment if a new repost was actually inserted
+      if (result.rows.length > 0) {
+        await client.query(
+          'UPDATE tracks SET repost_count = repost_count + 1 WHERE id = $1',
+          [id]
+        );
+        
+        // Create notification for track owner
+        await client.query(
+          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+          [track.user_id, 'repost', id]
+        );
+      }
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Track reposted successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
-    console.error('Repost error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Unrepost a Track
-router.delete('/:id/repost', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
+router.delete('/:id/repost', betterAuthMiddleware, async (req, res, next) => {
   try {
-    const result = await pool.query(
-      'DELETE FROM reposts WHERE user_id = $1 AND track_id = $2',
-      [userId, id]
-    );
-    
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Repost not found' });
+    const { id } = req.params;
+    const userId = req.user.id;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const result = await client.query(
+        'DELETE FROM reposts WHERE user_id = $1 AND track_id = $2',
+        [userId, id]
+      );
+      
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Repost not found' });
+      }
+      
+      // Decrement repost count
+      await client.query(
+        'UPDATE tracks SET repost_count = GREATEST(0, repost_count - 1) WHERE id = $1',
+        [id]
+      );
+      
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Track unreposted successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    
-    res.status(200).json({ message: 'Track unreposted successfully' });
   } catch (err) {
-    console.error('Unrepost error:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Record initial play for a track
 // This endpoint is called when a user starts listening to a track
-router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
-  const { id } = req.params;
-  const { 
-    discovery_method = 'unknown', 
-    referrer_url = null,
-    listen_duration = null,
-    is_complete_play = null,
-    skip_time = null,
-    play_id = null
-  } = req.body;
-  const userId = req.user?.id; // Optional - can be null for anonymous plays
-  const isUpdate = listen_duration !== null || is_complete_play !== null || skip_time !== null;
-  
+router.post('/:id/play', apiEndpointLimiter, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const { 
+      discovery_method = 'unknown', 
+      referrer_url = null,
+      listen_duration = null,
+      is_complete_play = null,
+      skip_time = null,
+      play_id = null
+    } = req.body;
+    const userId = req.user?.id; // Optional - can be null for anonymous plays
+    const isUpdate = listen_duration !== null || is_complete_play !== null || skip_time !== null;
+
     // Check if track exists
     const trackCheck = await pool.query('SELECT id FROM tracks WHERE id = $1', [id]);
     if (trackCheck.rows.length === 0) {
@@ -1704,18 +2174,17 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res) => {
       client.release();
     }
   } catch (err) {
-    console.error('Error recording play:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Get full track tree (ancestors and children)
-router.get('/:id/tree', async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
-  
+router.get('/:id/tree', async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query; // Secret token for private tracks
+  
     // Check if the track exists and if user has access
     const accessCheck = await checkTrackAccess(id, userId, secret);
     if (!accessCheck.hasAccess) {
@@ -1786,18 +2255,70 @@ router.get('/:id/tree', async (req, res) => {
     
     res.json([...processedAncestors, processedCurrentTrack]);
   } catch (err) {
-    console.error('Error fetching track tree:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
+  }
+});
+
+// Poll for new tracks in a tree
+router.get('/:id/tree/new-tracks', optionalBetterAuthMiddleware, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query;
+    const { since } = req.query; // ISO timestamp string
+  
+    // Check if the track exists and if user has access
+    const accessCheck = await checkTrackAccess(id, userId, secret);
+    if (!accessCheck.hasAccess) {
+      return res.status(accessCheck.status).json({ error: accessCheck.error });
+    }
+
+    const rootId = accessCheck.track.id;
+    
+    // Default to 1 minute ago if since not provided
+    const sinceDate = since 
+      ? new Date(since) 
+      : new Date(Date.now() - 60 * 1000);
+    
+    // Validate since date
+    if (isNaN(sinceDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid since timestamp' });
+    }
+    
+    // Get new tracks in this tree since the given timestamp
+    // Include user profile_pic_url and verified for activity feed display
+    const result = await pool.query(`
+      SELECT 
+        t.id,
+        t.title,
+        u.username,
+        u.profile_pic_url,
+        u.verified,
+        t.created_at,
+        t.parent_track_id
+      FROM tracks t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.root_id = $1 
+        AND t.created_at > $2::timestamptz
+        AND t.processing_status = 'completed'
+        AND t.id != $1
+      ORDER BY t.created_at DESC
+      LIMIT 50
+    `, [rootId, sinceDate.toISOString()]);
+    
+    res.json({ tracks: result.rows });
+  } catch (err) {
+    next(err);
   }
 });
 
 // Toggle track privacy. Only root tracks can control their privacy status.
-router.put('/:id/privacy', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  const { is_private } = req.body;
-  
+router.put('/:id/privacy', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { is_private } = req.body;
+  
     // Check if subscriptions feature is enabled
     const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
     
@@ -1868,17 +2389,16 @@ router.put('/:id/privacy', betterAuthMiddleware, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error toggling track privacy:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Delete a track
-router.delete('/:id', betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  
+router.delete('/:id', betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
+  
     const result = await deleteTrack(id, userId);
     
     if (result.soft_delete) {
@@ -1893,17 +2413,16 @@ router.delete('/:id', betterAuthMiddleware, async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('Error deleting track:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // Generate a share link with a secret token for a private track
-router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  
+router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user.id;
+  
     // Check if the track exists and belongs to the user
     const trackCheck = await pool.query(
       'SELECT id, user_id, is_private, secret_token FROM tracks WHERE id = $1',
@@ -1934,62 +2453,60 @@ router.post('/:id/share', interactionLimiter, betterAuthMiddleware, async (req, 
     }
 
   } catch (error) {
-    console.error('Error generating share link:', error);
-    res.status(500).json({ error: 'Failed to generate share link' });
+    next(error);
   }
 });
 
 // Refresh signed URL for a track
-router.get('/:id/refresh-url', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
+// router.get('/:id/refresh-url', optionalBetterAuthMiddleware, async (req, res, next) => {
+//   try {
+//     const { id } = req.params;
+//     const userId = req.user?.id;
+//     const { secret } = req.query; // Secret token for private tracks
   
-  try {
-    // Check if the track exists and if user has access
-    const accessCheck = await checkTrackAccess(id, userId, secret);
-    if (!accessCheck.hasAccess) {
-      return res.status(accessCheck.status).json({ error: accessCheck.error });
-    }
+//     // Check if the track exists and if user has access
+//     const accessCheck = await checkTrackAccess(id, userId, secret);
+//     if (!accessCheck.hasAccess) {
+//       return res.status(accessCheck.status).json({ error: accessCheck.error });
+//     }
     
-    // Get the track details
-    const result = await pool.query(
-      `SELECT t.*, u.username as username, u.profile_pic_url as user_profile_pic
-       FROM tracks t
-       JOIN users u ON t.user_id = u.id
-       WHERE t.id = $1 AND t.processing_status = 'completed'`,
-      [id]
-    );
+//     // Get the track details
+//     const result = await pool.query(
+//       `SELECT t.*, u.username as username, u.profile_pic_url as user_profile_pic
+//        FROM tracks t
+//        JOIN users u ON t.user_id = u.id
+//        WHERE t.id = $1 AND t.processing_status = 'completed'`,
+//       [id]
+//     );
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Track not found' });
-    }
+//     if (result.rows.length === 0) {
+//       return res.status(404).json({ error: 'Track not found' });
+//     }
     
-    const trackData = result.rows[0];
+//     const trackData = result.rows[0];
     
-    // Generate new signed URLs using our utility function
-    const audioUrl = generateSignedUrl(trackData.audio_url);
-    const combinedAudioUrl = generateSignedUrl(trackData.combined_audio_url || trackData.audio_url);
+//     // Generate new signed URLs using our utility function
+//     const audioUrl = generateSignedUrl(trackData.audio_url);
+//     const combinedAudioUrl = generateSignedUrl(trackData.combined_audio_url || trackData.audio_url);
     
-    // Return just the URLs
-    res.json({ 
-      audio_url: audioUrl, 
-      combined_audio_url: combinedAudioUrl,
-      track_id: trackData.id
-    });
-  } catch (err) {
-    console.error('Error refreshing track URL:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+//     // Return just the URLs
+//     res.json({ 
+//       audio_url: audioUrl, 
+//       combined_audio_url: combinedAudioUrl,
+//       track_id: trackData.id
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// });
 
 // Download a track
-router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const { secret } = req.query; // Secret token for private tracks
-  
+router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { secret } = req.query; // Secret token for private tracks
+  
     // Check if the track exists and if user has access
     const accessCheck = await checkTrackAccess(id, userId, secret);
     if (!accessCheck.hasAccess) {
@@ -2030,8 +2547,7 @@ router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
       track_id: trackData.id
     });
   } catch (err) {
-    console.error('Error generating download URL:', err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
@@ -2039,16 +2555,29 @@ router.get('/:id/download', optionalBetterAuthMiddleware, async (req, res) => {
 router.get('/:id/related-test', async (req, res) => {
   const { id } = req.params;
   const userId = req.user?.id;
-  const { page = 1, limit = 5, includeParent = true, count = 50, maxLikes = 1000, maxPlays = 10000, includeChildCount = false} = req.query;
+  const { lastId, limit = 5, includeParent = true, maxLikes = 1000, maxPlays = 10000, includeChildCount = false, orderBy = 'newest'} = req.query;
 
-  const offset = (parseInt(page) - 1) * parseInt(limit);
   const limitNum = parseInt(limit);
-  const countNum = parseInt(count);
   const maxLikesNum = parseInt(maxLikes);
   const maxPlaysNum = parseInt(maxPlays);
   const includeChildCountBool = includeChildCount === 'true';
 
   try {
+    // Fetch all available instruments from the database
+    const instrumentsResult = await pool.query('SELECT * FROM instruments ORDER BY name');
+    const allInstruments = instrumentsResult.rows;
+
+    // Helper function to randomly select 0-4 instruments
+    const getRandomInstruments = () => {
+      if (allInstruments.length === 0) return [];
+      const numInstruments = Math.floor(Math.random() * 5); // 0-4 instruments
+      if (numInstruments === 0) return [];
+      
+      // Shuffle and take first N instruments
+      const shuffled = [...allInstruments].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, numInstruments);
+    };
+
     // First look up the track with the given id to determine depth
     const trackLookup = await pool.query('SELECT layer FROM tracks WHERE id = $1', [id]);
     let trackDepth;
@@ -2080,26 +2609,51 @@ router.get('/:id/related-test', async (req, res) => {
     const signedAudioUrl = generateSignedUrl(template.audio_url);
     const signedCombinedAudioUrl = template.combined_audio_url ? generateSignedUrl(template.combined_audio_url) : signedAudioUrl;
 
+    let numToGenerate = Math.floor(Math.random() * limit * 2);
+    let hasMore = false;
+    if (numToGenerate === 0) {
+      numToGenerate = 1;
+    }
+    if (numToGenerate > limitNum) {
+      hasMore = true;
+      numToGenerate = limitNum;
+    }
+
+
     // Generate dummy tracks
     const dummyTracks = [];
-    const startIndex = offset;
-    const endIndex = Math.min(offset + limitNum, countNum);
+    let startIndex, endIndex;
+    if (orderBy === 'newest') {
+      startIndex = parseInt(lastId) || 0 + 1;
+      endIndex = startIndex + numToGenerate;
+    } else {
+      startIndex = parseInt(lastId) || 0 - 1;
+      endIndex = startIndex - numToGenerate;
+    }
 
-    for (let i = startIndex; i < endIndex; i++) {
+    // Determine loop direction based on start/end indices
+    const isAscending = startIndex < endIndex;
+    const increment = isAscending ? 1 : -1;
+    const condition = isAscending 
+      ? (i) => i < endIndex 
+      : (i) => i > endIndex;
+
+    for (let i = startIndex; condition(i); i += increment) {
       // Use the determined depth + 1 for returned tracks
       const returnTrackDepth = trackDepth + 1;
 
+      const dummyId = parseInt(`${returnTrackDepth}${i}`);
       const dummyTrack = {
-        id: parseInt(`${returnTrackDepth}0990${i}`), // Fake ID to avoid conflicts
-        guid: `dummy-${i}`,
+        id: dummyId, // Fake ID to avoid conflicts
+        guid: `dummy-${dummyId}`,
         user_id: userId || 1,
-        title: `Depth ${returnTrackDepth} Track ${i}`,
+        title: `${dummyId}: Depth ${returnTrackDepth} Track ${i}`,
         audio_url: signedAudioUrl,
         combined_audio_url: signedCombinedAudioUrl,
         duration: template.duration,
         layer: returnTrackDepth,
         parent_track_id: parseInt(id),
-        created_at: new Date(Date.now() - (countNum - i) * 1000 * 60 * 60), // Spread out creation times
+        created_at: new Date(Date.now() - (numToGenerate - i) * 1000 * 60 * 60), // Spread out creation times
         play_count: Math.floor(Math.random() * maxPlaysNum),
         metronome_bpm: null,
         time_signature: '4/4',
@@ -2117,7 +2671,7 @@ router.get('/:id/related-test', async (req, res) => {
         is_liked: userId ? Math.random() > 0.7 : false, // 30% chance of being liked
         is_reposted: userId ? Math.random() > 0.9 : false, // 10% chance of being reposted
         genres: [],
-        instruments: [],
+        instruments: getRandomInstruments(), // Randomly assign 0-4 instruments
         elements: [],
         instrument_requests: [],
         element_requests: [],
@@ -2127,18 +2681,10 @@ router.get('/:id/related-test', async (req, res) => {
       dummyTracks.push(dummyTrack);
     }
 
-    // Calculate pagination based on the count parameter
-    const totalCount = countNum;
-    const totalPages = Math.ceil(totalCount / limitNum);
-
     res.json({
       tracks: dummyTracks,
       pagination: {
-        total: totalCount,
-        page: parseInt(page),
-        limit: limitNum,
-        pages: totalPages,
-        hasMore: parseInt(page) < totalPages
+        hasMore: hasMore
       }
     });
   } catch (err) {

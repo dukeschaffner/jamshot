@@ -67,7 +67,7 @@ const generateReferralCode = async () => {
 };
 
 // Add email to waitlist
-router.post('/waitlist', landingLimiter, async (req, res) => {
+router.post('/waitlist', landingLimiter, async (req, res, next) => {
   try {
     let { email, referralCode } = req.body;
 
@@ -197,13 +197,12 @@ router.post('/waitlist', landingLimiter, async (req, res) => {
       client.release();
     }
   } catch (error) {
-    console.error('Error adding to waitlist:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
 // Verify access code
-router.post('/access-code/verify', landingLimiter, async (req, res) => {
+router.post('/access-code/verify', landingLimiter, async (req, res, next) => {
   try {
     let { code } = req.body;
 
@@ -286,8 +285,7 @@ router.post('/access-code/verify', landingLimiter, async (req, res) => {
 
     res.json({ valid: true, message: 'Access granted' });
   } catch (error) {
-    console.error('Error verifying access code:', error);
-    res.status(500).json({ error: 'Server error' });
+    next(error);
   }
 });
 
@@ -299,7 +297,7 @@ router.get('/access-code/check', (req, res) => {
 });
 
 // Confirm waitlist email
-router.get('/confirm-waitlist/:token', async (req, res) => {
+router.get('/confirm-waitlist/:token', async (req, res, next) => {
   const { token } = req.params;
   
   try {

@@ -15,6 +15,43 @@ import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 
+/**
+ * Sanitizes error messages to prevent exposing detailed server-side errors.
+ * Returns generic user-friendly error messages for audio processing and upload errors.
+ */
+function sanitizeErrorMessage(errorMessage, isProcessingError = false) {
+  if (!errorMessage || typeof errorMessage !== 'string') {
+    return isProcessingError 
+      ? 'Audio processing failed. Please try uploading again or contact support if the issue persists.'
+      : 'Upload failed. Please check your connection and try again. If the problem persists, contact support.';
+  }
+
+  // Check if it's a user-facing error (quota limits, validation errors, etc.)
+  const userFacingPatterns = [
+    /daily upload limit/i,
+    /total track limit/i,
+    /private tracks are not allowed/i,
+    /track not found/i,
+    /access denied/i,
+    /unauthorized/i,
+    /forbidden/i,
+    /file size exceeds/i,
+    /filename and filesize are required/i
+  ];
+  
+  if (userFacingPatterns.some(pattern => pattern.test(errorMessage))) {
+    return errorMessage;
+  }
+
+  // For processing errors, return generic message
+  if (isProcessingError) {
+    return 'Audio processing failed. Please try uploading again or contact support if the issue persists.';
+  }
+
+  // For upload errors, return generic message
+  return 'Upload failed. Please check your connection and try again. If the problem persists, contact support.';
+}
+
 export default function UploadForm({
   isCollab = false,
   hasActiveCompetition = false,
@@ -149,8 +186,9 @@ export default function UploadForm({
           }
         }, 100);
       } else if (status.status === 'failed') {
-        // Processing failed, show error
-        setError(`Processing failed: ${status.error || 'Unknown error'}`);
+        // Processing failed, show sanitized error
+        const sanitizedError = sanitizeErrorMessage(status.error, true);
+        setError(sanitizedError);
         setIsUploading(false);
       } else {
         // Still processing, poll again in 3 seconds
@@ -353,7 +391,10 @@ export default function UploadForm({
         setLimitType('');
       }
 
-      setError(errorData?.error || 'Upload failed: ' + (err.message || 'Unknown error'));
+      // Sanitize error message to prevent exposing server-side details
+      const rawError = errorData?.error || err.message || 'Unknown error';
+      const sanitizedError = sanitizeErrorMessage(rawError, false);
+      setError(sanitizedError);
       setIsUploading(false);
     }
   };
@@ -608,7 +649,7 @@ export default function UploadForm({
                 )}
                 {processingStatus === 'failed' && processingError && (
                   <p className="text-sm text-red-600 mt-1">
-                    Error: {processingError}
+                    {sanitizeErrorMessage(processingError, true)}
                   </p>
                 )}
               </div>

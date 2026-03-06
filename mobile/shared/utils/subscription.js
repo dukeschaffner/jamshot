@@ -116,6 +116,7 @@ const SUBSCRIPTION_PLANS = {
 
 // Team Subscription Plan Constants
 const TEAM_PRODUCT_VERSIONS = {
+  FIVE_USERS: '5_users',
   TEN_USERS: '10_users',
   TWENTY_FIVE_USERS: '25_users',
   FIFTY_USERS: '50_users',
@@ -125,6 +126,29 @@ const TEAM_PRODUCT_VERSIONS = {
 
 // Team Subscription Plan Definitions
 const TEAM_PLANS = {
+  [TEAM_PRODUCT_VERSIONS.FIVE_USERS]: {
+    id: '5_users',
+    name: 'Team Plan (Up to 5 users)',
+    price: 29.00,
+    currency: 'USD',
+    billing_period: 'month',
+    max_users: 5,
+    features: {
+      ads: false
+    },
+    limits: {
+      max_users: 5,
+      daily_uploads: 50,
+      max_total_uploads: 500
+    },
+    highlights: [
+      'Up to 5 team members',
+      'Private tracks',
+      'Team Dashboard + Track Folders',
+      'Shared upload pool (50/day, 500 total)',
+      'No ads'
+    ]
+  },
   [TEAM_PRODUCT_VERSIONS.TEN_USERS]: {
     id: '10_users',
     name: 'Team Plan (Up to 10 users)',

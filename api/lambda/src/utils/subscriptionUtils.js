@@ -45,6 +45,9 @@ const SUBSCRIPTION_PLANS_EXTENDED = createSubscriptionPlans(API_PLAN_EXTENSIONS)
 
 // API-specific team plan extensions (Stripe price IDs)
 const API_TEAM_PLAN_EXTENSIONS = {
+  [TEAM_PRODUCT_VERSIONS.FIVE_USERS]: {
+    stripe_price_id: process.env.STRIPE_TEAM_5_USERS_PRICE_ID
+  },
   [TEAM_PRODUCT_VERSIONS.TEN_USERS]: {
     stripe_price_id: process.env.STRIPE_TEAM_10_USERS_PRICE_ID
   },

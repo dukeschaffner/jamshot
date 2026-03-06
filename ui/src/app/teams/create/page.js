@@ -34,13 +34,26 @@ function CreateTeamClient() {
         ...prev,
         product_version: planFromUrl
       }));
+      // Show larger options if a larger plan is selected
+      if (planFromUrl === TEAM_PRODUCT_VERSIONS.FIFTY_USERS || planFromUrl === TEAM_PRODUCT_VERSIONS.ONE_HUNDRED_USERS) {
+        setShowLargerOptions(true);
+      }
     }
   }, [planFromUrl]);
+
+  // Show larger options if a larger plan is selected
+  useEffect(() => {
+    if (formData.product_version === TEAM_PRODUCT_VERSIONS.FIFTY_USERS || 
+        formData.product_version === TEAM_PRODUCT_VERSIONS.ONE_HUNDRED_USERS) {
+      setShowLargerOptions(true);
+    }
+  }, [formData.product_version]);
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showLargerOptions, setShowLargerOptions] = useState(false);
 
   // Get available team plans (exclude enterprise as it requires custom pricing)
   const availablePlans = useMemo(() => {
@@ -55,6 +68,22 @@ function CreateTeamClient() {
           : `${plan.limits.daily_uploads}/day, ${plan.limits.max_total_uploads === -1 ? 'unlimited' : plan.limits.max_total_uploads.toLocaleString()} total`
       }));
   }, []);
+
+  // Separate plans into default (5, 10, 25) and larger (50, 100)
+  const defaultPlans = useMemo(() => {
+    return availablePlans.filter(plan => 
+      plan.version === TEAM_PRODUCT_VERSIONS.FIVE_USERS ||
+      plan.version === TEAM_PRODUCT_VERSIONS.TEN_USERS ||
+      plan.version === TEAM_PRODUCT_VERSIONS.TWENTY_FIVE_USERS
+    );
+  }, [availablePlans]);
+
+  const largerPlans = useMemo(() => {
+    return availablePlans.filter(plan => 
+      plan.version === TEAM_PRODUCT_VERSIONS.FIFTY_USERS ||
+      plan.version === TEAM_PRODUCT_VERSIONS.ONE_HUNDRED_USERS
+    );
+  }, [availablePlans]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -168,7 +197,35 @@ function CreateTeamClient() {
             </h3>
 
             <div className={sharedStyles.pricingOptions}>
-              {availablePlans.map((plan) => (
+              {defaultPlans.map((plan) => (
+                <label key={plan.version} className={sharedStyles.pricingOption}>
+                  <input
+                    type="radio"
+                    name="product_version"
+                    value={plan.version}
+                    checked={formData.product_version === plan.version}
+                    onChange={handleInputChange}
+                    disabled={isSubmitting}
+                  />
+                  <div className={sharedStyles.pricingCard}>
+                    <div className={sharedStyles.pricingHeader}>
+                      <h4>{plan.name}</h4>
+                      <span className={sharedStyles.price}>{plan.formattedPrice}</span>
+                    </div>
+                    <div className={sharedStyles.pricingDescription}>
+                      {plan.highlights && plan.highlights.length > 0 && (
+                        <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.9rem', lineHeight: '1.6', listStyleType: 'disc' }}>
+                          {plan.highlights.map((highlight, idx) => (
+                            <li key={idx} style={{ marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>{highlight}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </label>
+              ))}
+              
+              {showLargerOptions && largerPlans.map((plan) => (
                 <label key={plan.version} className={sharedStyles.pricingOption}>
                   <input
                     type="radio"
@@ -196,6 +253,24 @@ function CreateTeamClient() {
                 </label>
               ))}
             </div>
+            
+            {!showLargerOptions && largerPlans.length > 0 && (
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowLargerOptions(true)}
+                  className={sharedStyles.cancelButton}
+                  style={{ 
+                    background: 'transparent', 
+                    border: '1px solid var(--border-color)', 
+                    color: 'var(--text-primary)',
+                    padding: '0.5rem 1rem'
+                  }}
+                >
+                  Need a larger team?
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Payment Preview */}

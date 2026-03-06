@@ -1,0 +1,12 @@
+# Video Export Development Dependencies
+# Install with: pip install -r requirements-dev.txt
+# Or: pip install -r requirements.txt -r requirements-dev.txt
+
+# Jupyter notebook support (for testing/development)
+jupyter>=1.0.0
+ipykernel>=6.25.0
+
+# Testing and code formatting
+pytest>=7.4.0
+black>=23.0.0
+

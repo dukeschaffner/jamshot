@@ -1,0 +1,20 @@
+{
+  "name": "jamshot-video-export-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for video export processing",
+  "main": "handler.py",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev-start.js",
+    "start": "node dev-start.js",
+    "monitor": "node dev-server.js"
+  },
+  "keywords": ["lambda", "video", "export", "ffmpeg"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sterio/db-config": "file:../../../packages/db-config",
+    "dotenv": "^16.3.1"
+  }
+}
+

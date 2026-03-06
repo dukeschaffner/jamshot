@@ -1,0 +1,178 @@
+.sidePanel {
+  position: relative;
+  height: 100%;
+  background-color: var(--background);
+  border-left: 1px solid var(--grey-2);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible; /* Changed to visible so button shows when collapsed */
+  display: flex;
+  flex-direction: row;
+}
+
+/* Disable width transition while dragging so edge follows mouse */
+.sidePanel.dragging {
+  transition: none;
+}
+
+.sidePanel.collapsed {
+  border-left: none;
+  background-color: transparent;
+  flex-shrink: 0; /* Reserve space so we don't rely on overflow */
+}
+
+body.dark-mode .sidePanel {
+  background-color: var(--grey-1);
+  border-left-color: var(--grey-3);
+}
+
+.resizeHandle {
+  position: relative;
+  width: 8px;
+  height: 100%;
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+  z-index: 10; /* Ensure it's above other content */
+}
+
+/* When collapsed, resize handle fills the narrow strip (no negative margin = no overflow) */
+.sidePanel.collapsed .resizeHandle {
+  width: 100%;
+}
+
+.resizeHandle:hover {
+  background-color: var(--grey-2);
+}
+
+body.dark-mode .resizeHandle:hover {
+  background-color: var(--grey-3);
+}
+
+.resizeHandle.dragging {
+  background-color: var(--seafoam);
+}
+
+.expandButton {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--background);
+  border: 1px solid var(--grey-2);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 20; /* Higher z-index to ensure visibility */
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+body.dark-mode .expandButton {
+  background-color: var(--grey-1);
+  border-color: var(--grey-3);
+  color: var(--text-secondary);
+}
+
+.expandButton:hover {
+  background-color: var(--seafoam-light);
+  border-color: var(--seafoam);
+  color: var(--text-primary);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+body.dark-mode .expandButton:hover {
+  background-color: var(--seafoam);
+  border-color: var(--seafoam);
+  color: var(--background);
+}
+
+.expandButton:active {
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+.arrow {
+  transition: transform 0.2s ease;
+}
+
+/* Arrow direction is from path only; no rotation to avoid state/transition glitches */
+.arrow.expanded {
+  transform: rotate(0deg);
+}
+
+.arrow.collapsed {
+  transform: rotate(0deg);
+}
+
+.panelContent {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* Custom scrollbar for panel content */
+.panelContent::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panelContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panelContent::-webkit-scrollbar-thumb {
+  background-color: var(--grey-2);
+  border-radius: 3px;
+}
+
+body.dark-mode .panelContent::-webkit-scrollbar-thumb {
+  background-color: var(--grey-3);
+}
+
+.panelContent::-webkit-scrollbar-thumb:hover {
+  background-color: var(--grey-3);
+}
+
+body.dark-mode .panelContent::-webkit-scrollbar-thumb:hover {
+  background-color: var(--grey-4);
+}
+
+/* Ensure smooth transitions */
+.sidePanel * {
+  box-sizing: border-box;
+}
+
+/* Prevent text selection during drag */
+.sidePanel.dragging,
+.sidePanel.dragging * {
+  user-select: none;
+  pointer-events: none;
+}
+
+.sidePanel.dragging .expandButton {
+  pointer-events: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .sidePanel {
+    /* On smaller screens, adjust max width */
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidePanel {
+    /* On mobile, hide the panel or make it overlay */
+    display: none;
+  }
+}

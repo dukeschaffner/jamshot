@@ -83,8 +83,14 @@
   color: var(--text-primary);
 }
 
-.popover-play-button {
+.popover-buttons {
+  display: flex;
+  gap: 8px;
   width: 100%;
+}
+
+.popover-play-button {
+  flex: 1;
   padding: 10px 16px;
   background: var(--grey-1);
   border: none;
@@ -110,5 +116,38 @@ body.dark-mode .popover-play-button {
 
 body.dark-mode .popover-play-button:hover {
   background: var(--grey-3);
+}
+
+.popover-queue-button {
+  flex: 1;
+  padding: 10px 16px;
+  background: var(--grey-1);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.popover-queue-button:hover {
+  background: var(--grey-2);
+  transform: translateY(-1px);
+}
+
+body.dark-mode .popover-queue-button {
+  background: var(--grey-2);
+}
+
+body.dark-mode .popover-queue-button:hover {
+  background: var(--grey-3);
+}
+
+.popover-tags {
+  padding-top: 8px;
+  border-top: 1px solid var(--grey-2);
 }
 

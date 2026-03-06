@@ -240,6 +240,7 @@ async function checkCampUserLimit(campId) {
 
     // Define user limits by product version
     const userLimits = {
+      '5_users': 5,
       '10_users': 10,
       '25_users': 25,
       '50_users': 50,

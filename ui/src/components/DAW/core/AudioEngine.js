@@ -749,6 +749,23 @@ class AudioEngine {
       this.recorder = null;
     }
     
+    // Stop input monitoring and release monitor stream
+    // This ensures the browser tab indicator (red dot) is cleared when navigating away
+    if (this.monitorStream) {
+      this.monitorStream.getTracks().forEach(track => track.stop());
+      this.monitorStream = null;
+    }
+    if (this.monitorSource) {
+      try {
+        this.monitorSource.disconnect();
+      } catch (e) {
+        // Ignore disconnect errors
+      }
+      this.monitorSource = null;
+    }
+    this.isMonitoring = false;
+    this.monitorMeterConnection = false;
+    
     // Stop metronome
     this.stopMetronomeScheduling();
     this.stopAndClearMetronomeClicks();

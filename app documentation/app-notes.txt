@@ -204,5 +204,7 @@ Progress:
     - really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
     - "mix mode" - user can define the traversal order, creating their own mix that they can share
       - popular mixes can be published on streaming platforms
+    - queue button on track tree popover in addition to play button
+      - only allow one track in queue for now
 
 </FUTURE_FEATURES>
