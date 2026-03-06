@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "GlobalErrorHandler.h"
 
 //==============================================================================
 SterioPluginProcessor::SterioPluginProcessor()
@@ -12,6 +13,9 @@ SterioPluginProcessor::SterioPluginProcessor()
 #endif
       )
 {
+    // Initialize global error handling
+    GlobalErrorHandler::setupGlobalErrorHandling();
+
     authManager.loadTokens();
 }
 

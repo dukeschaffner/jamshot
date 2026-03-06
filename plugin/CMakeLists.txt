@@ -15,6 +15,7 @@ set(STERIO_PLUGIN_AUTH_URL "http://localhost:3000" CACHE STRING "Auth URL for pl
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/JUCE-build)
 
 juce_add_plugin(SterioPlugin
+    COMPANY_NAME "Sterio"
     PLUGIN_MANUFACTURER_CODE Ster
     PLUGIN_CODE StPl
     IS_SYNTH FALSE
@@ -27,9 +28,13 @@ juce_add_plugin(SterioPlugin
 
 target_sources(SterioPlugin
     PRIVATE
+        Source/GlobalErrorHandler.cpp
+        Source/GlobalErrorHandler.h
         Source/api/ApiConfig.h
         Source/api/SterioApiClient.cpp
         Source/api/SterioApiClient.h
+        Source/api/TrackLoader.cpp
+        Source/api/TrackLoader.h
         Source/auth/AuthCallbackServer.cpp
         Source/auth/AuthCallbackServer.h
         Source/auth/AuthManager.cpp
@@ -45,9 +50,13 @@ target_sources(SterioPlugin
 )
 
 source_group("Sterio" FILES
+    Source/GlobalErrorHandler.cpp
+    Source/GlobalErrorHandler.h
     Source/api/ApiConfig.h
     Source/api/SterioApiClient.cpp
     Source/api/SterioApiClient.h
+    Source/api/TrackLoader.cpp
+    Source/api/TrackLoader.h
     Source/auth/AuthCallbackServer.cpp
     Source/auth/AuthCallbackServer.h
     Source/auth/AuthManager.cpp
@@ -77,6 +86,7 @@ target_compile_definitions(SterioPlugin
 target_link_libraries(SterioPlugin
     PRIVATE
         juce::juce_audio_utils
+        juce::juce_audio_formats
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

@@ -97,9 +97,10 @@ public:
                                                      int page = 1,
                                                      int limit = 15);
 
-private:
-    /** Make an authenticated HTTP GET request. */
+    /** Make an authenticated GET request. Public for use by other API classes. */
     ApiResult<juce::var> makeAuthenticatedGetRequest(const juce::String& endpoint);
+
+private:
 
     /** Parse UserInfo from JSON response. */
     UserInfo parseUserInfo(const juce::var& json);
