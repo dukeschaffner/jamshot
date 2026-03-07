@@ -50,9 +50,12 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
 void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<float>& buffer,
                                    const TransportState& transport, double sampleRate, int numSamples)
 {
-    const auto& stemBuffer = stem.audioBuffer;
+    if (!stem.audioBuffer || stem.regions.isEmpty())
+        return;
 
-    if (stemBuffer.getNumChannels() <= 0 || stemBuffer.getNumSamples() <= 0 || stem.regions.isEmpty())
+    const auto& stemBuffer = *stem.audioBuffer;
+
+    if (stemBuffer.getNumChannels() <= 0 || stemBuffer.getNumSamples() <= 0)
         return;
 
     // Find the region that should be playing at the current transport time

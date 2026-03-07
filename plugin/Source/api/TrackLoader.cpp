@@ -64,7 +64,7 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
         {
             StemRegion defaultRegion;
             defaultRegion.startTime = 0.0;
-            defaultRegion.endTime = stem.audioBuffer.getNumSamples() / 44100.0; // Assuming 44.1kHz sample rate
+            defaultRegion.endTime = stem.audioBuffer->getNumSamples() / 44100.0; // Assuming 44.1kHz sample rate
             defaultRegion.offset = 0.0;
             stem.regions.add(defaultRegion);
         }
@@ -93,7 +93,7 @@ ApiResult<var> TrackLoader::downloadStemData(const String& trackId)
     return result;
 }
 
-ApiResult<AudioBuffer<float>> TrackLoader::downloadAndDecodeAudio(const String& audioUrl)
+ApiResult<std::shared_ptr<AudioBuffer<float>>> TrackLoader::downloadAndDecodeAudio(const String& audioUrl)
 {
     URL url(audioUrl);
 
@@ -143,15 +143,15 @@ ApiResult<AudioBuffer<float>> TrackLoader::downloadAndDecodeAudio(const String& 
 
     // Decode audio into buffer
     auto numSamples = static_cast<int>(reader->lengthInSamples);
-    AudioBuffer<float> buffer(reader->numChannels, numSamples);
-    bool readSuccess = reader->read(&buffer, 0, numSamples, 0, true, true);
+    auto buffer = std::make_shared<AudioBuffer<float>>(reader->numChannels, numSamples);
+    bool readSuccess = reader->read(buffer.get(), 0, numSamples, 0, true, true);
 
     if (!readSuccess)
     {
         throw std::runtime_error("Failed to read audio data into buffer");
     }
 
-    return ApiResult<AudioBuffer<float>>::ok(buffer);
+    return ApiResult<std::shared_ptr<AudioBuffer<float>>>::ok(buffer);
 }
 
 Array<StemTrack> TrackLoader::parseStemData(const var& json)
