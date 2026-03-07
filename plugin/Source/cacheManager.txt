@@ -1,0 +1,50 @@
+
+
+cache manager:
+- implement a cache manager for the plugin to store both stem metadata and stem audio files (original mp3s)
+- use juce
+
+
+each track has its own stem metadata and audio file
+cache should be organized by track id
+store last accessed time for each file
+
+/id:
+    metadata.json
+    audio.mp3
+    last_accessed.txt
+
+
+note that metadata stores region and gain data for the track and any ancestor tracks.
+
+example:
+- lets say track 3 is a child of track 2, and track 2 is a child of track 1
+- cache starts empty
+- if i access track 3, the cache should look like this:
+    - /3:
+        metadata.json (contains gain and region data for tracks 1, 2 and 3)
+        audio.mp3
+        last_accessed.txt
+    - /2:
+        audio.mp3
+        last_accessed.txt
+    - /1:
+        audio.mp3
+        last_accessed.txt
+- this is because to play track 3, we need stems from tracks 1, 2, and 3, and the metadata from track 3 contains the gain and region data for tracks 1, 2 and 3. 
+- then if i access track 2, then the plugin only needs to load the track 2 stem metadata (the rest is already in cache), the cache should look like this:
+    - /3:
+        metadata.json
+        audio.mp3
+        last_accessed.txt
+    - /2:
+        metadata.json (added to cache)
+        audio.mp3
+        last_accessed.txt
+    - /1:
+        audio.mp3
+        last_accessed.txt
+
+
+
+- when a track is selected, then plugin should check the cache before downloading stem metadata, then when getting the stem audio, it should check the cache first, if the audio is not in the cache, then it should download it from the server, and store it in the cache.

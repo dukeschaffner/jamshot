@@ -1,4 +1,5 @@
 #include "TrackLoader.h"
+#include "../CacheManager.h"
 
 using namespace juce;
 
@@ -20,6 +21,11 @@ void TrackLoader::setApiClient(SterioApiClient* client)
     apiClient = client;
 }
 
+void TrackLoader::setCacheManager(CacheManager* cache)
+{
+    cacheManager = cache;
+}
+
 Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
 {
     if (apiClient == nullptr)
@@ -27,37 +33,108 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
         throw std::runtime_error("No API client set");
     }
 
-    // Download stem metadata
-    auto stemDataResult = downloadStemData(trackId);
-    if (stemDataResult.failed())
+    var stemDataJson;
+
+    // Try to load metadata from cache first
+    bool metadataFromCache = false;
+    if (cacheManager != nullptr && cacheManager->hasMetadata(trackId))
     {
-        throw std::runtime_error(("Failed to download stem metadata: " + stemDataResult.getErrorMessage()).toStdString());
+        auto cacheResult = cacheManager->loadMetadata(trackId, stemDataJson);
+        if (cacheResult.wasOk())
+        {
+            metadataFromCache = true;
+            DBG("TrackLoader: Loaded metadata from cache for track " + trackId);
+        }
+        else
+        {
+            DBG("TrackLoader: Failed to load cached metadata for track " + trackId + ": " + cacheResult.getErrorMessage());
+        }
+    }
+
+    // Download metadata if not in cache or cache load failed
+    if (!metadataFromCache)
+    {
+        auto stemDataResult = downloadStemData(trackId);
+        if (stemDataResult.failed())
+        {
+            throw std::runtime_error(("Failed to download stem metadata: " + stemDataResult.getErrorMessage()).toStdString());
+        }
+
+        stemDataJson = *stemDataResult;
+
+        // Save to cache if available
+        if (cacheManager != nullptr)
+        {
+            auto saveResult = cacheManager->saveMetadata(trackId, stemDataJson);
+            if (saveResult.failed())
+            {
+                DBG("TrackLoader: Failed to save metadata to cache: " + saveResult.getErrorMessage());
+            }
+        }
     }
 
     // Parse stem data
-    Array<StemTrack> stems = parseStemData(*stemDataResult);
+    Array<StemTrack> stems = parseStemData(stemDataJson);
 
     if (stems.isEmpty())
     {
         throw std::runtime_error("No stems found in metadata");
     }
 
-    // Download and decode audio for each stem
+    // Load audio for each stem
     for (int i = 0; i < stems.size(); ++i)
     {
         auto& stem = stems.getReference(i);
+        String stemTrackId = String(stem.trackId);
 
-        // Use the audio URL from the parsed stem data (CDN URL)
-        String audioUrl = stem.audioUrl;
-
-        auto audioResult = downloadAndDecodeAudio(audioUrl);
-        if (audioResult.failed())
+        // Try to load audio from cache first
+        bool audioFromCache = false;
+        if (cacheManager != nullptr && cacheManager->hasAudio(stemTrackId))
         {
-            throw std::runtime_error(("Failed to download/decode audio for stem " + String(stem.trackId) +
-                ": " + audioResult.getErrorMessage()).toStdString());
+            std::shared_ptr<AudioBuffer<float>> cachedAudio;
+            auto cacheResult = cacheManager->loadAudio(stemTrackId, cachedAudio);
+            if (cacheResult.wasOk())
+            {
+                stem.audioBuffer = cachedAudio;
+                audioFromCache = true;
+                DBG("TrackLoader: Loaded audio from cache for stem " + stemTrackId);
+            }
+            else
+            {
+                DBG("TrackLoader: Failed to load cached audio for stem " + stemTrackId + ": " + cacheResult.getErrorMessage());
+            }
         }
 
-        stem.audioBuffer = *audioResult;
+        // Download audio if not in cache or cache load failed
+        if (!audioFromCache)
+        {
+            // Use the audio URL from the parsed stem data (CDN URL)
+            String audioUrl = stem.audioUrl;
+
+            auto audioResult = downloadAndDecodeAudio(audioUrl);
+            if (audioResult.failed())
+            {
+                throw std::runtime_error(("Failed to download/decode audio for stem " + String(stem.trackId) +
+                    ": " + audioResult.getErrorMessage()).toStdString());
+            }
+
+            stem.audioBuffer = *audioResult;
+
+            // Save raw MP3 to cache asynchronously (doesn't block loading)
+            if (cacheManager != nullptr)
+            {
+                auto rawAudioResult = downloadAudioRaw(audioUrl);
+                if (rawAudioResult.wasOk())
+                {
+                    // Move the raw data to async thread to avoid copying
+                    saveAudioToCacheAsync(stemTrackId, std::move(*rawAudioResult));
+                }
+                else
+                {
+                    DBG("TrackLoader: Failed to download raw audio for caching: " + rawAudioResult.getErrorMessage());
+                }
+            }
+        }
 
         // If stem has no regions, create a default region covering the entire stem
         if (stem.regions.isEmpty())
@@ -152,6 +229,57 @@ ApiResult<std::shared_ptr<AudioBuffer<float>>> TrackLoader::downloadAndDecodeAud
     }
 
     return ApiResult<std::shared_ptr<AudioBuffer<float>>>::ok(buffer);
+}
+
+ApiResult<MemoryBlock> TrackLoader::downloadAudioRaw(const String& audioUrl)
+{
+    URL url(audioUrl);
+
+    // Create input stream
+    int httpStatus = 0;
+    URL::InputStreamOptions options = URL::InputStreamOptions(URL::ParameterHandling::inAddress)
+        .withHttpRequestCmd("GET")
+        .withConnectionTimeoutMs(30000) // 30 second timeout
+        .withStatusCode(&httpStatus);
+
+    std::unique_ptr<InputStream> stream(url.createInputStream(options));
+    if (stream == nullptr)
+        return ApiResult<MemoryBlock>::fail("Failed to create HTTP request stream for audio download");
+
+    if (httpStatus != 200)
+    {
+        String responseText = stream->readEntireStreamAsString();
+        return ApiResult<MemoryBlock>::fail("HTTP " + String(httpStatus) + ": " + responseText);
+    }
+
+    // Read entire stream into memory block (keep as raw MP3 data)
+    MemoryBlock audioData;
+    auto totalLength = stream->getTotalLength();
+    if (totalLength <= 0)
+        return ApiResult<MemoryBlock>::fail("Invalid stream length for audio data");
+
+    audioData.setSize(static_cast<size_t>(totalLength));
+    auto bytesRead = stream->read(static_cast<char*>(audioData.getData()), static_cast<int>(totalLength));
+    if (bytesRead != totalLength)
+        return ApiResult<MemoryBlock>::fail("Failed to read complete audio data (" + String(bytesRead) + "/" + String(totalLength) + " bytes)");
+
+    return ApiResult<MemoryBlock>::ok(audioData);
+}
+
+void TrackLoader::saveAudioToCacheAsync(const String& trackId, MemoryBlock rawAudioData)
+{
+    if (cacheManager == nullptr)
+        return;
+
+    // Launch async thread for cache save
+    juce::Thread::launch([this, trackId, audioData = std::move(rawAudioData)]() mutable {
+        auto saveResult = cacheManager->saveAudioRaw(trackId, audioData);
+        if (saveResult.failed()) {
+            DBG("TrackLoader: Async cache save failed for track " + trackId + ": " + saveResult.getErrorMessage());
+        } else {
+            DBG("TrackLoader: Successfully saved to cache (async): " + trackId);
+        }
+    });
 }
 
 Array<StemTrack> TrackLoader::parseStemData(const var& json)

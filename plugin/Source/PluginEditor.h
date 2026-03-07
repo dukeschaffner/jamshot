@@ -5,6 +5,7 @@
 #include "ui/TrackListPanel.h"
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
+#include "CacheManager.h"
 
 //==============================================================================
 class SterioPluginEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -32,6 +33,7 @@ private:
     AuthManager& authManagerRef;
 
     SterioApiClient apiClient;
+    CacheManager cacheManager;
     TrackLoader trackLoader;
     LoginView loginView;
     TrackListPanel trackListPanel;

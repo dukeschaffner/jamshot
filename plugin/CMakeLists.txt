@@ -12,6 +12,12 @@ set(JUCE_PATH "$ENV{HOME}/Downloads/JUCE" CACHE PATH "Path to JUCE source direct
 
 # Auth URL for plugin login. Default localhost for dev. Use -DSTERIO_PLUGIN_AUTH_URL="https://sterio.fm" for production.
 set(STERIO_PLUGIN_AUTH_URL "http://localhost:3000" CACHE STRING "Auth URL for plugin login flow")
+
+# API base URL. Default localhost for dev. Use -DSTERIO_API_BASE_URL="https://api.sterio.fm" for production.
+set(STERIO_API_BASE_URL "http://localhost:5001/api" CACHE STRING "API base URL for backend requests")
+
+# UI base URL. Default localhost for dev. Use -DSTERIO_UI_BASE_URL="https://sterio.fm" for production.
+set(STERIO_UI_BASE_URL "http://localhost:3000" CACHE STRING "UI base URL for web app")
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/JUCE-build)
 
 juce_add_plugin(SterioPlugin
@@ -28,6 +34,9 @@ juce_add_plugin(SterioPlugin
 
 target_sources(SterioPlugin
     PRIVATE
+        Source/CacheManager.cpp
+        Source/CacheManager.h
+        Source/Config.h
         Source/GlobalErrorHandler.cpp
         Source/GlobalErrorHandler.h
         Source/TransportState.h
@@ -53,6 +62,8 @@ target_sources(SterioPlugin
 )
 
 source_group("Sterio" FILES
+    Source/CacheManager.cpp
+    Source/CacheManager.h
     Source/GlobalErrorHandler.cpp
     Source/GlobalErrorHandler.h
     Source/TransportState.h
@@ -84,6 +95,8 @@ target_include_directories(SterioPlugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Sour
 target_compile_definitions(SterioPlugin
     PRIVATE
         STERIO_PLUGIN_AUTH_URL="${STERIO_PLUGIN_AUTH_URL}"
+        STERIO_API_BASE_URL="${STERIO_API_BASE_URL}"
+        STERIO_UI_BASE_URL="${STERIO_UI_BASE_URL}"
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
