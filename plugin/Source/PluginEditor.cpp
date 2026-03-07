@@ -92,12 +92,17 @@ void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
     for (int i = 0; i < stems.size(); ++i)
     {
         const auto& stem = stems[i];
+        juce::String bufferInfo = "null";
+        if (stem.audioBuffer)
+        {
+            bufferInfo = juce::String(stem.audioBuffer->getNumSamples()) + " samples, " +
+                        juce::String(stem.audioBuffer->getNumChannels()) + " channels";
+        }
         DBG("PluginEditor::onStemsLoaded() - Stem " + juce::String(i) +
             ": trackId=" + juce::String(stem.trackId) +
             ", gain=" + juce::String(stem.gain) +
             ", order=" + juce::String(stem.order) +
-            ", audioBuffer=" + juce::String(stem.audioBuffer.getNumSamples()) + " samples, " +
-            juce::String(stem.audioBuffer.getNumChannels()) + " channels" +
+            ", audioBuffer=" + bufferInfo +
             ", regions=" + juce::String(stem.regions.size()));
     }
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <juce_core/juce_core.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "SterioApiClient.h"
@@ -21,7 +22,7 @@ struct StemTrack
     juce::String audioUrl;              // CDN URL for the audio file
     float gain = 1.0f;                  // Gain multiplier (0.0 to 1.0)
     int order = 0;                      // Playback order
-    juce::AudioBuffer<float> audioBuffer; // Decoded audio data
+    std::shared_ptr<juce::AudioBuffer<float>> audioBuffer; // Decoded audio data (shared to avoid duplication)
     juce::Array<StemRegion> regions;    // Time regions for this stem
 };
 
@@ -46,7 +47,7 @@ private:
     ApiResult<juce::var> downloadStemData(const juce::String& trackId);
 
     /** Download and decode an MP3 file from URL */
-    ApiResult<juce::AudioBuffer<float>> downloadAndDecodeAudio(const juce::String& audioUrl);
+    ApiResult<std::shared_ptr<juce::AudioBuffer<float>>> downloadAndDecodeAudio(const juce::String& audioUrl);
 
     /** Parse stem data from JSON response */
     juce::Array<StemTrack> parseStemData(const juce::var& json);
