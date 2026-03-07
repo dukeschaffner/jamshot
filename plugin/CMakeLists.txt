@@ -39,6 +39,8 @@ target_sources(SterioPlugin
         Source/Config.h
         Source/GlobalErrorHandler.cpp
         Source/GlobalErrorHandler.h
+        Source/SampleRateConverter.cpp
+        Source/SampleRateConverter.h
         Source/TransportState.h
         Source/api/ApiConfig.h
         Source/api/SterioApiClient.cpp
@@ -64,8 +66,11 @@ target_sources(SterioPlugin
 source_group("Sterio" FILES
     Source/CacheManager.cpp
     Source/CacheManager.h
+    Source/Config.h
     Source/GlobalErrorHandler.cpp
     Source/GlobalErrorHandler.h
+    Source/SampleRateConverter.cpp
+    Source/SampleRateConverter.h
     Source/TransportState.h
     Source/api/ApiConfig.h
     Source/api/SterioApiClient.cpp

@@ -29,6 +29,9 @@ private:
     /** Handle stem loading errors. */
     void onStemsLoadError(const TrackInfo& track, const juce::String& errorMessage);
 
+    /** Check if we should show high sample rate warning */
+    void updateSampleRateWarning();
+
     SterioPluginProcessor& processorRef;
     AuthManager& authManagerRef;
 
@@ -40,6 +43,12 @@ private:
 
     /** Currently loaded stems for the selected track. */
     juce::Array<StemTrack> loadedStems;
+
+    /** Currently selected track info (for reload purposes) */
+    juce::Optional<TrackInfo> currentTrack;
+
+    /** Flag to show high sample rate warning */
+    bool showHighSampleRateWarning = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginEditor)
 };

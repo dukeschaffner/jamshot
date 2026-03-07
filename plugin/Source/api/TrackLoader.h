@@ -4,6 +4,7 @@
 #include <juce_core/juce_core.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "SterioApiClient.h"
+#include "../SampleRateConverter.h"
 
 // Forward declaration to avoid circular include
 class CacheManager;
@@ -48,6 +49,11 @@ public:
         Empty array returned on failure. */
     juce::Array<StemTrack> loadStemsForTrack(const juce::String& trackId);
 
+    /** Load all stems for a given track ID with sample rate conversion.
+        Returns an array of StemTrack objects with decoded audio buffers converted to targetSampleRate.
+        Empty array returned on failure. */
+    juce::Array<StemTrack> loadStemsForTrack(const juce::String& trackId, double targetSampleRate);
+
 private:
     /** Download stem data (JSON) for a track */
     ApiResult<juce::var> downloadStemData(const juce::String& trackId);
@@ -73,6 +79,7 @@ private:
     SterioApiClient* apiClient = nullptr;
     CacheManager* cacheManager = nullptr;
     juce::AudioFormatManager formatManager;
+    SampleRateConverter sampleRateConverter;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackLoader)
 };

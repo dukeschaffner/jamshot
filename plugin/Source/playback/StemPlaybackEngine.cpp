@@ -9,6 +9,13 @@ StemPlaybackEngine::~StemPlaybackEngine()
 {
 }
 
+void StemPlaybackEngine::prepareToPlay(double sampleRate, int samplesPerBlock)
+{
+    juce::ignoreUnused(samplesPerBlock);
+    // Initialize with the current sample rate
+    currentSampleRate = sampleRate;
+}
+
 void StemPlaybackEngine::setStems(const juce::Array<StemTrack>& stems)
 {
     const juce::ScopedLock sl(stemLock);
@@ -29,12 +36,11 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
         if (transport.isPlaying && transport.hasValidPosition && !activeStems.isEmpty())
         {
             const int numSamples = buffer.getNumSamples();
-            const double sampleRate = 44100.0; // TODO: Get this from transport state or audio device
 
             // Process each stem
             for (const auto& stem : activeStems)
             {
-                processStem(stem, buffer, transport, sampleRate, numSamples);
+                processStem(stem, buffer, transport, currentSampleRate, numSamples);
             }
         }
     }
@@ -101,6 +107,32 @@ void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<fl
         }
     }
 }
+
+void StemPlaybackEngine::handleSampleRateChange(double newSampleRate)
+{
+    // Check if sample rate actually changed
+    if (std::abs(newSampleRate - currentSampleRate) < 0.1)
+        return;
+
+    // Check if sample rate is supported
+    if (!SampleRateConverter::isSampleRateSupported(newSampleRate))
+    {
+        DBG("StemPlaybackEngine: Sample rate " + juce::String(newSampleRate) + " Hz not supported, skipping reload");
+        currentSampleRate = newSampleRate;
+        return;
+    }
+
+    DBG("StemPlaybackEngine: Sample rate changed to " + juce::String(newSampleRate) + " Hz, requesting stem reload");
+
+    // Request reload of stems with new sample rate
+    if (stemReloadCallback)
+    {
+        stemReloadCallback();
+    }
+
+    currentSampleRate = newSampleRate;
+}
+
 
 void StemPlaybackEngine::resetPlayback()
 {
