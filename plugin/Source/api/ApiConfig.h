@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include "../Config.h"
 
 //==============================================================================
 /** Configuration for Sterio API client. */
@@ -10,9 +11,13 @@ public:
     /** Get the base URL for API requests. */
     static juce::String getBaseUrl()
     {
-        // TODO: Make this configurable, perhaps from a build setting or config file
-        // For now, default to local development
-        return "http://localhost:5001/api";
+        return Config::API::getBaseUrl();
+    }
+
+    /** Get the UI base URL for web app. */
+    static juce::String getUIBaseUrl()
+    {
+        return Config::UI::getBaseUrl();
     }
 
     /** Get the timeout for API requests in milliseconds. */

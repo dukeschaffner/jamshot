@@ -1,0 +1,47 @@
+#pragma once
+
+#include <juce_core/juce_core.h>
+
+//==============================================================================
+/** Plugin configuration constants. */
+class Config
+{
+public:
+    /** Cache configuration */
+    class Cache
+    {
+    public:
+        /** Maximum cache size in bytes (default: 1GB) */
+        static constexpr int64_t maxSizeBytes = 2741824LL; // 1GB
+    };
+
+    /** API configuration */
+    class API
+    {
+    public:
+        /** Base URL for API requests */
+        static juce::String getBaseUrl()
+        {
+#ifndef STERIO_API_BASE_URL
+            return "http://localhost:5001/api";
+#else
+            return STERIO_API_BASE_URL;
+#endif
+        }
+    };
+
+    /** UI configuration */
+    class UI
+    {
+    public:
+        /** Base URL for web app */
+        static juce::String getBaseUrl()
+        {
+#ifndef STERIO_UI_BASE_URL
+            return "http://localhost:3000";
+#else
+            return STERIO_UI_BASE_URL;
+#endif
+        }
+    };
+};

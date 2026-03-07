@@ -1,10 +1,7 @@
 #include "AuthManager.h"
+#include "../api/ApiConfig.h"
 #include <juce_data_structures/juce_data_structures.h>
 
-// Auth URL for plugin login. Override via -DSTERIO_PLUGIN_AUTH_URL for local dev.
-#ifndef STERIO_PLUGIN_AUTH_URL
-#define STERIO_PLUGIN_AUTH_URL "https://sterio.fm"
-#endif
 
 //==============================================================================
 AuthManager::AuthManager()
@@ -60,7 +57,7 @@ void AuthManager::login()
     // before the browser loads and potentially redirects immediately.
     juce::Thread::sleep(150);
 
-    juce::String authUrl = juce::String(STERIO_PLUGIN_AUTH_URL).trimEnd();
+    juce::String authUrl = ApiConfig::getUIBaseUrl().trimEnd();
     if (authUrl.endsWith("/"))
         authUrl = authUrl.dropLastCharacters(1);
     juce::String authFullUrl = authUrl + "/plugin-auth?redirect_uri=http://127.0.0.1:"

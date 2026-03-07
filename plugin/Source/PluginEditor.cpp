@@ -22,8 +22,18 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
         onTrackSelected(track);
     });
 
+    // Set up cache manager
+    auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+    DBG("PluginEditor: Application data directory: " + appDataDir.getFullPathName());
+
+    auto cacheDir = appDataDir.getChildFile("SterioPlugin").getChildFile("cache");
+    DBG("PluginEditor: Cache directory will be: " + cacheDir.getFullPathName());
+
+    cacheManager.setCacheDirectory(cacheDir);
+
     // Set up track loader
     trackLoader.setApiClient(&apiClient);
+    trackLoader.setCacheManager(&cacheManager);
 
     // Set initial API token if available
     if (authManagerRef.isLoggedIn())

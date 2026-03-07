@@ -5,6 +5,9 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "SterioApiClient.h"
 
+// Forward declaration to avoid circular include
+class CacheManager;
+
 //==============================================================================
 /** Represents a region within a stem track */
 struct StemRegion
@@ -37,6 +40,9 @@ public:
     /** Set the API client for making authenticated requests */
     void setApiClient(SterioApiClient* client);
 
+    /** Set the cache manager for persistent caching */
+    void setCacheManager(CacheManager* cache);
+
     /** Load all stems for a given track ID.
         Returns an array of StemTrack objects with decoded audio buffers.
         Empty array returned on failure. */
@@ -49,6 +55,12 @@ private:
     /** Download and decode an MP3 file from URL */
     ApiResult<std::shared_ptr<juce::AudioBuffer<float>>> downloadAndDecodeAudio(const juce::String& audioUrl);
 
+    /** Download MP3 file from URL without decoding (for caching) */
+    ApiResult<juce::MemoryBlock> downloadAudioRaw(const juce::String& audioUrl);
+
+    /** Save audio to cache asynchronously (doesn't block loading) */
+    void saveAudioToCacheAsync(const juce::String& trackId, juce::MemoryBlock rawAudioData);
+
     /** Parse stem data from JSON response */
     juce::Array<StemTrack> parseStemData(const juce::var& json);
 
@@ -59,6 +71,7 @@ private:
     juce::Array<StemRegion> parseRegions(const juce::var& regionsJson);
 
     SterioApiClient* apiClient = nullptr;
+    CacheManager* cacheManager = nullptr;
     juce::AudioFormatManager formatManager;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackLoader)
