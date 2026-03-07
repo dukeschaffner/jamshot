@@ -141,7 +141,11 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
         {
             StemRegion defaultRegion;
             defaultRegion.startTime = 0.0;
-            defaultRegion.endTime = stem.audioBuffer->getNumSamples() / 44100.0; // Assuming 44.1kHz sample rate
+            // Use actual sample rate for duration calculation (will be updated after conversion if needed)
+            double sampleRateForDuration = 44100.0; // Default to 44.1kHz, will be corrected after loading
+            if (stem.audioBuffer)
+                sampleRateForDuration = 44100.0; // Original source is always 44.1kHz
+            defaultRegion.endTime = stem.audioBuffer->getNumSamples() / sampleRateForDuration;
             defaultRegion.offset = 0.0;
             stem.regions.add(defaultRegion);
         }
@@ -358,4 +362,58 @@ Array<StemRegion> TrackLoader::parseRegions(const var& regionsJson)
     }
 
     return regions;
+}
+
+Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId, double targetSampleRate)
+{
+    // Load stems at original 44.1kHz sample rate first
+    Array<StemTrack> stems = loadStemsForTrack(trackId);
+
+    if (stems.isEmpty())
+        return stems;
+
+    // Check if conversion is needed
+    if (!SampleRateConverter::needsConversion(44100.0, targetSampleRate))
+        return stems;
+
+    // Check if target sample rate is supported
+    if (!SampleRateConverter::isSampleRateSupported(targetSampleRate))
+    {
+        DBG("TrackLoader: Target sample rate " + String(targetSampleRate) + " Hz not supported, returning original stems");
+        return stems;
+    }
+
+    DBG("TrackLoader: Converting stems from 44100 Hz to " + String(targetSampleRate) + " Hz");
+
+    // Convert each stem to target sample rate
+    for (auto& stem : stems)
+    {
+        if (stem.audioBuffer)
+        {
+            auto convertedBuffer = sampleRateConverter.convertSampleRate(
+                *stem.audioBuffer, 44100.0, targetSampleRate);
+
+            if (convertedBuffer)
+            {
+                // Replace original buffer with converted one
+                stem.audioBuffer = convertedBuffer;
+                DBG("TrackLoader: Successfully converted stem to " + String(targetSampleRate) + " Hz");
+
+                // Update region timings to account for sample rate change
+                double ratio = targetSampleRate / 44100.0;
+                for (auto& region : stem.regions)
+                {
+                    region.startTime *= ratio;
+                    region.endTime *= ratio;
+                    region.offset *= ratio;
+                }
+            }
+            else
+            {
+                DBG("TrackLoader: Failed to convert stem to " + String(targetSampleRate) + " Hz");
+            }
+        }
+    }
+
+    return stems;
 }

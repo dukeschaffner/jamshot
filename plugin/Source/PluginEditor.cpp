@@ -67,6 +67,9 @@ void SterioPluginEditor::timerCallback()
         trackListPanel.clearTracks();
     }
 
+    // Update sample rate warning
+    updateSampleRateWarning();
+
     repaint();
 }
 
@@ -74,9 +77,23 @@ void SterioPluginEditor::paint(Graphics& g)
 {
     g.fillAll(getLookAndFeel().findColour(ResizableWindow::backgroundColourId));
 
+    auto r = getLocalBounds();
+
     g.setColour(Colours::white);
     g.setFont(20.0f);
-    g.drawText("Sterio Plugin", getLocalBounds().removeFromTop(40), Justification::centred, true);
+    g.drawText("Sterio Plugin", r.removeFromTop(40), Justification::centred, true);
+
+    // Show high sample rate warning if needed
+    if (showHighSampleRateWarning)
+    {
+        r.removeFromTop(10);
+        auto warningRect = r.removeFromTop(30);
+
+        g.setColour(Colours::red);
+        g.setFont(14.0f);
+        g.drawText("Warning: Host sample rate > 100kHz not supported. Stems will not be converted.",
+                  warningRect, Justification::centred, true);
+    }
 }
 
 void SterioPluginEditor::resized()
@@ -98,6 +115,14 @@ void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
 
     // Pass stems to processor for playback (Increment 5)
     processorRef.setStems(stems);
+
+    // Set up reload callback for sample rate changes
+    processorRef.setStemReloadCallback([this]() {
+        if (currentTrack.hasValue())
+        {
+            onTrackSelected(*currentTrack);
+        }
+    });
 
     for (int i = 0; i < stems.size(); ++i)
     {
@@ -132,6 +157,11 @@ void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::St
 
 void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
 {
+    // Store current track for reload purposes
+    currentTrack = track;
+
+    // Set track ID on processor
+    processorRef.setCurrentTrackId(track.id);
 
     // Clear any previously loaded stems
     loadedStems.clear();
@@ -140,7 +170,9 @@ void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
 
     juce::Thread::launch([this, track]() {
         try {
-            auto stems = trackLoader.loadStemsForTrack(track.id);
+            // Load stems with sample rate conversion to match host sample rate
+            double targetSampleRate = processorRef.getCurrentSampleRate();
+            auto stems = trackLoader.loadStemsForTrack(track.id, targetSampleRate);
 
             // Update UI on main thread
             juce::MessageManager::callAsync([this, stems]() {
@@ -154,4 +186,10 @@ void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
             });
         }
     });
+}
+
+void SterioPluginEditor::updateSampleRateWarning()
+{
+    double currentSampleRate = processorRef.getCurrentSampleRate();
+    showHighSampleRateWarning = (currentSampleRate > 100000.0);
 }

@@ -90,7 +90,13 @@ void SterioPluginProcessor::changeProgramName(int index, const juce::String& new
 //==============================================================================
 void SterioPluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    juce::ignoreUnused(sampleRate, samplesPerBlock);
+    // Handle sample rate changes
+    handleSampleRateChange(sampleRate);
+
+    // Prepare playback engine
+    playbackEngine.prepareToPlay(sampleRate, samplesPerBlock);
+
+    juce::ignoreUnused(samplesPerBlock);
 }
 
 void SterioPluginProcessor::releaseResources()
@@ -151,9 +157,51 @@ TransportState SterioPluginProcessor::getTransportState() const
     return transportState;
 }
 
+void SterioPluginProcessor::handleSampleRateChange(double newSampleRate)
+{
+    // Check if sample rate actually changed
+    if (std::abs(newSampleRate - currentHostSampleRate) < 0.1)
+        return;
+
+    // Check if sample rate is supported
+    if (!SampleRateConverter::isSampleRateSupported(newSampleRate))
+    {
+        // Show warning to user (this will be handled by the editor)
+        DBG("SterioPluginProcessor: Host sample rate " + juce::String(newSampleRate) +
+            " Hz is not supported. Plugin will not convert stems.");
+        // Still update the sample rate for tracking purposes
+        previousHostSampleRate = currentHostSampleRate;
+        currentHostSampleRate = newSampleRate;
+        return;
+    }
+
+    // Update sample rate tracking
+    previousHostSampleRate = currentHostSampleRate;
+    currentHostSampleRate = newSampleRate;
+
+    DBG("SterioPluginProcessor: Sample rate changed from " + juce::String(previousHostSampleRate) +
+        " Hz to " + juce::String(currentHostSampleRate) + " Hz");
+
+    // Notify playback engine of sample rate change (it will handle stem conversion)
+    playbackEngine.handleSampleRateChange(newSampleRate);
+}
+
 void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& stems)
 {
     playbackEngine.setStems(stems);
+    
+    // Set up the reload callback chain
+    playbackEngine.setStemReloadCallback([this]() {
+        this->requestStemReload();
+    });
+}
+
+void SterioPluginProcessor::requestStemReload()
+{
+    if (stemReloadCallback && !currentTrackId.isEmpty())
+    {
+        stemReloadCallback();
+    }
 }
 
 void SterioPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)

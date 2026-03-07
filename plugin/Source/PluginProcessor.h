@@ -1,9 +1,11 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <functional>
 #include "auth/AuthManager.h"
 #include "playback/StemPlaybackEngine.h"
 #include "TransportState.h"
+#include "SampleRateConverter.h"
 
 
 //==============================================================================
@@ -46,7 +48,22 @@ public:
     /** Set stems for playback. Called by editor when stems are loaded (Increment 5). */
     void setStems(const juce::Array<StemTrack>& stems);
 
+    /** Get the current host sample rate */
+    double getCurrentSampleRate() const { return currentHostSampleRate; }
+
+    /** Set callback for requesting stem reloads on sample rate change */
+    void setStemReloadCallback(std::function<void()> callback) { stemReloadCallback = callback; }
+
+    /** Set the current track ID (for reload purposes) */
+    void setCurrentTrackId(const juce::String& trackId) { currentTrackId = trackId; }
+
+    /** Request reload of current stems with new sample rate */
+    void requestStemReload();
+
 private:
+    /** Handle sample rate changes and convert stems if necessary */
+    void handleSampleRateChange(double newSampleRate);
+
     mutable juce::CriticalSection transportLock;
     TransportState transportState;
 
@@ -56,6 +73,15 @@ private:
 
     // Stem playback engine (Increment 5)
     StemPlaybackEngine playbackEngine;
+
+    // Sample rate conversion support
+    double currentHostSampleRate = 44100.0;
+    double previousHostSampleRate = 44100.0;
+    SampleRateConverter sampleRateConverter;
+
+    // Stem reload support
+    std::function<void()> stemReloadCallback;
+    juce::String currentTrackId;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };
