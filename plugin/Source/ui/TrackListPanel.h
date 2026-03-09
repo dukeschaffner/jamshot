@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../api/SterioApiClient.h"
+#include "../Colors.h"
 
 //==============================================================================
 /** A panel that displays a list of liked tracks with refresh and load more functionality. */
@@ -54,24 +55,42 @@ private:
 
             const auto& track = ownerPanel.tracks[rowNumber];
 
-            // Background
-            g.fillAll(rowIsSelected ? juce::Colours::lightblue : juce::Colours::white);
-
-            // Text color
-            g.setColour(rowIsSelected ? juce::Colours::white : juce::Colours::black);
-
-            // Draw track title and artist
-            juce::Font font(14.0f);
-            g.setFont(font);
-
-            juce::Rectangle<int> bounds(8, 0, width - 16, height);
-            g.drawText(track.title, bounds.removeFromTop(height / 2), juce::Justification::left, true);
-            g.drawText(track.username, bounds, juce::Justification::left, true);
-
-            // Draw selection indicator
+            // Background - use brand colors
             if (rowIsSelected)
             {
-                g.setColour(juce::Colours::white.withAlpha(0.8f));
+                // Gradient background for selected items
+                juce::ColourGradient gradient(Colors::SEAFOAM, 0, 0, Colors::RUSTIC_PINK, width, 0, false);
+                g.setGradientFill(gradient);
+                g.fillAll();
+            }
+            else
+            {
+                g.fillAll(Colors::WHITE);
+            }
+
+            // Text color
+            g.setColour(rowIsSelected ? Colors::WHITE : Colors::BLACK);
+
+            // Draw track title and artist
+            juce::Font titleFont(14.0f, juce::Font::bold);
+            juce::Font artistFont(12.0f);
+            
+            juce::Rectangle<int> bounds(8, 0, width - 16, height);
+            
+            // Title in bold
+            g.setFont(titleFont);
+            g.drawText(track.title, bounds.removeFromTop(height / 2), juce::Justification::left, true);
+            
+            // Artist in regular weight with slightly muted color
+            g.setFont(artistFont);
+            if (!rowIsSelected)
+                g.setColour(Colors::GREY);
+            g.drawText(track.username, bounds, juce::Justification::left, true);
+
+            // Draw selection indicator with seafoam color
+            if (rowIsSelected)
+            {
+                g.setColour(Colors::WHITE.withAlpha(0.9f));
                 juce::Path tickPath;
                 tickPath.addTriangle(4, height / 2 - 4, 4, height / 2 + 4, 12, height / 2);
                 g.fillPath(tickPath);

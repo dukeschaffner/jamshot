@@ -1,5 +1,6 @@
 #include "LoginView.h"
 #include "../auth/AuthManager.h"
+#include "../Colors.h"
 
 using namespace juce;
 
@@ -10,6 +11,11 @@ LoginView::LoginView(AuthManager& authManager, SterioApiClient& apiClient)
 {
     loginButton.setButtonText("Log in to Sterio");
     loginButton.onClick = [this] { authManagerRef.login(); };
+    
+    // Style login button with seafoam color
+    loginButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
+    loginButton.setColour(TextButton::textColourOffId, Colors::WHITE);
+    
     addAndMakeVisible(loginButton);
 
     logoutButton.setButtonText("Log out");
@@ -18,10 +24,18 @@ LoginView::LoginView(AuthManager& authManager, SterioApiClient& apiClient)
         currentUsername.clear();
         statusLabel.setText("", dontSendNotification);
     };
+    
+    // Style logout button with rustic pink color
+    logoutButton.setColour(TextButton::buttonColourId, Colors::RUSTIC_PINK);
+    logoutButton.setColour(TextButton::textColourOffId, Colors::WHITE);
+    
     addAndMakeVisible(logoutButton);
 
     addAndMakeVisible(statusLabel);
     statusLabel.setJustificationType(Justification::centred);
+    
+    // Style status label
+    statusLabel.setColour(Label::textColourId, Colors::GREY);
 
     // Set initial state
     updateLoginState();
@@ -58,13 +72,13 @@ void LoginView::timerCallback()
 
 void LoginView::paint(Graphics& g)
 {
-    ignoreUnused(g);
+    g.fillAll(Colors::BLACK);
 }
 
 void LoginView::resized()
 {
     auto r = getLocalBounds();
-    auto buttonWidth = 120;
+    auto buttonWidth = 80;
     auto gap = 10;
 
     loginButton.setBounds(r.removeFromLeft(buttonWidth));
