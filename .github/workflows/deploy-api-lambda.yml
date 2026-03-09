@@ -120,8 +120,8 @@ jobs:
       run: |
         aws lambda update-function-code \
           --function-name sterio-api-test \
-          --s3-bucket lambda-artifacts \
-          --s3-key api-lambda-latest.zip
+          --s3-bucket sterio \
+          --s3-key lambda-artifacts/api-lambda-latest.zip
 
     - name: Wait for code deployment to complete
       run: |
@@ -208,8 +208,8 @@ jobs:
       run: |
         aws lambda update-function-code \
           --function-name sterio-api \
-          --s3-bucket lambda-artifacts \
-          --s3-key api-lambda-latest.zip
+          --s3-bucket sterio \
+          --s3-key lambda-artifacts/api-lambda-latest.zip
 
     - name: Wait for code deployment to complete
       run: |
