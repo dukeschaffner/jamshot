@@ -3,8 +3,32 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 const router = express.Router();
 import pool from '../config/db.js';
+import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
+import { auth } from '../../auth.js';
+import { fromNodeHeaders } from 'better-auth/node';
 import { getGeolocationData } from '../utils/geolocation.js';
 import { sendWaitlistConfirmationEmail } from '../utils/emailService.js';
+
+// Plugin auth: return tokens for OAuth callback (Increment 2)
+router.get('/plugin-auth/tokens', authMiddleware, async (req, res) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    const token = session?.session?.token ?? session?.token;
+    if (!token) {
+      return res.status(401).json({ error: 'No session' });
+    }
+    // Session token works as Bearer token for API. Use as accessToken.
+    res.json({
+      accessToken: token,
+      refreshToken: token,
+    });
+  } catch (err) {
+    console.error('Plugin auth tokens error:', err);
+    res.status(500).json({ error: 'Failed to get tokens' });
+  }
+});
 
 // Rate limiting for landing page endpoints
 const landingLimiter = rateLimit({

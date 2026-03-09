@@ -3,6 +3,12 @@
 This is an app/website that allows music artists to asynchronously collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach an audio file onto the original recording as a new version. the app has a like/ranking system and has a featured page to show popular collabs.
 </BACKGROUND>
 
+<TEAM>
+  - me (founder, developer)
+  - Rob $tone (artist, content creator, ambassador)
+  - Chris (social media/digital marketing/content creator)
+</TEAM>
+
 <TECH_STACK_AND_INTEGRATIONS>
   - Frontend: Next.js hosted on AWS Amplify
   - Backend: 
@@ -96,9 +102,6 @@ Collabs:
 
   Camps and Teams (see below)
 
-  eventually:
-  - selling samples
-  - longer recording limit (5 minutes for free, 10 minutes for premium)
 </MONETIZATION>
 
 
@@ -206,5 +209,31 @@ Progress:
       - popular mixes can be published on streaming platforms
     - queue button on track tree popover in addition to play button
       - only allow one track in queue for now
+
+Sterio loop listening mode stream
+- weekly event with guest hosts
+- hosts: me, Chris (digital marketing/content creator), Rob $tone or guest influencer host
+- root track: 
+    - posted 1 week before event (not public)
+    - ensure at least 10-15 tracks seeded before event
+        - monetize early access with VIP tiers:
+            - early access 
+            - early access + guaranteed listen on stream (limit 25). guarantee only applies if not spam or not violating any rules.
+        - if not enough tracks posted, have people do it for free with access code
+- this generates free content:
+    - "30 people collab on song in 1 hour" video
+    - clips from the stream (Rob reacting to collabs or writing a part, etc)
+- try to get sponsors for the event
+- A stream:
+    - me, Chris, and influencer host curating the listening and reacting to Chat
+- B stream:
+    - same as A stream, but when one of us gets inspiration, B stream follows one of us working on creating a new collab
+- browse the site on stream:
+    - if there's a cool track, go to their page and follow them
+    - briefly browse the feed
+- share new development/features on stream
+- after the event, the collab tree can be turned into a mix for streaming services
+    - maybe even have a mixing competition: best mix gets shoutout on Rob's socials and sterio and gets posted to streaming services
+- allow users to link their socials to their sterio profile
 
 </FUTURE_FEATURES>
