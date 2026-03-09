@@ -43,6 +43,15 @@ const externalizeDeps = {
     format: "esm",
     outfile: path.join(DIST, "index.mjs"),
     plugins: [externalizeDeps],
+    external: [
+      "prisma",
+      "@prisma/client",
+      "@prisma/engine",
+      "effect",
+      "react-dom",
+      "drizzle-orm",
+      // Add any other Better Auth transitive deps you want to exclude
+    ],
     sourcemap: false,
     minify: false,
   });
