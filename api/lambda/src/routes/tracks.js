@@ -49,6 +49,46 @@ import { isFeatureEnabled } from '../utils/featureFlags.js';
 import { checkVideoExportLimit } from '../utils/videoExportUtils.js';
 
 /**
+ * Checks if a track has a status that prevents normal access
+ * Returns appropriate error response for tracks waiting for approval or rejected
+ */
+async function checkTrackStatus(trackId) {
+  const result = await pool.query(
+    'SELECT processing_status, rejection_reason FROM tracks WHERE id = $1',
+    [trackId]
+  );
+
+  if (result.rows.length === 0) {
+    return null; // Track not found, let caller handle
+  }
+
+  const track = result.rows[0];
+
+  if (track.processing_status === 'waiting_for_approval') {
+    return {
+      status: 400,
+      error: {
+        code: 'TRACK_WAITING_FOR_APPROVAL',
+        message: 'This track is waiting for moderator approval. Please check back later.'
+      }
+    };
+  }
+
+  if (track.processing_status === 'rejected') {
+    return {
+      status: 400,
+      error: {
+        code: 'TRACK_REJECTED',
+        message: 'This track was rejected by moderators.',
+        rejection_reason: track.rejection_reason
+      }
+    };
+  }
+
+  return null; // Track is accessible
+}
+
+/**
  * Sanitizes error messages to prevent exposing detailed server-side errors to clients.
  * Returns generic user-friendly error messages for audio processing and upload errors.
  */
@@ -895,6 +935,12 @@ router.get('/:id', optionalBetterAuthMiddleware, async (req, res, next) => {
 
     // Use the numeric ID from accessCheck for the actual query
     const trackId = accessCheck.track.id;
+
+    // Check if track has restricted status
+    const statusCheck = await checkTrackStatus(trackId);
+    if (statusCheck) {
+      return res.status(statusCheck.status).json({ error: statusCheck.error });
+    }
 
     let baseQuery;
     let queryParams;
@@ -2192,6 +2238,12 @@ router.get('/:id/tree', async (req, res, next) => {
     }
 
     const trackId = accessCheck.track.id;
+
+    // Check if track has restricted status
+    const statusCheck = await checkTrackStatus(trackId);
+    if (statusCheck) {
+      return res.status(statusCheck.status).json({ error: statusCheck.error });
+    }
 
     let baseQuery;
     let queryParams;

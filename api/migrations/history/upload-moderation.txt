@@ -1,0 +1,24 @@
+-- Upload Moderation Feature
+-- Adds support for moderating loop track uploads
+-- Date: 2026-03-09
+
+-- Add is_admin column to users table
+ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Add rejection_reason column to tracks table
+ALTER TABLE tracks ADD COLUMN rejection_reason TEXT;
+
+-- Update processing_status check constraint to include new statuses
+ALTER TABLE tracks DROP CONSTRAINT tracks_processing_status_check;
+ALTER TABLE tracks ADD CONSTRAINT tracks_processing_status_check CHECK (processing_status IN ('pending', 'processing', 'completed', 'failed', 'waiting_for_approval', 'rejected'));
+
+-- Add index for admin queries
+CREATE INDEX idx_tracks_processing_status_root_id_created_at ON tracks(processing_status, root_id, created_at) WHERE processing_status = 'waiting_for_approval';
+
+
+-- Add track_rejected to notification_type enum
+ALTER TYPE notification_type ADD VALUE 'track_rejected';
+
+-- Insert moderation feature flag (disabled by default)
+INSERT INTO feature_flags (flag_key, flag_value, description)
+VALUES ('moderation', false, 'Enable moderation system for loop track uploads. When enabled, loop tracks are set to waiting_for_approval status until approved by admins.');

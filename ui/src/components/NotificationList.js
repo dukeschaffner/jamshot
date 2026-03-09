@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaBell, FaComment, FaHeart, FaMusic, FaRetweet, FaUserPlus, FaCheckCircle, FaTimesCircle, FaTrophy } from 'react-icons/fa';
+import { FaBell, FaComment, FaHeart, FaMusic, FaRetweet, FaUserPlus, FaCheckCircle, FaTimesCircle, FaTrophy, FaExclamationTriangle } from 'react-icons/fa';
 import api from '../lib/api';
 import TimeDisplay from './TimeDisplay';
 import styles from './Notifications.module.css';
@@ -37,6 +37,9 @@ export default function NotificationList({
     } else if (notification.type === 'follow') {
       // Navigate to the user profile who started following
       router.push(`/user/${notification.actor_username}`);
+    } else if (notification.type === 'track_rejected') {
+      // Navigate to the rejected track
+      router.push(`/track/${notification.track_guid}`);
     } else {
       // Navigate to the track using GUID
       router.push(`/track/${notification.track_guid}`);
@@ -59,13 +62,15 @@ export default function NotificationList({
         return <FaUserPlus className="text-green-500" />;
       case 'competition_winner':
         return <FaTrophy className="text-yellow-500" />;
+      case 'track_rejected':
+        return <FaExclamationTriangle className="text-red-500" />;
       default:
         return <FaBell className="text-gray-500" />;
     }
   };
 
   const getNotificationText = (notification) => {
-    const { type, actor_username, track_title, id } = notification;
+    const { type, actor_username, track_title, id, rejection_reason } = notification;
 
     switch (type) {
       case 'like':
@@ -88,6 +93,8 @@ export default function NotificationList({
         return `${actor_username} started following you`;
       case 'competition_winner':
         return `🎉 You won a competition! Follow the instructions in the email to collect your prize.`;
+      case 'track_rejected':
+        return `Your track "${track_title}" was rejected by moderators${rejection_reason ? `: ${rejection_reason}` : ''}`;
       default:
         return `New activity on your track "${track_title}"`;
     }
