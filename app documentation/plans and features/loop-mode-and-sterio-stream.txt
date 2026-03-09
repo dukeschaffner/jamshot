@@ -90,7 +90,7 @@ Sterio loop listening mode stream
 upload moderation:
 - when a track finishes processing, if is_loop is true, then subsequently check the "moderation" feature flag. if flag value is true, then the track should be set to "waiting_for_approval" status instead of "completed"
 - admin page to approve/reject loop tracks
-    - we will need to track which users are admins, and restrict access the the page and api endpoitns
+    - we will need to track which users are admins, and restrict access the the page and api endpoitns (is_admin column on users table)
     - admin enters root id in input field, hits submit, and the page loads all loop tracks for that root track with "waiting_for_approval" status, starting from the oldest
         - cursor based pagination
         - use page size of 15
@@ -99,7 +99,12 @@ upload moderation:
     - create new component for each track with: minitrack component, waveform component, and approve/reject buttons
     - approve/rejecting should remove the track from the list in the ui and the api should update the status to "completed" or "rejected"
     - approve/reject buttons should have a confirmation modal
-    - approve/reject buttons should have a confirmation modal
+        - reject button modal should allow user to select a rejection reason from a dropdown:
+            - Copyright infringement
+            - Spam
+            - Hate speech or discriminatory content
+            - Explicit sexual content
+- add notification for when tracks are rejected by moderators. add rejection_reason to tracks table
 - update track page and track tree page to handle new statuses "waiting_for_approval" and "rejected"
     - api endpoint should return bad request error if status is "waiting_for_approval" or "rejected"
     - track page:
@@ -110,6 +115,8 @@ upload moderation:
         - if status is waiting for approval, show message saying "waiting for approval by moderators, check again later" and dont load the rest of the page
         - if status is rejected, show message saying "track rejected by moderators" and dont load the rest of the page
         - this should only apply for the track given by the id in the url 
+
+
     
 
 
