@@ -92,16 +92,16 @@ jobs:
 
     steps:
     # TEMPORARY: Using S3 download instead of GitHub artifacts
-    - name: Configure AWS credentials for S3 download
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-2
+    # - name: Configure AWS credentials for S3 download
+    #   uses: aws-actions/configure-aws-credentials@v2
+    #   with:
+    #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #     aws-region: us-east-2
 
-    - name: Download artifact from S3
-      run: |
-        aws s3 cp s3://sterio/lambda-artifacts/api-lambda-latest.zip api-lambda.zip
+    # - name: Download artifact from S3
+    #   run: |
+    #     aws s3 cp s3://sterio/lambda-artifacts/api-lambda-latest.zip api-lambda.zip
 
     # COMMENTED OUT: Original GitHub artifact download (uncomment to revert)
     # - name: Download build artifact
@@ -120,7 +120,8 @@ jobs:
       run: |
         aws lambda update-function-code \
           --function-name sterio-api-test \
-          --zip-file fileb://api-lambda.zip
+          --s3-bucket lambda-artifacts \
+          --s3-key api-lambda-latest.zip
 
     - name: Wait for code deployment to complete
       run: |
@@ -179,16 +180,16 @@ jobs:
 
     steps:
     # TEMPORARY: Using S3 download instead of GitHub artifacts
-    - name: Configure AWS credentials for S3 download
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-2
+    # - name: Configure AWS credentials for S3 download
+    #   uses: aws-actions/configure-aws-credentials@v2
+    #   with:
+    #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #     aws-region: us-east-2
 
-    - name: Download artifact from S3
-      run: |
-        aws s3 cp s3://sterio/lambda-artifacts/api-lambda-latest.zip api-lambda.zip
+    # - name: Download artifact from S3
+    #   run: |
+    #     aws s3 cp s3://sterio/lambda-artifacts/api-lambda-latest.zip api-lambda.zip
 
     # COMMENTED OUT: Original GitHub artifact download (uncomment to revert)
     # - name: Download build artifact
@@ -207,7 +208,8 @@ jobs:
       run: |
         aws lambda update-function-code \
           --function-name sterio-api \
-          --zip-file fileb://api-lambda.zip
+          --s3-bucket lambda-artifacts \
+          --s3-key api-lambda-latest.zip
 
     - name: Wait for code deployment to complete
       run: |
