@@ -36,6 +36,7 @@ target_sources(SterioPlugin
     PRIVATE
         Source/CacheManager.cpp
         Source/CacheManager.h
+        Source/Colors.h
         Source/Config.h
         Source/GlobalErrorHandler.cpp
         Source/GlobalErrorHandler.h
@@ -66,6 +67,7 @@ target_sources(SterioPlugin
 source_group("Sterio" FILES
     Source/CacheManager.cpp
     Source/CacheManager.h
+    Source/Colors.h
     Source/Config.h
     Source/GlobalErrorHandler.cpp
     Source/GlobalErrorHandler.h

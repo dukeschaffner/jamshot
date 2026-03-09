@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "GlobalErrorHandler.h"
+#include "Colors.h"
 
 using namespace juce;
 
@@ -75,13 +76,18 @@ void SterioPluginEditor::timerCallback()
 
 void SterioPluginEditor::paint(Graphics& g)
 {
-    g.fillAll(getLookAndFeel().findColour(ResizableWindow::backgroundColourId));
+    // Set white background
+    g.fillAll(Colors::WHITE);
 
     auto r = getLocalBounds();
 
-    g.setColour(Colours::white);
+    // Create gradient text for the title using seafoam and rustic pink
+    auto titleRect = r.removeFromTop(40);
+    
+    // Draw title with seafoam color
+    g.setColour(Colors::SEAFOAM);
     g.setFont(20.0f);
-    g.drawText("Sterio Plugin", r.removeFromTop(40), Justification::centred, true);
+    g.drawText("Sterio Plugin", titleRect, Justification::centred, true);
 
     // Show high sample rate warning if needed
     if (showHighSampleRateWarning)
@@ -89,7 +95,8 @@ void SterioPluginEditor::paint(Graphics& g)
         r.removeFromTop(10);
         auto warningRect = r.removeFromTop(30);
 
-        g.setColour(Colours::red);
+        // Use rustic pink for warning to maintain brand consistency
+        g.setColour(Colors::RUSTIC_PINK);
         g.setFont(14.0f);
         g.drawText("Warning: Host sample rate > 100kHz not supported. Stems will not be converted.",
                   warningRect, Justification::centred, true);

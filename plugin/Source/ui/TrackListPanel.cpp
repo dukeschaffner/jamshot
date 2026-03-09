@@ -1,4 +1,5 @@
 #include "TrackListPanel.h"
+#include "../Colors.h"
 
 using namespace juce;
 
@@ -11,11 +12,19 @@ TrackListPanel::TrackListPanel(SterioApiClient& apiClient)
     addAndMakeVisible(refreshButton);
     refreshButton.setButtonText("Refresh");
     refreshButton.onClick = [this] { refreshTracks(); };
+    
+    // Style refresh button with seafoam color
+    refreshButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
+    refreshButton.setColour(TextButton::textColourOffId, Colors::WHITE);
 
     addAndMakeVisible(loadMoreButton);
     loadMoreButton.setButtonText("Load More");
     loadMoreButton.setEnabled(false);
     loadMoreButton.onClick = [this] { loadMoreTracks(); };
+    
+    // Style load more button with rustic pink color
+    loadMoreButton.setColour(TextButton::buttonColourId, Colors::RUSTIC_PINK);
+    loadMoreButton.setColour(TextButton::textColourOffId, Colors::WHITE);
 
     addAndMakeVisible(statusLabel);
     statusLabel.setText("No tracks loaded", dontSendNotification);
@@ -38,7 +47,8 @@ TrackListPanel::~TrackListPanel()
 
 void TrackListPanel::paint(Graphics& g)
 {
-    g.fillAll(Colours::grey.withAlpha(0.1f));
+    // Use light seafoam background for subtle brand consistency
+    g.fillAll(Colors::WHITE);
 }
 
 void TrackListPanel::resized()
