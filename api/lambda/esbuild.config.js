@@ -76,4 +76,14 @@ const externalizeDeps = {
 // Install production deps in dist
 execSync("npm install --production --omit=dev", { cwd: DIST, stdio: "inherit" });
 
+// Remove unwanted transitive dependencies from dist/node_modules
+const unwantedDeps = ["prisma", "@prisma", "effect", "react-dom", "drizzle-orm"];
+unwantedDeps.forEach(dep => {
+  const depPath = path.join(DIST, "node_modules", dep);
+  if (fs.existsSync(depPath)) {
+    console.log(`Removing ${dep} from dist/node_modules...`);
+    fs.rmSync(depPath, { recursive: true, force: true });
+  }
+});
+
 console.log("✅ Build complete!");
