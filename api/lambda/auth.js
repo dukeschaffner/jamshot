@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { customSession } from "better-auth/plugins";
+import { customSession, bearer } from "better-auth/plugins";
 import pool from './src/config/db.js';
 import bcrypt from 'bcryptjs';
 import { sendVerificationEmail as sendLegacyVerificationEmail, sendPasswordResetEmail as sendLegacyPasswordResetEmail } from './src/utils/emailService.js';
@@ -517,12 +517,13 @@ export const auth = betterAuth({
     }),
   },
   plugins: [
+    bearer(),
     customSession(async ({ user, session }, ctx) => {
       // Get user fields from database if not present in user object
       let dateOfBirth = user.date_of_birth;
       let termsAccepted = user.terms_accepted;
       let privacyPolicyAccepted = user.privacy_policy_accepted;
-      
+
       // If fields are missing, query the database
       if (!dateOfBirth || termsAccepted === undefined || privacyPolicyAccepted === undefined) {
         try {
@@ -530,7 +531,7 @@ export const auth = betterAuth({
             'SELECT date_of_birth, terms_accepted, privacy_policy_accepted FROM users WHERE id = $1',
             [user.id]
           );
-          
+
           if (result.rows.length > 0) {
             dateOfBirth = dateOfBirth || result.rows[0].date_of_birth;
             termsAccepted = termsAccepted !== undefined ? termsAccepted : result.rows[0].terms_accepted;
@@ -540,14 +541,14 @@ export const auth = betterAuth({
           console.error('Error fetching user profile fields:', error);
         }
       }
-      
+
       // Check if profile is completed: DOB and both policy accepted fields must be filled
       const profileCompleted = !!(
-        dateOfBirth && 
-        termsAccepted && 
+        dateOfBirth &&
+        termsAccepted &&
         privacyPolicyAccepted
       );
-      
+
       return {
         profile_completed: profileCompleted,
         user,

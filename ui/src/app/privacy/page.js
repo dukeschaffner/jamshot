@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
           Your privacy is important to us. This policy explains how we collect, use, and protect your information.
         </p>
         <p className="text-sm text-secondary mt-2">
-          Last updated: {new Date().toLocaleDateString()}
+          Last updated: March 2, 2025
         </p>
       </div>
 
@@ -44,6 +44,7 @@ export default function PrivacyPolicyPage() {
             <ul>
               <li><strong>Device Information:</strong> Browser type, operating system, and device identifiers</li>
               <li><strong>Usage Data:</strong> Pages visited, features used, and time spent on the platform</li>
+              <li><strong>Approximate Location:</strong> We derive approximate location (country, region, and city) from your IP address when you use the platform (e.g., when you play tracks or sign up). This is used to provide analytics (such as where your listeners are located) and to improve our services. This is not precise location.</li>
               <li><strong>Analytics:</strong> Aggregated usage statistics and performance metrics</li>
             </ul>
           </div>
@@ -192,7 +193,7 @@ export default function PrivacyPolicyPage() {
             <h3>Service Providers</h3>
             <p>We use trusted third-party services for:</p>
             <ul>
-              <li><strong>Cloud Storage:</strong> Amazon Web Services (AWS) for data storage</li>
+              <li><strong>Cloud Storage:</strong> Cloudflare R2 and CDN for file storage and delivery (e.g., audio and profile images)</li>
               <li><strong>Analytics:</strong> Google Analytics for usage analytics</li>
               <li><strong>Payments:</strong> Stripe for payment processing</li>
               <li><strong>Email:</strong> Email service providers for notifications</li>

@@ -20,6 +20,7 @@ before launch:
   - region looping
   - multiple recording tracks for camp/team DAW
   - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
+  - add user profile pic to DAW tracks
 
   
 - add way to stream track on track page outside of DAW (maybe just show track component?)
@@ -54,6 +55,7 @@ BUGS
 -DAW
   - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
   - loop a section -> record -> add repeat: the repeated region isnt synced right
+  - undo/redo - have to press undo many times to undo a single action
 
 - double check track plays recording correctly
   - full play didnt get marked as complete play
