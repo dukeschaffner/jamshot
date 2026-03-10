@@ -1,3 +1,11 @@
+-- Migration: Upload Moderation Feature
+-- Date: 2026-03-09
+-- Adds support for moderating loop track uploads
+-- - Adds is_admin column to users table
+-- - Adds rejection_reason column to tracks table
+-- - Updates processing_status constraint to include 'waiting_for_approval' and 'rejected'
+-- - Adds indexes for admin queries
+
 -- Migration: Add 'tree_page' to discovery_method enum
 -- Date: 2026-01-XX
 -- Adds support for tracking when tracks are discovered via the tree page view

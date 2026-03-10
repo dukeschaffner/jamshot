@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useAudio } from '../lib/AudioContext';
 import styles from './Waveform.module.css';
 
 /**
@@ -10,10 +11,14 @@ import styles from './Waveform.module.css';
  * @param {number} height - Height of the waveform in pixels (default: 80)
  */
 export default function Waveform({ track, type = 'stem', height = 80 }) {
+  const { currentTrack, progress, audioSourceType } = useAudio();
   const [peaks, setPeaks] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const canvasRef = useRef(null);
+
+  const isCurrentTrack = currentTrack?.id === track.id && (audioSourceType === "audio" && type === "stem") || (audioSourceType === "combined" && type === "combined");
+  const initialRenderRef = useRef(false);
 
   useEffect(() => {
     if (!track) return;
@@ -56,6 +61,7 @@ export default function Waveform({ track, type = 'stem', height = 80 }) {
 
   useEffect(() => {
     if (!peaks || !canvasRef.current) return;
+    if (initialRenderRef.current && (!isCurrentTrack)) return;
 
     const drawWaveform = () => {
       const canvas = canvasRef.current;
@@ -78,8 +84,9 @@ export default function Waveform({ track, type = 'stem', height = 80 }) {
       // Clear canvas
       ctx.clearRect(0, 0, width, canvasHeight);
 
-      // Set waveform color (using CSS variable for theme consistency)
-      ctx.fillStyle = 'var(--seafoam, #00d4aa)';
+      // Calculate normalized progress (0-1)
+      const normalizedProgress = currentTrack && currentTrack.duration ? Math.min(progress / currentTrack.duration, 1) : 0;
+      const progressWidth = normalizedProgress * width;
 
       // Draw waveform bars
       const barWidth = width / peaks.length;
@@ -90,6 +97,12 @@ export default function Waveform({ track, type = 'stem', height = 80 }) {
         const barHeight = Math.abs(max - min) * canvasHeight * 0.8; // Scale to 80% of height
         const y = centerY - (barHeight / 2);
 
+        // Determine if this bar is in the progress portion
+        const isProgressBar = x < progressWidth;
+
+        // Set color based on progress - use a brighter seafoam for progress
+        ctx.fillStyle = isProgressBar ? 'red' : 'black';
+
         // Draw vertical bar
         ctx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight);
       });
@@ -97,6 +110,7 @@ export default function Waveform({ track, type = 'stem', height = 80 }) {
 
     // Initial draw
     drawWaveform();
+    initialRenderRef.current = true;
 
     // Handle window resize
     const handleResize = () => {
@@ -105,7 +119,7 @@ export default function Waveform({ track, type = 'stem', height = 80 }) {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [peaks, height]);
+  }, [peaks, height, progress, currentTrack]);
 
   if (loading) {
     return (

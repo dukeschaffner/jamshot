@@ -184,10 +184,28 @@ class AudioProcessor {
         tempFilesToCleanup.map(f => fsPromises.unlink(f).catch(() => {}))
       );
 
-      // Update processing status to 'completed' and set final URLs and duration
+      // Determine final processing status based on moderation settings
+      let finalStatus = 'completed';
+
+      // Check if moderation is enabled and this is a loop track
+      if (track.is_loop) {
+        try {
+          const moderationEnabled = await getPool().query(
+            "SELECT flag_value FROM feature_flags WHERE flag_key = 'moderation'"
+          );
+          if (moderationEnabled.rows.length > 0 && moderationEnabled.rows[0].flag_value) {
+            finalStatus = 'waiting_for_approval';
+          }
+        } catch (moderationError) {
+          logger.error({ message: 'Error checking moderation feature flag', error: moderationError?.message });
+          // Default to completed if moderation check fails
+        }
+      }
+
+      // Update processing status to final status and set final URLs and duration
       await getPool().query(
         'UPDATE tracks SET processing_status = $1, audio_url = $2, combined_audio_url = $3, duration = $4, waveform_url = $5, combined_waveform_url = $6 WHERE id = $7',
-        ['completed', finalAudioUrl, finalCombinedAudioUrl, duration, waveformUrl, combinedWaveformUrl, trackId]
+        [finalStatus, finalAudioUrl, finalCombinedAudioUrl, duration, waveformUrl, combinedWaveformUrl, trackId]
       );
 
       // Clean up original temp file (other temp files cleaned up after waveform generation)
