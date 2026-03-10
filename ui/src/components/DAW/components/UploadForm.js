@@ -172,7 +172,7 @@ export default function UploadForm({
       setProcessingStatus(status.status);
       setProcessingError(status.error);
 
-      if (status.status === 'completed') {
+      if (status.status === 'completed' || status.status === 'waiting_for_approval') {
         // Processing is done, redirect using GUID for public-facing URLs
         setTimeout(() => {
           if (campId) {
