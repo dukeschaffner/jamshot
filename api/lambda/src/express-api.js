@@ -14,6 +14,7 @@ import teamRoutes from './routes/teams.js';
 import groupRoutes from './routes/groups.js';
 import landingRoutes from './routes/landing.js';
 import featureFlagsRoutes from './routes/featureFlags.js';
+import adminRoutes from './routes/admin.js';
 
 
 import express from 'express';
@@ -111,6 +112,7 @@ app.use(`${stagePrefix}/api/teams`, teamRoutes);
 app.use(`${stagePrefix}/api/groups`, groupRoutes);
 app.use(`${stagePrefix}/api`, landingRoutes);
 app.use(`${stagePrefix}/api/feature-flags`, featureFlagsRoutes);
+app.use(`${stagePrefix}/api/admin`, adminRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {

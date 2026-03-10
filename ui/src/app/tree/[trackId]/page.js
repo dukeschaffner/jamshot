@@ -790,6 +790,8 @@ export default function TrackTreePage() {
   const [error, setError] = useState(null);
   const [rootTrack, setRootTrack] = useState(null);
   const [isLoopMode, setIsLoopMode] = useState(false);
+  const [moderationStatus, setModerationStatus] = useState(null); // 'waiting_for_approval', 'rejected', or null
+  const [rejectionReason, setRejectionReason] = useState(null);
   const treeDataManager = useRef(null);
 
   // Check if mobile - redirect to old tree view
@@ -797,13 +799,16 @@ export default function TrackTreePage() {
     if (!isMobile && isMobile !== undefined) {
       const loadTree = async () => {
         setLoading(true);
+        setModerationStatus(null);
+        setRejectionReason(null);
+
         try {
           treeDataManager.current = new TreeDataManager(secret);
           if(DEBUG_MODE) {
             window.treeDataManager = treeDataManager.current;
           }
           await treeDataManager.current.fetchTrackTree(trackId);
-          
+
           // Get root track and check if it's a loop track
           const rootTrackId = treeDataManager.current.rootTrackId;
           if (rootTrackId && treeDataManager.current.trackData.has(rootTrackId)) {
@@ -811,10 +816,26 @@ export default function TrackTreePage() {
             setRootTrack(root);
             setIsLoopMode(root.is_loop || false);
           }
-          
+
           setInitialLoadComplete(true);
         } catch (err) {
           console.error('Failed to load track tree:', err);
+
+          // Check if this is a moderation-related error
+          if (err.response && err.response.data && err.response.data.error) {
+            const errorData = err.response.data.error;
+            if (errorData.code === 'TRACK_WAITING_FOR_APPROVAL') {
+              setModerationStatus('waiting_for_approval');
+              setLoading(false);
+              return;
+            } else if (errorData.code === 'TRACK_REJECTED') {
+              setModerationStatus('rejected');
+              setRejectionReason(errorData.rejection_reason);
+              setLoading(false);
+              return;
+            }
+          }
+
           setError(err.message || 'Failed to load track tree');
         } finally {
           setLoading(false);
@@ -869,6 +890,32 @@ export default function TrackTreePage() {
 
   if (isMobile) {
     return null; // Will redirect
+  }
+
+  // Handle moderation status
+  if (moderationStatus === 'waiting_for_approval') {
+    return (
+      <div className="track-detail-page moderation-status">
+        <div className="moderation-message">
+          <h2>Waiting for Approval</h2>
+          <p>This track is currently being reviewed by our moderators. Please check back later.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (moderationStatus === 'rejected') {
+    return (
+      <div className="track-detail-page moderation-status">
+        <div className="moderation-message">
+          <h2>Track Rejected</h2>
+          <p>This track has been rejected by our moderators.</p>
+          {rejectionReason && (
+            <p><strong>Reason:</strong> {rejectionReason}</p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   // Wrap with LoopListeningProvider if in loop mode

@@ -35,11 +35,62 @@ function TrackContent() {
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
   const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [moderationStatus, setModerationStatus] = useState(null); // 'waiting_for_approval', 'rejected', or null
+  const [rejectionReason, setRejectionReason] = useState(null);
+  const [statusPollingInterval, setStatusPollingInterval] = useState(null);
+  const pollingStartTimeRef = useRef(null);
+
+  const startStatusPolling = () => {
+    // Start polling for status changes (every 30 seconds for up to 5 minutes)
+    const startTime = Date.now();
+    pollingStartTimeRef.current = startTime;
+
+    const interval = setInterval(async () => {
+      try {
+        // Check if we've been polling for more than 5 minutes
+        if (Date.now() - pollingStartTimeRef.current > 5 * 60 * 1000) {
+          clearInterval(interval);
+          setStatusPollingInterval(null);
+          return;
+        }
+
+        // Poll the track status
+        const statusResponse = await api.get(`/tracks/${trackId}/status`);
+        const statusData = statusResponse.data;
+
+        if (statusData.status === 'completed') {
+          // Track was approved, reload the full track
+          clearInterval(interval);
+          setStatusPollingInterval(null);
+          setModerationStatus(null);
+          // Reload the track
+          const response = await trackApi.getTrack(trackId, secret);
+          const data = response.data;
+          const mainTrack = Array.isArray(data) && data.length > 0 ? data[0] : null;
+          if (mainTrack) {
+            setTrack(mainTrack);
+            setIsPrivate(mainTrack.is_private || false);
+          }
+          setLoading(false);
+        }
+        // If still waiting_for_approval, continue polling
+        // If rejected, the API would return an error, but we handle that in the initial load
+      } catch (err) {
+        console.error('Error polling track status:', err);
+        // Continue polling on error
+      }
+    }, 30000); // 30 seconds
+
+    setStatusPollingInterval(interval);
+  };
 
   useEffect(() => {
     async function loadTrack() {
       try {
         setLoading(true);
+        setModerationStatus(null);
+        setRejectionReason(null);
+
         const response = await trackApi.getTrack(trackId, secret);
         const data = response.data;
         console.log('Track data loaded:', data);
@@ -53,6 +104,23 @@ function TrackContent() {
         setLoading(false);
       } catch (err) {
         console.error('Error loading track:', err);
+
+        // Check if this is a moderation-related error
+        if (err.response && err.response.data && err.response.data.error) {
+          const errorData = err.response.data.error;
+          if (errorData.code === 'TRACK_WAITING_FOR_APPROVAL') {
+            setModerationStatus('waiting_for_approval');
+            setLoading(false);
+            startStatusPolling();
+            return;
+          } else if (errorData.code === 'TRACK_REJECTED') {
+            setModerationStatus('rejected');
+            setRejectionReason(errorData.rejection_reason);
+            setLoading(false);
+            return;
+          }
+        }
+
         if (err.response && err.response.status === 403) {
           setError('This track is private. You do not have permission to view it.');
         } else {
@@ -65,6 +133,13 @@ function TrackContent() {
     if (trackId) {
       loadTrack();
     }
+
+    // Cleanup polling interval on unmount
+    return () => {
+      if (statusPollingInterval) {
+        clearInterval(statusPollingInterval);
+      }
+    };
   }, [trackId, secret]);
 
   // Check if current user is the track owner
@@ -216,6 +291,43 @@ function TrackContent() {
         <Link href="/" className="text-primary hover:underline">
           Return to Home
         </Link>
+      </div>
+    );
+  }
+
+  // Handle moderation status
+  if (moderationStatus === 'waiting_for_approval') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-lg font-medium mb-2">Waiting for Approval</div>
+          <div className="text-gray-600 mb-4">
+            This track is currently being reviewed by our moderators. Please check back later.
+          </div>
+          {statusPollingInterval && (
+            <div className="text-sm text-gray-500">
+              Auto-refreshing status every 30 seconds...
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (moderationStatus === 'rejected') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-lg font-medium mb-2 text-red-600">Track Rejected</div>
+          <div className="text-gray-600 mb-4">
+            This track has been rejected by our moderators.
+            {rejectionReason && (
+              <div className="mt-2 text-sm">
+                <strong>Reason:</strong> {rejectionReason}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

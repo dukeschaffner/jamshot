@@ -65,7 +65,7 @@ router.use(optionalBetterAuthMiddleware);
 router.get('/me', betterAuthMiddleware, async (req, res, next) => {
   try {
     const userResult = await pool.query(
-      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
+      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, is_admin, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
       [req.user.id]
     );
     

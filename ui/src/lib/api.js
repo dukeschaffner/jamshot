@@ -56,6 +56,7 @@ const {
   campApi,
   teamApi,
   groupApi,
+  adminApi,
   setRefreshUserState,
   getRefreshUserState,
 } = createApiMethods(apiClient);
@@ -75,6 +76,7 @@ export {
   campApi,
   teamApi,
   groupApi,
+  adminApi,
   setRefreshUserState,
   getRefreshUserState,
 };
