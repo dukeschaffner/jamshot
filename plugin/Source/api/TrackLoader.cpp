@@ -111,28 +111,31 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
             // Use the audio URL from the parsed stem data (CDN URL)
             String audioUrl = stem.audioUrl;
 
-            auto audioResult = downloadAndDecodeAudio(audioUrl);
-            if (audioResult.failed())
+            // Download raw audio data once
+            auto rawAudioResult = downloadAudio(audioUrl);
+            if (rawAudioResult.failed())
             {
-                throw std::runtime_error(("Failed to download/decode audio for stem " + String(stem.trackId) +
-                    ": " + audioResult.getErrorMessage()).toStdString());
+                throw std::runtime_error(("Failed to download audio for stem " + String(stem.trackId) +
+                    ": " + rawAudioResult.getErrorMessage()).toStdString());
             }
 
-            stem.audioBuffer = *audioResult;
+            MemoryBlock rawAudioData = *rawAudioResult;
 
-            // Save raw MP3 to cache asynchronously (doesn't block loading)
+            // Decode the raw audio data
+            auto decodeResult = decodeAudio(rawAudioData);
+            if (decodeResult.failed())
+            {
+                throw std::runtime_error(("Failed to decode audio for stem " + String(stem.trackId) +
+                    ": " + decodeResult.getErrorMessage()).toStdString());
+            }
+
+            stem.audioBuffer = *decodeResult;
+
+            // Save raw audio to cache asynchronously (doesn't block loading)
             if (cacheManager != nullptr)
             {
-                auto rawAudioResult = downloadAudioRaw(audioUrl);
-                if (rawAudioResult.wasOk())
-                {
-                    // Move the raw data to async thread to avoid copying
-                    saveAudioToCacheAsync(stemTrackId, std::move(*rawAudioResult));
-                }
-                else
-                {
-                    DBG("TrackLoader: Failed to download raw audio for caching: " + rawAudioResult.getErrorMessage());
-                }
+                // Move the raw data to async thread to avoid copying
+                saveAudioToCacheAsync(stemTrackId, std::move(rawAudioData));
             }
         }
 
@@ -174,68 +177,7 @@ ApiResult<var> TrackLoader::downloadStemData(const String& trackId)
     return result;
 }
 
-ApiResult<std::shared_ptr<AudioBuffer<float>>> TrackLoader::downloadAndDecodeAudio(const String& audioUrl)
-{
-    URL url(audioUrl);
-
-    // Create input stream
-    int httpStatus = 0;
-    URL::InputStreamOptions options = URL::InputStreamOptions(URL::ParameterHandling::inAddress)
-        .withHttpRequestCmd("GET")
-        .withConnectionTimeoutMs(30000) // 30 second timeout
-        .withStatusCode(&httpStatus);
-
-    std::unique_ptr<InputStream> stream(url.createInputStream(options));
-    if (stream == nullptr)
-    {
-        throw std::runtime_error("Failed to create HTTP request stream for audio download");
-    }
-
-    if (httpStatus != 200)
-    {
-        String responseText = stream->readEntireStreamAsString();
-        throw std::runtime_error(("HTTP " + String(httpStatus) + ": " + responseText).toStdString());
-    }
-
-    // Read entire stream into memory for seekable access (required for MP3 decoding)
-    MemoryBlock audioData;
-    auto totalLength = stream->getTotalLength();
-    if (totalLength <= 0)
-    {
-        throw std::runtime_error("Invalid stream length for audio data");
-    }
-
-    audioData.setSize(static_cast<size_t>(totalLength));
-    auto bytesRead = stream->read(static_cast<char*>(audioData.getData()), static_cast<int>(totalLength));
-    if (bytesRead != totalLength)
-    {
-        throw std::runtime_error(("Failed to read complete audio data (" + String(bytesRead) + "/" + String(totalLength) + " bytes)").toStdString());
-    }
-
-    // Create memory input stream for seekable access
-    std::unique_ptr<MemoryInputStream> memoryStream = std::make_unique<MemoryInputStream>(audioData, false);
-
-    // Create audio format reader from memory stream
-    std::unique_ptr<AudioFormatReader> reader(formatManager.createReaderFor(std::move(memoryStream)));
-    if (reader == nullptr)
-    {
-        throw std::runtime_error("Failed to create audio format reader - unsupported format or corrupted file");
-    }
-
-    // Decode audio into buffer
-    auto numSamples = static_cast<int>(reader->lengthInSamples);
-    auto buffer = std::make_shared<AudioBuffer<float>>(reader->numChannels, numSamples);
-    bool readSuccess = reader->read(buffer.get(), 0, numSamples, 0, true, true);
-
-    if (!readSuccess)
-    {
-        throw std::runtime_error("Failed to read audio data into buffer");
-    }
-
-    return ApiResult<std::shared_ptr<AudioBuffer<float>>>::ok(buffer);
-}
-
-ApiResult<MemoryBlock> TrackLoader::downloadAudioRaw(const String& audioUrl)
+ApiResult<MemoryBlock> TrackLoader::downloadAudio(const String& audioUrl)
 {
     URL url(audioUrl);
 
@@ -256,7 +198,7 @@ ApiResult<MemoryBlock> TrackLoader::downloadAudioRaw(const String& audioUrl)
         return ApiResult<MemoryBlock>::fail("HTTP " + String(httpStatus) + ": " + responseText);
     }
 
-    // Read entire stream into memory block (keep as raw MP3 data)
+    // Read entire stream into memory block (keep as raw audio data)
     MemoryBlock audioData;
     auto totalLength = stream->getTotalLength();
     if (totalLength <= 0)
@@ -268,6 +210,31 @@ ApiResult<MemoryBlock> TrackLoader::downloadAudioRaw(const String& audioUrl)
         return ApiResult<MemoryBlock>::fail("Failed to read complete audio data (" + String(bytesRead) + "/" + String(totalLength) + " bytes)");
 
     return ApiResult<MemoryBlock>::ok(audioData);
+}
+
+ApiResult<std::shared_ptr<AudioBuffer<float>>> TrackLoader::decodeAudio(const MemoryBlock& rawAudioData)
+{
+    // Create memory input stream for seekable access
+    std::unique_ptr<MemoryInputStream> memoryStream = std::make_unique<MemoryInputStream>(rawAudioData, false);
+
+    // Create audio format reader from memory stream
+    std::unique_ptr<AudioFormatReader> reader(formatManager.createReaderFor(std::move(memoryStream)));
+    if (reader == nullptr)
+    {
+        return ApiResult<std::shared_ptr<AudioBuffer<float>>>::fail("Failed to create audio format reader - unsupported format or corrupted file");
+    }
+
+    // Decode audio into buffer
+    auto numSamples = static_cast<int>(reader->lengthInSamples);
+    auto buffer = std::make_shared<AudioBuffer<float>>(reader->numChannels, numSamples);
+    bool readSuccess = reader->read(buffer.get(), 0, numSamples, 0, true, true);
+
+    if (!readSuccess)
+    {
+        return ApiResult<std::shared_ptr<AudioBuffer<float>>>::fail("Failed to read audio data into buffer");
+    }
+
+    return ApiResult<std::shared_ptr<AudioBuffer<float>>>::ok(buffer);
 }
 
 void TrackLoader::saveAudioToCacheAsync(const String& trackId, MemoryBlock rawAudioData)
@@ -400,13 +367,13 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId, double ta
                 DBG("TrackLoader: Successfully converted stem to " + String(targetSampleRate) + " Hz");
 
                 // Update region timings to account for sample rate change
-                double ratio = targetSampleRate / 44100.0;
-                for (auto& region : stem.regions)
-                {
-                    region.startTime *= ratio;
-                    region.endTime *= ratio;
-                    region.offset *= ratio;
-                }
+                // double ratio = targetSampleRate / 44100.0;
+                // for (auto& region : stem.regions)
+                // {
+                //     region.startTime *= ratio;
+                //     region.endTime *= ratio;
+                //     region.offset *= ratio;
+                // }
             }
             else
             {

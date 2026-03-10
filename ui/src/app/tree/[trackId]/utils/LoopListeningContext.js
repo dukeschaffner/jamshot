@@ -236,8 +236,6 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     // Clear automatic queue and add this track
     automaticQueueRef.current = [track];
     queueIndex.current = 0;
-    playedTracksRef.current.clear();
-    setPlayedTracks(new Set()); // Clear state as well
     currentTrackRef.current = track;
     setCurrentTrack(track);
     

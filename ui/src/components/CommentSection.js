@@ -5,6 +5,7 @@ import Comment from './Comment';
 import { trackApi } from '../lib/api';
 import { FaPaperPlane } from 'react-icons/fa';
 import styles from './Comments.module.css';
+import { useUser } from '../contexts/UserContext';
 
 // Add a constant for maximum comment length
 const MAX_COMMENT_LENGTH = 1000;
@@ -25,10 +26,9 @@ export default function CommentSection({ trackId }) {
   const [charCountError, setCharCountError] = useState('');
   const commentsEndRef = useRef(null);
   const textareaRef = useRef(null);
-  
-  // Check if user is authenticated
-  const isAuthenticated = !!Cookies.get('accessToken');
-  
+
+  const { isAuthenticated } = useUser();
+
   const loadComments = useCallback(async (page = 1, parentId = null) => {
     setIsLoading(true);
     try {

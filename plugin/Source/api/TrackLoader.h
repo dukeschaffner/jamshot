@@ -58,11 +58,11 @@ private:
     /** Download stem data (JSON) for a track */
     ApiResult<juce::var> downloadStemData(const juce::String& trackId);
 
-    /** Download and decode an MP3 file from URL */
-    ApiResult<std::shared_ptr<juce::AudioBuffer<float>>> downloadAndDecodeAudio(const juce::String& audioUrl);
+    /** Download raw audio data from URL */
+    ApiResult<juce::MemoryBlock> downloadAudio(const juce::String& audioUrl);
 
-    /** Download MP3 file from URL without decoding (for caching) */
-    ApiResult<juce::MemoryBlock> downloadAudioRaw(const juce::String& audioUrl);
+    /** Decode raw audio data into AudioBuffer */
+    ApiResult<std::shared_ptr<juce::AudioBuffer<float>>> decodeAudio(const juce::MemoryBlock& rawAudioData);
 
     /** Save audio to cache asynchronously (doesn't block loading) */
     void saveAudioToCacheAsync(const juce::String& trackId, juce::MemoryBlock rawAudioData);
