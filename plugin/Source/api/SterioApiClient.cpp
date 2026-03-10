@@ -1,15 +1,23 @@
 #include "SterioApiClient.h"
+#include "../auth/AuthManager.h"
 
 using namespace juce;
 
 //==============================================================================
-SterioApiClient::SterioApiClient()
-    : baseUrl(ApiConfig::getBaseUrl())
+SterioApiClient::SterioApiClient(AuthManager& authManagerRef)
+    : authManager(authManagerRef)
+    , baseUrl(ApiConfig::getBaseUrl())
 {
 }
 
 SterioApiClient::~SterioApiClient()
 {
+}
+
+void SterioApiClient::handleSessionExpired()
+{
+    DBG("Session expired - clearing access token and logging out");
+    authManager.logout();
 }
 
 void SterioApiClient::setAccessToken(const String& token)
@@ -50,6 +58,7 @@ ApiResult<LikedTracksResponse> SterioApiClient::getLikedTracks(const String& use
                                                            int page,
                                                            int limit)
 {
+    DBG("Getting liked tracks for username: " + username);
     if (accessToken.isEmpty())
     {
         return ApiResult<LikedTracksResponse>::fail("No access token set");
@@ -92,7 +101,7 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
     int httpStatus = 0;
     URL::InputStreamOptions options = URL::InputStreamOptions(URL::ParameterHandling::inAddress)
         .withHttpRequestCmd("GET")
-        .withExtraHeaders("Authorization: Bearer " + accessToken + "\r\nUser-Agent: " + ApiConfig::getUserAgent())
+        .withExtraHeaders("Authorization: Bearer " + accessToken + "\r\nUser-Agent: " + ApiConfig::getUserAgent() + "\r\nRequireAuth: true")
         .withConnectionTimeoutMs(ApiConfig::getRequestTimeoutMs())
         .withStatusCode(&httpStatus);
 
@@ -105,9 +114,24 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
 
     // Read response
     String responseText = stream->readEntireStreamAsString();
+    
+    DBG("Response text: " + responseText);
+    DBG("HTTP status: " + String(httpStatus));
 
     if (httpStatus != 200)
     {
+        
+        // Check if this is an authentication error that should trigger logout
+        var errorJson;
+        if (JSON::parse(responseText, errorJson).wasOk())
+        {
+            String errorCode = errorJson.getProperty("code", "").toString();
+            if (errorCode == "AUTHENTICATION_REQUIRED")
+            {
+                handleSessionExpired();
+            }
+        }
+
         return ApiResult<var>::fail("HTTP " + String(httpStatus) + ": " + responseText);
     }
 

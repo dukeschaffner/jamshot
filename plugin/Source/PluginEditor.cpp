@@ -10,6 +10,7 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
     : AudioProcessorEditor(&p)
     , processorRef(p)
     , authManagerRef(authManager)
+    , apiClient(authManager)
     , loginView(authManager, apiClient)
     , trackListPanel(apiClient)
 {

@@ -97,6 +97,7 @@ SCALABILITY TASKS:
 
 
 TODO (after beta testing)
+- username/liked endpoint - needs handling for liked private tracks or tracks from private users
 - cursor based infinite scroll instead of offset based (handles deletions better)
 - add soundcloud like waveform viz to track component feed view (maybe option to expand to show all tracks' waveforms stacked and/or switch between layer waveform and mixed waveform)
 - make navbar collapsible
