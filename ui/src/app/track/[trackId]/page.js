@@ -295,17 +295,6 @@ function TrackContent() {
     );
   }
 
-  if (!track) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <div className="mb-4">Track not found</div>
-        <Link href="/" className="text-primary hover:underline">
-          Return to Home
-        </Link>
-      </div>
-    );
-  }
-
   // Handle moderation status
   if (moderationStatus === 'waiting_for_approval') {
     return (
@@ -339,6 +328,17 @@ function TrackContent() {
             )}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!track) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="mb-4">Track not found</div>
+        <Link href="/" className="text-primary hover:underline">
+          Return to Home
+        </Link>
       </div>
     );
   }

@@ -30,11 +30,11 @@ router.get('/moderation/tracks/:rootId', async (req, res, next) => {
         t.allow_download, t.processing_status, t.camp_id, t.room_id,
         t.team_id, t.team_folder_id, t.key, t.guid, t.collab_count,
         t.like_count, t.repost_count, t.comment_count,
-        u.username, u.name, u.verified, u.profile_pic_url
+        u.username, u.name, u.verified, u.profile_pic_url,
+        t.waveform_url, t.combined_waveform_url
       FROM tracks t
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.root_id = $1 AND t.processing_status = 'waiting_for_approval'
-      ORDER BY t.created_at ASC
     `;
 
     const queryParams = [rootIdNum];
@@ -47,6 +47,8 @@ router.get('/moderation/tracks/:rootId', async (req, res, next) => {
         queryParams.push(cursorNum);
       }
     }
+
+    query += ' ORDER BY t.created_at ASC';
 
     // Add limit
     query += ` LIMIT $${queryParams.length + 1}`;
@@ -64,7 +66,7 @@ router.get('/moderation/tracks/:rootId', async (req, res, next) => {
       tracks: processedTracks,
       pagination: {
         hasMore,
-        cursor: hasMore ? tracks[tracks.length - 1]?.id : null,
+        cursor: processedTracks.length > 0 ? processedTracks[processedTracks.length - 1]?.id : null,
         limit: limitNum
       }
     });

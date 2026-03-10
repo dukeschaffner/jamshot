@@ -218,6 +218,7 @@ const createApiClient = (config = {}) => {
 const createApiMethods = (apiClient) => {
   // Extract the axios instance from the API client
   const api = apiClient.api;
+
   // Track API methods
   const trackApi = {
     getFeed: (type = 'for-you', page = 1) =>
@@ -581,6 +582,23 @@ const createApiMethods = (apiClient) => {
     cancelSubscription: (teamId) => api.post(`/teams/${teamId}/cancel-subscription`),
   };
 
+  // Admin API methods
+  const adminApi = {
+    getModerationTracks: (rootId, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      return api.get(`/admin/moderation/tracks/${rootId}?${queryParams.toString()}`);
+    },
+
+    approveTrack: (trackId) => api.post(`/admin/moderation/tracks/${trackId}/approve`),
+
+    rejectTrack: (trackId, reason) => api.post(`/admin/moderation/tracks/${trackId}/reject`, { reason }),
+  };
+
   return {
     trackApi,
     userApi,
@@ -593,6 +611,7 @@ const createApiMethods = (apiClient) => {
     campApi,
     teamApi,
     groupApi,
+    adminApi,
     api, // Raw axios instance for custom requests
     // Callback management methods
     setRefreshUserState: apiClient.setRefreshUserState,
@@ -605,7 +624,7 @@ const API_EXPORTS = [];
 const UI_EXPORTS = [
   createApiClient,
   createApiMethods
-]; 
+];
 
 // Auto-generated ES6 exports
 export {
