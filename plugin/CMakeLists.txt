@@ -22,7 +22,7 @@ add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/JUCE-build)
 
 juce_add_plugin(SterioPlugin
     COMPANY_NAME "Sterio"
-    PLUGIN_MANUFACTURER_CODE Ster
+    PLUGIN_MANUFACTURER_CODE STER
     PLUGIN_CODE StPl
     IS_SYNTH FALSE
     IS_MIDI_EFFECT FALSE

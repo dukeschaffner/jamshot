@@ -11,6 +11,7 @@ import { trackSearch } from '../lib/analytics';
 import NotificationDropdown from './NotificationDropdown';
 import MoreDropdown from './MoreDropdown';
 import Image from 'next/image';
+import styles from './Navbar.module.css';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useUser();
@@ -58,6 +59,7 @@ export default function Navbar() {
       <div className="logo">
         <GuardedLink href="/">
           <span className="logo-title">sterio</span>
+          <span className={styles.betaTag}>beta</span>
         </GuardedLink>
       </div>
       

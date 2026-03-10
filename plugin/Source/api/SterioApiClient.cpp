@@ -115,8 +115,6 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
     // Read response
     String responseText = stream->readEntireStreamAsString();
     
-    DBG("Response text: " + responseText);
-    DBG("HTTP status: " + String(httpStatus));
 
     if (httpStatus != 200)
     {

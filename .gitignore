@@ -51,3 +51,7 @@ next-env.d.ts
 .ignore/
 
 build-debug/
+build-xcode/
+
+pkgroot/
+Sterio-*.pkg
