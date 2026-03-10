@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import MiniTrack from '@/components/MiniTrack';
 import Waveform from '@/components/Waveform';
-import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { adminApi } from '@/lib/api';
 import styles from './AdminModeration.module.css';
+import { useAudio } from '@/lib/AudioContext';
+import { MiniPlayButton } from '@/components/MiniTrack';
 
 export default function AdminModerationPage() {
   const router = useRouter();
   const { user, isLoading: userLoading } = useUser();
+  const { currentTrack, isPlaying, togglePlayPause, playTrack, audioSourceType, setAudioSourceType } = useAudio();
   const [rootId, setRootId] = useState('');
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -19,14 +21,6 @@ export default function AdminModerationPage() {
   const [hasMore, setHasMore] = useState(false);
   const [cursor, setCursor] = useState(null);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(null);
-  const [confirmationDialog, setConfirmationDialog] = useState({
-    open: false,
-    title: '',
-    message: '',
-    onConfirm: null,
-    trackId: null,
-    action: null
-  });
   const [selectedRejectionReason, setSelectedRejectionReason] = useState('');
 
   // Check admin privileges
@@ -118,34 +112,6 @@ export default function AdminModerationPage() {
     }
   };
 
-  const openConfirmationDialog = (title, message, onConfirm, trackId, action) => {
-    setConfirmationDialog({
-      open: true,
-      title,
-      message,
-      onConfirm,
-      trackId,
-      action
-    });
-  };
-
-  const closeConfirmationDialog = () => {
-    setConfirmationDialog({
-      open: false,
-      title: '',
-      message: '',
-      onConfirm: null,
-      trackId: null,
-      action: null
-    });
-  };
-
-  const handleConfirm = () => {
-    if (confirmationDialog.onConfirm) {
-      confirmationDialog.onConfirm();
-    }
-    closeConfirmationDialog();
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -154,6 +120,16 @@ export default function AdminModerationPage() {
 
   const handleLoadMore = () => {
     loadTracks(false);
+  };
+
+  const handlePlayToggle = (e, track, clickedAudioSourceType) => {
+    e.stopPropagation();
+    
+    if (currentTrack?.id === track.id && clickedAudioSourceType === audioSourceType) {
+      togglePlayPause();
+    } else {
+      playTrack(track, [], clickedAudioSourceType);
+    }
   };
 
   // Show loading while checking user auth
@@ -213,12 +189,14 @@ export default function AdminModerationPage() {
             </div>
 
             <div className={styles.waveformContainer}>
+              <MiniPlayButton isPlaying={isPlaying} isCurrentTrack={ currentTrack?.id === track.id && audioSourceType === 'audio' } handleToggle={(e) => handlePlayToggle(e, track, "audio")} />
               <Waveform
                 track={track}
                 type="stem"
               />
             </div>
             <div className={styles.waveformContainer}>
+              <MiniPlayButton isPlaying={isPlaying} isCurrentTrack={ currentTrack?.id === track.id && audioSourceType === 'combined' } handleToggle={(e) => handlePlayToggle(e, track, "combined")} />
               <Waveform
                 track={track}
                 type="combined"
@@ -241,13 +219,11 @@ export default function AdminModerationPage() {
               </div>
 
               <button
-                onClick={() => openConfirmationDialog(
-                  'Approve Track',
-                  `Are you sure you want to approve "${track.title}"?`,
-                  () => handleApprove(track.id),
-                  track.id,
-                  'approve'
-                )}
+                onClick={() => {
+                  if (confirm(`Are you sure you want to approve "${track.title}"?`)) {
+                    handleApprove(track.id);
+                  }
+                }}
                 className={styles.approveButton}
               >
                 Approve
@@ -259,13 +235,9 @@ export default function AdminModerationPage() {
                     alert('Please select a rejection reason first.');
                     return;
                   }
-                  openConfirmationDialog(
-                    'Reject Track',
-                    `Are you sure you want to reject "${track.title}" for "${selectedRejectionReason}"? This action cannot be undone.`,
-                    () => handleReject(track.id, selectedRejectionReason),
-                    track.id,
-                    'reject'
-                  );
+                  if (confirm(`Are you sure you want to reject "${track.title}" for "${selectedRejectionReason}"? This action cannot be undone.`)) {
+                    handleReject(track.id, selectedRejectionReason);
+                  }
                 }}
                 className={styles.rejectButton}
                 disabled={!selectedRejectionReason}
@@ -301,15 +273,6 @@ export default function AdminModerationPage() {
         )}
       </div>
 
-      <ConfirmationDialog
-        open={confirmationDialog.open}
-        title={confirmationDialog.title}
-        message={confirmationDialog.message}
-        onConfirm={handleConfirm}
-        onCancel={closeConfirmationDialog}
-        confirmText={confirmationDialog.action === 'reject' ? 'Reject' : 'Approve'}
-        confirmButtonColor={confirmationDialog.action === 'reject' ? '#dc3545' : '#28a745'}
-      />
     </div>
   );
 }
