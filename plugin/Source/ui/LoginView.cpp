@@ -72,7 +72,7 @@ void LoginView::timerCallback()
 
 void LoginView::paint(Graphics& g)
 {
-    g.fillAll(Colors::BLACK);
+    g.fillAll(Colors::WHITE);
 }
 
 void LoginView::resized()

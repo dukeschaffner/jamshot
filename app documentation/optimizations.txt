@@ -1,5 +1,6 @@
 API:
 - switch to hono for all routes
+- make sure no routes use both optionalBetterAuthMiddleware and betterAuthMiddleware
 
 DAW:
 - Clear buffer registry unused/old buffers

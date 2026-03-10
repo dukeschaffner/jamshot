@@ -3,6 +3,9 @@
 #include <juce_core/juce_core.h>
 #include "ApiConfig.h"
 
+// Forward declaration
+class AuthManager;
+
 //==============================================================================
 /** A simple Result type that can hold either a value or an error. */
 template<typename T>
@@ -83,11 +86,14 @@ struct LikedTracksResponse
 class SterioApiClient
 {
 public:
-    SterioApiClient();
+    SterioApiClient(AuthManager& authManager);
     ~SterioApiClient();
 
     /** Set the access token for authenticated requests. */
     void setAccessToken(const juce::String& token);
+
+    /** Handle session expiration by clearing tokens and updating login state. */
+    void handleSessionExpired();
 
     /** Get current user info. Returns empty UserInfo on failure. */
     ApiResult<UserInfo> getMe();
@@ -108,6 +114,7 @@ private:
     /** Parse LikedTracksResponse from JSON response. */
     LikedTracksResponse parseLikedTracksResponse(const juce::var& json);
 
+    AuthManager& authManager;
     juce::String accessToken;
     juce::URL baseUrl;
 

@@ -97,8 +97,17 @@ export const betterAuthMiddleware = async (req, res, next) => {
  * Better Auth optional middleware - Optional authentication
  * Extracts user if session exists but doesn't require authentication
  * Backwards compatible with legacy optionalAuthMiddleware
+ * If RequireAuth header is set to "true", switches to required authentication mode
  */
 export const optionalBetterAuthMiddleware = async (req, res, next) => {
+  // Check if required authentication is requested via header
+  const requireAuth = req.headers['requireauth']?.toLowerCase() === 'true';
+
+  if (requireAuth) {
+    // Switch to required authentication mode
+    return betterAuthMiddleware(req, res, next);
+  }
+
   try {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
