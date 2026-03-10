@@ -15,10 +15,12 @@ export function AudioProvider({ children }) {
   const [isLoopOn, setIsLoopOn] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
   const [playedTracks, setPlayedTracks] = useState(new Set()); // Track which tracks have been played
+  const [audioSourceType, setAudioSourceType] = useState('combined'); // 'combined' or 'audio'
   const soundRef = useRef(null);
   const shuffledIndicesRef = useRef([]);
   const currentPositionRef = useRef(0);
   const loadedTrackIdRef = useRef(null);
+  const loadedAudioSourceTypeRef = useRef('combined');
   const urlRefreshAttemptedRef = useRef(false); // Track if we've tried refreshing the URL
   const urlRefreshedRef = useRef(false); // Track if we've refreshed the URL
   const handleTrackEndRef = useRef(null); // Ref to store current handleTrackEnd function
@@ -103,8 +105,6 @@ export function AudioProvider({ children }) {
   // Record initial play via API
   const recordInitialPlay = async () => {
     if (!currentTrack || playRecordedRef.current) return;
-
-    console.log('recording initial play');
     
     try {
       playRecordedRef.current = true;
@@ -220,7 +220,7 @@ export function AudioProvider({ children }) {
 
   // useEffect to initialize the audio player for track
   useEffect(() => {
-    if (currentTrack && ((currentTrack.id !== loadedTrackIdRef.current) || urlRefreshedRef.current)) { // only initialize the audio if the track has changed
+    if (currentTrack && ((currentTrack.id !== loadedTrackIdRef.current) || urlRefreshedRef.current) || loadedAudioSourceTypeRef.current !== audioSourceType) { // only initialize the audio if the track has changed
       if (soundRef.current) {
         // Save current position before unloading
         if (soundRef.current.playing()) {
@@ -237,8 +237,9 @@ export function AudioProvider({ children }) {
       // Reset URL refresh attempt flag for new track
       urlRefreshAttemptedRef.current = false;
       
+      const audioUrl = audioSourceType === 'combined' ? currentTrack.combined_audio_url : currentTrack.audio_url;
       soundRef.current = new Howl({
-        src: [currentTrack.combined_audio_url],
+        src: [audioUrl],
         html5: true,
         onload: () => console.log('Global audio loaded:', currentTrack.title),
         onloaderror: (id, error) => {
@@ -257,6 +258,7 @@ export function AudioProvider({ children }) {
       });
 
       loadedTrackIdRef.current = currentTrack.id;
+      loadedAudioSourceTypeRef.current = audioSourceType;
 
       if (isPlaying) {
         console.log('Starting playback:', currentTrack.title);
@@ -280,7 +282,7 @@ export function AudioProvider({ children }) {
       clearInterval(listeningTimeInterval);
       clearInterval(progressInterval);
     };
-  }, [currentTrack, isPlaying, handleTrackEnd, updateListeningTime, handleExpiredUrl]);
+  }, [currentTrack, isPlaying, handleTrackEnd, updateListeningTime, handleExpiredUrl, audioSourceType]);
 
   // Generate shuffled indices when playlist or shuffle state changes
   useEffect(() => {
@@ -311,10 +313,15 @@ export function AudioProvider({ children }) {
     }
   };
 
-  const playTrack = (track, tracksToAdd = []) => {
+  const playTrack = (track, tracksToAdd = [], specifiedAudioSourceType = null) => {
+    if (specifiedAudioSourceType) {
+      setAudioSourceType(specifiedAudioSourceType);
+    }
+    else{
+      setAudioSourceType("combined");
+    }
     // Ensure tracksToAdd is always an array
     const tracksArray = Array.isArray(tracksToAdd) ? tracksToAdd : [];
-    console.log('Playing track:', track.title, 'with tracks to add:', tracksArray.map(t => t.title));
     const newPlaylist = [track, ...tracksArray];
     updatePlay(true); // skip is true because we are playing a new track
     setPlaylist(newPlaylist);
@@ -411,6 +418,29 @@ export function AudioProvider({ children }) {
     setIsLoopOn(!isLoopOn);
   };
 
+  const toggleAudioSource = useCallback(() => {
+    if (!currentTrack) return;
+
+    const newSourceType = audioSourceType === 'combined' ? 'audio' : 'combined';
+    const wasPlaying = isPlaying;
+
+    // If currently playing, pause and restart from beginning
+    if (wasPlaying && soundRef.current) {
+      soundRef.current.pause();
+      setIsPlaying(false);
+    }
+
+    // Switch the source type
+    setAudioSourceType(newSourceType);
+
+    // If we were playing, restart playback from the beginning with new source
+    if (wasPlaying) {
+      // Force re-initialization of the audio by triggering a change
+      // This will cause the useEffect to re-create the Howl instance with the new source
+      setCurrentTrack({...currentTrack});
+    }
+  }, [audioSourceType, currentTrack, isPlaying]);
+
   // Function to set discovery method for analytics
   const setDiscoveryMethod = (method) => {
     discoveryMethodRef.current = method;
@@ -427,6 +457,7 @@ export function AudioProvider({ children }) {
         isShuffleOn,
         isLoopOn,
         playedTracks,
+        audioSourceType,
         playTrack, 
         togglePlayPause, 
         seek, 
@@ -435,6 +466,8 @@ export function AudioProvider({ children }) {
         playPrevious,
         toggleShuffle,
         toggleLoop,
+        toggleAudioSource,
+        setAudioSourceType,
         setDiscoveryMethod
       }}
     >

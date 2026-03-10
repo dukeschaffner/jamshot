@@ -14,6 +14,14 @@ import { useMobile } from '../contexts/MobileContext';
 import styles from './MiniTrack.module.css';
 import TrackTags from './TrackTags';
 
+export function MiniPlayButton({ isPlaying, isCurrentTrack, handleToggle }) {
+  return (
+    <div className={styles.miniTrackPlay} onClick={handleToggle}>
+      {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
+    </div>
+  );
+}
+
 export default function MiniTrack(
   { 
     track, 
@@ -62,9 +70,7 @@ export default function MiniTrack(
       className={`${styles.miniTrackTrack} ${view === 'tree' && trackTreeIds && trackTreeIds.includes(track.id) ? styles.selected : 'cursor-pointer'}`}
       onClick={handleSelectTrack}
     >
-      <div className={styles.miniTrackPlay} onClick={handlePlayToggle}>
-        {isPlaying && isCurrentTrack ? <FaPause /> : <FaPlay />}
-      </div>
+      <MiniPlayButton isPlaying={isPlaying} isCurrentTrack={isCurrentTrack} handleToggle={handlePlayToggle} />
       <div className={styles.miniTrackTitleContainer}>
           <div className={styles.miniTrackTitle}>
             <span className="link-underline" onClick={navigateToTrack}>
@@ -97,3 +103,5 @@ export default function MiniTrack(
     </div>
   );
 }
+
+export { MiniPlayButton };
