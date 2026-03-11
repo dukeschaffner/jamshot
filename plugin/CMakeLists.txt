@@ -32,6 +32,15 @@ juce_add_plugin(SterioPlugin
     FORMATS AU VST3 Standalone
     PRODUCT_NAME "Sterio")
 
+include(FetchContent)
+FetchContent_Declare(ixwebsocket
+    GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+    GIT_TAG v11.4.4
+)
+FetchContent_MakeAvailable(ixwebsocket)
+
+target_link_libraries(SterioPlugin PRIVATE ixwebsocket)
+
 target_sources(SterioPlugin
     PRIVATE
         Source/CacheManager.cpp
@@ -48,6 +57,8 @@ target_sources(SterioPlugin
         Source/api/SterioApiClient.h
         Source/api/TrackLoader.cpp
         Source/api/TrackLoader.h
+        Source/api/ConnectionManager.cpp
+        Source/api/ConnectionManager.h
         Source/auth/AuthCallbackServer.cpp
         Source/auth/AuthCallbackServer.h
         Source/auth/AuthManager.cpp
@@ -83,6 +94,8 @@ source_group("Sterio" FILES
     Source/api/SterioApiClient.h
     Source/api/TrackLoader.cpp
     Source/api/TrackLoader.h
+    Source/api/ConnectionManager.cpp
+    Source/api/ConnectionManager.h
     Source/auth/AuthCallbackServer.cpp
     Source/auth/AuthCallbackServer.h
     Source/auth/AuthManager.cpp
