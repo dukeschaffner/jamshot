@@ -3,6 +3,7 @@
 #include "PluginProcessor.h"
 #include "ui/LoginView.h"
 #include "ui/TrackListPanel.h"
+#include "ui/SterioLookAndFeel.h"
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
 #include "CacheManager.h"
@@ -40,6 +41,7 @@ private:
     TrackLoader trackLoader;
     LoginView loginView;
     TrackListPanel trackListPanel;
+    SterioLookAndFeel lookAndFeel;
 
     /** Currently loaded stems for the selected track. */
     juce::Array<StemTrack> loadedStems;

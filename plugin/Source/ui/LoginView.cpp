@@ -9,27 +9,14 @@ LoginView::LoginView(AuthManager& authManager, SterioApiClient& apiClient)
     : authManagerRef(authManager),
       apiClientRef(apiClient)
 {
-    loginButton.setButtonText("Log in to Sterio");
-    loginButton.onClick = [this] { authManagerRef.login(); };
-    
-    // Style login button with seafoam color
-    loginButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
-    loginButton.setColour(TextButton::textColourOffId, Colors::WHITE);
-    
-    addAndMakeVisible(loginButton);
+    authButton.setButtonText("Log in to Sterio");
+    authButton.onClick = [this] { authManagerRef.login(); };
 
-    logoutButton.setButtonText("Log out");
-    logoutButton.onClick = [this] {
-        authManagerRef.logout();
-        currentUsername.clear();
-        statusLabel.setText("", dontSendNotification);
-    };
-    
-    // Style logout button with rustic pink color
-    logoutButton.setColour(TextButton::buttonColourId, Colors::RUSTIC_PINK);
-    logoutButton.setColour(TextButton::textColourOffId, Colors::WHITE);
-    
-    addAndMakeVisible(logoutButton);
+    // Style auth button with seafoam color initially
+    authButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
+    authButton.setColour(TextButton::textColourOffId, Colors::WHITE);
+
+    addAndMakeVisible(authButton);
 
     addAndMakeVisible(statusLabel);
     statusLabel.setJustificationType(Justification::centred);
@@ -50,24 +37,8 @@ LoginView::~LoginView()
 
 void LoginView::timerCallback()
 {
-    bool loggedIn = authManagerRef.isLoggedIn();
-
-    // Update visibility based on login state
-    if (loginButton.isVisible() == loggedIn)
-    {
-        loginButton.setVisible(!loggedIn);
-        logoutButton.setVisible(loggedIn);
-
-        if (loggedIn && currentUsername.isEmpty() && !isLoadingUserInfo)
-        {
-            loadUserInfo();
-        }
-        else if (!loggedIn)
-        {
-            currentUsername.clear();
-            statusLabel.setText("", dontSendNotification);
-        }
-    }
+    // Update the button state based on current login status
+    updateLoginState();
 }
 
 void LoginView::paint(Graphics& g)
@@ -78,12 +49,10 @@ void LoginView::paint(Graphics& g)
 void LoginView::resized()
 {
     auto r = getLocalBounds();
-    auto buttonWidth = 80;
+    auto buttonWidth = 120; // Increased width to accommodate both button texts
     auto gap = 10;
 
-    loginButton.setBounds(r.removeFromLeft(buttonWidth));
-    r.removeFromLeft(gap);
-    logoutButton.setBounds(r.removeFromLeft(buttonWidth));
+    authButton.setBounds(r.removeFromLeft(buttonWidth));
     r.removeFromLeft(gap);
 
     // Status label takes remaining space
@@ -126,15 +95,28 @@ void LoginView::loadUserInfo()
 void LoginView::updateLoginState()
 {
     bool loggedIn = authManagerRef.isLoggedIn();
-    loginButton.setVisible(!loggedIn);
-    logoutButton.setVisible(loggedIn);
 
-    if (loggedIn && currentUsername.isEmpty() && !isLoadingUserInfo)
+    if (loggedIn)
     {
-        loadUserInfo();
+        authButton.setButtonText("Log out");
+        authButton.setColour(TextButton::buttonColourId, Colors::RUSTIC_PINK);
+        authButton.onClick = [this] {
+            authManagerRef.logout();
+            currentUsername.clear();
+            statusLabel.setText("", dontSendNotification);
+        };
+
+        if (currentUsername.isEmpty() && !isLoadingUserInfo)
+        {
+            loadUserInfo();
+        }
     }
-    else if (!loggedIn)
+    else
     {
+        authButton.setButtonText("Log in to Sterio");
+        authButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
+        authButton.onClick = [this] { authManagerRef.login(); };
+
         currentUsername.clear();
         statusLabel.setText("", dontSendNotification);
     }

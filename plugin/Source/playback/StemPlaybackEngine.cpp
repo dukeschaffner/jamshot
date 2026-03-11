@@ -25,9 +25,7 @@ void StemPlaybackEngine::setStems(const juce::Array<StemTrack>& stems)
 
 void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const TransportState& transport)
 {
-    // Clear output buffer first
-    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-        buffer.clear(channel, 0, buffer.getNumSamples());
+    // Note: Buffer is not cleared here - we mix with existing content (input audio)
 
     // Process all stems if transport is playing
     {

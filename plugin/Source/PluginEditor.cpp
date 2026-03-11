@@ -41,12 +41,16 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
     if (authManagerRef.isLoggedIn())
         apiClient.setAccessToken(authManagerRef.getAccessToken());
 
+    // Apply custom look and feel
+    setLookAndFeel(&lookAndFeel);
+
     startTimerHz(30);
 }
 
 SterioPluginEditor::~SterioPluginEditor()
 {
     stopTimer();
+    setLookAndFeel(nullptr);
 }
 
 void SterioPluginEditor::timerCallback()
