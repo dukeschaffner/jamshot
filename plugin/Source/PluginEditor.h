@@ -7,6 +7,7 @@
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
 #include "CacheManager.h"
+#include "ui/ErrorDisplay.h"
 
 //==============================================================================
 class SterioPluginEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -40,6 +41,7 @@ private:
     CacheManager cacheManager;
     TrackLoader trackLoader;
     LoginView loginView;
+    ErrorDisplay errorDisplay;
     TrackListPanel trackListPanel;
     SterioLookAndFeel lookAndFeel;
 

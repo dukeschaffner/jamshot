@@ -12,10 +12,20 @@ MVP:
 
 
 Post MVP:
-- add ability for user to make region edits in the plugin. we have a couple of options:
-    - user makes edits in the web app, which connects to the plugin and sends the edits to the plugin OR
-    - add simple DAW editing features in the plugin itself. this would be a bit more complex to implement, but would allow for more flexibility and control over the editing process.
 - add ability for the user to upload a track directly from the plugin. This also has options:
     - user drags region/file into the plugin and the plugin uploads directly to the api
     - user drags region/file into the plugin and the plugin uploads audio and metadata to temp storage and opens the web app to allow the user to upload the track using the temp assets
 - how to ensure recorded audio captures signal chain? (warn users to bounce the track to ensure audio captures signal chain OR maybe allow the plugin to record audio directly?)
+
+
+
+
+- stems are stored in filesystem cache - is there a way to keep users from being able to access the cached audio files?
+
+
+
+
+web app -> plugin sync:
+- new button in web app to "sync edits with plugin". on click, it sends the current stems json to the plugin. plugin parses and stores in stemtrack struct.
+    - on error, show error toast prompting user to make sure plugin is open
+- stemtrack gain must be converted to atomic and the regions array must be updated/read with atomic store and load.
