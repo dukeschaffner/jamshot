@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "GlobalErrorHandler.h"
 #include "Colors.h"
+#include "ui/ErrorDisplay.h"
 
 using namespace juce;
 
@@ -18,6 +19,7 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
 
     addAndMakeVisible(loginView);
     addAndMakeVisible(trackListPanel);
+    addAndMakeVisible(errorDisplay);
 
     // Set up track selection callback
     trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
@@ -116,6 +118,19 @@ void SterioPluginEditor::resized()
     auto loginRow = r.removeFromTop(50);
     loginView.setBounds(loginRow);
 
+    // Error display directly below login (hidden when no error).
+    // Only reserve space when it's visible so lower components move up.
+    r.removeFromTop(10);
+    if (errorDisplay.isVisible())
+    {
+        auto errorRow = r.removeFromTop(40);
+        errorDisplay.setBounds(errorRow);
+    }
+    else
+    {
+        errorDisplay.setBounds(0, 0, 0, 0);
+    }
+
     // Track list panel takes remaining space
     r.removeFromTop(10);
     trackListPanel.setBounds(r);
@@ -165,6 +180,9 @@ void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::St
     // Use global error handler for consistent error reporting
     GlobalErrorHandler::handleError("TrackLoader",
         "Failed to load stems for '" + track.title + "': " + errorMessage);
+
+    // Show UI error to the user below the login component
+    errorDisplay.setError("Failed to load stems for '" + track.title + "': " + errorMessage);
 }
 
 void SterioPluginEditor::onTrackSelected(const TrackInfo& track)

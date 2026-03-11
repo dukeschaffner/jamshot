@@ -64,6 +64,8 @@ target_sources(SterioPlugin
         Source/ui/TrackListPanel.h
         Source/ui/SterioLookAndFeel.cpp
         Source/ui/SterioLookAndFeel.h
+        Source/ui/ErrorDisplay.cpp
+        Source/ui/ErrorDisplay.h
 )
 
 source_group("Sterio" FILES
@@ -97,6 +99,8 @@ source_group("Sterio" FILES
     Source/ui/TrackListPanel.h
     Source/ui/SterioLookAndFeel.cpp
     Source/ui/SterioLookAndFeel.h
+    Source/ui/ErrorDisplay.cpp
+    Source/ui/ErrorDisplay.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")
