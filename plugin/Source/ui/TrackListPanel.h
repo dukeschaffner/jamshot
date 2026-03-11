@@ -45,11 +45,28 @@ private:
 
         int getNumRows() override
         {
-            return ownerPanel.tracks.size();
+            return ownerPanel.tracks.size() + (ownerPanel.pagination.hasMore ? 1 : 0);
         }
 
         void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override
         {
+            // Check if this is the load more button row
+            if (rowNumber == ownerPanel.tracks.size() && ownerPanel.pagination.hasMore)
+            {
+                g.fillAll(Colors::WHITE);
+
+                // Draw "Load More" button appearance
+                juce::Rectangle<int> buttonBounds(10, 5, width - 20, height - 10);
+                g.setColour(Colors::RUSTIC_PINK);
+                g.fillRoundedRectangle(buttonBounds.toFloat(), 4.0f);
+
+                g.setColour(Colors::WHITE);
+                g.setFont(juce::Font(14.0f, juce::Font::bold));
+                g.drawText("Load More", buttonBounds, juce::Justification::centred, true);
+
+                return;
+            }
+
             if (rowNumber < 0 || rowNumber >= ownerPanel.tracks.size())
                 return;
 
@@ -95,10 +112,26 @@ private:
                 tickPath.addTriangle(4, height / 2 - 4, 4, height / 2 + 4, 12, height / 2);
                 g.fillPath(tickPath);
             }
+
+            // Draw thin light grey line at bottom of each track
+            g.setColour(Colors::LIGHT_GREY);
+            g.drawLine(0, height - 1, width, height - 1, 1.0f);
+        }
+
+        juce::MouseCursor getMouseCursorForRow(int row) override
+        {
+            return juce::MouseCursor::PointingHandCursor;
         }
 
         void listBoxItemClicked(int row, const juce::MouseEvent&) override
         {
+            // Check if this is the load more button row
+            if (row == ownerPanel.tracks.size() && ownerPanel.pagination.hasMore)
+            {
+                ownerPanel.loadMoreTracks();
+                return;
+            }
+
             ownerPanel.selectTrack(row);
         }
 
@@ -130,7 +163,6 @@ private:
 
     // UI components
     juce::TextButton refreshButton;
-    juce::TextButton loadMoreButton;
     juce::Label statusLabel;
     juce::ListBox trackListBox;
     juce::ScrollBar scrollBar;

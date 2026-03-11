@@ -31,8 +31,7 @@ private:
     AuthManager& authManagerRef;
     SterioApiClient& apiClientRef;
 
-    juce::TextButton loginButton;
-    juce::TextButton logoutButton;
+    juce::TextButton authButton;
     juce::Label statusLabel;
 
     juce::String currentUsername;

@@ -95,7 +95,18 @@ export function DAWProvider({ children, trackData, isCollab }) {
         undoManager.init(); // Initialize undo manager event listeners
         
         // Initialize audio context
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let audioContext;
+        if(window.AudioContext) {
+          audioContext = new window.AudioContext({
+            latencyHint: 'interactive',
+          });
+        } else if(window.webkitAudioContext) {
+          audioContext = new window.webkitAudioContext({
+            latencyHint: 'interactive',
+          });
+        } else {
+          throw new Error('AudioContext not supported');
+        }
 
         // Create and load all tracks
         const tm = new TrackManager(audioContext);

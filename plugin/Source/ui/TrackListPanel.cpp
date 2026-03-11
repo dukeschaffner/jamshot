@@ -12,19 +12,12 @@ TrackListPanel::TrackListPanel(SterioApiClient& apiClient)
     addAndMakeVisible(refreshButton);
     refreshButton.setButtonText("Refresh");
     refreshButton.onClick = [this] { refreshTracks(); };
-    
+
     // Style refresh button with seafoam color
     refreshButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
     refreshButton.setColour(TextButton::textColourOffId, Colors::WHITE);
 
-    addAndMakeVisible(loadMoreButton);
-    loadMoreButton.setButtonText("Load More");
-    loadMoreButton.setEnabled(false);
-    loadMoreButton.onClick = [this] { loadMoreTracks(); };
-    
-    // Style load more button with rustic pink color
-    loadMoreButton.setColour(TextButton::buttonColourId, Colors::RUSTIC_PINK);
-    loadMoreButton.setColour(TextButton::textColourOffId, Colors::WHITE);
+
 
     addAndMakeVisible(statusLabel);
     statusLabel.setText("No tracks loaded", dontSendNotification);
@@ -34,6 +27,11 @@ TrackListPanel::TrackListPanel(SterioApiClient& apiClient)
     trackListBox.setModel(new TrackListPanel::TrackListBoxModel(*this));
     trackListBox.setRowHeight(40);
     trackListBox.setMultipleSelectionEnabled(false);
+
+    // Override the default JUCE grey background
+    trackListBox.setColour(ListBox::backgroundColourId, Colours::white);
+    trackListBox.setColour(ListBox::outlineColourId, Colours::transparentBlack);
+
     addAndMakeVisible(trackListBox);
 
     // Start timer to check for loading state updates
@@ -47,7 +45,7 @@ TrackListPanel::~TrackListPanel()
 
 void TrackListPanel::paint(Graphics& g)
 {
-    // Use light seafoam background for subtle brand consistency
+    // Use white background
     g.fillAll(Colors::WHITE);
 }
 
@@ -55,11 +53,9 @@ void TrackListPanel::resized()
 {
     auto bounds = getLocalBounds();
 
-    // Top row: buttons
+    // Top row: refresh button only
     auto buttonRow = bounds.removeFromTop(30);
     refreshButton.setBounds(buttonRow.removeFromLeft(80));
-    buttonRow.removeFromLeft(10);
-    loadMoreButton.setBounds(buttonRow.removeFromLeft(80));
 
     bounds.removeFromTop(5);
 
@@ -123,14 +119,14 @@ void TrackListPanel::clearTracks()
     pagination = PaginationInfo();
     currentPage = 1;
     trackListBox.updateContent();
-    loadMoreButton.setEnabled(false);
     statusLabel.setText("No tracks loaded", dontSendNotification);
+    resized(); // Trigger layout recalculation when visibility changes
 }
 
 void TrackListPanel::timerCallback()
 {
     // Update UI based on loading state
-    loadMoreButton.setEnabled(!isLoading && pagination.hasMore);
+    resized(); // Trigger layout recalculation when visibility changes
 
     if (isLoading)
     {
@@ -186,9 +182,6 @@ void TrackListPanel::updateTracksDisplay(const LikedTracksResponse& response)
 
     pagination = response.pagination;
     trackListBox.updateContent();
-
-    // Update load more button
-    loadMoreButton.setEnabled(pagination.hasMore);
 }
 
 void TrackListPanel::selectTrack(int trackIndex)

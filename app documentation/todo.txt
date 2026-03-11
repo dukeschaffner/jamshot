@@ -10,7 +10,8 @@ before launch:
 - comments section showing "please log in to comment" when i AM logged in
 - audio processing logging
 - dont show audio processing specific error to users
--
+- safari mic access: Safari (top of screen) -> settings -> websites -> microphone -> sterio.fm -> allow
+- plugin - mix input audio with plugin audio
 
 
 
