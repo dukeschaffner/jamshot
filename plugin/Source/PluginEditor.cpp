@@ -43,6 +43,11 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
     if (authManagerRef.isLoggedIn())
         apiClient.setAccessToken(authManagerRef.getAccessToken());
 
+    // Set up error callback for websocket server failures
+    processorRef.setErrorCallback([this](const juce::String& errorMsg) {
+        errorDisplay.setError(errorMsg);
+    });
+
     // Apply custom look and feel
     setLookAndFeel(&lookAndFeel);
 

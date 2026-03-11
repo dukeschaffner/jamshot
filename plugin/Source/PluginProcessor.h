@@ -6,6 +6,7 @@
 #include "playback/StemPlaybackEngine.h"
 #include "TransportState.h"
 #include "SampleRateConverter.h"
+#include "api/ConnectionManager.h"
 
 
 //==============================================================================
@@ -54,6 +55,9 @@ public:
     /** Set callback for requesting stem reloads on sample rate change */
     void setStemReloadCallback(std::function<void()> callback) { stemReloadCallback = callback; }
 
+    /** Set callback for reporting errors to the editor */
+    void setErrorCallback(std::function<void(const juce::String&)> callback) { errorCallback = callback; }
+
     /** Set the current track ID (for reload purposes) */
     void setCurrentTrackId(const juce::String& trackId) { currentTrackId = trackId; }
 
@@ -70,6 +74,7 @@ private:
     void updateTransportFromHost();
 
     AuthManager authManager;
+    ConnectionManager connectionManager;
 
     // Stem playback engine (Increment 5)
     StemPlaybackEngine playbackEngine;
@@ -82,6 +87,9 @@ private:
     // Stem reload support
     std::function<void()> stemReloadCallback;
     juce::String currentTrackId;
+
+    // Error reporting support
+    std::function<void(const juce::String&)> errorCallback;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };
