@@ -162,10 +162,13 @@ private:
     TrackSelectedCallback trackSelectedCallback;
 
     // UI components
-    juce::TextButton refreshButton;
+    juce::DrawableButton refreshButton;
     juce::Label statusLabel;
     juce::ListBox trackListBox;
     juce::ScrollBar scrollBar;
+    
+    // Icon for refresh button
+    std::unique_ptr<juce::Drawable> refreshIcon;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TrackListPanel)
 };

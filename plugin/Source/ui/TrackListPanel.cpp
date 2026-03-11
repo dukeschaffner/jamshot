@@ -1,5 +1,6 @@
 #include "TrackListPanel.h"
 #include "../Colors.h"
+#include <juce_gui_basics/juce_gui_basics.h>
 
 using namespace juce;
 
@@ -7,15 +8,53 @@ using namespace juce;
 TrackListPanel::TrackListPanel(SterioApiClient& apiClient)
     : apiClientRef(apiClient),
       trackListBox("Tracks", nullptr),
-      scrollBar(false)
+      scrollBar(false),
+      refreshButton("Refresh", DrawableButton::ImageFitted)
 {
     addAndMakeVisible(refreshButton);
-    refreshButton.setButtonText("Refresh");
+    
+    // Load refresh icon from SVG file
+    auto svgFile = File::getSpecialLocation(File::currentExecutableFile)
+                      .getParentDirectory()
+                      .getChildFile("Assets")
+                      .getChildFile("icons")
+                      .getChildFile("refresh.svg");
+    
+    // Try alternative path (for development/build scenarios)
+    if (!svgFile.existsAsFile())
+    {
+        svgFile = File(__FILE__).getParentDirectory()
+                     .getParentDirectory()
+                     .getParentDirectory()
+                     .getChildFile("Assets")
+                     .getChildFile("icons")
+                     .getChildFile("refresh.svg");
+    }
+    
+    if (svgFile.existsAsFile())
+    {
+        auto svgContent = svgFile.loadFileAsString();
+        // Replace currentColor with white in the SVG
+        svgContent = svgContent.replace("currentColor", "black");
+        
+        // Parse SVG string into XmlElement
+        auto svgXml = XmlDocument::parse(svgContent);
+        if (svgXml != nullptr)
+        {
+            refreshIcon = Drawable::createFromSVG(*svgXml);
+            
+            if (refreshIcon != nullptr)
+            {
+                // Set the drawable on the button (normal, over, down states all use same icon)
+                refreshButton.setImages(refreshIcon.get(), refreshIcon.get(), refreshIcon.get());
+            }
+        }
+    }
+    
     refreshButton.onClick = [this] { refreshTracks(); };
 
     // Style refresh button with seafoam color
-    refreshButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
-    refreshButton.setColour(TextButton::textColourOffId, Colors::WHITE);
+    refreshButton.setColour(DrawableButton::backgroundColourId, Colors::WHITE);
 
 
 
@@ -53,9 +92,9 @@ void TrackListPanel::resized()
 {
     auto bounds = getLocalBounds();
 
-    // Top row: refresh button only
+    // Top row: refresh button only (square button for icon)
     auto buttonRow = bounds.removeFromTop(30);
-    refreshButton.setBounds(buttonRow.removeFromLeft(80));
+    refreshButton.setBounds(buttonRow.removeFromLeft(30));
 
     bounds.removeFromTop(5);
 
