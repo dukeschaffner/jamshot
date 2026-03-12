@@ -1,5 +1,6 @@
 #include "TrackLoader.h"
 #include "../CacheManager.h"
+#include "../utils/JsonUtils.h"
 
 using namespace juce;
 
@@ -74,7 +75,7 @@ Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)
     }
 
     // Parse stem data
-    Array<StemTrack> stems = parseStemData(stemDataJson);
+    Array<StemTrack> stems = JsonUtils::parseStemData(stemDataJson);
 
     if (stems.isEmpty())
     {
@@ -253,83 +254,6 @@ void TrackLoader::saveAudioToCacheAsync(const String& trackId, MemoryBlock rawAu
     });
 }
 
-Array<StemTrack> TrackLoader::parseStemData(const var& json)
-{
-    Array<StemTrack> stems;
-
-    // Check if response is directly an array of stems, or has "stems" property
-    var stemsArray;
-    if (json.isArray())
-    {
-        // Response is directly an array of stems
-        stemsArray = json;
-    }
-    else
-    {
-        // Try to get "stems" property from object response
-        stemsArray = json.getProperty("stems", var());
-        if (!stemsArray.isArray())
-        {
-            // Get available property names for debugging
-            StringArray propertyNames;
-            if (auto* obj = json.getDynamicObject())
-            {
-                for (auto& prop : obj->getProperties())
-                    propertyNames.add(prop.name.toString());
-            }
-            return stems;
-        }
-    }
-
-    for (int i = 0; i < stemsArray.size(); ++i)
-    {
-        var stemJson = stemsArray[i];
-
-        StemTrack stem = parseStem(stemJson);
-        stems.add(stem);
-    }
-
-    return stems;
-}
-
-StemTrack TrackLoader::parseStem(const var& stemJson)
-{
-    StemTrack stem;
-
-    stem.trackId = stemJson.getProperty("track_id", 0);
-    stem.audioUrl = stemJson.getProperty("audio_url", "").toString();
-    stem.gain = (float)stemJson.getProperty("gain", 0.8);
-    stem.order = stemJson.getProperty("order", 0);
-
-    // Parse regions if present
-    var regionsJson = stemJson.getProperty("regions", var());
-    if (regionsJson.isArray())
-    {
-        stem.regions = parseRegions(regionsJson);
-    }
-
-    return stem;
-}
-
-Array<StemRegion> TrackLoader::parseRegions(const var& regionsJson)
-{
-    Array<StemRegion> regions;
-
-    for (int i = 0; i < regionsJson.size(); ++i)
-    {
-        var regionJson = regionsJson[i];
-        StemRegion region;
-
-        region.offset = regionJson.getProperty("offset", 0.0);
-        region.startTime = regionJson.getProperty("startTime", 0.0);
-        region.endTime = regionJson.getProperty("endTime", 0.0);
-
-        regions.add(region);
-
-    }
-
-    return regions;
-}
 
 Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId, double targetSampleRate)
 {

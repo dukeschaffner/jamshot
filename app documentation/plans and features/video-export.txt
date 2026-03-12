@@ -1,6 +1,6 @@
 
 
-- user can export a track video for a track that they made
+- user can export a track video for a track that they made (or a track they are a collaborator on)
     - add generate video button to track ellipsis menu if user is the creator of the track
         - shows confirmation modal with start time and durationoptions
             - prefill duration to track duration if track is shorter than 90s or less, otherwise prefill to 90s

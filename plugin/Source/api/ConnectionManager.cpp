@@ -68,7 +68,7 @@ void ConnectionManager::connect(const std::string& url)
             });
 
         bool ok = webSocketServer->listenAndStart();
-        if (!ok || true)
+        if (!ok)
         {
             setStatus(Status::Error, "Failed to bind/listen");
             webSocketServer.reset();

@@ -4,6 +4,7 @@
 #include <juce_core/juce_core.h>
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "api/TrackLoader.h"
+#include "StemModels.h"
 #include "Config.h"
 
 //==============================================================================

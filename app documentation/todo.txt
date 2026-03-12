@@ -7,10 +7,9 @@ before launch:
 - infinite scroll continuously retries if error occurs on fetch
 - if only one gmail logged it, it automatically signs in as that user. they should always be bale to select which account or sign in with new one
 - rendering error on recording track
-- comments section showing "please log in to comment" when i AM logged in
-- audio processing logging
 - dont show audio processing specific error to users
 - safari mic access: Safari (top of screen) -> settings -> websites -> microphone -> sterio.fm -> allow
+- ban users (moderation page)
 
 
 

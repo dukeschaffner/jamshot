@@ -7,7 +7,9 @@
 #include "TransportState.h"
 #include "SampleRateConverter.h"
 #include "api/ConnectionManager.h"
-
+#include "api/SterioApiClient.h"
+#include "api/TrackLoader.h"
+#include "StemModels.h"
 
 //==============================================================================
 class SterioPluginProcessor final : public juce::AudioProcessor
@@ -58,11 +60,27 @@ public:
     /** Set callback for reporting errors to the editor */
     void setErrorCallback(std::function<void(const juce::String&)> callback) { errorCallback = callback; }
 
-    /** Set the current track ID (for reload purposes) */
-    void setCurrentTrackId(const juce::String& trackId) { currentTrackId = trackId; }
+
+    /** Set the current track info. Thread-safe. */
+    void setCurrentTrack(const TrackInfo& track);
+
+    /** Get the current track info. Thread-safe. */
+    juce::Optional<TrackInfo> getCurrentTrack() const;
+
+    /** Set the loaded stems. Thread-safe. */
+    void setLoadedStems(const juce::Array<StemTrack>& newStems);
+
+    /** Get the loaded stems. Thread-safe. */
+    juce::Array<StemTrack> getLoadedStems() const;
+
+    /** Clear the loaded stems. Thread-safe. */
+    void clearLoadedStems();
 
     /** Request reload of current stems with new sample rate */
     void requestStemReload();
+
+    /** Handle incoming message from WebSocket */
+    void handleIncomingMessage(const std::string& json);
 
 private:
     /** Handle sample rate changes and convert stems if necessary */
@@ -86,10 +104,13 @@ private:
 
     // Stem reload support
     std::function<void()> stemReloadCallback;
-    juce::String currentTrackId;
 
     // Error reporting support
     std::function<void(const juce::String&)> errorCallback;
+
+    // Track and stem state management (thread-safe)
+    std::shared_ptr<juce::Array<StemTrack>> stems;
+    std::shared_ptr<juce::Optional<TrackInfo>> currentTrack;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };
