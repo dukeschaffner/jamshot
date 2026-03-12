@@ -14,6 +14,7 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
+import { buildStemsObject } from '../misc/DAWUtils';
 
 /**
  * Sanitizes error messages to prevent exposing detailed server-side errors.
@@ -283,23 +284,7 @@ export default function UploadForm({
       console.log('S3 upload completed');
 
       // Phase 3: Process upload - create database record and trigger audio processing
-      const stems = trackManagerRef.current.getAllTracks().map(track => {
-        const stemData = {
-          track_id: track.id === 'recording-track' ? 'recording' : track.id,
-          gain: track.gain
-        };
-        
-        // For non-recording tracks (parent stems), save all region information 
-        // (startTime, endTime, offset) so regions can be reconstructed when the collab track is opened
-        if (track.id !== 'recording-track') {
-          const regionsForUpload = track.getRegionsForUpload();
-          if (regionsForUpload.length > 0) {
-            stemData.regions = regionsForUpload;
-          }
-        }
-        
-        return stemData;
-      });
+      const stems = buildStemsObject(trackManagerRef.current.getAllTracks());
       
       const uploadData = {
         title,

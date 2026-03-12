@@ -16,10 +16,9 @@ void StemPlaybackEngine::prepareToPlay(double sampleRate, int samplesPerBlock)
     currentSampleRate = sampleRate;
 }
 
-void StemPlaybackEngine::setStems(const juce::Array<StemTrack>& stems)
+void StemPlaybackEngine::setStemsProvider(StemsProvider provider)
 {
-    const juce::ScopedLock sl(stemLock);
-    activeStems = stems;
+    stemsProvider = provider;
     resetPlayback();
 }
 
@@ -27,19 +26,21 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
 {
     // Note: Buffer is not cleared here - we mix with existing content (input audio)
 
+    // Get stems atomically from provider if available
+    if (!stemsProvider)
+        return;
+
+    auto stems = stemsProvider(); // Atomic read from processor's storage
+
     // Process all stems if transport is playing
+    if (transport.isPlaying && transport.hasValidPosition && !stems.isEmpty())
     {
-        const juce::ScopedLock sl(stemLock);
+        const int numSamples = buffer.getNumSamples();
 
-        if (transport.isPlaying && transport.hasValidPosition && !activeStems.isEmpty())
+        // Process each stem
+        for (const auto& stem : stems)
         {
-            const int numSamples = buffer.getNumSamples();
-
-            // Process each stem
-            for (const auto& stem : activeStems)
-            {
-                processStem(stem, buffer, transport, currentSampleRate, numSamples);
-            }
+            processStem(stem, buffer, transport, currentSampleRate, numSamples);
         }
     }
 

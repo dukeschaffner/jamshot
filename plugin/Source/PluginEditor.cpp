@@ -143,13 +143,12 @@ void SterioPluginEditor::resized()
 
 void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
 {
-    loadedStems = stems;
-
-    // Pass stems to processor for playback (Increment 5)
+    // Store stems in processor (which also passes to playback engine)
     processorRef.setStems(stems);
 
     // Set up reload callback for sample rate changes
     processorRef.setStemReloadCallback([this]() {
+        auto currentTrack = processorRef.getCurrentTrack();
         if (currentTrack.hasValue())
         {
             onTrackSelected(*currentTrack);
@@ -179,8 +178,8 @@ void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::St
     DBG("PluginEditor::onStemsLoadError() - Failed to load stems for track '" +
         track.title + "': " + errorMessage);
 
-    // Clear any partial state
-    loadedStems.clear();
+    // Clear any partial state in processor
+    processorRef.clearLoadedStems();
 
     // Use global error handler for consistent error reporting
     GlobalErrorHandler::handleError("TrackLoader",
@@ -192,14 +191,11 @@ void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::St
 
 void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
 {
-    // Store current track for reload purposes
-    currentTrack = track;
+    // Store current track in processor (for reload purposes)
+    processorRef.setCurrentTrack(track);
 
-    // Set track ID on processor
-    processorRef.setCurrentTrackId(track.id);
-
-    // Clear any previously loaded stems
-    loadedStems.clear();
+    // Clear any previously loaded stems in processor
+    processorRef.clearLoadedStems();
 
     // Load stems asynchronously to avoid blocking UI
 

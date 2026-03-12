@@ -3,6 +3,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <functional>
 #include "../api/TrackLoader.h"
+#include "../StemModels.h"
 #include "../TransportState.h"
 #include "../SampleRateConverter.h"
 
@@ -11,11 +12,14 @@
 class StemPlaybackEngine
 {
 public:
+    /** Function type for providing stems atomically */
+    using StemsProvider = std::function<juce::Array<StemTrack>()>;
+
     StemPlaybackEngine();
     ~StemPlaybackEngine();
 
-    /** Set the stems to play back */
-    void setStems(const juce::Array<StemTrack>& stems);
+    /** Set the provider function that returns stems atomically. Called from processBlock. */
+    void setStemsProvider(StemsProvider provider);
 
     /** Process a block of audio. Call this from your processBlock method */
     void processBlock(juce::AudioBuffer<float>& buffer, const TransportState& transport);
@@ -37,9 +41,7 @@ private:
     void processStem(const StemTrack& stem, juce::AudioBuffer<float>& buffer,
                     const TransportState& transport, double sampleRate, int numSamples);
 
-
-    juce::Array<StemTrack> activeStems;
-    juce::CriticalSection stemLock; // Protect activeStems array access
+    StemsProvider stemsProvider; // Provider function for atomically accessing stems
     int64_t playbackSamplePosition = 0;
     int64_t previousTransportPosition = -1; // Track previous transport position to detect seeks
     bool wasPlaying = false;

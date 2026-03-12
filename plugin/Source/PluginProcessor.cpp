@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "GlobalErrorHandler.h"
+#include "utils/JsonUtils.h"
 
 //==============================================================================
 SterioPluginProcessor::SterioPluginProcessor()
@@ -17,6 +18,14 @@ SterioPluginProcessor::SterioPluginProcessor()
     GlobalErrorHandler::setupGlobalErrorHandling();
 
     authManager.loadTokens();
+
+    stems = std::make_shared<juce::Array<StemTrack>>();
+    currentTrack = std::make_shared<juce::Optional<TrackInfo>>();
+
+    // Set up provider function for playback engine to atomically access stems
+    playbackEngine.setStemsProvider([this]() {
+        return this->getLoadedStems(); // Thread-safe atomic read
+    });
 
     connectionManager.onStatusChange([this](ConnectionManager::Status s, const std::string& reason)
         {
@@ -42,13 +51,12 @@ SterioPluginProcessor::SterioPluginProcessor()
             });
         });
 
-        connectionManager.onMessage([](const std::string& msg)
+        connectionManager.onMessage([this](const std::string& msg)
         {
             // ⚠️ this arrives on IXWebSocket's thread — don't touch JUCE UI directly
             DBG("Received: " + juce::String(msg));
+            handleIncomingMessage(msg);
         });
-
-        connectionManager.connect("ws://localhost:8080");
 }
 
 SterioPluginProcessor::~SterioPluginProcessor()
@@ -128,11 +136,26 @@ void SterioPluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     // Prepare playback engine
     playbackEngine.prepareToPlay(sampleRate, samplesPerBlock);
 
+    // Setup WebSocket connection if not already connecting or connected
+    auto status = connectionManager.getStatus();
+    if (status == ConnectionManager::Status::Disconnected)
+    {
+        connectionManager.connect("ws://localhost:8080");
+    }
+
     juce::ignoreUnused(samplesPerBlock);
 }
 
 void SterioPluginProcessor::releaseResources()
 {
+    // Safely disconnect WebSocket if connected
+    auto status = connectionManager.getStatus();
+    if (status == ConnectionManager::Status::Connected || 
+        status == ConnectionManager::Status::Connecting ||
+        status == ConnectionManager::Status::Error)
+    {
+        connectionManager.disconnect();
+    }
 }
 
 bool SterioPluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -218,9 +241,10 @@ void SterioPluginProcessor::handleSampleRateChange(double newSampleRate)
     playbackEngine.handleSampleRateChange(newSampleRate);
 }
 
-void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& stems)
+void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& newStems)
 {
-    playbackEngine.setStems(stems);
+    // Store stems in processor state (atomic)
+    setLoadedStems(newStems);
     
     // Set up the reload callback chain
     playbackEngine.setStemReloadCallback([this]() {
@@ -228,11 +252,106 @@ void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& stems)
     });
 }
 
+void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
+{
+    auto newPtr = std::make_shared<juce::Optional<TrackInfo>>(track);
+    std::atomic_store(&currentTrack, newPtr);
+}
+
+juce::Optional<TrackInfo> SterioPluginProcessor::getCurrentTrack() const
+{
+    return *std::atomic_load(&currentTrack);
+}
+
+void SterioPluginProcessor::setLoadedStems(const juce::Array<StemTrack>& newStems)
+{
+    auto newPtr = std::make_shared<juce::Array<StemTrack>>(newStems);
+    std::atomic_store(&stems, newPtr);
+}
+
+juce::Array<StemTrack> SterioPluginProcessor::getLoadedStems() const
+{
+    return *std::atomic_load(&stems);
+}
+
+void SterioPluginProcessor::clearLoadedStems()
+{
+    auto newPtr = std::make_shared<juce::Array<StemTrack>>();
+    std::atomic_store(&stems, newPtr);
+}
+
 void SterioPluginProcessor::requestStemReload()
 {
-    if (stemReloadCallback && !currentTrackId.isEmpty())
+    if (stemReloadCallback)
     {
-        stemReloadCallback();
+        if (getCurrentTrack().hasValue())
+        {
+            stemReloadCallback();
+        }
+    }
+}
+
+void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
+{
+    try
+    {
+        auto parsed = juce::JSON::parse(juce::String(json));
+        if (!parsed || !parsed.isObject())
+        {
+            DBG("Failed to parse JSON message: not an object");
+            return;
+        }
+        auto obj = parsed.getDynamicObject();
+
+        DBG("Pasrsed message: ");
+
+        // Example: region update
+        if (obj->hasProperty("track_id"))
+        {
+            int trackId = static_cast<int>(obj->getProperty("track_id"));
+            auto currentTrackObj = getCurrentTrack();
+            if(!currentTrackObj.hasValue()){
+                DBG("No current track set. Cannot process stem metadata sync.");
+                return;
+            }
+
+            int currentTrackId = (*currentTrackObj).id.getIntValue();
+            if(trackId != currentTrackId){
+                DBG("Received region update for track " + juce::String(trackId) + " but current track is " + juce::String(currentTrackId));
+                return;
+            }
+
+            juce::String type = obj->getProperty("type");
+            DBG("Received message of type " + type);
+            auto oldStems = getLoadedStems();
+            if(type == "stem_metadata_sync"){
+                auto stemsFromPayload = JsonUtils::parseStemData(obj->getProperty("payload"));
+
+                for (auto& stem : stemsFromPayload)
+                {
+                    int index = oldStems.indexOf(stem); // Only works if StemTrack has operator==
+                    if (index >= 0)
+                    {
+                        stem.audioBuffer = oldStems[index].audioBuffer;
+                    }
+                    else{
+                        throw std::runtime_error("Stem not found in old stems. Stem sync failed.");
+                    }
+                }
+
+                // Now replace loaded stems
+                setLoadedStems(stemsFromPayload);
+                DBG("Loaded stems");
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        DBG("Failed to parse JSON message: " + juce::String(e.what()));
+    }
+    catch (...)
+    {
+        DBG("Failed to parse JSON message: unknown exception");
     }
 }
 

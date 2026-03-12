@@ -52,6 +52,8 @@ target_sources(SterioPlugin
         Source/SampleRateConverter.cpp
         Source/SampleRateConverter.h
         Source/TransportState.h
+        Source/StemModels.h
+        Source/utils/JsonUtils.h
         Source/api/ApiConfig.h
         Source/api/SterioApiClient.cpp
         Source/api/SterioApiClient.h
@@ -89,6 +91,8 @@ source_group("Sterio" FILES
     Source/SampleRateConverter.cpp
     Source/SampleRateConverter.h
     Source/TransportState.h
+    Source/StemModels.h
+    Source/utils/JsonUtils.h
     Source/api/ApiConfig.h
     Source/api/SterioApiClient.cpp
     Source/api/SterioApiClient.h

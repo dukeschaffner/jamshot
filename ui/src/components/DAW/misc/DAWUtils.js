@@ -270,3 +270,25 @@ export function snapToGrid(value, snapToGridEnabled, duration, gridLines, contai
 
   return value;
 }
+
+
+
+export function buildStemsObject(tracks, includeRecordingTrack = true) {
+  return tracks.filter(track => includeRecordingTrack || track.id !== 'recording-track').map(track => {
+    const stemData = {
+      track_id: track.id === 'recording-track' ? 'recording' : track.id,
+      gain: track.gain
+    };
+    
+    // For non-recording tracks (parent stems), save all region information 
+    // (startTime, endTime, offset) so regions can be reconstructed when the collab track is opened
+    if (track.id !== 'recording-track') {
+      const regionsForUpload = track.getRegionsForUpload();
+      if (regionsForUpload.length > 0) {
+        stemData.regions = regionsForUpload;
+      }
+    }
+    
+    return stemData;
+  });
+}

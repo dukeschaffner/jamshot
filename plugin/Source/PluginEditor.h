@@ -6,6 +6,7 @@
 #include "ui/SterioLookAndFeel.h"
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
+#include "StemModels.h"
 #include "CacheManager.h"
 #include "ui/ErrorDisplay.h"
 
@@ -44,12 +45,6 @@ private:
     ErrorDisplay errorDisplay;
     TrackListPanel trackListPanel;
     SterioLookAndFeel lookAndFeel;
-
-    /** Currently loaded stems for the selected track. */
-    juce::Array<StemTrack> loadedStems;
-
-    /** Currently selected track info (for reload purposes) */
-    juce::Optional<TrackInfo> currentTrack;
 
     /** Flag to show high sample rate warning */
     bool showHighSampleRateWarning = false;
