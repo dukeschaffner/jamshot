@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../api/SterioApiClient.h"
+#include "../Services.h"
 
 class AuthManager;
 
@@ -10,7 +11,7 @@ class AuthManager;
 class LoginView : public juce::Component, private juce::Timer
 {
 public:
-    LoginView(AuthManager& authManager, SterioApiClient& apiClient);
+    LoginView(Services& services);
     ~LoginView() override;
 
     void paint(juce::Graphics& g) override;

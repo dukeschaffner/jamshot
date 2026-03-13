@@ -102,6 +102,10 @@ void AuthManager::saveTokens()
         props.setValue("refreshToken", refreshToken);
         props.save();
     }
+
+
+    DBG("AuthManager::login() - sending change message");
+    sendChangeMessage();
 }
 
 void AuthManager::onTokenReceived(const juce::String& at, const juce::String& rt)

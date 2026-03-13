@@ -7,43 +7,31 @@
 using namespace juce;
 
 //==============================================================================
-SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& authManager)
+SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     : AudioProcessorEditor(&p)
     , processorRef(p)
-    , authManagerRef(authManager)
-    , apiClient(authManager)
-    , loginView(authManager, apiClient)
-    , trackListPanel(apiClient)
+    , services(p.getServices())
+    , loginView(services)
+    , mainContentComponent(services)
+    , trackLoader(services)
 {
     setSize(500, 400);
     setResizable (true, true);      // allow resizing
     setResizeLimits (400, 300, 1200, 900); // min and max sizes
 
     addAndMakeVisible(loginView);
-    addAndMakeVisible(trackListPanel);
+    addAndMakeVisible(mainContentComponent);
     addAndMakeVisible(messageDisplay);
 
     // Set up track selection callback
-    trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
+    mainContentComponent.trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
         onTrackSelected(track);
     });
 
-    // Set up cache manager
-    auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
-    DBG("PluginEditor: Application data directory: " + appDataDir.getFullPathName());
-
-    auto cacheDir = appDataDir.getChildFile("SterioPlugin").getChildFile("cache");
-    DBG("PluginEditor: Cache directory will be: " + cacheDir.getFullPathName());
-
-    cacheManager.setCacheDirectory(cacheDir);
-
-    // Set up track loader
-    trackLoader.setApiClient(&apiClient);
-    trackLoader.setCacheManager(&cacheManager);
 
     // Set initial API token if available
-    if (authManagerRef.isLoggedIn())
-        apiClient.setAccessToken(authManagerRef.getAccessToken());
+    if (services.auth.isLoggedIn())
+        services.api.setAccessToken(services.auth.getAccessToken());
 
     // Set up error callback for websocket server failures
     processorRef.setErrorCallback([this](const juce::String& errorMsg) {
@@ -86,21 +74,21 @@ SterioPluginEditor::~SterioPluginEditor()
 void SterioPluginEditor::timerCallback()
 {
     // Update API token when login state changes
-    if (authManagerRef.isLoggedIn())
+    if (services.auth.isLoggedIn())
     {
-        apiClient.setAccessToken(authManagerRef.getAccessToken());
+        services.api.setAccessToken(services.auth.getAccessToken());
 
         // Load tracks if we have a username but no tracks loaded yet
         auto username = loginView.getUsername();
-        if (!username.isEmpty() && trackListPanel.getSelectedTrack() == nullptr)
+        if (!username.isEmpty() && mainContentComponent.trackListPanel.getSelectedTrack() == nullptr)
         {
-            trackListPanel.setUsername(username);
+            mainContentComponent.trackListPanel.setUsername(username);
         }
     }
     else
     {
         // Clear tracks when logged out
-        trackListPanel.clearTracks();
+        mainContentComponent.trackListPanel.clearTracks();
     }
 
     // Update sample rate warning
@@ -214,7 +202,7 @@ void SterioPluginEditor::resized()
 
     // Track list fills remaining space
     main.items.add(
-        juce::FlexItem(trackListPanel)
+        juce::FlexItem(mainContentComponent)
             .withFlex(1.0f)
     );
 

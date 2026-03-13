@@ -5,9 +5,9 @@
 using namespace juce;
 
 //==============================================================================
-LoginView::LoginView(AuthManager& authManager, SterioApiClient& apiClient)
-    : authManagerRef(authManager),
-      apiClientRef(apiClient)
+LoginView::LoginView(Services& services)
+    : authManagerRef(services.auth),
+      apiClientRef(services.api)
 {
     authButton.setButtonText("Log in to Sterio");
     authButton.onClick = [this] { authManagerRef.login(); };

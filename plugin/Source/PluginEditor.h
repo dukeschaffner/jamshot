@@ -2,7 +2,6 @@
 
 #include "PluginProcessor.h"
 #include "ui/LoginView.h"
-#include "ui/TrackListPanel.h"
 #include "ui/SterioLookAndFeel.h"
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
@@ -10,12 +9,14 @@
 #include "CacheManager.h"
 #include "ui/MessageDisplay.h"
 #include "ui/DebugMessageComponent.h"
+#include "ui/MainContentComponent.h"
+#include "Services.h"
 
 //==============================================================================
 class SterioPluginEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
-    SterioPluginEditor(SterioPluginProcessor& p, AuthManager& authManager);
+    SterioPluginEditor(SterioPluginProcessor& p);
     ~SterioPluginEditor() override;
 
     void paint(juce::Graphics& g) override;
@@ -37,14 +38,11 @@ private:
     void updateSampleRateWarning();
 
     SterioPluginProcessor& processorRef;
-    AuthManager& authManagerRef;
-
-    SterioApiClient apiClient;
-    CacheManager cacheManager;
+    Services& services;
     TrackLoader trackLoader;
     LoginView loginView;
     MessageDisplay messageDisplay;
-    TrackListPanel trackListPanel;
+    MainContentComponent mainContentComponent;
     SterioLookAndFeel lookAndFeel;
     DebugMessageComponent debugComponent;
     juce::TextButton debugToggleButton;

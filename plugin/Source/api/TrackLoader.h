@@ -6,6 +6,7 @@
 #include "SterioApiClient.h"
 #include "../SampleRateConverter.h"
 #include "../StemModels.h"
+#include "../Services.h"
 
 // Forward declaration to avoid circular include
 class CacheManager;
@@ -15,14 +16,8 @@ class CacheManager;
 class TrackLoader
 {
 public:
-    TrackLoader();
+    TrackLoader(Services& services);
     ~TrackLoader();
-
-    /** Set the API client for making authenticated requests */
-    void setApiClient(SterioApiClient* client);
-
-    /** Set the cache manager for persistent caching */
-    void setCacheManager(CacheManager* cache);
 
     /** Load all stems for a given track ID.
         Returns an array of StemTrack objects with decoded audio buffers.

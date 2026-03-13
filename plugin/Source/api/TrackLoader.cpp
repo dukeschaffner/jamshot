@@ -6,7 +6,9 @@
 using namespace juce;
 
 //==============================================================================
-TrackLoader::TrackLoader()
+TrackLoader::TrackLoader(Services& services)
+    : apiClient(&services.api)
+    , cacheManager(&services.cache)
 {
     // Initialize audio format manager with MP3 support
     formatManager.registerBasicFormats();
@@ -28,16 +30,6 @@ TrackLoader::TrackLoader()
 
 TrackLoader::~TrackLoader()
 {
-}
-
-void TrackLoader::setApiClient(SterioApiClient* client)
-{
-    apiClient = client;
-}
-
-void TrackLoader::setCacheManager(CacheManager* cache)
-{
-    cacheManager = cache;
 }
 
 Array<StemTrack> TrackLoader::loadStemsForTrack(const String& trackId)

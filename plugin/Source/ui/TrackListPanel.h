@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../api/SterioApiClient.h"
 #include "../Colors.h"
+#include "../Services.h"
 
 //==============================================================================
 /** A panel that displays a list of liked tracks with refresh and load more functionality. */
@@ -12,7 +13,7 @@ public:
     /** Callback function type for track selection */
     using TrackSelectedCallback = std::function<void(const TrackInfo&)>;
 
-    TrackListPanel(SterioApiClient& apiClient);
+    TrackListPanel(Services& services);
     ~TrackListPanel() override;
 
     void paint(juce::Graphics& g) override;
