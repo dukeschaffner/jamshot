@@ -1,6 +1,7 @@
 #include "TrackLoader.h"
 #include "../CacheManager.h"
 #include "../utils/JsonUtils.h"
+#include "../utils/MessageStore.h"
 
 using namespace juce;
 
@@ -10,7 +11,19 @@ TrackLoader::TrackLoader()
     // Initialize audio format manager with MP3 support
     formatManager.registerBasicFormats();
     juce::StringArray formats = formatManager.getWildcardForAllFormats();
+    MessageStore::getInstance().pushDebugMessage(PluginMessage{
+        .severity = PluginMessage::Severity::Info,
+        .content = "TrackLoader initialized",
+        .sourceModule = "TrackLoader",
+        .timestamp = std::chrono::system_clock::now()
+    });
 
+    MessageStore::getInstance().pushMessage(PluginMessage{
+        .severity = PluginMessage::Severity::Error,
+        .content = "TrackLoader Error test",
+        .sourceModule = "TrackLoader",
+        .timestamp = std::chrono::system_clock::now()
+    });
 }
 
 TrackLoader::~TrackLoader()

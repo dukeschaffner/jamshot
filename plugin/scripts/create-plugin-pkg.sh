@@ -34,3 +34,7 @@ pkgbuild \
 
 echo "Package created:"
 echo "$OUTPUT"
+
+
+productsign --sign "Developer ID Installer: JOHN WAYNE SCHAFFNER (ZK6F2S828L)" \
+$OUTPUT Sterio-$VERSION-Installer.pkg

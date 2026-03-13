@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "GlobalErrorHandler.h"
 #include "utils/JsonUtils.h"
+#include "utils/MessageStore.h"
 
 //==============================================================================
 SterioPluginProcessor::SterioPluginProcessor()
@@ -25,6 +26,19 @@ SterioPluginProcessor::SterioPluginProcessor()
     // Set up provider function for playback engine to atomically access stems
     playbackEngine.setStemsProvider([this]() {
         return this->getLoadedStems(); // Thread-safe atomic read
+    });
+
+#ifdef JUCE_DEBUG
+    MessageStore::getInstance().setDebugMode(true);
+#else
+    MessageStore::getInstance().setDebugMode(false);
+#endif
+
+    MessageStore::getInstance().pushDebugMessage(PluginMessage{
+        .severity = PluginMessage::Severity::Info,
+        .content = "Debug mode enabled",
+        .sourceModule = "SterioPluginProcessor",
+        .timestamp = std::chrono::system_clock::now()
     });
 
     connectionManager.onStatusChange([this](ConnectionManager::Status s, const std::string& reason)

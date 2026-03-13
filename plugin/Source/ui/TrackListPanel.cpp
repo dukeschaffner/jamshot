@@ -90,21 +90,39 @@ void TrackListPanel::paint(Graphics& g)
 
 void TrackListPanel::resized()
 {
-    auto bounds = getLocalBounds();
+    auto bounds = getLocalBounds().toFloat();
 
-    // Top row: refresh button only (square button for icon)
-    auto buttonRow = bounds.removeFromTop(30);
-    refreshButton.setBounds(buttonRow.removeFromLeft(30));
+    juce::FlexBox main;
+    main.flexDirection = juce::FlexBox::Direction::column;
 
-    bounds.removeFromTop(5);
+    // --- Button row ---
+    juce::FlexBox buttonRow;
+    buttonRow.flexDirection = juce::FlexBox::Direction::row;
+
+    buttonRow.items.add(
+        juce::FlexItem(refreshButton)
+            .withWidth(20.0f)
+            .withHeight(20.0f)
+    );
+
+    main.items.add(
+        juce::FlexItem(buttonRow)
+            .withHeight(20.0f)
+    );
 
     // Status label
-    statusLabel.setBounds(bounds.removeFromTop(20));
+    main.items.add(
+        juce::FlexItem(statusLabel)
+            .withHeight(20.0f)
+    );
 
-    bounds.removeFromTop(5);
+    // Track list fills remaining space
+    main.items.add(
+        juce::FlexItem(trackListBox)
+            .withFlex(1.0f)
+    );
 
-    // Track list takes remaining space
-    trackListBox.setBounds(bounds);
+    main.performLayout(bounds);
 }
 
 void TrackListPanel::setUsername(const String& username)
