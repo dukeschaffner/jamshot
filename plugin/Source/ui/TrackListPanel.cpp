@@ -228,8 +228,8 @@ void TrackListPanel::loadTracksInternal(int page)
                 return;
             }
 
-            updateTracksDisplay(*result);
             currentPage = page;
+            updateTracksDisplay(*result);
         });
     });
 }
