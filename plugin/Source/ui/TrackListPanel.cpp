@@ -210,6 +210,15 @@ void TrackListPanel::loadTracksInternal(int page)
     Thread::launch([this, page]() {
         auto result = apiClientRef.getLikedTracks(currentUsername, page, 15);
 
+        if (result.failed())
+        {
+            DBG("TrackListPanel::loadTracksInternal() - error loading tracks: " + result.getErrorMessage());
+        }
+        else
+        {
+            DBG("TrackListPanel::loadTracksInternal() - tracks loaded successfully");
+        }
+
         MessageManager::callAsync([this, result, page]() {
             isLoading = false;
 

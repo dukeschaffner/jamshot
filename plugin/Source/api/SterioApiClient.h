@@ -89,9 +89,6 @@ public:
     SterioApiClient(AuthManager& authManager);
     ~SterioApiClient();
 
-    /** Set the access token for authenticated requests. */
-    void setAccessToken(const juce::String& token);
-
     /** Handle session expiration by clearing tokens and updating login state. */
     void handleSessionExpired();
 
@@ -115,7 +112,6 @@ private:
     LikedTracksResponse parseLikedTracksResponse(const juce::var& json);
 
     AuthManager& authManager;
-    juce::String accessToken;
     juce::URL baseUrl;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioApiClient)

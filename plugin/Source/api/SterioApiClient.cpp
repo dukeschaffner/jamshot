@@ -20,18 +20,9 @@ void SterioApiClient::handleSessionExpired()
     authManager.logout();
 }
 
-void SterioApiClient::setAccessToken(const String& token)
-{
-    if (accessToken != token)
-    {
-        accessToken = token;
-        DBG("Access token set (length: " << token.length() << ")");
-    }
-}
-
 ApiResult<UserInfo> SterioApiClient::getMe()
 {
-
+    String accessToken = authManager.getAccessToken();
     if (accessToken.isEmpty())
     {
         return ApiResult<UserInfo>::fail("No access token set");
@@ -59,6 +50,7 @@ ApiResult<LikedTracksResponse> SterioApiClient::getLikedTracks(const String& use
                                                            int limit)
 {
     DBG("Getting liked tracks for username: " + username);
+    String accessToken = authManager.getAccessToken();
     if (accessToken.isEmpty())
     {
         return ApiResult<LikedTracksResponse>::fail("No access token set");
@@ -96,6 +88,12 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
         fullUrl += endpoint;
 
     URL url(fullUrl);
+
+    String accessToken = authManager.getAccessToken();
+    if (accessToken.isEmpty())
+    {
+        return ApiResult<var>::fail("No access token set");
+    }
 
     // Create HTTP request
     int httpStatus = 0;
