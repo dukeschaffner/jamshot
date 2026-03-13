@@ -91,19 +91,49 @@ private:
 
             // Draw track title and artist
             juce::Font titleFont(14.0f, juce::Font::bold);
-            juce::Font artistFont(12.0f);
+            juce::Font infoFont(11.0f);
             
             juce::Rectangle<int> bounds(8, 0, width - 16, height);
             
-            // Title in bold
+            // Title in bold (top 40% of height)
             g.setFont(titleFont);
-            g.drawText(track.title, bounds.removeFromTop(height / 2), juce::Justification::left, true);
+            auto titleBounds = bounds.removeFromTop(static_cast<int>(height * 0.4f));
+            if (track.title.isNotEmpty())
+                g.drawText(track.title, titleBounds, juce::Justification::left, true);
             
-            // Artist in regular weight with slightly muted color
-            g.setFont(artistFont);
-            if (!rowIsSelected)
-                g.setColour(Colors::GREY);
-            g.drawText(track.username, bounds, juce::Justification::left, true);
+            // Bottom section for artist and timing info
+            auto bottomBounds = bounds;
+            
+            // Build info string: "Artist • BPM: 120 • 4/4"
+            juce::String infoText;
+            
+            // Safely build the info text
+            if (track.username.isNotEmpty())
+                infoText = track.username;
+            
+            if (track.metronome.isNotEmpty())
+            {
+                if (infoText.isNotEmpty())
+                    infoText += " • ";
+                infoText += "BPM: " + track.metronome;
+            }
+                
+            if (track.timeSignature.isNotEmpty())
+            {
+                if (infoText.isNotEmpty())
+                    infoText += " • ";
+                infoText += track.timeSignature;
+            }
+            
+            // Only draw if we have valid text to display
+            if (infoText.isNotEmpty())
+            {
+                // Info in regular weight with slightly muted color
+                g.setFont(infoFont);
+                if (!rowIsSelected)
+                    g.setColour(Colors::GREY);
+                g.drawText(infoText, bottomBounds, juce::Justification::left, true);
+            }
 
             // Draw selection indicator with seafoam color
             if (rowIsSelected)

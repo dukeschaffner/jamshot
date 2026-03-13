@@ -169,6 +169,8 @@ LikedTracksResponse SterioApiClient::parseLikedTracksResponse(const var& json)
             track.username = trackJson.getProperty("username", "").toString();
             track.duration = trackJson.getProperty("duration", "").toString();
             track.createdAt = trackJson.getProperty("created_at", "").toString();
+            track.metronome = trackJson.getProperty("metronome_bpm", "").toString();
+            track.timeSignature = trackJson.getProperty("time_signature", "").toString();
             response.tracks.add(track);
         }
     }
