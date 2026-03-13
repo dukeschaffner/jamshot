@@ -42,35 +42,44 @@ SterioPluginProcessor::SterioPluginProcessor()
     });
 
     connectionManager.onStatusChange([this](ConnectionManager::Status s, const std::string& reason)
+    {
+        // dispatch to message thread if you need to update UI
+        juce::MessageManager::callAsync([this, s, reason]()
         {
-            // dispatch to message thread if you need to update UI
-            juce::MessageManager::callAsync([this, s, reason]()
+            DBG("Status changed: " + reason);
+            
+            // If websocket server failed to start, report error to editor
+            if (s == ConnectionManager::Status::Error)
             {
-                DBG("Status changed: " + reason);
-                
-                // If websocket server failed to start, report error to editor
-                if (s == ConnectionManager::Status::Error)
+                juce::String errorMsg = "WebSocket server failed to start. The port may already be in use. Browser sync will be disabled.";
+                if (!reason.empty())
                 {
-                    juce::String errorMsg = "WebSocket server failed to start. The port may already be in use. Browser sync will be disabled.";
-                    if (!reason.empty())
-                    {
-                        errorMsg += ": " + juce::String(reason);
-                    }
-                    
-                    if (errorCallback)
-                    {
-                        errorCallback(errorMsg);
-                    }
+                    errorMsg += ": " + juce::String(reason);
                 }
-            });
+                
+                if (errorCallback)
+                {
+                    errorCallback(errorMsg);
+                }
+            }
         });
+    });
 
-        connectionManager.onMessage([this](const std::string& msg)
-        {
-            // ⚠️ this arrives on IXWebSocket's thread — don't touch JUCE UI directly
-            DBG("Received: " + juce::String(msg));
-            handleIncomingMessage(msg);
-        });
+    connectionManager.onMessage([this](const std::string& msg)
+    {
+        // ⚠️ this arrives on IXWebSocket's thread — don't touch JUCE UI directly
+        DBG("Received: " + juce::String(msg));
+        handleIncomingMessage(msg);
+    });
+
+            // Set up cache manager
+    auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+    DBG("PluginEditor: Application data directory: " + appDataDir.getFullPathName());
+
+    auto cacheDir = appDataDir.getChildFile("SterioPlugin").getChildFile("cache");
+    DBG("PluginEditor: Cache directory will be: " + cacheDir.getFullPathName());
+
+    cacheManager.setCacheDirectory(cacheDir);
 }
 
 SterioPluginProcessor::~SterioPluginProcessor()
@@ -395,7 +404,7 @@ bool SterioPluginProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* SterioPluginProcessor::createEditor()
 {
-    return new SterioPluginEditor(*this, authManager);
+    return new SterioPluginEditor(*this);
 }
 
 //==============================================================================

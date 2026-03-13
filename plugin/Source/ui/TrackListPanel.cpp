@@ -5,8 +5,8 @@
 using namespace juce;
 
 //==============================================================================
-TrackListPanel::TrackListPanel(SterioApiClient& apiClient)
-    : apiClientRef(apiClient),
+TrackListPanel::TrackListPanel(Services& services)
+    : apiClientRef(services.api),
       trackListBox("Tracks", nullptr),
       scrollBar(false),
       refreshButton("Refresh", DrawableButton::ImageFitted)

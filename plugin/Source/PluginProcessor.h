@@ -7,9 +7,12 @@
 #include "TransportState.h"
 #include "SampleRateConverter.h"
 #include "api/ConnectionManager.h"
+#include "CacheManager.h"
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
 #include "StemModels.h"
+#include "Services.h"
+
 
 //==============================================================================
 class SterioPluginProcessor final : public juce::AudioProcessor
@@ -82,6 +85,8 @@ public:
     /** Handle incoming message from WebSocket */
     void handleIncomingMessage(const std::string& json);
 
+    Services& getServices() { return services; }
+
 private:
     /** Handle sample rate changes and convert stems if necessary */
     void handleSampleRateChange(double newSampleRate);
@@ -91,8 +96,11 @@ private:
 
     void updateTransportFromHost();
 
+    CacheManager cacheManager;
     AuthManager authManager;
+    SterioApiClient apiClient { authManager };
     ConnectionManager connectionManager;
+    Services services { authManager, apiClient, cacheManager };
 
     // Stem playback engine (Increment 5)
     StemPlaybackEngine playbackEngine;

@@ -1,11 +1,12 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include <juce_events/juce_events.h> 
 #include "AuthCallbackServer.h"
 
 //==============================================================================
 /** Manages plugin authentication: token storage, login flow, and auth state. */
-class AuthManager
+class AuthManager : public juce::ChangeBroadcaster
 {
 public:
     AuthManager();

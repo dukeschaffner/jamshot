@@ -53,6 +53,7 @@ target_sources(SterioPlugin
         Source/SampleRateConverter.h
         Source/TransportState.h
         Source/StemModels.h
+        Source/Services.h
         Source/utils/JsonUtils.h
         Source/utils/MessageStore.h
         Source/api/ApiConfig.h
@@ -81,6 +82,8 @@ target_sources(SterioPlugin
         Source/ui/MessageDisplay.cpp
         Source/ui/MessageDisplay.h
         Source/ui/DebugMessageComponent.h
+        Source/ui/MainContentComponent.cpp
+        Source/ui/MainContentComponent.h
 )
 
 source_group("Sterio" FILES
@@ -94,6 +97,7 @@ source_group("Sterio" FILES
     Source/SampleRateConverter.h
     Source/TransportState.h
     Source/StemModels.h
+    Source/Services.h
     Source/utils/JsonUtils.h
     Source/utils/MessageStore.h
     Source/api/ApiConfig.h
@@ -122,6 +126,8 @@ source_group("Sterio" FILES
     Source/ui/MessageDisplay.cpp
     Source/ui/MessageDisplay.h
     Source/ui/DebugMessageComponent.h
+    Source/ui/MainContentComponent.cpp
+    Source/ui/MainContentComponent.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")
