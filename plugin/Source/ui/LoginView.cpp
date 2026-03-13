@@ -19,7 +19,7 @@ LoginView::LoginView(AuthManager& authManager, SterioApiClient& apiClient)
     addAndMakeVisible(authButton);
 
     addAndMakeVisible(statusLabel);
-    statusLabel.setJustificationType(Justification::centred);
+    statusLabel.setJustificationType(juce::Justification::centredRight);
     
     // Style status label
     statusLabel.setColour(Label::textColourId, Colors::GREY);
@@ -48,15 +48,25 @@ void LoginView::paint(Graphics& g)
 
 void LoginView::resized()
 {
-    auto r = getLocalBounds();
-    auto buttonWidth = 120; // Increased width to accommodate both button texts
-    auto gap = 10;
+    auto bounds = getLocalBounds().toFloat().reduced(10);
 
-    authButton.setBounds(r.removeFromLeft(buttonWidth));
-    r.removeFromLeft(gap);
+    juce::FlexBox loginLayout;
+    loginLayout.flexDirection = juce::FlexBox::Direction::row;
 
-    // Status label takes remaining space
-    statusLabel.setBounds(r);
+    auto buttonWidth = 110.0f;
+
+    loginLayout.items.add(
+        juce::FlexItem(statusLabel)
+            .withFlex(1.0f)
+            .withMargin({0, 0, 0, 8}) // gap before button
+    );
+
+    loginLayout.items.add(
+        juce::FlexItem(authButton)
+            .withWidth(buttonWidth)
+    );
+
+    loginLayout.performLayout(bounds);
 }
 
 void LoginView::loadUserInfo()

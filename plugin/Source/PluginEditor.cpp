@@ -2,7 +2,7 @@
 #include "PluginEditor.h"
 #include "GlobalErrorHandler.h"
 #include "Colors.h"
-#include "ui/ErrorDisplay.h"
+
 
 using namespace juce;
 
@@ -16,10 +16,12 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
     , trackListPanel(apiClient)
 {
     setSize(500, 400);
+    setResizable (true, true);      // allow resizing
+    setResizeLimits (400, 300, 1200, 900); // min and max sizes
 
     addAndMakeVisible(loginView);
     addAndMakeVisible(trackListPanel);
-    addAndMakeVisible(errorDisplay);
+    addAndMakeVisible(messageDisplay);
 
     // Set up track selection callback
     trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
@@ -45,8 +47,29 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p, AuthManager& au
 
     // Set up error callback for websocket server failures
     processorRef.setErrorCallback([this](const juce::String& errorMsg) {
-        errorDisplay.setError(errorMsg);
+        DBG("PluginEditor::setErrorCallback() - Error: " + errorMsg);
     });
+
+    #ifdef JUCE_DEBUG
+        debugComponentVisible = false;
+        addChildComponent(debugComponent); // Add to tree but keep hidden initially
+        
+        debugToggleButton.setButtonText("Show Debug");
+        debugToggleButton.onClick = [this] {
+            debugComponentVisible = !debugComponentVisible;
+            if (debugComponentVisible)
+            {
+                addAndMakeVisible(debugComponent);
+            }
+            else
+            {
+                debugComponent.setVisible(false);
+            }
+            debugToggleButton.setButtonText(debugComponentVisible ? "Hide Debug" : "Show Debug");
+            resized(); // Trigger layout update
+        };
+        addAndMakeVisible(debugToggleButton);
+    #endif
 
     // Apply custom look and feel
     setLookAndFeel(&lookAndFeel);
@@ -117,28 +140,93 @@ void SterioPluginEditor::paint(Graphics& g)
 
 void SterioPluginEditor::resized()
 {
-    auto r = getLocalBounds().reduced(10);
+    auto bounds = getLocalBounds().toFloat().reduced(10);
 
-    // Login view at top
-    auto loginRow = r.removeFromTop(50);
-    loginView.setBounds(loginRow);
+    juce::FlexBox main;
+    main.flexDirection = juce::FlexBox::Direction::column;
 
-    // Error display directly below login (hidden when no error).
-    // Only reserve space when it's visible so lower components move up.
-    r.removeFromTop(10);
-    if (errorDisplay.isVisible())
+    // Login row
+    main.items.add(
+        juce::FlexItem(loginView)
+            .withHeight(50.0f)
+    );
+
+    // Spacer
+    main.items.add(
+        juce::FlexItem()
+            .withHeight(10.0f)
+    );
+
+    // Error display (only if visible)
+    if (messageDisplay.isVisible())
     {
-        auto errorRow = r.removeFromTop(40);
-        errorDisplay.setBounds(errorRow);
+        main.items.add(
+            juce::FlexItem(messageDisplay)
+                .withHeight(40.0f)
+        );
+
+        main.items.add(
+            juce::FlexItem().withHeight(10.0f)
+        );
     }
     else
     {
-        errorDisplay.setBounds(0, 0, 0, 0);
+        messageDisplay.setBounds(0,0,0,0);
     }
 
-    // Track list panel takes remaining space
-    r.removeFromTop(10);
-    trackListPanel.setBounds(r);
+#ifdef JUCE_DEBUG
+
+    // Debug area container
+    juce::FlexBox debugColumn;
+    debugColumn.flexDirection = juce::FlexBox::Direction::column;
+
+    if (debugComponentVisible)
+    {
+        debugColumn.items.add(
+            juce::FlexItem(debugComponent)
+                .withHeight(150.0f)
+                .withMargin(5.0f)
+        );
+    }
+    else
+    {
+        debugComponent.setBounds(0,0,0,0);
+    }
+
+    // Debug button row (right aligned)
+    juce::FlexBox debugRow;
+    debugRow.flexDirection = juce::FlexBox::Direction::row;
+    debugRow.justifyContent = juce::FlexBox::JustifyContent::flexEnd;
+
+    debugRow.items.add(
+        juce::FlexItem(debugToggleButton)
+            .withWidth(120.0f)
+            .withHeight(30.0f)
+            .withMargin(5.0f)
+    );
+
+    debugColumn.items.add(
+        juce::FlexItem(debugRow)
+            .withHeight(30.0f)
+    );
+
+#endif
+
+    // Track list fills remaining space
+    main.items.add(
+        juce::FlexItem(trackListPanel)
+            .withFlex(1.0f)
+    );
+
+#ifdef JUCE_DEBUG
+    // Debug area at bottom
+    main.items.add(
+        juce::FlexItem(debugColumn)
+            .withHeight(debugComponentVisible ? 180.0f : 30.0f)
+    );
+#endif
+
+    main.performLayout(bounds);
 }
 
 void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
@@ -185,8 +273,8 @@ void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::St
     GlobalErrorHandler::handleError("TrackLoader",
         "Failed to load stems for '" + track.title + "': " + errorMessage);
 
-    // Show UI error to the user below the login component
-    errorDisplay.setError("Failed to load stems for '" + track.title + "': " + errorMessage);
+    // // Show UI error to the user below the login component
+    // messageDisplay.setError("Failed to load stems for '" + track.title + "': " + errorMessage);
 }
 
 void SterioPluginEditor::onTrackSelected(const TrackInfo& track)

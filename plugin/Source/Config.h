@@ -12,7 +12,7 @@ public:
     {
     public:
         /** Maximum cache size in bytes (default: 1GB) */
-        static constexpr int64_t maxSizeBytes = 2741824LL; // 1GB
+        static constexpr int64_t maxSizeBytes = 1073741824LL; // 1GB
     };
 
     /** API configuration */

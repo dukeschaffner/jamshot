@@ -54,6 +54,7 @@ target_sources(SterioPlugin
         Source/TransportState.h
         Source/StemModels.h
         Source/utils/JsonUtils.h
+        Source/utils/MessageStore.h
         Source/api/ApiConfig.h
         Source/api/SterioApiClient.cpp
         Source/api/SterioApiClient.h
@@ -77,8 +78,9 @@ target_sources(SterioPlugin
         Source/ui/TrackListPanel.h
         Source/ui/SterioLookAndFeel.cpp
         Source/ui/SterioLookAndFeel.h
-        Source/ui/ErrorDisplay.cpp
-        Source/ui/ErrorDisplay.h
+        Source/ui/MessageDisplay.cpp
+        Source/ui/MessageDisplay.h
+        Source/ui/DebugMessageComponent.h
 )
 
 source_group("Sterio" FILES
@@ -93,6 +95,7 @@ source_group("Sterio" FILES
     Source/TransportState.h
     Source/StemModels.h
     Source/utils/JsonUtils.h
+    Source/utils/MessageStore.h
     Source/api/ApiConfig.h
     Source/api/SterioApiClient.cpp
     Source/api/SterioApiClient.h
@@ -116,8 +119,9 @@ source_group("Sterio" FILES
     Source/ui/TrackListPanel.h
     Source/ui/SterioLookAndFeel.cpp
     Source/ui/SterioLookAndFeel.h
-    Source/ui/ErrorDisplay.cpp
-    Source/ui/ErrorDisplay.h
+    Source/ui/MessageDisplay.cpp
+    Source/ui/MessageDisplay.h
+    Source/ui/DebugMessageComponent.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")

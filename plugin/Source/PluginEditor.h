@@ -8,7 +8,8 @@
 #include "api/TrackLoader.h"
 #include "StemModels.h"
 #include "CacheManager.h"
-#include "ui/ErrorDisplay.h"
+#include "ui/MessageDisplay.h"
+#include "ui/DebugMessageComponent.h"
 
 //==============================================================================
 class SterioPluginEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -42,12 +43,17 @@ private:
     CacheManager cacheManager;
     TrackLoader trackLoader;
     LoginView loginView;
-    ErrorDisplay errorDisplay;
+    MessageDisplay messageDisplay;
     TrackListPanel trackListPanel;
     SterioLookAndFeel lookAndFeel;
+    DebugMessageComponent debugComponent;
+    juce::TextButton debugToggleButton;
 
     /** Flag to show high sample rate warning */
     bool showHighSampleRateWarning = false;
+    
+    /** Flag to track debug component visibility */
+    bool debugComponentVisible = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginEditor)
 };
