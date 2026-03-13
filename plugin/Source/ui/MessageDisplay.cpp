@@ -21,7 +21,14 @@ void MessageDisplay::timerCallback()
     auto messages = MessageStore::getInstance().getNewMessages();
 
     if (!messages || messages->empty())
+    {
+        juce::String currentMessage = messageLabel.getText();
+        if (currentMessage.isEmpty())
+        {
+            setVisible(false);
+        }
         return;
+    }
 
     for (auto& msg : *messages)
     {
@@ -69,6 +76,7 @@ void MessageDisplay::clearMessage()
 
 void MessageDisplay::paint(juce::Graphics& g)
 {
+    juce::String message = messageLabel.getText();
     // Background color based on severity
     juce::Colour bgColour = juce::Colours::darkgrey; // default
     

@@ -20,6 +20,11 @@ set(STERIO_API_BASE_URL "http://localhost:5001/api" CACHE STRING "API base URL f
 set(STERIO_UI_BASE_URL "http://localhost:3000" CACHE STRING "UI base URL for web app")
 add_subdirectory(${JUCE_PATH} ${CMAKE_BINARY_DIR}/JUCE-build)
 
+juce_add_binary_data(PluginAssets
+    SOURCES
+        Assets/images/logo.png
+)
+
 juce_add_plugin(SterioPlugin
     COMPANY_NAME "Sterio"
     PLUGIN_MANUFACTURER_CODE STER
@@ -39,7 +44,10 @@ FetchContent_Declare(ixwebsocket
 )
 FetchContent_MakeAvailable(ixwebsocket)
 
-target_link_libraries(SterioPlugin PRIVATE ixwebsocket)
+target_link_libraries(SterioPlugin 
+    PRIVATE ixwebsocket
+    PRIVATE PluginAssets
+)
 
 target_sources(SterioPlugin
     PRIVATE
@@ -84,6 +92,8 @@ target_sources(SterioPlugin
         Source/ui/DebugMessageComponent.h
         Source/ui/MainContentComponent.cpp
         Source/ui/MainContentComponent.h
+        Source/ui/LogoComponent.cpp
+        Source/ui/LogoComponent.h
 )
 
 source_group("Sterio" FILES
@@ -128,6 +138,8 @@ source_group("Sterio" FILES
     Source/ui/DebugMessageComponent.h
     Source/ui/MainContentComponent.cpp
     Source/ui/MainContentComponent.h
+    Source/ui/LogoComponent.cpp
+    Source/ui/LogoComponent.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")

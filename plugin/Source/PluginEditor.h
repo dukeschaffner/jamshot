@@ -10,6 +10,7 @@
 #include "ui/MessageDisplay.h"
 #include "ui/DebugMessageComponent.h"
 #include "ui/MainContentComponent.h"
+#include "ui/LogoComponent.h"
 #include "Services.h"
 
 //==============================================================================
@@ -46,6 +47,7 @@ private:
     SterioLookAndFeel lookAndFeel;
     DebugMessageComponent debugComponent;
     juce::TextButton debugToggleButton;
+    LogoComponent logoComponent;
 
     /** Flag to show high sample rate warning */
     bool showHighSampleRateWarning = false;

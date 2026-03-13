@@ -34,6 +34,8 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
         DBG("PluginEditor::setErrorCallback() - Error: " + errorMsg);
     });
 
+    addAndMakeVisible(logoComponent);
+
     #ifdef JUCE_DEBUG
         debugComponentVisible = false;
         addChildComponent(debugComponent); // Add to tree but keep hidden initially
@@ -127,6 +129,11 @@ void SterioPluginEditor::resized()
 
     juce::FlexBox main;
     main.flexDirection = juce::FlexBox::Direction::column;
+
+    main.items.add(
+        juce::FlexItem(logoComponent)
+            .withHeight(50.0f)
+    );
 
     // Login row
     main.items.add(
