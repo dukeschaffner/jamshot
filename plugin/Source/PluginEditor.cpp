@@ -29,10 +29,6 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     });
 
 
-    // Set initial API token if available
-    if (services.auth.isLoggedIn())
-        services.api.setAccessToken(services.auth.getAccessToken());
-
     // Set up error callback for websocket server failures
     processorRef.setErrorCallback([this](const juce::String& errorMsg) {
         DBG("PluginEditor::setErrorCallback() - Error: " + errorMsg);
@@ -76,8 +72,6 @@ void SterioPluginEditor::timerCallback()
     // Update API token when login state changes
     if (services.auth.isLoggedIn())
     {
-        services.api.setAccessToken(services.auth.getAccessToken());
-
         // Load tracks if we have a username but no tracks loaded yet
         auto username = loginView.getUsername();
         if (!username.isEmpty() && mainContentComponent.trackListPanel.getSelectedTrack() == nullptr)
@@ -87,6 +81,7 @@ void SterioPluginEditor::timerCallback()
     }
     else
     {
+        mainContentComponent.trackListPanel.setUsername("");
         // Clear tracks when logged out
         mainContentComponent.trackListPanel.clearTracks();
     }

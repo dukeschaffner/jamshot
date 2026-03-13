@@ -91,7 +91,6 @@ void AuthCallbackServer::runServer()
             }
 
             juce::String request(static_cast<const char*>(buffer.getData()), (size_t) totalRead);
-            DBG("AuthCallbackServer received request: " << request);
             juce::String accessToken, refreshToken;
 
             // Parse "GET /callback?access_token=...&refresh_token=... HTTP/1.1"

@@ -77,9 +77,6 @@ void LoginView::loadUserInfo()
     isLoadingUserInfo = true;
     statusLabel.setText("Loading user info...", dontSendNotification);
 
-    // Set the access token for API calls
-    apiClientRef.setAccessToken(authManagerRef.getAccessToken());
-
     // Load user info on background thread
     Thread::launch([this]() {
         auto result = apiClientRef.getMe();
