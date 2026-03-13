@@ -24,6 +24,9 @@ TODO:
     - hash filenames and folders
 - on COP network, TLS failure prevented loading tracks and it repeatedly tried to load the tracks. need to handle this better.
 - make sure if login fails, user can click login button again to try again.
+- better error reporting to user
+- help/how to view
+- better loading states
 
 
 
