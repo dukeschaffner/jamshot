@@ -61,6 +61,8 @@ struct TrackInfo
     juce::String username; // Artist username
     juce::String duration; // Optional
     juce::String createdAt; // Optional
+    juce::String metronome; // Optional
+    juce::String timeSignature; // Optional
 };
 
 //==============================================================================
