@@ -6,7 +6,6 @@
 #include "SterioApiClient.h"
 #include "../SampleRateConverter.h"
 #include "../StemModels.h"
-#include "../Services.h"
 
 // Forward declaration to avoid circular include
 class CacheManager;
@@ -16,7 +15,7 @@ class CacheManager;
 class TrackLoader
 {
 public:
-    TrackLoader(Services& services);
+    TrackLoader(SterioApiClient& apiClientRef, CacheManager& cacheManagerRef);
     ~TrackLoader();
 
     /** Load all stems for a given track ID.

@@ -22,6 +22,8 @@ import MoveTrackModal from './teams/MoveTrackModal';
 import TrackTags from './TrackTags';
 import VideoExportModal from './VideoExportModal';
 import VideoExportStatusModal from './VideoExportStatusModal';
+import {usePluginWebSocket} from '../contexts/PluginWebSocketContext';
+
 export default function Track(
     { track, 
       allTracks, 
@@ -64,6 +66,7 @@ export default function Track(
   const actionsMenuRef = useRef(null);
   const { showSuccess, showError } = useToast();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { send } = usePluginWebSocket();
 
   // Close actions menu when clicking outside
   useEffect(() => {
@@ -546,6 +549,20 @@ export default function Track(
                       📊 Analytics
                     </button>
                   )}
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        let msg = {
+                          type: 'set_track',
+                          track_id: track.id,
+                          payload: track
+                        }
+                        send(JSON.stringify(msg));
+                      }}
+                    >
+                      📊 Open in Plugin
+                    </button>
                   
                   {/* Move to folder option (team context only) */}
                   {teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner') && (

@@ -7,6 +7,20 @@
 
 struct JsonUtils
 {
+
+    static TrackInfo parseTrackInfo(const juce::var& json)
+    {
+        TrackInfo track;
+        track.id = json.getProperty("id", "").toString();
+        track.title = json.getProperty("title", "").toString();
+        track.username = json.getProperty("username", "").toString();
+        track.duration = json.getProperty("duration", "").toString();
+        track.createdAt = json.getProperty("created_at", "").toString();
+        track.metronome = json.getProperty("metronome_bpm", "").toString();
+        track.timeSignature = json.getProperty("time_signature", "").toString();
+        return track;
+    }
+
     static juce::Array<StemTrack> parseStemData(const juce::var& json)
     {
         juce::Array<StemTrack> stems;

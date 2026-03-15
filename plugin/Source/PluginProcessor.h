@@ -57,13 +57,6 @@ public:
     /** Get the current host sample rate */
     double getCurrentSampleRate() const { return currentHostSampleRate; }
 
-    /** Set callback for requesting stem reloads on sample rate change */
-    void setStemReloadCallback(std::function<void()> callback) { stemReloadCallback = callback; }
-
-    /** Set callback for reporting errors to the editor */
-    void setErrorCallback(std::function<void(const juce::String&)> callback) { errorCallback = callback; }
-
-
     /** Set the current track info. Thread-safe. */
     void setCurrentTrack(const TrackInfo& track);
 
@@ -78,6 +71,8 @@ public:
 
     /** Clear the loaded stems. Thread-safe. */
     void clearLoadedStems();
+
+    void loadStemsForTrack();
 
     /** Request reload of current stems with new sample rate */
     void requestStemReload();
@@ -100,7 +95,8 @@ private:
     AuthManager authManager;
     SterioApiClient apiClient { authManager };
     ConnectionManager connectionManager;
-    Services services { authManager, apiClient, cacheManager };
+    TrackLoader trackLoader { apiClient, cacheManager };
+    Services services { authManager, apiClient, cacheManager, trackLoader };
 
     // Stem playback engine (Increment 5)
     StemPlaybackEngine playbackEngine;

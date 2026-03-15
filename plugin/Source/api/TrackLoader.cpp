@@ -6,9 +6,9 @@
 using namespace juce;
 
 //==============================================================================
-TrackLoader::TrackLoader(Services& services)
-    : apiClient(&services.api)
-    , cacheManager(&services.cache)
+TrackLoader::TrackLoader(SterioApiClient& apiClientRef, CacheManager& cacheManagerRef)
+    : apiClient(&apiClientRef)
+    , cacheManager(&cacheManagerRef)
 {
     // Initialize audio format manager with MP3 support
     formatManager.registerBasicFormats();
