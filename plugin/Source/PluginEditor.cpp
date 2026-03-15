@@ -13,7 +13,6 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     , services(p.getServices())
     , loginView(services)
     , mainContentComponent(services)
-    , trackLoader(services)
 {
     setSize(500, 400);
     setResizable (true, true);      // allow resizing
@@ -26,12 +25,6 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     // Set up track selection callback
     mainContentComponent.trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
         onTrackSelected(track);
-    });
-
-
-    // Set up error callback for websocket server failures
-    processorRef.setErrorCallback([this](const juce::String& errorMsg) {
-        DBG("PluginEditor::setErrorCallback() - Error: " + errorMsg);
     });
 
     addAndMakeVisible(logoComponent);
@@ -219,82 +212,10 @@ void SterioPluginEditor::resized()
     main.performLayout(bounds);
 }
 
-void SterioPluginEditor::onStemsLoaded(const juce::Array<StemTrack>& stems)
-{
-    // Store stems in processor (which also passes to playback engine)
-    processorRef.setStems(stems);
-
-    // Set up reload callback for sample rate changes
-    processorRef.setStemReloadCallback([this]() {
-        auto currentTrack = processorRef.getCurrentTrack();
-        if (currentTrack.hasValue())
-        {
-            onTrackSelected(*currentTrack);
-        }
-    });
-
-    for (int i = 0; i < stems.size(); ++i)
-    {
-        const auto& stem = stems[i];
-        juce::String bufferInfo = "null";
-        if (stem.audioBuffer)
-        {
-            bufferInfo = juce::String(stem.audioBuffer->getNumSamples()) + " samples, " +
-                        juce::String(stem.audioBuffer->getNumChannels()) + " channels";
-        }
-        DBG("PluginEditor::onStemsLoaded() - Stem " + juce::String(i) +
-            ": trackId=" + juce::String(stem.trackId) +
-            ", gain=" + juce::String(stem.gain) +
-            ", order=" + juce::String(stem.order) +
-            ", audioBuffer=" + bufferInfo +
-            ", regions=" + juce::String(stem.regions.size()));
-    }
-}
-
-void SterioPluginEditor::onStemsLoadError(const TrackInfo& track, const juce::String& errorMessage)
-{
-    DBG("PluginEditor::onStemsLoadError() - Failed to load stems for track '" +
-        track.title + "': " + errorMessage);
-
-    // Clear any partial state in processor
-    processorRef.clearLoadedStems();
-
-    // Use global error handler for consistent error reporting
-    GlobalErrorHandler::handleError("TrackLoader",
-        "Failed to load stems for '" + track.title + "': " + errorMessage);
-
-    // // Show UI error to the user below the login component
-    // messageDisplay.setError("Failed to load stems for '" + track.title + "': " + errorMessage);
-}
-
 void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
 {
     // Store current track in processor (for reload purposes)
     processorRef.setCurrentTrack(track);
-
-    // Clear any previously loaded stems in processor
-    processorRef.clearLoadedStems();
-
-    // Load stems asynchronously to avoid blocking UI
-
-    juce::Thread::launch([this, track]() {
-        try {
-            // Load stems with sample rate conversion to match host sample rate
-            double targetSampleRate = processorRef.getCurrentSampleRate();
-            auto stems = trackLoader.loadStemsForTrack(track.id, targetSampleRate);
-
-            // Update UI on main thread
-            juce::MessageManager::callAsync([this, stems]() {
-                onStemsLoaded(stems);
-            });
-        }
-        catch (const std::exception& e) {
-            // Handle errors on main thread
-            juce::MessageManager::callAsync([this, track, errorMsg = juce::String(e.what())]() {
-                onStemsLoadError(track, errorMsg);
-            });
-        }
-    });
 }
 
 void SterioPluginEditor::updateSampleRateWarning()

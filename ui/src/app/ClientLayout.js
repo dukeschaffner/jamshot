@@ -18,6 +18,7 @@ import ReleaseNotesToast from '../components/ReleaseNotesToast';
 import LandingPage from '../components/LandingPage';
 import LoadingSpinner from '../components/LoadingSpinner';
 import CompleteProfileForm from '../components/CompleteProfileForm';
+import { PluginWebSocketProvider } from '../contexts/PluginWebSocketContext';
 import api from '../lib/api';
 
 // This component will be rendered after providers are initialized
@@ -210,9 +211,11 @@ export default function ClientLayout({ children }) {
             <ToastProvider>
               <NotificationProvider>
                 <NavigationGuardProvider>
+                  <PluginWebSocketProvider>
                   <AppContent>
-                    {children}
-                  </AppContent>
+                      {children}
+                    </AppContent>
+                  </PluginWebSocketProvider>
                 </NavigationGuardProvider>
               </NotificationProvider>
             </ToastProvider>

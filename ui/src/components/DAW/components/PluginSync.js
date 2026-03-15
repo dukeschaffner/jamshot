@@ -3,48 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDAW } from '../DAWContext';
 import { buildStemsObject } from '../misc/DAWUtils';
-
-
-const WS_URL = 'ws://localhost:8080'
-
-
-function useWebSocket(url) {
-  const ws = useRef(null)
-  const [status, setStatus] = useState('disconnected')
-  const [log, setLog] = useState([])
-
-  const addLog = useCallback((text, type = 'system') => {
-    setLog(prev => [...prev, { text, type, id: Date.now() + Math.random() }])
-  }, [])
-
-  const connect = useCallback(() => {
-    if (ws.current) return
-    setStatus('connecting')
-    addLog('Connecting to ' + url)
-    ws.current = new WebSocket(url)
-
-    ws.current.onopen    = () => { setStatus('connected');    addLog('Connected') }
-    ws.current.onclose   = () => { setStatus('disconnected'); addLog('Disconnected'); ws.current = null }
-    ws.current.onerror   = () => { setStatus('error');        addLog('Connection error') }
-    ws.current.onmessage = (e) => addLog(e.data, 'incoming')
-  }, [url, addLog])
-
-  const disconnect = useCallback(() => ws.current?.close(), [])
-
-  const send = useCallback((msg) => {
-    if (!msg.trim() || ws.current?.readyState !== WebSocket.OPEN) return false
-    ws.current.send(msg)
-    addLog(msg, 'outgoing')
-    return true
-  }, [addLog])
-
-  useEffect(() => { connect(); return () => disconnect() }, [connect, disconnect])
-
-  return { status, log, connect, disconnect, send }
-}
+import { usePluginWebSocket } from '../../../contexts/PluginWebSocketContext';
 
 export default function PluginSync() {
-  const { status, log, connect, disconnect, send } = useWebSocket(WS_URL)
+  const { status, send } = usePluginWebSocket();
   const {trackManagerRef, trackData} = useDAW();
 
   const handleSync = () => {

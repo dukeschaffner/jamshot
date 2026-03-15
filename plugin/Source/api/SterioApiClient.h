@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include "ApiConfig.h"
+#include "../StemModels.h"
 
 // Forward declaration
 class AuthManager;
@@ -52,18 +53,6 @@ struct UserInfo
     juce::String email;
 };
 
-//==============================================================================
-/** Represents a track returned from the API */
-struct TrackInfo
-{
-    juce::String id;
-    juce::String title;
-    juce::String username; // Artist username
-    juce::String duration; // Optional
-    juce::String createdAt; // Optional
-    juce::String metronome; // Optional
-    juce::String timeSignature; // Optional
-};
 
 //==============================================================================
 /** Represents pagination info for liked tracks */

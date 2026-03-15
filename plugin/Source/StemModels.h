@@ -28,3 +28,16 @@ struct StemTrack
         return trackId == other.trackId;
     }
 };
+
+//==============================================================================
+/** Represents a track returned from the API */
+struct TrackInfo
+{
+    juce::String id;
+    juce::String title;
+    juce::String username; // Artist username
+    juce::String duration; // Optional
+    juce::String createdAt; // Optional
+    juce::String metronome; // Optional
+    juce::String timeSignature; // Optional
+};

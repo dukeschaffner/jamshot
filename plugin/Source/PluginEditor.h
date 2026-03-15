@@ -29,18 +29,11 @@ private:
     /** Handle track selection from the track list panel. */
     void onTrackSelected(const TrackInfo& track);
 
-    /** Handle successful stem loading. */
-    void onStemsLoaded(const juce::Array<StemTrack>& stems);
-
-    /** Handle stem loading errors. */
-    void onStemsLoadError(const TrackInfo& track, const juce::String& errorMessage);
-
     /** Check if we should show high sample rate warning */
     void updateSampleRateWarning();
 
     SterioPluginProcessor& processorRef;
     Services& services;
-    TrackLoader trackLoader;
     LoginView loginView;
     MessageDisplay messageDisplay;
     MainContentComponent mainContentComponent;

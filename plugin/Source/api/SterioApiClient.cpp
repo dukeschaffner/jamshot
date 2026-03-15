@@ -1,5 +1,6 @@
 #include "SterioApiClient.h"
 #include "../auth/AuthManager.h"
+#include "../utils/JsonUtils.h"
 
 using namespace juce;
 
@@ -163,14 +164,7 @@ LikedTracksResponse SterioApiClient::parseLikedTracksResponse(const var& json)
         for (int i = 0; i < tracksArray.size(); ++i)
         {
             var trackJson = tracksArray[i];
-            TrackInfo track;
-            track.id = trackJson.getProperty("id", "").toString();
-            track.title = trackJson.getProperty("title", "").toString();
-            track.username = trackJson.getProperty("username", "").toString();
-            track.duration = trackJson.getProperty("duration", "").toString();
-            track.createdAt = trackJson.getProperty("created_at", "").toString();
-            track.metronome = trackJson.getProperty("metronome_bpm", "").toString();
-            track.timeSignature = trackJson.getProperty("time_signature", "").toString();
+            TrackInfo track = JsonUtils::parseTrackInfo(trackJson);
             response.tracks.add(track);
         }
     }

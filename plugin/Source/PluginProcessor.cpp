@@ -279,6 +279,8 @@ void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
 {
     auto newPtr = std::make_shared<juce::Optional<TrackInfo>>(track);
     std::atomic_store(&currentTrack, newPtr);
+
+    loadStemsForTrack();
 }
 
 juce::Optional<TrackInfo> SterioPluginProcessor::getCurrentTrack() const
@@ -303,15 +305,39 @@ void SterioPluginProcessor::clearLoadedStems()
     std::atomic_store(&stems, newPtr);
 }
 
+void SterioPluginProcessor::loadStemsForTrack()
+{
+    clearLoadedStems();
+    auto track = getCurrentTrack();
+    if(!track.hasValue()){
+        DBG("No current track set. Cannot load stems.");
+        return;
+    }
+
+    // Load stems asynchronously to avoid blocking UI
+    juce::Thread::launch([this, track]() {
+        try {
+            // Load stems with sample rate conversion to match host sample rate
+            double targetSampleRate = getCurrentSampleRate();
+            auto stems = trackLoader.loadStemsForTrack((*track).id, targetSampleRate);
+            setLoadedStems(stems);
+        }
+        catch (const std::exception& e) {
+            MessageStore::getInstance().pushMessage(PluginMessage{
+                .severity = PluginMessage::Severity::Error,
+                .content = "Failed to load stems for track.",
+                .sourceModule = "SterioPluginProcessor",
+                .timestamp = std::chrono::system_clock::now()
+            });
+            DBG("Failed to load stems for track " + (*track).id + ": " + e.what());
+            clearLoadedStems();
+        }
+    });
+}
+
 void SterioPluginProcessor::requestStemReload()
 {
-    if (stemReloadCallback)
-    {
-        if (getCurrentTrack().hasValue())
-        {
-            stemReloadCallback();
-        }
-    }
+    loadStemsForTrack();
 }
 
 void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
@@ -332,6 +358,15 @@ void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
         if (obj->hasProperty("track_id"))
         {
             int trackId = static_cast<int>(obj->getProperty("track_id"));
+
+            juce::String type = obj->getProperty("type");
+            DBG("Received message of type " + type);
+            if(type == "set_track"){
+                auto trackData = JsonUtils::parseTrackInfo(obj->getProperty("payload"));
+                setCurrentTrack(trackData);
+                return;
+            }
+
             auto currentTrackObj = getCurrentTrack();
             if(!currentTrackObj.hasValue()){
                 DBG("No current track set. Cannot process stem metadata sync.");
@@ -344,8 +379,6 @@ void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
                 return;
             }
 
-            juce::String type = obj->getProperty("type");
-            DBG("Received message of type " + type);
             auto oldStems = getLoadedStems();
             if(type == "stem_metadata_sync"){
                 auto stemsFromPayload = JsonUtils::parseStemData(obj->getProperty("payload"));
