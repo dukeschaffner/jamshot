@@ -50,16 +50,12 @@ SterioPluginProcessor::SterioPluginProcessor()
             // If websocket server failed to start, report error to editor
             if (s == ConnectionManager::Status::Error)
             {
-                juce::String errorMsg = "WebSocket server failed to start. The port may already be in use. Browser sync will be disabled.";
-                if (!reason.empty())
-                {
-                    errorMsg += ": " + juce::String(reason);
-                }
-                
-                if (errorCallback)
-                {
-                    errorCallback(errorMsg);
-                }
+                MessageStore::getInstance().pushMessage(PluginMessage{
+                    .severity = PluginMessage::Severity::Warning,
+                    .content = "WebSocket server failed to start. The port may already be in use. Browser sync will be disabled.",
+                    .sourceModule = "SterioPluginProcessor",
+                    .timestamp = std::chrono::system_clock::now()
+                });
             }
         });
     });
@@ -397,6 +393,7 @@ void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
                 DBG("Loaded stems");
             }
         }
+        return;
     }
     catch (const std::exception& e)
     {
@@ -406,6 +403,12 @@ void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
     {
         DBG("Failed to parse JSON message: unknown exception");
     }
+    MessageStore::getInstance().pushMessage(PluginMessage{
+        .severity = PluginMessage::Severity::Error,
+        .content = "Unexpected error while handling incoming message.",
+        .sourceModule = "SterioPluginProcessor",
+        .timestamp = std::chrono::system_clock::now()
+    });
 }
 
 void SterioPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)

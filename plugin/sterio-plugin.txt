@@ -27,10 +27,4 @@ TODO:
 - better error reporting to user
 - help/how to view
 - better loading states
-
-
-
-web app -> plugin sync:
-- new button in web app to "sync edits with plugin". on click, it sends the current stems json to the plugin. plugin parses and stores in stemtrack struct.
-    - on error, show error toast prompting user to make sure plugin is open
-- stemtrack gain must be converted to atomic and the regions array must be updated/read with atomic store and load.
+- do i need to delete cache if plugin is uninstalled?

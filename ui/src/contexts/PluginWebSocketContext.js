@@ -78,7 +78,6 @@ export function PluginWebSocketProvider({ children }) {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
       addLog('Attempting to connect before sending...');
       connect();
-      return false;
     }
 
     ws.current.send(msg);

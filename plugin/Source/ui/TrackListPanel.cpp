@@ -1,6 +1,7 @@
 #include "TrackListPanel.h"
 #include "../Colors.h"
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "../utils/MessageStore.h"
 
 using namespace juce;
 
@@ -232,10 +233,12 @@ void TrackListPanel::loadTracksInternal(int page)
         if (result.failed())
         {
             DBG("TrackListPanel::loadTracksInternal() - error loading tracks: " + result.getErrorMessage());
-        }
-        else
-        {
-            DBG("TrackListPanel::loadTracksInternal() - tracks loaded successfully");
+            MessageStore::getInstance().pushMessage(PluginMessage{
+                .severity = PluginMessage::Severity::Error,
+                .content = "Failed to load tracks for user: " + currentUsername,
+                .sourceModule = "TrackListPanel",
+                .timestamp = std::chrono::system_clock::now()
+            });
         }
 
         MessageManager::callAsync([this, result, page]() {
