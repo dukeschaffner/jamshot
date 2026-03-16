@@ -3,7 +3,6 @@
 #include "GlobalErrorHandler.h"
 #include "Colors.h"
 
-
 using namespace juce;
 
 //==============================================================================
@@ -13,6 +12,7 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     , services(p.getServices())
     , loginView(services)
     , mainContentComponent(services)
+    , footer(services)
 {
     setSize(500, 400);
     setResizable (true, true);      // allow resizing
@@ -21,6 +21,11 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     addAndMakeVisible(loginView);
     addAndMakeVisible(mainContentComponent);
     addAndMakeVisible(messageDisplay);
+    addAndMakeVisible(footer);
+
+    #ifdef JUCE_DEBUG
+        addAndMakeVisible(debugComponent);
+    #endif
 
     // Set up track selection callback
     mainContentComponent.trackListPanel.setTrackSelectedCallback([this](const TrackInfo& track) {
@@ -28,27 +33,6 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     });
 
     addAndMakeVisible(logoComponent);
-
-    #ifdef JUCE_DEBUG
-        debugComponentVisible = false;
-        addChildComponent(debugComponent); // Add to tree but keep hidden initially
-        
-        debugToggleButton.setButtonText("Show Debug");
-        debugToggleButton.onClick = [this] {
-            debugComponentVisible = !debugComponentVisible;
-            if (debugComponentVisible)
-            {
-                addAndMakeVisible(debugComponent);
-            }
-            else
-            {
-                debugComponent.setVisible(false);
-            }
-            debugToggleButton.setButtonText(debugComponentVisible ? "Hide Debug" : "Show Debug");
-            resized(); // Trigger layout update
-        };
-        addAndMakeVisible(debugToggleButton);
-    #endif
 
     // Apply custom look and feel
     setLookAndFeel(&lookAndFeel);
@@ -120,6 +104,13 @@ void SterioPluginEditor::resized()
 {
     auto bounds = getLocalBounds().toFloat().reduced(10);
 
+    #ifdef JUCE_DEBUG
+    debugComponent.setBounds(bounds.withPosition(0, 0)
+                                          .withWidth(20)
+                                          .withHeight(20)
+                                          .toNearestInt());
+    #endif
+
     juce::FlexBox main;
     main.flexDirection = juce::FlexBox::Direction::column;
 
@@ -157,57 +148,17 @@ void SterioPluginEditor::resized()
         messageDisplay.setBounds(0,0,0,0);
     }
 
-#ifdef JUCE_DEBUG
-
-    // Debug area container
-    juce::FlexBox debugColumn;
-    debugColumn.flexDirection = juce::FlexBox::Direction::column;
-
-    if (debugComponentVisible)
-    {
-        debugColumn.items.add(
-            juce::FlexItem(debugComponent)
-                .withHeight(150.0f)
-                .withMargin(5.0f)
-        );
-    }
-    else
-    {
-        debugComponent.setBounds(0,0,0,0);
-    }
-
-    // Debug button row (right aligned)
-    juce::FlexBox debugRow;
-    debugRow.flexDirection = juce::FlexBox::Direction::row;
-    debugRow.justifyContent = juce::FlexBox::JustifyContent::flexEnd;
-
-    debugRow.items.add(
-        juce::FlexItem(debugToggleButton)
-            .withWidth(120.0f)
-            .withHeight(30.0f)
-            .withMargin(5.0f)
-    );
-
-    debugColumn.items.add(
-        juce::FlexItem(debugRow)
-            .withHeight(30.0f)
-    );
-
-#endif
-
     // Track list fills remaining space
     main.items.add(
         juce::FlexItem(mainContentComponent)
             .withFlex(1.0f)
     );
 
-#ifdef JUCE_DEBUG
-    // Debug area at bottom
+
     main.items.add(
-        juce::FlexItem(debugColumn)
-            .withHeight(debugComponentVisible ? 180.0f : 30.0f)
+        juce::FlexItem(footer)
+            .withHeight(50.0f)
     );
-#endif
 
     main.performLayout(bounds);
 }

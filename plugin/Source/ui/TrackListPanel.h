@@ -1,13 +1,14 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_events/juce_events.h>
 #include "../api/SterioApiClient.h"
 #include "../Colors.h"
 #include "../Services.h"
 
 //==============================================================================
 /** A panel that displays a list of liked tracks with refresh and load more functionality. */
-class TrackListPanel : public juce::Component, private juce::Timer
+class TrackListPanel : public juce::Component, private juce::Timer, private juce::ChangeListener
 {
 public:
     /** Callback function type for track selection */
@@ -36,6 +37,8 @@ public:
 
     /** Clear the track list and selection. */
     void clearTracks();
+
+    void selectTrackById(const juce::String& trackId);
 
 private:
     //==============================================================================
@@ -171,6 +174,7 @@ private:
     };
 
     void timerCallback() override;
+    void changeListenerCallback(juce::ChangeBroadcaster*) override;
 
     /** Load tracks from the API. */
     void loadTracksInternal(int page);
@@ -182,12 +186,12 @@ private:
     void selectTrack(int trackIndex);
 
     SterioApiClient& apiClientRef;
+    PluginState& pluginStateRef;
     juce::String currentUsername;
 
     juce::Array<TrackInfo> tracks;
     PaginationInfo pagination;
     int currentPage = 1;
-    int selectedTrackIndex = -1;
     bool isLoading = false;
 
     TrackSelectedCallback trackSelectedCallback;

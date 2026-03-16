@@ -21,7 +21,6 @@ SterioPluginProcessor::SterioPluginProcessor()
     authManager.loadTokens();
 
     stems = std::make_shared<juce::Array<StemTrack>>();
-    currentTrack = std::make_shared<juce::Optional<TrackInfo>>();
 
     // Set up provider function for playback engine to atomically access stems
     playbackEngine.setStemsProvider([this]() {
@@ -277,15 +276,13 @@ void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& newStems)
 
 void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
 {
-    auto newPtr = std::make_shared<juce::Optional<TrackInfo>>(track);
-    std::atomic_store(&currentTrack, newPtr);
-
+    pluginState.setCurrentTrack(track);
     loadStemsForTrack();
 }
 
 juce::Optional<TrackInfo> SterioPluginProcessor::getCurrentTrack() const
 {
-    return *std::atomic_load(&currentTrack);
+    return pluginState.getCurrentTrack();
 }
 
 void SterioPluginProcessor::setLoadedStems(const juce::Array<StemTrack>& newStems)
