@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import CustomTabs from './CustomTabs';
@@ -22,6 +23,7 @@ import MoveTrackModal from './teams/MoveTrackModal';
 import TrackTags from './TrackTags';
 import VideoExportModal from './VideoExportModal';
 import VideoExportStatusModal from './VideoExportStatusModal';
+import ConfirmationDialog from './ConfirmationDialog';
 import {usePluginWebSocket} from '../contexts/PluginWebSocketContext';
 
 export default function Track(
@@ -57,6 +59,7 @@ export default function Track(
   const [totalTracks, setTotalTracks] = useState(0);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [moveModalType, setMoveModalType] = useState(null); // 'folder' or 'room'
+  const [showPluginErrorDialog, setShowPluginErrorDialog] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [isExportingStems, setIsExportingStems] = useState(false);
   const [showVideoExportModal, setShowVideoExportModal] = useState(false);
@@ -355,6 +358,23 @@ export default function Track(
     router.push(`/track/${track.guid}`);
   };
 
+  const openInPlugin = async (e) => {
+    e.stopPropagation();
+    let msg = {
+      type: 'set_track',
+      track_id: track.id,
+      payload: track
+    }
+    try {
+      await send(JSON.stringify(msg));
+      showSuccess('Track opened in plugin successfully!');
+    } catch (err) {
+      console.error('Failed to open track in plugin:', err);
+      setShowPluginErrorDialog(true);
+    }
+    setShowActionsMenu(false);
+  };
+
   // Competition button helpers
   const getCompetitionButtonClass = () => {
     if (!competition) return 'pink-btn sm';
@@ -517,11 +537,8 @@ export default function Track(
             {track.is_private && currentUser.id === track.user_id && <span className="share-text">Share</span>}
           </button>
           
-          {/* Actions menu (ellipses button) - shows if user owns track or is in team/camp context */}
-          {(currentUser?.id === track.user_id || 
-            (teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner')) ||
-            (campContext && (campContext.userRole === 'admin' || campContext.userRole === 'owner' || currentUser?.id === track.user_id))) && (
-            <div className={styles.trackActionsMenu} ref={actionsMenuRef}>
+          {/* Actions menu (ellipses button) */}
+          <div className={styles.trackActionsMenu} ref={actionsMenuRef}>
               <button 
                 className="pill-btn sm"
                 onClick={(e) => {
@@ -549,20 +566,12 @@ export default function Track(
                       📊 Analytics
                     </button>
                   )}
-                    <button
-                      className={styles.actionMenuItem}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        let msg = {
-                          type: 'set_track',
-                          track_id: track.id,
-                          payload: track
-                        }
-                        send(JSON.stringify(msg));
-                      }}
-                    >
-                      📊 Open in Plugin
-                    </button>
+                  <button
+                    className={styles.actionMenuItem}
+                    onClick={openInPlugin}
+                  >
+                    Open in Plugin
+                  </button>
                   
                   {/* Move to folder option (team context only) */}
                   {teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner') && (
@@ -633,7 +642,6 @@ export default function Track(
                 </div>
               )}
             </div>
-          )}
           
           {/* Video Export Modals */}
           {showVideoExportModal && (
@@ -846,7 +854,7 @@ export default function Track(
           campId={moveModalType === 'room' ? campContext?.campId : undefined}
           track={track}
           currentId={
-            moveModalType === 'folder' 
+            moveModalType === 'folder'
               ? (track.team_folder_id || teamContext?.folderId || null)
               : (track.room_id || campContext?.roomId || null)
           }
@@ -862,6 +870,22 @@ export default function Track(
           }}
         />
       )}
+
+      {/* Plugin Error Dialog */}
+      <ConfirmationDialog
+        isOpen={showPluginErrorDialog}
+        onClose={() => setShowPluginErrorDialog(false)}
+        onConfirm={() => setShowPluginErrorDialog(false)}
+        title="Plugin Connection Failed"
+        message={
+          <>
+            Failed to open track in plugin. Make sure the plugin is installed and running in a DAW.{' '}
+            <Link href="/plugin" className="link-underline" style={{ color: 'var(--seafoam-dark)' }}>Install plugin here</Link>.
+          </>
+        }
+        confirmText="OK"
+        variant="default"
+      />
     </div>
   );
 }

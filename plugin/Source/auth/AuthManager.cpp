@@ -40,23 +40,32 @@ bool AuthManager::isLoggedIn() const
 
 void AuthManager::login()
 {
+    int port = 0;
+
     if (callbackServer && callbackServer->isRunning())
-        return;
-
-    callbackServer = std::make_unique<AuthCallbackServer>();
-    callbackServer->setTokenCallback([this](const juce::String& at, const juce::String& rt)
     {
-        onTokenReceived(at, rt);
-    });
+        // Server is already running, get its port
+        port = callbackServer->getPort();
+    }
+    else
+    {
+        // Start a new server
+        callbackServer = std::make_unique<AuthCallbackServer>();
+        callbackServer->setTokenCallback([this](const juce::String& at, const juce::String& rt)
+        {
+            onTokenReceived(at, rt);
+        });
 
-    int port = callbackServer->start(0);
-    if (port <= 0)
-        return;
+        port = callbackServer->start(0);
+        if (port <= 0)
+            return;
 
-    // Brief delay so the callback server thread is in waitForNextConnection()
-    // before the browser loads and potentially redirects immediately.
-    juce::Thread::sleep(150);
+        // Brief delay so the callback server thread is in waitForNextConnection()
+        // before the browser loads and potentially redirects immediately.
+        juce::Thread::sleep(150);
+    }
 
+    // Build and launch auth URL
     juce::String authUrl = ApiConfig::getUIBaseUrl().trimEnd();
     if (authUrl.endsWith("/"))
         authUrl = authUrl.dropLastCharacters(1);

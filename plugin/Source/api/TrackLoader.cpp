@@ -19,13 +19,6 @@ TrackLoader::TrackLoader(SterioApiClient& apiClientRef, CacheManager& cacheManag
         .sourceModule = "TrackLoader",
         .timestamp = std::chrono::system_clock::now()
     });
-
-    MessageStore::getInstance().pushMessage(PluginMessage{
-        .severity = PluginMessage::Severity::Error,
-        .content = "TrackLoader Error test",
-        .sourceModule = "TrackLoader",
-        .timestamp = std::chrono::system_clock::now()
-    });
 }
 
 TrackLoader::~TrackLoader()
