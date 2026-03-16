@@ -7,10 +7,12 @@ using namespace juce;
 //==============================================================================
 TrackListPanel::TrackListPanel(Services& services)
     : apiClientRef(services.api),
+      pluginStateRef(services.pluginState),
       trackListBox("Tracks", nullptr),
       scrollBar(false),
       refreshButton("Refresh", DrawableButton::ImageFitted)
 {
+    pluginStateRef.addChangeListener(this);
     addAndMakeVisible(refreshButton);
     
     // Load refresh icon from SVG file
@@ -80,6 +82,24 @@ TrackListPanel::TrackListPanel(Services& services)
 TrackListPanel::~TrackListPanel()
 {
     stopTimer();
+    pluginStateRef.removeChangeListener(this);
+}
+
+void TrackListPanel::changeListenerCallback(juce::ChangeBroadcaster*)
+{
+    DBG("TrackListPanel::changeListenerCallback()");
+    auto track = pluginStateRef.getCurrentTrack();
+    juce::String trackId;
+    if (track.hasValue())
+    {
+        trackId = (*track).id;
+    }
+    else
+    {
+        trackId = "";
+    }
+
+    selectTrackById(trackId);
 }
 
 void TrackListPanel::paint(Graphics& g)
@@ -141,7 +161,7 @@ void TrackListPanel::refreshTracks()
 
     currentPage = 1;
     tracks.clear();
-    selectedTrackIndex = -1;
+    trackListBox.deselectAllRows();
     trackListBox.updateContent();
     loadTracksInternal(1);
 }
@@ -161,20 +181,19 @@ void TrackListPanel::setTrackSelectedCallback(TrackSelectedCallback callback)
 
 const TrackInfo* TrackListPanel::getSelectedTrack() const
 {
-    if (selectedTrackIndex >= 0 && selectedTrackIndex < tracks.size())
-    {
-        const TrackInfo& track = tracks[selectedTrackIndex];
-        return &track;
-    }
+    int row = trackListBox.getSelectedRow();
+    if (row >= 0 && row < tracks.size())
+        return &tracks.getReference(row);
+
     return nullptr;
 }
 
 void TrackListPanel::clearTracks()
 {
     tracks.clear();
-    selectedTrackIndex = -1;
     pagination = PaginationInfo();
     currentPage = 1;
+    trackListBox.deselectAllRows();
     trackListBox.updateContent();
     statusLabel.setText("No tracks loaded", dontSendNotification);
     resized(); // Trigger layout recalculation when visibility changes
@@ -239,7 +258,7 @@ void TrackListPanel::updateTracksDisplay(const LikedTracksResponse& response)
     if (currentPage == 1)
     {
         tracks = response.tracks;
-        selectedTrackIndex = -1; // Clear selection on refresh
+        trackListBox.deselectAllRows();
     }
     else
     {
@@ -248,16 +267,36 @@ void TrackListPanel::updateTracksDisplay(const LikedTracksResponse& response)
 
     pagination = response.pagination;
     trackListBox.updateContent();
+    auto currentTrack = pluginStateRef.getCurrentTrack();
+    if(currentTrack.hasValue())
+    {
+        selectTrackById((*currentTrack).id);
+    }
 }
 
 void TrackListPanel::selectTrack(int trackIndex)
 {
     if (trackIndex >= 0 && trackIndex < tracks.size())
     {
-        selectedTrackIndex = trackIndex;
-        trackListBox.repaint();
+        selectTrackById(tracks[trackIndex].id);
 
         if (trackSelectedCallback)
             trackSelectedCallback(tracks[trackIndex]);
     }
+}
+
+void TrackListPanel::selectTrackById(const juce::String& trackId)
+{
+    for (int i = 0; i < tracks.size(); ++i)
+    {
+        if (tracks[i].id == trackId)
+        {
+            trackListBox.selectRow(i);
+            trackListBox.scrollToEnsureRowIsOnscreen(i);
+            return;
+        }
+    }
+
+    trackListBox.deselectAllRows();
+    trackListBox.repaint();
 }

@@ -4,6 +4,7 @@
 #include "api/SterioApiClient.h"
 #include "CacheManager.h"
 #include "api/TrackLoader.h"
+#include "PluginState.h"
 
 //==============================================================================
 struct Services
@@ -12,4 +13,5 @@ struct Services
     SterioApiClient& api;
     CacheManager& cache;
     TrackLoader& trackLoader;
+    PluginState& pluginState;
 };

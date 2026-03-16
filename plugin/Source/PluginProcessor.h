@@ -12,6 +12,7 @@
 #include "api/TrackLoader.h"
 #include "StemModels.h"
 #include "Services.h"
+#include "PluginState.h"
 
 
 //==============================================================================
@@ -96,7 +97,8 @@ private:
     SterioApiClient apiClient { authManager };
     ConnectionManager connectionManager;
     TrackLoader trackLoader { apiClient, cacheManager };
-    Services services { authManager, apiClient, cacheManager, trackLoader };
+    PluginState pluginState;
+    Services services { authManager, apiClient, cacheManager, trackLoader, pluginState };
 
     // Stem playback engine (Increment 5)
     StemPlaybackEngine playbackEngine;
@@ -114,7 +116,6 @@ private:
 
     // Track and stem state management (thread-safe)
     std::shared_ptr<juce::Array<StemTrack>> stems;
-    std::shared_ptr<juce::Optional<TrackInfo>> currentTrack;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };

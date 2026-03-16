@@ -11,6 +11,7 @@
 #include "ui/DebugMessageComponent.h"
 #include "ui/MainContentComponent.h"
 #include "ui/LogoComponent.h"
+#include "ui/Footer.h"
 #include "Services.h"
 
 //==============================================================================
@@ -41,6 +42,7 @@ private:
     DebugMessageComponent debugComponent;
     juce::TextButton debugToggleButton;
     LogoComponent logoComponent;
+    Footer footer;
 
     /** Flag to show high sample rate warning */
     bool showHighSampleRateWarning = false;

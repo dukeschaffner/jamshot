@@ -36,6 +36,11 @@ public:
         auto newVec = std::make_shared<std::vector<PluginMessage>>(*oldPtr);
         newVec->push_back(msg);
         std::atomic_store(&messages, newVec);
+
+        auto oldAllPtr = std::atomic_load(&allMessages);
+        auto newAllVec = std::make_shared<std::vector<PluginMessage>>(*oldAllPtr);
+        newAllVec->push_back(msg);
+        std::atomic_store(&allMessages, newAllVec);
     }
 
     void setDebugMode(bool enable) { debugMode.store(enable); }
@@ -54,10 +59,17 @@ public:
         return std::atomic_exchange(&messages, emptyVec);
     }
 
+    // Get all messages ever pushed (thread-safe, lock-free)
+    std::shared_ptr<std::vector<PluginMessage>> getAllMessages() const
+    {
+        return std::atomic_load(&allMessages);
+    }
+
 private:
-    MessageStore() : messages(std::make_shared<std::vector<PluginMessage>>()) {}
+    MessageStore() : messages(std::make_shared<std::vector<PluginMessage>>()), allMessages(std::make_shared<std::vector<PluginMessage>>()) {}
 
     // Atomic pointer to the vector
     std::shared_ptr<std::vector<PluginMessage>> messages;
+    std::shared_ptr<std::vector<PluginMessage>> allMessages;
     std::atomic<bool> debugMode { false };
 };
