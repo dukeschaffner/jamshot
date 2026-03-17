@@ -95,7 +95,7 @@ juce::String AuthManager::getAccessToken() const
 void AuthManager::saveTokens()
 {
     auto propsFile = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("Sterio").getChildFile("plugin-auth.properties");
+        .getChildFile("SterioPlugin").getChildFile("plugin-auth.properties");
     propsFile.getParentDirectory().createDirectory();
 
     juce::PropertiesFile::Options opts;

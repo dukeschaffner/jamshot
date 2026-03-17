@@ -1,7 +1,9 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Config.h"
 #include "GlobalErrorHandler.h"
 #include "Colors.h"
+#include "utils/PluginMetaHelper.h"
 
 using namespace juce;
 
@@ -41,6 +43,15 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     helpButton.setButtonText("Help");
     helpButton.onClick = [this] { toggleHelp(); };
 
+    // Set up update button (shown only when an update is available)
+    addAndMakeVisible(updateButton);
+    updateButton.setButtonText("Update Available");
+    updateButton.setVisible(false);
+    updateButton.onClick = [this] {
+        juce::URL url(Config::UI::getBaseUrl() + "/plugin");
+        url.launchInDefaultBrowser();
+    };
+
     // Apply custom look and feel
     setLookAndFeel(&lookAndFeel);
 
@@ -70,6 +81,14 @@ void SterioPluginEditor::timerCallback()
         mainContentComponent.trackListPanel.setUsername("");
         // Clear tracks when logged out
         mainContentComponent.trackListPanel.clearTracks();
+    }
+
+    // Show update button when new plugin version is available
+    if (!showingUpdateButton && PluginMetaHelper::getInstance().IsUpdateAvailable())
+    {
+        showingUpdateButton = true;
+        updateButton.setVisible(true);
+        resized();
     }
 
     // Update sample rate warning
@@ -119,10 +138,21 @@ void SterioPluginEditor::resized()
     #endif
 
     // Position help button at top left
-    helpButton.setBounds(bounds.withPosition(25, 10)
+    helpButton.setBounds(bounds.withPosition(10, 10)
                                   .withWidth(50)
                                   .withHeight(20)
                                   .toNearestInt());
+
+    // Position update button at top right (mirror spacing from help button)
+    updateButton.setVisible(showingUpdateButton);
+    if (showingUpdateButton)
+    {
+        const int updateButtonWidth = 110;
+        updateButton.setBounds(bounds.withPosition(bounds.getRight() - 10 - updateButtonWidth, 10)
+                                         .withWidth(updateButtonWidth)
+                                         .withHeight(20)
+                                         .toNearestInt());
+    }
 
     juce::FlexBox main;
     main.flexDirection = juce::FlexBox::Direction::column;

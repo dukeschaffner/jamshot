@@ -25,5 +25,5 @@ TODO:
 - better loading states
 - do i need to delete cache if plugin is uninstalled?
 - notify user about updates
-- plyugin ui page
 - websocket server start retry
+- if user/me fials, it keeps calling that endpoint over and over again. need to handle this better.
