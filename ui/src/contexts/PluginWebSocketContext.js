@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
-const WS_URL = 'ws://localhost:8080';
+const WS_URL = 'ws://localhost:59327';
 const RETRY_INTERVAL = 10000; // 10 seconds
 
 // Context
@@ -21,43 +21,49 @@ export function PluginWebSocketProvider({ children }) {
 
   const connect = useCallback(() => {
     if (ws.current) return; // already connecting/connected
-    setStatus('connecting');
-    addLog('Connecting to ' + WS_URL);
-    console.log('Connecting to ' + WS_URL);
-
-    ws.current = new WebSocket(WS_URL);
-
-    ws.current.onopen = () => {
-      console.log('Connected');
-      setStatus('connected');
-      addLog('Connected');
-      if (retryTimer.current) {
-        clearTimeout(retryTimer.current);
-        retryTimer.current = null;
-      }
-    };
-
-    ws.current.onclose = () => {
-      console.log('Disconnected');
-      setStatus('disconnected');
-      addLog('Disconnected');
-      ws.current = null;
-
-      // Retry every 10 seconds
-      retryTimer.current = setTimeout(() => {
-        connect();
-      }, RETRY_INTERVAL);
-    };
-
-    ws.current.onerror = (err) => {
+    try{
+      setStatus('connecting');
+      addLog('Connecting to ' + WS_URL);
+      console.log('Connecting to ' + WS_URL);
+  
+      ws.current = new WebSocket(WS_URL);
+  
+      ws.current.onopen = () => {
+        console.log('Connected');
+        setStatus('connected');
+        addLog('Connected');
+        if (retryTimer.current) {
+          clearTimeout(retryTimer.current);
+          retryTimer.current = null;
+        }
+      };
+  
+      ws.current.onclose = () => {
+        console.log('Disconnected');
+        setStatus('disconnected');
+        addLog('Disconnected');
+        ws.current = null;
+  
+        // Retry every 10 seconds
+        retryTimer.current = setTimeout(() => {
+          connect();
+        }, RETRY_INTERVAL);
+      };
+  
+      ws.current.onerror = (err) => {
+        setStatus('error');
+        addLog('Connection error');
+        console.error('WebSocket error:', err);
+      };
+  
+      ws.current.onmessage = (e) => {
+        addLog(e.data, 'incoming');
+      };
+    }
+    catch (err) {
       setStatus('error');
       addLog('Connection error');
-      console.error('WebSocket error:', err);
-    };
-
-    ws.current.onmessage = (e) => {
-      addLog(e.data, 'incoming');
-    };
+    }
   }, [addLog]);
 
   const disconnect = useCallback(() => {

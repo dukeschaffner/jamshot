@@ -33,12 +33,6 @@ SterioPluginProcessor::SterioPluginProcessor()
     MessageStore::getInstance().setDebugMode(false);
 #endif
 
-    MessageStore::getInstance().pushDebugMessage(PluginMessage{
-        .severity = PluginMessage::Severity::Info,
-        .content = "Debug mode enabled",
-        .sourceModule = "SterioPluginProcessor",
-        .timestamp = std::chrono::system_clock::now()
-    });
 
     connectionManager.onStatusChange([this](ConnectionManager::Status s, const std::string& reason)
     {
@@ -148,6 +142,11 @@ void SterioPluginProcessor::changeProgramName(int index, const juce::String& new
 //==============================================================================
 void SterioPluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    // setPlayConfigDetails (getTotalNumInputChannels(),   // usually 0 for master bus
+    //     getTotalNumOutputChannels(),  // e.g., 2 for stereo
+    //     sampleRate,
+    //     samplesPerBlock);
+
     // Handle sample rate changes
     handleSampleRateChange(sampleRate);
 

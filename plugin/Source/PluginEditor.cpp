@@ -24,7 +24,7 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     addAndMakeVisible(mainContentComponent);
     addAndMakeVisible(helpView);
     helpView.setVisible(false);
-    addAndMakeVisible(messageDisplay);
+    addChildComponent(messageDisplay);
     addAndMakeVisible(footer);
 
     #ifdef JUCE_DEBUG

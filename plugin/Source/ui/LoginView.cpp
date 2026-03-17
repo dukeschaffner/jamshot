@@ -71,10 +71,11 @@ void LoginView::resized()
 
 void LoginView::loadUserInfo()
 {
-    if (isLoadingUserInfo)
+    if (isLoadingUserInfo || userInfoLoadAttempted)
         return;
 
     isLoadingUserInfo = true;
+    userInfoLoadAttempted = true;
     statusLabel.setText("Loading user info...", dontSendNotification);
 
     // Load user info on background thread
@@ -110,6 +111,7 @@ void LoginView::updateLoginState()
         authButton.onClick = [this] {
             authManagerRef.logout();
             currentUsername.clear();
+            userInfoLoadAttempted = false;
             statusLabel.setText("", dontSendNotification);
         };
 
@@ -125,6 +127,7 @@ void LoginView::updateLoginState()
         authButton.onClick = [this] { authManagerRef.login(); };
 
         currentUsername.clear();
+        userInfoLoadAttempted = false;
         statusLabel.setText("", dontSendNotification);
     }
 }
