@@ -4,3 +4,11 @@
 Building Packages:
 - all third party packages are externalized in the esbuild.config.js file
 - third party dependencies of local shared packages must be manually added to consuming package.json files
+
+
+
+Plugin:
+- when releasing a new version:
+    - update version in Config.h
+    - update API Env Var
+    - ensure Config.h points to prod urls

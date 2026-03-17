@@ -47,6 +47,7 @@ private:
     DebugMessageComponent debugComponent;
     juce::TextButton debugToggleButton;
     juce::TextButton helpButton;
+    juce::TextButton updateButton;
     LogoComponent logoComponent;
     Footer footer;
 
@@ -58,6 +59,9 @@ private:
 
     /** Flag to track help view visibility */
     bool showingHelp = false;
+
+    /** Flag to track update button visibility */
+    bool showingUpdateButton = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginEditor)
 };

@@ -38,4 +38,15 @@ public:
             return "http://localhost:3000";
         }
     };
+
+    /** Plugin metadata configuration */
+    class PluginMeta
+    {
+    public:
+        /** Path to plugin metadata file */
+        static juce::String getPluginVersion()
+        {
+            return "0.1.1";
+        }
+    };
 };

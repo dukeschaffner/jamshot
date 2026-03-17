@@ -22,6 +22,7 @@ import cors from 'cors';
 import { bodyParser } from './middleware/bodyParser.js';
 import { asyncContextMiddleware } from './middleware/asyncContext.js';
 import { requestLoggerMiddleware } from './middleware/requestLogger.js';
+import { pluginMetaMiddleware } from './middleware/pluginMeta.js';
 import { logger } from './utils/logger.js';
 
 
@@ -30,6 +31,8 @@ const app = express();
 // Trust proxy for accurate IP detection (required for API Gateway/Lambda)
 // Set to 1 to trust only the immediate proxy (API Gateway)
 app.set('trust proxy', 1);
+
+app.use(pluginMetaMiddleware);
 
 // CORS configuration for API Gateway
 const corsOptions = {

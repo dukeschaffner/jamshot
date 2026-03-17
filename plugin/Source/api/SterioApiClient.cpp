@@ -1,6 +1,7 @@
 #include "SterioApiClient.h"
 #include "../auth/AuthManager.h"
 #include "../utils/JsonUtils.h"
+#include "../utils/PluginMetaHelper.h"
 
 using namespace juce;
 
@@ -96,11 +97,19 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
         return ApiResult<var>::fail("No access token set");
     }
 
+    String pluginMetaHeader = PluginMetaHelper::getInstance().GetPluginMetaHeader();
+
+    String headers = 
+        "Authorization: Bearer " + accessToken + "\r\n" +
+        "User-Agent: " + ApiConfig::getUserAgent() + "\r\n" +
+        "RequireAuth: true\r\n" +
+        "X-Plugin-Meta: " + pluginMetaHeader + "\r\n";
+
     // Create HTTP request
     int httpStatus = 0;
     URL::InputStreamOptions options = URL::InputStreamOptions(URL::ParameterHandling::inAddress)
         .withHttpRequestCmd("GET")
-        .withExtraHeaders("Authorization: Bearer " + accessToken + "\r\nUser-Agent: " + ApiConfig::getUserAgent() + "\r\nRequireAuth: true")
+        .withExtraHeaders(headers)
         .withConnectionTimeoutMs(ApiConfig::getRequestTimeoutMs())
         .withStatusCode(&httpStatus);
 
@@ -113,9 +122,8 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
 
     // Read response
     String responseText = stream->readEntireStreamAsString();
-    
 
-    if (httpStatus != 200)
+    if (httpStatus >= 400)
     {
         
         // Check if this is an authentication error that should trigger logout
@@ -139,6 +147,7 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
         return ApiResult<var>::fail("Failed to parse JSON response: " + responseText);
     }
 
+    PluginMetaHelper::getInstance().SetLatestPluginVersionIfPresent(json);
     return ApiResult<var>::ok(json);
 }
 

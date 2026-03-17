@@ -66,6 +66,8 @@ target_sources(SterioPlugin
         Source/PluginState.h
         Source/utils/JsonUtils.h
         Source/utils/MessageStore.h
+        Source/utils/PluginMetaHelper.cpp
+        Source/utils/PluginMetaHelper.h
         Source/api/ApiConfig.h
         Source/api/SterioApiClient.cpp
         Source/api/SterioApiClient.h
@@ -118,6 +120,8 @@ source_group("Sterio" FILES
     Source/PluginState.h
     Source/utils/JsonUtils.h
     Source/utils/MessageStore.h
+    Source/utils/PluginMetaHelper.cpp
+    Source/utils/PluginMetaHelper.h
     Source/api/ApiConfig.h
     Source/api/SterioApiClient.cpp
     Source/api/SterioApiClient.h
