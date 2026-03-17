@@ -20,6 +20,9 @@ public:
     /** Get the cache directory */
     juce::File getCacheDirectory() const { return cacheDirectory; }
 
+    /** Hash a track ID */
+    juce::String hashTrackId(const juce::String& trackId) const;
+
     /** Check if metadata is cached for a track */
     bool hasMetadata(const juce::String& trackId) const;
 
