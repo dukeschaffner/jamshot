@@ -37,6 +37,7 @@ private:
 
     juce::String currentUsername;
     bool isLoadingUserInfo = false;
+    bool userInfoLoadAttempted = false; // Track if we've already tried to load user info
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LoginView)
 };

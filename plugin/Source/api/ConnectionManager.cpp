@@ -32,7 +32,7 @@ void ConnectionManager::connect(const std::string& url)
         // For server mode, we always bind to all interfaces (0.0.0.0)
         // The host in the URL is ignored for binding purposes
         std::string bindHost = "0.0.0.0";
-        int port = 8080;
+        int port = 59327;
 
         // host[:port][...]
         size_t colonPos = working.find(':');
