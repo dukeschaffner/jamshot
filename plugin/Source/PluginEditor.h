@@ -12,6 +12,7 @@
 #include "ui/MainContentComponent.h"
 #include "ui/LogoComponent.h"
 #include "ui/Footer.h"
+#include "ui/HelpView.h"
 #include "Services.h"
 
 //==============================================================================
@@ -33,14 +34,19 @@ private:
     /** Check if we should show high sample rate warning */
     void updateSampleRateWarning();
 
+    /** Toggle between help view and main content */
+    void toggleHelp();
+
     SterioPluginProcessor& processorRef;
     Services& services;
     LoginView loginView;
     MessageDisplay messageDisplay;
     MainContentComponent mainContentComponent;
+    HelpView helpView;
     SterioLookAndFeel lookAndFeel;
     DebugMessageComponent debugComponent;
     juce::TextButton debugToggleButton;
+    juce::TextButton helpButton;
     LogoComponent logoComponent;
     Footer footer;
 
@@ -49,6 +55,9 @@ private:
     
     /** Flag to track debug component visibility */
     bool debugComponentVisible = false;
+
+    /** Flag to track help view visibility */
+    bool showingHelp = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginEditor)
 };

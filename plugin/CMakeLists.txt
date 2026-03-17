@@ -99,6 +99,7 @@ target_sources(SterioPlugin
         Source/ui/LogoComponent.h
         Source/ui/Footer.cpp
         Source/ui/Footer.h
+        Source/ui/HelpView.h
 )
 
 source_group("Sterio" FILES
@@ -150,6 +151,7 @@ source_group("Sterio" FILES
     Source/ui/LogoComponent.h
     Source/ui/Footer.cpp
     Source/ui/Footer.h
+    Source/ui/HelpView.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")
@@ -170,6 +172,7 @@ target_link_libraries(SterioPlugin
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_formats
+        juce::juce_cryptography
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

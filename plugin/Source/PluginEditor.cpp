@@ -20,6 +20,8 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
 
     addAndMakeVisible(loginView);
     addAndMakeVisible(mainContentComponent);
+    addAndMakeVisible(helpView);
+    helpView.setVisible(false);
     addAndMakeVisible(messageDisplay);
     addAndMakeVisible(footer);
 
@@ -33,6 +35,11 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     });
 
     addAndMakeVisible(logoComponent);
+
+    // Set up help button
+    addAndMakeVisible(helpButton);
+    helpButton.setButtonText("Help");
+    helpButton.onClick = [this] { toggleHelp(); };
 
     // Apply custom look and feel
     setLookAndFeel(&lookAndFeel);
@@ -111,6 +118,12 @@ void SterioPluginEditor::resized()
                                           .toNearestInt());
     #endif
 
+    // Position help button at top left
+    helpButton.setBounds(bounds.withPosition(25, 10)
+                                  .withWidth(50)
+                                  .withHeight(20)
+                                  .toNearestInt());
+
     juce::FlexBox main;
     main.flexDirection = juce::FlexBox::Direction::column;
 
@@ -148,12 +161,21 @@ void SterioPluginEditor::resized()
         messageDisplay.setBounds(0,0,0,0);
     }
 
-    // Track list fills remaining space
-    main.items.add(
-        juce::FlexItem(mainContentComponent)
-            .withFlex(1.0f)
-    );
-
+    // Track list or help view fills remaining space
+    if (showingHelp)
+    {
+        main.items.add(
+            juce::FlexItem(helpView)
+                .withFlex(1.0f)
+        );
+    }
+    else
+    {
+        main.items.add(
+            juce::FlexItem(mainContentComponent)
+                .withFlex(1.0f)
+        );
+    }
 
     main.items.add(
         juce::FlexItem(footer)
@@ -173,4 +195,22 @@ void SterioPluginEditor::updateSampleRateWarning()
 {
     double currentSampleRate = processorRef.getCurrentSampleRate();
     showHighSampleRateWarning = (currentSampleRate > 100000.0);
+}
+
+void SterioPluginEditor::toggleHelp()
+{
+    showingHelp = !showingHelp;
+    if (showingHelp)
+    {
+        helpButton.setButtonText("Back");
+        mainContentComponent.setVisible(false);
+        helpView.setVisible(true);
+    }
+    else
+    {
+        helpButton.setButtonText("Help");
+        mainContentComponent.setVisible(true);
+        helpView.setVisible(false);
+    }
+    resized();
 }

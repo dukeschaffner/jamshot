@@ -1,4 +1,5 @@
 #include "CacheManager.h"
+#include "juce_cryptography/juce_cryptography.h"
 
 using namespace juce;
 
@@ -12,6 +13,13 @@ CacheManager::CacheManager()
 
     // Set cache size from configuration
     maxCacheSize = Config::Cache::maxSizeBytes;
+}
+
+String CacheManager::hashTrackId(const String& trackId) const
+{
+    // Create SHA-256 hash of the track ID
+    SHA256 hasher(trackId.toUTF8());
+    return hasher.toHexString().toLowerCase();
 }
 
 CacheManager::~CacheManager()
@@ -298,7 +306,9 @@ void CacheManager::cleanupOldEntries()
 
 File CacheManager::getTrackDirectory(const String& trackId) const
 {
-    return cacheDirectory.getChildFile(trackId);
+    // Hash the track ID for the directory name
+    String dirHash = hashTrackId(trackId);
+    return cacheDirectory.getChildFile(dirHash);
 }
 
 File CacheManager::getMetadataFile(const String& trackId) const
@@ -308,12 +318,16 @@ File CacheManager::getMetadataFile(const String& trackId) const
 
 File CacheManager::getAudioFile(const String& trackId) const
 {
-    return getTrackDirectory(trackId).getChildFile("audio.mp3");
+    // Create a hash for the filename that includes the trackId
+    String filenameHash = hashTrackId(trackId + "_audio");
+    return getTrackDirectory(trackId).getChildFile(filenameHash + ".dat");
 }
 
 File CacheManager::getLastAccessedFile(const String& trackId) const
 {
-    return getTrackDirectory(trackId).getChildFile("last_accessed.txt");
+    // Create a hash for the filename that includes the trackId
+    String filenameHash = hashTrackId(trackId + "_access");
+    return getTrackDirectory(trackId).getChildFile(filenameHash + ".dat");
 }
 
 Result CacheManager::ensureTrackDirectoryExists(const String& trackId)
