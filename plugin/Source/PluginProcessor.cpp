@@ -157,7 +157,7 @@ void SterioPluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     auto status = connectionManager.getStatus();
     if (status == ConnectionManager::Status::Disconnected)
     {
-        connectionManager.connect("ws://localhost:8080");
+        connectionManager.connect("ws://localhost:59327");
     }
 
     juce::ignoreUnused(samplesPerBlock);
