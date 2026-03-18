@@ -1,10 +1,10 @@
 #!/bin/bash
-xcrun notarytool submit Sterio-0.1.0-Installer.pkg \
+xcrun notarytool submit Sterio-Plugin.pkg \
   --keychain-profile "AC_NOTARY" \
   --wait
 
 
-xcrun stapler staple Sterio-0.1.0-Installer.pkg
+xcrun stapler staple Sterio-Plugin.pkg
 
 # verify the signature
 # spctl -a -t install -vv Sterio.pkg
