@@ -24,7 +24,6 @@ import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ContextMenu from './components/ContextMenu';
 import { useToast } from '../../lib/ToastContext';
-import PluginSync from './components/PluginSync';
 
 function DAWContent({ track}) {
   const {
@@ -431,7 +430,6 @@ function DAWContent({ track}) {
               zoom={zoom}
               onZoomChange={setZoomLevel}
             />
-            <PluginSync/>
         </div>
       </div>
 

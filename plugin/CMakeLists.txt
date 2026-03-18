@@ -29,9 +29,11 @@ juce_add_plugin(SterioPlugin
     COMPANY_NAME "Sterio"
     PLUGIN_MANUFACTURER_CODE STER
     PLUGIN_CODE StPl
-    IS_SYNTH FALSE
+    IS_SYNTH TRUE
+    VST3_CATEGORIES "Instrument Synth"
+    PLUGIN_CHANNEL_CONFIGURATIONS "[0,1],[0,2]"
     IS_MIDI_EFFECT FALSE
-    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
     FORMATS AU VST3 Standalone
@@ -170,7 +172,9 @@ target_compile_definitions(SterioPlugin
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0)
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_MIDI_INPUT_ENABLED=1
+        JucePlugin_WantsMidiInput=1)
 
 target_link_libraries(SterioPlugin
     PRIVATE
