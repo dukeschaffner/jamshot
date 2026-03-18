@@ -43,6 +43,7 @@
 }
 
 .message {
+  white-space: normal;
   font-size: 14px;
   color: var(--text-secondary);
   margin: 0 0 24px 0;

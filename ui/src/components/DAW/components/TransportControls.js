@@ -19,6 +19,7 @@ import styles from '../DAW.module.css';
 import { useUser } from '../../../contexts/UserContext';
 import DAWConfig from '../misc/DAWConfig';
 import { useDAW } from '../DAWContext';
+import PluginSync from './PluginSync';
 
 const timeSignatureOptions = DAWConfig.timeSignature.options;
 
@@ -391,6 +392,7 @@ const TransportControls = ({
           >
             Fullscreen
           </button>
+          <PluginSync />
         </div>
       )}
     </div>

@@ -18,19 +18,19 @@ export default function PluginPage() {
       description: 'Audio Unit Plugin',
       platform: 'macOS',
       icon: '🎹',
-      filename: 'Sterio-Plugin.component'
+      filename: 'Sterio.component.zip'
     },
     {
       name: 'Sterio-Plugin.vst3',
       description: 'VST3 Plugin',
       platform: 'Cross-platform',
       icon: '🎛️',
-      filename: 'Sterio-Plugin.vst3'
+      filename: 'Sterio.vst3.zip'
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-seafoam-light to-rustic-pink-light dark:from-grey-1 dark:to-grey-2">
+    <div className="min-h-screen">
       <div className="container mx-auto px-4 py-16 max-w-4xl">
         {/* Header Section */}
         <div className="text-center mb-16">
@@ -48,10 +48,9 @@ export default function PluginPage() {
         {/* Plugin Downloads Section */}
         <div className="grid md:grid-cols-1 gap-8 mb-16">
           {pluginFiles.map((plugin, index) => (
-            <div key={index} className="bg-white dark:bg-grey-1 rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-grey-2 dark:border-grey-3">
+            <div key={index} className="bg-grey-1 rounded-xl p-8 shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-6">
-                  <div className="text-5xl">{plugin.icon}</div>
                   <div>
                     <h3 className="text-2xl font-semibold mb-2 text-text-primary">
                       {plugin.name}
@@ -68,7 +67,7 @@ export default function PluginPage() {
                   <a
                     href={`${baseUrl}/plugin/${plugin.filename}`}
                     download={plugin.filename}
-                    className="gradient-btn pill-btn text-lg px-6 py-3 inline-flex items-center space-x-2 hover:scale-105 transition-transform duration-200"
+                    className="gradient-btn pill-btn"
                   >
                     <span>Download</span>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

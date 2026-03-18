@@ -420,7 +420,8 @@ void SterioPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+    // Clear all output channels since this is now an instrument
+    for (auto i = 0; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
     // Stem playback (Increment 5) - Using StemPlaybackEngine

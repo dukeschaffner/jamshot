@@ -15,7 +15,6 @@ public:
         instructionsEditor.setColour(juce::TextEditor::backgroundColourId, Colors::WHITE);
         instructionsEditor.setColour(juce::TextEditor::textColourId, Colors::BLACK);
         instructionsEditor.setText("Instructions:\n"
-                                   "- Insert the plugin on the master bus\n"
                                    "- Use 44.1 kHz project sample rate for best results\n"
                                    "- Log in with your Sterio account or click the \"...\" button on a track in the website and click \"Open in Plugin\"\n"
                                    "- Set the metronome and time signature in your DAW and start playback from the timeline start. the plugin will sync the selected track playback with the DAW timeline, allowing you to record a new track\n"
