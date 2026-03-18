@@ -37,4 +37,4 @@ echo "$OUTPUT"
 
 
 productsign --sign "Developer ID Installer: JOHN WAYNE SCHAFFNER (ZK6F2S828L)" \
-$OUTPUT Sterio-$VERSION-Installer.pkg
+$OUTPUT Sterio-Plugin.pkg

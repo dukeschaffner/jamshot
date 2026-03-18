@@ -1,9 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import ConfirmationDialog from '../components/ConfirmationDialog';
+import Link from 'next/link';
+import { useToast } from '../lib/ToastContext';
 
 const WS_URL = 'ws://localhost:59327';
-const RETRY_INTERVAL = 10000; // 10 seconds
+const USER_HAS_PLUGIN_KEY = 'user_has_plugin';
 
 // Context
 const PluginWebSocketContext = createContext(null);
@@ -11,13 +14,43 @@ const PluginWebSocketContext = createContext(null);
 // Provider
 export function PluginWebSocketProvider({ children }) {
   const ws = useRef(null);
-  const retryTimer = useRef(null);
   const [status, setStatus] = useState('disconnected');
   const [log, setLog] = useState([]);
+  const [showPluginErrorDialog, setShowPluginErrorDialog] = useState(false);
+  const [pluginErrorMessage, setPluginErrorMessage] = useState('');
+  const [userHasPlugin, setUserHasPlugin] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(USER_HAS_PLUGIN_KEY) === 'true';
+  });
+  const { showSuccess, showError } = useToast();
 
   const addLog = useCallback((text, type = 'system') => {
     setLog(prev => [...prev, { text, type, id: Date.now() + Math.random() }]);
   }, []);
+
+  const successMessages = {
+    'set_track': 'Track opened in plugin successfully!',
+    'stem_metadata_sync': 'Edits synced to plugin successfully!',
+  };
+
+  const errorMessages = {
+    'set_track': 'Failed to open track in plugin. Make sure the plugin is installed and running in a DAW.',
+    'stem_metadata_sync': 'Failed to sync edits to plugin. Make sure the plugin is installed and running in a DAW.',
+  };
+
+  const getMessageType = (msg) => {
+    if (!msg) return null;
+    if (typeof msg !== 'string') return msg?.type || null;
+    try {
+      const parsed = JSON.parse(msg);
+      return parsed?.type || null;
+    } catch {
+      // Not JSON
+      const parts = msg.split(':');
+      return parts[0];
+    }
+  };
+
 
   const connect = useCallback(() => {
     if (ws.current) return; // already connecting/connected
@@ -32,9 +65,13 @@ export function PluginWebSocketProvider({ children }) {
         console.log('Connected');
         setStatus('connected');
         addLog('Connected');
-        if (retryTimer.current) {
-          clearTimeout(retryTimer.current);
-          retryTimer.current = null;
+
+        // Track that the user has the plugin installed / running
+        try {
+          localStorage.setItem(USER_HAS_PLUGIN_KEY, 'true');
+          setUserHasPlugin(true);
+        } catch (err) {
+          // Ignore localStorage failures (e.g. private mode)
         }
       };
   
@@ -43,11 +80,6 @@ export function PluginWebSocketProvider({ children }) {
         setStatus('disconnected');
         addLog('Disconnected');
         ws.current = null;
-  
-        // Retry every 10 seconds
-        retryTimer.current = setTimeout(() => {
-          connect();
-        }, RETRY_INTERVAL);
       };
   
       ws.current.onerror = (err) => {
@@ -67,10 +99,6 @@ export function PluginWebSocketProvider({ children }) {
   }, [addLog]);
 
   const disconnect = useCallback(() => {
-    if (retryTimer.current) {
-      clearTimeout(retryTimer.current);
-      retryTimer.current = null;
-    }
     ws.current?.close();
     ws.current = null;
     setStatus('disconnected');
@@ -78,18 +106,48 @@ export function PluginWebSocketProvider({ children }) {
   }, [addLog]);
 
   const send = useCallback((msg) => {
-    if (!msg.trim()) return false;
+    if (!msg || (typeof msg === 'string' && !msg.trim())) return false;
 
-    // If not connected, try to connect first
+    const type = getMessageType(msg);
+    const successMessage = successMessages[type];
+    const errorMessage = errorMessages[type] || 'Failed to send message to plugin. Make sure the plugin is installed and running in a DAW.';
+
+    // If not connected, try to connect first, but treat this as a failure for this send call
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
       addLog('Attempting to connect before sending...');
       connect();
+
+      if (userHasPlugin) {
+        showError(errorMessage);
+      } else {
+        setPluginErrorMessage(errorMessage);
+        setShowPluginErrorDialog(true);
+      }
+      return false;
     }
 
-    ws.current.send(msg);
-    addLog(msg, 'outgoing');
-    return true;
-  }, [addLog, connect]);
+    try {
+      ws.current.send(msg);
+      addLog(msg, 'outgoing');
+
+      if (successMessage) {
+        showSuccess(successMessage);
+      }
+      return true;
+    } catch (err) {
+      console.error('WebSocket send error:', err);
+      addLog('Send failed: ' + errorMessage, 'system');
+
+      if (userHasPlugin) {
+        showError(errorMessage);
+      } else {
+        setPluginErrorMessage(errorMessage);
+        setShowPluginErrorDialog(true);
+      }
+      return false;
+    }
+  }, [addLog, connect, showSuccess, showError, userHasPlugin]);
+
 
   // auto connect on mount
   useEffect(() => {
@@ -102,6 +160,22 @@ export function PluginWebSocketProvider({ children }) {
   return (
     <PluginWebSocketContext.Provider value={{ status, log, connect, disconnect, send }}>
       {children}
+      <ConfirmationDialog
+        isOpen={showPluginErrorDialog}
+        onClose={() => setShowPluginErrorDialog(false)}
+        onConfirm={() => setShowPluginErrorDialog(false)}
+        title="Plugin Not Detected"
+        message={
+          <>
+            {pluginErrorMessage || 'Failed to connect to plugin. Make sure the plugin is installed and running in a DAW.'}{' '}
+            <Link href="/plugin" className="link-underline" style={{ color: 'var(--seafoam-dark)' }}>
+              Install plugin here
+            </Link>.
+          </>
+        }
+        confirmText="OK"
+        variant="default"
+      />
     </PluginWebSocketContext.Provider>
   );
 }

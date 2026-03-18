@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import CustomTabs from './CustomTabs';
@@ -23,7 +22,6 @@ import MoveTrackModal from './teams/MoveTrackModal';
 import TrackTags from './TrackTags';
 import VideoExportModal from './VideoExportModal';
 import VideoExportStatusModal from './VideoExportStatusModal';
-import ConfirmationDialog from './ConfirmationDialog';
 import {usePluginWebSocket} from '../contexts/PluginWebSocketContext';
 
 export default function Track(
@@ -59,7 +57,6 @@ export default function Track(
   const [totalTracks, setTotalTracks] = useState(0);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [moveModalType, setMoveModalType] = useState(null); // 'folder' or 'room'
-  const [showPluginErrorDialog, setShowPluginErrorDialog] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [isExportingStems, setIsExportingStems] = useState(false);
   const [showVideoExportModal, setShowVideoExportModal] = useState(false);
@@ -367,10 +364,7 @@ export default function Track(
     }
     try {
       await send(JSON.stringify(msg));
-      showSuccess('Track opened in plugin successfully!');
     } catch (err) {
-      console.error('Failed to open track in plugin:', err);
-      setShowPluginErrorDialog(true);
     }
     setShowActionsMenu(false);
   };
@@ -870,22 +864,6 @@ export default function Track(
           }}
         />
       )}
-
-      {/* Plugin Error Dialog */}
-      <ConfirmationDialog
-        isOpen={showPluginErrorDialog}
-        onClose={() => setShowPluginErrorDialog(false)}
-        onConfirm={() => setShowPluginErrorDialog(false)}
-        title="Plugin Connection Failed"
-        message={
-          <>
-            Failed to open track in plugin. Make sure the plugin is installed and running in a DAW.{' '}
-            <Link href="/plugin" className="link-underline" style={{ color: 'var(--seafoam-dark)' }}>Install plugin here</Link>.
-          </>
-        }
-        confirmText="OK"
-        variant="default"
-      />
     </div>
   );
 }

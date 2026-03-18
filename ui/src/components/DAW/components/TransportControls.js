@@ -392,7 +392,7 @@ const TransportControls = ({
           >
             Fullscreen
           </button>
-          <PluginSync />
+          <PluginSync setShowMenu={setShowMenu}/>
         </div>
       )}
     </div>
