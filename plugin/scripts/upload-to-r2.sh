@@ -26,7 +26,13 @@ for file in "${FILES[@]}"; do
   if [ -d "$file" ]; then
     zipfile="${file%/}.zip"
     echo "Zipping $file → $zipfile"
-    zip -r -q "$zipfile" "$file"
+    dir="$(dirname "$file")"
+    base="$(basename "$file")"
+
+    (
+      cd "$dir"
+      zip -r -q -y "$OLDPWD/$zipfile" "$base"
+    )
     upload_file="$zipfile"
   else
     upload_file="$file"

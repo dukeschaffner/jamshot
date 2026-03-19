@@ -9,6 +9,6 @@ Building Packages:
 
 Plugin:
 - when releasing a new version:
-    - update version in Config.h
+    - update version in Config.h and CMakeLists.txt
     - update API Env Var
     - ensure Config.h points to prod urls

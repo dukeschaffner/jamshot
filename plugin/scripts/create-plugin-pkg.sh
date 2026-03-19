@@ -16,13 +16,17 @@ mkdir -p $PKG_ROOT/Library/Audio/Plug-Ins/Components
 mkdir -p $PKG_ROOT/Applications
 
 # Copy plugins from JUCE build artifacts
-cp -R "$BUILD_DIR/VST3/$PLUGIN_NAME.vst3" $PKG_ROOT/Library/Audio/Plug-Ins/VST3/
-cp -R "$BUILD_DIR/AU/$PLUGIN_NAME.component" $PKG_ROOT/Library/Audio/Plug-Ins/Components/
+ditto "$BUILD_DIR/VST3/$PLUGIN_NAME.vst3" $PKG_ROOT/Library/Audio/Plug-Ins/VST3/
+ditto "$BUILD_DIR/AU/$PLUGIN_NAME.component" $PKG_ROOT/Library/Audio/Plug-Ins/Components/
 
 # Optional standalone app
 if [ -d "$BUILD_DIR/Standalone/$PLUGIN_NAME.app" ]; then
-    cp -R "$BUILD_DIR/Standalone/$PLUGIN_NAME.app" $PKG_ROOT/Applications/
+    ditto "$BUILD_DIR/Standalone/$PLUGIN_NAME.app" $PKG_ROOT/Applications/
 fi
+
+lipo -info "$BUILD_DIR/VST3/$PLUGIN_NAME.vst3/Contents/MacOS/$PLUGIN_NAME"
+
+chmod -R 755 $PKG_ROOT
 
 # Build installer
 pkgbuild \

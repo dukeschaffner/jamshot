@@ -4,6 +4,10 @@ project(SterioPlugin VERSION 0.1.0)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE)
+endif()
+
 # Install to build dir instead of /usr/local (avoids permission errors when JUCE install runs)
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix" FORCE)
 
@@ -25,6 +29,12 @@ juce_add_binary_data(PluginAssets
         Assets/images/logo.png
 )
 
+if(WIN32)
+    set(PLUGIN_FORMATS VST3 Standalone)
+else()
+    set(PLUGIN_FORMATS AU VST3 Standalone)
+endif()
+
 juce_add_plugin(SterioPlugin
     COMPANY_NAME "Sterio"
     PLUGIN_MANUFACTURER_CODE STER
@@ -36,7 +46,7 @@ juce_add_plugin(SterioPlugin
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
-    FORMATS AU VST3 Standalone
+    FORMATS ${PLUGIN_FORMATS}
     PRODUCT_NAME "Sterio")
 
 include(FetchContent)
@@ -175,6 +185,13 @@ target_compile_definitions(SterioPlugin
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_MIDI_INPUT_ENABLED=1
         JucePlugin_WantsMidiInput=1)
+
+if(WIN32)
+    target_link_libraries(SterioPlugin PRIVATE
+        ws2_32
+        crypt32
+    )
+endif()
 
 target_link_libraries(SterioPlugin
     PRIVATE
