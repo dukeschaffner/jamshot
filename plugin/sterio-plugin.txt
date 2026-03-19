@@ -16,7 +16,7 @@ Post MVP:
     - user drags region/file into the plugin and the plugin uploads directly to the api
     - user drags region/file into the plugin and the plugin uploads audio and metadata to temp storage and opens the web app to allow the user to upload the track using the temp assets
 - how to ensure recorded audio captures signal chain? (warn users to bounce the track to ensure audio captures signal chain OR maybe allow the plugin to record audio directly?)
-
+- MAYBE: use helpers/scripts to auto set DAW tempo and time signature
 
 
 TODO:
@@ -24,6 +24,7 @@ TODO:
 - better error reporting to user
 - better loading states
 - do i need to delete cache if plugin is uninstalled?
-- notify user about updates
 - websocket server start retry
-- if user/me fials, it keeps calling that endpoint over and over again. need to handle this better.
+
+
+You can’t use this version of the application “Sterio” with this version of macOS
