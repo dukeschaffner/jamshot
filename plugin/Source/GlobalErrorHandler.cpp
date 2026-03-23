@@ -4,6 +4,12 @@
 #if JUCE_MAC || JUCE_LINUX
 #include <execinfo.h>
 #include <unistd.h>
+#include <signal.h>
+#include <stdio.h>
+#endif
+
+#if JUCE_WINDOWS
+#include <windows.h>
 #endif
 
 using namespace juce;
@@ -90,52 +96,72 @@ String GlobalErrorHandler::formatErrorMessage(const String& context, const Strin
 
 namespace
 {
-    // Signal handler for crashes - must be very minimal!
+#if JUCE_MAC || JUCE_LINUX
+
     void crashSignalHandler(int sig)
     {
-        // Write basic crash info to stderr (this is async-signal-safe)
         const char* signalName = "Unknown";
+
         switch (sig)
         {
             case SIGSEGV: signalName = "SIGSEGV (Segmentation fault)"; break;
             case SIGABRT: signalName = "SIGABRT (Abort)"; break;
-            case SIGFPE: signalName = "SIGFPE (Floating point exception)"; break;
-            case SIGILL: signalName = "SIGILL (Illegal instruction)"; break;
-            case SIGBUS: signalName = "SIGBUS (Bus error)"; break;
+            case SIGFPE:  signalName = "SIGFPE (Floating point exception)"; break;
+            case SIGILL:  signalName = "SIGILL (Illegal instruction)"; break;
+           #if defined(SIGBUS)
+            case SIGBUS:  signalName = "SIGBUS (Bus error)"; break;
+           #endif
             default: break;
         }
 
-        // Use write() which is async-signal-safe
         char buffer[256];
-        int len = snprintf(buffer, sizeof(buffer), "\n*** CRASH DETECTED ***\nSignal: %s\n", signalName);
+        int len = snprintf(buffer, sizeof(buffer),
+                           "\n*** CRASH DETECTED ***\nSignal: %s\n",
+                           signalName);
+
         write(STDERR_FILENO, buffer, static_cast<size_t>(len));
 
-        // Generate and write crash report
         GlobalErrorHandler::writeCrashReport(sig);
 
-        // Re-raise the signal to let the system handle it
         ::signal(sig, SIG_DFL);
         ::raise(sig);
     }
+
+#endif
 }
 
 void GlobalErrorHandler::setupCrashHandlers()
 {
 #if JUCE_MAC || JUCE_LINUX
-    // Install signal handlers for common crash signals
+
     struct sigaction sa;
     sa.sa_handler = crashSignalHandler;
     sa.sa_flags = SA_RESTART;
     sigemptyset(&sa.sa_mask);
 
-    // Register handlers for common crash signals
-    sigaction(SIGSEGV, &sa, nullptr);  // Segmentation fault
-    sigaction(SIGABRT, &sa, nullptr);  // Abort
-    sigaction(SIGFPE, &sa, nullptr);   // Floating point exception
-    sigaction(SIGILL, &sa, nullptr);   // Illegal instruction
-    sigaction(SIGBUS, &sa, nullptr);   // Bus error
+    sigaction(SIGSEGV, &sa, nullptr);
+    sigaction(SIGABRT, &sa, nullptr);
+    sigaction(SIGFPE, &sa, nullptr);
+    sigaction(SIGILL, &sa, nullptr);
 
-    DBG("GlobalErrorHandler::setupCrashHandlers() - Crash signal handlers installed");
+   #if defined(SIGBUS)
+    sigaction(SIGBUS, &sa, nullptr);
+   #endif
+
+    DBG("Crash signal handlers installed (POSIX)");
+
+#elif JUCE_WINDOWS
+
+    // Optional: basic Windows fallback
+    SetUnhandledExceptionFilter([](EXCEPTION_POINTERS* info) -> LONG
+    {
+        GlobalErrorHandler::writeCrashReport(
+            static_cast<int>(info->ExceptionRecord->ExceptionCode));
+        return EXCEPTION_EXECUTE_HANDLER;
+    });
+
+    DBG("Crash handler installed (Windows)");
+
 #endif
 }
 

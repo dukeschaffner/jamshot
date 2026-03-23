@@ -1,0 +1,125 @@
+Sterio Plugin – Windows Installation Guide (VST3)
+
+---
+
+Installing the Sterio VST3 Plugin
+
+Follow these steps to install and use the Sterio plugin on Windows.
+
+---
+
+1. Locate the Plugin File
+
+After downloading or extracting, you should have a folder named:
+
+Sterio.vst3
+
+---
+
+2. Copy to the VST3 Folder
+
+Move the Sterio.vst3 folder to the standard VST3 directory (create the directory if it doesn't exist):
+
+C:\Program Files\Common Files\VST3\
+
+Note: Administrator permission may be required to copy files into this folder.
+
+---
+
+3. Open Your DAW
+
+Launch your Digital Audio Workstation (DAW), such as:
+
+* REAPER
+* Ableton Live
+* FL Studio
+* Cubase
+
+---
+
+4. Rescan Plugins
+
+If the plugin does not appear automatically, rescan your plugins or restart your DAW.
+
+In REAPER:
+
+* Go to Options > Preferences > Plug-ins > VST
+* Click "Clear cache/re-scan"
+
+---
+
+5. Load the Plugin
+
+* Create a new software instrument track
+* Insert "Sterio" as a VST3 instrument
+
+---
+
+Firewall Access (Important)
+
+When you first open the plugin, Windows may show a firewall prompt asking if you want to allow network access.
+
+Click "Allow access" when prompted.
+
+This is required so the plugin can:
+
+* Sign you in to Sterio
+* Communicate securely with the Sterio web app
+* Sync data between the plugin and your account
+
+---
+
+If you accidentally clicked "Don't allow"
+
+You can manually enable access:
+
+1. Open the Start Menu and search for:
+   Windows Defender Firewall
+
+2. Click "Allow an app or feature through Windows Defender Firewall"
+
+3. Click "Change settings"
+
+4. Find your DAW (for example, REAPER) in the list
+
+5. Make sure both of the following are checked:
+
+   * Private networks
+   * Public networks
+
+6. Click OK
+
+Note: The plugin runs inside your DAW, so you are typically allowing network access for your DAW, not a separate application.
+
+---
+
+Troubleshooting
+
+Plugin does not show up:
+
+* Ensure the folder is located in:
+  C:\Program Files\Common Files\VST3\
+* Verify your DAW is scanning that folder
+
+Plugin fails to load:
+
+* Make sure you are using a 64-bit DAW
+* Restart your DAW after installation
+
+Still not working:
+
+* Try rescanning plugins again
+* Reinstall the plugin
+* Submit any issues to the Sterio team here: https://sterio.fm/contact
+
+---
+
+Notes
+
+* This plugin is a VST3 instrument (VSTi)
+* No additional DLL files are required
+* Compatible with Windows 10 and newer
+
+---
+
+Enjoy using Sterio
