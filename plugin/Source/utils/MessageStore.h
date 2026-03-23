@@ -4,6 +4,7 @@
 #include <atomic>
 #include <string>
 #include <iostream> // for DBG/debugging
+#include <chrono>
 
 struct PluginMessage {
     enum class Severity { Info, Warning, Error, Critical };

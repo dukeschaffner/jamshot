@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(SterioPlugin VERSION 0.1.0)
 
@@ -12,7 +14,17 @@ endif()
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install prefix" FORCE)
 
 # Use JUCE from Downloads folder. Override with -DJUCE_PATH=/path/to/JUCE if needed.
-set(JUCE_PATH "$ENV{HOME}/Downloads/JUCE" CACHE PATH "Path to JUCE source directory")
+if(APPLE)
+    set(JUCE_PATH "$ENV{HOME}/Downloads/JUCE" CACHE PATH "Path to JUCE source directory")
+else()
+    set(JUCE_PATH "D:/Coding/JUCE/JUCE" CACHE PATH "Path to JUCE source directory")
+endif()
+
+
+if(WIN32)
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
+    find_package(ZLIB REQUIRED)
+endif()
 
 # Auth URL for plugin login. Default localhost for dev. Use -DSTERIO_PLUGIN_AUTH_URL="https://sterio.fm" for production.
 set(STERIO_PLUGIN_AUTH_URL "http://localhost:3000" CACHE STRING "Auth URL for plugin login flow")
@@ -33,6 +45,14 @@ if(WIN32)
     set(PLUGIN_FORMATS VST3 Standalone)
 else()
     set(PLUGIN_FORMATS AU VST3 Standalone)
+endif()
+
+if(WIN32)
+    # Use static runtime to avoid missing MSVCP/VCRUNTIME DLLs in REAPER
+    foreach(flag CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+                 CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE)
+        string(REPLACE "/MD" "/MT" ${flag} "${${flag}}")
+    endforeach()
 endif()
 
 juce_add_plugin(SterioPlugin
@@ -60,6 +80,10 @@ target_link_libraries(SterioPlugin
     PRIVATE ixwebsocket
     PRIVATE PluginAssets
 )
+
+if(WIN32)
+    target_link_libraries(SterioPlugin PRIVATE ZLIB::ZLIB)
+endif()
 
 target_sources(SterioPlugin
     PRIVATE

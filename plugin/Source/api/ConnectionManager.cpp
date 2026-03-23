@@ -2,6 +2,27 @@
 
 #include <regex>
 
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <mutex>
+
+void ensureWinsockInitialized()
+{
+    static std::once_flag flag;
+
+    std::call_once(flag, []()
+    {
+        WSADATA wsaData;
+        int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (res != 0)
+        {
+            DBG("WSAStartup failed: " + juce::String(res));
+        }
+    });
+}
+#endif
+
 ConnectionManager::ConnectionManager()
 {
     // Server mode: no client setup needed here
@@ -16,6 +37,10 @@ void ConnectionManager::connect(const std::string& url)
 {
     // Parse URL like ws://host:port[/path]
     setStatus(Status::Connecting);
+
+    #ifdef _WIN32
+        ensureWinsockInitialized();
+    #endif
 
     try
     {
@@ -67,13 +92,15 @@ void ConnectionManager::connect(const std::string& url)
                 });
             });
 
-        bool ok = webSocketServer->listenAndStart();
-        if (!ok)
+        auto res = webSocketServer->listen();
+        if (!res.first)
         {
-            setStatus(Status::Error, "Failed to bind/listen");
-            webSocketServer.reset();
+            setStatus(Status::Error, res.second);
             return;
         }
+
+        webSocketServer->start();
+        
 
         setStatus(Status::Connected, "Server listening");
     }
