@@ -376,6 +376,31 @@ export default function UploadForm({
         setLimitType('');
       }
 
+      if (errorData?.error === 'USER_BANNED') {
+        let errorMessage =
+          errorData?.message || 'You are temporarily blocked from uploading.';
+      
+        if (errorData?.expires_at) {
+          const expiresAt = new Date(errorData.expires_at);
+      
+          const expiresAtString = expiresAt.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZoneName: 'short', // 👈 adds "CDT", "PST", etc
+          });
+      
+          errorMessage += `\nExpires at: ${expiresAtString}`;
+        }
+      
+        setError(errorMessage);
+        setIsUploading(false);
+        return;
+      }
+
       // Sanitize error message to prevent exposing server-side details
       const rawError = errorData?.error || err.message || 'Unknown error';
       const sanitizedError = sanitizeErrorMessage(rawError, false);

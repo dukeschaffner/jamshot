@@ -10,7 +10,9 @@ export default function ConfirmationDialog({
   message,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
-  variant = 'default' // 'default' or 'danger'
+  variant = 'default', // 'default' or 'danger'
+  confirmDisabled = false,
+  children
 }) {
   if (!isOpen) return null;
 
@@ -29,6 +31,7 @@ export default function ConfirmationDialog({
           <h2 className={styles.title}>{title}</h2>
         </div>
         <p className={styles.message}>{message}</p>
+        {children}
         <div className={styles.actions}>
           <button
             onClick={onClose}
@@ -39,6 +42,7 @@ export default function ConfirmationDialog({
           <button
             onClick={onConfirm}
             className={`${styles.button} ${styles[variant === 'danger' ? 'dangerButton' : 'confirmButton']}`}
+            disabled={confirmDisabled}
           >
             {confirmText}
           </button>

@@ -1,0 +1,28 @@
+
+
+i need to be able to ban users from posting during the livestream
+
+
+- additional button on the moderation page (ban user)
+    - shows confirmation modal (use existing component) allowing user to select reason (same as rejection reasons for tracks)
+    - use expires_at = 2 hours from now (UTC)
+    - hits new api endpoint POST /user/<user_id>/ban?type?expires_at?reason
+- on upload init endpoint check if user is banned and return 403 if so with body (example):
+    {
+    "error": "USER_BANNED",
+    "ban_type": "upload",
+    "message": "You are temporarily blocked from uploading due to copyright violations.",
+    "expires_at": "2026-03-23T20:00:00Z"
+    }
+- dont worry about any unbanning functionality for now. i can just update db manually if needed.
+
+
+CREATE TABLE user_bans (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+  ban_type VARCHAR(20) NOT NULL, -- 'upload', 'full' (for now, only upload is supported)
+  reason TEXT,
+  created_by TEXT REFERENCES users(id), -- moderator/admin
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP, -- NULL = permanent
+);
