@@ -597,6 +597,13 @@ const createApiMethods = (apiClient) => {
     approveTrack: (trackId) => api.post(`/admin/moderation/tracks/${trackId}/approve`),
 
     rejectTrack: (trackId, reason) => api.post(`/admin/moderation/tracks/${trackId}/reject`, { reason }),
+
+    banUser: (userId, type, expiresAt, reason) =>
+      api.post(`/admin/user/${userId}/ban`, {
+        type,
+        expires_at: expiresAt,
+        reason
+      }),
   };
 
   return {

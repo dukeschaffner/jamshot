@@ -1167,6 +1167,21 @@ function parseTrackUploadBody(body) {
   };
 }
 
+async function getActiveUploadBan(userId) {
+  const result = await pool.query(
+    `SELECT ban_type, reason, expires_at
+     FROM user_bans
+     WHERE user_id = $1
+       AND ban_type IN ('upload', 'full')
+       AND (expires_at IS NULL OR expires_at > NOW())
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId]
+  );
+
+  return result.rows[0] || null;
+}
+
 export {
   s3Client,
   generateSignedUrl,
@@ -1195,5 +1210,6 @@ export {
   validateMixGains,
   calculateEffectiveGain,
   validateAndUpdateStemChain,
-  parseTrackUploadBody
+  parseTrackUploadBody,
+  getActiveUploadBan
 }; 

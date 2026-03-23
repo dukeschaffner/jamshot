@@ -39,7 +39,8 @@ import {
   deleteTrack,
   getStemChain,
   validateAndUpdateStemChain,
-  parseTrackUploadBody
+  parseTrackUploadBody,
+  getActiveUploadBan
 } from '../utils/trackUtils.js';
 import { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } from '../utils/subscriptionUtils.js';
 import { getGeolocationData } from '../utils/geolocation.js';
@@ -255,6 +256,18 @@ router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res
   try {
     const { filename, fileSize, is_camp_track, team_id } = req.body;
     const userId = req.user.id;
+
+    const activeUploadBan = await getActiveUploadBan(userId);
+    if (activeUploadBan) {
+      return res.status(403).json({
+        error: 'USER_BANNED',
+        ban_type: activeUploadBan.ban_type,
+        message: activeUploadBan.reason
+          ? `You are temporarily blocked from uploading due to ${activeUploadBan.reason.toLowerCase()}.`
+          : 'You are temporarily blocked from uploading.',
+        expires_at: activeUploadBan.expires_at
+      });
+    }
 
     if (!filename || !fileSize) {
       return res.status(400).json({ error: 'filename and fileSize are required' });

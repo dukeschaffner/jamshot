@@ -5,10 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import MiniTrack from '@/components/MiniTrack';
 import Waveform from '@/components/Waveform';
+import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { adminApi } from '@/lib/api';
 import styles from './AdminModeration.module.css';
 import { useAudio } from '@/lib/AudioContext';
 import { MiniPlayButton } from '@/components/MiniTrack';
+
+const MODERATION_REASONS = [
+  'Copyright infringement',
+  'Spam',
+  'Hate speech or discriminatory content',
+  'Explicit sexual content'
+];
 
 export default function AdminModerationPage() {
   const router = useRouter();
@@ -22,6 +30,8 @@ export default function AdminModerationPage() {
   const [cursor, setCursor] = useState(null);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(null);
   const [selectedRejectionReason, setSelectedRejectionReason] = useState('');
+  const [banModalTrack, setBanModalTrack] = useState(null);
+  const [selectedBanReason, setSelectedBanReason] = useState('');
 
   // Check admin privileges
   useEffect(() => {
@@ -118,6 +128,22 @@ export default function AdminModerationPage() {
     loadTracks(true);
   };
 
+  const handleBanUser = async () => {
+    if (!banModalTrack || !selectedBanReason) return;
+
+    try {
+      const expiresAt = new Date(Date.now() + (2 * 60 * 60 * 1000)).toISOString();
+      await adminApi.banUser(banModalTrack.user_id, 'upload', expiresAt, selectedBanReason);
+
+      setTracks(prev => prev.filter(track => track.user_id !== banModalTrack.user_id));
+      setBanModalTrack(null);
+      setSelectedBanReason('');
+    } catch (err) {
+      console.error('Error banning user:', err);
+      setError('Failed to ban user: ' + err.message);
+    }
+  };
+
   const handleLoadMore = () => {
     loadTracks(false);
   };
@@ -211,10 +237,9 @@ export default function AdminModerationPage() {
                   className={styles.rejectionReasonSelect}
                 >
                   <option value="">Select rejection reason...</option>
-                  <option value="Copyright infringement">Copyright infringement</option>
-                  <option value="Spam">Spam</option>
-                  <option value="Hate speech or discriminatory content">Hate speech or discriminatory content</option>
-                  <option value="Explicit sexual content">Explicit sexual content</option>
+                  {MODERATION_REASONS.map(reason => (
+                    <option key={reason} value={reason}>{reason}</option>
+                  ))}
                 </select>
               </div>
 
@@ -244,6 +269,16 @@ export default function AdminModerationPage() {
               >
                 Reject
               </button>
+
+              <button
+                onClick={() => {
+                  setBanModalTrack(track);
+                  setSelectedBanReason('');
+                }}
+                className={styles.banButton}
+              >
+                Ban User
+              </button>
             </div>
           </div>
         ))}
@@ -272,6 +307,35 @@ export default function AdminModerationPage() {
           </div>
         )}
       </div>
+
+      <ConfirmationDialog
+        isOpen={!!banModalTrack}
+        onClose={() => {
+          setBanModalTrack(null);
+          setSelectedBanReason('');
+        }}
+        onConfirm={handleBanUser}
+        title="Ban user from uploading?"
+        message={banModalTrack ? `Ban @${banModalTrack.username} from uploading for 2 hours.` : ''}
+        confirmText="Ban User"
+        variant="danger"
+        confirmDisabled={!selectedBanReason}
+      >
+        <div className={styles.banReasonContainer}>
+          <label htmlFor="banReason" className={styles.banReasonLabel}>Reason</label>
+          <select
+            id="banReason"
+            value={selectedBanReason}
+            onChange={(e) => setSelectedBanReason(e.target.value)}
+            className={styles.rejectionReasonSelect}
+          >
+            <option value="">Select ban reason...</option>
+            {MODERATION_REASONS.map(reason => (
+              <option key={reason} value={reason}>{reason}</option>
+            ))}
+          </select>
+        </div>
+      </ConfirmationDialog>
 
     </div>
   );
