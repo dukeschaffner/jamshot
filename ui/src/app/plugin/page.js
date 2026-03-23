@@ -7,25 +7,18 @@ export default function PluginPage() {
   const baseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
   const pluginFiles = [
     {
-      name: 'Sterio-Plugin.pkg',
-      description: 'macOS Installer',
+      name: 'macOS',
+      description: '.pkg installer for macOS',
       platform: 'macOS',
       icon: '🍎',
       filename: 'Sterio-Plugin.pkg'
     },
     {
-      name: 'Sterio-Plugin.component',
-      description: 'Audio Unit Plugin',
-      platform: 'macOS',
-      icon: '🎹',
-      filename: 'Sterio.component.zip'
-    },
-    {
-      name: 'Sterio-Plugin.vst3',
-      description: 'VST3 Plugin',
-      platform: 'Cross-platform',
-      icon: '🎛️',
-      filename: 'Sterio.vst3.zip'
+      name: 'Windows x64',
+      description: 'zip file containing the VST3 plugin and installation guide for Windows x64',
+      platform: 'Windows',
+      icon: '🪟',
+      filename: 'Sterio-Plugin-Windows-x64-VST3.zip'
     }
   ];
 
