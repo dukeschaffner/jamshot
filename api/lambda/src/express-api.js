@@ -34,7 +34,7 @@ app.set('trust proxy', 1);
 
 // Cloudflare secret header middleware
 app.use((req, res, next) => {
-  const cfSecret = req.get('X-Internal-Auth');
+  const cfSecret = req.get('x-internal-auth');
   if (cfSecret !== process.env.CF_SECRET) {
     if(process.env.NODE_ENV === 'dev') {
       return next();
