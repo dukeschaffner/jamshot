@@ -33,7 +33,7 @@ app.use('*', async (c, next) => {
     return next();
   }
 
-  const cfSecret = c.req.header('X-Internal-Auth');
+  const cfSecret = c.req.header('x-internal-auth');
   const expectedSecret = process.env.CF_SECRET;
 
   if (!cfSecret || !expectedSecret || cfSecret !== expectedSecret) {
