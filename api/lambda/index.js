@@ -12,15 +12,6 @@ export const handler = async (event, context) => {
     event.body = Buffer.from(event.body, 'base64');
   }
 
-  console.log(
-    '[LAMBDA REQUEST]',
-    JSON.stringify(
-      event,
-      (_key, value) => (Buffer.isBuffer(value) ? value.toString('utf8') : value),
-      2
-    )
-  );
-
   try {
     if (isAuthRequest) {
       // Route auth requests to Hono handler
