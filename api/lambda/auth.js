@@ -363,9 +363,9 @@ export const auth = betterAuth({
             let clientIp = null;
             if (ctx.headers) {
               // ctx.headers is a Headers object, use .get() method
-              clientIp = ctx.headers.get('x-forwarded-for') || ctx.headers.get('x-real-ip');
+              clientIp = ctx.headers.get('cf-connecting-ip') || ctx.headers.get('x-forwarded-for') || ctx.headers.get('x-real-ip');
             } else if (ctx.request?.headers) {
-              clientIp = ctx.request.headers['x-forwarded-for'] || ctx.request.headers['x-real-ip'];
+              clientIp = ctx.request.headers['cf-connecting-ip'] || ctx.request.headers['x-forwarded-for'] || ctx.request.headers['x-real-ip'];
             } else if (ctx.request?.connection) {
               clientIp = ctx.request.connection.remoteAddress ||
                         ctx.request.socket?.remoteAddress ||

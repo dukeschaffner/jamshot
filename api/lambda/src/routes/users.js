@@ -667,7 +667,8 @@ router.put('/me/complete-profile', betterAuthMiddleware, async (req, res, next) 
     }
     
     // Get client IP address for policy acceptance tracking
-    const clientIp = req.headers['x-forwarded-for'] || 
+    const clientIp = req.headers['cf-connecting-ip'] || 
+                    req.headers['x-forwarded-for'] || 
                     req.headers['x-real-ip'] || 
                     req.connection.remoteAddress || 
                     req.socket.remoteAddress ||

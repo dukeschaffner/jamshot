@@ -32,6 +32,18 @@ const app = express();
 // Set to 1 to trust only the immediate proxy (API Gateway)
 app.set('trust proxy', 1);
 
+// Cloudflare secret header middleware
+app.use((req, res, next) => {
+  const cfSecret = req.get('X-Internal-Auth');
+  if (cfSecret !== process.env.CF_SECRET) {
+    if(process.env.NODE_ENV === 'dev') {
+      return next();
+    }
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  next();
+});
+
 app.use(pluginMetaMiddleware);
 
 // CORS configuration for API Gateway
