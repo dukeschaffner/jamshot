@@ -72,6 +72,7 @@ class AudioEngine {
     // Bind input monitoring handlers
     this.handleInputDeviceChange = this.handleInputDeviceChange.bind(this);
     this.handleMonitorToggle = this.handleMonitorToggle.bind(this);
+    this.handleInputMeteringInitRequest = this.handleInputMeteringInitRequest.bind(this);
   }
   
   async initialize(tm, metronomeBpm, timeSignature, metronomeOffset) {
@@ -116,6 +117,7 @@ class AudioEngine {
     // Listen for audio settings events (input monitoring)
     this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
     this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
+    this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INIT_REQUEST, this.handleInputMeteringInitRequest);
     
     // Listen for track volume change events
     this.eventBus.on(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
@@ -411,6 +413,7 @@ class AudioEngine {
         }
       }
     }
+    this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INITIALIZED);
   }
 
   async startInputMonitoring() {
@@ -447,6 +450,17 @@ class AudioEngine {
       this.isMonitoring = true;
       this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED);
     }
+  }
+
+  async handleInputMeteringInitRequest() {
+    if (this.monitorStream && this.monitorSource && this.monitorMeterConnection) {
+      this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INITIALIZED);
+      return;
+    }
+    if (this.context?.state === 'suspended') {
+      await this.context.resume().catch(() => {});
+    }
+    await this.initializeInputMetering().catch(() => {});
   }
 
   stopInputMonitoring() {
@@ -808,6 +822,7 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
+      this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INIT_REQUEST, this.handleInputMeteringInitRequest);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
       this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
       this.eventBus.off(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, this.handleDurationChange);
