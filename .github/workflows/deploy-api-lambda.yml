@@ -168,6 +168,7 @@ jobs:
             BETTER_AUTH_URL=${{ vars.BETTER_AUTH_URL_TEST }},
             GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }},
             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
+            CF_SECRET=${{ secrets.CF_SECRET }},
           }"
 
   deploy-to-prod:
@@ -255,6 +256,7 @@ jobs:
             BETTER_AUTH_URL=${{ vars.BETTER_AUTH_URL_PROD }},
             GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }},
             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
+            CF_SECRET=${{ secrets.CF_SECRET }},
           }"
 
     # - name: Create deployment tag

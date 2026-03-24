@@ -130,6 +130,7 @@ function isPrivateIP(ipAddress) {
 function getRealIP(req) {
   // Check various headers in order of preference
   const headers = [
+    'cf-connecting-ip',
     'x-forwarded-for',
     'x-real-ip',
     'x-client-ip',

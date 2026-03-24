@@ -2128,7 +2128,7 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res, next) => {
     }
     
     // Get IP address and geolocation data
-    const ipAddress = req.ip || socket.connection.remoteAddress || req.headers['x-forwarded-for'];
+    const ipAddress = req.headers['cf-connecting-ip'] || req.ip || socket.connection.remoteAddress || req.headers['x-forwarded-for'];
     
     let recentPlay = null;
     if(play_id){
@@ -2171,7 +2171,19 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res, next) => {
       }
     }
     
-    const geoData = await getGeolocationData(ipAddress);
+    let geoData;
+    if(req.headers['cf-ipcity'] && req.headers['cf-region-code'] && req.headers['cf-ipcountry']){
+      console.log('using cf-ipcity, cf-region-code, cf-ipcountry');
+      geoData = {
+        country_code: req.headers['cf-ipcountry'],
+        region: req.headers['cf-region'],
+        city: req.headers['cf-ipcity']
+      };
+    }
+    else{
+      console.log('using ipgeolocation api');
+      geoData = await getGeolocationData(ipAddress);
+    }
     
     // Record the initial play in a transaction
     const client = await pool.connect();
