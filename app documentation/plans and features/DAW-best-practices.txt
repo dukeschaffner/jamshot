@@ -1,0 +1,48 @@
+
+
+🎧 For Best Results (Low Latency Recording)
+
+To get the smoothest, most responsive recording experience:
+
+✅ Use Headphones
+
+Avoid using your device speakers.
+Headphones prevent echo and reduce delay.
+
+🎤 Use an External Mic or Audio Interface (Recommended)
+
+USB microphones, headsets, or audio interfaces perform much better than built-in laptop mics.
+
+🌐 Use Chrome or Edge
+
+For the lowest latency and best compatibility, we recommend:
+
+Google Chrome
+Microsoft Edge
+
+(Firefox and Safari may have higher delay on some setups)
+
+🔇 Disable System Audio Effects
+
+If possible, turn off:
+
+Noise suppression
+Echo cancellation
+Auto gain control
+
+These can add extra delay.
+
+⚡ Close Other Apps
+
+Apps using your microphone or audio (Zoom, Discord, etc.) can increase latency.
+
+🎛️ Lower Your Buffer Size (If Using External Interface)
+
+If your device/software allows it, use a lower buffer size for better responsiveness.
+
+💡 Pro Tip
+
+For near-zero latency recording, you can:
+
+Use your own DAW (Ableton, Logic, FL Studio, etc.)
+Then upload your recording here

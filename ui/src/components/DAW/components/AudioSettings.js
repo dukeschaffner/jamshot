@@ -109,7 +109,22 @@ export default function AudioSettings({
     };
   }, []);
 
+  useEffect(() => {
+    const onInputMeteringInitialized = () => {
+      getAudioInputDevices();
+    };
+    eventBus.on(DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INITIALIZED, onInputMeteringInitialized);
+    return () => {
+      eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INITIALIZED, onInputMeteringInitialized);
+    };
+  }, []);
+
   
+
+  // When the user opens the input device dropdown, ensure mic stream + metering are initialized
+  const handleAudioInputDeviceDropdownFocus = () => {
+    eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INIT_REQUEST);
+  };
 
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
@@ -190,6 +205,7 @@ export default function AudioSettings({
               id="audio-input-device" 
               className={styles.formControl}
               value={selectedAudioInputDevice}
+              onFocus={handleAudioInputDeviceDropdownFocus}
               onChange={handleAudioInputDeviceChange}
             >
               <option value="">Select an audio input device</option>

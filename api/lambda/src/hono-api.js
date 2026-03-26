@@ -19,6 +19,38 @@ const stagePrefix = getStagePrefix();
 // Create Hono app
 const app = new Hono();
 
+// Cloudflare secret header middleware
+app.use('*', async (c, next) => {
+  const env = process.env.NODE_ENV;
+
+  // Allow preflight requests
+  if (c.req.method === 'OPTIONS') {
+    return next();
+  }
+
+  // Dev bypass (safer)
+  if (env === 'development' || env === 'dev') {
+    return next();
+  }
+
+  const cfSecret = c.req.header('x-internal-auth');
+  const expectedSecret = process.env.CF_SECRET;
+
+  if (!cfSecret || !expectedSecret || cfSecret !== expectedSecret) {
+    console.warn('[CF AUTH] Blocked request', {
+      path: c.req.path,
+      method: c.req.method,
+      hasHeader: !!cfSecret,
+    });
+
+    return c.json({ error: 'Unauthorized' }, 403);
+  }
+
+  await next();
+});
+
+
+
 app.use(
   '*',
   cors({
