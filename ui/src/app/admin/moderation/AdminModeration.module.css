@@ -138,6 +138,21 @@
   background-color: #c82333;
 }
 
+.banButton {
+  padding: 8px 16px;
+  background-color: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.banButton:hover {
+  background-color: #7c3aed;
+}
+
 .emptyState {
   text-align: center;
   padding: 40px;
@@ -194,4 +209,25 @@
 .rejectionReasonSelect:focus {
   outline: none;
   border-color: var(--accent-color);
+}
+
+.banReasonContainer {
+  margin: 0 0 16px 0;
+}
+
+.banReasonLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rejectBanCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
 }

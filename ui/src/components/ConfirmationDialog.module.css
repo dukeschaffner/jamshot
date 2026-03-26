@@ -66,6 +66,13 @@
   transition: all 0.2s ease;
 }
 
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .cancelButton {
   background: var(--grey-1);
   color: var(--text-primary);

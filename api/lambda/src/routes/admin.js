@@ -1,9 +1,16 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { adminMiddleware } from '../middleware/adminMiddleware.js';
-import { processTrack } from '../utils/trackUtils.js';
+import { processTrack, createCollaborationNotification } from '../utils/trackUtils.js';
+import { logger } from '../utils/logger.js';
 
 const router = express.Router();
+const ALLOWED_MODERATION_REASONS = [
+  'Copyright infringement',
+  'Spam',
+  'Hate speech or discriminatory content',
+  'Explicit sexual content'
+];
 
 // Apply admin middleware to all routes
 router.use(adminMiddleware);
@@ -89,7 +96,7 @@ router.post('/moderation/tracks/:trackId/approve', async (req, res, next) => {
 
     // Check if track exists and is waiting for approval
     const trackCheck = await pool.query(
-      'SELECT processing_status FROM tracks WHERE id = $1',
+      'SELECT processing_status, parent_track_id, user_id FROM tracks WHERE id = $1',
       [trackIdNum]
     );
 
@@ -110,6 +117,25 @@ router.post('/moderation/tracks/:trackId/approve', async (req, res, next) => {
       ['completed', trackIdNum]
     );
 
+    // For moderated collaboration tracks, create collab notification on approval.
+    if (trackCheck.rows[0].parent_track_id) {
+      try {
+        await createCollaborationNotification(
+          trackCheck.rows[0].parent_track_id,
+          trackCheck.rows[0].user_id,
+          trackIdNum
+        );
+      } catch (notificationError) {
+        logger.error({
+          msg: 'Error creating approval collaboration notification',
+          error: notificationError,
+          trackId: trackIdNum,
+          parentTrackId: trackCheck.rows[0].parent_track_id,
+          userId: trackCheck.rows[0].user_id
+        });
+      }
+    }
+
     res.json({ message: 'Track approved successfully' });
 
   } catch (err) {
@@ -129,17 +155,10 @@ router.post('/moderation/tracks/:trackId/reject', async (req, res, next) => {
     }
 
     // Validate reason is one of the allowed values
-    const allowedReasons = [
-      'Copyright infringement',
-      'Spam',
-      'Hate speech or discriminatory content',
-      'Explicit sexual content'
-    ];
-
-    if (!allowedReasons.includes(reason)) {
+    if (!ALLOWED_MODERATION_REASONS.includes(reason)) {
       return res.status(400).json({
         error: 'Invalid rejection reason',
-        allowed_reasons: allowedReasons
+        allowed_reasons: ALLOWED_MODERATION_REASONS
       });
     }
 
@@ -190,6 +209,69 @@ router.post('/moderation/tracks/:trackId/reject', async (req, res, next) => {
       rejection_reason: reason
     });
 
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Ban a user from uploading
+router.post('/user/:userId/ban', async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const type = req.body?.type || req.query?.type || 'upload';
+    const reason = req.body?.reason || req.query?.reason;
+    const expiresAtRaw = req.body?.expires_at || req.query?.expires_at;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    if (type !== 'upload') {
+      return res.status(400).json({
+        error: 'Invalid ban type',
+        allowed_types: ['upload']
+      });
+    }
+
+    if (!reason) {
+      return res.status(400).json({ error: 'Ban reason is required' });
+    }
+
+    if (!ALLOWED_MODERATION_REASONS.includes(reason)) {
+      return res.status(400).json({
+        error: 'Invalid ban reason',
+        allowed_reasons: ALLOWED_MODERATION_REASONS
+      });
+    }
+
+    if (!expiresAtRaw) {
+      return res.status(400).json({ error: 'expires_at is required' });
+    }
+
+    const expiresAt = new Date(expiresAtRaw);
+    if (Number.isNaN(expiresAt.getTime())) {
+      return res.status(400).json({ error: 'Invalid expires_at timestamp' });
+    }
+
+    const userExists = await pool.query(
+      'SELECT id FROM users WHERE id = $1',
+      [userId]
+    );
+    if (userExists.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const banResult = await pool.query(
+      `INSERT INTO user_bans (user_id, ban_type, reason, created_by, expires_at)
+       VALUES ($1, $2, $3, $4, ($5::timestamptz AT TIME ZONE 'UTC'))
+       RETURNING id, user_id, ban_type, reason, created_by, created_at, expires_at`,
+      [userId, type, reason, req.user.id, expiresAt.toISOString()]
+    );
+
+    res.status(201).json({
+      message: 'User banned successfully',
+      ban: banResult.rows[0]
+    });
   } catch (err) {
     next(err);
   }

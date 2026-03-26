@@ -39,7 +39,9 @@ import {
   deleteTrack,
   getStemChain,
   validateAndUpdateStemChain,
-  parseTrackUploadBody
+  parseTrackUploadBody,
+  getActiveUploadBan,
+  createCollaborationNotification
 } from '../utils/trackUtils.js';
 import { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } from '../utils/subscriptionUtils.js';
 import { getGeolocationData } from '../utils/geolocation.js';
@@ -255,6 +257,18 @@ router.post('/upload/init', uploadLimiter, betterAuthMiddleware, async (req, res
   try {
     const { filename, fileSize, is_camp_track, team_id } = req.body;
     const userId = req.user.id;
+
+    const activeUploadBan = await getActiveUploadBan(userId);
+    if (activeUploadBan) {
+      return res.status(403).json({
+        error: 'USER_BANNED',
+        ban_type: activeUploadBan.ban_type,
+        message: activeUploadBan.reason
+          ? `You are temporarily blocked from uploading due to ${activeUploadBan.reason.toLowerCase()}.`
+          : 'You are temporarily blocked from uploading.',
+        expires_at: activeUploadBan.expires_at
+      });
+    }
 
     if (!filename || !fileSize) {
       return res.status(400).json({ error: 'filename and fileSize are required' });
@@ -663,30 +677,15 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res, nex
       [JSON.stringify(completeMixGains), trackId]
     );
     
-    // Create notification for parent track owner if this is a collaboration
+    // Create collaboration notification unless this is a moderated loop track.
+    // In that case, defer notification until moderator approval.
     if (parent_track_id) {
       try {
-        // Increment collab_count on parent track
-        await pool.query(
-          'UPDATE tracks SET collab_count = collab_count + 1 WHERE id = $1',
-          [parent_track_id]
-        );
-        
-        const parentTrackOwner = await pool.query(
-          'SELECT user_id FROM tracks WHERE id = $1',
-          [parent_track_id]
-        );
-        
-        if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== userId) {
-          // Create notification
-          await pool.query(
-            'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-            [parentTrackOwner.rows[0].user_id, 'new_version', parent_track_id]
-          );
-          
-          // Send collaboration email if preferences allow
-          const { sendCollabEmail } = require('../utils/emailService');
-          await sendCollabEmail(userId, trackId, parent_track_id);
+        const moderationEnabled = await isFeatureEnabled('moderation', false);
+        const shouldDeferCollabNotification = Boolean(isLoop && moderationEnabled);
+
+        if (!shouldDeferCollabNotification) {
+          await createCollaborationNotification(parent_track_id, userId, trackId);
         }
       } catch (err) {
         console.error('Error creating collaboration notification:', err);
