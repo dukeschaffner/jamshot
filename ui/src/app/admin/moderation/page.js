@@ -7,6 +7,7 @@ import MiniTrack from '@/components/MiniTrack';
 import Waveform from '@/components/Waveform';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { adminApi } from '@/lib/api';
+import { useToast } from '@/lib/ToastContext';
 import styles from './AdminModeration.module.css';
 import { useAudio } from '@/lib/AudioContext';
 import { MiniPlayButton } from '@/components/MiniTrack';
@@ -22,6 +23,7 @@ export default function AdminModerationPage() {
   const router = useRouter();
   const { user, isLoading: userLoading } = useUser();
   const { currentTrack, isPlaying, togglePlayPause, playTrack, audioSourceType, setAudioSourceType } = useAudio();
+  const { showSuccess, showError } = useToast();
   const [rootId, setRootId] = useState('');
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,9 +31,10 @@ export default function AdminModerationPage() {
   const [hasMore, setHasMore] = useState(false);
   const [cursor, setCursor] = useState(null);
   const [autoRefreshInterval, setAutoRefreshInterval] = useState(null);
-  const [selectedRejectionReason, setSelectedRejectionReason] = useState('');
-  const [banModalTrack, setBanModalTrack] = useState(null);
-  const [selectedBanReason, setSelectedBanReason] = useState('');
+  const [rejectModalTrack, setRejectModalTrack] = useState(null);
+  const [selectedRejectReason, setSelectedRejectReason] = useState('');
+  const [banUserOnReject, setBanUserOnReject] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   // Check admin privileges
   useEffect(() => {
@@ -110,38 +113,45 @@ export default function AdminModerationPage() {
     }
   };
 
-  const handleReject = async (trackId, reason) => {
+  const closeRejectDialog = () => {
+    setRejectModalTrack(null);
+    setSelectedRejectReason('');
+    setBanUserOnReject(false);
+    setIsRejecting(false);
+  };
+
+  const handleReject = async () => {
+    if (!rejectModalTrack || !selectedRejectReason || isRejecting) return;
+
+    const { id: trackId, user_id: userId } = rejectModalTrack;
+    const reason = selectedRejectReason;
+
+    setIsRejecting(true);
+
     try {
+      if (banUserOnReject) {
+        const expiresAt = new Date(Date.now() + (2 * 60 * 60 * 1000)).toISOString();
+        await adminApi.banUser(userId, 'upload', expiresAt, reason);
+        showSuccess('User Banned', 'User was banned from uploading for 2 hours.');
+      }
+
       await adminApi.rejectTrack(trackId, reason);
+      showSuccess('Track Rejected', 'Track was rejected successfully.');
 
       // Remove track from list
       setTracks(prev => prev.filter(track => track.id !== trackId));
+      closeRejectDialog();
     } catch (err) {
       console.error('Error rejecting track:', err);
-      setError('Failed to reject track: ' + err.message);
+      showError('Reject Failed', err.message || 'Failed to reject track.');
     }
+    setIsRejecting(false);
   };
 
 
   const handleSubmit = (e) => {
     e.preventDefault();
     loadTracks(true);
-  };
-
-  const handleBanUser = async () => {
-    if (!banModalTrack || !selectedBanReason) return;
-
-    try {
-      const expiresAt = new Date(Date.now() + (2 * 60 * 60 * 1000)).toISOString();
-      await adminApi.banUser(banModalTrack.user_id, 'upload', expiresAt, selectedBanReason);
-
-      setTracks(prev => prev.filter(track => track.user_id !== banModalTrack.user_id));
-      setBanModalTrack(null);
-      setSelectedBanReason('');
-    } catch (err) {
-      console.error('Error banning user:', err);
-      setError('Failed to ban user: ' + err.message);
-    }
   };
 
   const handleLoadMore = () => {
@@ -194,7 +204,7 @@ export default function AdminModerationPage() {
           <button
             type="submit"
             disabled={loading || !rootId.trim()}
-            className={styles.submitButton}
+            className="pill-btn"
           >
             {loading ? 'Loading...' : 'Load Tracks'}
           </button>
@@ -230,19 +240,6 @@ export default function AdminModerationPage() {
             </div>
 
             <div className={styles.actionButtons}>
-              <div className={styles.rejectionReasonContainer}>
-                <select
-                  value={selectedRejectionReason}
-                  onChange={(e) => setSelectedRejectionReason(e.target.value)}
-                  className={styles.rejectionReasonSelect}
-                >
-                  <option value="">Select rejection reason...</option>
-                  {MODERATION_REASONS.map(reason => (
-                    <option key={reason} value={reason}>{reason}</option>
-                  ))}
-                </select>
-              </div>
-
               <button
                 onClick={() => {
                   if (confirm(`Are you sure you want to approve "${track.title}"?`)) {
@@ -256,28 +253,13 @@ export default function AdminModerationPage() {
 
               <button
                 onClick={() => {
-                  if (!selectedRejectionReason) {
-                    alert('Please select a rejection reason first.');
-                    return;
-                  }
-                  if (confirm(`Are you sure you want to reject "${track.title}" for "${selectedRejectionReason}"? This action cannot be undone.`)) {
-                    handleReject(track.id, selectedRejectionReason);
-                  }
+                  setRejectModalTrack(track);
+                  setSelectedRejectReason('');
+                  setBanUserOnReject(false);
                 }}
                 className={styles.rejectButton}
-                disabled={!selectedRejectionReason}
               >
                 Reject
-              </button>
-
-              <button
-                onClick={() => {
-                  setBanModalTrack(track);
-                  setSelectedBanReason('');
-                }}
-                className={styles.banButton}
-              >
-                Ban User
               </button>
             </div>
           </div>
@@ -309,32 +291,37 @@ export default function AdminModerationPage() {
       </div>
 
       <ConfirmationDialog
-        isOpen={!!banModalTrack}
-        onClose={() => {
-          setBanModalTrack(null);
-          setSelectedBanReason('');
-        }}
-        onConfirm={handleBanUser}
-        title="Ban user from uploading?"
-        message={banModalTrack ? `Ban @${banModalTrack.username} from uploading for 2 hours.` : ''}
-        confirmText="Ban User"
+        isOpen={!!rejectModalTrack}
+        onClose={closeRejectDialog}
+        onConfirm={handleReject}
+        title="Reject track?"
+        message={rejectModalTrack ? `Reject "${rejectModalTrack.title}"${banUserOnReject ? ` and ban @${rejectModalTrack.username} for 2 hours` : ''}. This action cannot be undone.` : ''}
+        confirmText={isRejecting ? 'Processing...' : 'Reject Track'}
         variant="danger"
-        confirmDisabled={!selectedBanReason}
+        confirmDisabled={!selectedRejectReason || isRejecting}
       >
         <div className={styles.banReasonContainer}>
-          <label htmlFor="banReason" className={styles.banReasonLabel}>Reason</label>
+          <label htmlFor="rejectReason" className={styles.banReasonLabel}>Reason</label>
           <select
-            id="banReason"
-            value={selectedBanReason}
-            onChange={(e) => setSelectedBanReason(e.target.value)}
+            id="rejectReason"
+            value={selectedRejectReason}
+            onChange={(e) => setSelectedRejectReason(e.target.value)}
             className={styles.rejectionReasonSelect}
           >
-            <option value="">Select ban reason...</option>
+            <option value="">Select rejection reason...</option>
             {MODERATION_REASONS.map(reason => (
               <option key={reason} value={reason}>{reason}</option>
             ))}
           </select>
         </div>
+        <label className={styles.rejectBanCheckbox}>
+          <input
+            type="checkbox"
+            checked={banUserOnReject}
+            onChange={(e) => setBanUserOnReject(e.target.checked)}
+          />
+          Ban user
+        </label>
       </ConfirmationDialog>
 
     </div>

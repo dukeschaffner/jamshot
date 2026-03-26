@@ -243,7 +243,7 @@ router.post('/user/:userId/ban', async (req, res, next) => {
 
     const banResult = await pool.query(
       `INSERT INTO user_bans (user_id, ban_type, reason, created_by, expires_at)
-       VALUES ($1, $2, $3, $4, $5)
+       VALUES ($1, $2, $3, $4, ($5::timestamptz AT TIME ZONE 'UTC'))
        RETURNING id, user_id, ban_type, reason, created_by, created_at, expires_at`,
       [userId, type, reason, req.user.id, expiresAt.toISOString()]
     );
