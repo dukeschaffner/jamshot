@@ -5,6 +5,7 @@ import pool from '../config/db.js';
 import crypto from 'crypto';
 import { validateCampAccess } from './campUtils.js';
 import { validateTeamAccess } from './teamUtils.js';
+import { sendCollabEmail } from './emailService.js';
 
 // Cloudflare R2 setup
 const s3Client = new S3Client({
@@ -1188,6 +1189,37 @@ async function getActiveUploadBan(userId) {
   return result.rows[0] || null;
 }
 
+/**
+ * Handle collaboration side effects for a newly available collaboration track.
+ * This should run when a collaboration becomes visible (immediately for normal uploads,
+ * or after moderator approval for moderated loop uploads).
+ */
+async function createCollaborationNotification(parentTrackId, collaboratorUserId, collabTrackId) {
+  if (!parentTrackId) {
+    return;
+  }
+
+  // Increment collab_count on parent track
+  await pool.query(
+    'UPDATE tracks SET collab_count = collab_count + 1 WHERE id = $1',
+    [parentTrackId]
+  );
+
+  const parentTrackOwner = await pool.query(
+    'SELECT user_id FROM tracks WHERE id = $1',
+    [parentTrackId]
+  );
+
+  if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== collaboratorUserId) {
+    await pool.query(
+      'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
+      [parentTrackOwner.rows[0].user_id, 'new_version', parentTrackId]
+    );
+
+    await sendCollabEmail(collaboratorUserId, collabTrackId, parentTrackId);
+  }
+}
+
 export {
   s3Client,
   generateSignedUrl,
@@ -1217,5 +1249,6 @@ export {
   calculateEffectiveGain,
   validateAndUpdateStemChain,
   parseTrackUploadBody,
-  getActiveUploadBan
-}; 
+  getActiveUploadBan,
+  createCollaborationNotification
+};

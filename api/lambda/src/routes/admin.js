@@ -1,7 +1,8 @@
 import express from 'express';
 import pool from '../config/db.js';
 import { adminMiddleware } from '../middleware/adminMiddleware.js';
-import { processTrack } from '../utils/trackUtils.js';
+import { processTrack, createCollaborationNotification } from '../utils/trackUtils.js';
+import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 const ALLOWED_MODERATION_REASONS = [
@@ -95,7 +96,7 @@ router.post('/moderation/tracks/:trackId/approve', async (req, res, next) => {
 
     // Check if track exists and is waiting for approval
     const trackCheck = await pool.query(
-      'SELECT processing_status FROM tracks WHERE id = $1',
+      'SELECT processing_status, parent_track_id, user_id FROM tracks WHERE id = $1',
       [trackIdNum]
     );
 
@@ -115,6 +116,25 @@ router.post('/moderation/tracks/:trackId/approve', async (req, res, next) => {
       'UPDATE tracks SET processing_status = $1 WHERE id = $2',
       ['completed', trackIdNum]
     );
+
+    // For moderated collaboration tracks, create collab notification on approval.
+    if (trackCheck.rows[0].parent_track_id) {
+      try {
+        await createCollaborationNotification(
+          trackCheck.rows[0].parent_track_id,
+          trackCheck.rows[0].user_id,
+          trackIdNum
+        );
+      } catch (notificationError) {
+        logger.error({
+          msg: 'Error creating approval collaboration notification',
+          error: notificationError,
+          trackId: trackIdNum,
+          parentTrackId: trackCheck.rows[0].parent_track_id,
+          userId: trackCheck.rows[0].user_id
+        });
+      }
+    }
 
     res.json({ message: 'Track approved successfully' });
 
