@@ -40,7 +40,8 @@ import {
   getStemChain,
   validateAndUpdateStemChain,
   parseTrackUploadBody,
-  getActiveUploadBan
+  getActiveUploadBan,
+  createCollaborationNotification
 } from '../utils/trackUtils.js';
 import { getUserPlan, checkDailyUploadQuota, checkTotalUploadQuota, checkTeamDailyUploadQuota, checkTeamTotalUploadQuota, getTeamPlan } from '../utils/subscriptionUtils.js';
 import { getGeolocationData } from '../utils/geolocation.js';
@@ -676,30 +677,15 @@ router.post('/upload', uploadLimiter, betterAuthMiddleware, async (req, res, nex
       [JSON.stringify(completeMixGains), trackId]
     );
     
-    // Create notification for parent track owner if this is a collaboration
+    // Create collaboration notification unless this is a moderated loop track.
+    // In that case, defer notification until moderator approval.
     if (parent_track_id) {
       try {
-        // Increment collab_count on parent track
-        await pool.query(
-          'UPDATE tracks SET collab_count = collab_count + 1 WHERE id = $1',
-          [parent_track_id]
-        );
-        
-        const parentTrackOwner = await pool.query(
-          'SELECT user_id FROM tracks WHERE id = $1',
-          [parent_track_id]
-        );
-        
-        if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== userId) {
-          // Create notification
-          await pool.query(
-            'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-            [parentTrackOwner.rows[0].user_id, 'new_version', parent_track_id]
-          );
-          
-          // Send collaboration email if preferences allow
-          const { sendCollabEmail } = require('../utils/emailService');
-          await sendCollabEmail(userId, trackId, parent_track_id);
+        const moderationEnabled = await isFeatureEnabled('moderation', false);
+        const shouldDeferCollabNotification = Boolean(isLoop && moderationEnabled);
+
+        if (!shouldDeferCollabNotification) {
+          await createCollaborationNotification(parent_track_id, userId, trackId);
         }
       } catch (err) {
         console.error('Error creating collaboration notification:', err);
