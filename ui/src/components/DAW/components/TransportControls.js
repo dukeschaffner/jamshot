@@ -337,7 +337,6 @@ const TransportControls = ({
         >
         <FontAwesomeIcon icon={faDrum} />
         </button>
-        {isMetronomeOn && (
         <button 
             className={`${styles.countInToggle} ${isCountInEnabled ? styles.active : ''}`}
             onClick={toggleCountIn}
@@ -345,7 +344,6 @@ const TransportControls = ({
         >
             <CountInIcon isEnabled={isCountInEnabled} />
         </button>
-        )}
     </div>
     <button 
         className={`${styles.controlButton} ${!canUndo ? styles.disabled : ''}`}
