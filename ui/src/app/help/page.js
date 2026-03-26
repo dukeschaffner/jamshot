@@ -5,12 +5,18 @@ import { FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import styles from './Help.module.css';
 import HowToUseOwnDAW from './articles/HowToUseOwnDAW';
 import HowToAllowAudioAccess from './articles/HowToAllowAudioAccess';
+import SterioPlugin from './articles/SterioPlugin';
 
 // Feature and article data structure
 const helpData = {
   'DAW': {
     expanded: false,
     articles: [
+      {
+        id: 'sterio-plugin',
+        title: 'Sterio Plugin',
+        component: SterioPlugin
+      },
       {
         id: 'how-to-use-own-daw',
         title: 'How to use audio from your own DAW',
@@ -58,7 +64,7 @@ function HelpContent() {
     if (!articleParam && helpData['DAW'].articles.length > 0) {
       setExpandedFeatures({ 'DAW': true });
       setSelectedArticle(helpData['DAW'].articles[0]);
-      router.replace('/help?article=how-to-use-own-daw', { scroll: false });
+      router.replace('/help?article=sterio-plugin', { scroll: false });
     }
   }, [searchParams, router]);
 

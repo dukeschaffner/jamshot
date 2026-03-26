@@ -72,6 +72,7 @@ class AudioEngine {
     // Bind input monitoring handlers
     this.handleInputDeviceChange = this.handleInputDeviceChange.bind(this);
     this.handleMonitorToggle = this.handleMonitorToggle.bind(this);
+    this.handleInputMeteringInitRequest = this.handleInputMeteringInitRequest.bind(this);
   }
   
   async initialize(tm, metronomeBpm, timeSignature, metronomeOffset) {
@@ -116,6 +117,7 @@ class AudioEngine {
     // Listen for audio settings events (input monitoring)
     this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
     this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
+    this.eventBus.on(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INIT_REQUEST, this.handleInputMeteringInitRequest);
     
     // Listen for track volume change events
     this.eventBus.on(this.DAW_EVENTS.TRACK.VOLUME_CHANGE, this.handleTrackVolumeChange);
@@ -222,6 +224,21 @@ class AudioEngine {
       this.lastScheduledBeat = firstBeatToSchedule + i;
     }
   }
+
+  // One measure of metronome clicks (e.g. count-in when playback metronome is off)
+  scheduleCountInMeasureClicks(countInStartAudioTime, beatsPerMeasure, secondsPerBeat) {
+    if (!this.context || !this.metronomeHighClickBuffer || !this.metronomeLowClickBuffer) return;
+
+    for (let i = 0; i < beatsPerMeasure; i++) {
+      const clickBuffer = i === 0 ? this.metronomeHighClickBuffer : this.metronomeLowClickBuffer;
+      const beatTime = countInStartAudioTime + i * secondsPerBeat;
+      const clickSource = this.context.createBufferSource();
+      clickSource.buffer = clickBuffer;
+      clickSource.connect(this.metronomeGainNode);
+      clickSource.start(beatTime);
+      this.metronomeSources.push(clickSource);
+    }
+  }
   
   // Stop and clear all metronome sources
   stopAndClearMetronomeClicks() {
@@ -280,13 +297,15 @@ class AudioEngine {
       AudioState.currentTime = AudioState.loopStart;
     }
     
-    // Calculate start time with count-in if enabled
+    const beatsPerMeasure = parseInt(this.timeSignature.split('/')[0], 10);
+    const secondsPerBeat = 60 / this.metronomeBPM;
+    const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+
+    // Calculate start time with count-in if enabled (independent of metronome)
     let scheduledStartTime = this.context.currentTime + DAWConfig.audio.scheduleDelay;
-    
-    if (this.shouldCountIn && this.isCountInEnabled && this.isMetronomeOn) {
-      const beatsPerMeasure = parseInt(this.timeSignature.split('/')[0], 10);
-      const secondsPerBeat = 60 / this.metronomeBPM;
-      const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+    const countInActive = this.shouldCountIn && this.isCountInEnabled;
+
+    if (countInActive) {
       scheduledStartTime += secondsPerMeasure;
       this.shouldCountIn = false;
     }
@@ -298,10 +317,13 @@ class AudioEngine {
       this.chunkScheduler.start();
     }
     
-    // Start metronome if enabled
+    // Metronome during playback, or one measure of clicks for count-in when metronome is off
+    this.stopAndClearMetronomeClicks();
     if (this.isMetronomeOn) {
-      this.stopAndClearMetronomeClicks();
       this.startMetronomeScheduling();
+    } else if (countInActive) {
+      const countInStart = this.context.currentTime + DAWConfig.audio.scheduleDelay;
+      this.scheduleCountInMeasureClicks(countInStart, beatsPerMeasure, secondsPerBeat);
     }
     
     // Start playhead updates
@@ -352,7 +374,7 @@ class AudioEngine {
     // Auto-start playback when recording begins (if not already playing)
     if (!AudioState.isPlaying) {
       // If count-in is enabled, set the flag for the next playback
-      if (this.isCountInEnabled && this.isMetronomeOn) {
+      if (this.isCountInEnabled) {
         this.setCountIn(true);
       }
       this.play();
@@ -391,6 +413,7 @@ class AudioEngine {
         }
       }
     }
+    this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INITIALIZED);
   }
 
   async startInputMonitoring() {
@@ -427,6 +450,17 @@ class AudioEngine {
       this.isMonitoring = true;
       this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_STARTED);
     }
+  }
+
+  async handleInputMeteringInitRequest() {
+    if (this.monitorStream && this.monitorSource && this.monitorMeterConnection) {
+      this.eventBus.emit(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INITIALIZED);
+      return;
+    }
+    if (this.context?.state === 'suspended') {
+      await this.context.resume().catch(() => {});
+    }
+    await this.initializeInputMetering().catch(() => {});
   }
 
   stopInputMonitoring() {
@@ -788,6 +822,7 @@ class AudioEngine {
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.METRONOME_VOLUME_CHANGE, this.handleMetronomeVolumeChange);
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, this.handleInputDeviceChange);
       this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, this.handleMonitorToggle);
+      this.eventBus.off(this.DAW_EVENTS.AUDIO_SETTINGS.INPUT_METERING_INIT_REQUEST, this.handleInputMeteringInitRequest);
       this.eventBus.off(this.DAW_EVENTS.LOOP.START, this.handleLoopStart);
       this.eventBus.off(this.DAW_EVENTS.LOOP.BOUNDARIES_SET, this.handleLoopBoundariesSet);
       this.eventBus.off(this.DAW_EVENTS.PLAYBACK.DURATION_CHANGE, this.handleDurationChange);

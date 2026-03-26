@@ -32,6 +32,8 @@ export const DAW_EVENTS = {
     // Audio settings events
     AUDIO_SETTINGS: {
       INPUT_DEVICE_CHANGE: 'audio:settings:input:device:change',
+      INPUT_METERING_INIT_REQUEST: 'audio:settings:input:metering:init:request',
+      INPUT_METERING_INITIALIZED: 'audio:settings:input:metering:initialized',
       LATENCY_COMPENSATION_CHANGE: 'audio:settings:latency:compensation:change',
       SNAP_TO_GRID_CHANGE: 'audio:settings:snap:to:grid:change',
       SNAP_STRENGTH_CHANGE: 'audio:settings:snap:strength:change',
