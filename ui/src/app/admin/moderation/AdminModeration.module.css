@@ -222,3 +222,12 @@
   font-weight: 600;
   color: var(--text-primary);
 }
+
+.rejectBanCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}

@@ -10,6 +10,8 @@ before launch:
 - dont show audio processing specific error to users
 - safari mic access: Safari (top of screen) -> settings -> websites -> microphone -> sterio.fm -> allow
 - ban users (moderation page)
+  - notifcation inserted before track approved
+  - check ban timestamps
 
 
 

@@ -1169,11 +1169,17 @@ function parseTrackUploadBody(body) {
 
 async function getActiveUploadBan(userId) {
   const result = await pool.query(
-    `SELECT ban_type, reason, expires_at
+    `SELECT
+       ban_type,
+       reason,
+       CASE
+         WHEN expires_at IS NULL THEN NULL
+         ELSE to_char(expires_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+       END AS expires_at
      FROM user_bans
      WHERE user_id = $1
        AND ban_type IN ('upload', 'full')
-       AND (expires_at IS NULL OR expires_at > NOW())
+       AND (expires_at IS NULL OR expires_at > (NOW() AT TIME ZONE 'UTC'))
      ORDER BY created_at DESC
      LIMIT 1`,
     [userId]
