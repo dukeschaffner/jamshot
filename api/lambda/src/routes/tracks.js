@@ -2172,7 +2172,6 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res, next) => {
     
     let geoData;
     if(req.headers['cf-ipcity'] && req.headers['cf-region-code'] && req.headers['cf-ipcountry']){
-      console.log('using cf-ipcity, cf-region-code, cf-ipcountry');
       geoData = {
         country_code: req.headers['cf-ipcountry'],
         region: req.headers['cf-region'],
@@ -2180,7 +2179,6 @@ router.post('/:id/play', apiEndpointLimiter, async (req, res, next) => {
       };
     }
     else{
-      console.log('using ipgeolocation api');
       geoData = await getGeolocationData(ipAddress);
     }
     

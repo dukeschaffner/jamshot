@@ -97,7 +97,7 @@ export default function HowToAllowAudioAccess() {
           <li>Open Safari → Settings (or Preferences)</li>
           <li>Go to the &quot;Websites&quot; tab</li>
           <li>Select &quot;Microphone&quot; from the left sidebar</li>
-          <li>Find sterio.com in the list and set it to &quot;Allow&quot;</li>
+          <li>Find sterio.fm in the list and set it to &quot;Allow&quot;</li>
         </ol>
 
         {/* <div className={styles.imagePlaceholder}>
