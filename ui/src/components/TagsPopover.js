@@ -1,65 +1,8 @@
 'use client';
-import { useRef, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import Popover from './Popover';
 import styles from './TagsPopover.module.css';
 
 export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, anchorElement }) {
-  const popoverRef = useRef(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
-
-  useEffect(() => {
-    if (!isVisible || !anchorElement) return;
-
-    const updatePosition = () => {
-      if (!popoverRef.current) {
-        // Wait for next frame if popover isn't rendered yet
-        requestAnimationFrame(updatePosition);
-        return;
-      }
-
-      const rect = anchorElement.getBoundingClientRect();
-      const popoverRect = popoverRef.current?.getBoundingClientRect();
-      
-      if (!popoverRect) return;
-
-      // Position above the anchor element, centered horizontally
-      const top = rect.top - popoverRect.height - 8;
-      const left = rect.left + (rect.width / 2) - (popoverRect.width / 2);
-
-      // Ensure popover stays within viewport
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      
-      let finalLeft = left;
-      let finalTop = top;
-
-      // Adjust if popover goes off screen horizontally
-      if (finalLeft < 8) {
-        finalLeft = 8;
-      } else if (finalLeft + popoverRect.width > viewportWidth - 8) {
-        finalLeft = viewportWidth - popoverRect.width - 8;
-      }
-
-      // If not enough space above, position below
-      if (finalTop < 8) {
-        finalTop = rect.bottom + 8;
-      }
-
-      setPosition({ top: finalTop, left: finalLeft });
-    };
-
-    // Small delay to ensure popover is rendered
-    const timeoutId = setTimeout(updatePosition, 0);
-    window.addEventListener('scroll', updatePosition, true);
-    window.addEventListener('resize', updatePosition);
-
-    return () => {
-      clearTimeout(timeoutId);
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
-  }, [isVisible, anchorElement]);
-
   if (!isVisible || !track) return null;
 
   const hasGenres = track.genres && Array.isArray(track.genres) && track.genres.length > 0;
@@ -71,20 +14,15 @@ export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, a
   const hasAnyTags = hasGenres || hasInstruments || hasElements || hasInstrumentRequests || hasElementRequests;
   if (!hasAnyTags) return null;
 
-  const popoverContent = (
-    <div
-      ref={popoverRef}
+  return (
+    <Popover
+      isVisible={isVisible}
+      anchorElement={anchorElement}
       className={styles.popover}
-      style={{
-        position: 'fixed',
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        zIndex: 10000,
-      }}
-      onMouseEnter={onMouseEnter} // Keep popover open when hovering over it
+      onMouseEnter={onMouseEnter}
       onMouseLeave={onClose}
     >
-      <div className={styles.popoverContent}>
+      <div>
         {hasGenres && (
           <div className={styles.category}>
             <div className={styles.categoryTitle}>Genres</div>
@@ -150,9 +88,7 @@ export default function TagsPopover({ track, isVisible, onClose, onMouseEnter, a
           </div>
         )}
       </div>
-    </div>
+    </Popover>
   );
-
-  return createPortal(popoverContent, document.body);
 }
 

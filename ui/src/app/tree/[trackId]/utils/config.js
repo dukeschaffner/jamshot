@@ -26,4 +26,4 @@ export const CONCENTRIC_CONFIG = {
     CHILDREN_LIMIT: 11,
 };
 
-export const DEBUG_MODE = true;
+export const DEBUG_MODE = false;
