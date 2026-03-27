@@ -13,5 +13,6 @@ TODO:
 - better error reporting to user
 - better loading states
 - do i need to delete cache if plugin is uninstalled?
+- "no liked tracks" message
 - websocket server start retry
 - when plugin first starts, the web -> plugin communication still fails until refresh

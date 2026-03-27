@@ -1,4 +1,19 @@
 
+
+
+camps:
+- double check timestamps (handle timzones)
+- update ui to not allow recording on beat until camp starts
+- ensure beats are tracks with no parent AND no room_id
+- allow camp version upgrade to allow more users
+- key field
+- camp ended screen
+- camp/song export with contributor list + split sheet generator
+
+
+
+
+teams:
 - handle deleting folders (option to delete all tracks in folder or orphan the tracks)
 - file storage (s3) - upload files to track (lyrics, midi files, etc.). view files by track, track and ancestors, or folder
 - waveform visualization
