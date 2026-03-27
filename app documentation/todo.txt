@@ -6,6 +6,7 @@ before launch:
 - if only one gmail logged it, it automatically signs in as that user. they should always be bale to select which account or sign in with new one
 - rendering error on recording track
 - dont show audio processing specific error to users
+- make tree page work with non loop tracks
 - ban users (moderation page)
   - notifcation inserted before track approved
   - check ban timestamps

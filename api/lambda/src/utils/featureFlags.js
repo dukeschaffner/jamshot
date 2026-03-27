@@ -64,10 +64,9 @@ async function isFeatureEnabled(flagKey, defaultValue = false) {
   const now = Date.now();
   if (flagsCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_TTL) {
     if (flagKey in flagsCache) {
+      console.log(`Feature flag ${flagKey} is enabled (cache): ${flagsCache[flagKey]}`);
       return flagsCache[flagKey];
     }
-    // Flag not in cache, return default
-    return defaultValue;
   }
 
   // Cache miss or expired, fetch from DB
@@ -77,6 +76,7 @@ async function isFeatureEnabled(flagKey, defaultValue = false) {
     cacheTimestamp = now;
 
     if (flagKey in flags) {
+      console.log(`Feature flag ${flagKey} is enabled (DB): ${flags[flagKey]}`);
       return flags[flagKey];
     }
 
