@@ -7,10 +7,7 @@ before launch:
 - rendering error on recording track
 - dont show audio processing specific error to users
 - make tree page work with non loop tracks
-- ban users (moderation page)
-  - notifcation inserted before track approved
-  - check ban timestamps
-
+- user page shows @undefined as page title
 
 
 

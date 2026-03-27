@@ -23,6 +23,7 @@ import TrackTags from './TrackTags';
 import VideoExportModal from './VideoExportModal';
 import VideoExportStatusModal from './VideoExportStatusModal';
 import {usePluginWebSocket} from '../contexts/PluginWebSocketContext';
+import LoopIconWithPopover from './LoopIconWithPopover';
 
 export default function Track(
     { track, 
@@ -511,7 +512,7 @@ export default function Track(
         
         <div className={styles.trackMetaAudio}>
           <TrackTags track={track} variant="light" />
-                      
+          <div className="flex flex-row gap-2">
           {track.metronome_bpm && (
             <>
               <div className={`meta-item ${styles.metronome}`}>
@@ -520,6 +521,15 @@ export default function Track(
               </div>
             </>
           )}
+          {track.is_loop && (
+            <LoopIconWithPopover
+              track={track}
+              className={`meta-item ${styles.metronome}`}
+            />
+          )}
+          </div>
+                      
+
         </div>
         <div className={styles.trackActions}>
           <button 
