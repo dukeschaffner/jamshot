@@ -30,7 +30,7 @@ export default function LoopIconWithPopover({ track, className = '' }) {
           if (e.key === 'Enter' || e.key === ' ') handleClick(e);
         }}
       >
-        <FaLoop />
+        <FaLoop className="shrink-0" />
       </div>
 
       <Popover

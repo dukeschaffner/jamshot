@@ -19,11 +19,11 @@ import { useMobile } from '../contexts/MobileContext';
 import { useToast } from '../lib/ToastContext';
 import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
 import MoveTrackModal from './teams/MoveTrackModal';
-import TrackTags from './TrackTags';
 import VideoExportModal from './VideoExportModal';
 import VideoExportStatusModal from './VideoExportStatusModal';
 import {usePluginWebSocket} from '../contexts/PluginWebSocketContext';
-import LoopIconWithPopover from './LoopIconWithPopover';
+import TrackMetaAudio from './TrackMetaAudio';
+
 
 export default function Track(
     { track, 
@@ -509,28 +509,10 @@ export default function Track(
           variant="default"
           className={styles.trackMetaSocial}
         />
-        
-        <div className={styles.trackMetaAudio}>
-          <TrackTags track={track} variant="light" />
-          <div className="flex flex-row gap-2">
-          {track.metronome_bpm && (
-            <>
-              <div className={`meta-item ${styles.metronome}`}>
-              <span>{track.metronome_bpm} BPM</span>
-                <FaMusic /> 
-              </div>
-            </>
-          )}
-          {track.is_loop && (
-            <LoopIconWithPopover
-              track={track}
-              className={`meta-item ${styles.metronome}`}
-            />
-          )}
-          </div>
-                      
 
-        </div>
+        <TrackMetaAudio track={track} />
+        
+
         <div className={styles.trackActions}>
           <button 
             className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
