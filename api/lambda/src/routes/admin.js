@@ -113,7 +113,7 @@ router.post('/moderation/tracks/:trackId/approve', async (req, res, next) => {
 
     // Update track status to completed
     await pool.query(
-      'UPDATE tracks SET processing_status = $1 WHERE id = $2',
+      'UPDATE tracks SET processing_status = $1, created_at = NOW() WHERE id = $2',
       ['completed', trackIdNum]
     );
 
