@@ -1,22 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { trackApi } from '@/lib/api';
-import Image from 'next/image';
 import api from '@/lib/api';
-import CommentSection from '@/components/CommentSection';
-import CustomTabs from '@/components/CustomTabs';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import TrackMeta from '@/components/TrackMeta';
 import './collaborate.css';
-import styles from '@/components/Track.module.css';
 import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop} from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
 import { useMobile } from '../../../contexts/MobileContext';
 import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 import DAW from '@/components/DAW/DAW';
+import Track from '@/components/Track';
 
 // Component that uses useSearchParams, wrapped in Suspense
 function TrackContent() {
@@ -33,12 +29,26 @@ function TrackContent() {
   const [isTrackOwner, setIsTrackOwner] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isPrivacyToggleInProgress, setIsPrivacyToggleInProgress] = useState(false);
-  const [isDeleteInProgress, setIsDeleteInProgress] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const [moderationStatus, setModerationStatus] = useState(null); // 'waiting_for_approval', 'rejected', or null
   const [rejectionReason, setRejectionReason] = useState(null);
   const [statusPollingInterval, setStatusPollingInterval] = useState(null);
   const pollingStartTimeRef = useRef(null);
+
+  const dawElement = useMemo(() => 
+    <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
+      {isMobile ? (
+        <div className="mobile-collab-message">
+          <FaDesktop className="mobile-collab-icon" />
+          <h3>Desktop Required</h3>
+          <p>Use Desktop version to record or upload file to collaborate</p>
+        </div>
+      ) : (
+        <DAW track={track}/>
+      )}
+    </div>
+  , [track, activeTab, isMobile]);
+
 
   const startStatusPolling = () => {
     // Start polling for status changes (every 30 seconds for up to 5 minutes)
@@ -220,61 +230,81 @@ function TrackContent() {
         setIsLinkCopied(false);
       });
   };
-
-  const handleDeleteTrack = async () => {    
-    if (!isTrackOwner || isDeleteInProgress) return;
-    
-    // Confirm deletion with user
-    const hasChildren = track.child_count > 0;
-    let confirmMessage = 'Are you sure you want to delete this track?';
-    
-    if (hasChildren) {
-      confirmMessage = 'This track has collaborations. Deleting it will remove your ownership, but the track will remain available for others. Continue?';
-    }
-    
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-    
-    setIsDeleteInProgress(true);
-    
-    try {
-      // Use numeric ID for API calls
-      const response = await api.delete(`/tracks/${track.id}`);
-      
-      // Show appropriate message based on deletion type
-      if (response.data.soft_delete) {
-        alert('Track has been removed from your profile but remains available for collaborations.');
-      } else {
-        alert('Track has been permanently deleted.');
-      }
-      
-      // Redirect to home page
-      window.location.href = '/';
-    } catch (err) {
-      console.error('Failed to delete track:', err);
-      alert('Failed to delete track. Please try again later.');
-    } finally {
-      setIsDeleteInProgress(false);
-    }
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
   };
 
 
+  const isTrackPrivacyFeatureEnabled = isFeatureEnabled('subscriptions', false);
 
-  // Create tabs configuration
-  // Hide collab tab if track is layer 4
-  const tabs = [
-    ...(track?.layer < 4 ? [{ key: 'collab', label: 'Collab' }] : []),
-    { key: 'comments', label: 'Comments' },
-    ...(isTrackOwner ? [{ key: 'edit', label: 'Edit' }] : [])
-  ];
+  const editTabContent = (
+    <div className="edit-track-container">
+      <div className="edit-track-panel">
+        <h3>Track Settings</h3>
+        
+        {isTrackPrivacyFeatureEnabled && (
+          <>
+            <div className="edit-track-section">
+              <h4>Privacy Settings</h4>
+              <div className="privacy-toggle">
+                <button 
+                  className={`pill-btn w-min`}
+                  onClick={handlePrivacyToggle}
+                  disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
+                >
+                  {isPrivate ? (
+                    <>
+                      <FaLock className="btn-icon" />
+                      <span>Private</span>
+                    </>
+                  ) : (
+                    <>
+                      <FaLockOpen className="btn-icon" />
+                      <span>Public</span>
+                    </>
+                  )}
+                </button>
+                <p className="privacy-description">
+                  {isPrivate 
+                    ? 'This track is private. Only you and people with the link can view it.' 
+                    : 'This track is public. Anyone can view and collaborate on it.'}
+                </p>
+              </div>
+            </div>
+            
+            {isPrivate && (
+              <div className="share-link-section">
+                <button 
+                  className="edit-track-share-btn"
+                  onClick={handleCopyLink}
+                >
+                  <FaShareAlt className="btn-icon" />
+                  <span>{isLinkCopied ? 'Link Copied!' : 'Copy Private Link'}</span>
+                </button>
+                <p className="share-description">
+                  Share this link to give others access to your private track.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 
-  // Switch to comments tab if collab tab is hidden and activeTab is 'collab'
-  useEffect(() => {
-    if (track?.layer >= 4 && activeTab === 'collab') {
-      setActiveTab('comments');
-    }
-  }, [track?.layer, activeTab]);
+  const extraTabs = [
+    ...(isTrackOwner && isTrackPrivacyFeatureEnabled ? [{ key: 'edit', label: 'Edit', content: editTabContent}] : []),
+    ...(track?.layer < 4 ? [{ key: 'collab', label: 'Collab', content: dawElement, keepMounted: true}] : []),
+  ]
+
+
+
+  const actionButton = (
+    <Link href={`/tree/${track?.guid}`} className="pill-btn sm">
+      <FaProjectDiagram className="explore-icon" />
+      <span>Explore</span>
+    </Link>
+  );
 
   if (loading) {
     return (
@@ -345,141 +375,18 @@ function TrackContent() {
 
   return (
     <div className="w-full">
-        <div className="track-header">
-         <div className="track-info">
-          <div className="track-artist">
-              <Image 
-                className="avatar"
-                src={track?.profile_pic_url || '/avatar.svg'} 
-                alt={track.username}
-                width={40}
-                height={40} 
-              />
-             <span className="artist-name ml-2">{track?.username || 'Unknown Artist'}</span>
-             {track?.verified && <FaCheckCircle className="verified-icon ml-1" />}
-           </div>
-           <div>
-            <div className={styles.trackTitle}>
-                <span className="title-text link-underline">
-                  {track.title}
-                </span>
-                <div className={styles.trackLayerMessage}>
-                  {track?.parent_track_id ? 
-                  (
-                    <>
-                      <b>Layer {track.layer}</b> - Based on &quot;{track.original_title}&quot; by {track.original_username ? track.original_username : "Unknown Artist"}
-                    </>) 
-                  : (<b>Original track</b>)}
-                </div>
-              </div>
-           </div>
+        <Track 
+          track={track} 
+          context="track_page" 
+          extraTabs={extraTabs}
+          onTabChange={handleTabChange}
+          initialTab={track?.layer < 4 ? 'collab' : 'comments'}
+          actionButton={actionButton}
+          expandedTrackId={track.id}
+        />
 
-           
-           <TrackMeta 
-             track={track}
-             showDownload={true}
-           />
-         </div>
-         <div className="track-controls">
-           <Link href={`/tree/${track.guid}`} className="pill-btn">
-             <FaProjectDiagram className="explore-icon" />
-             <span>Explore</span>
-           </Link>
-         </div>
-      </div>
-      <CustomTabs
-             tabs={tabs}
-             activeTab={activeTab}
-             onTabChange={setActiveTab}
-             variant="default"
-           />
-      <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
-        {isMobile ? (
-          <div className="mobile-collab-message">
-            <FaDesktop className="mobile-collab-icon" />
-            <h3>Desktop Required</h3>
-            <p>Use Desktop version to record or upload file to collaborate</p>
-          </div>
-        ) : (
-          <DAW track={track}/>
-        )}
-      </div>
-      {activeTab === 'comments' && (
-        <div className="comments-container">
-          <CommentSection trackId={track.id} />
-        </div>
-      )}
-      {activeTab === 'edit' && isTrackOwner && (
-        <div className="edit-track-container">
-          <div className="edit-track-panel">
-            <h3>Track Settings</h3>
-            
-            {isFeatureEnabled('subscriptions', false) && (
-              <>
-                <div className="edit-track-section">
-                  <h4>Privacy Settings</h4>
-                  <div className="privacy-toggle">
-                    <button 
-                      className={`pill-btn w-min`}
-                      onClick={handlePrivacyToggle}
-                      disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
-                    >
-                      {isPrivate ? (
-                        <>
-                          <FaLock className="btn-icon" />
-                          <span>Private</span>
-                        </>
-                      ) : (
-                        <>
-                          <FaLockOpen className="btn-icon" />
-                          <span>Public</span>
-                        </>
-                      )}
-                    </button>
-                    <p className="privacy-description">
-                      {isPrivate 
-                        ? 'This track is private. Only you and people with the link can view it.' 
-                        : 'This track is public. Anyone can view and collaborate on it.'}
-                    </p>
-                  </div>
-                </div>
-                
-                {isPrivate && (
-                  <div className="share-link-section">
-                    <button 
-                      className="edit-track-share-btn"
-                      onClick={handleCopyLink}
-                    >
-                      <FaShareAlt className="btn-icon" />
-                      <span>{isLinkCopied ? 'Link Copied!' : 'Copy Private Link'}</span>
-                    </button>
-                    <p className="share-description">
-                      Share this link to give others access to your private track.
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-            
-            <div className="edit-track-section danger-zone">
-              <h4>Danger Zone</h4>
-              <button 
-                className="delete-btn"
-                onClick={handleDeleteTrack}
-                disabled={isDeleteInProgress}
-              >
-                <FaTrash className="btn-icon" />
-                <span>{isDeleteInProgress ? 'Deleting...' : 'Delete Track'}</span>
-              </button>
-              <p className="delete-description">
-                {track.child_count > 0 
-                  ? 'This track has collaborations. Deleting it will remove your ownership, but the track will remain available for others.' 
-                  : 'This action cannot be undone. The track will be permanently deleted.'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+
+
     </div>
   );
 }
