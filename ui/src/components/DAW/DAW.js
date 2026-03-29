@@ -25,7 +25,7 @@ import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ContextMenu from './components/ContextMenu';
 import { useToast } from '../../lib/ToastContext';
 
-function DAWContent({ track}) {
+function DAWContent({ track, isVisible = true }) {
   const {
     isCollab,
     trackManagerRef,
@@ -88,6 +88,7 @@ function DAWContent({ track}) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignore if user is typing in an input field, textarea, or contentEditable element
+      if (!isVisible) return;
       if (
         e.target.tagName === 'INPUT' ||
         e.target.tagName === 'TEXTAREA' ||
@@ -218,7 +219,7 @@ function DAWContent({ track}) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible]); // Include dependencies
 
   // Handle toast notifications from the event bus
   useEffect(() => {
@@ -460,7 +461,7 @@ function DAWContent({ track}) {
 
 
 // Main DAW component that provides the context
-function DAW({ track }) {
+function DAW({ track, isVisible = true }) {
   // Convert track data to the format expected by DAWContext
   // Use useMemo to stabilize the reference and prevent unnecessary re-initializations
   const trackData = useMemo(() => track ? [track] : [], [track]);
@@ -468,13 +469,13 @@ function DAW({ track }) {
 
   return (
     <DAWProvider trackData={trackData} isCollab={isCollab}>
-      <DAWWrapper track={track} />
+      <DAWWrapper track={track} isVisible={isVisible} />
     </DAWProvider>
   );
 }
 
 // Wrapper component that handles fullscreen modal rendering
-function DAWWrapper({ track }) {
+function DAWWrapper({ track, isVisible = true }) {
   const { isFullscreen } = useDAW();
 
   if (isFullscreen) {
@@ -482,13 +483,13 @@ function DAWWrapper({ track }) {
       <>
         {/* Fullscreen modal overlay */}
         <div className={styles.fullscreenOverlay}>
-          <DAWContent track={track} />
+          <DAWContent track={track} isVisible={isVisible} />
         </div>
       </>
     );
   }
 
-  return <DAWContent track={track} />;
+  return <DAWContent track={track} isVisible={isVisible} />;
 }
 
 export default DAW;

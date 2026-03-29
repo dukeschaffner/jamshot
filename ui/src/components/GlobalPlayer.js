@@ -78,22 +78,25 @@ export default function GlobalPlayer() {
 
   // Reference to the progress bar element
   const progressBarRef = useRef(null);
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
 
   // Handle progress bar click for seeking
   const handleProgressBarClick = (e) => {
-    if (!progressBarRef.current || !currentTrack) return;
-    
+    const track = currentTrackRef.current;
+    if (!progressBarRef.current || !track) return;
+
     const rect = progressBarRef.current.getBoundingClientRect();
     const clickPosition = (e.clientX - rect.left) / rect.width;
-    const seekPosition = clickPosition * currentTrack.duration;
-    
-    // Seek to the calculated position in seconds
+    const seekPosition = clickPosition * track.duration;
+
     seek(seekPosition);
+    setIsDragging(false);
   };
 
   // Handle mouse down to start dragging
   const handleMouseDown = (e) => {
-    if (!progressBarRef.current || !currentTrack) return;
+    if (!progressBarRef.current || !currentTrackRef.current) return;
     
     setIsDragging(true);
     // Notify AudioContext that seeking has started
@@ -105,12 +108,12 @@ export default function GlobalPlayer() {
 
   // Handle mouse move while dragging
   const handleMouseMove = (e) => {
-    if (!isDragging || !progressBarRef.current || !currentTrack) return;
-    
+    const track = currentTrackRef.current;
+    if (!isDragging || !progressBarRef.current || !track) return;
+
     const rect = progressBarRef.current.getBoundingClientRect();
     const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    
-    // Update visual position only (actual seeking happens on mouse up)
+
     const progressBar = progressBarRef.current.querySelector(`.${styles.progress}`);
     if (progressBar) {
       progressBar.style.width = `${position * 100}%`;
@@ -119,33 +122,32 @@ export default function GlobalPlayer() {
 
   // Handle mouse up to complete seeking
   const handleMouseUp = (e) => {
-    if (isDragging && progressBarRef.current && currentTrack) {
+    const track = currentTrackRef.current;
+    if (isDragging && progressBarRef.current && track) {
       const rect = progressBarRef.current.getBoundingClientRect();
       const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const seekPosition = position * currentTrack.duration;
-      
-      // Perform the actual seek
+      const seekPosition = position * track.duration;
       seek(seekPosition);
     }
-    
+
     setIsDragging(false);
   };
 
-  // Add and remove event listeners for dragging
+  // Capture phase: DAW (and other code) may stopPropagation on bubble; window bubble listeners never run.
   useEffect(() => {
     const handleGlobalMouseMove = (e) => handleMouseMove(e);
     const handleGlobalMouseUp = (e) => handleMouseUp(e);
-    
+
     if (isDragging) {
-      window.addEventListener('mousemove', handleGlobalMouseMove);
-      window.addEventListener('mouseup', handleGlobalMouseUp);
+      window.addEventListener('mousemove', handleGlobalMouseMove, true);
+      window.addEventListener('mouseup', handleGlobalMouseUp, true);
     }
-    
+
     return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('mousemove', handleGlobalMouseMove, true);
+      window.removeEventListener('mouseup', handleGlobalMouseUp, true);
     };
-  }, [isDragging, currentTrack]);
+  }, [isDragging]);
 
   if (!currentTrack) return null;
 

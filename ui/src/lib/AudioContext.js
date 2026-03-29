@@ -2,6 +2,8 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { Howl } from 'howler';
 import api, { trackApi } from './api';
+import { eventBus } from '../components/DAW/misc/EventBus';
+import { DAW_EVENTS } from '../components/DAW/misc/DAWEvents';
 
 const AudioContext = createContext();
 
@@ -16,6 +18,7 @@ export function AudioProvider({ children }) {
   const [isSeeking, setIsSeeking] = useState(false);
   const [playedTracks, setPlayedTracks] = useState(new Set()); // Track which tracks have been played
   const [audioSourceType, setAudioSourceType] = useState('combined'); // 'combined' or 'audio'
+  const [spaceShortcutEnabled, setSpaceShortcutEnabled] = useState(true);
   const soundRef = useRef(null);
   const shuffledIndicesRef = useRef([]);
   const currentPositionRef = useRef(0);
@@ -284,6 +287,14 @@ export function AudioProvider({ children }) {
     };
   }, [currentTrack, isPlaying, handleTrackEnd, updateListeningTime, handleExpiredUrl, audioSourceType]);
 
+  // Pause the DAW transport when the global player is playing
+  useEffect(() => {
+    if(isPlaying) {
+      eventBus.emit(DAW_EVENTS.TRANSPORT.PAUSE); // pause the DAW transport
+    }
+  }, [isPlaying]);
+
+
   // Generate shuffled indices when playlist or shuffle state changes
   useEffect(() => {
     if (isShuffleOn && playlist.length > 0) {
@@ -348,7 +359,7 @@ export function AudioProvider({ children }) {
   useEffect(() => {
     if (isSeeking) {
       soundRef.current.pause();
-      setIsSeeking(false);
+      // setIsSeeking(false);
     }
   }, [isSeeking]);
 
@@ -459,7 +470,9 @@ export function AudioProvider({ children }) {
         playedTracks,
         audioSourceType,
         playTrack, 
-        togglePlayPause, 
+        togglePlayPause,
+        spaceShortcutEnabled,
+        setSpaceShortcutEnabled,
         seek, 
         setIsSeeking,
         playNext, 
