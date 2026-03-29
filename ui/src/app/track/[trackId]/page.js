@@ -10,6 +10,7 @@ import './collaborate.css';
 import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop} from 'react-icons/fa';
 import { useUser } from '../../../contexts/UserContext';
 import { useMobile } from '../../../contexts/MobileContext';
+import { useAudio } from '@/lib/AudioContext';
 import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 import DAW from '@/components/DAW/DAW';
 import Track from '@/components/Track';
@@ -34,6 +35,7 @@ function TrackContent() {
   const [rejectionReason, setRejectionReason] = useState(null);
   const [statusPollingInterval, setStatusPollingInterval] = useState(null);
   const pollingStartTimeRef = useRef(null);
+  const { setSpaceShortcutEnabled } = useAudio();
 
   const dawElement = useMemo(() => 
     <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
@@ -44,10 +46,23 @@ function TrackContent() {
           <p>Use Desktop version to record or upload file to collaborate</p>
         </div>
       ) : (
-        <DAW track={track}/>
+        <DAW track={track} isVisible={activeTab === 'collab'}/>
       )}
     </div>
   , [track, activeTab, isMobile]);
+
+
+  // Disable space shortcut for global player when DAW is active
+  useEffect(() => {
+    if(activeTab === 'collab') {
+      setSpaceShortcutEnabled(false);
+    } else {
+      setSpaceShortcutEnabled(true);
+    }
+    return () => {
+      setSpaceShortcutEnabled(true);
+    };
+  }, [activeTab, setSpaceShortcutEnabled]);
 
 
   const startStatusPolling = () => {

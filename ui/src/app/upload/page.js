@@ -2,9 +2,18 @@
 import { FaDesktop } from 'react-icons/fa';
 import { useMobile } from '../../contexts/MobileContext';
 import DAW from '@/components/DAW/DAW';
+import { useAudio } from '@/lib/AudioContext';
+import { useEffect } from 'react';
 
 export default function Upload() {
   const { isMobile } = useMobile();
+  const { setSpaceShortcutEnabled } = useAudio();
+
+  // Disable space shortcut for global player when upload page is active
+  useEffect(() => {
+    setSpaceShortcutEnabled(false);
+    return () => setSpaceShortcutEnabled(true);
+  }, [setSpaceShortcutEnabled]);
 
   return (
     <div>

@@ -25,18 +25,13 @@ import api from '../lib/api';
 function AppContent({ children }) {
   const { user, isLoading, isAuthenticated, needsToCompleteProfile, logout, refreshUser } = useUser();
   const [darkMode, setDarkMode] = useState(false);
-  const { currentTrack, isPlaying, togglePlayPause } = useAudio();
+  const { currentTrack, togglePlayPause, spaceShortcutEnabled } = useAudio();
   const [hasAccess, setHasAccess] = useState(false);
   const [accessCheckComplete, setAccessCheckComplete] = useState(false);
   const [profileError, setProfileError] = useState('');
   
-  // Check if we're on pages where player should be hidden
   const pathname = usePathname();
-  const isUploadPage = pathname === '/upload';
-  const isTrackPage = pathname.startsWith('/track/');
-  const shouldHidePlayer = isUploadPage || isTrackPage;
-  
-  const playerVisible = !!currentTrack && !shouldHidePlayer;
+  const playerVisible = !!currentTrack;
 
   // Check for access on mount
   useEffect(() => {
@@ -64,21 +59,10 @@ function AppContent({ children }) {
     }
   }, [pathname]);
 
-  // Pause audio when navigating to upload or track pages
+  // Space toggles global playback when a track is loaded (skip when typing in inputs)
   useEffect(() => {
-    if (shouldHidePlayer && isPlaying) {
-      togglePlayPause();
-    }
-  }, [shouldHidePlayer, isPlaying, togglePlayPause]);
-
-  // Handle keyboard shortcuts - only mount when player should be visible
-  useEffect(() => {
-    // Don't add keypress listeners on pages where player is hidden
-    if (shouldHidePlayer) {
-      return;
-    }
-
     const handleKeyPress = (e) => {
+      if (!spaceShortcutEnabled) return;
       // Check if there's a current track and the pressed key is space
       if (currentTrack && e.code === 'Space') {
         // Check if the active element is an input, textarea, or button
@@ -103,7 +87,7 @@ function AppContent({ children }) {
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, [currentTrack, togglePlayPause, shouldHidePlayer]);
+  }, [currentTrack, togglePlayPause, spaceShortcutEnabled]);
 
   const allowDarkMode = false;
 
@@ -193,8 +177,7 @@ function AppContent({ children }) {
         {children}
       </main>
       
-      {/* Global Player - only render when not on upload or track pages */}
-      {!shouldHidePlayer && <GlobalPlayer />}
+      <GlobalPlayer />
       
       {/* Release Notes Toast */}
       <ReleaseNotesToast />
