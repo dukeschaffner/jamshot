@@ -1,6 +1,6 @@
 ---
 name: jamshot-issues
-description: Creates Jamshot markdown issues under app documentation/issues with valid frontmatter, next id, slug filename, subdirectory, area, tags, and priority. Use when the user asks to add or create an issue, backlog item, or ticket in the issues folder or issues-visualizer format.
+description: Creates Jamshot markdown issues under app documentation/issues — prefer POST to issues-visualizer create API; if unreachable, write the file locally with scanned next id. Use when the user asks to add or create an issue, backlog item, or ticket in the issues folder or issues-visualizer format.
 ---
 
 # Jamshot issue files
@@ -16,7 +16,7 @@ description: Creates Jamshot markdown issues under app documentation/issues with
 
 | Field | Allowed / notes |
 |-------|------------------|
-| `id` | Integer; must be **max existing id + 1** after scanning every `**/*.md` under the root |
+| `id` | Integer; **assigned by the server** on `POST /api/issues`; on **fallback** (API down), **max existing id + 1** after scanning `**/*.md` |
 | `title` | Short summary title (drives filename; avoid relying on truncation) |
 | `type` | Exactly one of: `bug`, `feature`, `tech-debt` |
 | `status` | Default `open`. Others: `in-progress`, `blocked`, `done` |
@@ -86,16 +86,71 @@ Use **one** band; default **5** when unsure.
 
 If the user states priority, map it into **1–10** (remembering **10** is most urgent) and use it.
 
+## Create via API (preferred)
+
+Handler: `issues-visualizer/server/index.mjs` → `POST /api/issues`. Same tree as **`app documentation/issues`**. Default base URL **`http://localhost:3050`**; port from env **`ISSUES_API_PORT`** on the server if overridden.
+
+**Request**
+
+- Method: **POST**
+- URL: `http://localhost:{PORT}/api/issues`
+- Header: **`Content-Type: application/json`**
+- Body (JSON object) — **do not send `id`**; the server sets `id` to `maxIssueIdFromDisk() + 1` and builds `{id}-{slugify(title)}.md`.
+
+| JSON field | Type / notes |
+|------------|----------------|
+| `directory` | String; subfolder under issues root, POSIX style, **no** leading/trailing slashes. Use `""` for root. Examples: `DAW`, `competitions`. |
+| `title` | String; required, non-empty (after trim). |
+| `type` | One of: `bug`, `feature`, `tech-debt`. |
+| `status` | One of: `open`, `in-progress`, `blocked`, `done` (default **`open`** for new issues). |
+| `priority` | Number **1–10**. |
+| `area` | String; use `""` for root issues per **Area field** above. |
+| `tags` | JSON array of strings (can be `[]`). |
+| `content` | String; markdown body **after** the frontmatter (no YAML in this field). Server ensures trailing newline. |
+
+**Success**: HTTP **201**, body `{ "relativePath": "DAW/85-example.md" }` (path uses `/`).
+
+**Errors**: non-2xx JSON may include `{ "error": "..." }` (e.g. validation). **409** if the target file already exists.
+
+**Example** (`curl`):
+
+```bash
+curl -sS -X POST "http://localhost:3050/api/issues" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "directory": "DAW",
+    "title": "Example issue title",
+    "type": "feature",
+    "status": "open",
+    "priority": 5,
+    "area": "daw",
+    "tags": ["daw", "ux"],
+    "content": "Body paragraph(s) go here.\n"
+  }'
+```
+
+## Fallback (API unreachable)
+
+If **POST** fails (connection refused, timeout, DNS, or you cannot get **201** with a usable `relativePath`): tell the user the **issues-visualizer API does not appear to be running or reachable** (start the server from `issues-visualizer` if they want API-backed creation). Then **create the file yourself**:
+
+1. Compute **next id**: grep or glob `app documentation/issues/**/*.md` for `^id:`; `maxId = 0`, for each numeric id `n` use `maxId = Math.max(maxId, n)`; **next id** = `maxId + 1` (or **1** if none).
+2. **Write** `app documentation/issues/<folder?>/{nextId}-{slug}.md` using the **Template** below (include `id` in frontmatter).
+
+Optional: `GET http://localhost:{PORT}/api/health` returns `{ ok: true }` when the server process is up (still use **POST** to create).
+
 ## Workflow
 
-1. **Read** nothing mandatory except when needed: grep or glob `app documentation/issues/**/*.md` for `^id:` to compute **next id**.
-2. **Title**: short summary; expand details in the body.
-3. **Type**: infer from wording (`fix`, `broken`, `error` → `bug`; `refactor`, `migration`, `script cleanup` → `tech-debt`; else `feature`) unless the user specifies.
-4. **Folder**, **area**, **tags**, **priority**: apply rules above; state the choices briefly when replying.
-5. **Write** the file at `app documentation/issues/<folder?>/{id}-{slug}.md`.
-6. **Double-check**: `type`/`status` valid; `priority` in range; body ends with newline.
+1. **Decide** title, type, status, priority, folder (`directory`), area, tags, and markdown **content** (body only).
+2. **Try** **Create via API** with a properly formatted **POST** body.
+3. **On 201**: confirm `relativePath` to the user; no manual file write.
+4. **On failure**: follow **Fallback**; keep the user-facing API message in your reply.
+5. **Double-check**: `type`/`status` valid; `priority` in range; body ends with newline (API adds newline to `content` if missing).
 
-## Template
+## Template (fallback manual file only)
+
+For **POST**, put the prose in JSON `content` and the other fields in the JSON body — **omit `id`**.
+
+For **fallback**, write this file shape:
 
 ```markdown
 ---
@@ -117,5 +172,6 @@ Use `area: tree-page` (etc.) when inside a subfolder per the Area rules.
 
 **Input**: “DAW undo sometimes batches weirdly”
 
-- Folder `DAW`, `area: daw`, `type: bug`, `tags: [daw, ux]`, `priority: 5` (or **9–10** if the user calls it launch-blocking).
-- File: `DAW/{next}-daw-undo-batching.md`
+- Folder `DAW`, `area: daw`, `type: bug`, `tags: ["daw", "ux"]`, `priority: 5` (or **9–10** if the user calls it launch-blocking).
+- **POST** with `"directory": "DAW"`, `"title": "…"`, `"content": "…"` (etc.); server writes `DAW/{id}-daw-undo-batching.md`.
+- **Fallback**: same fields in frontmatter + body file path `DAW/{nextId}-daw-undo-batching.md`.
