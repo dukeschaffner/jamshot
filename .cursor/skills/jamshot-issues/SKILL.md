@@ -38,8 +38,11 @@ Pick **one** folder from the table. If nothing fits, use **root** (no subfolder)
 | `auth` | Login, session, profile, Google OAuth, blocking users, subscriptions/billing UX |
 | `competitions` | Competitions, entries, hosts, payouts, contest rules |
 | `notifications` | In-app/email notifications, badges, mentions, notification settings |
-| `camps-and-teams` | Camps, teams, shared spaces |
-| *(root)* | Cross-cutting infra, navbar, content moderation, generic product, or multi-area items |
+| `camps-and-teams` | applies to both camps and teams |
+| `camps-and-teams/camps` | applies to only camps |
+| `camps-and-teams/teams` | applies to only teams |
+| `misc` | Cross-cutting infra, navbar, content moderation, generic product, or multi-area items |
+You may also examine the existing folders to see if there are any new ones. You can use new ones too.
 
 Nested path = only the folder name as a segment (e.g. `DAW/84-my-title.md`), not deeper paths unless the repo already uses them.
 
