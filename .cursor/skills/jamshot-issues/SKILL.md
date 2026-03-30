@@ -34,7 +34,7 @@ Pick **one** folder from the table. If nothing fits, use **root** (no subfolder)
 |--------|----------|
 | `DAW` | Collab DAW, recording, loops, takes, layers, count-in, stems in editor |
 | `plugin` | Desktop/plugin, upload processing time, audio pipeline, Soundtrap import, transport sync |
-| `tree-page` | Track tree, feed, queue, player, search, comments, track component, plays/analytics UX |
+| `tree-page` | Track tree |
 | `auth` | Login, session, profile, Google OAuth, blocking users, subscriptions/billing UX |
 | `competitions` | Competitions, entries, hosts, payouts, contest rules |
 | `notifications` | In-app/email notifications, badges, mentions, notification settings |
