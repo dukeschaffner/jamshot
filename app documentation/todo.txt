@@ -2,7 +2,6 @@ TODO (MVP)
 
 before launch:
 - lambda concurrency
-- new collab email linked to orig track (maybe link to new track?)
 - if only one gmail logged it, it automatically signs in as that user. they should always be bale to select which account or sign in with new one
 - rendering error on recording track
 - dont show audio processing specific error to users
@@ -19,18 +18,14 @@ before launch:
   - grid and playhead height for layer 4 track
 
   
-- add way to stream track on track page outside of DAW (maybe just show track component?)
 - handle notification spamming
 - display uploads left in nav?
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
-- camps/teams - remove repost button from track component. make sure liked camp/team songs dont show up in user likes (maybe unless they are viewing their own page?)
 - export stems button on track ellipsis menu
 - finish track id -> track guid migration (competition create page)
-  - team/camp id -> team/camp guid migration
 - report track (abuse, copyright infringement, not actually a collab, etc)
-- for camps and teams, save lossless audio for stem export
 - add duration to track component
 - maybe tik tok style feed view?
   - user-wide canvas video that plays in tik tok feed view
@@ -119,6 +114,7 @@ TODO (after beta testing)
 - posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
 - Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
 - content moderation
+- split track component into variants/cleanup
 - block users
 - profile banner image
 - global player audio level
