@@ -1,7 +1,7 @@
 ---
 id: 13
 title: Uploads remaining in navigation
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

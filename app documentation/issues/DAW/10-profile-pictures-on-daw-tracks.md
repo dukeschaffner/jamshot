@@ -1,7 +1,7 @@
 ---
 id: 10
 title: Profile pictures on DAW tracks
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

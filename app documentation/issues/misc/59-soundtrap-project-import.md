@@ -1,7 +1,7 @@
 ---
 id: 59
 title: Soundtrap project import
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

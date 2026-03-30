@@ -1,7 +1,7 @@
 ---
 id: 86
 title: Show competition win count on profile and username
-type: feature
+type: task
 status: open
 priority: 5
 area: competitions

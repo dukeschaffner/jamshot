@@ -1,7 +1,7 @@
 ---
 id: 18
 title: Free-tier competition hosting
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

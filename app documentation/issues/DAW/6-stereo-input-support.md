@@ -1,7 +1,7 @@
 ---
 id: 6
 title: Stereo input support
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

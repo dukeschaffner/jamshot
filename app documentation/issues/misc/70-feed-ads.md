@@ -1,7 +1,7 @@
 ---
 id: 70
 title: Feed ads
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

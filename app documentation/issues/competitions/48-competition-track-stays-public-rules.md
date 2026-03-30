@@ -1,7 +1,7 @@
 ---
 id: 48
 title: Competition track stays public rules
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

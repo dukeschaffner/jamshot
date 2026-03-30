@@ -1,7 +1,7 @@
 ---
 id: 14
 title: Export stems from track menu
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

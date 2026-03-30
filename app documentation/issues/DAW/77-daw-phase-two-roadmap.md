@@ -1,7 +1,7 @@
 ---
 id: 77
 title: DAW phase two roadmap
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

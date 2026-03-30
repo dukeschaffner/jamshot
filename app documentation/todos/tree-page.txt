@@ -1,7 +1,0 @@
-todo:
-
-- limit max tracks in memory using LRU cache
-- children list view, where its an infinite scroll list of all children of the current track
-    - maybe children nodes displayed in the chart correspond to the visible children in the list view
-    - hovering over a node in the list view should highlight the corresponding node in the chart
-- multiple loop support for loop tracks

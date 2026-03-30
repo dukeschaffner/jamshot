@@ -1,7 +1,7 @@
 ---
 id: 37
 title: Feed waveform visualization
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

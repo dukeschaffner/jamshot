@@ -1,7 +1,7 @@
 ---
 id: 64
 title: Global player volume
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

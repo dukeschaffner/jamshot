@@ -1,7 +1,7 @@
 ---
 id: 80
 title: Yearly subscription billing
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

@@ -1,7 +1,7 @@
 ---
 id: 22
 title: Intro video offline after first play
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

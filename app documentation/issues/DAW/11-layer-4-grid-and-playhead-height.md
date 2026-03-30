@@ -1,7 +1,7 @@
 ---
 id: 11
 title: Layer 4 grid and playhead height
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

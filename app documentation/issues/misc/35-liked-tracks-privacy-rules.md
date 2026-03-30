@@ -1,7 +1,7 @@
 ---
 id: 35
 title: Liked tracks privacy rules
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

@@ -1,7 +1,7 @@
 ---
 id: 81
 title: Subscription usage upsell
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

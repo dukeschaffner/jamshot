@@ -1,7 +1,7 @@
 ---
 id: 38
 title: Collapsible navbar
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

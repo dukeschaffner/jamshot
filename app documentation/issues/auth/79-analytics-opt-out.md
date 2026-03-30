@@ -1,7 +1,7 @@
 ---
 id: 79
 title: Analytics opt-out
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

@@ -1,7 +1,7 @@
 ---
 id: 9
 title: Collab publish mute/solo disclaimer
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

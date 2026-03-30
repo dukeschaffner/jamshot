@@ -1,7 +1,7 @@
 ---
 id: 72
 title: Feed personalization
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

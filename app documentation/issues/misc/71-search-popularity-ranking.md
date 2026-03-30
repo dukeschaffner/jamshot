@@ -1,7 +1,7 @@
 ---
 id: 71
 title: Search popularity ranking
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

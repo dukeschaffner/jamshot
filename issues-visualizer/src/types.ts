@@ -1,4 +1,4 @@
-export type IssueType = 'bug' | 'feature' | 'tech-debt';
+export type IssueType = 'bug' | 'feature' | 'tech-debt' | 'task';
 export type IssueStatus = 'open' | 'in-progress' | 'blocked' | 'done';
 
 export interface IssueFrontmatter {

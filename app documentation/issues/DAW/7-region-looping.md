@@ -1,7 +1,7 @@
 ---
 id: 7
 title: Region looping
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

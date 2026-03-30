@@ -1,7 +1,7 @@
 ---
 id: 40
 title: Notification summary badge
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

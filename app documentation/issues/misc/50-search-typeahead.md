@@ -1,7 +1,7 @@
 ---
 id: 50
 title: Search typeahead
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

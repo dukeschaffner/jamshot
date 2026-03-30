@@ -1,7 +1,7 @@
 ---
 id: 42
 title: Competition winner Stripe payouts
-type: feature
+type: task
 status: open
 priority: 2
 area: ''
