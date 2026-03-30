@@ -1,7 +1,7 @@
 ---
 id: 57
 title: Track sample listings
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

@@ -139,15 +139,12 @@ If **POST** fails (connection refused, timeout, DNS, or you cannot get **201** w
 1. Compute **next id**: grep or glob `app documentation/issues/**/*.md` for `^id:`; `maxId = 0`, for each numeric id `n` use `maxId = Math.max(maxId, n)`; **next id** = `maxId + 1` (or **1** if none).
 2. **Write** `app documentation/issues/<folder?>/{nextId}-{slug}.md` using the **Template** below (include `id` in frontmatter).
 
-Optional: `GET http://localhost:{PORT}/api/health` returns `{ ok: true }` when the server process is up (still use **POST** to create).
-
 ## Workflow
 
 1. **Decide** title, type, status, priority, folder (`directory`), area, tags, and markdown **content** (body only).
 2. **Try** **Create via API** with a properly formatted **POST** body.
 3. **On 201**: confirm `relativePath` to the user; no manual file write.
 4. **On failure**: follow **Fallback**; keep the user-facing API message in your reply.
-5. **Double-check**: `type`/`status` valid; `priority` in range; body ends with newline (API adds newline to `content` if missing).
 
 ## Template (fallback manual file only)
 

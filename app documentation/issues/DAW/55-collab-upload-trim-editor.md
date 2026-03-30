@@ -1,7 +1,7 @@
 ---
 id: 55
 title: Collab upload trim editor
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

@@ -1,7 +1,7 @@
 ---
 id: 17
 title: Track component duration
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

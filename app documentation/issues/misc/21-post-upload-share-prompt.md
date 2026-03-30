@@ -1,7 +1,7 @@
 ---
 id: 21
 title: Post-upload share prompt
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

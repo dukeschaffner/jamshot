@@ -1,7 +1,7 @@
 ---
 id: 16
 title: Report track
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

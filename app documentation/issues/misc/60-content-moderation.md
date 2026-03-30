@@ -1,7 +1,7 @@
 ---
 id: 60
 title: Content moderation
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

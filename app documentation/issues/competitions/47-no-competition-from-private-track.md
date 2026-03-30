@@ -1,7 +1,7 @@
 ---
 id: 47
 title: No competition from private track
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

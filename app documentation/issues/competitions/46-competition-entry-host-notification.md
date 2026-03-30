@@ -1,7 +1,7 @@
 ---
 id: 46
 title: Competition entry host notification
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

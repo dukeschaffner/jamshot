@@ -1,7 +1,7 @@
 ---
 id: 45
 title: Minutes-based quota
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

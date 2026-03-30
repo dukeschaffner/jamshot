@@ -1,7 +1,7 @@
 ---
 id: 20
 title: Track video export with credits
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

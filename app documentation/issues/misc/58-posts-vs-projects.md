@@ -1,7 +1,7 @@
 ---
 id: 58
 title: Posts vs projects
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

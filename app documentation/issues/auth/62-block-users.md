@@ -1,7 +1,7 @@
 ---
 id: 62
 title: Block users
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

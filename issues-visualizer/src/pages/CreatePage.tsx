@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createIssue, fetchDirectories } from '../api';
 import type { IssueStatus, IssueType } from '../types';
 
-const TYPES: IssueType[] = ['bug', 'feature', 'tech-debt'];
+const TYPES: IssueType[] = ['bug', 'feature', 'tech-debt', 'task'];
 const STATUSES: IssueStatus[] = ['open', 'in-progress', 'blocked', 'done'];
 
 function parseTags(raw: string): string[] {

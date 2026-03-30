@@ -1,7 +1,7 @@
 ---
 id: 49
 title: Hide private toggle for competition track
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

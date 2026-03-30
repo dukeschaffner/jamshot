@@ -1,7 +1,7 @@
 ---
 id: 8
 title: Multi-track recording for camps and teams
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

@@ -1,7 +1,7 @@
 ---
 id: 44
 title: Competition entry count column
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

@@ -1,7 +1,7 @@
 ---
 id: 74
 title: Mentions in track titles (design)
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

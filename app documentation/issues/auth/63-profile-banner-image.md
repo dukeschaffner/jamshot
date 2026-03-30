@@ -1,7 +1,7 @@
 ---
 id: 63
 title: Profile banner image
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

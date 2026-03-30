@@ -1,7 +1,7 @@
 ---
 id: 68
 title: Comment editing
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

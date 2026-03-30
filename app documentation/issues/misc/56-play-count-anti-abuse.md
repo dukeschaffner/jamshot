@@ -1,7 +1,7 @@
 ---
 id: 56
 title: Play count anti-abuse
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

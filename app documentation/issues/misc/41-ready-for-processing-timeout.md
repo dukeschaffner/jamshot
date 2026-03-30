@@ -1,7 +1,7 @@
 ---
 id: 41
 title: Ready-for-processing timeout
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

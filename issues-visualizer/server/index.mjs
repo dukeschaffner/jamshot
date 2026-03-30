@@ -129,7 +129,7 @@ function normalizeFrontmatter(body) {
 }
 
 function validateFrontmatter(fm, { requireId }) {
-  const types = new Set(['bug', 'feature', 'tech-debt']);
+  const types = new Set(['bug', 'feature', 'tech-debt', 'task']);
   const statuses = new Set(['open', 'in-progress', 'blocked', 'done']);
   if (requireId && !Number.isFinite(fm.id)) {
     const err = new Error('Invalid id');

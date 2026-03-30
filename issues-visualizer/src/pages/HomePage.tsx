@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { deleteIssue, fetchIssues } from '../api';
 import type { IssueDoc, IssueStatus, IssueType } from '../types';
 
-const TYPES: IssueType[] = ['bug', 'feature', 'tech-debt'];
+const TYPES: IssueType[] = ['bug', 'feature', 'tech-debt', 'task'];
 const STATUSES: IssueStatus[] = ['open', 'in-progress', 'blocked', 'done'];
 
 function coerceStr(v: unknown): string {

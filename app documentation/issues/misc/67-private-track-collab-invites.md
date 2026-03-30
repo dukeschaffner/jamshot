@@ -1,7 +1,7 @@
 ---
 id: 67
 title: Private track collab invites
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

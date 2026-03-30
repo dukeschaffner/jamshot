@@ -1,7 +1,7 @@
 ---
 id: 51
 title: Collaborator loop count on loop tracks
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

@@ -1,7 +1,7 @@
 ---
 id: 19
 title: Input monitoring level
-type: feature
+type: task
 status: open
 priority: 5
 area: ''

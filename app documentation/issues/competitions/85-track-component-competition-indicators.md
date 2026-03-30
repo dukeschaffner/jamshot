@@ -1,7 +1,7 @@
 ---
 id: 85
 title: Track component competition indicators
-type: feature
+type: task
 status: open
 priority: 5
 area: competitions

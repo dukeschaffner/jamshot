@@ -1,7 +1,7 @@
 ---
 id: 65
 title: Granular notification settings
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

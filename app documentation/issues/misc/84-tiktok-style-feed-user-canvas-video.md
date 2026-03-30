@@ -1,7 +1,7 @@
 ---
 id: 84
 title: TikTok-style feed with per-user canvas video
-type: feature
+type: task
 status: open
 priority: 4
 area: tree-page

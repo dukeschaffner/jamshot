@@ -1,4 +1,0 @@
-
-
-- delete account
-    - cancel teams/camps subscriptions on delete

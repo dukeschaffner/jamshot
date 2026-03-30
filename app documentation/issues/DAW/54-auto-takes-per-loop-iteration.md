@@ -1,7 +1,7 @@
 ---
 id: 54
 title: Auto takes per loop iteration
-type: feature
+type: task
 status: open
 priority: 2
 area: ''

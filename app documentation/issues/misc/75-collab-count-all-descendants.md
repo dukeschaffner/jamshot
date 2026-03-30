@@ -1,7 +1,7 @@
 ---
 id: 75
 title: Collab count all descendants
-type: feature
+type: task
 status: open
 priority: 2
 area: ''
