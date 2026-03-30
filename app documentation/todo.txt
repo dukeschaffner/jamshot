@@ -1,38 +1,24 @@
 TODO (MVP)
 
-before launch:
-- lambda concurrency
-- if only one gmail logged it, it automatically signs in as that user. they should always be bale to select which account or sign in with new one
-- rendering error on recording track
-- dont show audio processing specific error to users
-- user page shows @undefined as page title
 
-
-
-- DAW 
-  - handle stereo input devices
-  - region looping
-  - multiple recording tracks for camp/team DAW
-  - notify user that mute/solo won't be taken into account when publishign the collab? (preserves collab integrity)
-  - add user profile pic to DAW tracks
-  - grid and playhead height for layer 4 track
-
-  
-- handle notification spamming
-- display uploads left in nav?
 - competition
   - update track component with competition indicators
   - indicate number of comp wins on user page (or by their username display)
-- export stems button on track ellipsis menu
-- finish track id -> track guid migration (competition create page)
-- report track (abuse, copyright infringement, not actually a collab, etc)
-- add duration to track component
+
 - maybe tik tok style feed view?
   - user-wide canvas video that plays in tik tok feed view
     - ~8s duration
     - 16:9 aspect ratio
     - can be updated any time
     - plays for all tracks by that user
+
+  
+- handle notification spamming
+- display uploads left in nav?
+- export stems button on track ellipsis menu
+- finish track id -> track guid migration (competition create page)
+- report track (abuse, copyright infringement, not actually a collab, etc)
+- add duration to track component
 - check competition hosting restriction for free tier users
 - input monitoring level in audio settings
 - video export with waveform viz, showing user profile pics, names, watermark, etc
@@ -60,14 +46,6 @@ BUGS
 
 ui issues:
 - more dropdown extends past the bottom of the screen
-
-
-
-
-NEEDS VERIFICATION:
-- ensure there is a banner or indicator when on mobile directing user to use on desktop for best experience
-- what if project end is dragged before parent stem region ends?
-  - daw sometimes gets initialized twice (causes undo/redo bug)
 
 
 RELEASE CHECKLIST
