@@ -12,40 +12,7 @@ TODO (MVP)
     - can be updated any time
     - plays for all tracks by that user
 
-  
-- handle notification spamming
-- display uploads left in nav?
-- export stems button on track ellipsis menu
-- finish track id -> track guid migration (competition create page)
-- report track (abuse, copyright infringement, not actually a collab, etc)
-- add duration to track component
-- check competition hosting restriction for free tier users
-- input monitoring level in audio settings
-- video export with waveform viz, showing user profile pics, names, watermark, etc
-- post upload screen (or toast message)with option to copy track link or export video
-- intro video use downloaded video after streaming through once
 
-
-
-
-BUGS
--DAW
-  - short loop, region starts shortly after loop starts -> region is playing at loop start, not at region start
-  - loop a section -> record -> add repeat: the repeated region isnt synced right
-  - undo/redo - have to press undo many times to undo a single action
-
-- double check track plays recording correctly
-  - full play didnt get marked as complete play
-- got generic error when trying to enter my own competition: Competition entry validation failed
-- release notes infinite loop
-- load artist names on track tree page
-- when user is a part of expired camp, the camps link still navs to the camp page
-- right now if i click a track in the feed, it plays the current track and adds more tracks from the feed to the queue. the problem is that after the queue finishes playing, it does not queue up any more songs. when a song finisjes playing and there are no more songs in the queue, it should check to see if there are more tracks that can be added from the feed
-- google sign in - 429 error on profile pics
-
-
-ui issues:
-- more dropdown extends past the bottom of the screen
 
 
 RELEASE CHECKLIST
@@ -60,71 +27,6 @@ RELEASE CHECKLIST
 
 SCALABILITY TASKS:
 - timer function to update track plays, likes, reposts, comments, collabs in aggregate instead of on play endpoint
-
-
-
-TODO (after beta testing)
-- redis based rate limiting
-- username/liked endpoint - needs handling for liked private tracks or tracks from private users
-- cursor based infinite scroll instead of offset based (handles deletions better)
-- add soundcloud like waveform viz to track component feed view (maybe option to expand to show all tracks' waveforms stacked and/or switch between layer waveform and mixed waveform)
-- make navbar collapsible
-- dont save recording if stopped during count in.
-- load notification summary on page load and show badge (3 new likes, 2 new comments, 1 new follow request...). poll to check for any unread notifications every 90 seconds if there a no unread notifications. otherwise dont poll (just show red dot on bell)
-- create processing status "ready for processing". if status hasn't changed to processing in 15s, show error
-- auto stripe payout for competition winners
-- correlation id for audio processing
-- competition: add entry count to table so that entries dont need to be loaded from the api
-- switch to minutes based quota
-- competition entry notification to host
-- make sure users cant make competition from private track.
-- make sure users cant convert competition track to private.
-- remove make this track private option if createcompetition = true
-- search typeahead
-- if track is loop, allow collaborators to increase/set the number of loops in the collab
-- script to clean r2 files that dont have track in db
-- script to delete old tracks that never finished processing
-- looper/trim snap
-- recording while looping should auto create takes after each loop
-- files uploaded to collab daw -> users should be able to trim in pop up editor if its longer than the original buffer
-- secure track play count recording to prevent abuse of vulnerabilites
-- list/sell samples in track
-- posts vs projects. posts are more sketch like, free flowing content that populates the feed more. projects are more like fully fleshed out songs. 
-- Import to soundtrap option. once a collab/project is mature, allow user to press button to create project and import layers from jamshot
-- content moderation
-- split track component into variants/cleanup
-- block users
-- profile banner image
-- global player audio level
-- notification settings (ie instagram)
-- rework edit user profile page (edit dialog should be its own page)
-- invite people to collab on private tracks (groups)?
-- comment edit view
-- audio ads
-- feed ads
-- improve search algorithm - prioritize popular results
-- improve feed algorithms - track user preferences
-- change non auth cookies to local storage
-- @mentions
-  - (prompt) add an @mentions system where users can tag other users in the track title, creating a notification for the user. start by searching the existing codebase, designing the business logic/rules around the system including edge cases (ie what happens when a user that is tagged in a post changes their username). be concise and dont write any code yet
-- ensure collab count accounts for ALL descendants of the track
-- audio plugin to drag files into a track or even just playback a given sterio track in time with the DAW transport
-- DAW phase 2:
-  - add "advanced" or "extension" DAW editor (load simple "layer" DAW by default, but allow user to load advanced DAW if they want)
-  - two collab types: layers and extensions
-  - advanced DAW and extension collabs paid features?
-  - allow users to specify which collab types they allow on their track?
-  - undo redo
-- on delete track, delete analytics for that track too (check and make sure this is working)
-- analytics
-  - analytics opt out
-    - user opts out -> unique anonymous id is created? anonymize track play data
-    - keep anonymized analytics data after user deletes account?
-- yearly billing for subscriptions
-- upgrade suggestions
-  - Profile (track count)
-- teams/camps - show teams/camps nav button if user in active team or camp
-
 
 
 
