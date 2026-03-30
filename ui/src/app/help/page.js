@@ -6,6 +6,7 @@ import styles from './Help.module.css';
 import HowToUseOwnDAW from './articles/HowToUseOwnDAW';
 import HowToAllowAudioAccess from './articles/HowToAllowAudioAccess';
 import SterioPlugin from './articles/SterioPlugin';
+import DAWBestPractices from './articles/DAWBestPractices';
 
 // Feature and article data structure
 const helpData = {
@@ -16,6 +17,11 @@ const helpData = {
         id: 'sterio-plugin',
         title: 'Sterio Plugin',
         component: SterioPlugin
+      },
+      {
+        id: 'daw-best-practices',
+        title: 'DAW Best Practices',
+        component: DAWBestPractices
       },
       {
         id: 'how-to-use-own-daw',

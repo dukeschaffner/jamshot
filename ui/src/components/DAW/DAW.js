@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import { useDAW, DAWProvider } from './DAWContext';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
@@ -24,6 +25,7 @@ import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ContextMenu from './components/ContextMenu';
 import { useToast } from '../../lib/ToastContext';
+import ConfirmationDialog from '../ConfirmationDialog';
 
 function DAWContent({ track, isVisible = true }) {
   const {
@@ -71,6 +73,29 @@ function DAWContent({ track, isVisible = true }) {
 
   const { showToast } = useToast();
   const [saved, setSaved] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    try {
+      const key = 'sterio_daw_welcome_seen_v1';
+      const hasSeen = localStorage.getItem(key) === 'true';
+      if (!hasSeen) {
+        setShowWelcomeModal(true);
+      }
+    } catch {
+      // If localStorage is unavailable, just don't block DAW usage.
+    }
+  }, [isVisible]);
+
+  const dismissWelcomeModal = () => {
+    try {
+      localStorage.setItem('sterio_daw_welcome_seen_v1', 'true');
+    } catch {
+      // ignore
+    }
+    setShowWelcomeModal(false);
+  };
 
   useNavigationGuardHook({
     enabled: !!recordingTrackHasAudio && !saved,
@@ -335,6 +360,24 @@ function DAWContent({ track, isVisible = true }) {
 
   return (
     <>
+      <ConfirmationDialog
+        isOpen={showWelcomeModal}
+        onClose={dismissWelcomeModal}
+        onConfirm={dismissWelcomeModal}
+        title="Welcome to the Sterio DAW"
+        confirmText="Got it"
+        cancelText="Close"
+      >
+        <>
+          <p style={{ marginTop: 12 }} className="text-sm text-grey-3">
+            Here, you can record or upload audio to post a new track.
+          </p>
+          <p style={{ marginTop: 12 }} className="text-sm text-grey-3 mb-4">
+            For the smoothest experience, check out our{' '}
+            <Link href="/help?article=daw-best-practices" className="link-underline text-seafoam">DAW best practices</Link>.
+          </p>
+        </>
+      </ConfirmationDialog>
       <div 
         className={styles.dawContainer}
         style={{display: showUploadForm ? 'none' : 'block'}}
