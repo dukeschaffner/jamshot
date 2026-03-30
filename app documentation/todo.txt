@@ -1,18 +1,3 @@
-TODO (MVP)
-
-
-- competition
-  - update track component with competition indicators
-  - indicate number of comp wins on user page (or by their username display)
-
-- maybe tik tok style feed view?
-  - user-wide canvas video that plays in tik tok feed view
-    - ~8s duration
-    - 16:9 aspect ratio
-    - can be updated any time
-    - plays for all tracks by that user
-
-
 
 
 RELEASE CHECKLIST
@@ -22,12 +7,6 @@ RELEASE CHECKLIST
 - register DMCA agent
 - review terms and privacy policy - ensure all legal requirements are met
 - Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
-
-
-
-SCALABILITY TASKS:
-- timer function to update track plays, likes, reposts, comments, collabs in aggregate instead of on play endpoint
-
 
 
 
