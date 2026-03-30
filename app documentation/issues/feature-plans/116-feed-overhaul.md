@@ -1,3 +1,13 @@
+---
+id: 116
+title: feed overhaul
+type: feature
+status: open
+priority: 6
+area: feed
+tags:
+  - feed
+---
 
 
 don't load tracks whose artist has been cleared

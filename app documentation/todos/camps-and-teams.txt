@@ -28,6 +28,3 @@ teams:
 
 
 - when team sub expires, track page shows: This track is private. You do not have permission to view it.
-
-
-https://dev.d3cx888lrkmdbn.amplifyapp.com/teams/1?code=0d159b71aba22afeead307da213d23bc

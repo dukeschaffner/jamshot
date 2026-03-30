@@ -1,3 +1,13 @@
+---
+id: 122
+title: web DAW enhancements
+type: feature
+status: open
+priority: 7
+area: DAW
+tags:
+  - DAW
+---
 
 
 

@@ -3,7 +3,7 @@ id: 107
 title: Handle TLS/network failures when loading tracks (avoid retry storms)
 type: bug
 status: open
-priority: 7
+priority: 4
 area: plugin
 tags:
   - plugin

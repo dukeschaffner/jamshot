@@ -1,3 +1,12 @@
+---
+id: 117
+title: video export
+type: feature
+status: open
+priority: 6
+area: ''
+tags: []
+---
 
 
 - user can export a track video for a track that they made (or a track they are a collaborator on)

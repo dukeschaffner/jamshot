@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { deleteIssue, fetchIssues } from '../api';
+import { deleteIssue, fetchIssues, updateIssue } from '../api';
 import type { IssueDoc, IssueStatus, IssueType } from '../types';
 
 const TYPES: IssueType[] = ['bug', 'feature', 'tech-debt', 'task'];
 const STATUSES: IssueStatus[] = ['open', 'in-progress', 'blocked', 'done'];
+const PRIORITIES = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] as const;
 
 function coerceStr(v: unknown): string {
   return typeof v === 'string' ? v : v == null ? '' : String(v);
@@ -31,11 +32,19 @@ function normalizeIssue(doc: IssueDoc): IssueDoc {
   };
 }
 
+function parentDir(relativePath: string): string {
+  const n = relativePath.replace(/\\/g, '/');
+  const i = n.lastIndexOf('/');
+  return i === -1 ? '' : n.slice(0, i);
+}
+
 export function HomePage() {
   const [issues, setIssues] = useState<IssueDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<'id-asc' | 'priority-desc'>('priority-desc');
+  const [savingPaths, setSavingPaths] = useState<Set<string>>(new Set());
   const [typeSel, setTypeSel] = useState<Set<IssueType>>(new Set());
   const [statusSel, setStatusSel] = useState<Set<IssueStatus>>(new Set());
   const [tagSel, setTagSel] = useState<Set<string>>(new Set());
@@ -96,11 +105,55 @@ export function HomePage() {
     });
   }, [issues, search, typeSel, statusSel, tagSel, areaFilter, pMin, pMax]);
 
+  const sorted = useMemo(() => {
+    const rows = [...filtered];
+    rows.sort((a, b) => {
+      const afm = a.frontmatter;
+      const bfm = b.frontmatter;
+      if (sort === 'priority-desc') {
+        const dp = (Number(bfm.priority) || 0) - (Number(afm.priority) || 0);
+        if (dp) return dp;
+      }
+      const ai = Number(afm.id) || 0;
+      const bi = Number(bfm.id) || 0;
+      return ai - bi;
+    });
+    return rows;
+  }, [filtered, sort]);
+
   function toggle<T extends string>(set: Set<T>, v: T, next: (s: Set<T>) => void) {
     const copy = new Set(set);
     if (copy.has(v)) copy.delete(v);
     else copy.add(v);
     next(copy);
+  }
+
+  async function patchIssue(doc: IssueDoc, next: Partial<IssueDoc['frontmatter']>) {
+    const path = doc.relativePath;
+    setSavingPaths((s) => new Set([...s, path]));
+    setError(null);
+    try {
+      await updateIssue({
+        oldRelativePath: path,
+        directory: parentDir(path),
+        title: doc.frontmatter.title,
+        type: doc.frontmatter.type,
+        status: (next.status ?? doc.frontmatter.status) as IssueStatus,
+        priority: Number(next.priority ?? doc.frontmatter.priority),
+        area: doc.frontmatter.area,
+        tags: doc.frontmatter.tags,
+        content: doc.content,
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Update failed');
+    } finally {
+      setSavingPaths((s) => {
+        const copy = new Set(s);
+        copy.delete(path);
+        return copy;
+      });
+    }
   }
 
   async function onDelete(path: string) {
@@ -137,6 +190,13 @@ export function HomePage() {
               placeholder="Title, area, tags, description…"
               autoComplete="off"
             />
+          </div>
+          <div className="field" style={{ maxWidth: '220px' }}>
+            <label htmlFor="sort">Sort</label>
+            <select id="sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+              <option value="priority-desc">Priority (high → low)</option>
+              <option value="id-asc">ID (low → high)</option>
+            </select>
           </div>
           <div className="field" style={{ maxWidth: '120px' }}>
             <label htmlFor="pmin">Priority min</label>
@@ -217,9 +277,10 @@ export function HomePage() {
       </section>
 
       <div className="issue-list">
-        {filtered.map((doc) => {
+        {sorted.map((doc) => {
           const fm = doc.frontmatter;
           const preview = doc.content.trim().split('\n').slice(0, 2).join('\n');
+          const saving = savingPaths.has(doc.relativePath);
           return (
             <article key={doc.relativePath} className="issue-card">
               <div>
@@ -228,11 +289,44 @@ export function HomePage() {
                 </h2>
                 <div className="issue-meta">
                   <span className="badge">{fm.type}</span>
-                  <span className="badge">{fm.status}</span>
                   <span>
-                    priority {fm.priority} · {fm.area || '—'}
+                    <label className="muted" style={{ marginRight: '0.25rem' }}>
+                      Status
+                    </label>
+                    <select
+                      value={fm.status}
+                      disabled={saving}
+                      onChange={(e) => void patchIssue(doc, { status: e.target.value as IssueStatus })}
+                      style={{ marginRight: '0.5rem' }}
+                    >
+                      {STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="muted" style={{ marginRight: '0.25rem' }}>
+                      Priority
+                    </label>
+                    <select
+                      value={fm.priority}
+                      disabled={saving}
+                      onChange={(e) => void patchIssue(doc, { priority: Number(e.target.value) })}
+                      style={{ marginRight: '0.5rem' }}
+                    >
+                      {PRIORITIES.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="muted" style={{ marginRight: '0.5rem' }}>
+                      ·
+                    </span>
+                    {fm.area || '—'}
                   </span>
                   <span className="muted">{doc.relativePath}</span>
+                  {saving ? <span className="muted">Saving…</span> : null}
                 </div>
                 {preview ? <div className="issue-preview">{preview}</div> : null}
               </div>
