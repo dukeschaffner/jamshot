@@ -175,3 +175,7 @@ Use `area: tree-page` (etc.) when inside a subfolder per the Area rules.
 - Folder `DAW`, `area: daw`, `type: bug`, `tags: ["daw", "ux"]`, `priority: 5` (or **9–10** if the user calls it launch-blocking).
 - **POST** with `"directory": "DAW"`, `"title": "…"`, `"content": "…"` (etc.); server writes `DAW/{id}-daw-undo-batching.md`.
 - **Fallback**: same fields in frontmatter + body file path `DAW/{nextId}-daw-undo-batching.md`.
+
+
+ADDITIONAL NOTES:
+- ONLY respond with success/failure status and if API or direct was used. reponse should be very short
