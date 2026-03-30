@@ -1,5 +1,8 @@
 
-
+both:
+- camps/teams - remove repost button from track component. make sure liked camp/team songs dont show up in user likes (maybe unless they are viewing their own page?)
+- for camps and teams, save lossless audio for stem export
+- team/camp id -> team/camp guid migration
 
 camps:
 - double check timestamps (handle timzones)
