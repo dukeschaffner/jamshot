@@ -3,7 +3,7 @@ id: 83
 title: Aggregate engagement counters on a timer
 type: tech-debt
 status: open
-priority: 6
+priority: 5
 area: scalabity
 tags:
   - analytics

@@ -18,7 +18,7 @@ description: Creates Jamshot markdown issues under app documentation/issues — 
 |-------|------------------|
 | `id` | Integer; **assigned by the server** on `POST /api/issues`; on **fallback** (API down), **max existing id + 1** after scanning `**/*.md` |
 | `title` | Short summary title (drives filename; avoid relying on truncation) |
-| `type` | Exactly one of: `bug`, `feature`, `tech-debt` |
+| `type` | Exactly one of: `bug`, `feature`, `tech-debt`, `task` |
 | `status` | Default `open`. Others: `in-progress`, `blocked`, `done` |
 | `priority` | Integer **1–10** (see heuristics below) |
 | `area` | Single string; see **Area** below |
@@ -69,7 +69,7 @@ Choose **0–5** tags from this pool; add only what fits the title/body. Prefer 
 
 **Optional signals**
 
-- `tech-debt` or `bug` or `feature` as a tag **only if** it adds search value beyond `type` (usually skip—`type` already encodes this).
+- `tech-debt` or `bug` or `feature` or `task` as a tag **only if** it adds search value beyond `type` (usually skip—`type` already encodes this).
 - Include `competition` when folder is `competitions` or copy is entry/host/rules.
 
 If nothing applies, `tags: []`.
@@ -104,7 +104,7 @@ Handler: `issues-visualizer/server/index.mjs` → `POST /api/issues`. Same tree 
 |------------|----------------|
 | `directory` | String; subfolder under issues root, POSIX style, **no** leading/trailing slashes. Use `""` for root. Examples: `DAW`, `competitions`. |
 | `title` | String; required, non-empty (after trim). |
-| `type` | One of: `bug`, `feature`, `tech-debt`. |
+| `type` | One of: `bug`, `feature`, `tech-debt`, `task`. |
 | `status` | One of: `open`, `in-progress`, `blocked`, `done` (default **`open`** for new issues). |
 | `priority` | Number **1–10**. |
 | `area` | String; use `""` for root issues per **Area field** above. |

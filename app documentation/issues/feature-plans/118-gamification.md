@@ -1,3 +1,12 @@
+---
+id: 118
+title: gamification
+type: feature
+status: open
+priority: 7
+area: ''
+tags: []
+---
 gamification - implement, but lock with feature flag:
 record user point values: status and momentum
 

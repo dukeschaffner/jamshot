@@ -1,3 +1,13 @@
+---
+id: 115
+title: daily challenge
+type: feature
+status: open
+priority: 5
+area: ''
+tags:
+  - ux
+---
 
 
 Daily collab challenge for sterio users:

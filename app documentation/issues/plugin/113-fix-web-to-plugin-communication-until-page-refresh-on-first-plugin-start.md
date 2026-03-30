@@ -3,7 +3,7 @@ id: 113
 title: Fix web-to-plugin communication until page refresh on first plugin start
 type: bug
 status: open
-priority: 8
+priority: 5
 area: plugin
 tags:
   - plugin
