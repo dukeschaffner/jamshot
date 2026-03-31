@@ -193,10 +193,12 @@ private:
     PaginationInfo pagination;
     int currentPage = 1;
     bool isLoading = false;
+    bool hasLoadError = false;
 
     TrackSelectedCallback trackSelectedCallback;
 
     // UI components
+    juce::Label titleLabel;
     juce::DrawableButton refreshButton;
     juce::Label statusLabel;
     juce::ListBox trackListBox;

@@ -45,9 +45,17 @@ export default function DAWBestPractices() {
 
         <h2>Pro tip: near-zero latency recording</h2>
         <p>
-          For near-zero latency recording, you can use the <Link href="/plugin">Sterio Plugin</Link> in your own
-          DAW (Ableton, Logic, FL Studio, etc.), record your audio there, export a{' '}
-          <strong>.wav</strong> file, and upload it into Sterio.
+          For near-zero latency recording, you can either:
+          <ul>
+            <li>
+              - Directly monitor audio from your audio interface if using one.
+            </li>
+            <li>
+              - Use the <Link href="/plugin">Sterio Plugin</Link> in your own
+              DAW (Ableton, Logic, FL Studio, etc.), record your audio there, export a{' '}
+              <strong>.wav</strong> file, and upload it into Sterio.
+            </li>
+          </ul>
         </p>
       </div>
     </div>
