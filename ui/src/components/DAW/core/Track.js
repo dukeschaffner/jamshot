@@ -54,7 +54,6 @@ class Track {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
       this.regions = this.regions.map(r => r.id === data.region.id ? data.region : r);
-      console.log('Track - handleRegionUpdate', data);
       // Forward the action metadata if present (for undo/redo)
       eventBus.emit(DAW_EVENTS.REGION.UPDATED, { 
         region: data.region, 

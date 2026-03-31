@@ -85,7 +85,6 @@ class ChunkScheduler {
    * Stop the chunk scheduler
    */
   stop() {
-    console.log('stopping chunk scheduler');
     if (this.schedulingInterval) {
       clearInterval(this.schedulingInterval);
       this.schedulingInterval = null;
@@ -121,7 +120,6 @@ class ChunkScheduler {
 
     // check if we've reached the end of the loop and if we have, clear the pending loop start time
     if(this.pendingLoopStartTime && playbackTime >= AudioState.loopEnd) {
-      console.log('reached the end of the loop: restarting loop');
 
       // For now, stop recording on loop end
       if(AudioState.isRecording) {

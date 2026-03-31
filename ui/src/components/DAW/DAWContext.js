@@ -490,7 +490,6 @@ export function DAWProvider({ children, trackData, isCollab }) {
     
     const handleRecordingStopped = (data) => {
       setIsRecording(false);
-      console.log('Recording stopped');
 
       const track = trackManagerRef.current.getTrack('recording-track');
       const overwriteTrack = recordingModeRef.current === 'take';

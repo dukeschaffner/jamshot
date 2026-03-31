@@ -2,7 +2,7 @@
 id: 111
 title: Show empty state when user has no liked tracks in the plugin
 type: task
-status: open
+status: done
 priority: 8
 area: plugin
 tags:
