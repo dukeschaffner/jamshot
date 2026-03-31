@@ -28,6 +28,11 @@ export async function fetchDirectories(): Promise<{ directories: string[] }> {
   return parseJson(res) as Promise<{ directories: string[] }>;
 }
 
+export async function fetchAreas(): Promise<{ areas: string[] }> {
+  const res = await fetch('/api/reference/areas');
+  return parseJson(res) as Promise<{ areas: string[] }>;
+}
+
 export async function fetchIssue(path: string): Promise<IssueDoc> {
   const q = new URLSearchParams({ path });
   const res = await fetch(`/api/issues/one?${q}`);

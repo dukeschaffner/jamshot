@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createIssue, fetchDirectories } from '../api';
+import { createIssue, fetchAreas, fetchDirectories } from '../api';
 import type { IssueStatus, IssueType } from '../types';
 
 const TYPES: IssueType[] = ['bug', 'feature', 'tech-debt', 'task'];
@@ -16,6 +16,7 @@ function parseTags(raw: string): string[] {
 export function CreatePage() {
   const nav = useNavigate();
   const [dirs, setDirs] = useState<string[]>(['']);
+  const [areas, setAreas] = useState<string[]>([]);
   const [dirMode, setDirMode] = useState<'pick' | 'custom'>('pick');
   const [dirPick, setDirPick] = useState('');
   const [dirCustom, setDirCustom] = useState('');
@@ -39,6 +40,22 @@ export function CreatePage() {
         setDirs(sorted.includes('') ? sorted : ['', ...sorted]);
       } catch {
         if (!cancelled) setDirs(['']);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { areas: nextAreas } = await fetchAreas();
+        if (cancelled) return;
+        setAreas([...nextAreas].sort((a, b) => a.localeCompare(b)));
+      } catch {
+        if (!cancelled) setAreas([]);
       }
     })();
     return () => {
@@ -159,7 +176,23 @@ export function CreatePage() {
         </div>
         <div className="field">
           <label htmlFor="area">Area</label>
-          <input id="area" value={area} onChange={(e) => setArea(e.target.value)} placeholder="e.g. audio-upload" />
+          <input
+            id="area"
+            list="existing-areas"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            placeholder={areas.length ? 'Pick an existing area or type a new one' : 'e.g. audio-upload'}
+          />
+          {areas.length ? (
+            <>
+              <datalist id="existing-areas">
+                {areas.map((existingArea) => (
+                  <option key={existingArea} value={existingArea} />
+                ))}
+              </datalist>
+              <span className="field-hint">Choose a saved area or type a new one.</span>
+            </>
+          ) : null}
         </div>
         <div className="field">
           <label htmlFor="tags">Tags</label>
