@@ -29,17 +29,22 @@ async function getUserData(username) {
 }
 
 export async function generateMetadata({ params }) {
-  const { username } = params;
+  const resolvedParams = await params;
+  const routeUsername = typeof resolvedParams?.username === 'string'
+    ? resolvedParams.username.trim()
+    : '';
+  const username = routeUsername || null;
   
   // Fetch user data - Next.js caching will reduce API calls
   // Results are cached for 1 hour, so multiple requests reuse the cached data
-  let user = await getUserData(username);
+  let user = username ? await getUserData(username) : null;
+  const handle = username || user?.username || 'artist';
   
   // If user not found, return generic metadata
   if (!user) {
     return {
-      title: `@${username} | Sterio`,
-      description: `View ${username}'s profile on Sterio`,
+      title: `@${handle} | Sterio`,
+      description: `View ${handle}'s profile on Sterio`,
     };
   }
 
@@ -47,7 +52,7 @@ export async function generateMetadata({ params }) {
   // In development, use localhost. In production, use the site URL or default.
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
     (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://sterio.fm');
-  const userUrl = `${baseUrl}/user/${username}`;
+  const userUrl = `${baseUrl}/user/${handle}`;
 
   // Use profile picture as the image, or a default
   // Ensure image URL is absolute
@@ -57,17 +62,17 @@ export async function generateMetadata({ params }) {
   }
   
   // Build description
-  const displayName = user.name || user.username;
+  const displayName = user.name || user.username || handle;
   const bio = user.bio || '';
   const description = bio 
     ? `${displayName} on Sterio - ${bio}`
     : `View ${displayName}'s music and collaborations on Sterio`;
 
   return {
-    title: `${displayName} (@${username}) | Sterio`,
+    title: `${displayName} (@${handle}) | Sterio`,
     description,
     openGraph: {
-      title: `${displayName} (@${username})`,
+      title: `${displayName} (@${handle})`,
       description,
       url: userUrl,
       siteName: 'Sterio',
@@ -83,7 +88,7 @@ export async function generateMetadata({ params }) {
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${displayName} (@${username})`,
+      title: `${displayName} (@${handle})`,
       description,
       images: [imageUrl],
     },
