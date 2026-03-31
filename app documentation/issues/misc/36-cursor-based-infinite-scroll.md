@@ -3,7 +3,7 @@ id: 36
 title: Cursor-based infinite scroll
 type: tech-debt
 status: open
-priority: 2
+priority: 5
 area: ''
 tags: []
 ---

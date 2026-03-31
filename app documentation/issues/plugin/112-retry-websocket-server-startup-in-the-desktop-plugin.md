@@ -3,7 +3,7 @@ id: 112
 title: Retry websocket server startup in the desktop plugin
 type: task
 status: open
-priority: 6
+priority: 5
 area: plugin
 tags:
   - plugin

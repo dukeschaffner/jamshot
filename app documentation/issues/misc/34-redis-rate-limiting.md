@@ -3,7 +3,7 @@ id: 34
 title: Redis rate limiting
 type: tech-debt
 status: open
-priority: 2
+priority: 5
 area: ''
 tags: []
 ---

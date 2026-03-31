@@ -3,7 +3,7 @@ id: 2
 title: Google account picker on sign-in
 type: bug
 status: open
-priority: 5
+priority: 4
 area: ''
 tags: []
 ---

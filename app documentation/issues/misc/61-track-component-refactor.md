@@ -3,7 +3,7 @@ id: 61
 title: Track component refactor
 type: tech-debt
 status: open
-priority: 2
+priority: 5
 area: ''
 tags: []
 ---

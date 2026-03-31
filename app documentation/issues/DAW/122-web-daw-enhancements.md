@@ -4,9 +4,9 @@ title: web DAW enhancements
 type: feature
 status: open
 priority: 7
-area: DAW
+area: daw
 tags:
-  - DAW
+  - daw
 ---
 
 
