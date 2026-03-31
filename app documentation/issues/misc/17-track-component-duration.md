@@ -3,7 +3,7 @@ id: 17
 title: Track component duration
 type: task
 status: open
-priority: 5
+priority: 6
 area: ''
 tags: []
 ---

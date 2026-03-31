@@ -3,7 +3,7 @@ id: 116
 title: feed overhaul
 type: feature
 status: open
-priority: 6
+priority: 8
 area: feed
 tags:
   - feed

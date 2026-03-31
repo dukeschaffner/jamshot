@@ -3,7 +3,7 @@ id: 80
 title: Yearly subscription billing
 type: task
 status: open
-priority: 2
+priority: 5
 area: ''
 tags: []
 ---

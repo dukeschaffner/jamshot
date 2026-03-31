@@ -3,7 +3,7 @@ id: 115
 title: daily challenge
 type: feature
 status: open
-priority: 5
+priority: 6
 area: ''
 tags:
   - ux

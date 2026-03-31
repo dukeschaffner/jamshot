@@ -3,7 +3,7 @@ id: 50
 title: Search typeahead
 type: task
 status: open
-priority: 2
+priority: 5
 area: ''
 tags: []
 ---

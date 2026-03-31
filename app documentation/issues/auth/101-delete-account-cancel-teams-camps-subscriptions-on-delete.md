@@ -3,7 +3,7 @@ id: 101
 title: 'Delete account: cancel teams/camps subscriptions on delete'
 type: task
 status: open
-priority: 6
+priority: 5
 area: auth
 tags:
   - auth

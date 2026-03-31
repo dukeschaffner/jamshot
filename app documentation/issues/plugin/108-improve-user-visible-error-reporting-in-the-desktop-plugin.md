@@ -3,7 +3,7 @@ id: 108
 title: Improve user-visible error reporting in the desktop plugin
 type: task
 status: open
-priority: 6
+priority: 5
 area: plugin
 tags:
   - plugin

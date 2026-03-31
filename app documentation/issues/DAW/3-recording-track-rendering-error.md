@@ -3,7 +3,7 @@ id: 3
 title: Recording track rendering error
 type: bug
 status: open
-priority: 5
+priority: 7
 area: ''
 tags: []
 ---

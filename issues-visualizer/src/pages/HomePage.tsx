@@ -48,6 +48,7 @@ export function HomePage() {
   const [typeSel, setTypeSel] = useState<Set<IssueType>>(new Set());
   const [statusSel, setStatusSel] = useState<Set<IssueStatus>>(new Set());
   const [tagSel, setTagSel] = useState<Set<string>>(new Set());
+  const [tagMode, setTagMode] = useState<'include' | 'exclude'>('include');
   const [areaFilter, setAreaFilter] = useState('');
   const [pMin, setPMin] = useState(1);
   const [pMax, setPMax] = useState(10);
@@ -97,13 +98,19 @@ export function HomePage() {
         if (!fm.area.toLowerCase().includes(areaFilter.trim().toLowerCase())) return false;
       }
       if (tagSel.size) {
-        for (const t of tagSel) {
-          if (!fm.tags.includes(t)) return false;
+        if (tagMode === 'include') {
+          for (const t of tagSel) {
+            if (!fm.tags.includes(t)) return false;
+          }
+        } else {
+          for (const t of tagSel) {
+            if (fm.tags.includes(t)) return false;
+          }
         }
       }
       return true;
     });
-  }, [issues, search, typeSel, statusSel, tagSel, areaFilter, pMin, pMax]);
+  }, [issues, search, typeSel, statusSel, tagSel, tagMode, areaFilter, pMin, pMax]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -260,7 +267,22 @@ export function HomePage() {
         </div>
         {allTags.length ? (
           <div className="chip-group">
-            <span>Tags (must include all selected)</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', width: '100%' }}>
+              <span style={{ width: 'auto' }}>
+                Tags ({tagMode === 'include' ? 'must include all selected' : 'exclude any selected'})
+              </span>
+              <button
+                type="button"
+                className="chip"
+                role="switch"
+                aria-checked={tagMode === 'exclude'}
+                data-on={tagMode === 'exclude' ? 'true' : 'false'}
+                onClick={() => setTagMode((m) => (m === 'include' ? 'exclude' : 'include'))}
+                title="Toggle include vs exclude mode"
+              >
+                {tagMode === 'include' ? 'Include' : 'Exclude'}
+              </button>
+            </div>
             {allTags.map((t) => (
               <button
                 key={t}
