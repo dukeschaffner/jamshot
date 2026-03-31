@@ -58,6 +58,9 @@ export default function Region({
   const [startTime, setStartTime] = useState(0); // start time of the waveform in the track
   const [endTime, setEndTime] = useState(0); // end time of the waveform in the track
   const [offset, setOffset] = useState(0); // start time relative to buffer start
+  const waveformTimelineOffsetPx = duration > 0
+    ? ((startTime - offset) / duration) * tracksContainerWidth
+    : 0;
 
   // Crop handles state
   const [showCropHandles, setShowCropHandles] = useState(false);
@@ -830,6 +833,7 @@ export default function Region({
               bufferData={bufferData}
               height={100}
               totalWidth={waveformWidth}
+              timelineOffset={waveformTimelineOffsetPx}
               width={chunk.width}
               offset={chunk.offset}
             />

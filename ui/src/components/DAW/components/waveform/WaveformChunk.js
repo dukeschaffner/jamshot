@@ -8,6 +8,7 @@ export default function WaveformChunk({
   bufferData, 
   height, 
   totalWidth, // total width of the waveform in pixels
+  timelineOffset, // waveform start position in timeline pixels
   width, // width of the chunk in pixels
   offset, // offset of the chunk in pixels
 }) {
@@ -21,24 +22,25 @@ export default function WaveformChunk({
   const virtualRenderBuffer = 100;
 
   const setVisibility = useCallback((isZoomChange = false) => {
-    const isNearViewport = (offset + width + virtualRenderBuffer > scrollLeft) && (offset - virtualRenderBuffer < scrollLeft + viewWidth);
+    const chunkLeft = timelineOffset + offset;
+    const isNearViewport = (chunkLeft + width + virtualRenderBuffer > scrollLeft) && (chunkLeft - virtualRenderBuffer < scrollLeft + viewWidth);
     if(isNearViewport && !isVisible) {
       setIsVisible(true);
     }
     else if(!isNearViewport && isVisible && (!isRendered || isZoomChange)) {
       setIsVisible(false);
     }
-  }, [scrollLeft, viewWidth, offset, width]);
+  }, [scrollLeft, viewWidth, timelineOffset, offset, width, isVisible, isRendered]);
 
   useEffect(() => {
     setVisibility(true);
-  }, [zoom]);
+  }, [zoom, setVisibility]);
 
 
   // Render the chunk when it becomes visible
   useEffect(() => {
     setVisibility();
-  }, [scrollLeft, viewWidth, offset, width]);
+  }, [scrollLeft, viewWidth, timelineOffset, offset, width, setVisibility]);
 
   useEffect(() => {
     const renderChunk = () => {

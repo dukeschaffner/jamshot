@@ -80,7 +80,6 @@ class Recorder {
     if(!AudioState.isRecording) return;
     this.playbackStartTime = data.audioContextTime;
     this.playbackTime = data.playbackTime;
-    console.log('Recorder: Playback started - audioContextTime:', this.playbackStartTime, 'playbackTime:', this.playbackTime);
   }
   
   async initialize() {
@@ -212,12 +211,6 @@ class Recorder {
     // Create final audio buffer
     const finalBuffer = this.createRecordingBuffer();
 
-    console.log('duration', finalBuffer.duration);
-    console.log('startTime', this.playbackTime);
-    console.log('offset', recordingOffset);
-    console.log('sample rate', finalBuffer.sampleRate);
-    console.log('channels', finalBuffer.numberOfChannels);
-
     const bufferKey = bufferRegistry.generateBufferKey('recording-track', 'region');
     bufferRegistry.storeBuffer(bufferKey, finalBuffer);
     
@@ -239,7 +232,6 @@ class Recorder {
     if (event.data.type === 'first-sample') {
       const { frame, time } = event.data;
       this.firstSampleTime = time; 
-      console.log("sample time: " + time);
     }
   
     if (event.data.type === 'audio') {
@@ -266,9 +258,25 @@ class Recorder {
   
   calculateRecordingLatency() {
     // Estimate latency based on buffer size and sample rate
-    const outputLatency = this.context.outputLatency;
+    const base = this.context.baseLatency || 0;
+    const output = this.context.outputLatency || 0;
+
+
     const userCompensation = AudioState.userLatencyCompensation / 1000; // convert to seconds
-    const totalLatency = outputLatency + userCompensation;
+
+    const autoLatency =
+    output > 0 && output < 0.1   // sanity check (<100ms)
+      ? base + output
+      : base;
+
+    const totalLatency = autoLatency + userCompensation;
+
+
+    console.log('baseLatency', base);
+    console.log('outputLatency', output);
+    console.log('userCompensation', userCompensation);
+    console.log('totalLatency', totalLatency);
+
     return totalLatency;
   }
   

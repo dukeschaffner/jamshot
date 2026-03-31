@@ -24,8 +24,6 @@ export default function Home() {
   const { isMobile } = useMobile();
   const [hasSponsoredCompetition, setHasSponsoredCompetition] = useState(false);
 
-  console.log('SUBSCRIPTION_TIERS', SUBSCRIPTION_TIERS);
-
   // Tag filter state
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [selectedInstruments, setSelectedInstruments] = useState([]);

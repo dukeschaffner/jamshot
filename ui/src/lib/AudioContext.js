@@ -367,7 +367,6 @@ export function AudioProvider({ children }) {
     if (soundRef.current) {
       // position is now directly in seconds
       soundRef.current.seek(position);
-      console.log('Seeking to:', position);
       if (isSeeking) {
         if (isPlaying) {
           soundRef.current.play();
