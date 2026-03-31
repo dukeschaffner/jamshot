@@ -2,7 +2,7 @@
 id: 5
 title: User profile page title undefined
 type: bug
-status: open
+status: done
 priority: 6
 area: ''
 tags: []

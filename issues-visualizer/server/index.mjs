@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const ISSUES_ROOT = path.join(REPO_ROOT, 'app documentation', 'issues');
+const COMPLETED_DIR = 'completed';
 
 const PORT = Number(process.env.ISSUES_API_PORT || 3050);
 
@@ -70,8 +71,25 @@ async function walkMarkdownFiles(dir, baseRel = '') {
   return out;
 }
 
+function normalizeRelativePath(relativePath) {
+  return String(relativePath).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+}
+
+function isCompletedRelativePath(relativePath) {
+  const rel = normalizeRelativePath(relativePath);
+  return rel === COMPLETED_DIR || rel.startsWith(`${COMPLETED_DIR}/`);
+}
+
+function visibleIssuePaths(relativePaths) {
+  return relativePaths.filter((rel) => !isCompletedRelativePath(rel));
+}
+
 async function collectDirectories(dir, baseRel = '', set = new Set()) {
-  set.add(baseRel.split(path.sep).join('/'));
+  const normalizedBase = baseRel.split(path.sep).join('/');
+  if (isCompletedRelativePath(normalizedBase)) {
+    return set;
+  }
+  set.add(normalizedBase);
   let entries;
   try {
     entries = await fs.readdir(dir, { withFileTypes: true });
@@ -81,6 +99,7 @@ async function collectDirectories(dir, baseRel = '', set = new Set()) {
   for (const ent of entries) {
     if (!ent.isDirectory()) continue;
     const rel = path.join(baseRel, ent.name);
+    if (isCompletedRelativePath(rel)) continue;
     await collectDirectories(path.join(dir, ent.name), rel, set);
   }
   return set;
@@ -126,6 +145,16 @@ function normalizeFrontmatter(body) {
     area: String(body.area ?? '').trim(),
     tags,
   };
+}
+
+function directoryForStatus(directory, status) {
+  const cleanDirectory = normalizeRelativePath(directory);
+  if (status !== 'done') {
+    if (!isCompletedRelativePath(cleanDirectory)) return cleanDirectory;
+    return cleanDirectory.slice(COMPLETED_DIR.length).replace(/^\/+/, '');
+  }
+  if (isCompletedRelativePath(cleanDirectory)) return cleanDirectory;
+  return cleanDirectory ? `${COMPLETED_DIR}/${cleanDirectory}` : COMPLETED_DIR;
 }
 
 function validateFrontmatter(fm, { requireId }) {
@@ -185,7 +214,7 @@ app.get('/api/directories', async (_req, res, next) => {
 app.get('/api/issues', async (_req, res, next) => {
   try {
     await ensureIssuesTree();
-    const rels = await walkMarkdownFiles(ISSUES_ROOT);
+    const rels = visibleIssuePaths(await walkMarkdownFiles(ISSUES_ROOT));
     const issues = [];
     for (const rel of rels) {
       try {
@@ -246,8 +275,9 @@ app.post('/api/issues', async (req, res, next) => {
     const fullFm = { ...fmPartial, id: nextId };
     validateFrontmatter(fullFm, { requireId: true });
 
+    const targetDirectory = directoryForStatus(directory, fullFm.status);
     const fileName = `${nextId}-${slugify(fullFm.title)}.md`;
-    const relativeFile = directory ? `${directory}/${fileName}` : fileName;
+    const relativeFile = targetDirectory ? `${targetDirectory}/${fileName}` : fileName;
     const fullPath = assertUnderIssuesRoot(relativeFile);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     try {
@@ -306,8 +336,9 @@ app.put('/api/issues', async (req, res, next) => {
     if (Number.isFinite(diskId)) fm = { ...fm, id: diskId };
     validateFrontmatter(fm, { requireId: true });
 
+    const targetDirectory = directoryForStatus(directory, fm.status);
     const fileName = `${fm.id}-${slugify(fm.title)}.md`;
-    const relativeFile = directory ? `${directory}/${fileName}` : fileName;
+    const relativeFile = targetDirectory ? `${targetDirectory}/${fileName}` : fileName;
     const newFull = assertUnderIssuesRoot(relativeFile);
 
     if (newFull !== oldFull) {
