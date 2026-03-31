@@ -48,24 +48,50 @@ Nested path = only the folder name as a segment (e.g. `DAW/84-my-title.md`), not
 
 ## Area field
 
-Set `area` from the **folder** for consistency and filtering:
+Set `area` to one of the following or use value supplied by user:
 
-- `DAW` → `daw`
-- `plugin` → `plugin`
-- `tree-page` → `tree-page`
-- `auth` → `auth`
-- `competitions` → `competitions`
-- `notifications` → `notifications`
-- `camps-and-teams` → `camps-and-teams`
-- Root file → `area: ''` (empty string)
+<AREAS>
+analytics
+auth
+camps-and-teams
+competitions
+daw
+feed
+notifications
+plugin
+scalabity
+tree-page
+</AREAS>
 
-If the user explicitly names an area, use their value (still a single string).
 
 ## Tags
 
 Choose **0–5** tags from this pool; add only what fits the title/body. Prefer specificity over volume.
 
-`daw`, `plugin`, `audio`, `feed`, `player`, `search`, `track`, `auth`, `oauth`, `profile`, `billing`, `competition`, `notification`, `camp`, `team`, `infra`, `api`, `analytics`, `moderation`, `ads`, `mobile`, `stripe`, `upload`, `processing`, `ux`, `performance`, `security`
+<TAGS>
+analytics
+api
+audio
+auth
+billing
+camp
+competition
+daw
+engagement
+feed
+infra
+mobile
+notification
+performance
+player
+plugin
+profile
+security
+team
+track
+upload
+ux
+</TAGS>
 
 **Optional signals**
 

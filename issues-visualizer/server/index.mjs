@@ -8,6 +8,9 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const ISSUES_ROOT = path.join(REPO_ROOT, 'app documentation', 'issues');
+const AREAS_REFERENCE_PATH = path.join(REPO_ROOT, 'issues-visualizer', 'reference-data', 'areas.txt');
+const TAGS_REFERENCE_PATH = path.join(REPO_ROOT, 'issues-visualizer', 'reference-data', 'tags.txt');
+const JAMSHOT_ISSUES_SKILL_PATH = path.join(REPO_ROOT, '.cursor', 'skills', 'jamshot-issues', 'SKILL.md');
 const COMPLETED_DIR = 'completed';
 
 const PORT = Number(process.env.ISSUES_API_PORT || 3050);
@@ -132,6 +135,76 @@ async function maxIssueIdFromDisk() {
   return maxId;
 }
 
+function injectReferenceValues(source, tagName, values) {
+  const openTag = `<${tagName}>`;
+  const closeTag = `</${tagName}>`;
+  const replacement = values.length
+    ? `${openTag}\n${values.join('\n')}\n${closeTag}`
+    : `${openTag}${closeTag}`;
+  const pattern = new RegExp(`${openTag}[\\s\\S]*?${closeTag}`);
+  return source.replace(pattern, replacement);
+}
+
+async function syncJamshotIssueSkillReferenceData({ areas, tags }) {
+  let skillRaw;
+  try {
+    skillRaw = await fs.readFile(JAMSHOT_ISSUES_SKILL_PATH, 'utf8');
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return;
+    throw e;
+  }
+
+  const withAreas = injectReferenceValues(skillRaw, 'AREAS', areas);
+  const withTags = injectReferenceValues(withAreas, 'TAGS', tags);
+  await fs.writeFile(JAMSHOT_ISSUES_SKILL_PATH, withTags, 'utf8');
+}
+
+async function refreshIssueReferenceData() {
+  const rels = await walkMarkdownFiles(ISSUES_ROOT);
+  const tags = new Set();
+  const areas = new Set();
+
+  for (const rel of rels) {
+    try {
+      const { frontmatter } = await readIssue(rel);
+      for (const tag of Array.isArray(frontmatter?.tags) ? frontmatter.tags : []) {
+        const cleanTag = String(tag).trim();
+        if (cleanTag) tags.add(cleanTag);
+      }
+      const cleanArea = String(frontmatter?.area ?? '').trim();
+      if (cleanArea) areas.add(cleanArea);
+    } catch {
+      /* skip broken files */
+    }
+  }
+
+  const sortedTags = [...tags].sort((a, b) => a.localeCompare(b));
+  const sortedAreas = [...areas].sort((a, b) => a.localeCompare(b));
+
+  await Promise.all([
+    fs.mkdir(path.dirname(TAGS_REFERENCE_PATH), { recursive: true }),
+    fs.mkdir(path.dirname(AREAS_REFERENCE_PATH), { recursive: true }),
+  ]);
+  await Promise.all([
+    fs.writeFile(TAGS_REFERENCE_PATH, sortedTags.length ? `${sortedTags.join('\n')}\n` : '', 'utf8'),
+    fs.writeFile(AREAS_REFERENCE_PATH, sortedAreas.length ? `${sortedAreas.join('\n')}\n` : '', 'utf8'),
+  ]);
+  await syncJamshotIssueSkillReferenceData({ areas: sortedAreas, tags: sortedTags });
+}
+
+async function readReferenceValues(referencePath) {
+  try {
+    const raw = await fs.readFile(referencePath, 'utf8');
+    return raw
+      .split(/\r?\n/g)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return [];
+    throw e;
+  }
+}
+
 function normalizeFrontmatter(body) {
   const tags = Array.isArray(body.tags)
     ? body.tags.map((t) => String(t).trim()).filter(Boolean)
@@ -206,6 +279,15 @@ app.get('/api/directories', async (_req, res, next) => {
     const set = await collectDirectories(ISSUES_ROOT);
     const list = [...set].sort((a, b) => a.localeCompare(b));
     res.json({ directories: list });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get('/api/reference/areas', async (_req, res, next) => {
+  try {
+    const areas = await readReferenceValues(AREAS_REFERENCE_PATH);
+    res.json({ areas });
   } catch (e) {
     next(e);
   }
@@ -292,6 +374,7 @@ app.post('/api/issues', async (req, res, next) => {
       fullFm,
     );
     await fs.writeFile(fullPath, fileBody, 'utf8');
+    await refreshIssueReferenceData();
     res.status(201).json({ relativePath: relativeFile.split(path.sep).join('/') });
   } catch (e) {
     next(e);
@@ -364,6 +447,7 @@ app.put('/api/issues', async (req, res, next) => {
         if (e && e.code !== 'ENOENT') throw e;
       }
     }
+    await refreshIssueReferenceData();
     res.json({ relativePath: relativeFile.split(path.sep).join('/') });
   } catch (e) {
     next(e);
