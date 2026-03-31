@@ -39,7 +39,9 @@ export default function InfiniteScrollContainer({
   const observer = useRef();
 
   const lastElementRef = useCallback(node => {
-    if (loading) return;
+    // Pause infinite-scroll pagination while an error is present.
+    // This prevents repeated auto-retries when a page request fails.
+    if (loading || error) return;
     if (observer.current) observer.current.disconnect();
     observer.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasMore) {
@@ -47,7 +49,7 @@ export default function InfiniteScrollContainer({
       }
     });
     if (node) observer.current.observe(node);
-  }, [loading, hasMore]);
+  }, [loading, hasMore, error]);
 
   const fetchItems = useCallback(async (pageNum) => {
     try {
@@ -86,6 +88,7 @@ export default function InfiniteScrollContainer({
       console.error('Failed to fetch items:', err);
       const errorMessage = err.response?.data?.error || err.message || 'Failed to load items. Please try again later.';
       setError(errorMessage);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }

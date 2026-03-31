@@ -36,8 +36,6 @@ class UndoManager {
     eventBus.on(DAW_EVENTS.REGION.ADDED, this.handleRegionAdded.bind(this));
     eventBus.on(DAW_EVENTS.REGION.UPDATED, this.handleRegionUpdated.bind(this));
     eventBus.on(DAW_EVENTS.REGION.REMOVED, this.handleRegionRemoved.bind(this));
-    
-    console.log('UndoManager initialized');
   }
 
   /**
@@ -164,8 +162,6 @@ class UndoManager {
 
     // Emit state change event
     this.emitStateChange();
-
-    console.log('Command recorded:', command.type, command.description || '');
   }
 
   /**

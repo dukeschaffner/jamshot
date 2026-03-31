@@ -1,0 +1,22 @@
+---
+id: 117
+title: video export
+type: feature
+status: open
+priority: 6
+area: ''
+tags: []
+---
+
+
+- user can export a track video for a track that they made (or a track they are a collaborator on)
+    - add generate video button to track ellipsis menu if user is the creator of the track
+        - shows confirmation modal with start time and durationoptions
+            - prefill duration to track duration if track is shorter than 90s or less, otherwise prefill to 90s
+    - limit users to 5 video exports per day
+    - video must be saved to r2 (videos/track guid.mp4)
+    - generation must be async. once valid video export is requested, show a modal with status indicator. 
+        - once status is success, show a download button
+        - once status is error, show a button to retry the export
+        - if status doesnt change to error or success after 2 min, show error status and retry button
+        - make sure error messages are user friendly (dont show technical details)

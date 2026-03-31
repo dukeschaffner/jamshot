@@ -33,7 +33,6 @@ function Playhead({}) {
     e.stopPropagation();
     
     setIsDragging(true);
-    console.log('playhead mouse down');
     
     // Emit drag start event
     eventBus.emit(DAW_EVENTS.UI.PLAYHEAD_DRAG_START, { time: playheadLocation.time });
@@ -56,7 +55,6 @@ function Playhead({}) {
 
         // Convert back to time
         const time = (snappedPosition / 100) * duration;
-        console.log('time', time, 'snapped from', positionPercentage, 'to', snappedPosition);
         eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: time });
     }
 

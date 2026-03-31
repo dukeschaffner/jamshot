@@ -1,0 +1,20 @@
+
+
+RELEASE CHECKLIST
+- confirm all privacy restrictions are working properly
+- Confirm all notifications working properly
+- test recording sync with original track and metronome
+- register DMCA agent
+- review terms and privacy policy - ensure all legal requirements are met
+- Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
+
+
+- check Rob's set up - is the issue with his interface taht the mic is in the wrong input?
+    - may need snippet in DAW best practices to make sure they use input 1?
+
+
+LEGAL
+- option to allow others to 'steal' (use) the track?
+- splitting royalties if song uploaded
+
+

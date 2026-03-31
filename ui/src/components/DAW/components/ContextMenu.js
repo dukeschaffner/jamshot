@@ -15,10 +15,6 @@ export default function ContextMenu({ x, y, show, items, onClose }) {
     };
   }, []);
 
-  useEffect(() => {
-    console.log('Context menu items:', items);
-  }, [items]);
-
     // Handle click outside context menu to close it
     useEffect(() => {
       const handleClickOutside = () => {

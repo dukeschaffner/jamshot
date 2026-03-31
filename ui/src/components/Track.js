@@ -19,10 +19,12 @@ import { useMobile } from '../contexts/MobileContext';
 import { useToast } from '../lib/ToastContext';
 import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
 import MoveTrackModal from './teams/MoveTrackModal';
-import TrackTags from './TrackTags';
 import VideoExportModal from './VideoExportModal';
 import VideoExportStatusModal from './VideoExportStatusModal';
 import {usePluginWebSocket} from '../contexts/PluginWebSocketContext';
+import TrackMetaAudio from './TrackMetaAudio';
+import TagsTab from './track/components/TagsTab';
+
 
 export default function Track(
     { track, 
@@ -30,14 +32,19 @@ export default function Track(
       setExpandedTrackId, 
       expandedTrackId,
       view = 'default', // Used in tree view, competition view, or default
+      context = 'default', // Represents where the track is being displayed (track_page, tree page, competition page, etc.)
       setSelectedTrack, // Used in tree view
+      onTabChange, // Callback for tab change
+      initialTab = "collabs", // Initial tab to show
+      actionButton,
       trackTreeIds, // Used in tree view
       competition, // Competition data when in competition view
       entryStatus, // User's entry status in competition
       onEnterCompetition, // Callback for entering competition
       isEntering, // Loading state for entering competition
       teamContext, // { teamId, folderId, userRole } - for team folder management
-      campContext // { campId, roomId, userRole } - for camp room management
+      campContext, // { campId, roomId, userRole } - for camp room management
+      extraTabs // Extra tabs to show
     }
   ) 
 {
@@ -48,7 +55,7 @@ export default function Track(
   const [collabTracks, setCollabTracks] = useState([]);
   const { currentTrack, isPlaying, playTrack, togglePlayPause, setDiscoveryMethod } = useAudio();
   const [loadingRelated, setLoadingRelated] = useState(false);
-  const [activeTab, setActiveTab] = useState('collabs');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const { user: currentUser, isAuthenticated } = useUser();
   const [hasMoreTracks, setHasMoreTracks] = useState(false);
@@ -83,6 +90,13 @@ export default function Track(
       };
     }
   }, [showActionsMenu]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (onTabChange) {
+      onTabChange(tab);
+    }
+  };
 
   useEffect(() => {
     setIsExpanded(expandedTrackId === track.id);
@@ -152,6 +166,7 @@ export default function Track(
   };
 
   const toggleExpand = () => {
+    if (context === 'track_page') return;
     setExpandedTrackId(isExpanded ? null : track.id);
   };
 
@@ -188,9 +203,11 @@ export default function Track(
       }
       togglePlayPause();
     } else {
-      const currentIndex = allTracks.findIndex(t => t.id === track.id);
-      const tracksToAdd = allTracks.slice(currentIndex + 1); // Exclude current track
-      console.log('Playing with subsequent tracks:', tracksToAdd.map(t => t.title));
+      let tracksToAdd = [];
+      if(context !== 'track_page') {
+        const currentIndex = allTracks.findIndex(t => t.id === track.id);
+        tracksToAdd = allTracks.slice(currentIndex + 1); // Exclude current track
+      }
       trackTrackPlay(track.id, track.title, track.username);
       playTrack(track, tracksToAdd);
     }
@@ -449,15 +466,46 @@ export default function Track(
     }
   };
 
+  if (!actionButton) {
+    actionButton = (
+      <button 
+      className="pill-btn pink-btn sm" 
+      onClick={(e) => {
+        e.stopPropagation();
+        let url = `/track/${track.guid}`;
+        const params = new URLSearchParams();
+        
+        // Include camp_id or team_id, but not both (prioritize camp_id)
+        if (campContext?.campId) {
+          params.append('camp_id', campContext.campId);
+        } else if (teamContext?.teamId) {
+          params.append('team_id', teamContext.teamId);
+        }
+        
+        // Append params to URL if any exist
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+        
+        router.push(url);
+      }}
+    >
+      {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
+    </button>
+    );
+  }
+
+
   // Create tabs configuration
   const tabs = [
     { key: 'collabs', label: 'Collabs' },
     { key: 'tags', label: 'Tags' },
-    { key: 'comments', label: 'Comments' }
+    { key: 'comments', label: 'Comments' },
+    ...(extraTabs ? extraTabs : []),
   ];
 
   return (
-    <div className={`${styles.trackItem} ${isExpanded ? styles.expanded : ''}`}>
+    <div className={`${styles.trackItem} ${context === 'track_page' ? 'track-page' : ''} ${isExpanded ? styles.expanded : ''}`}>
       {track.is_repost && track.reposted_by_username && (
         <div className={styles.repostBanner}>
           <FaRetweet className={styles.repostIcon} /> Reposted by {track.reposted_by_username}
@@ -506,21 +554,13 @@ export default function Track(
         <TrackMeta 
           track={track}
           variant="default"
+          showDownload={context === 'track_page'}
           className={styles.trackMetaSocial}
         />
+
+        <TrackMetaAudio track={track} />
         
-        <div className={styles.trackMetaAudio}>
-          <TrackTags track={track} variant="light" />
-                      
-          {track.metronome_bpm && (
-            <>
-              <div className={`meta-item ${styles.metronome}`}>
-              <span>{track.metronome_bpm} BPM</span>
-                <FaMusic /> 
-              </div>
-            </>
-          )}
-        </div>
+
         <div className={styles.trackActions}>
           <button 
             className={`${track.is_private ? 'share-btn-private' : 'share-btn'}`}
@@ -678,30 +718,7 @@ export default function Track(
               {getCompetitionButtonContent()}
             </button>
           ) : (
-            <button 
-              className="pill-btn pink-btn sm" 
-              onClick={(e) => {
-                e.stopPropagation();
-                let url = `/track/${track.guid}`;
-                const params = new URLSearchParams();
-                
-                // Include camp_id or team_id, but not both (prioritize camp_id)
-                if (campContext?.campId) {
-                  params.append('camp_id', campContext.campId);
-                } else if (teamContext?.teamId) {
-                  params.append('team_id', teamContext.teamId);
-                }
-                
-                // Append params to URL if any exist
-                if (params.toString()) {
-                  url += `?${params.toString()}`;
-                }
-                
-                router.push(url);
-              }}
-            >
-              {track?.layer < 4 ? (<><FaUsers /> Collab</>) : (<><FaEye /> View Track</>)}
-            </button>
+            actionButton
           )}
         </div>
 
@@ -717,9 +734,21 @@ export default function Track(
           <CustomTabs
             tabs={tabs}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
-            variant="track"
+            onTabChange={handleTabChange}
+            variant={context === 'track_page' ? 'default' : 'track'}
           />
+
+          {extraTabs?.map((tab) => {
+            const isActive = tab.key === activeTab;
+            if (tab.keepMounted) {
+              return (
+                <div key={tab.key}>{tab.content}</div>
+              );
+            }
+            return isActive ? (
+              <div key={tab.key}>{tab.content}</div>
+            ) : null;
+          })}
           
           {activeTab === 'collabs' && (
             <div className="track-tab-content">
@@ -778,58 +807,7 @@ export default function Track(
           )}
           
           {activeTab === 'tags' && (
-            <div className="track-tab-content">
-              <div className={styles.tagsTabContent}>
-                {/* Genres */}
-                {track.genres && Array.isArray(track.genres) && track.genres.length > 0 && (
-                  <div className={styles.tagCategory}>
-                    <h3 className={styles.tagCategoryTitle}>Genres</h3>
-                    <TrackTags track={track} variant="dark" categories={['genres']} />
-                  </div>
-                )}
-                
-                {/* Instruments */}
-                {track.instruments && Array.isArray(track.instruments) && track.instruments.length > 0 && (
-                  <div className={styles.tagCategory}>
-                    <h3 className={styles.tagCategoryTitle}>Instruments</h3>
-                    <TrackTags track={track} variant="dark" categories={['instruments']} />
-                  </div>
-                )}
-                
-                {/* Elements */}
-                {track.elements && Array.isArray(track.elements) && track.elements.length > 0 && (
-                  <div className={styles.tagCategory}>
-                    <h3 className={styles.tagCategoryTitle}>Elements</h3>
-                    <TrackTags track={track} variant="dark" categories={['elements']} />
-                  </div>
-                )}
-                
-                {/* Requested Instruments */}
-                {track.instrument_requests && Array.isArray(track.instrument_requests) && track.instrument_requests.length > 0 && (
-                  <div className={styles.tagCategory}>
-                    <h3 className={styles.tagCategoryTitle}>Requested Instruments</h3>
-                    <TrackTags track={track} variant="dark" categories={['instrument_requests']} />
-                  </div>
-                )}
-                
-                {/* Requested Elements */}
-                {track.element_requests && Array.isArray(track.element_requests) && track.element_requests.length > 0 && (
-                  <div className={styles.tagCategory}>
-                    <h3 className={styles.tagCategoryTitle}>Requested Elements</h3>
-                    <TrackTags track={track} variant="dark" categories={['element_requests']} />
-                  </div>
-                )}
-                
-                {/* Show message if no tags */}
-                {(!track.genres || track.genres.length === 0) &&
-                 (!track.instruments || track.instruments.length === 0) &&
-                 (!track.elements || track.elements.length === 0) &&
-                 (!track.instrument_requests || track.instrument_requests.length === 0) &&
-                 (!track.element_requests || track.element_requests.length === 0) && (
-                  <div className={styles.noTags}>No tags available for this track</div>
-                )}
-              </div>
-            </div>
+            <TagsTab track={track} />
           )}
           
           {activeTab === 'comments' && (

@@ -178,6 +178,40 @@ body.dark-mode .charCount {
   font-size: 0.875rem;
 }
 
+.socialFields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.socialInputRow {
+  display: flex;
+  align-items: stretch;
+}
+
+.socialPrefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border-color, #ddd);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background-color: rgba(255, 255, 255, 0.65);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.socialInputRow .formControl {
+  border-radius: 0 8px 8px 0;
+}
+
+body.dark-mode .socialPrefix {
+  background-color: rgba(46, 46, 46, 0.45);
+  border-color: var(--dark-border-color);
+  color: var(--dark-text-secondary);
+}
+
 body.dark-mode .helpText {
   color: var(--dark-text-secondary);
 }
@@ -325,6 +359,24 @@ body.dark-mode .passwordInput label {
 
   .dangerZone {
     padding: 1.5rem;
+  }
+
+  .socialInputRow {
+    flex-direction: column;
+  }
+
+  .socialPrefix {
+    border-right: 1px solid var(--border-color, #ddd);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .socialInputRow .formControl {
+    border-radius: 0 0 8px 8px;
+  }
+
+  body.dark-mode .socialPrefix {
+    border-color: var(--dark-border-color);
   }
 
   .deleteModal {

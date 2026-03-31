@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import { useDAW, DAWProvider } from './DAWContext';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
@@ -24,8 +25,9 @@ import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ContextMenu from './components/ContextMenu';
 import { useToast } from '../../lib/ToastContext';
+import ConfirmationDialog from '../ConfirmationDialog';
 
-function DAWContent({ track}) {
+function DAWContent({ track, isVisible = true }) {
   const {
     isCollab,
     trackManagerRef,
@@ -71,6 +73,29 @@ function DAWContent({ track}) {
 
   const { showToast } = useToast();
   const [saved, setSaved] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    try {
+      const key = 'sterio_daw_welcome_seen_v1';
+      const hasSeen = localStorage.getItem(key) === 'true';
+      if (!hasSeen) {
+        setShowWelcomeModal(true);
+      }
+    } catch {
+      // If localStorage is unavailable, just don't block DAW usage.
+    }
+  }, [isVisible]);
+
+  const dismissWelcomeModal = () => {
+    try {
+      localStorage.setItem('sterio_daw_welcome_seen_v1', 'true');
+    } catch {
+      // ignore
+    }
+    setShowWelcomeModal(false);
+  };
 
   useNavigationGuardHook({
     enabled: !!recordingTrackHasAudio && !saved,
@@ -88,6 +113,7 @@ function DAWContent({ track}) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignore if user is typing in an input field, textarea, or contentEditable element
+      if (!isVisible) return;
       if (
         e.target.tagName === 'INPUT' ||
         e.target.tagName === 'TEXTAREA' ||
@@ -218,7 +244,7 @@ function DAWContent({ track}) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible]); // Include dependencies
 
   // Handle toast notifications from the event bus
   useEffect(() => {
@@ -334,6 +360,24 @@ function DAWContent({ track}) {
 
   return (
     <>
+      <ConfirmationDialog
+        isOpen={showWelcomeModal}
+        onClose={dismissWelcomeModal}
+        onConfirm={dismissWelcomeModal}
+        title="Welcome to the Sterio DAW"
+        confirmText="Got it"
+        cancelText="Close"
+      >
+        <>
+          <p style={{ marginTop: 12 }} className="text-sm text-grey-3">
+            Here, you can record or upload audio to post a new track.
+          </p>
+          <p style={{ marginTop: 12 }} className="text-sm text-grey-3 mb-4">
+            For the smoothest experience, check out our{' '}
+            <Link href="/help?article=daw-best-practices" className="link-underline text-seafoam">DAW best practices</Link>.
+          </p>
+        </>
+      </ConfirmationDialog>
       <div 
         className={styles.dawContainer}
         style={{display: showUploadForm ? 'none' : 'block'}}
@@ -460,7 +504,7 @@ function DAWContent({ track}) {
 
 
 // Main DAW component that provides the context
-function DAW({ track }) {
+function DAW({ track, isVisible = true }) {
   // Convert track data to the format expected by DAWContext
   // Use useMemo to stabilize the reference and prevent unnecessary re-initializations
   const trackData = useMemo(() => track ? [track] : [], [track]);
@@ -468,13 +512,13 @@ function DAW({ track }) {
 
   return (
     <DAWProvider trackData={trackData} isCollab={isCollab}>
-      <DAWWrapper track={track} />
+      <DAWWrapper track={track} isVisible={isVisible} />
     </DAWProvider>
   );
 }
 
 // Wrapper component that handles fullscreen modal rendering
-function DAWWrapper({ track }) {
+function DAWWrapper({ track, isVisible = true }) {
   const { isFullscreen } = useDAW();
 
   if (isFullscreen) {
@@ -482,13 +526,13 @@ function DAWWrapper({ track }) {
       <>
         {/* Fullscreen modal overlay */}
         <div className={styles.fullscreenOverlay}>
-          <DAWContent track={track} />
+          <DAWContent track={track} isVisible={isVisible} />
         </div>
       </>
     );
   }
 
-  return <DAWContent track={track} />;
+  return <DAWContent track={track} isVisible={isVisible} />;
 }
 
 export default DAW;

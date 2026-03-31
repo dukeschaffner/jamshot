@@ -5,6 +5,7 @@ import AudioEngine from './core/AudioEngine';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
 import api from '@/lib/api';
+import { useAudio } from '@/lib/AudioContext';
 import { undoManager, COMMAND_TYPES } from './core/UndoManager';
 import DAWConfig from './misc/DAWConfig';
 import AudioState from './core/AudioStateStore';
@@ -12,6 +13,7 @@ import AudioState from './core/AudioStateStore';
 const DAWContext = createContext();
 
 export function DAWProvider({ children, trackData, isCollab }) {
+  const { isPlaying: isPlayingGlobal, togglePlayPause } = useAudio();
   const trackManagerRef = useRef(null);
   const audioEngineRef = useRef(null);
 
@@ -460,6 +462,9 @@ export function DAWProvider({ children, trackData, isCollab }) {
   useEffect(() => {
     // Listen for transport events
     const handlePlaybackStarted = () => {
+      if(isPlayingGlobal) {
+        togglePlayPause();
+      }
       setIsPlaying(true);
       if(!playRecordedRef.current) {
         recordPlay();
@@ -485,7 +490,6 @@ export function DAWProvider({ children, trackData, isCollab }) {
     
     const handleRecordingStopped = (data) => {
       setIsRecording(false);
-      console.log('Recording stopped');
 
       const track = trackManagerRef.current.getTrack('recording-track');
       const overwriteTrack = recordingModeRef.current === 'take';
@@ -603,7 +607,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_STRENGTH_CHANGE, handleSnapStrengthChange);
       eventBus.off(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
     };
-  }, [selectedRegionId, selectedTrackId, clearSelection]); 
+  }, [selectedRegionId, selectedTrackId, clearSelection, isPlayingGlobal, togglePlayPause]); 
 
   const recordPlay = async () => {
     if (!trackData || !isCollab || playRecordedRef.current) return;

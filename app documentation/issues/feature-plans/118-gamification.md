@@ -1,0 +1,46 @@
+---
+id: 118
+title: gamification
+type: feature
+status: open
+priority: 7
+area: ''
+tags: []
+---
+gamification - implement, but lock with feature flag:
+record user point values: status and momentum
+
+alt words for status:
+- reputation
+- clout
+
+alt words for momentum:
+
+
+users can gain status points by:
+- receiving likes (+10)
+- receiving reposts (+20)
+- receiving collabs (+50)
+- receiving plays (+10)
+- receiving follows (+10)
+- winning competitions (tbd)
+- getting featured somewhere (maybe top 10 collabs of the week or something) (+100)
+
+status updated on action
+momentum updated daily in analytics batch job
+
+momentum = status / time (ie change in status points over the last week)
+show status and momentum where user details are displayed
+
+status and momentum leaderboards (filter by genre?) - drives exploration
+
+competitions that are only for users with a certain status level
+
+track status gained from a track. if a user deletes that track, the status is lost.
+    - how will this affect momentum?
+also, show status gained on track details page + analytics page
+
+
+LATER:
+- add competitions with status point prize pools and status point range/rank entry requirements
+- make sure users know that copyright infringement will result in loss of status points on strike 1 and account suspension on strike 2

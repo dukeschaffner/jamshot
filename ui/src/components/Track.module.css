@@ -314,3 +314,37 @@
   body.dark-mode .noTags {
     color: var(--dark-text-secondary);
   }
+
+
+
+
+
+
+
+
+
+
+
+/* Track Page Styles */
+
+  :global(.track-page).trackItem {
+    border-bottom: unset;
+  }
+
+  :global(.track-page).trackItem:hover {
+    background-color: white;
+  }
+
+  :global(.track-page) .trackMain {
+    cursor: default;
+    padding: 0px;
+  }
+
+
+  :global(.track-page) .trackDetails {
+    background-color: white;
+    padding: 0;
+    border-top: none;
+    max-height: unset;
+  }
+  

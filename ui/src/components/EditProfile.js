@@ -8,13 +8,40 @@ import { FaCamera, FaLock, FaLockOpen, FaTimes, FaCheck } from 'react-icons/fa';
 import Cookies from 'js-cookie';
 import styles from './EditProfile.module.css';
 
+const SOCIAL_FIELDS = [
+  { key: 'tiktok_url', label: 'TikTok', prefix: 'https://www.tiktok.com/', placeholder: '@yourhandle' },
+  { key: 'youtube_url', label: 'YouTube', prefix: 'https://www.youtube.com/', placeholder: '@yourchannel' },
+  { key: 'instagram_url', label: 'Instagram', prefix: 'https://www.instagram.com/', placeholder: 'yourhandle' },
+  { key: 'facebook_url', label: 'Facebook', prefix: 'https://www.facebook.com/', placeholder: 'yourpage' },
+  { key: 'x_url', label: 'X', prefix: 'https://x.com/', placeholder: 'yourhandle' }
+];
+
+const getSocialRoute = (fullUrl, prefix) => {
+  if (!fullUrl) {
+    return '';
+  }
+
+  if (fullUrl.startsWith(prefix)) {
+    return fullUrl.slice(prefix.length);
+  }
+
+  return fullUrl.replace(/^https?:\/\/[^/]+\//i, '');
+};
+
+const getInitialSocialFormValues = (user) =>
+  SOCIAL_FIELDS.reduce((acc, field) => {
+    acc[field.key] = getSocialRoute(user?.[field.key] || '', field.prefix);
+    return acc;
+  }, {});
+
 export default function EditProfile({ user }) {
   const router = useRouter();
   const { refreshUser } = useUser();
   const [editForm, setEditForm] = useState({
     username: user?.username || '',
     name: user?.name || '',
-    bio: user?.bio || ''
+    bio: user?.bio || '',
+    ...getInitialSocialFormValues(user)
   });
   const [isPrivate, setIsPrivate] = useState(user?.is_private || false);
   const [usernameError, setUsernameError] = useState('');
@@ -31,7 +58,8 @@ export default function EditProfile({ user }) {
       setEditForm({
         username: user.username || '',
         name: user.name || '',
-        bio: user.bio || ''
+        bio: user.bio || '',
+        ...getInitialSocialFormValues(user)
       });
       setIsPrivate(user.is_private || false);
     }
@@ -249,6 +277,26 @@ export default function EditProfile({ user }) {
             placeholder="Tell people about yourself..."
           />
           <div className={styles.charCount}>{editForm.bio.length}/160</div>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label>Social Links</label>
+          <div className={styles.socialFields}>
+            {SOCIAL_FIELDS.map((field) => (
+              <div key={field.key} className={styles.socialInputRow}>
+                <span className={styles.socialPrefix}>{field.prefix}</span>
+                <input
+                  type="text"
+                  value={editForm[field.key]}
+                  onChange={(e) => setEditForm({ ...editForm, [field.key]: e.target.value })}
+                  className={styles.formControl}
+                  placeholder={field.placeholder}
+                  aria-label={`${field.label} profile route`}
+                />
+              </div>
+            ))}
+          </div>
+          <p className={styles.helpText}>Enter the part after the site URL, such as a handle or a deeper profile route.</p>
         </div>
 
         <div className={styles.formGroup}>

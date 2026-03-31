@@ -8,6 +8,11 @@ CREATE TABLE users (
   password_hash VARCHAR(255), -- Hashed with bcrypt (nullable for OAuth users)
   profile_pic_url VARCHAR(255), -- S3 URL for profile pic
   bio TEXT, -- Optional short bio
+  tiktok_url VARCHAR(255), -- Optional TikTok profile URL
+  youtube_url VARCHAR(255), -- Optional YouTube profile URL
+  instagram_url VARCHAR(255), -- Optional Instagram profile URL
+  facebook_url VARCHAR(255), -- Optional Facebook profile URL
+  x_url VARCHAR(255), -- Optional X profile URL
   verified BOOL not null default false, -- Reserved for well-known artists
   email_verified BOOL not null default false, -- For email verification
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

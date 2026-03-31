@@ -13,3 +13,8 @@ node ./functions/lambda/email-notifications/index.js daily              # Force 
 node ./functions/lambda/email-notifications/index.js weekly             # Force weekly emails only  
 node ./functions/lambda/email-notifications/index.js monthly            # Force monthly emails only
 node ./functions/lambda/email-notifications/index.js daily weekly       # Force both daily and weekly emails
+
+
+RUNNING ISSUES VISUALIZER:
+cd issues-visualizer
+npm run dev
