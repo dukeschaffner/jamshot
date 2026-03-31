@@ -6,7 +6,18 @@ import Track from '../../../components/Track';
 import CustomTabs from '../../../components/CustomTabs';
 import UserListModal from '../../../components/UserListModal';
 import LoadingSpinner from '../../../components/LoadingSpinner';
-import { FaCamera, FaLock, FaChevronDown, FaUserPlus, FaUserCheck } from 'react-icons/fa';
+import {
+  FaCamera,
+  FaLock,
+  FaChevronDown,
+  FaUserPlus,
+  FaUserCheck,
+  FaTiktok,
+  FaYoutube,
+  FaInstagram,
+  FaFacebook,
+  FaTwitter
+} from 'react-icons/fa';
 import Link from 'next/link';
 import ImageCropper from '../../../components/ImageCropper';
 import { useUser } from '../../../contexts/UserContext';
@@ -329,6 +340,13 @@ export default function UserPage() {
     { key: 'reposts', label: 'Reposts' },
     { key: 'liked', label: 'Liked' }
   ];
+  const socialLinks = [
+    { key: 'tiktok_url', label: 'TikTok', href: userProfile?.tiktok_url, icon: FaTiktok },
+    { key: 'youtube_url', label: 'YouTube', href: userProfile?.youtube_url, icon: FaYoutube },
+    { key: 'instagram_url', label: 'Instagram', href: userProfile?.instagram_url, icon: FaInstagram },
+    { key: 'facebook_url', label: 'Facebook', href: userProfile?.facebook_url, icon: FaFacebook },
+    { key: 'x_url', label: 'X', href: userProfile?.x_url, icon: FaTwitter }
+  ].filter((link) => link.href);
 
   if (loading) return <p>Loading...</p>;
   
@@ -432,6 +450,24 @@ export default function UserPage() {
               <span className={styles.statCount}>{stats.following}</span> following
             </span>
           </div>
+
+          {socialLinks.length > 0 && (
+            <div className={styles.socialLinks}>
+              {socialLinks.map(({ key, label, href, icon: Icon }) => (
+                <a
+                  key={key}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.socialLink}
+                  aria-label={`${userProfile?.username}'s ${label}`}
+                  title={label}
+                >
+                  <Icon />
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

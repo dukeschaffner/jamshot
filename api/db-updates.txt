@@ -26,3 +26,13 @@ CREATE TABLE IF NOT EXISTS user_bans (
 CREATE INDEX IF NOT EXISTS idx_user_bans_user_type_expires
   ON user_bans (user_id, ban_type, expires_at);
 
+-- Migration: Profile Social Links
+-- Date: 2026-03-31
+-- Adds optional external social profile URLs to user profiles
+ALTER TABLE users
+ADD COLUMN tiktok_url VARCHAR(255),
+ADD COLUMN youtube_url VARCHAR(255),
+ADD COLUMN instagram_url VARCHAR(255),
+ADD COLUMN facebook_url VARCHAR(255),
+ADD COLUMN x_url VARCHAR(255);
+

@@ -13,6 +13,7 @@ import {
   contentCreationLimiter
 } from '../middleware/rateLimiting.js';
 import { getBaseTrackSelectQuery, processTrack, deleteTrack } from '../utils/trackUtils.js';
+import { SOCIAL_LINK_CONFIG, SOCIAL_LINK_FIELDS, normalizeSocialLink } from '../utils/userUtils.js';
 
 const router = express.Router();
 const stripe = stripeLib(process.env.STRIPE_SECRET_KEY);
@@ -65,7 +66,7 @@ router.use(optionalBetterAuthMiddleware);
 router.get('/me', betterAuthMiddleware, async (req, res, next) => {
   try {
     const userResult = await pool.query(
-      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, is_admin, bio, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
+      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, is_admin, bio, tiktok_url, youtube_url, instagram_url, facebook_url, x_url, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -585,6 +586,7 @@ router.get('/:userId/reposts', async (req, res, next) => {
 router.put('/me', betterAuthMiddleware, async (req, res, next) => {
   try {
     let { username, name, bio, is_private } = req.body;
+    const normalizedSocialLinks = {};
     
     // Validate name is provided
     if (!name || name.trim() === '') {
@@ -616,6 +618,21 @@ router.put('/me', betterAuthMiddleware, async (req, res, next) => {
       return res.status(400).json({ error: 'Username "me" is not allowed' });
     }
 
+    for (const field of SOCIAL_LINK_FIELDS) {
+      if (req.body[field] === undefined) {
+        normalizedSocialLinks[field] = undefined;
+        continue;
+      }
+
+      const isBlankString = typeof req.body[field] === 'string' && req.body[field].trim() === '';
+      const normalizedValue = normalizeSocialLink(field, req.body[field]);
+      if (!isBlankString && req.body[field] !== null && normalizedValue === null) {
+        return res.status(400).json({ error: `Invalid ${SOCIAL_LINK_CONFIG[field].label} URL` });
+      }
+
+      normalizedSocialLinks[field] = normalizedValue;
+    }
+
     // Check if username is taken (if username is being updated)
     if (username) {
       const existingUser = await pool.query(
@@ -633,10 +650,31 @@ router.put('/me', betterAuthMiddleware, async (req, res, next) => {
        SET username = COALESCE($1, username),
            name = $2,
            bio = COALESCE($3, bio),
-           is_private = COALESCE($4, is_private)
-       WHERE id = $5
-       RETURNING id, username, name, email, bio, profile_pic_url, verified, email_verified, is_private`,
-      [username, name, bio, is_private, req.user.id]
+           is_private = COALESCE($4, is_private),
+           tiktok_url = CASE WHEN $10 THEN tiktok_url ELSE $5 END,
+           youtube_url = CASE WHEN $11 THEN youtube_url ELSE $6 END,
+           instagram_url = CASE WHEN $12 THEN instagram_url ELSE $7 END,
+           facebook_url = CASE WHEN $13 THEN facebook_url ELSE $8 END,
+           x_url = CASE WHEN $14 THEN x_url ELSE $9 END
+       WHERE id = $15
+       RETURNING id, username, name, email, bio, profile_pic_url, verified, email_verified, is_private, tiktok_url, youtube_url, instagram_url, facebook_url, x_url`,
+      [
+        username,
+        name,
+        bio,
+        is_private,
+        normalizedSocialLinks.tiktok_url,
+        normalizedSocialLinks.youtube_url,
+        normalizedSocialLinks.instagram_url,
+        normalizedSocialLinks.facebook_url,
+        normalizedSocialLinks.x_url,
+        normalizedSocialLinks.tiktok_url === undefined,
+        normalizedSocialLinks.youtube_url === undefined,
+        normalizedSocialLinks.instagram_url === undefined,
+        normalizedSocialLinks.facebook_url === undefined,
+        normalizedSocialLinks.x_url === undefined,
+        req.user.id
+      ]
     );
     
     res.json(result.rows[0]);
@@ -927,7 +965,7 @@ router.get('/by-username/:username', async (req, res, next) => {
   const { username } = req.params;
   try {
     const result = await pool.query(
-      'SELECT id, username, name, bio, verified, profile_pic_url, is_private FROM users WHERE username = $1',
+      'SELECT id, username, name, bio, verified, profile_pic_url, is_private, tiktok_url, youtube_url, instagram_url, facebook_url, x_url FROM users WHERE username = $1',
       [username]
     );
     
