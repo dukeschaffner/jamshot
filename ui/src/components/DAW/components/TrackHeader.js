@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useDAW } from '../DAWContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,6 +9,7 @@ import styles from './TrackHeader.module.css';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import AudioState from '../core/AudioStateStore';
+import Popover from '../../Popover';
 
 export default function TrackHeader({
   track,
@@ -24,6 +26,9 @@ export default function TrackHeader({
   const [meterLevel, setMeterLevel] = useState(-60);
   const meterAnimationFrameRef = useRef(null);
   const [hasInputDevice, setHasInputDevice] = useState(false);
+  const [isMonitorPopoverVisible, setIsMonitorPopoverVisible] = useState(false);
+  const monitorPopoverAnchorRef = useRef(null);
+  const monitorPopoverCloseTimeoutRef = useRef(null);
 
   // Listen for input device changes
   useEffect(() => {
@@ -177,6 +182,21 @@ export default function TrackHeader({
     eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.MONITOR_TOGGLE, { enabled });
   };
 
+  const showMonitorPopover = () => {
+    if (monitorPopoverCloseTimeoutRef.current) {
+      clearTimeout(monitorPopoverCloseTimeoutRef.current);
+      monitorPopoverCloseTimeoutRef.current = null;
+    }
+    setIsMonitorPopoverVisible(true);
+  };
+
+  const hideMonitorPopover = () => {
+    monitorPopoverCloseTimeoutRef.current = setTimeout(() => {
+      setIsMonitorPopoverVisible(false);
+      monitorPopoverCloseTimeoutRef.current = null;
+    }, 120);
+  };
+
   useEffect(() => {
     eventBus.emit(DAW_EVENTS.TRACK.SOLO, { trackId: track.id, isSolo: isSolo });
   }, [isSolo]);
@@ -206,6 +226,14 @@ export default function TrackHeader({
   useEffect(() => {
     eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, { trackId: track.id, volume: faderValue });
   }, [faderValue]);
+
+  useEffect(() => {
+    return () => {
+      if (monitorPopoverCloseTimeoutRef.current) {
+        clearTimeout(monitorPopoverCloseTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Generate display name for track
   const getTrackDisplayName = () => {
@@ -239,13 +267,41 @@ export default function TrackHeader({
         </button>
         
         {track.id === 'recording-track' && (
-          <button
-            className={`${styles.controlButton} ${isMonitoring ? styles.active : ''}`}
-            onClick={handleMonitorClick}
-            title="Input Monitor"
-          >
-            <FontAwesomeIcon icon={faMicrophone} />
-          </button>
+          <>
+            <div
+              ref={monitorPopoverAnchorRef}
+              className={styles.monitorButtonWrapper}
+              onMouseEnter={showMonitorPopover}
+              onMouseLeave={hideMonitorPopover}
+            >
+              <button
+                className={`${styles.controlButton} ${isMonitoring ? styles.active : ''}`}
+                onClick={handleMonitorClick}
+                title="Input Monitor"
+              >
+                <FontAwesomeIcon icon={faMicrophone} />
+              </button>
+            </div>
+
+            <Popover
+              isVisible={isMonitorPopoverVisible}
+              anchorElement={monitorPopoverAnchorRef.current}
+              className={styles.monitorPopover}
+              onMouseEnter={showMonitorPopover}
+              onMouseLeave={hideMonitorPopover}
+            >
+              <p className={styles.monitorPopoverText}>
+                Input monitoring requires a low latency setup. See{' '}
+                <Link href="/help?article=daw-best-practices">
+                  DAW best practices
+                </Link>{' '}
+                for how to optimize your setup. If there is too much delay, you can
+                turn off input monitoring, record in a DAW with the{' '}
+                <Link href="/plugin">Sterio Plugin</Link>, or directly monitor audio
+                from your audio interface if using one.
+              </p>
+            </Popover>
+          </>
         )}
       </div>
       

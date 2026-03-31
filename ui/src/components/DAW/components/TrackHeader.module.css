@@ -30,6 +30,10 @@
   gap: 6px;
 }
 
+.monitorButtonWrapper {
+  display: flex;
+}
+
 .controlButton {
   display: flex;
   align-items: center;
@@ -61,6 +65,22 @@
 .controlButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.monitorPopover {
+  max-width: 320px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.monitorPopoverText {
+  margin: 0;
+}
+
+.monitorPopoverText a {
+  color: var(--seafoam, #34c759);
+  text-decoration: underline;
 }
 
 /* Mute button active state override */

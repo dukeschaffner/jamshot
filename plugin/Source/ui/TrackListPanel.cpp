@@ -10,11 +10,13 @@ using namespace juce;
 TrackListPanel::TrackListPanel(Services& services)
     : apiClientRef(services.api),
       pluginStateRef(services.pluginState),
+      titleLabel({}, "Liked Tracks"),
       trackListBox("Tracks", nullptr),
       scrollBar(false),
       refreshButton("Refresh", DrawableButton::ImageFitted)
 {
     pluginStateRef.addChangeListener(this);
+    addAndMakeVisible(titleLabel);
     addAndMakeVisible(refreshButton);
     
     // Load refresh icon from SVG file
@@ -65,6 +67,10 @@ TrackListPanel::TrackListPanel(Services& services)
     addAndMakeVisible(statusLabel);
     statusLabel.setText("No tracks loaded", dontSendNotification);
     statusLabel.setJustificationType(Justification::centred);
+    statusLabel.setColour(Label::textColourId, Colors::GREY);
+
+    titleLabel.setJustificationType(Justification::centredLeft);
+    titleLabel.setColour(Label::textColourId, Colors::BLACK);
 
     // Set up the list box
     trackListBox.setModel(new TrackListPanel::TrackListBoxModel(*this));
@@ -113,6 +119,10 @@ void TrackListPanel::paint(Graphics& g)
 void TrackListPanel::resized()
 {
     auto bounds = getLocalBounds().toFloat();
+    const bool showEmptyState = tracks.isEmpty();
+
+    trackListBox.setVisible(!showEmptyState);
+    statusLabel.setVisible(showEmptyState);
 
     juce::FlexBox main;
     main.flexDirection = juce::FlexBox::Direction::column;
@@ -120,6 +130,14 @@ void TrackListPanel::resized()
     // --- Button row ---
     juce::FlexBox buttonRow;
     buttonRow.flexDirection = juce::FlexBox::Direction::row;
+    buttonRow.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
+
+    buttonRow.items.add(
+        juce::FlexItem(titleLabel)
+            .withMinWidth(100.0f)
+            .withFlex(1.0f)
+            .withHeight(20.0f)
+    );
 
     buttonRow.items.add(
         juce::FlexItem(refreshButton)
@@ -132,17 +150,21 @@ void TrackListPanel::resized()
             .withHeight(20.0f)
     );
 
-    // Status label
-    main.items.add(
-        juce::FlexItem(statusLabel)
-            .withHeight(20.0f)
-    );
-
-    // Track list fills remaining space
-    main.items.add(
-        juce::FlexItem(trackListBox)
-            .withFlex(1.0f)
-    );
+    if (showEmptyState)
+    {
+        main.items.add(
+            juce::FlexItem(statusLabel)
+                .withFlex(1.0f)
+        );
+    }
+    else
+    {
+        // Track list fills remaining space
+        main.items.add(
+            juce::FlexItem(trackListBox)
+                .withFlex(1.0f)
+        );
+    }
 
     main.performLayout(bounds);
 }
@@ -162,6 +184,7 @@ void TrackListPanel::refreshTracks()
         return;
 
     currentPage = 1;
+    hasLoadError = false;
     tracks.clear();
     trackListBox.deselectAllRows();
     trackListBox.updateContent();
@@ -195,9 +218,10 @@ void TrackListPanel::clearTracks()
     tracks.clear();
     pagination = PaginationInfo();
     currentPage = 1;
+    hasLoadError = false;
     trackListBox.deselectAllRows();
     trackListBox.updateContent();
-    statusLabel.setText("No tracks loaded", dontSendNotification);
+    statusLabel.setText("No liked tracks", dontSendNotification);
     resized(); // Trigger layout recalculation when visibility changes
 }
 
@@ -210,9 +234,13 @@ void TrackListPanel::timerCallback()
     {
         statusLabel.setText("Loading tracks...", dontSendNotification);
     }
+    else if (hasLoadError)
+    {
+        statusLabel.setText("Failed to load tracks", dontSendNotification);
+    }
     else if (tracks.isEmpty())
     {
-        statusLabel.setText("No tracks loaded", dontSendNotification);
+        statusLabel.setText("No liked tracks", dontSendNotification);
     }
     else
     {
@@ -247,10 +275,12 @@ void TrackListPanel::loadTracksInternal(int page)
 
             if (result.failed())
             {
-                statusLabel.setText("Error loading tracks: " + result.getErrorMessage(), dontSendNotification);
+                hasLoadError = true;
+                statusLabel.setText("Failed to load tracks", dontSendNotification);
                 return;
             }
 
+            hasLoadError = false;
             currentPage = page;
             updateTracksDisplay(*result);
         });

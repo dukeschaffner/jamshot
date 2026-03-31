@@ -11,7 +11,6 @@ tags:
 
 
 
-
 - make user input latency compensation be stored/read per input device instead of globally
 - add "set latency compensation from nudge value" button
     - if a user nudges a region on the recording track, show a subtle button that sets the latency compensation for the current input device to the nudge value delta

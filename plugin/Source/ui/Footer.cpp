@@ -20,7 +20,7 @@ Footer::Footer(Services& services)
     messageLabel.setFont(juce::Font(14.0f));
     messageLabel.setColour(juce::Label::textColourId, Colors::GREY);
     messageLabel.setJustificationType(juce::Justification::centred);
-    messageLabel.setText("No track selected", juce::dontSendNotification);
+    messageLabel.setText("Select a track from the list or click 'Open in Plugin' on a track in Sterio app", juce::dontSendNotification);
 
     trackNameLabel.setVisible(false);
     artistLabel.setVisible(false);

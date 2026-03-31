@@ -2,7 +2,7 @@
 id: 109
 title: Improve loading states in the desktop plugin
 type: task
-status: open
+status: done
 priority: 5
 area: plugin
 tags:
