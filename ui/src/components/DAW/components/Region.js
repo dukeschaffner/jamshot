@@ -4,6 +4,7 @@ import styles from './Region.module.css';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
 import WaveformChunk from './waveform/WaveformChunk';
+import NudgeIndicator from './NudgeIndicator';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
@@ -253,6 +254,7 @@ export default function Region({
     // Hide context menu
     setShowContextMenu(false);
   };
+
 
   // Handle copy region
   const handleRegionCopy = () => {
@@ -842,6 +844,7 @@ export default function Region({
  
         </div>
       </div>
+      <NudgeIndicator region={region} trackId={track.id} />
       {/* Crop handles */}
       {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && (
       <>

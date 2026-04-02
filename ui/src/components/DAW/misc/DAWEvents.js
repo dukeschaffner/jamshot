@@ -35,6 +35,7 @@ export const DAW_EVENTS = {
       INPUT_METERING_INIT_REQUEST: 'audio:settings:input:metering:init:request',
       INPUT_METERING_INITIALIZED: 'audio:settings:input:metering:initialized',
       LATENCY_COMPENSATION_CHANGE: 'audio:settings:latency:compensation:change',
+      LATENCY_COMPENSATION_SET: 'audio:settings:latency:compensation:set',
       SNAP_TO_GRID_CHANGE: 'audio:settings:snap:to:grid:change',
       SNAP_STRENGTH_CHANGE: 'audio:settings:snap:strength:change',
       METRONOME_VOLUME_CHANGE: 'audio:settings:metronome:volume:change',

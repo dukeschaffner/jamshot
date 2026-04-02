@@ -493,7 +493,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
 
       const track = trackManagerRef.current.getTrack('recording-track');
       const overwriteTrack = recordingModeRef.current === 'take';
-      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true);
+      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true, data.latencyData);
     };
     
     const handleRecordingError = (error) => {
