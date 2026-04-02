@@ -3,7 +3,7 @@ id: 28
 title: Release notes infinite loop
 type: bug
 status: open
-priority: 5
+priority: 2
 area: ''
 tags: []
 ---

@@ -1,0 +1,74 @@
+.anchor {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 15;
+}
+
+.nudgedIndicator {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 0;
+  border-radius: 999px;
+  background-color: var(--seafoam);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0;
+}
+
+.nudgePopover {
+  max-width: 280px;
+  padding: 0;
+}
+
+.nudgePopoverInner {
+  position: relative;
+  padding: 12px;
+}
+
+.nudgePopoverInnerWithClose {
+  padding-right: 36px;
+}
+
+.nudgePopoverText {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+body.dark-mode .nudgePopoverText {
+  color: var(--dark-text-secondary);
+}
+
+.nudgePopoverClose {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.nudgePopoverClose:hover {
+  background-color: var(--grey-1);
+  color: var(--text-primary);
+}
+
+body.dark-mode .nudgePopoverClose:hover {
+  background-color: var(--grey-2);
+  color: var(--dark-text-primary);
+}
+
+.nudgedIndicator:hover {
+  filter: brightness(0.95);
+}

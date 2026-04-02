@@ -53,6 +53,23 @@ class Track {
   handleRegionUpdate(data) {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
+      let isNudged = false;
+      if(this.isRecordingTrack && data.region.latencyData) { // this is a recorded region
+        const region = this.regions.find(r => r.id === data.region.id);
+        if(region) {
+          if((region.offset !== data.region.offset) || (region.startTime !== data.region.startTime)) {
+            const oldAudioFileStartTime = region.originalStartTime - region.originalOffset;
+            const newAudioFileStartTime = data.region.startTime - data.region.offset;
+            const latencyDiff = oldAudioFileStartTime - newAudioFileStartTime;
+            const autoLatency = region.latencyData.autoLatency || 0;
+            let newUserCompensation = region.latencyData.userCompensation + latencyDiff - autoLatency;
+            if(newUserCompensation > 0.001 && newUserCompensation < 0.1) {
+              isNudged = true;
+            }
+          }
+        }
+      }
+      data.region.isNudged = isNudged;
       this.regions = this.regions.map(r => r.id === data.region.id ? data.region : r);
       // Forward the action metadata if present (for undo/redo)
       eventBus.emit(DAW_EVENTS.REGION.UPDATED, { 
@@ -99,7 +116,7 @@ class Track {
   
   // Region structure: { key, startTime, duration, name }
   // @param {boolean} recordUndo - Whether to record this operation for undo (default: false)
-  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false) {
+  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false, latencyData = null) {
     const duration = bufferRegistry.getMetadata(bufferKey)?.duration || 0;
     startTime = startTime || 0;
     offset = offset || 0;
@@ -119,7 +136,10 @@ class Track {
       duration: duration,
       active: true,
       name: name || `Region ${this.regions.length + 1}`,
-      id: id
+      id: id,
+      latencyData: latencyData,
+      originalOffset: offset,
+      originalStartTime: startTime
     };
 
     if (overwriteTrack) { // Set all regions to inactive
