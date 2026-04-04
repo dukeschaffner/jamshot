@@ -27,16 +27,42 @@ activity feed and toast when track is added to track tree page should be clickab
     - probably need to support specifying last track id of adjacent cached window so we dont load the same tracks again
 
 
+    regarding treeDataManager: i need to update this file to support window based loading and caching of tracks and relationships.. ie if a track has 100 children and i want to load the children from 60-70. then I should be able to load 1-10, and then if i load 55-65, it should load 55-59 from the api and then 60-65 from the cached 60-70 window, then add 55-59 to the 60-70 window cache (so it would merge windows that become contiguous). and im thinking maybe the edge windows track hasNewer or hasOlder... ie if windows 10-20, 30-40, and 90-100 are loaded in the cache, the 10-20 window would have hasOlder = true, and 90-100 window would have hasNewer = false. because the in between windows implicitly know there are more on either side because more windows exist around them. 
+
+I also think it might be good to create a GetChildren() function that manages either getting tracks from cache OR loading from API depending on what exists in the cache. so using the function, i could request a range of tracks, and it would load those tracks from cache or api and return them
+
+my goal with these changes is to be able to jump to a given track in the children list without having to worry about loading all prior tracks. 
+
+
+
+cursor scenarios:
+
+1 - no known adjacent windows in cache w/ target track id:
+    - we want to load target track + x newer and x older tracks
+        - cursor_type = "target"
+        - target_track_id = target track id
+        - num_padding_tracks = number of newer and older tracks to load on either side of target track
+
+2 - one or two known adjacent windows in cache w/ target track id:
+    - we want to load target track + x newer and x older tracks without loading any tracks that are already in the cache
+        - cursor_type = "target"
+        - target_track_id = target track id
+        - num_padding_tracks = number of newer and older tracks to load on either side of target track
+        - nearest_older_track_id = id of the nearest older track in the cache AND/OR
+        - nearest_newer_track_id = id of the nearest newer track in the cache
+        - API returns target track + sibling tracks where id > target_track_id and (id < nearest_newer_track_id if supplied LIMIT num_padding_tracks ORDER BY id ASC) and (id > nearest_older_track_id if supplied LIMIT num_padding_tracks ORDER BY id DESC)
 
 
 
 
 
-add open in plugin button to track popover
+
+
 maybe an indicator in the graph if there's a new track in a given subtree
 track not loading in track page for rob - increase preload to be 5 sec in advance, make sure audio gets sceduled even if buffer finishing loading after loop start
 message prompting users to ensure mic is on input 1 if using audio interface
 notification or sound on moderation page when new track detected
+websocket based toast stream overlay (new page /stream-overlay which has ws connection and receives new track upload messages and displays them as toasts - capture this in OBS and overlay on stream)
 
 
 {"level":"error",<*>,"pid":<*>,"hostname":<*>,"correlationId":<*>,"userId":<*>,"message":"invalid input syntax for type integer: <*>,"stack":"error: invalid input syntax for type integer: <*> at /var/task/dist/node_modules/pg-pool/index.js:<*>:<*> at process.processTicksAndRejections (<*>)\n at async <*>,"route":<*>,"method":"GET"}
