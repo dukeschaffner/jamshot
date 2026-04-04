@@ -8,7 +8,7 @@ import { getAudioBufferFromS3 } from '../../../../components/DAW/misc/DAWUtils.j
 import { eventBus } from '../../../../components/DAW/misc/EventBus.js';
 import { DAW_EVENTS } from '../../../../components/DAW/misc/DAWEvents.js';
 
-const SCHEDULE_NEXT_TRACK_THRESHOLD = 0.5;
+const SCHEDULE_NEXT_TRACK_THRESHOLD = 2;
 
 class LoopListeningEngine {
   constructor(audioContext, getNextTrack) {
@@ -250,12 +250,26 @@ class LoopListeningEngine {
       this.schedulingNextTrack = false;
       return;
     }
+
+    let startTime = this.loopStartTime + this.loopDuration;
     this.getOrDecodeBuffer(track).then(buffer => {
-      const startTime = this.loopStartTime + this.loopDuration;
+
       const bufferDuration = buffer.duration;
-      const playDuration = Math.min(bufferDuration, this.loopDuration);
-      this.scheduleBuffer(buffer, startTime, 0, playDuration);
-      this.nextTrackScheduled = true;
+      let playDuration = Math.min(bufferDuration, this.loopDuration);
+      let offset = 0;
+      const currentTime = this.context.currentTime;
+      if(currentTime > startTime) { // buffer did not load until after loop start
+        const timeDelta = currentTime - startTime + 0.01;
+        startTime = startTime + timeDelta;
+        playDuration = playDuration - timeDelta;
+        offset = timeDelta;
+      }
+      
+
+      this.scheduleBuffer(buffer, startTime, offset, playDuration);
+      if(offset === 0) {
+        this.nextTrackScheduled = true; // Don't mark nextTrackScheduled if scheduling didnt finish before the loop start
+      }
       this.schedulingNextTrack = false;
     }).catch(error => {
       console.error('Error scheduling next track:', error);
