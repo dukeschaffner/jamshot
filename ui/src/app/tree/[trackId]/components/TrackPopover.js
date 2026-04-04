@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { FaCheckCircle, FaCheck, FaPlay, FaPause } from 'react-icons/fa';
+import { FaCheckCircle, FaCheck, FaPlay, FaPause, FaEllipsisV } from 'react-icons/fa';
 import { useAudio } from '../../../../lib/AudioContext';
+import { usePluginWebSocket } from '../../../../contexts/PluginWebSocketContext';
 import { useLoopListening } from '../utils/LoopListeningContext';
 import TrackTags from '../../../../components/TrackTags';
 import TrackMeta from '../../../../components/TrackMeta';
@@ -26,10 +27,13 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
   // Use loop listening if available and requested, otherwise use regular audio
   const audioContext = (isLoopMode && loopListening) ? loopListening : regularAudio;
   const { currentTrack, isPlaying, playTrack, togglePlayPause, queueTrack } = audioContext;
+  const { send } = usePluginWebSocket();
   
   const popoverRef = useRef(null);
+  const actionsMenuRef = useRef(null);
   const queueFeedbackTimeoutRef = useRef(null);
   const [showQueuedFeedback, setShowQueuedFeedback] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   const isCurrentTrack = currentTrack?.id === track?.id;
   const isCurrentlyPlaying = isCurrentTrack && isPlaying;
@@ -60,6 +64,18 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
     };
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
+        setShowActionsMenu(false);
+      }
+    }
+    if (showActionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showActionsMenu]);
+
   const navigateToUserProfile = (e) => {
     e.stopPropagation();
     if (track?.username) {
@@ -72,6 +88,20 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
     if (track?.guid) {
       router.push(`/track/${track.guid}`);
     }
+  };
+
+  const handleOpenInPlugin = async (e) => {
+    e.stopPropagation();
+    const msg = {
+      type: 'set_track',
+      track_id: track.id,
+      payload: track,
+    };
+    try {
+      await send(JSON.stringify(msg));
+    } catch (err) {
+    }
+    setShowActionsMenu(false);
   };
 
   if (!track) return null;
@@ -167,6 +197,33 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
               )}
             </button>
           )}
+          <div className={styles['popover-actions-menu']} ref={actionsMenuRef}>
+            <button
+              type="button"
+              className={styles['popover-more-button']}
+              title="More actions"
+              aria-expanded={showActionsMenu}
+              aria-haspopup="menu"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowActionsMenu((open) => !open);
+              }}
+            >
+              <FaEllipsisV aria-hidden />
+            </button>
+            {showActionsMenu && (
+              <div className={styles['popover-actions-dropdown']} role="menu">
+                <button
+                  type="button"
+                  className={styles['popover-action-item']}
+                  role="menuitem"
+                  onClick={handleOpenInPlugin}
+                >
+                  Open in Plugin
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={styles['popover-tags']}>
