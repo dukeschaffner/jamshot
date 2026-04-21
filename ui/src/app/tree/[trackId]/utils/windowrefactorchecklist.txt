@@ -1,0 +1,11 @@
+update pagination and window pagination values when new tracks are uploaded
+
+- add boundary track id or created at to window fetch to prevent loading the same tracks again
+- newest child not displaying when scroll is possible
+- pagination on initial load for tree tracks is not working
+- add boundary scroll padding
+
+
+assumptions:
+- no pagination data we dont know anything about the children
+- empty window array means no children

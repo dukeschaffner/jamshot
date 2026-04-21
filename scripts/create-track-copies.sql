@@ -2,7 +2,7 @@ BEGIN;
 WITH params AS (
   SELECT
     127::int AS source_track_id,  -- <-- source tracks.id
-    5::int      AS copy_count       -- <-- number of copies (1..N)
+    50::int      AS copy_count       -- <-- number of copies (1..N)
 ),
 src AS (
   SELECT t.*
@@ -40,7 +40,8 @@ INSERT INTO tracks (
   collab_count,
   like_count,
   repost_count,
-  comment_count
+  comment_count,
+  created_at
 )
 SELECT
   s.user_id,
@@ -73,7 +74,8 @@ SELECT
   s.collab_count,
   s.like_count,
   s.repost_count,
-  s.comment_count
+  s.comment_count,
+  now() + ((g.n - 1) * INTERVAL '1 second') AS created_at
 FROM src s
 CROSS JOIN params p
 CROSS JOIN generate_series(1, p.copy_count) AS g(n);

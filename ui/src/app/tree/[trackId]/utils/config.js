@@ -24,6 +24,8 @@ export const CONCENTRIC_CONFIG = {
     RING_SPACING: 75,
     OUTER_RING_RADIUS: 350,
     CHILDREN_LIMIT: 11,
+    /** Extra radians of overscroll / empty arc past the oldest pagination edge only. */
+    BOUNDARY_SCROLL_PADDING_RAD: Math.PI / 2,
 };
 
 export const DEBUG_MODE = false;

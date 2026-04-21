@@ -1,7 +1,7 @@
 import { BASE_NODE_SIZE, BASE_CLUSTER_NODE_SIZE, CONCENTRIC_CONFIG } from './config';
 import { polarRadiansToCartesian } from './renderUtils';
 
-const { OUTER_RING_RADIUS, CHILDREN_LIMIT, BASE_RING_SIZE, RING_SPACING } = CONCENTRIC_CONFIG;
+const { OUTER_RING_RADIUS, CHILDREN_LIMIT, BASE_RING_SIZE, RING_SPACING, BOUNDARY_SCROLL_PADDING_RAD = 0 } = CONCENTRIC_CONFIG;
 // const { CHILDREN_LIMIT, RING_SPACING } = CONCENTRIC_CONFIG;
 
 /**
@@ -50,6 +50,31 @@ export function getPageStartIndex(parentTrackId, viewState) {
   // ...
   // 2*Math.PI + 2*Math.PI -> index children limit
   return Math.floor(angle * CHILDREN_LIMIT/ (2 * Math.PI));
+}
+
+function getExpandedChild(parentTrackId, viewState, treeDataManager) {
+  // get the first track from the expanded track ids where the parent track id is parent track id
+  for(const trackId of viewState.expandedTrackIds) {
+    if(treeDataManager.trackData.get(trackId).parent_track_id === parentTrackId) {
+      return treeDataManager.trackData.get(trackId);
+    }
+  }
+  return null;
+}
+
+export function canScrollChildren(parentTrackId, treeDataManager) {
+  const apiPagination = treeDataManager.paginationData.get(parentTrackId);
+  if(!apiPagination) return false;
+  
+  const windows = treeDataManager.trackWindowsForParent.get(parentTrackId);
+  if(!windows) return false;
+  if(windows.length === 0) return false;
+  if(windows.length > 1) return true;
+  const window = windows[0];
+  if(window.getNextNewestTrackId() || window.getNextOldestTrackId()) return true;
+  if(window.getTracks().length > CONCENTRIC_CONFIG.CHILDREN_LIMIT) return true;
+  // what if window has less than children limit BUT new tracks have been posted?
+  return false;
 }
 
 
@@ -159,7 +184,6 @@ function createLoadChildrenNode(trackId, trackData, ringNumber, angle, handlers,
  * @param {Object} params - Parameters for rendering
  * @param {string} params.rootTrackId - Root track ID
  * @param {Map} params.trackData - Map of trackId -> track data
- * @param {Map} params.childrenData - Map of trackId -> children array
  * @param {string} params.selectedTrackId - Currently selected track ID
  * @param {Function} params.setNodes - React Flow setNodes function
  * @param {Function} params.setEdges - React Flow setEdges function
@@ -187,7 +211,6 @@ export function generateConcentricTree({
 
   const rootTrackId = treeDataManager.rootTrackId;
   const trackData = treeDataManager.trackData;
-  const childrenData = treeDataManager.childrenData;
 
   const flowNodes = [];
   const flowEdges = [];
@@ -214,49 +237,46 @@ export function generateConcentricTree({
     previousTrackId = currentTrackId;
     ringNumber++;
 
-    // Add children nodes
-    const children = childrenData.get(currentTrackId);
-    if (!children || children.length === 0) {
+    const expandedChild = getExpandedChild(currentTrackId, viewState, treeDataManager);
+    if(expandedChild) {
+      currentTrackId = expandedChild.id;
+    }
+    else{
       done = true;
       break;
     }
-    // Note: We no longer check CHILDREN_LIMIT here since we support pagination
-    // The UI pagination will limit how many children are displayed at once
-
-    const expandedChild = children.find(child => viewState.expandedTrackIds.has(child.id));
-    if(!expandedChild) {
-      done = true;
-      break;
-    }
-    currentTrackId = expandedChild.id;
   }
 
-  const allChildren = childrenData.get(previousTrackId) || [];
-  let canScroll = false;
-  const apiPagination = treeDataManager.paginationData.get(previousTrackId);
-  if (apiPagination) {
-    canScroll = allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore;
+  let children = [];
+  const uiPagination = viewState.paginationByParent.get(previousTrackId);
+  if (uiPagination && uiPagination.startId && uiPagination.endId) {
+    const pageStartId = uiPagination.startId;
+    const pageEndId = uiPagination.endId;
+    children = treeDataManager.getChildrenRange(previousTrackId, pageStartId, pageEndId);
   }
 
-  
-  // Filter children based on UI pagination
-  const startIndex = getPageStartIndex(previousTrackId, viewState);
-  const endIndex = startIndex + CONCENTRIC_CONFIG.CHILDREN_LIMIT - 1;
-  const children = allChildren.slice(startIndex, endIndex);
+
   
   // Validate that we're not trying to display more than CHILDREN_LIMIT at once
   if (children.length > CHILDREN_LIMIT) {
     throw new Error(`Too many children to display: ${children.length} (limit: ${CHILDREN_LIMIT})`);
   }
 
-  // Get rotation offset from viewState
-  const rotationOffset = viewState.renderer?.rotationOffset || 0;
-  const sliceAngle = 2 * Math.PI / CHILDREN_LIMIT;
+  const canScroll = canScrollChildren(previousTrackId, treeDataManager);
 
-  // first current angle should always be - slice angle to 0
-  let currentAngle = - (rotationOffset % sliceAngle) - Math.PI / 3; // Start with rotation offset
-  const numChildren = allChildren.length > CHILDREN_LIMIT - 1 ? CHILDREN_LIMIT - 1 : allChildren.length;
-  const radialSpacing = numChildren > 0 ? 2 * Math.PI / numChildren : 0;
+  // Get rotation offset from viewState
+  const phase = viewState.renderer?.phase || 0;
+  const sliceAngle = 2 * Math.PI / CHILDREN_LIMIT;
+  const pad = BOUNDARY_SCROLL_PADDING_RAD;
+  // Phase within [0, sliceAngle] only rotates the window. Oldest-side overscroll only: carve empty arc
+  // at the wrap between oldest→newest on the ring via a larger step there (uniform radialSpacing otherwise).
+  const corePhase = Math.max(0, Math.min(sliceAngle, phase));
+  const gapAtWrap = phase > sliceAngle ? Math.min(pad, phase - sliceAngle) : 0;
+
+  const effectiveSpin = corePhase % sliceAngle;
+  let currentAngle = -effectiveSpin - Math.PI / 3;
+  const numChildren = children.length;
+  const radialSpacing = numChildren > 0 ? (2 * Math.PI - gapAtWrap) / numChildren : 0;
 
   if(children && children.length > 0) {
     children.forEach(child => {
