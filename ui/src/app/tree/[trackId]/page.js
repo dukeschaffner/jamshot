@@ -23,7 +23,7 @@ import { generateRadialTree, generateRadialSubtree, animateNode, moveNodeToSubtr
 import styles from './TreeView.module.css';
 import { TreeDataManager } from './utils/treeDataManager.js';
 import ConcentricNode from './components/ConcentricNode';
-import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand, animateNodeCollapse, getPageStartIndex} from './utils/concentricRenderer';
+import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand, animateNodeCollapse, getPageStartIndex, canScrollChildren } from './utils/concentricRenderer';
 import DebugOverlay from './components/DebugOverlay';
 import { DEBUG_MODE, CONCENTRIC_CONFIG, MAX_NODES_PER_LEVEL, BASE_NODE_SIZE, BASE_CLUSTER_NODE_SIZE } from './utils/config';
 import { polarRadiansToCartesian } from './utils/renderUtils';
@@ -98,7 +98,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     expandedTrackIds: new Set(),
     paginationByParent: new Map(),
     renderer: {
-      rotationOffset: 0, // Track rotation offset in radians
+      phase: 0, // Track rotation offset in radians
     },
   });
 
@@ -108,15 +108,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
       return false;
     }
 
-    const apiPagination = treeDataManager.current.paginationData.get(concentricParentTrackIdRef.current);
-    if (!apiPagination) {
-      return false;
-    }
-
-    const allChildren = treeDataManager.current.childrenData.get(concentricParentTrackIdRef.current) || [];
-    
-    // Scrolling is possible if we have more children than the limit OR there's more data to load
-    return allChildren.length > CONCENTRIC_CONFIG.CHILDREN_LIMIT || apiPagination.hasMore;
+    return canScrollChildren(concentricParentTrackIdRef.current, treeDataManager.current);
   }, [treeType, concentricParentTrackIdRef.current, treeDataManager]);
 
 
@@ -128,18 +120,41 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
 
   // Initialize tree data from props (treeDataManager should already be initialized by outer component)
   useEffect(() => {
-    if (treeDataManagerProp && treeDataManagerProp.current && treeDataManagerProp.current.trackData) {
-      viewState.current.expandedTrackIds = new Set(treeDataManagerProp.current.childrenData.keys());
-      viewState.current.paginationByParent = new Map(
-        Array.from(treeDataManagerProp.current.paginationData, ([id, pagination]) => [
-          id, 
-          { page: 1, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT }
-        ])
-      );
-      // Set selectedTrackId to the current track (trackId from params)
-      setSelectedTrackId(trackId);
-      setInitialLoadComplete(true);
-    }
+    const init = async () => {
+      if (treeDataManagerProp && treeDataManagerProp.current && treeDataManagerProp.current.trackData) {
+        const trackByGuid = Array.from(treeDataManagerProp.current.trackData.values()).find((t) => t.guid === trackId);
+        if (!trackByGuid) return;
+
+        const trackPath = treeDataManagerProp.current.getTrackPath(trackByGuid.id);
+        viewState.current.expandedTrackIds = new Set(trackPath);
+
+        const lastExpandedTrack = treeDataManagerProp.current.trackData.get(trackPath[trackPath.length - 1]);
+        if (lastExpandedTrack) {
+          const children = await treeDataManagerProp.current.getChildren(
+            lastExpandedTrack.id,
+            CONCENTRIC_CONFIG.CHILDREN_LIMIT
+          );
+
+          if (children.length > 0) {
+            const pageStartId = children[0].id;
+            const pageEndId = children[children.length - 1].id;
+            viewState.current.paginationByParent.set(lastExpandedTrack.id, {
+              startId: pageStartId,
+              endId: pageEndId,
+              pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT,
+            });
+          }
+          else{
+            viewState.current.paginationByParent.set(lastExpandedTrack.id, { startId: null, endId: null, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT });
+          }
+        }
+
+        setSelectedTrackId(trackByGuid.id);
+        setInitialLoadComplete(true);
+      }
+    };
+
+    void init();
   }, [treeDataManagerProp, trackId]);
 
 
@@ -227,20 +242,6 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
 
     generateNodesAndEdges();
         
-    // render the subtree (should replace load-children node with children nodes)
-    // const { nodes, edges, parentTrackId } = generateConcentricTree({
-    //   treeDataManager: treeDataManager.current,
-    //   viewState: viewState.current,
-    //   selectedTrackId,
-    //   handleNodeClick, handleClusterNodeClick, handleLoadChildrenClick, setHoveredTrackId, setHoveredNodePosition, hoverTimeoutRef,
-    //   currentTrack,
-    //   playedTracks: playedTracks
-    // });
-    // setNodes(nodes);
-    // setEdges(edges);
-    // // animateNodeExpand(nodesRef.current, nodes, parentTrackId, setNodes, edges, setEdges);
-    // treeDataManager.current.recordUsage({nodes, rendered: true});
-    // concentricParentTrackIdRef.current = parentTrackId;
   }, [currentTrack, trackPath, playedTracks]);
 
 
@@ -289,14 +290,20 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
 
 
   // Handle node click
-  const handleNodeClick = (clickedTrackId) => {
+  const handleNodeClick = async (clickedTrackId) => {
     // setSelectedTrackId(clickedTrackId);
     if(treeType === 'radial') {
       moveNodeToSubtreeStart(nodesRef.current.find(n => n.id === 'track-' + clickedTrackId), nodesRef.current, treeDataManager.current, viewState.current, setNodes);
     }
     else if(treeType === 'concentric') {
       if(viewState.current.expandedTrackIds.has(clickedTrackId)) {
-        viewState.current.renderer.rotationOffset = 0;
+        const children = await treeDataManager.current.getChildren(clickedTrackId, CONCENTRIC_CONFIG.CHILDREN_LIMIT);
+        if(children.length > 0) {
+          const pageStartId = children[0].id;
+          const pageEndId = children[children.length - 1].id;
+          viewState.current.paginationByParent.set(clickedTrackId, { startId: pageStartId, endId: pageEndId, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT });
+        }
+        viewState.current.renderer.phase = 0;
         handleConcentricNodeClick(clickedTrackId, treeDataManager.current, viewState.current);
         
         const { nodes, edges, parentTrackId } = generateConcentricTree({
@@ -322,18 +329,16 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
   // Handle node click
   const handleLoadChildrenClick = async (clickedTrackId) => {
     // Fetch children if not already loaded
-    const hasChildren = treeDataManager.current.childrenData.has(clickedTrackId);
-    if (!hasChildren) {
-      await treeDataManager.current.fetchAndSetChildren(clickedTrackId);
+    const children = await treeDataManager.current.getChildren(clickedTrackId, CONCENTRIC_CONFIG.CHILDREN_LIMIT);
+    if(children.length > 0) {
+      const pageStartId = children[0].id;
+      const pageEndId = children[children.length - 1].id;
+      viewState.current.paginationByParent.set(clickedTrackId, { startId: pageStartId, endId: pageEndId, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT });
     }
 
     const node = nodesRef.current.find(node => node.id === 'track-' + clickedTrackId);
     if (node) {
       viewState.current.expandedTrackIds.add(clickedTrackId);
-      viewState.current.paginationByParent.set(clickedTrackId, {
-        page: 1,
-        pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT
-      });
 
       const handlers = {
         handleNodeClick,
@@ -377,7 +382,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
         }
       }
       else if(treeType === 'concentric') {
-        viewState.current.renderer.rotationOffset = 0;
+        viewState.current.renderer.phase = 0;
         
         // render the subtree (should replace load-children node with children nodes)
         const { nodes, edges, parentTrackId } = generateConcentricTree({
@@ -408,7 +413,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     await treeDataManager.current.fetchAndSetNewChildren(parentTrackId);
     
     // Reset rotation offset to 0
-    viewState.current.renderer.rotationOffset = 0;
+    viewState.current.renderer.phase = 0;
     
     // Re-render the tree
     generateNodesAndEdges();
@@ -429,20 +434,19 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     isScrollingRef.current = true;
 
     const parentTrackId = concentricParentTrackIdRef.current;
+    const uiPagination = viewState.current.paginationByParent.get(parentTrackId);
 
-    const apiPagination = treeDataManager.current.paginationData.get(parentTrackId);
-    if (!apiPagination) {
+    // no pagination data means no scrolling
+    if (!canScroll || !uiPagination) {
       isScrollingRef.current = false;
       return;
     }
 
-    const allChildren = treeDataManager.current.childrenData.get(parentTrackId) || [];
+    // new scroll logic: phase is radians within one slice; crossing [0, sliceAngle] shifts the child window
+    // by one and wraps phase by ±sliceAngle so the ring stays visually continuous (no snap glitch).
 
-    // If we have less than pageSize children and no more children to load, stop scrolling
-    if (allChildren.length <= CONCENTRIC_CONFIG.CHILDREN_LIMIT && !apiPagination.hasMore) {
-      isScrollingRef.current = false;
-      return;
-    }
+    let pageStartId = uiPagination.startId;
+    let pageEndId = uiPagination.endId;
 
     // Calculate scroll delta (negative = scroll down/clockwise, positive = scroll up/counter-clockwise)
     const delta = event.deltaY;
@@ -450,28 +454,54 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     const angleDelta = delta * scrollSensitivity;
 
     // Calculate slice angle for displayed children
-    const prevAngle = viewState.current.renderer.rotationOffset;
-    const newAngle = viewState.current.renderer.rotationOffset + angleDelta;
+    const sliceAngle = 2 * Math.PI / CONCENTRIC_CONFIG.CHILDREN_LIMIT;
+    const boundaryPad = CONCENTRIC_CONFIG.BOUNDARY_SCROLL_PADDING_RAD ?? 0;
+    let newAngle = viewState.current.renderer.phase + angleDelta;
 
-    // Update rotation offset
-    viewState.current.renderer.rotationOffset = newAngle > 0 ? newAngle : 0;
-
-    const pageStartIndex = getPageStartIndex(parentTrackId, viewState.current);
-    const pageEndIndex = pageStartIndex + CONCENTRIC_CONFIG.CHILDREN_LIMIT - 1;
-
-    if(pageEndIndex >= allChildren.length && apiPagination.hasMore) {
-      await treeDataManager.current.fetchAndSetChildren(parentTrackId, allChildren[allChildren.length - 1].id);
-    }
-    else if(!apiPagination.hasMore && pageEndIndex >= allChildren.length) {
-      const sliceAngle = 2 * Math.PI / CONCENTRIC_CONFIG.CHILDREN_LIMIT;
-      const maxAngle = sliceAngle * (allChildren.length - CONCENTRIC_CONFIG.CHILDREN_LIMIT + 4);
-      if(newAngle > maxAngle) {
-        viewState.current.renderer.rotationOffset = maxAngle;
-        isScrollingRef.current = false;
-        return;
+    // Crossed below 0: shift window toward newer tracks and add one slice to phase (preserve remainder).
+    while (newAngle < 0) {
+      const { shifted, startId, endId } = await treeDataManager.current.shiftWindow(
+        parentTrackId,
+        pageStartId,
+        pageEndId,
+        -1,
+        CONCENTRIC_CONFIG.CHILDREN_LIMIT
+      );
+      if (!shifted) {
+        newAngle = Math.max(0, newAngle);
+        break;
       }
+      pageStartId = startId;
+      pageEndId = endId;
+      uiPagination.startId = startId;
+      uiPagination.endId = endId;
+      viewState.current.paginationByParent.set(parentTrackId, uiPagination);
+      newAngle += sliceAngle;
     }
-    
+
+    // Crossed above sliceAngle: shift window toward older tracks and subtract one slice from phase.
+    while (newAngle > sliceAngle) {
+      const { shifted, startId, endId } = await treeDataManager.current.shiftWindow(
+        parentTrackId,
+        pageStartId,
+        pageEndId,
+        1,
+        CONCENTRIC_CONFIG.CHILDREN_LIMIT
+      );
+      if (!shifted) {
+        newAngle = Math.min(sliceAngle + boundaryPad, newAngle);
+        break;
+      }
+      pageStartId = startId;
+      pageEndId = endId;
+      uiPagination.startId = startId;
+      uiPagination.endId = endId;
+      viewState.current.paginationByParent.set(parentTrackId, uiPagination);
+      newAngle -= sliceAngle;
+    }
+
+    newAngle = Math.min(sliceAngle + boundaryPad, Math.max(0, newAngle));
+    viewState.current.renderer.phase = newAngle;
 
     generateNodesAndEdges();
 
@@ -480,7 +510,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     setTimeout(() => {
       isScrollingRef.current = false;
     }, 50);
-  }, [treeType, concentricParentTrackIdRef.current, generateNodesAndEdges, setNodes]);
+  }, [treeType, concentricParentTrackIdRef.current, generateNodesAndEdges, setNodes, canScroll]);
 
 
 

@@ -36,3 +36,9 @@ ADD COLUMN instagram_url VARCHAR(255),
 ADD COLUMN facebook_url VARCHAR(255),
 ADD COLUMN x_url VARCHAR(255);
 
+
+-- Migration: Optimize related-around pagination
+-- Date: 2026-04-15
+-- Supports efficient range scans by parent_track_id + processing_status + created_at (+ id tie-break)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tracks_parent_status_created_id
+  ON tracks (parent_track_id, processing_status, created_at, id);
