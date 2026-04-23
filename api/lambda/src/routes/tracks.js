@@ -1402,10 +1402,12 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res, next) =
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
 
-    // Get processing status
+    const trackId = accessCheck.track.id;
+
+    // Get processing status (trackId is numeric; id param may be GUID)
     const result = await pool.query(
       'SELECT processing_status, processing_error, created_at FROM tracks WHERE id = $1',
-      [id]
+      [trackId]
     );
 
     if (result.rows.length === 0) {
@@ -1437,7 +1439,7 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res, next) =
       : null;
 
     res.json({
-      track_id: id,
+      track_id: trackId,
       status: status,
       error: sanitizedError,
       estimated_time_remaining: estimatedTimeRemaining
