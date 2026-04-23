@@ -53,24 +53,48 @@ class TracksWindow {
     return this.startCreatedAt;
   }
 
+  setStartCreatedAt(createdAt) {
+    this.startCreatedAt = createdAt;
+  }
+
   getEndCreatedAt() {
     return this.endCreatedAt;
+  }
+
+  setEndCreatedAt(createdAt) {
+    this.endCreatedAt = createdAt;
   }
 
   getNextNewestTrackId() {
     return this.nextNewestTrackId;
   }
 
+  setNextNewestTrackId(trackId) {
+    this.nextNewestTrackId = trackId;
+  }
+
   getNextOldestTrackId() {
     return this.nextOldestTrackId;
+  }
+
+  setNextOldestTrackId(trackId) {
+    this.nextOldestTrackId = trackId;
   }
 
   getNextNewestCreatedAt() {
     return this.nextNewestCreatedAt;
   }
 
+  setNextNewestCreatedAt(createdAt) {
+    this.nextNewestCreatedAt = createdAt;
+  }
+
   getNextOldestCreatedAt() {
     return this.nextOldestCreatedAt;
+  }
+
+  setNextOldestCreatedAt(createdAt) {
+    this.nextOldestCreatedAt = createdAt;
   }
 
   getEndId() {
