@@ -1,9 +1,3 @@
-update pagination and window pagination values when new tracks are uploaded
-
-- add boundary track id or created at to window fetch to prevent loading the same tracks again
-
-when navigating to plauing track, what if its the only child
-
 
 assumptions:
 - no pagination data we dont know anything about the children

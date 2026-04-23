@@ -780,10 +780,17 @@ export class TreeDataManager {
       return null;
     }
     
-    const children = await this.getChildren(trackId, 1);
-    if(children && children.length > 0) {
-      return children[0].id;
+    const track = this.trackData.get(trackId);
+    if(!track) {
+      throw new Error('Unexpected error: Track not found');
     }
+    else if((track.collab_count || 0) > 0){
+      const children = await this.getChildren(trackId, 1);
+      if(children && children.length > 0) {
+        return children[0].id;
+      }
+    }
+
 
     // No children available, move to sibling traversal
     const getNextSiblingOrParentSiblingRecursive = async (currentTrackId) => {
