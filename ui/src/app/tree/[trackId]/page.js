@@ -80,7 +80,6 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const [newTrackCount, setNewTrackCount] = useState(0);
   const [activityFeedTracks, setActivityFeedTracks] = useState([]);
   const hoverTimeoutRef = useRef(null);
   const initialTreeRenderedRef = useRef(false);
@@ -223,27 +222,29 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
       );
     }
   }, [currentTrack, playedTracks, treeType, setNodes]);
+  
 
-  const getRotationOffsetForTrack = (trackId) => {
-    const track = treeDataManager.current.trackData.get(trackId);
-    if(!track || !track.parent_track_id) return 0;
-    const children = treeDataManager.current.childrenData.get(track.parent_track_id);
-    if(!children || children.length <= CONCENTRIC_CONFIG.CHILDREN_LIMIT) return 0;
-    const trackIndex = children.findIndex(child => child.id === trackId);
-    if(trackIndex === -1) return 0;
-    const sliceAngle = 2 * Math.PI / CONCENTRIC_CONFIG.CHILDREN_LIMIT;
-    return Math.max(0, (trackIndex - 6) * sliceAngle);
-  };
-
-
-  const navigateToPlayingTrack = useCallback(() => {
+  const navigateToTrack = useCallback(async (trackId) => {
+    await treeDataManager.current.ensureAllAncestorsAreLoaded(trackId);
+    const trackPath = treeDataManager.current.getTrackPath(trackId);
     viewState.current.expandedTrackIds = new Set(trackPath.slice(0, trackPath.length - 1));
-    viewState.current.renderer.rotationOffset = getRotationOffsetForTrack(currentTrack.id);
+    viewState.current.renderer.phase = 0;
 
+    const track = treeDataManager.current.trackData.get(trackId);
+    if(!track || !track.parent_track_id) throw new Error('Track not found');
+    const children = await treeDataManager.current.getSiblingTracksAroundTarget(track.parent_track_id, track.id, CONCENTRIC_CONFIG.CHILDREN_LIMIT);
+    if(children.length > 0) {
+      const pageStartId = children[0].id;
+      const pageEndId = children[children.length - 1].id;
+      viewState.current.paginationByParent.set(track.parent_track_id, { startId: pageStartId, endId: pageEndId, pageSize: CONCENTRIC_CONFIG.CHILDREN_LIMIT });
+    }
     generateNodesAndEdges();
-        
-  }, [currentTrack, trackPath, playedTracks]);
+  }, [generateNodesAndEdges]);
 
+
+  const navigateToPlayingTrack = useCallback(async () => {
+    await navigateToTrack(currentTrack.id);
+  }, [currentTrack, navigateToTrack]);
 
 
   const deleteNode = (nodeId) => {
@@ -400,25 +401,6 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     }
     
   }
-
-  // Handle loading new tracks (older children)
-  const handleLoadNewTracks = useCallback(async () => {
-    if (!concentricParentTrackIdRef.current || !treeDataManager.current) {
-      return;
-    }
-
-    const parentTrackId = concentricParentTrackIdRef.current;
-    
-    // Fetch and set new children
-    await treeDataManager.current.fetchAndSetNewChildren(parentTrackId);
-    
-    // Reset rotation offset to 0
-    viewState.current.renderer.phase = 0;
-    
-    // Re-render the tree
-    generateNodesAndEdges();
-    checkAndSetHasNewTracks();
-  }, [concentricParentTrackIdRef.current, generateNodesAndEdges]);
 
   // Handle radial scroll rotation
   const handleRadialScroll = useCallback(async (event) => {
@@ -582,20 +564,6 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     };
   }, [togglePlayPause]);
 
-  useEffect(() => {
-    checkAndSetHasNewTracks();
-  }, [concentricParentTrackIdRef.current]);
-
-  const checkAndSetHasNewTracks = () => {
-    if (treeDataManager.current && concentricParentTrackIdRef.current) {
-      const count = treeDataManager.current.getNewKidsCount(concentricParentTrackIdRef.current);
-      setNewTrackCount(count);
-    }
-    else {
-      setNewTrackCount(0);
-    }
-  };
-
   // Poll for new tracks every 60 seconds (only when tab is focused)
   useEffect(() => {
     if (!ENABLE_NEW_TRACKS_POLLING || !initialLoadComplete || !trackId) {
@@ -634,31 +602,26 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
           lastPollTimeRef.current = new Date(mostRecentTime.getTime() + 1);
 
           // Mark parent trackIds as having new kids available
-          // Collect new track IDs per parent
+          // Collect new track records per parent
           const newTracksByParent = new Map();
           tracks.forEach(track => {
             if (track.parent_track_id && !treeDataManager.current.trackData.has(track.id)) {
-              const currentIds = newTracksByParent.get(track.parent_track_id) || [];
-              newTracksByParent.set(track.parent_track_id, [...currentIds, track.id]);
+              const currentTracks = newTracksByParent.get(track.parent_track_id) || [];
+              newTracksByParent.set(track.parent_track_id, [...currentTracks, track]);
             }
           });
           
-          // Update track IDs for each parent
-          newTracksByParent.forEach((trackIds, parentId) => {
-            treeDataManager.current.markNewKidsAvailable(parentId, trackIds);
+          // Update new-kids state for each parent
+          newTracksByParent.forEach((newTracks, parentId) => {
+            treeDataManager.current.markNewKidsAvailable(parentId, newTracks);
             
             // Update collab_count on the parent track in trackData
             const parentTrack = treeDataManager.current.trackData.get(parentId);
             if (parentTrack) {
               const currentCollabCount = parentTrack.collab_count || 0;
-              parentTrack.collab_count = currentCollabCount + trackIds.length;
+              parentTrack.collab_count = currentCollabCount + newTracks.length;
               // Update the trackData map with the modified track
               treeDataManager.current.trackData.set(parentId, parentTrack);
-            }
-            
-            if(parentId === concentricParentTrackIdRef.current) {
-              const totalCount = treeDataManager.current.getNewKidsCount(parentId);
-              setNewTrackCount(totalCount);
             }
           });
           
@@ -745,10 +708,6 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
             <Background />
             <Controls showInteractive={false}/>
             {canScroll && <RadialScrollSeam />}
-            <LoadNewTracksButton 
-              newTrackCount={newTrackCount}
-              onLoadNewTracks={handleLoadNewTracks}
-            />
           </ReactFlow>
           {DEBUG_MODE && (
             <DebugOverlay reactFlowInstance={reactFlowInstance} containerRef={reactFlowContainerRef} />
@@ -800,7 +759,12 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
 
         {/* Side Panel */}
         <SidePanel>
-          <ActivityFeed tracks={activityFeedTracks} />
+          <ActivityFeed
+            tracks={activityFeedTracks}
+            onTrackClick={(id) => {
+              void navigateToTrack(id).catch((err) => console.error(err));
+            }}
+          />
         </SidePanel>
       </div>
     </TreeInteractionsProvider>
@@ -835,7 +799,7 @@ export default function TrackTreePage() {
         try {
           treeDataManager.current = new TreeDataManager(secret);
           if(DEBUG_MODE) {
-            window.treeDataManager = treeDataManager.current;
+            window.tdm = treeDataManager.current;
           }
           await treeDataManager.current.fetchTrackTree(trackId);
 

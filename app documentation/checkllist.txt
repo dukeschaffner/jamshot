@@ -7,7 +7,7 @@ RELEASE CHECKLIST
 - register DMCA agent
 - review terms and privacy policy - ensure all legal requirements are met
 - Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
-
+- allow logged out users to record/use the DAW. require sign in to upload, but preserve progress
 
 - check Rob's set up - is the issue with his interface taht the mic is in the wrong input?
     - may need snippet in DAW best practices to make sure they use input 1?

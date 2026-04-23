@@ -2,6 +2,31 @@
 import api from '../../../../lib/api';
 import { MAX_NODES_PER_LEVEL, PRUNING_METHOD, MAX_VISIBLE_NODES, PRUNING_METHODS } from './config';
 
+/**
+ * Subset of at most `limit` items from `tracks` that always includes `idx`, preferring
+ * a balanced window around the target; clamps to the start or end when near boundaries.
+ * Tracks are ordered newest -> oldest; `idx` is the target's index in that array.
+ */
+function sliceTracksAroundIndex(tracks, idx, limit) {
+  const n = tracks.length;
+  if (n === 0 || idx < 0 || idx >= n) return [];
+  const L = Math.min(limit, n);
+  if (L === n) {
+    return tracks.slice();
+  }
+  const left = Math.floor((L - 1) / 2);
+  let start = idx - left;
+  let end = start + L;
+  if (start < 0) {
+    start = 0;
+    end = L;
+  } else if (end > n) {
+    end = n;
+    start = n - L;
+  }
+  return tracks.slice(start, end);
+}
+
 class TracksWindow {
   constructor(tracks, paginationData) {
     this.startId = tracks[0].id; // newest track id
@@ -81,6 +106,14 @@ class PaginationData {
   getHasNewer() { // A track newer than the newest loaded track exists
     return this.hasNewer;
   }
+
+  setHasOlder(hasOlder) {
+    this.hasOlder = hasOlder;
+  }
+
+  setHasNewer(hasNewer) {
+    this.hasNewer = hasNewer;
+  }
 }
 
 
@@ -90,7 +123,7 @@ export class TreeDataManager {
     this.trackWindowsForParent = new Map();
     this.paginationData = new Map();
     this.usageData = new Map();
-    this.newKidsAvailable = new Map(); // Track which trackIds have new children to load (value = array of new track IDs)
+    this.newKidsAvailable = new Map(); // parentTrackId -> array of new child track objects not yet in trackData
     this.rootTrackId = null;
     this.testMode = false;
     this.secret = secret;
@@ -287,13 +320,13 @@ export class TreeDataManager {
 
       this.recordUsage({tracks: children, rendered: false});
       
-      // Remove fetched child IDs from newKidsAvailable map if present
+      // Remove fetched children from newKidsAvailable map if present
       const fetchedChildIds = new Set(children.map(child => child.id));
       const currentNewKids = this.newKidsAvailable.get(id);
       if (currentNewKids && currentNewKids.length > 0) {
-        const remainingIds = currentNewKids.filter(childId => !fetchedChildIds.has(childId));
-        if (remainingIds.length > 0) {
-          this.newKidsAvailable.set(id, remainingIds);
+        const remainingTracks = currentNewKids.filter(t => !fetchedChildIds.has(t.id));
+        if (remainingTracks.length > 0) {
+          this.newKidsAvailable.set(id, remainingTracks);
         } else {
           this.newKidsAvailable.delete(id);
         }
@@ -357,7 +390,7 @@ export class TreeDataManager {
 
 
 
-  fetchTrackTree = async (trackId) => {      
+  fetchTrackTree = async (trackId, init = true) => {      
 
     const url = this.secret 
       ? `/tracks/${trackId}/tree?secret=${this.secret}`
@@ -375,16 +408,36 @@ export class TreeDataManager {
       this.trackData.set(track.id, track);
     });
 
-    // Set root track id
-    this.rootTrackId = trackTree[0].id;
+    if(init) {
+      // Set root track id
+      this.rootTrackId = trackTree[0].id;
 
-    // Only initialize children windows for the current (last) track in the path.
-    // Ancestor windows are populated just-in-time via the around-target fetches below.
-    const currentTrack = trackTree[trackTree.length - 1];
-    await this.fetchAndSetChildren(currentTrack.id, null);
-
-    this.recordUsage({tracks: this.trackData.values(), rendered: false});
+      // Only initialize children windows for the current (last) track in the path.
+      // Ancestor windows are populated just-in-time via the around-target fetches below.
+      const currentTrack = trackTree[trackTree.length - 1];
+      await this.fetchAndSetChildren(currentTrack.id, null);
+      this.recordUsage({tracks: this.trackData.values(), rendered: false});
+    }
   } 
+
+  ensureAllAncestorsAreLoaded = async (trackId) => {
+    let allLoaded = false;
+    let currentTrackId = trackId;
+    while(currentTrackId) {
+      const currentTrack = this.trackData.get(currentTrackId);
+      if(!currentTrack) {
+        break;
+      }
+      currentTrackId = currentTrack.parent_track_id;
+      if(!currentTrackId){ // root track
+        allLoaded = true;
+        break;
+      }
+    }
+    if(!allLoaded) {
+      await this.fetchTrackTree(trackId, false);
+    }
+  }
 
   getChildren = async (trackId, limit = 5, lastId = null, orderBy = 'newest') => {
     const paginationData = this.paginationData.get(trackId);
@@ -418,26 +471,44 @@ export class TreeDataManager {
       }
     }
 
-    if(paginationData && !paginationData.getHasNewer() && !paginationData.getHasOlder() && this.trackWindowsForParent.get(trackId) !== undefined) {
-      return [];
-    }
+
+    // this code assumes orderBy is newest
 
     // If there are newer tracks available than our newest window knows about,
     // refresh from the newest cursor (lastId=null).
+    let needToFetch = false;
+    if(paginationData && !paginationData.getHasNewer() && !paginationData.getHasOlder()) 
+    {
+      const windows = this.trackWindowsForParent.get(trackId);
+
+      // track has no children
+      if(windows !== undefined)
+      {
+        if(windows.length === 0)
+        {
+          return [];
+        }
+      }
+    }
     if (!paginationData || paginationData.getHasNewer()) {
-      await this.fetchAndSetChildren(trackId, null);
-    } else {
+      needToFetch = true;
+    }
+    else {
       const windows = this.trackWindowsForParent.get(trackId) || [];
       const firstWindow = windows?.[0];
       const firstWindowTracks = firstWindow?.getTracks?.() || [];
 
-
       // Windows are stored newest -> oldest, so the first window must contain
       // the newest `limit` tracks if we already have everything needed.
+      // if we don't have all the tracks we need, and there are more older tracks available, fetch the next window
       const hasAllNeededTracks = firstWindowTracks.length >= limit;
-      if (!hasAllNeededTracks) {
-        await this.fetchAndSetChildren(trackId, null);
+      if (!hasAllNeededTracks && firstWindow.getNextOldestTrackId()) {
+        needToFetch = true;
       }
+    }
+
+    if(needToFetch) {
+      await this.fetchAndSetChildren(trackId, null);
     }
 
     const updatedWindows = this.trackWindowsForParent.get(trackId) || [];
@@ -520,9 +591,7 @@ export class TreeDataManager {
     const idx = finalLoaded.findIndex(t => String(t?.id) === String(targetTrackId));
     if (idx === -1) return [];
 
-    const start = Math.max(0, idx - limit);
-    const end = Math.min(finalLoaded.length, idx + limit + 1);
-    return finalLoaded.slice(start, end);
+    return sliceTracksAroundIndex(finalLoaded, idx, limit);
   }
 
 
@@ -543,26 +612,26 @@ export class TreeDataManager {
   }
 
   // positive shiftBy means older tracks, negative shiftBy means newer tracks
-  loadMoreTracksIfNeeded = async (trackId, lastId, shiftBy = 0, limit = 5) => {
-    const window = this.getWindowContainingTrack(trackId, lastId);
-    const tracks = window.getTracks();
-    const startIndex = tracks.findIndex(track => track.id === lastId);
-    const endIndex = startIndex + shiftBy;
-    if(endIndex < 0) {
-      if(window.getNextNewestTrackId()) {
-        const lastId = window.getStartId();
-        return await this.getChildren(trackId, limit, lastId, 'oldest');
-      }
-      return []; // cant load more tracks, no more newer tracks available
-    }
-    else if(endIndex >= tracks.length) {
-      if(window.getNextOldestTrackId()) {
-        const lastId = window.getEndId();
-        return await this.getChildren(trackId, limit, lastId, 'newest');
-      }
-      return []; // cant load more tracks, no more older tracks available
-    }
-  }
+  // loadMoreTracksIfNeeded = async (trackId, lastId, shiftBy = 0, limit = 5) => {
+  //   const window = this.getWindowContainingTrack(trackId, lastId);
+  //   const tracks = window.getTracks();
+  //   const startIndex = tracks.findIndex(track => track.id === lastId);
+  //   const endIndex = startIndex + shiftBy;
+  //   if(endIndex < 0) {
+  //     if(window.getNextNewestTrackId()) {
+  //       const lastId = window.getStartId();
+  //       return await this.getChildren(trackId, limit, lastId, 'oldest');
+  //     }
+  //     return []; // cant load more tracks, no more newer tracks available
+  //   }
+  //   else if(endIndex >= tracks.length) {
+  //     if(window.getNextOldestTrackId()) {
+  //       const lastId = window.getEndId();
+  //       return await this.getChildren(trackId, limit, lastId, 'newest');
+  //     }
+  //     return []; // cant load more tracks, no more older tracks available
+  //   }
+  // }
 
   shiftWindow = async (trackId, startId, endId, shiftBy = 0, limit = 5) => {
     if (Math.abs(shiftBy) > 1) {
@@ -741,29 +810,44 @@ export class TreeDataManager {
     return getNextSiblingOrParentSiblingRecursive(trackId);
   }
 
-  // Mark a trackId as having new kids available (add track IDs to array)
-  markNewKidsAvailable = (trackId, newTrackIds) => {
-    if (trackId && newTrackIds && newTrackIds.length > 0) {
-      const currentIds = this.newKidsAvailable.get(trackId) || [];
-      const existingIdsSet = new Set(currentIds);
-      // Only add track IDs that aren't already in the array
-      const uniqueNewIds = newTrackIds.filter(id => !existingIdsSet.has(id));
-      if (uniqueNewIds.length > 0) {
-        this.newKidsAvailable.set(trackId, [...currentIds, ...uniqueNewIds]);
+  // Mark a trackId as having new kids available (append full track objects)
+  markNewKidsAvailable = (trackId, newTracks) => {
+    if (trackId && newTracks && newTracks.length > 0) {
+      const currentTracks = this.newKidsAvailable.get(trackId) || [];
+      const existingIds = new Set(currentTracks.map(t => t.id));
+      const uniqueNewTracks = newTracks.filter(t => t?.id != null && !existingIds.has(t.id));
+      if (uniqueNewTracks.length > 0) {
+        this.newKidsAvailable.set(trackId, [...currentTracks, ...uniqueNewTracks]);
+      }
+      const paginationData = this.paginationData.get(trackId);
+      if(paginationData) {
+        paginationData.setHasNewer(true);
+      }
+
+      const windows = this.trackWindowsForParent.get(trackId);
+      if(windows) {
+        const firstWindow = windows[0];
+        if(firstWindow) {
+          if(!firstWindow.getNextNewestTrackId() && !firstWindow.getNextNewestCreatedAt()) {
+            const oldestNewTrack = uniqueNewTracks.sort((a, b) => a.created_at - b.created_at)[0];
+            firstWindow.setNextNewestTrackId(oldestNewTrack.id);
+            firstWindow.setNextNewestCreatedAt(oldestNewTrack.created_at);
+          }
+        }
       }
     }
   }
 
   // Check if a trackId has new kids available
   hasNewKidsAvailable = (trackId) => {
-    const trackIds = this.newKidsAvailable.get(trackId) || [];
-    return trackIds.length > 0;
+    const newKids = this.newKidsAvailable.get(trackId) || [];
+    return newKids.length > 0;
   }
 
   // Get the count of new kids available for a trackId
   getNewKidsCount = (trackId) => {
-    const trackIds = this.newKidsAvailable.get(trackId) || [];
-    return trackIds.length;
+    const newKids = this.newKidsAvailable.get(trackId) || [];
+    return newKids.length;
   }
 
   // Clear the new kids flag for a trackId (e.g., when they load the new kids)
@@ -773,65 +857,5 @@ export class TreeDataManager {
     }
   }
 
-  // Fetch and set new children (older children that were added before the currently loaded ones)
-  // fetchAndSetNewChildren = async (trackId) => {
-  //   const existingChildren = this.childrenData.get(trackId) || [];
-    
-  //   let firstChildId = null;
-
-  //   // Get the first (oldest) child's ID to use as cursor
-  //   if(existingChildren.length > 0) {
-  //     firstChildId = existingChildren[0].id;
-  //   }
-
-  //   // Fetch children with oldest first ordering, using first child ID as cursor
-  //   const result = await this.fetchChildren(trackId, firstChildId, 'oldest');
-  //   const {id, data} = result;
-  //   const newChildren = data.tracks;
-  //   let uniqueNewChildren = [];
-
-  //   if (newChildren && newChildren.length > 0) {
-  //     // Store tracks in trackData
-  //     newChildren.forEach(child => {
-  //       this.trackData.set(child.id, child);
-  //     });
-      
-  //     // Prepend new children to the beginning of the array (they're older)
-  //     const existingChildIds = new Set(existingChildren.map(child => child.id));
-      
-  //     // Only add children that don't already exist (avoid duplicates)
-  //     uniqueNewChildren = newChildren.filter(child => !existingChildIds.has(child.id));
-      
-  //     if (uniqueNewChildren.length > 0) {
-  //       // Reverse to maintain newest-to-oldest order (API returns oldest-to-newest with orderBy='oldest')
-  //       const reversedNewChildren = uniqueNewChildren.reverse();
-  //       this.childrenData.set(id, [...reversedNewChildren, ...existingChildren]);
-  //     }
-      
-  //     this.recordUsage({tracks: uniqueNewChildren, rendered: false});
-  //   }
-
-  //   // Check if there are still more children available
-  //   const pagination = data.pagination;
-  //   if (!pagination || !pagination.hasMore) {
-  //     // No more children, remove from newKidsAvailable map
-  //     this.clearNewKidsAvailable(trackId);
-  //   } else {
-  //     // Remove loaded track IDs from the newKidsAvailable array
-  //     if (uniqueNewChildren.length > 0) {
-  //       const loadedTrackIds = new Set(uniqueNewChildren.map(child => child.id));
-  //       const currentIds = this.newKidsAvailable.get(trackId) || [];
-  //       const remainingIds = currentIds.filter(id => !loadedTrackIds.has(id));
-        
-  //       if (remainingIds.length > 0) {
-  //         this.newKidsAvailable.set(trackId, remainingIds);
-  //       } else {
-  //         // If all tracked IDs are loaded but hasMore is true, keep empty array
-  //         // Polling will update it with new track IDs as they come in
-  //         this.newKidsAvailable.set(trackId, []);
-  //       }
-  //     }
-  //   }
-  // }
 };
 

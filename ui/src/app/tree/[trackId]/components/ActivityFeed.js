@@ -5,7 +5,7 @@ import TimeDisplay from '../../../../components/TimeDisplay';
 import { FaMusic, FaUser, FaCheckCircle } from 'react-icons/fa';
 import styles from './ActivityFeed.module.css';
 
-const ActivityFeed = ({ tracks = [] }) => {
+const ActivityFeed = ({ tracks = [], onTrackClick }) => {
   if (!tracks || tracks.length === 0) {
     return (
       <div className={styles.activityFeed}>
@@ -24,7 +24,13 @@ const ActivityFeed = ({ tracks = [] }) => {
       <h3 className={styles.title}>Activity Feed</h3>
       <div className={styles.trackList}>
         {tracks.map((track) => (
-          <div key={track.id} className={styles.trackCard}>
+          <div
+            key={track.id}
+            className={styles.trackCard}
+            role={onTrackClick ? 'button' : undefined}
+            tabIndex={onTrackClick ? 0 : undefined}
+            onClick={onTrackClick ? () => onTrackClick(track.id) : undefined}
+          >
             <div className={styles.cardContent}>
               <div className={styles.avatarWrapper}>
                 <div className={styles.avatarCircle}>
