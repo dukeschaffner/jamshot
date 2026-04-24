@@ -2,7 +2,7 @@
 id: 122
 title: web DAW enhancements
 type: feature
-status: open
+status: done
 priority: 7
 area: daw
 tags:

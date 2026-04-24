@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { authClient } from '../lib/auth-client';
 import api, { setRefreshUserState } from '../lib/api';
 import { getUserPlan } from '@sterio/subscription-utils';
+import { captureAuthLogout, identifySterioUser, resetSterioPosthog } from '../lib/posthogAnalytics';
 
 // Create the context with default values
 const UserContext = createContext({
@@ -95,6 +96,12 @@ export const UserProvider = ({ children }) => {
     }
   }, [session?.user, additionalUserData, fetchAdditionalUserData, isPending]);
 
+  useEffect(() => {
+    if (user?.id) {
+      identifySterioUser(user);
+    }
+  }, [user]);
+
   // Login function using Better Auth
   const login = async (email, password, redirectUrl = null) => {
     try {
@@ -144,6 +151,8 @@ export const UserProvider = ({ children }) => {
       await authClient.signOut({
         fetchOptions: {
           onSuccess: () => {
+            captureAuthLogout();
+            resetSterioPosthog();
             // Clear additional user data
             setAdditionalUserData(null);
             // Reset logout flag after a brief delay to allow session to clear
@@ -157,6 +166,8 @@ export const UserProvider = ({ children }) => {
       });
     } catch (error) {
       console.error('Logout error:', error);
+      captureAuthLogout();
+      resetSterioPosthog();
       // Even if logout fails, clear local state and redirect
       setAdditionalUserData(null);
       // Reset logout flag

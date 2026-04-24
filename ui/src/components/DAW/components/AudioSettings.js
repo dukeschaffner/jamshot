@@ -7,6 +7,7 @@ import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import DAWConfig from '../misc/DAWConfig.js';
 import AudioState from '../core/AudioStateStore.js';
+import { useToast } from '@/lib/ToastContext.js';
 
 export default function AudioSettings({ 
   showAudioSettingsModal,
@@ -19,6 +20,7 @@ export default function AudioSettings({
   const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
   const [snapStrength, setSnapStrength] = useState(5);
   const [audioInputDevices, setAudioInputDevices] = useState([]);
+  const {showSuccess, showError} = useToast();
 
 
   // Get available audio input devices
@@ -31,6 +33,40 @@ export default function AudioSettings({
     } catch (error) {
       console.error('Error getting audio input devices:', error);
     }
+  };
+
+  const applyUserLatencyCompensation = (latencyCompensation, deviceId = selectedAudioInputDevice) => {
+    setUserLatencyCompensation(latencyCompensation);
+    AudioState.userLatencyCompensation = latencyCompensation;
+    eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, { latencyCompensation });
+    localStorage.setItem('userLatencyCompensation', latencyCompensation.toString());
+
+    if (deviceId) {
+      const savedLatencyCompensationByDevice = JSON.parse(
+        localStorage.getItem('userLatencyCompensationByDevice') || '{}'
+      );
+      savedLatencyCompensationByDevice[deviceId] = latencyCompensation;
+      localStorage.setItem(
+        'userLatencyCompensationByDevice',
+        JSON.stringify(savedLatencyCompensationByDevice)
+      );
+    }
+  };
+
+  const getSavedLatencyCompensation = (deviceId = selectedAudioInputDevice) => {
+    const savedLatencyCompensationByDevice = JSON.parse(
+      localStorage.getItem('userLatencyCompensationByDevice') || '{}'
+    );
+    const savedLatencyCompensation = deviceId
+      ? savedLatencyCompensationByDevice[deviceId]
+      : localStorage.getItem('userLatencyCompensation');
+    const parsedValue = parseInt(savedLatencyCompensation, 10);
+
+    if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 100) {
+      return parsedValue;
+    }
+
+    return DAWConfig.recording.defaultLatencyCompensation;
   };
 
   useEffect(() => {
@@ -58,19 +94,7 @@ export default function AudioSettings({
       eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: deviceId });
       setSelectedAudioInputDevice(deviceId);
       AudioState.selectedAudioInputDevice = deviceId;
-  
-      const savedLatencyCompensation = localStorage.getItem('userLatencyCompensation');
-      if (savedLatencyCompensation !== null) {
-        const parsedValue = parseInt(savedLatencyCompensation, 10);
-        if (!isNaN(parsedValue) && parsedValue >= 0 && parsedValue <= 100) {
-          setUserLatencyCompensation(parsedValue);
-        } else {
-          setUserLatencyCompensation(DAWConfig.recording.defaultLatencyCompensation);
-        }
-      } else {
-        // Default value of 15ms if not set
-        setUserLatencyCompensation(DAWConfig.recording.defaultLatencyCompensation);
-      }
+      setUserLatencyCompensation(getSavedLatencyCompensation(deviceId));
   
       // Load snap to grid preference from localStorage
       const savedSnapToGridEnabled = localStorage.getItem('snapToGridEnabled');
@@ -128,8 +152,10 @@ export default function AudioSettings({
 
   // Handle audio input device selection
   const handleAudioInputDeviceChange = (e) => {
-    eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId: e.target.value });
-    localStorage.setItem('preferredAudioInputDevice', e.target.value);
+    const deviceId = e.target.value;
+    eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.INPUT_DEVICE_CHANGE, { deviceId });
+    localStorage.setItem('preferredAudioInputDevice', deviceId);
+    applyUserLatencyCompensation(getSavedLatencyCompensation(deviceId), deviceId);
   };
 
   //listen for input device change events, disconnect on unmount
@@ -145,10 +171,32 @@ export default function AudioSettings({
   // Handle latency compensation change
   const handleLatencyCompensationChange = (e) => {
     const latencyCompensation = parseInt(e.target.value, 10);
-    setUserLatencyCompensation(latencyCompensation);
-    eventBus.emit(DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_CHANGE, { latencyCompensation: latencyCompensation });
-    localStorage.setItem('userLatencyCompensation', latencyCompensation.toString());
+    applyUserLatencyCompensation(latencyCompensation);
   };
+
+  useEffect(() => {
+    const handleLatencyCompensationSet = ({ latencyCompensation }) => {
+      try{
+        applyUserLatencyCompensation(latencyCompensation);
+        showSuccess('Latency compensation set to ' + latencyCompensation + ' ms');
+      }
+      catch(error){
+        showError('Failed to set latency compensation');
+      }
+    };
+
+    eventBus.on(
+      DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_SET,
+      handleLatencyCompensationSet
+    );
+
+    return () => {
+      eventBus.off(
+        DAW_EVENTS.AUDIO_SETTINGS.LATENCY_COMPENSATION_SET,
+        handleLatencyCompensationSet
+      );
+    };
+  }, [selectedAudioInputDevice]);
 
   // Handle snap to grid toggle
   const handleSnapToGridChange = (e) => {

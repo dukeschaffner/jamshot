@@ -7,14 +7,52 @@ RELEASE CHECKLIST
 - register DMCA agent
 - review terms and privacy policy - ensure all legal requirements are met
 - Eventually, query db to make sure there aren't any duplicate plays for a given track and ip address or user id
-
+- allow logged out users to record/use the DAW. require sign in to upload, but preserve progress
 
 - check Rob's set up - is the issue with his interface taht the mic is in the wrong input?
     - may need snippet in DAW best practices to make sure they use input 1?
+- message prompting users to ensure mic is on input 1 if using audio interface
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{"level":"error",<*>,"pid":<*>,"hostname":<*>,"correlationId":<*>,"userId":<*>,"message":"invalid input syntax for type integer: <*>,"stack":"error: invalid input syntax for type integer: <*> at /var/task/dist/node_modules/pg-pool/index.js:<*>:<*> at process.processTicksAndRejections (<*>)\n at async <*>,"route":<*>,"method":"GET"}
+ERROR
+59
+1%
+{"level":"error",<*>,"pid":<*>,"hostname":<*>,"correlationId":<*>,"message":"invalid input syntax for type integer: \"undefined\"","stack":"error: invalid input syntax for type integer: \"undefined\"\n at /var/task/dist/node_modules/pg-pool/index.js:<*>:<*> at process.processTicksAndRejections (<*>)\n at async checkTrackAccess (<*>)\n at async <*>,"route":"/prod/api/tracks/undefined","method":"GET"}
+ERROR
+47
+1%
+<*> <*> ERROR Body parsing error: SyntaxError: No number after minus sign in JSON at position <*> (line <*> column <*>) at JSON.parse (<anonymous>) at bodyParser (<*>) at Layer.handle [as handle_request] (/var/task/dist/node_modules/express/lib/router/layer.js:<*>:<*>) at trim_prefix (/var/task/dist/node_modules/express/lib/router/index.js:<*>:<*>) at /var/task/dist/node_modules/express/lib/router/index.js:<*>:
+
+
+
+{
+    "level": "error",
+    "time": "2026-04-01T01:25:57.860Z",
+    "pid": 2,
+    "hostname": "169.254.36.221",
+    "correlationId": "aaa46b06-05c3-4e3e-9b09-692e080e13f9",
+    "userId": "7",
+    "message": "invalid input syntax for type integer: \"64b229c4-25ff-47fa-98ff-75b69ac82595\"",
+    "stack": "error: invalid input syntax for type integer: \"64b229c4-25ff-47fa-98ff-75b69ac82595\"\n    at /var/task/dist/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async file:///var/task/dist/index.mjs:5597:24",
+    "route": "/prod/api/tracks/64b229c4-25ff-47fa-98ff-75b69ac82595/status",
+    "method": "GET"
+}
+
 
 
 LEGAL
 - option to allow others to 'steal' (use) the track?
 - splitting royalties if song uploaded
-
-

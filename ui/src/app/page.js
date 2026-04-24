@@ -136,9 +136,10 @@ export default function Home() {
         allTracks={tracks}
         expandedTrackId={expandedTrackId}
         setExpandedTrackId={(trackId) => handleTrackExpansion(trackId, tracks)}
+        homeFeedType={feedType}
       />
     );
-  }, [expandedTrackId, handleTrackExpansion]);
+  }, [expandedTrackId, handleTrackExpansion, feedType]);
 
   // Create tabs configuration
   const tabs = [

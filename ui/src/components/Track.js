@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import api from '../lib/api';
 import MiniTrack from './MiniTrack';
 import CustomTabs from './CustomTabs';
@@ -8,6 +8,13 @@ import LoadingSpinner from './LoadingSpinner';
 import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
+import {
+  captureTrackLinkCopied,
+  captureTrackPlayPressed,
+  captureTrackSurfaceViewed,
+  deriveDiscoveryMethod,
+  deriveSiteSection,
+} from '../lib/posthogAnalytics';
 import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen, FaFileArchive, FaVideo, FaTrash } from 'react-icons/fa';
 import JSZip from 'jszip';
 import Image from 'next/image';
@@ -44,12 +51,16 @@ export default function Track(
       isEntering, // Loading state for entering competition
       teamContext, // { teamId, folderId, userRole } - for team folder management
       campContext, // { campId, roomId, userRole } - for camp room management
-      extraTabs // Extra tabs to show
+      extraTabs, // Extra tabs to show
+      homeFeedType = null, // 'following' | 'popular' when rendered on home feed
     }
   ) 
 {
   const router = useRouter();
+  const pathname = usePathname();
   const { isMobile } = useMobile();
+  const trackSurfaceRef = useRef(null);
+  const trackViewRecordedRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [originalTrack, setOriginalTrack] = useState(null);
   const [collabTracks, setCollabTracks] = useState([]);
@@ -90,6 +101,38 @@ export default function Track(
       };
     }
   }, [showActionsMenu]);
+
+  useEffect(() => {
+    trackViewRecordedRef.current = false;
+  }, [track.id]);
+
+  useEffect(() => {
+    const el = trackSurfaceRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || trackViewRecordedRef.current) return;
+        trackViewRecordedRef.current = true;
+        captureTrackSurfaceViewed({
+          component_type: 'track',
+          track_id: track.id,
+          track_guid: track.guid,
+          track_title: track.title,
+          site_section: deriveSiteSection(pathname),
+          ui_context: context,
+          view,
+          ...(deriveSiteSection(pathname) === 'home_feed' && homeFeedType
+            ? { home_feed_type: homeFeedType }
+            : {}),
+        });
+      },
+      { threshold: 0.35, rootMargin: '0px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [track.id, track.guid, track.title, pathname, context, view, homeFeedType]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -172,34 +215,30 @@ export default function Track(
 
   const handlePlayToggle = (e) => {
     e.stopPropagation();
-    
-    // Determine discovery method based on current page/context
-    let discoveryMethod = 'unknown';
-    const pathname = window.location.pathname;
-    
-    if (pathname === '/') {
-      discoveryMethod = 'home_feed';
-    } else if (pathname.startsWith('/user/')) {
-      discoveryMethod = 'user_page';
-    } else if (pathname.startsWith('/track/')) {
-      discoveryMethod = 'track_page';
-    } else if (pathname.startsWith('/search')) {
-      discoveryMethod = 'search';
-    } else if (pathname.startsWith('/explore')) {
-      discoveryMethod = 'explore_page';
-    } else if (pathname.startsWith('/featured')) {
-      discoveryMethod = 'featured_page';
-    }
-    
-    // Set discovery method for analytics
+
+    const discoveryMethod = deriveDiscoveryMethod(pathname || (typeof window !== 'undefined' ? window.location.pathname : ''));
     setDiscoveryMethod(discoveryMethod);
-    
+
+    const playPayload = {
+      component_type: 'track',
+      track_id: track.id,
+      track_guid: track.guid,
+      track_title: track.title,
+      site_section: deriveSiteSection(pathname),
+      ui_context: context,
+      view,
+      ...(deriveSiteSection(pathname) === 'home_feed' && homeFeedType
+        ? { home_feed_type: homeFeedType }
+        : {}),
+    };
+
     if (currentTrack?.id === track.id) {
       console.log('Toggling play/pause for:', track.title);
       if (isPlaying) {
         trackTrackPause(track.id, track.title, track.username);
       } else {
         trackTrackPlay(track.id, track.title, track.username);
+        captureTrackPlayPressed({ ...playPayload, is_resume: true });
       }
       togglePlayPause();
     } else {
@@ -209,6 +248,7 @@ export default function Track(
         tracksToAdd = allTracks.slice(currentIndex + 1); // Exclude current track
       }
       trackTrackPlay(track.id, track.title, track.username);
+      captureTrackPlayPressed({ ...playPayload, is_resume: false });
       playTrack(track, tracksToAdd);
     }
   };
@@ -237,6 +277,17 @@ export default function Track(
       .then(() => {
         setIsLinkCopied(true);
         trackShare(track.id, track.title, track.username);
+        captureTrackLinkCopied({
+          track_id: track.id,
+          track_guid: track.guid,
+          site_section: deriveSiteSection(pathname),
+          ui_context: context,
+          view,
+          includes_secret_token: trackUrl.includes('secret='),
+          ...(deriveSiteSection(pathname) === 'home_feed' && homeFeedType
+            ? { home_feed_type: homeFeedType }
+            : {}),
+        });
         setTimeout(() => setIsLinkCopied(false), 2000);
       })
       .catch(err => {
@@ -505,7 +556,7 @@ export default function Track(
   ];
 
   return (
-    <div className={`${styles.trackItem} ${context === 'track_page' ? 'track-page' : ''} ${isExpanded ? styles.expanded : ''}`}>
+    <div ref={trackSurfaceRef} className={`${styles.trackItem} ${context === 'track_page' ? 'track-page' : ''} ${isExpanded ? styles.expanded : ''}`}>
       {track.is_repost && track.reposted_by_username && (
         <div className={styles.repostBanner}>
           <FaRetweet className={styles.repostIcon} /> Reposted by {track.reposted_by_username}
@@ -763,7 +814,7 @@ export default function Track(
                     {originalTrack && view !== 'tree' && (
                       <>
                         <div className={styles.trackRelation}>Original</div>
-                        <MiniTrack track={originalTrack} relatedTracks={collabTracks} />
+                        <MiniTrack track={originalTrack} relatedTracks={collabTracks} placement="expanded_collabs_original" />
                       </>
                     )}
                     
@@ -771,7 +822,7 @@ export default function Track(
                       <>
                         <div className={styles.trackRelation}>Based on this</div>
                         {collabTracks.map(collab => (
-                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} view={view} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} />
+                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} view={view} trackTreeIds={trackTreeIds} placement="expanded_collabs_based_on" />
                         ))}
                         
                         {hasMoreTracks && (

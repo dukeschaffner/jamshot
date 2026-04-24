@@ -7,6 +7,13 @@ import ForgotPasswordForm from './ForgotPasswordForm';
 import { validateDateOfBirth } from '../../shared/utils/validation';
 import { getErrorMessage } from '../../shared/utils/errors';
 import { validatePassword, validateUsername, validateName, validateEmail, checkPasswordRequirements } from '../lib/validation';
+import {
+  captureAuthGoogleStarted,
+  captureAuthLoginFailed,
+  captureAuthLoginSucceeded,
+  captureAuthSignupFailed,
+  captureAuthSignupSucceeded,
+} from '../lib/posthogAnalytics';
 
 export default function LoginForm({ 
   onSuccess, 
@@ -78,10 +85,16 @@ export default function LoginForm({
         if (isUnverifiedError) {
           setNeedsVerification(true);
         }
+        captureAuthLoginFailed({
+          method: 'email',
+          error_code: result?.error?.code || 'unknown',
+          needs_email_verification: isUnverifiedError,
+        });
       }
       else if (result.data?.user) {
         setUser(result.data.user);
         setSuccess('Login successful!');
+        captureAuthLoginSucceeded({ method: 'email' });
         if (onSuccess) {
           onSuccess();
         }
@@ -94,6 +107,7 @@ export default function LoginForm({
       } else {
         const errorMessage = 'Login failed - no user data returned';
         setError(errorMessage);
+        captureAuthLoginFailed({ method: 'email', error_code: 'no_user', needs_email_verification: false });
         if (onError) {
           onError(errorMessage);
         }
@@ -101,6 +115,7 @@ export default function LoginForm({
     } catch (err) {
         const displayMessage = 'Login failed - Unexpected error';
         setError(displayMessage);
+        captureAuthLoginFailed({ method: 'email', error_code: 'exception', needs_email_verification: false });
         if (onError) {
           onError(displayMessage);
         }
@@ -113,6 +128,7 @@ export default function LoginForm({
   const handleGoogleLogin = async () => {
     setError('');
     setIsLoggingIn(true);
+    captureAuthGoogleStarted();
 
     const allowSignUp = showLinks;
     console.log('allowSignUp', allowSignUp);
@@ -127,6 +143,7 @@ export default function LoginForm({
     } catch (err) {
       const errorMessage = err.message || 'Google OAuth failed. Please try again.';
       setError(errorMessage);
+      captureAuthLoginFailed({ method: 'google', error_code: 'oauth_error', needs_email_verification: false });
       if (onError) {
         onError(errorMessage);
       }
@@ -220,9 +237,11 @@ export default function LoginForm({
           setNeedsVerification(true);
           setSuccess('');
           setError('');
+          captureAuthSignupSucceeded({ email_verification_pending: true });
         } else {
           setUser(result.data.user);
           setSuccess('Account created successfully!');
+          captureAuthSignupSucceeded({ email_verification_pending: false });
           if (onSuccess) {
             onSuccess();
           }
@@ -234,6 +253,7 @@ export default function LoginForm({
       } else {
         const errorMessage = 'Sign up failed - no user data returned';
         setError(errorMessage);
+        captureAuthSignupFailed({ error_code: 'no_user' });
         if (onError) {
           onError(errorMessage);
         }
@@ -241,6 +261,7 @@ export default function LoginForm({
     } catch (err) {
       const errorMessage = err.message || 'Sign up failed. Please try again.';
       setError(errorMessage);
+      captureAuthSignupFailed({ error_code: 'exception' });
       if (onError) {
         onError(errorMessage);
       }

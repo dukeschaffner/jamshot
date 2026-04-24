@@ -1,0 +1,4 @@
+
+assumptions:
+- no pagination data we dont know anything about the children
+- empty window array means no children

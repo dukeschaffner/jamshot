@@ -8,6 +8,36 @@ import { useToast } from '../lib/ToastContext';
 const WS_URL = 'ws://localhost:59327';
 const USER_HAS_PLUGIN_KEY = 'user_has_plugin';
 
+/** Resolves when `socket` reaches OPEN, or rejects on error/close/timeout. */
+function waitForWebSocketOpen(socket, { timeoutMs = 5000 } = {}) {
+  if (!socket) return Promise.reject(new Error('No WebSocket'));
+  if (socket.readyState === WebSocket.OPEN) return Promise.resolve();
+  if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
+    return Promise.reject(new Error('WebSocket is not connecting'));
+  }
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finalize = (fn) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.removeEventListener('open', onOpen);
+      socket.removeEventListener('error', onError);
+      socket.removeEventListener('close', onClose);
+      fn();
+    };
+    const timer = setTimeout(() => {
+      finalize(() => reject(new Error('WebSocket open timeout')));
+    }, timeoutMs);
+    const onOpen = () => finalize(() => resolve());
+    const onError = () => finalize(() => reject(new Error('WebSocket connection error')));
+    const onClose = () => finalize(() => reject(new Error('WebSocket closed before open')));
+    socket.addEventListener('open', onOpen);
+    socket.addEventListener('error', onError);
+    socket.addEventListener('close', onClose);
+  });
+}
+
 // Context
 const PluginWebSocketContext = createContext(null);
 
@@ -105,18 +135,15 @@ export function PluginWebSocketProvider({ children }) {
     addLog('Manually disconnected');
   }, [addLog]);
 
-  const send = useCallback((msg) => {
+  const send = useCallback(async (msg) => {
     if (!msg || (typeof msg === 'string' && !msg.trim())) return false;
 
     const type = getMessageType(msg);
     const successMessage = successMessages[type];
     const errorMessage = errorMessages[type] || 'Failed to send message to plugin. Make sure the plugin is installed and running in a DAW.';
 
-    // If not connected, try to connect first, but treat this as a failure for this send call
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      addLog('Attempting to connect before sending...');
-      connect();
-
+    const fail = () => {
+      addLog('Send failed: ' + errorMessage, 'system');
       if (userHasPlugin) {
         showError(errorMessage);
       } else {
@@ -124,10 +151,28 @@ export function PluginWebSocketProvider({ children }) {
         setShowPluginErrorDialog(true);
       }
       return false;
-    }
+    };
 
     try {
-      ws.current.send(msg);
+      if (!ws.current || ws.current.readyState === WebSocket.CLOSED) {
+        if (ws.current?.readyState === WebSocket.CLOSED) {
+          ws.current = null;
+        }
+        addLog('Attempting to connect before sending...');
+        connect();
+      }
+
+      const socket = ws.current;
+      if (!socket) {
+        return fail();
+      }
+
+      if (socket.readyState !== WebSocket.OPEN) {
+        addLog('Waiting for connection before sending...');
+      }
+      await waitForWebSocketOpen(socket);
+
+      socket.send(msg);
       addLog(msg, 'outgoing');
 
       if (successMessage) {
@@ -136,15 +181,7 @@ export function PluginWebSocketProvider({ children }) {
       return true;
     } catch (err) {
       console.error('WebSocket send error:', err);
-      addLog('Send failed: ' + errorMessage, 'system');
-
-      if (userHasPlugin) {
-        showError(errorMessage);
-      } else {
-        setPluginErrorMessage(errorMessage);
-        setShowPluginErrorDialog(true);
-      }
-      return false;
+      return fail();
     }
   }, [addLog, connect, showSuccess, showError, userHasPlugin]);
 

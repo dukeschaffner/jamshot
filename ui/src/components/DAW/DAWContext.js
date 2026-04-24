@@ -9,6 +9,7 @@ import { useAudio } from '@/lib/AudioContext';
 import { undoManager, COMMAND_TYPES } from './core/UndoManager';
 import DAWConfig from './misc/DAWConfig';
 import AudioState from './core/AudioStateStore';
+import { captureDawRecordStarted } from '@/lib/posthogAnalytics';
 
 const DAWContext = createContext();
 
@@ -486,6 +487,10 @@ export function DAWProvider({ children, trackData, isCollab }) {
     // Listen for recording events
     const handleRecordingStarted = () => {
       setIsRecording(true);
+      captureDawRecordStarted({
+        upload_flow_type: isCollab ? 'collab' : 'original',
+        parent_track_id: trackData?.[0]?.id ?? null,
+      });
     };
     
     const handleRecordingStopped = (data) => {
@@ -493,7 +498,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
 
       const track = trackManagerRef.current.getTrack('recording-track');
       const overwriteTrack = recordingModeRef.current === 'take';
-      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true);
+      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true, data.latencyData);
     };
     
     const handleRecordingError = (error) => {
@@ -607,7 +612,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_STRENGTH_CHANGE, handleSnapStrengthChange);
       eventBus.off(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
     };
-  }, [selectedRegionId, selectedTrackId, clearSelection, isPlayingGlobal, togglePlayPause]); 
+  }, [selectedRegionId, selectedTrackId, clearSelection, isPlayingGlobal, togglePlayPause, isCollab, trackData]); 
 
   const recordPlay = async () => {
     if (!trackData || !isCollab || playRecordedRef.current) return;

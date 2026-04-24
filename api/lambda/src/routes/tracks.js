@@ -1100,6 +1100,7 @@ router.get('/:id/related2', async (req, res, next) => {
     const limitNum = parseInt(limit);
     const orderByNewest = orderBy !== 'oldest'; // Default to newest
     const includeChildCountBool = includeChildCount === 'true';
+    const lastIdNum = lastId ? parseInt(lastId) : null;
 
     let baseQuery;
     let queryParams;
@@ -1143,75 +1144,245 @@ router.get('/:id/related2', async (req, res, next) => {
       WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
     `;
     
-    // Add cursor condition based on order using ID
-    if (lastId) {
-      if (orderByNewest) {
-        // For newest first, get tracks with ID less than the cursor (assuming IDs are sequential)
-        // We still order by created_at to respect the orderBy parameter
-        childTracksQuery += ` AND t.id < $${queryParams.length + 1}`;
-        queryParams.push(lastId);
-      } else {
-        // For oldest first, get tracks with ID greater than the cursor
-        childTracksQuery += ` AND t.id > $${queryParams.length + 1}`;
-        queryParams.push(lastId);
+    // Use a created_at + id cursor (matches related-around tie-break behavior).
+    // Resolve the cursor's created_at from lastId when provided.
+    let cursorCreatedAt = null;
+    if (lastIdNum) {
+      const cursorLookup = await pool.query(
+        `SELECT created_at FROM tracks WHERE id = $1 AND parent_track_id = $2 AND processing_status = 'completed'`,
+        [lastIdNum, id]
+      );
+      if (cursorLookup.rows.length > 0) {
+        cursorCreatedAt = cursorLookup.rows[0].created_at;
       }
     }
-    
-    // Add ordering by created_at to respect orderBy parameter
-    if (orderByNewest) {
-      childTracksQuery += ` ORDER BY t.created_at DESC`;
-    } else {
-      childTracksQuery += ` ORDER BY t.created_at ASC`;
+
+    if (lastIdNum && cursorCreatedAt) {
+      if (orderByNewest) {
+        // Newest-first paging goes toward older tracks
+        childTracksQuery += `
+          AND (
+            t.created_at < $${queryParams.length + 1}
+            OR (t.created_at = $${queryParams.length + 1} AND t.id < $${queryParams.length + 2})
+          )
+        `;
+      } else {
+        // Oldest-first paging goes toward newer tracks
+        childTracksQuery += `
+          AND (
+            t.created_at > $${queryParams.length + 1}
+            OR (t.created_at = $${queryParams.length + 1} AND t.id > $${queryParams.length + 2})
+          )
+        `;
+      }
+      queryParams.push(cursorCreatedAt, lastIdNum);
     }
-    
-    // Add limit
+
+    // Add ordering (created_at primary, id tie-break) to respect orderBy parameter
+    if (orderByNewest) {
+      childTracksQuery += ` ORDER BY t.created_at DESC, t.id DESC`;
+    } else {
+      childTracksQuery += ` ORDER BY t.created_at ASC, t.id ASC`;
+    }
+
+    // Query limit+1 so we can compute hasMore + next cursor fields
     childTracksQuery += ` LIMIT $${queryParams.length + 1}`;
-    queryParams.push(limitNum);
+    queryParams.push(limitNum + 1);
     
     // Execute query for child tracks
     const childTracksResult = await pool.query(childTracksQuery, queryParams);
     
+    const childRows = childTracksResult.rows || [];
+    const hasMore = childRows.length > limitNum;
+    const nextRow = hasMore ? childRows[childRows.length - 1] : null;
+    const returnedChildRows = hasMore ? childRows.slice(0, limitNum) : childRows;
+
     // Add child tracks
-    combinedTracks = [...combinedTracks, ...childTracksResult.rows];
+    combinedTracks = [...combinedTracks, ...returnedChildRows];
     
     // Process tracks
     const processedTracks = await Promise.all(combinedTracks.map(track => processTrack(track, userId)));
-    
-    // Calculate hasMore using a separate query with ID as cursor
-    let hasMore = false;
-    if (processedTracks.length > 0) {
-      // Use the last child track (not parent) for hasMore calculation
-      const childTracks = processedTracks.filter(track => track.parent_track_id === parseInt(id));
-      if (childTracks.length > 0) {
-        const lastTrackId = childTracks[childTracks.length - 1].id;
-        
-        // Check if there are more tracks after the last one using ID
-        let hasMoreQuery = `
-          SELECT 1
-          FROM tracks
-          WHERE parent_track_id = $1 
-            AND processing_status = 'completed'
-        `;
-        
-        const hasMoreParams = [id];
-        
-        if (orderByNewest) {
-          hasMoreQuery += ` AND id < $2 ORDER BY created_at DESC LIMIT 1`;
-          hasMoreParams.push(lastTrackId);
-        } else {
-          hasMoreQuery += ` AND id > $2 ORDER BY created_at ASC LIMIT 1`;
-          hasMoreParams.push(lastTrackId);
-        }
-        
-        const hasMoreResult = await pool.query(hasMoreQuery, hasMoreParams);
-        hasMore = hasMoreResult.rows.length > 0;
-      }
-    }
-    
+
     res.json({
       tracks: processedTracks,
       pagination: {
-        hasMore
+        hasMore,
+        ...(orderByNewest
+          ? {
+              // Newest-first pagination moves toward older tracks, so return next "oldest" cursor
+              nextOldestTrackId: nextRow?.id ?? null,
+              nextOldestCreatedAt: nextRow?.created_at ?? null,
+            }
+          : {
+              // Oldest-first pagination moves toward newer tracks, so return next "newest" cursor
+              nextNewestTrackId: nextRow?.id ?? null,
+              nextNewestCreatedAt: nextRow?.created_at ?? null,
+            }),
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get tracks surrounding a target child track within a parent's children, by created_at
+router.get('/:id/related-around', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    const { targetId, createdAt, limit = 5, orderBy = 'newest', includeChildCount = false } = req.query;
+
+    if (!targetId && !createdAt) {
+      return res.status(400).json({ error: 'targetId or createdAt is required' });
+    }
+
+    const limitNum = parseInt(limit);
+    if(limitNum > 100) {
+      return res.status(400).json({ error: 'Limit must be less than 100' });
+    }
+    const includeChildCountBool = includeChildCount === 'true';
+    const orderByNewest = orderBy !== 'oldest';
+
+    let baseQuery;
+    let queryParams;
+    if (userId) {
+      baseQuery = getBaseTrackSelectQuery(true, 2, false, includeChildCountBool);
+      queryParams = [id, userId];
+    } else {
+      baseQuery = getBaseTrackSelectQuery(false, 1, false, includeChildCountBool);
+      queryParams = [id];
+    }
+
+    // Resolve anchor created_at (from targetId or explicit createdAt)
+    // If createdAt is supplied, use it directly (no DB lookup).
+    let resolvedTargetId = null;
+    let targetCreatedAt = null;
+    let anchorIdForTieBreak = null;
+
+    if (createdAt) {
+      const createdAtDate = new Date(createdAt);
+      if (Number.isNaN(createdAtDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid createdAt' });
+      }
+      targetCreatedAt = createdAtDate.toISOString();
+    } else if (targetId) {
+      resolvedTargetId = targetId;
+      anchorIdForTieBreak = parseInt(targetId);
+      // Verify targetId exists and belongs to this parent, and get its created_at
+      const targetLookup = await pool.query(
+        `SELECT id, created_at FROM tracks WHERE id = $1 AND parent_track_id = $2 AND processing_status = 'completed'`,
+        [targetId, id]
+      );
+
+      if (targetLookup.rows.length === 0) {
+        return res.status(404).json({ error: 'Target track not found or does not belong to this parent' });
+      }
+
+      targetCreatedAt = targetLookup.rows[0].created_at;
+    }
+
+    const trackSelectFragment = `
+      SELECT
+        ${baseQuery}
+      FROM tracks t
+      LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
+      LEFT JOIN users u ON t.user_id = u.id
+    `;
+
+    // Target track (optional) — include parent_track_id = $1 to ensure $1 is referenced
+    // (avoids "could not determine data type of parameter $1" when $1 is unused)
+    const targetTrackQuery = resolvedTargetId ? `
+      ${trackSelectFragment}
+      WHERE t.id = $${queryParams.length + 1} AND t.parent_track_id = $1 AND t.processing_status = 'completed'
+    ` : null;
+
+    // Tracks newer than target (created_at > target) — "before" in newest-first display
+    // Order ASC so we get the closest ones, then reverse for final sort.
+    const newerTracksQuery = resolvedTargetId ? `
+      ${trackSelectFragment}
+      WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
+        AND (
+          t.created_at > $${queryParams.length + 1}
+          OR (t.created_at = $${queryParams.length + 1} AND t.id > $${queryParams.length + 2})
+        )
+        AND t.id != $${queryParams.length + 2}
+      ORDER BY t.created_at ASC, t.id ASC
+      LIMIT $${queryParams.length + 3}
+    ` : `
+      ${trackSelectFragment}
+      WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
+        AND t.created_at > $${queryParams.length + 1}
+      ORDER BY t.created_at ASC, t.id ASC
+      LIMIT $${queryParams.length + 2}
+    `;
+
+    // Tracks older than target (created_at < target) — "after" in newest-first display
+    const olderTracksQuery = resolvedTargetId ? `
+      ${trackSelectFragment}
+      WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
+        AND (
+          t.created_at < $${queryParams.length + 1}
+          OR (t.created_at = $${queryParams.length + 1} AND t.id < $${queryParams.length + 2})
+        )
+        AND t.id != $${queryParams.length + 2}
+      ORDER BY t.created_at DESC, t.id DESC
+      LIMIT $${queryParams.length + 3}
+    ` : `
+      ${trackSelectFragment}
+      WHERE t.parent_track_id = $1 AND t.processing_status = 'completed'
+        AND t.created_at < $${queryParams.length + 1}
+      ORDER BY t.created_at DESC, t.id DESC
+      LIMIT $${queryParams.length + 2}
+    `;
+
+    const [targetTrackResult, newerTracksResult, olderTracksResult] = await Promise.all([
+      resolvedTargetId ? pool.query(targetTrackQuery, [...queryParams, resolvedTargetId]) : Promise.resolve({ rows: [] }),
+      resolvedTargetId
+        ? pool.query(newerTracksQuery, [...queryParams, targetCreatedAt, resolvedTargetId, limitNum + 1])
+        : pool.query(newerTracksQuery, [...queryParams, targetCreatedAt, limitNum + 1]),
+      resolvedTargetId
+        ? pool.query(olderTracksQuery, [...queryParams, targetCreatedAt, resolvedTargetId, limitNum + 1])
+        : pool.query(olderTracksQuery, [...queryParams, targetCreatedAt, limitNum + 1]),
+    ]);
+
+    // We query limit+1 so cursor fields can be based on tracks NOT returned.
+    const newerRows = newerTracksResult.rows || [];
+    const olderRows = olderTracksResult.rows || [];
+
+    const hasNewer = newerRows.length > limitNum;
+    const hasOlder = olderRows.length > limitNum;
+
+    const nextNewestRow = hasNewer ? newerRows[newerRows.length - 1] : null;
+    const nextOldestRow = hasOlder ? olderRows[olderRows.length - 1] : null;
+
+    const returnedNewerRows = hasNewer ? newerRows.slice(0, limitNum) : newerRows;
+    const returnedOlderRows = hasOlder ? olderRows.slice(0, limitNum) : olderRows;
+
+    // Merge: newer tracks + target + older tracks, then sort by orderBy
+    const allRows = [
+      ...returnedNewerRows,
+      ...(targetTrackResult.rows.length > 0 ? [targetTrackResult.rows[0]] : []),
+      ...returnedOlderRows,
+    ];
+
+    allRows.sort((a, b) => {
+      const diff = new Date(a.created_at) - new Date(b.created_at);
+      if (diff !== 0) return orderByNewest ? -diff : diff;
+      const idDiff = (a.id ?? 0) - (b.id ?? 0);
+      return orderByNewest ? -idDiff : idDiff;
+    });
+
+    const processedTracks = await Promise.all(allRows.map(track => processTrack(track, userId)));
+
+    res.json({
+      tracks: processedTracks,
+      pagination: {
+        hasNewer,
+        hasOlder,
+        nextNewestTrackId: nextNewestRow?.id ?? null,
+        nextOldestTrackId: nextOldestRow?.id ?? null,
+        nextNewestCreatedAt: nextNewestRow?.created_at ?? null,
+        nextOldestCreatedAt: nextOldestRow?.created_at ?? null,
       }
     });
   } catch (err) {
@@ -1231,10 +1402,12 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res, next) =
       return res.status(accessCheck.status).json({ error: accessCheck.error });
     }
 
-    // Get processing status
+    const trackId = accessCheck.track.id;
+
+    // Get processing status (trackId is numeric; id param may be GUID)
     const result = await pool.query(
       'SELECT processing_status, processing_error, created_at FROM tracks WHERE id = $1',
-      [id]
+      [trackId]
     );
 
     if (result.rows.length === 0) {
@@ -1266,7 +1439,7 @@ router.get('/:id/status', optionalBetterAuthMiddleware, async (req, res, next) =
       : null;
 
     res.json({
-      track_id: id,
+      track_id: trackId,
       status: status,
       error: sanitizedError,
       estimated_time_remaining: estimatedTimeRemaining

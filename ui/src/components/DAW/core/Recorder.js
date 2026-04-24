@@ -13,7 +13,7 @@ class Recorder {
     this.recordingProcessor = null;
     this.recordingStream = null;
     this.streamSampleRate = null; // Sample rate from the input stream
-    this.recordingLatency = 0; // Latency compensation in seconds
+    this.recordingLatency = {latency:0, autoLatency:0, userCompensation:0}; // Latency compensation in seconds
     
     // Playback tracking
     this.playbackStartTime = 0; // audioContextTime when playback started
@@ -206,7 +206,7 @@ class Recorder {
       this.recordingProcessor = null;
     }
 
-    const recordingOffset = this.recordingLatency + (this.playbackStartTime - this.firstSampleTime);
+    const recordingOffset = this.recordingLatency.latency + (this.playbackStartTime - this.firstSampleTime);
     
     // Create final audio buffer
     const finalBuffer = this.createRecordingBuffer();
@@ -218,12 +218,13 @@ class Recorder {
       bufferKey: bufferKey,
       duration: finalBuffer ? finalBuffer.duration : 0,
       startTime: this.playbackTime,
-      offset: recordingOffset
+      offset: recordingOffset,
+      latencyData: this.recordingLatency
     });
     
     // Clean up
     this.recordingBuffer = null;
-    this.recordingLatency = 0;
+    this.recordingLatency = {latency:0, autoLatency:0, userCompensation:0};
   }
 
   handleRecorderMessage(event){
@@ -277,7 +278,7 @@ class Recorder {
     console.log('userCompensation', userCompensation);
     console.log('totalLatency', totalLatency);
 
-    return totalLatency;
+    return {latency:totalLatency, autoLatency:autoLatency, userCompensation:userCompensation};
   }
   
   createRecordingBuffer() {
