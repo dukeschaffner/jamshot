@@ -26,7 +26,7 @@ import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ContextMenu from './components/ContextMenu';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
-import { captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
+import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
 
 function DAWContent({ track, isVisible = true }) {
   const {
@@ -100,7 +100,15 @@ function DAWContent({ track, isVisible = true }) {
 
   useNavigationGuardHook({
     enabled: !!recordingTrackHasAudio && !saved,
-    confirm: () => window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.")
+    confirm: () => {
+      const ok = window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.");
+      if (ok) {
+        captureDawLeaveUnsavedConfirmed({
+          upload_flow_type: isCollab ? 'collab' : 'original',
+        });
+      }
+      return ok;
+    },
   });
 
   const tracksAndTimelineRef = useRef(null);
