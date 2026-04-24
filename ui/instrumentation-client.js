@@ -8,5 +8,6 @@ if (token) {
     api_host: host,
     // Enables SPA history pageviews; see PostHog Next.js + SPA docs
     defaults: '2026-01-30',
+    debug: true
   });
 }
