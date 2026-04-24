@@ -7,6 +7,7 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 import DAWConfig from '../misc/DAWConfig';
+import { captureDawAudioFileImported } from '@/lib/posthogAnalytics';
 
 
 const Track = ({
@@ -136,16 +137,16 @@ const Track = ({
     setIsDragOver(false);
     
     const file = e.dataTransfer.files[0];
-    await createRegionFromFile(file);
+    await createRegionFromFile(file, 'drag_drop');
   };
 
   // File handling functions from RecordingWidget
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    await createRegionFromFile(file);
+    await createRegionFromFile(file, 'file_input');
   };
 
-  const createRegionFromFile = async (file) => {
+  const createRegionFromFile = async (file, importSource) => {
     if (!file) return;
     
     // Check if file is an audio file
@@ -186,6 +187,13 @@ const Track = ({
 
         // Create a new region from the file
         track.addRegionFromBuffer(fileBuffer, 0, 0, endTime, file.name);
+        captureDawAudioFileImported({
+          upload_flow_type: isCollab ? 'collab' : 'original',
+          import_source: importSource,
+          daw_track_id: track.id,
+          filename_extension: file.name?.includes('.') ? file.name.split('.').pop() : undefined,
+          duration_seconds: Math.round(fileBuffer.duration * 1000) / 1000,
+        });
       }
     } catch (error) {
       console.error('Error processing uploaded file:', error);

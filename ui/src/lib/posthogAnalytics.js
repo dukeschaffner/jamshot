@@ -91,3 +91,43 @@ export function captureDawUploadFormOpened(payload) {
 export function captureDawUploadSubmitted(payload) {
   capture('daw_upload_submitted', payload);
 }
+
+export function captureAuthLoginSucceeded(payload) {
+  capture('auth_login_succeeded', payload);
+}
+
+export function captureAuthLoginFailed(payload) {
+  capture('auth_login_failed', payload);
+}
+
+export function captureAuthSignupSucceeded(payload) {
+  capture('auth_signup_succeeded', payload);
+}
+
+export function captureAuthSignupFailed(payload) {
+  capture('auth_signup_failed', payload);
+}
+
+export function captureAuthGoogleStarted() {
+  capture('auth_google_oauth_started', {});
+}
+
+export function captureAuthProfileCompleted() {
+  capture('auth_profile_completed', {});
+}
+
+export function captureAuthLogout() {
+  capture('auth_logout', {});
+}
+
+export function captureTrackLinkCopied(payload) {
+  capture('track_link_copied', payload);
+}
+
+export function captureDawAudioFileImported(payload) {
+  capture('daw_audio_file_imported', payload);
+}
+
+export function captureDawLeaveUnsavedConfirmed(payload) {
+  capture('daw_leave_unsaved_confirmed', payload);
+}

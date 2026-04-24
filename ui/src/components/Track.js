@@ -9,6 +9,7 @@ import TrackMeta from './TrackMeta';
 import { useAudio } from '../lib/AudioContext';
 import { trackTrackPlay, trackTrackPause, trackShare } from '../lib/analytics';
 import {
+  captureTrackLinkCopied,
   captureTrackPlayPressed,
   captureTrackSurfaceViewed,
   deriveDiscoveryMethod,
@@ -50,7 +51,8 @@ export default function Track(
       isEntering, // Loading state for entering competition
       teamContext, // { teamId, folderId, userRole } - for team folder management
       campContext, // { campId, roomId, userRole } - for camp room management
-      extraTabs // Extra tabs to show
+      extraTabs, // Extra tabs to show
+      homeFeedType = null, // 'following' | 'popular' when rendered on home feed
     }
   ) 
 {
@@ -120,6 +122,9 @@ export default function Track(
           site_section: deriveSiteSection(pathname),
           ui_context: context,
           view,
+          ...(deriveSiteSection(pathname) === 'home_feed' && homeFeedType
+            ? { home_feed_type: homeFeedType }
+            : {}),
         });
       },
       { threshold: 0.35, rootMargin: '0px' }
@@ -127,7 +132,7 @@ export default function Track(
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [track.id, track.guid, track.title, pathname, context, view]);
+  }, [track.id, track.guid, track.title, pathname, context, view, homeFeedType]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -222,6 +227,9 @@ export default function Track(
       site_section: deriveSiteSection(pathname),
       ui_context: context,
       view,
+      ...(deriveSiteSection(pathname) === 'home_feed' && homeFeedType
+        ? { home_feed_type: homeFeedType }
+        : {}),
     };
 
     if (currentTrack?.id === track.id) {
@@ -269,6 +277,17 @@ export default function Track(
       .then(() => {
         setIsLinkCopied(true);
         trackShare(track.id, track.title, track.username);
+        captureTrackLinkCopied({
+          track_id: track.id,
+          track_guid: track.guid,
+          site_section: deriveSiteSection(pathname),
+          ui_context: context,
+          view,
+          includes_secret_token: trackUrl.includes('secret='),
+          ...(deriveSiteSection(pathname) === 'home_feed' && homeFeedType
+            ? { home_feed_type: homeFeedType }
+            : {}),
+        });
         setTimeout(() => setIsLinkCopied(false), 2000);
       })
       .catch(err => {
@@ -803,7 +822,7 @@ export default function Track(
                       <>
                         <div className={styles.trackRelation}>Based on this</div>
                         {collabTracks.map(collab => (
-                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} view={view} setSelectedTrack={setSelectedTrack} trackTreeIds={trackTreeIds} placement="expanded_collabs_based_on" />
+                          <MiniTrack key={collab.id} track={collab} relatedTracks={collabTracks} view={view} trackTreeIds={trackTreeIds} placement="expanded_collabs_based_on" />
                         ))}
                         
                         {hasMoreTracks && (

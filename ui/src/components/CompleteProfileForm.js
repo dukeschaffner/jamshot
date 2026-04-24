@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { validateDateOfBirth } from '../../shared/utils/validation';
+import { captureAuthProfileCompleted } from '../lib/posthogAnalytics';
 
 export default function CompleteProfileForm({ 
   onSuccess, 
@@ -51,8 +52,10 @@ export default function CompleteProfileForm({
         throw new Error(errorData.error || 'Failed to complete profile');
       }
 
-      const result = await response.json();
-      
+      await response.json();
+
+      captureAuthProfileCompleted();
+
       if (onSuccess) {
         await onSuccess();
       }
