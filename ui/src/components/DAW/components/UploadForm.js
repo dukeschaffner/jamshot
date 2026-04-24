@@ -5,6 +5,7 @@ import { trackApi } from '../../../lib/api';
 import TagSelector from '../../TagSelector';
 import LoadingSpinner from '../../LoadingSpinner';
 import { trackTrackUpload, trackCollaboration } from '../../../lib/analytics';
+import { captureDawUploadSubmitted } from '../../../lib/posthogAnalytics';
 import { FaInfoCircle, FaLock, FaLockOpen, FaExclamationTriangle, FaDownload, FaCog } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLock } from '@fortawesome/free-solid-svg-icons';
@@ -245,6 +246,12 @@ export default function UploadForm({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    captureDawUploadSubmitted({
+      upload_flow_type: isCollab ? 'collab' : 'original',
+      has_camp: !!campId,
+      has_team: !!teamId,
+    });
 
     let buffer = null;
 

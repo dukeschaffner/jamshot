@@ -26,6 +26,7 @@ import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ContextMenu from './components/ContextMenu';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
+import { captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
 
 function DAWContent({ track, isVisible = true }) {
   const {
@@ -108,6 +109,12 @@ function DAWContent({ track, isVisible = true }) {
 
   const [showUploadForm, setShowUploadForm] = useState(false);
 
+  useEffect(() => {
+    if (!showUploadForm) return;
+    captureDawUploadFormOpened({
+      upload_flow_type: isCollab ? 'collab' : 'original',
+    });
+  }, [showUploadForm, isCollab]);
 
   // Add keyboard event listener for space and enter keys
   useEffect(() => {

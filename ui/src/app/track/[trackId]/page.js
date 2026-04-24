@@ -14,6 +14,7 @@ import { useAudio } from '@/lib/AudioContext';
 import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
 import DAW from '@/components/DAW/DAW';
 import Track from '@/components/Track';
+import { captureTrackPageOpened } from '@/lib/posthogAnalytics';
 
 // Component that uses useSearchParams, wrapped in Suspense
 function TrackContent() {
@@ -166,6 +167,23 @@ function TrackContent() {
       }
     };
   }, [trackId, secret]);
+
+  const posthogPageOpenedRef = useRef(false);
+
+  useEffect(() => {
+    posthogPageOpenedRef.current = false;
+  }, [trackId]);
+
+  useEffect(() => {
+    if (loading || !track?.id || !track?.guid || posthogPageOpenedRef.current) return;
+    posthogPageOpenedRef.current = true;
+    captureTrackPageOpened({
+      track_id: track.id,
+      track_guid: track.guid,
+      track_title: track.title,
+      is_collab_layer: track.layer > 0 || !!track.parent_track_id,
+    });
+  }, [loading, track?.id, track?.guid, track?.title, track?.layer, track?.parent_track_id]);
 
   // Check if current user is the track owner
   useEffect(() => {
