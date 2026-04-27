@@ -5,7 +5,6 @@ import api from '../lib/api';
 import ImageCropper from './ImageCropper';
 import { useUser } from '../contexts/UserContext';
 import { FaCamera, FaLock, FaLockOpen, FaTimes, FaCheck } from 'react-icons/fa';
-import Cookies from 'js-cookie';
 import styles from './EditProfile.module.css';
 
 const SOCIAL_FIELDS = [
@@ -36,7 +35,7 @@ const getInitialSocialFormValues = (user) =>
 
 export default function EditProfile({ user }) {
   const router = useRouter();
-  const { refreshUser } = useUser();
+  const { refreshUser, logout } = useUser();
   const [editForm, setEditForm] = useState({
     username: user?.username || '',
     name: user?.name || '',
@@ -178,16 +177,9 @@ export default function EditProfile({ user }) {
     setIsDeleting(true);
     try {
       await api.delete('/users/me', { data: { password: deletePassword } });
-      
-      // Clear local storage and cookies
       localStorage.clear();
-      Cookies.remove('token');
-      Cookies.remove('refreshToken');
-      
-      // Redirect to home page
-      router.push('/');
-      
       alert('Your account has been successfully deleted');
+      await logout('/');
     } catch (err) {
       console.error('Failed to delete account:', err);
       alert(err.response?.data?.error || 'Failed to delete account');

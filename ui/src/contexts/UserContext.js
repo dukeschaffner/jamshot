@@ -142,39 +142,29 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // Logout function using Better Auth
-  const logout = async () => {
+  // Logout function using Better Auth (e.g. '/login' after sign out, '/' after account deletion)
+  const logout = async (redirectTo = '/login') => {
+    const finish = () => {
+      captureAuthLogout();
+      resetSterioPosthog();
+      setAdditionalUserData(null);
+      setTimeout(() => {
+        isLoggingOutRef.current = false;
+      }, 100);
+      router.push(redirectTo);
+    };
     try {
       // Set flag to prevent useEffect from fetching user data during logout
       isLoggingOutRef.current = true;
-      
+
       await authClient.signOut({
         fetchOptions: {
-          onSuccess: () => {
-            captureAuthLogout();
-            resetSterioPosthog();
-            // Clear additional user data
-            setAdditionalUserData(null);
-            // Reset logout flag after a brief delay to allow session to clear
-            setTimeout(() => {
-              isLoggingOutRef.current = false;
-            }, 100);
-            // Redirect to login page
-            router.push('/login');
-          },
+          onSuccess: finish,
         },
       });
     } catch (error) {
       console.error('Logout error:', error);
-      captureAuthLogout();
-      resetSterioPosthog();
-      // Even if logout fails, clear local state and redirect
-      setAdditionalUserData(null);
-      // Reset logout flag
-      setTimeout(() => {
-        isLoggingOutRef.current = false;
-      }, 100);
-      router.push('/login');
+      finish();
     }
   };
 
