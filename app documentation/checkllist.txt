@@ -19,13 +19,6 @@ RELEASE CHECKLIST
 
 
 
-
-
-
-
-
-
-
 {"level":"error",<*>,"pid":<*>,"hostname":<*>,"correlationId":<*>,"userId":<*>,"message":"invalid input syntax for type integer: <*>,"stack":"error: invalid input syntax for type integer: <*> at /var/task/dist/node_modules/pg-pool/index.js:<*>:<*> at process.processTicksAndRejections (<*>)\n at async <*>,"route":<*>,"method":"GET"}
 ERROR
 59
@@ -38,21 +31,19 @@ ERROR
 
 
 
-{
-    "level": "error",
-    "time": "2026-04-01T01:25:57.860Z",
-    "pid": 2,
-    "hostname": "169.254.36.221",
-    "correlationId": "aaa46b06-05c3-4e3e-9b09-692e080e13f9",
-    "userId": "7",
-    "message": "invalid input syntax for type integer: \"64b229c4-25ff-47fa-98ff-75b69ac82595\"",
-    "stack": "error: invalid input syntax for type integer: \"64b229c4-25ff-47fa-98ff-75b69ac82595\"\n    at /var/task/dist/node_modules/pg-pool/index.js:45:11\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async file:///var/task/dist/index.mjs:5597:24",
-    "route": "/prod/api/tracks/64b229c4-25ff-47fa-98ff-75b69ac82595/status",
-    "method": "GET"
-}
-
-
-
 LEGAL
 - option to allow others to 'steal' (use) the track?
 - splitting royalties if song uploaded
+
+
+
+
+
+competitions:
+- on create page, add note indicating times are in user's timezone
+- add support for non-cash prizes (maybe prize description field)
+- copy link button is orange
+- enter comptition goes to: https://test.sterio.fm/track/undefined?competition=5
+- make sure sponsored competition shows on home page
+- show sponsored competitions in "active" and "upcoming" tabs
+- maybe move competition specific logic from track component to competition component

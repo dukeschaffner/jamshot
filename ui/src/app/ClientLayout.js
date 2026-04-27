@@ -15,37 +15,19 @@ import Navbar from '../components/Navbar';
 import MobileNavbar from '../components/MobileNavbar';
 import GlobalPlayer from '../components/GlobalPlayer';
 import ReleaseNotesToast from '../components/ReleaseNotesToast';
-import LandingPage from '../components/LandingPage';
-import LoadingSpinner from '../components/LoadingSpinner';
 import CompleteProfileForm from '../components/CompleteProfileForm';
 import { PluginWebSocketProvider } from '../contexts/PluginWebSocketContext';
 import api from '../lib/api';
 
 // This component will be rendered after providers are initialized
 function AppContent({ children }) {
-  const { user, isLoading, isAuthenticated, needsToCompleteProfile, logout, refreshUser } = useUser();
+  const { needsToCompleteProfile, logout, refreshUser } = useUser();
   const [darkMode, setDarkMode] = useState(false);
   const { currentTrack, togglePlayPause, spaceShortcutEnabled } = useAudio();
-  const [hasAccess, setHasAccess] = useState(false);
-  const [accessCheckComplete, setAccessCheckComplete] = useState(false);
   const [profileError, setProfileError] = useState('');
   
   const pathname = usePathname();
   const playerVisible = !!currentTrack;
-
-  // Check for access on mount
-  useEffect(() => {
-    const checkAccess = () => {
-      // Check if user has access granted in session
-      const accessGranted = sessionStorage.getItem('sterio_access_granted');
-      if (accessGranted === 'true') {
-        setHasAccess(true);
-      }
-      setAccessCheckComplete(true);
-    };
-    
-    checkAccess();
-  }, []);
 
   // Initialize Google Analytics on mount
   useEffect(() => {
@@ -105,11 +87,6 @@ function AppContent({ children }) {
     }
   }, []);
 
-  // Handle access granted
-  const handleAccessGranted = () => {
-    setHasAccess(true);
-  };
-
   // Show complete profile form if needed
   if (needsToCompleteProfile) {
     return (
@@ -140,29 +117,6 @@ function AppContent({ children }) {
       </div>
     );
   }
-
-  // Show landing page if access check is complete and user doesn't have access and is not authenticated
-  if (accessCheckComplete && !hasAccess && !isAuthenticated) {
-    return <LandingPage onAccessGranted={handleAccessGranted} />;
-  }
-
-  // Show loading state while checking access
-  if (!accessCheckComplete) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        height: '100vh',
-        background: 'var(--background)',
-        color: 'var(--text-primary)'
-      }}>
-        <LoadingSpinner size="large" />
-      </div>
-    );
-  }
-
-  
 
   return (
     <div className={`app-container ${playerVisible ? 'player-visible' : ''}`}>
