@@ -35,10 +35,11 @@ export const SUBSCRIPTION_PLANS = {
       max_recording_duration: 300 // 5 minutes in seconds
     },
     highlights: [
-      '3 uploads per day',
-      '25 total uploads',
+      // '3 uploads per day',
+      // '25 total uploads',
     //   '5 minute recording limit',
-      'Community features'
+      'Sterio access',
+      'Basic community features'
     ]
   },
 
@@ -67,8 +68,9 @@ export const SUBSCRIPTION_PLANS = {
       max_recording_duration: 300 // 5 minutes in seconds
     },
     highlights: [
-      '5 uploads per day',
-      '60 total uploads',
+      // '5 uploads per day',
+      // '60 total uploads',
+      'Beta Supporter Badge',
       'Private tracks',
       'Analytics',
       'Host competitions',
@@ -101,14 +103,16 @@ export const SUBSCRIPTION_PLANS = {
       max_recording_duration: 600 // 10 minutes in seconds
     },
     highlights: [
-      '25 uploads per day',
-      'Unlimited total uploads',
+      // '25 uploads per day',
+      // 'Unlimited total uploads',
+      'Beta Supporter Badge',
     //   '10 minute recording limit',
       'Private tracks',
     //   'Advanced DAW',
     //   '5 free samples per month',
-      'Analytics ( + streams by user)',
+      'Analytics + streams by user',
       'Host competitions (No hosting fees)',
+      'Priority support',
     //   'No ads'
     ]
   }
