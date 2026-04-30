@@ -66,7 +66,7 @@ router.use(optionalBetterAuthMiddleware);
 router.get('/me', betterAuthMiddleware, async (req, res, next) => {
   try {
     const userResult = await pool.query(
-      'SELECT id, username, name, email, verified, email_verified, profile_pic_url, is_admin, bio, tiktok_url, youtube_url, instagram_url, facebook_url, x_url, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
+      'SELECT id, username, name, email, verified, email_verified, is_supporter, profile_pic_url, is_admin, bio, tiktok_url, youtube_url, instagram_url, facebook_url, x_url, is_private, terms_accepted, privacy_policy_accepted, policy_accepted_at, policy_version, subscription_tier, subscription_expires_at, date_of_birth FROM users WHERE id = $1',
       [req.user.id]
     );
     
@@ -379,7 +379,7 @@ router.get('/:userId/followers', optionalBetterAuthMiddleware, async (req, res, 
     
     // Get followers with pagination
     const followersQuery = `
-      SELECT u.id, u.username, u.name, u.profile_pic_url, u.verified,
+      SELECT u.id, u.username, u.name, u.profile_pic_url, u.verified, u.is_supporter,
              EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) as is_following
       FROM follows f
       JOIN users u ON f.follower_id = u.id
@@ -446,7 +446,7 @@ router.get('/:userId/following', optionalBetterAuthMiddleware, async (req, res, 
     
     // Get following with pagination
     const followingQuery = `
-      SELECT u.id, u.username, u.name, u.profile_pic_url, u.verified,
+      SELECT u.id, u.username, u.name, u.profile_pic_url, u.verified, u.is_supporter,
              EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) as is_following
       FROM follows f
       JOIN users u ON f.following_id = u.id
@@ -965,7 +965,7 @@ router.get('/by-username/:username', async (req, res, next) => {
   const { username } = req.params;
   try {
     const result = await pool.query(
-      'SELECT id, username, name, bio, verified, profile_pic_url, is_private, tiktok_url, youtube_url, instagram_url, facebook_url, x_url FROM users WHERE username = $1',
+      'SELECT id, username, name, bio, verified, is_supporter, profile_pic_url, is_private, tiktok_url, youtube_url, instagram_url, facebook_url, x_url FROM users WHERE username = $1',
       [username]
     );
     

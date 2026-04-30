@@ -33,7 +33,7 @@ router.get('/', async (req, res, next) => {
         SELECT DISTINCT
           t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
           t.layer, t.parent_track_id, t.play_count, t.metronome_bpm, t.created_at,
-          u.username, u.verified, u.profile_pic_url,
+          u.username, u.verified, u.profile_pic_url, u.is_supporter,
           t2.title AS original_title,
           t.collab_count,
           EXISTS(SELECT 1 FROM likes WHERE user_id = $1 AND track_id = t.id) AS is_liked,
@@ -102,7 +102,7 @@ router.get('/', async (req, res, next) => {
     if (!type || type === 'all' || type === 'users') {
       const usersQuery = `
         SELECT
-          u.id, u.username, u.name, u.profile_pic_url, u.verified, u.bio, u.is_private,
+          u.id, u.username, u.name, u.profile_pic_url, u.verified, u.bio, u.is_private, u.is_supporter,
           (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS follower_count,
           (SELECT COUNT(*) FROM tracks WHERE user_id = u.id AND processing_status = 'completed') AS track_count,
           EXISTS(SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = u.id) AS is_following,

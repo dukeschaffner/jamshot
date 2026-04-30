@@ -249,9 +249,9 @@ function SubscribeContent() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Choose Your Plan</h1>
+        <h1 className={styles.title}>Become a Beta Supporter</h1>
         <p className={styles.subtitle}>
-          Unlock more features and support the development of Sterio
+          Support the development of Sterio and unlock more features
         </p>
       </div>
 

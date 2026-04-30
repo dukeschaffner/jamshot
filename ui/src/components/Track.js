@@ -31,6 +31,7 @@ import VideoExportStatusModal from './VideoExportStatusModal';
 import {usePluginWebSocket} from '../contexts/PluginWebSocketContext';
 import TrackMetaAudio from './TrackMetaAudio';
 import TagsTab from './track/components/TagsTab';
+import BetaSupporterBadge from './BetaSupporterBadge';
 
 
 export default function Track(
@@ -585,6 +586,7 @@ export default function Track(
                 {track.username ? track.username : "Unknown Artist"}
               </span>
               {track.verified && <FaCheckCircle className="verified-icon" />}
+              {(track.is_supporter || track.isSupporter) && <BetaSupporterBadge variant="icon" />}
             </div>
           </div>
 

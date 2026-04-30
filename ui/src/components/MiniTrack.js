@@ -13,6 +13,7 @@ import { getLikeCountString } from '../lib/utils';
 import { useMobile } from '../contexts/MobileContext';
 import styles from './MiniTrack.module.css';
 import TrackTags from './TrackTags';
+import BetaSupporterBadge from './BetaSupporterBadge';
 import {
   captureTrackPlayPressed,
   captureTrackSurfaceViewed,
@@ -147,6 +148,7 @@ export default function MiniTrack(
         >
           {track.username || 'Unknown Artist'}
           {track.verified && <FaCheckCircle className="verified-icon" />}
+          {(track.is_supporter || track.isSupporter) && <BetaSupporterBadge variant="icon" />}
         </span>
       </div>
       {track.created_at && (

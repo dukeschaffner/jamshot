@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import MiniTrack from '../../components/MiniTrack';
 import CustomTabs from '../../components/CustomTabs';
+import BetaSupporterBadge from '../../components/BetaSupporterBadge';
 import { trackUserFollow, trackUserUnfollow, trackSearch } from '../../lib/analytics';
 import { FaCheckCircle, FaSearch, FaMusic, FaUsers } from 'react-icons/fa';
 import Cookies from 'js-cookie';
@@ -158,8 +159,9 @@ function SearchContent() {
                   {user.name || user.username}
                 </Link>
                 {user.verified && (
-                  <FaCheckCircle className="verified-icon ml-1" style={{ alignSelf: 'center' }} />
+                  <FaCheckCircle className="verified-icon" style={{ alignSelf: 'center' }} />
                 )}
+                {(user.is_supporter || user.isSupporter) && <BetaSupporterBadge variant="icon" />}
               </div>
               <div className="user-handle">
                 @{user.username}

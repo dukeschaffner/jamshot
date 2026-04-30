@@ -1775,6 +1775,7 @@ router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res, next) =>
         u.username,
         u.name,
         u.verified,
+        u.is_supporter,
         u.profile_pic_url,
         l.created_at as liked_at,
         CASE WHEN f.follower_id IS NOT NULL THEN true ELSE false END as is_following
@@ -1854,6 +1855,7 @@ router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res, next)
         u.username,
         u.name,
         u.verified,
+        u.is_supporter,
         u.profile_pic_url,
         (SELECT COUNT(*) FROM comments WHERE parent_comment_id = c.id) AS reply_count,
         (c.user_id = $4) AS is_owner

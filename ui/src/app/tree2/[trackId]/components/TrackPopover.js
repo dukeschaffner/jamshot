@@ -6,6 +6,7 @@ import { FaCheckCircle, FaPlay, FaPause } from 'react-icons/fa';
 import { useAudio } from '../../../../lib/AudioContext';
 import { useLoopListening } from '../utils/LoopListeningContext';
 import TrackTags from '../../../../components/TrackTags';
+import BetaSupporterBadge from '../../../../components/BetaSupporterBadge';
 import styles from './TrackPopover.module.css';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false }) {
@@ -74,6 +75,7 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
               {track?.verified && (
                 <FaCheckCircle className={styles['verified-icon']} />
               )}
+              {(track?.is_supporter || track?.isSupporter) && <BetaSupporterBadge variant="icon" />}
             </div>
             <div className={styles['popover-track-title']}>{track?.title}</div>
           </div>
