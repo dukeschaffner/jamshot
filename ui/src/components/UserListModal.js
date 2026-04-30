@@ -6,6 +6,7 @@ import { FaTimes, FaUserPlus, FaUserCheck } from 'react-icons/fa';
 import api from '../lib/api';
 import { useUser } from '../contexts/UserContext';
 import Image from 'next/image';
+import BetaSupporterBadge from './BetaSupporterBadge';
 
 export default function UserListModal({ 
   isOpen, 
@@ -162,6 +163,7 @@ export default function UserListModal({
                     <span className="username">
                       {user.username}
                       {user.verified && <span className="verified-badge">✓</span>}
+                      {(user.is_supporter || user.isSupporter) && <BetaSupporterBadge />}
                     </span>
                     {user.name && <span className="user-full-name">{user.name}</span>}
                   </div>

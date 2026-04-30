@@ -6,6 +6,7 @@ import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRandom, FaRedo, FaMus
   FaVolumeUp, FaVolumeMute, FaChevronDown, FaCheckCircle } from 'react-icons/fa';
 import styles from './GlobalPlayer.module.css';
 import { useMobile } from '../contexts/MobileContext';
+import BetaSupporterBadge from './BetaSupporterBadge';
 
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -181,6 +182,7 @@ export default function GlobalPlayer() {
                 {currentTrack.username}
               </span>
               {currentTrack.verified && <FaCheckCircle className="verified-icon" />}
+              {(currentTrack.is_supporter || currentTrack.isSupporter) && <BetaSupporterBadge variant="icon" />}
             </div>
           </div>
         </div>
@@ -310,6 +312,7 @@ export default function GlobalPlayer() {
                   {currentTrack.username}
                 </span>
                 {currentTrack.verified && <FaCheckCircle className="verified-icon" />}
+                {(currentTrack.is_supporter || currentTrack.isSupporter) && <BetaSupporterBadge variant="icon" />}
               </div>
             </div>
 

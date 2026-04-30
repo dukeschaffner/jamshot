@@ -6,6 +6,7 @@ import Track from '../../../components/Track';
 import CustomTabs from '../../../components/CustomTabs';
 import UserListModal from '../../../components/UserListModal';
 import LoadingSpinner from '../../../components/LoadingSpinner';
+import BetaSupporterBadge from '../../../components/BetaSupporterBadge';
 import {
   FaCamera,
   FaLock,
@@ -399,6 +400,7 @@ export default function UserPage() {
               {userProfile?.verified && (
                 <span className="verified-badge" title="Verified Artist">✓</span>
               )}
+              {(userProfile?.is_supporter || userProfile?.isSupporter) && <BetaSupporterBadge variant='icon'/>}
               {userProfile?.is_private && (
                 <span className="private-badge" title="Private Account">
                   <FaLock />

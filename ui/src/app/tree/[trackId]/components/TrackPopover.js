@@ -10,6 +10,7 @@ import { useLoopListening } from '../utils/LoopListeningContext';
 import TrackTags from '../../../../components/TrackTags';
 import TrackMeta from '../../../../components/TrackMeta';
 import TimeDisplay from '../../../../components/TimeDisplay';
+import BetaSupporterBadge from '../../../../components/BetaSupporterBadge';
 import styles from './TrackPopover.module.css';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false, onTrackLikeUpdate, onTrackRepostUpdate }) {
@@ -144,6 +145,7 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
               {track?.verified && (
                 <FaCheckCircle className={styles['verified-icon']} />
               )}
+              {(track?.is_supporter || track?.isSupporter) && <BetaSupporterBadge variant="icon" />}
             </div>
             <div className={styles['popover-track-title']}>
               <span
