@@ -84,10 +84,10 @@ for (const [version, basePlan] of Object.entries(TEAM_PLANS)) {
 async function checkDailyUploadQuota(userId, user = null, subscription = null) {
   try {
     // Check if subscriptions feature is enabled
-    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    const subscriptionsQuotasEnabled = false;
     
     // If subscriptions disabled, use hidden limits (50/day, 500 total)
-    if (!subscriptionsEnabled) {
+    if (!subscriptionsQuotasEnabled) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -178,10 +178,10 @@ async function checkDailyUploadQuota(userId, user = null, subscription = null) {
 async function checkTotalUploadQuota(userId, user = null, subscription = null) {
   try {
     // Check if subscriptions feature is enabled
-    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
+    const subscriptionsQuotasEnabled = false;
     
     // If subscriptions disabled, use hidden limits (50/day, 500 total)
-    if (!subscriptionsEnabled) {
+    if (!subscriptionsQuotasEnabled) {
       const totalTrackCountResult = await pool.query(
         'SELECT COUNT(*) FROM tracks WHERE user_id = $1 AND processing_status = $2 AND camp_id IS NULL AND team_id IS NULL',
         [userId, 'completed']
