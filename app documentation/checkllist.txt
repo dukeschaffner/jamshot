@@ -36,10 +36,6 @@ LEGAL
 - splitting royalties if song uploaded
 
 
-
-track tree page for non loop tracks
-
-
 competitions:
 - on create page, add note indicating times are in user's timezone (check timezone logic)
 - maybe move competition specific logic from track component to competition component

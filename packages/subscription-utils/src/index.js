@@ -26,7 +26,6 @@ export const SUBSCRIPTION_PLANS = {
       ads: true,
       free_samples_per_month: 0,
       advanced_daw: false,
-      host_competitions: false,
       no_hosting_fees: false
     },
     limits: {
@@ -59,7 +58,6 @@ export const SUBSCRIPTION_PLANS = {
       ads: false,
       free_samples_per_month: 0,
       advanced_daw: false,
-      host_competitions: true,
       no_hosting_fees: false
     },
     limits: {
@@ -73,7 +71,6 @@ export const SUBSCRIPTION_PLANS = {
       'Beta Supporter Badge',
       'Private tracks',
       'Analytics',
-      'Host competitions',
     //   'No ads'
     ]
   },
@@ -94,7 +91,6 @@ export const SUBSCRIPTION_PLANS = {
       ads: false,
       free_samples_per_month: 5,
       advanced_daw: true,
-      host_competitions: true,
       no_hosting_fees: true
     },
     limits: {
@@ -111,7 +107,7 @@ export const SUBSCRIPTION_PLANS = {
     //   'Advanced DAW',
     //   '5 free samples per month',
       'Analytics + streams by user',
-      'Host competitions (No hosting fees)',
+      'No hosting fees for competitions',
       'Priority support',
     //   'No ads'
     ]
