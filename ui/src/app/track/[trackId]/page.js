@@ -283,7 +283,7 @@ function TrackContent() {
                 <button 
                   className={`pill-btn w-min`}
                   onClick={handlePrivacyToggle}
-                  disabled={isPrivacyToggleInProgress || (track.child_count > 0 && !track.is_private)}
+                  disabled={isPrivacyToggleInProgress || (track?.child_count > 0 && !track?.is_private)}
                 >
                   {isPrivate ? (
                     <>
