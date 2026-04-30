@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import LoopListeningEngine from './LoopListeningEngine';
+import StandardPlaybackEngine from './StandardPlaybackEngine';
 import { eventBus } from '../../../../components/DAW/misc/EventBus.js';
 import { DAW_EVENTS } from '../../../../components/DAW/misc/DAWEvents.js';
 import { getAudioBufferFromS3 } from '../../../../components/DAW/misc/DAWUtils.js';
@@ -163,16 +164,23 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
   
   // Initialize audio context and engine
   useEffect(() => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    
-    if (!engineRef.current) {
-      engineRef.current = new LoopListeningEngine(audioContextRef.current, getNextTrack);
-    }
     
     // Decode root track audio and set loop duration from decoded buffer
     if (rootTrack) {
+      if(rootTrack.is_loop) {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        if (!engineRef.current) {
+          engineRef.current = new LoopListeningEngine(audioContextRef.current, getNextTrack);
+        }
+      }
+      else{
+        if (!engineRef.current) {
+          engineRef.current = new StandardPlaybackEngine(getNextTrack);
+        }
+      }
       const audioUrl = rootTrack.combined_audio_url || rootTrack.audio_url;
       if (audioUrl && audioContextRef.current) {
         const bufferKey = `${rootTrack.id}_root-loop`;
@@ -181,7 +189,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
         if (bufferRegistry.hasBuffer(bufferKey)) {
           const buffer = bufferRegistry.getBuffer(bufferKey);
           const duration = buffer.duration;
-          if (engineRef.current) {
+          if (engineRef.current && engineRef.current instanceof LoopListeningEngine) {
             engineRef.current.setLoopDuration(duration);
             setLoopDuration(duration);
           }
@@ -196,7 +204,7 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
               });
               
               const duration = buffer.duration;
-              if (engineRef.current) {
+              if (engineRef.current && engineRef.current instanceof LoopListeningEngine) {
                 engineRef.current.setLoopDuration(duration);
                 setLoopDuration(duration);
               }
@@ -204,14 +212,14 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
             .catch((error) => {
               console.error('Error decoding root track audio:', error);
               // Fallback to track duration if available
-              if (rootTrack.duration) {
+              if (rootTrack.duration && engineRef.current && engineRef.current instanceof LoopListeningEngine) {
                 const duration = rootTrack.duration;
                 engineRef.current.setLoopDuration(duration);
                 setLoopDuration(duration);
               }
             });
         }
-      } else if (rootTrack.duration) {
+      } else if (rootTrack.duration && engineRef.current && engineRef.current instanceof LoopListeningEngine) {
         // Fallback to track duration if no audio URL
         const duration = rootTrack.duration;
         engineRef.current.setLoopDuration(duration);
@@ -240,8 +248,8 @@ export function LoopListeningProvider({ children, rootTrack, treeDataManager }) 
     setCurrentTrack(track);
     
     // Get loop duration from root track or use track duration
-    let duration = loopDuration;
-    if (!duration && rootTrack?.duration) {
+    let duration = track.is_loop ? loopDuration : track.duration;
+    if (!duration && rootTrack?.duration && engineRef.current && engineRef.current instanceof LoopListeningEngine) {
       duration = rootTrack.duration;
       engineRef.current.setLoopDuration(duration);
       setLoopDuration(duration);
