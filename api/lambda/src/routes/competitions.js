@@ -544,18 +544,6 @@ router.post('/create', contentCreationLimiter, authMiddleware, async (req, res, 
     const user = userResult.rows[0];
     const subscription = getUserPlan(user);
     
-    // Check if subscriptions feature is enabled
-    const subscriptionsEnabled = await isFeatureEnabled('subscriptions', false);
-    
-    // If subscriptions disabled, allow all users to host competitions
-    // Otherwise, check subscription tier
-    if (subscriptionsEnabled && !subscription.features.host_competitions) {
-      return res.status(403).json({ 
-        error: 'Your subscription tier does not allow hosting competitions. Upgrade your plan to host competitions.',
-        upgrade_link: `${process.env.FRONTEND_URL || ''}/subscribe`
-      });
-    }
-    
     // Calculate fees
     const platformFee = Math.round(prizeAmount * 0.15); // 15% platform fee
     const pinningFee = pinned ? 2500 : 0; // $25 for pinning
