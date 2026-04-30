@@ -7,12 +7,9 @@ priority: 9
 area: ''
 tags: []
 ---
-reenable subscriptions
-- leave upload quota disabled
 - add perks to subscription:
 - boosts - 1 per week
 - show collabs higher in the related tracks view
 - profile customization (background image, pinned track, colors?)
-- supporter badge
 
-postition subscriptions as being an early/beta supporter
+add support beta CTA to home page like sponsored message
