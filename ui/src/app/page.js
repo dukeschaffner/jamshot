@@ -291,8 +291,8 @@ export default function Home() {
         </div>
         
         {/* Desktop Sidebar - Show sponsored competition on desktop */}
-        {!isMobile && hasSponsoredCompetition && (
-          <div className={styles.sidebar}>
+        {!isMobile && (
+          <div className={styles.sidebar} style={{display: hasSponsoredCompetition ? 'block' : 'none'}}>
             <SponsoredCompetition 
               variant="sidebar" 
               setHasSponsoredCompetition={setHasSponsoredCompetition}

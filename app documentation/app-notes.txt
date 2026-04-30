@@ -150,6 +150,55 @@ Camps:
 </CAMPS_AND_TEAMS>
 
 
+<LOOP_MODE_AND_STERIO_STREAM>
+- loop listening mode
+    - track which tracks/collabs are "loops" - a loop is a track that is one or more loops (an even number of measures/bars) and if it's a collab, the original track region must not have been modified.
+    - this mode cycles through all the loop tracks in such a way that it sounds like a continuous loop/song.
+    - this can be done in the tree view where each track is a circle node in the tree graph
+    - really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
+    - "mix mode" - user can define the traversal order, creating their own mix that they can share
+      - popular mixes can be published on streaming platforms
+    - queue button on track tree popover in addition to play button
+      - only allow one track in queue for now
+
+Sterio loop listening mode stream
+- weekly event with guest hosts
+- hosts: me, Chris (digital marketing/content creator), Rob $tone or guest influencer host
+- root track: 
+    - posted 1 week before event (not public)
+    - ensure at least 10-15 tracks seeded before event
+        - monetize early access with VIP tiers:
+            - early access 
+            - early access + guaranteed listen on stream (limit 25). guarantee only applies if not spam or not violating any rules.
+        - if not enough tracks posted, have people do it for free with access code
+- this generates free content:
+    - "30 people collab on song in 1 hour" video
+    - clips from the stream (Rob reacting to collabs or writing a part, etc)
+- try to get sponsors for the event
+- A stream:
+    - me, Chris, and influencer host curating the listening and reacting to Chat
+- B stream:
+    - same as A stream, but when one of us gets inspiration, B stream follows one of us working on creating a new collab
+- browse the site on stream:
+    - if there's a cool track, go to their page and follow them
+    - briefly browse the feed
+- share new development/features on stream
+- after the event, the collab tree can be turned into a mix for streaming services
+    - maybe even have a mixing competition: best mix gets shoutout on Rob's socials and sterio and gets posted to streaming services
+- allow users to link their socials to their sterio profile
+</LOOP_MODE_AND_STERIO_STREAM>
+
+<STERIO_PLUGIN>
+- plugin to allow users to explore and record audio in their own DAW
+- user can login to their sterio account and view their liked tracks in the plugin
+- once the user selects a track, the plugin will download the stems and metadata for the track
+- if a track is selected and the user starts playback in their DAW, the plugin will playback the stems using the region metadata and gain values in perfect sync with the DAW's transport state
+- this allows users to record audio in their own DAW with the reference sterio track. the user can then export the recording as a .wav file and upload it to sterio to share with others.
+- the plugin also has a websocket server that supports live updates/sync between the plugin and the web app
+  - in the web app, the user can click "open in plugin" on a track to open the track in the plugin
+  - in the web app's DAW, the user can click "sync edits to plugin" to sync the edits made in the DAW (region edits, gain changes, etc) to the plugin
+</STERIO_PLUGIN>
+
 Progress:
 - Responsive web app
   - fully featured with social feed, profile, search, DAW, Teams, and Camps
@@ -159,7 +208,6 @@ Progress:
 
 <FUTURE_FEATURES>
   - Electron Desktop app with JUCE Tracktion engine based DAW
-  - Sterio plugin to allow users to explore and record audio in their own DAW
   - Mobile Swift app with JUCE Tracktion engine based DAW
 
   <GAMIFICATION>
@@ -198,42 +246,5 @@ Progress:
         - scout leaderboard has minumum bet count requirement
         - reputation decays over time
     - confidence tiers/allow varying token amounts for bets?
-
-
-- loop listening mode
-    - track which tracks/collabs are "loops" - a loop is a track that is one or more loops (an even number of measures/bars) and if it's a collab, the original track region must not have been modified.
-    - this mode cycles through all the loop tracks in such a way that it sounds like a continuous loop/song.
-    - this can be done in the tree view where each track is a circle node in the tree graph
-    - really cool for House beats -> results in continuous loop/song but users can navigate through or swap out different loops/layers from other users.
-    - "mix mode" - user can define the traversal order, creating their own mix that they can share
-      - popular mixes can be published on streaming platforms
-    - queue button on track tree popover in addition to play button
-      - only allow one track in queue for now
-
-Sterio loop listening mode stream
-- weekly event with guest hosts
-- hosts: me, Chris (digital marketing/content creator), Rob $tone or guest influencer host
-- root track: 
-    - posted 1 week before event (not public)
-    - ensure at least 10-15 tracks seeded before event
-        - monetize early access with VIP tiers:
-            - early access 
-            - early access + guaranteed listen on stream (limit 25). guarantee only applies if not spam or not violating any rules.
-        - if not enough tracks posted, have people do it for free with access code
-- this generates free content:
-    - "30 people collab on song in 1 hour" video
-    - clips from the stream (Rob reacting to collabs or writing a part, etc)
-- try to get sponsors for the event
-- A stream:
-    - me, Chris, and influencer host curating the listening and reacting to Chat
-- B stream:
-    - same as A stream, but when one of us gets inspiration, B stream follows one of us working on creating a new collab
-- browse the site on stream:
-    - if there's a cool track, go to their page and follow them
-    - briefly browse the feed
-- share new development/features on stream
-- after the event, the collab tree can be turned into a mix for streaming services
-    - maybe even have a mixing competition: best mix gets shoutout on Rob's socials and sterio and gets posted to streaming services
-- allow users to link their socials to their sterio profile
 
 </FUTURE_FEATURES>

@@ -25,6 +25,7 @@ router.get('/sponsored', async (req, res, next) => {
       SELECT 
         c.*,
         t.id as track_id,
+        t.guid as track_guid,
         t.title as track_title,
         t.audio_url,
         t.combined_audio_url,
@@ -42,6 +43,7 @@ router.get('/sponsored', async (req, res, next) => {
         u.verified,
         u.profile_pic_url,
         t2.title AS original_title,
+        u2.username AS original_username,
         t.collab_count,
         ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $3 AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
         t.like_count,
@@ -54,6 +56,7 @@ router.get('/sponsored', async (req, res, next) => {
       JOIN tracks t ON c.track_id = t.id
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE c.sponsored = true 
         AND c.startdate <= $1 
         AND c.enddate >= $2
@@ -77,6 +80,7 @@ router.get('/sponsored', async (req, res, next) => {
     const trackData = {
       ...row,
       id: row.track_id,
+      guid: row.track_guid,
       title: row.track_title,
       created_at: row.track_created_at
     };
@@ -204,6 +208,7 @@ router.get('/', async (req, res, next) => {
       SELECT 
         c.*,
         t.id as track_id,
+        t.guid as track_guid,
         t.title as track_title,
         t.audio_url,
         t.combined_audio_url,
@@ -224,6 +229,7 @@ router.get('/', async (req, res, next) => {
         u.verified,
         u.profile_pic_url,
         t2.title AS original_title,
+        u2.username AS original_username,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
         ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $' + (selectParamOffset + 1) + ' AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
         (SELECT COUNT(*) FROM tracks WHERE competition_id = c.id AND is_competition_entry = true) AS entry_count,
@@ -233,6 +239,7 @@ router.get('/', async (req, res, next) => {
       JOIN tracks t ON c.track_id = t.id
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
     `;
     
     if (whereClause) {
@@ -276,6 +283,7 @@ router.get('/', async (req, res, next) => {
       const trackData = {
         ...row,
         id: row.track_id,
+        guid: row.track_guid,
         title: row.track_title,
         created_at: row.track_created_at
       };
@@ -334,6 +342,7 @@ router.get('/:id', async (req, res, next) => {
       SELECT 
         c.*,
         t.id as track_id,
+        t.guid as track_guid,
         t.title as track_title,
         t.audio_url,
         t.combined_audio_url,
@@ -354,6 +363,7 @@ router.get('/:id', async (req, res, next) => {
         u.verified,
         u.profile_pic_url,
         t2.title AS original_title,
+        u2.username AS original_username,
         (SELECT COUNT(*) FROM tracks t3 WHERE t3.parent_track_id = t.id) AS collab_count,
         ${userId ? 'EXISTS(SELECT 1 FROM likes WHERE user_id = $2 AND track_id = t.id) AS is_liked,' : 'false AS is_liked,'}
         (SELECT COUNT(*) FROM tracks WHERE competition_id = c.id AND is_competition_entry = true) AS entry_count,
@@ -363,6 +373,7 @@ router.get('/:id', async (req, res, next) => {
       JOIN tracks t ON c.track_id = t.id
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE c.id = $1
     `;
     
@@ -378,6 +389,7 @@ router.get('/:id', async (req, res, next) => {
     const trackData = {
       ...row,
       id: row.track_id,
+      guid: row.track_guid,
       title: row.track_title,
       created_at: row.track_created_at
     };
@@ -865,10 +877,10 @@ router.get('/:id/entries', async (req, res, next) => {
     let baseQuery;
     let queryParams;
     if (userId) {
-      baseQuery = getBaseTrackSelectQuery(true, 2, false);
+      baseQuery = getBaseTrackSelectQuery(true, 2, true);
       queryParams = [competitionId, userId];
     } else {
-      baseQuery = getBaseTrackSelectQuery(false, 1, false);
+      baseQuery = getBaseTrackSelectQuery(false, 1, true);
       queryParams = [competitionId];
     }
 
@@ -879,6 +891,7 @@ router.get('/:id/entries', async (req, res, next) => {
       FROM tracks t
       LEFT JOIN tracks t2 ON t.parent_track_id = t2.id
       LEFT JOIN users u ON t.user_id = u.id
+      LEFT JOIN users u2 ON t2.user_id = u2.id
       WHERE t.is_competition_entry = true 
         AND t.competition_id = $1
       ORDER BY t.created_at DESC

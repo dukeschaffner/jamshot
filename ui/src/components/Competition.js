@@ -143,10 +143,8 @@ export default function Competition({
   };
 
   const getPrizeDisplay = () => {
-    if (competition.prize_amount) {
-      return `$${(competition.prize_amount / 100).toFixed(0)}`;
-    }
-    return 'Prize TBD';
+    if (competition.prize_amount == null) return null;
+    return `$${(competition.prize_amount / 100).toFixed(0)}`;
   };
 
   const getTimeRemaining = () => {
@@ -185,10 +183,12 @@ export default function Competition({
           )}
           
           <div className={styles.competitionMeta}>
-            <div className={styles.metaItem}>
-              <FaDollarSign />
-              <span>{getPrizeDisplay()}</span>
-            </div>
+            {competition.prize_amount != null && (
+              <div className={styles.metaItem}>
+                <FaDollarSign />
+                <span>{getPrizeDisplay()}</span>
+              </div>
+            )}
             <div className={styles.metaItem}>
               <FaUsers />
               <span>{entryCount} entr{entryCount !== 1 ? 'ies' : 'y'}</span>

@@ -1,5 +1,6 @@
 RUNNING STRIPE: 
 stripe listen --forward-to localhost:5001/api/payments/webhook
+if expired: stripe login
 
 RUNNING AUDIO PROCESSING DEV SERVER: 
 node ./functions/lambda/audio-processing/dev-start.js
