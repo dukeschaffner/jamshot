@@ -3,7 +3,7 @@ id: 19
 title: Input monitoring level
 type: task
 status: open
-priority: 5
+priority: 4
 area: ''
 tags: []
 ---

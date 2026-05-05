@@ -3,7 +3,7 @@ id: 31
 title: Feed queue does not refill
 type: bug
 status: open
-priority: 5
+priority: 7
 area: ''
 tags: []
 ---
