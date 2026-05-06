@@ -1,0 +1,56 @@
+.card {
+  margin-top: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background);
+  border: 1px solid var(--grey-2);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+:global(body.dark-mode) .card {
+  background: var(--grey-1);
+  border-color: var(--grey-3);
+}
+
+.flushTop {
+  margin-top: 0;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: linear-gradient(135deg, rgba(147, 233, 190, 0.25), rgba(244, 201, 196, 0.25));
+}
+
+.badgeIcon {
+  color: var(--rustic-pink);
+  flex-shrink: 0;
+}
+
+.content {
+  padding: 12px;
+}
+
+.title {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.description {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.button {
+  width: 100%;
+}
+

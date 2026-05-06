@@ -5,6 +5,7 @@ import Track from '../components/Track';
 import InfiniteScrollContainer from '../components/InfiniteScrollContainer';
 import CustomTabs from '../components/CustomTabs';
 import SponsoredCompetition from '../components/SponsoredCompetition';
+import SupportBetaCTA from '../components/SupportBetaCTA';
 import TagFilter from '../components/TagFilter';
 import { FaTimes, FaInfoCircle, FaMicrophone, FaMusic } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
@@ -20,7 +21,7 @@ export default function Home() {
   const [feedType, setFeedType] = useState(null); // Options: 'following', 'popular'
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const TRACKS_PER_PAGE = 5;
-  const { isAuthenticated, isLoading } = useUser();
+  const { isAuthenticated, isLoading, userPlan } = useUser();
   const { isMobile } = useMobile();
   const [hasSponsoredCompetition, setHasSponsoredCompetition] = useState(false);
 
@@ -147,6 +148,12 @@ export default function Home() {
     ...(isAuthenticated ? [{ key: 'following', label: 'Following' }] : []),
     { key: 'popular', label: 'Popular' }
   ];
+
+  const shouldShowSupportBetaCTA =
+    !isMobile &&
+    isAuthenticated &&
+    !isLoading &&
+    userPlan?.id === SUBSCRIPTION_TIERS.FREE;
 
   return (
     <div className={styles.feedContainer}>
@@ -292,11 +299,15 @@ export default function Home() {
         
         {/* Desktop Sidebar - Show sponsored competition on desktop */}
         {!isMobile && (
-          <div className={styles.sidebar} style={{display: hasSponsoredCompetition ? 'block' : 'none'}}>
+          <div
+            className={styles.sidebar}
+            style={{ display: hasSponsoredCompetition || shouldShowSupportBetaCTA ? 'block' : 'none' }}
+          >
             <SponsoredCompetition 
               variant="sidebar" 
               setHasSponsoredCompetition={setHasSponsoredCompetition}
             />
+            {shouldShowSupportBetaCTA && <SupportBetaCTA flushTop={!hasSponsoredCompetition} />}
           </div>
         )}
       </div>
