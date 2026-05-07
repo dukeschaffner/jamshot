@@ -1,0 +1,17 @@
+leaderboards/featured
+
+
+leaderboards:
+- top 10 collabs of the week
+    - collab tracks that were the most popular over the last week
+- top 10 original tracks of the week
+    - original tracks that received the most unique collaborators over the last week
+
+featured:
+- curated top 5 collabs from last week
+- Rob's pick of the week
+
+
+badges:
+- track level badge (top 10 collab of the week, etc)
+- user level badge (4x featured, etc)
