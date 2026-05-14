@@ -1,10 +1,12 @@
 leaderboards/featured
 
+all charts reset every monday at midnight eastern time
+charts must not include private tracks
 
 leaderboards:
-- top 10 collabs of the week
+- top 10 collabs of the week (any track with a parent track id)
     - collab tracks that were the most popular over the last week
-- top 10 original tracks of the week
+- top 10 original tracks of the week (tracks with no parent track id)
     - original tracks that received the most unique collaborators over the last week
 
 featured:
@@ -15,3 +17,7 @@ featured:
 badges:
 - track level badge (top 10 collab of the week, etc)
 - user level badge (4x featured, etc)
+
+- it'll need an admin page to be able to do CRUD on a featured queue for the featured tracks and Rob's pick. this will allow us to have all the featured tracks ready to go, then when the lambda runs to generate the week's leaderboards, it can also set the featured tracks and rob's pick from the queue and then clear the queue.
+- the page should be called leaderboards and it should have two tabs: featured and leaderboards.
+- the page/lambda should be gated by feature flags: leaderboards and featured. the featured page should only be visible/accessible if one of the  feature flags is enabled.
