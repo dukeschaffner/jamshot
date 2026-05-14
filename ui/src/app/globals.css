@@ -2369,6 +2369,26 @@ body.dark-mode .continue-anyway-btn:hover {
   line-height: 1.5;
 }
 
+/* Full-page mobile gate (track tree, etc.) — matches DAW mobile card, centered in view */
+.page-mobile-desktop-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: min(calc(100dvh - 140px), 560px);
+  box-sizing: border-box;
+}
+
+.page-mobile-desktop-gate .mobile-collab-message {
+  width: 100%;
+  max-width: 420px;
+  margin: 0;
+}
+
+.page-mobile-desktop-gate .mobile-collab-message p {
+  max-width: 320px;
+}
+
 
 .react-flow__node-trackNode {
   border-radius: 50%;

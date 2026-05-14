@@ -37,6 +37,7 @@ import { TreeInteractionsProvider } from './utils/TreeInteractionsContext';
 import { bufferRegistry } from '../../../components/DAW/core/BufferRegistry.js';
 import SidePanel from './components/SidePanel';
 import ActivityFeed from './components/ActivityFeed';
+import { FaDesktop } from 'react-icons/fa';
 
 // Toggle for new tracks polling - set to false to disable
 const ENABLE_NEW_TRACKS_POLLING = true;
@@ -66,7 +67,6 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
   const router = useRouter();
   const searchParams = useSearchParams();
   const secret = searchParams.get('secret');
-  const { isMobile } = useMobile();
   const { showInfo } = useToast();
   const [treeType, setTreeType] = useState('concentric');
   const treeDataManager = treeDataManagerProp;
@@ -675,11 +675,6 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
     };
   }, [initialLoadComplete, trackId, secret, showInfo, selectedTrackId, generateNodesAndEdges]);
 
-  // Loading and error are handled by outer component
-  if (isMobile) {
-    return null; // Will redirect
-  }
-
   return (
     <TreeInteractionsProvider navigateToPlayingTrack={navigateToPlayingTrack}>
       <div className={styles['track-tree-page']} style={{ width: '100%', height: '100%', display: 'flex' }}>
@@ -777,7 +772,7 @@ export default function TrackTreePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const secret = searchParams.get('secret');
-  const { isMobile } = useMobile();
+  const { isMobile, isLoading: mobileDetectLoading } = useMobile();
   
   const [loading, setLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -788,66 +783,91 @@ export default function TrackTreePage() {
   const [rejectionReason, setRejectionReason] = useState(null);
   const treeDataManager = useRef(null);
 
-  // Check if mobile - redirect to old tree view
   useEffect(() => {
-    if (!isMobile && isMobile !== undefined) {
-      const loadTree = async () => {
-        setLoading(true);
-        setModerationStatus(null);
-        setRejectionReason(null);
-
-        try {
-          treeDataManager.current = new TreeDataManager(secret);
-          if(DEBUG_MODE) {
-            window.tdm = treeDataManager.current;
-          }
-          await treeDataManager.current.fetchTrackTree(trackId);
-
-          // Get root track and check if it's a loop track
-          const rootTrackId = treeDataManager.current.rootTrackId;
-          if (rootTrackId && treeDataManager.current.trackData.has(rootTrackId)) {
-            const root = treeDataManager.current.trackData.get(rootTrackId);
-            setRootTrack(root);
-            setIsLoopMode(root.is_loop || false);
-          }
-
-          setInitialLoadComplete(true);
-        } catch (err) {
-          console.error('Failed to load track tree:', err);
-
-          // Check if this is a moderation-related error
-          if (err.response && err.response.data && err.response.data.error) {
-            const errorData = err.response.data.error;
-            if (errorData.code === 'TRACK_WAITING_FOR_APPROVAL') {
-              setModerationStatus('waiting_for_approval');
-              setLoading(false);
-              return;
-            } else if (errorData.code === 'TRACK_REJECTED') {
-              setModerationStatus('rejected');
-              setRejectionReason(errorData.rejection_reason);
-              setLoading(false);
-              return;
-            }
-          }
-
-          setError(err.message || 'Failed to load track tree');
-        } finally {
-          setLoading(false);
-        }
-      };
-      loadTree();
-    } else if (isMobile) {
-      // Redirect to old tree view on mobile
-      router.replace(`/tree/${trackId}${secret ? `?secret=${secret}` : ''}`);
+    if (mobileDetectLoading) {
+      return undefined;
     }
 
-    // Cleanup on unmount
+    if (isMobile) {
+      setLoading(false);
+      return () => {
+        bufferRegistry.buffers.clear();
+        bufferRegistry.metadata.clear();
+      };
+    }
+
+    const loadTree = async () => {
+      setLoading(true);
+      setModerationStatus(null);
+      setRejectionReason(null);
+
+      try {
+        treeDataManager.current = new TreeDataManager(secret);
+        if(DEBUG_MODE) {
+          window.tdm = treeDataManager.current;
+        }
+        await treeDataManager.current.fetchTrackTree(trackId);
+
+        // Get root track and check if it's a loop track
+        const rootTrackId = treeDataManager.current.rootTrackId;
+        if (rootTrackId && treeDataManager.current.trackData.has(rootTrackId)) {
+          const root = treeDataManager.current.trackData.get(rootTrackId);
+          setRootTrack(root);
+          setIsLoopMode(root.is_loop || false);
+        }
+
+        setInitialLoadComplete(true);
+      } catch (err) {
+        console.error('Failed to load track tree:', err);
+
+        // Check if this is a moderation-related error
+        if (err.response && err.response.data && err.response.data.error) {
+          const errorData = err.response.data.error;
+          if (errorData.code === 'TRACK_WAITING_FOR_APPROVAL') {
+            setModerationStatus('waiting_for_approval');
+            setLoading(false);
+            return;
+          } else if (errorData.code === 'TRACK_REJECTED') {
+            setModerationStatus('rejected');
+            setRejectionReason(errorData.rejection_reason);
+            setLoading(false);
+            return;
+          }
+        }
+
+        setError(err.message || 'Failed to load track tree');
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadTree();
+
     return () => {
-      // Clear the buffer registry
       bufferRegistry.buffers.clear();
       bufferRegistry.metadata.clear();
     };
-  }, [isMobile, trackId, secret, router]);
+  }, [isMobile, mobileDetectLoading, trackId, secret]);
+
+  if (mobileDetectLoading) {
+    return (
+      <div className="track-detail-page loading">
+        <LoadingSpinner size="medium" />
+        <p>Loading track tree...</p>
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="track-detail-page page-mobile-desktop-gate">
+        <div className="mobile-collab-message">
+          <FaDesktop className="mobile-collab-icon" aria-hidden />
+          <h3>Desktop Required</h3>
+          <p>The track tree is only available on larger screens. Open this link on desktop to explore the tree.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Only render content once tree is loaded
   if (!initialLoadComplete || !treeDataManager.current) {
@@ -880,10 +900,6 @@ export default function TrackTreePage() {
         </button>
       </div>
     );
-  }
-
-  if (isMobile) {
-    return null; // Will redirect
   }
 
   // Handle moderation status
