@@ -4,28 +4,19 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { FaCheckCircle, FaCheck, FaPlay, FaPause, FaEllipsisV } from 'react-icons/fa';
-import { useAudio } from '../../../../lib/AudioContext';
 import { usePluginWebSocket } from '../../../../contexts/PluginWebSocketContext';
 import { useLoopListening } from '../utils/LoopListeningContext';
 import TrackTags from '../../../../components/TrackTags';
 import TrackMeta from '../../../../components/TrackMeta';
 import TimeDisplay from '../../../../components/TimeDisplay';
+import BetaSupporterBadge from '../../../../components/BetaSupporterBadge';
 import styles from './TrackPopover.module.css';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false, onTrackLikeUpdate, onTrackRepostUpdate }) {
   const router = useRouter();
-  const regularAudio = useAudio();
-  let loopListening;
-  
-  try {
-    loopListening = useLoopListening();
-  } catch (e) {
-    // Loop listening context not available, will use regular audio
-    loopListening = null;
-  }
   
   // Use loop listening if available and requested, otherwise use regular audio
-  const audioContext = (isLoopMode && loopListening) ? loopListening : regularAudio;
+  const audioContext = useLoopListening();
   const { currentTrack, isPlaying, playTrack, togglePlayPause, queueTrack } = audioContext;
   const { send } = usePluginWebSocket();
   
@@ -144,6 +135,7 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
               {track?.verified && (
                 <FaCheckCircle className={styles['verified-icon']} />
               )}
+              {(track?.is_supporter || track?.isSupporter) && <BetaSupporterBadge variant="icon" />}
             </div>
             <div className={styles['popover-track-title']}>
               <span

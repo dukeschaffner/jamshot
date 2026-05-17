@@ -36,14 +36,6 @@ LEGAL
 - splitting royalties if song uploaded
 
 
-
-
-
 competitions:
-- on create page, add note indicating times are in user's timezone
-- add support for non-cash prizes (maybe prize description field)
-- copy link button is orange
-- enter comptition goes to: https://test.sterio.fm/track/undefined?competition=5
-- make sure sponsored competition shows on home page
-- show sponsored competitions in "active" and "upcoming" tabs
+- on create page, add note indicating times are in user's timezone (check timezone logic)
 - maybe move competition specific logic from track component to competition component

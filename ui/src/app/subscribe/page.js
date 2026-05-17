@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, TEAM_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@sterio/subscription-utils';
@@ -29,12 +29,18 @@ function SubscribeContent() {
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
   const tier = searchParams.get('tier');
+  const handledRedirectRef = useRef(false);
 
   // Check if subscriptions feature is enabled
   const subscriptionsEnabled = isFeatureEnabled('subscriptions', false);
 
   useEffect(() => {
+    // Guard: `refreshUser` may not be referentially stable across renders,
+    // so without this we can repeatedly schedule refreshes and spam downstream effects.
+    if (handledRedirectRef.current) return;
+
     if (success === 'true') {
+      handledRedirectRef.current = true;
       setMessage({ type: 'success', text: `Successfully subscribed to ${tier}!` });
       // Refresh user data to get updated subscription with retry logic
       if (refreshUser) {
@@ -44,6 +50,7 @@ function SubscribeContent() {
         }, 1000);
       }
     } else if (canceled === 'true') {
+      handledRedirectRef.current = true;
       setMessage({ type: 'error', text: 'Subscription was canceled.' });
     }
   }, [success, canceled, tier, refreshUser]);
@@ -249,9 +256,9 @@ function SubscribeContent() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Choose Your Plan</h1>
+        <h1 className={styles.title}>Become a Beta Supporter</h1>
         <p className={styles.subtitle}>
-          Unlock more features and support the development of Sterio
+          Support the development of Sterio and unlock more features
         </p>
       </div>
 

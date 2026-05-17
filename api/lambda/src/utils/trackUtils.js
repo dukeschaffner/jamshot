@@ -151,6 +151,7 @@ function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, i
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature, t.allow_download,
     t.competition_id, t.is_competition_entry, t.waveform_url, t.combined_waveform_url, t.is_loop,
     u.username, u.verified, u.profile_pic_url, u.is_private AS creator_is_private,
+    u.is_supporter,
     t2.title AS original_title,
     ${includeDetails ? 'u2.username AS original_username,' : ''}
     ${includeChildCount ? 't.collab_count,' : ''}

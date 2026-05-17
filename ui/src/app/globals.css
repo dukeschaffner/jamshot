@@ -394,6 +394,9 @@ body.dark-mode .search-box input:focus {
   font-weight: 600;
   color: var(--text-primary);
   font-size: 14px;
+  flex-direction: row;
+  display: flex;
+  gap: 4px;
 }
 
 .user-handle {

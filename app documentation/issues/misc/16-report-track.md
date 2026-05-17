@@ -3,7 +3,7 @@ id: 16
 title: Report track
 type: task
 status: open
-priority: 5
+priority: 4
 area: ''
 tags: []
 ---

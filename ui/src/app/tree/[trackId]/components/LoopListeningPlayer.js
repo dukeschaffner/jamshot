@@ -12,6 +12,7 @@ import styles from './LoopListeningPlayer.module.css';
 import { useMobile } from '../../../../contexts/MobileContext';
 import { useTreeInteractions } from '../utils/TreeInteractionsContext';
 import PlayingIndicator from '../../../../components/PlayingIndicator';
+import BetaSupporterBadge from '../../../../components/BetaSupporterBadge';
 
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -35,12 +36,19 @@ export default function LoopListeningPlayer() {
   const { navigateToPlayingTrack } = useTreeInteractions();
   
   const { isMobile } = useMobile();
+
+  console.log('currentTrack', currentTrack);
   
   // Local progress state managed by this component
   const [progress, setProgress] = useState(0);
   
-  // Track if user is currently dragging the progress bar
-  const [isDragging, setIsDragging] = useState(false);
+  // Track if user is currently interacting with the progress bar via mouse.
+  // We distinguish click-to-seek (handled by onClick) from drag-to-scrub (handled on mouseup)
+  // to avoid double-seeking on a plain click.
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const dragStartedRef = useRef(false);
+  const mouseDownXRef = useRef(0);
+  const suppressNextClickRef = useRef(false);
   
   // Mobile modal state
   const [showMobileModal, setShowMobileModal] = useState(false);
@@ -113,6 +121,10 @@ export default function LoopListeningPlayer() {
   
   // Handle progress bar click for seeking
   const handleProgressBarClick = (e) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
     if (!progressBarRef.current || !currentTrack || !loopDuration) return;
     
     const rect = progressBarRef.current.getBoundingClientRect();
@@ -127,7 +139,9 @@ export default function LoopListeningPlayer() {
   const handleMouseDown = (e) => {
     if (!progressBarRef.current || !currentTrack || !loopDuration) return;
     
-    setIsDragging(true);
+    setIsMouseDown(true);
+    dragStartedRef.current = false;
+    mouseDownXRef.current = e.clientX;
     
     // Prevent default behavior to avoid text selection while dragging
     e.preventDefault();
@@ -135,7 +149,13 @@ export default function LoopListeningPlayer() {
   
   // Handle mouse move while dragging
   const handleMouseMove = (e) => {
-    if (!isDragging || !progressBarRef.current || !currentTrack || !loopDuration) return;
+    if (!isMouseDown || !progressBarRef.current || !currentTrack || !loopDuration) return;
+
+    // Only treat as a drag after the cursor moves a little bit.
+    if (!dragStartedRef.current && Math.abs(e.clientX - mouseDownXRef.current) > 3) {
+      dragStartedRef.current = true;
+    }
+    if (!dragStartedRef.current) return;
     
     const rect = progressBarRef.current.getBoundingClientRect();
     const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -149,16 +169,19 @@ export default function LoopListeningPlayer() {
   
   // Handle mouse up to complete seeking
   const handleMouseUp = (e) => {
-    if (isDragging && progressBarRef.current && currentTrack && loopDuration) {
+    if (dragStartedRef.current && progressBarRef.current && currentTrack && loopDuration) {
       const rect = progressBarRef.current.getBoundingClientRect();
       const position = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const seekPosition = position * loopDuration;
       
       // Perform the actual seek
       seek(seekPosition);
+      // The browser will still fire a click after mouseup; skip it since we already sought.
+      suppressNextClickRef.current = true;
     }
     
-    setIsDragging(false);
+    setIsMouseDown(false);
+    dragStartedRef.current = false;
   };
   
   // Add and remove event listeners for dragging
@@ -166,7 +189,7 @@ export default function LoopListeningPlayer() {
     const handleGlobalMouseMove = (e) => handleMouseMove(e);
     const handleGlobalMouseUp = (e) => handleMouseUp(e);
     
-    if (isDragging) {
+    if (isMouseDown) {
       window.addEventListener('mousemove', handleGlobalMouseMove);
       window.addEventListener('mouseup', handleGlobalMouseUp);
     }
@@ -175,7 +198,7 @@ export default function LoopListeningPlayer() {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [isDragging, currentTrack, loopDuration]);
+  }, [isMouseDown, currentTrack, loopDuration]);
 
   // Listen for progress and seek events to manage local progress state
   useEffect(() => {
@@ -244,6 +267,7 @@ export default function LoopListeningPlayer() {
                 {currentTrack.username}
               </span>
               {currentTrack.verified && <FaCheckCircle className="verified-icon" />}
+              {(currentTrack.is_supporter || currentTrack.isSupporter) && <BetaSupporterBadge variant="icon" />}
             </div>
           </div>
         </div>
@@ -361,6 +385,7 @@ export default function LoopListeningPlayer() {
                   {currentTrack.username}
                 </span>
                 {currentTrack.verified && <FaCheckCircle className="verified-icon" />}
+                {(currentTrack.is_supporter || currentTrack.isSupporter) && <BetaSupporterBadge variant="icon" />}
               </div>
             </div>
 

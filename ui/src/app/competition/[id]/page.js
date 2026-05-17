@@ -260,84 +260,10 @@ export default function CompetitionDetailPage() {
           <FaArrowLeft style={{ marginRight: '8px' }} />
           Back
         </button>
-        
-        <div className={styles.headerInfo}>
-          <h1 className={styles.title}>
-            <FaTrophy style={{ marginRight: '12px' }} />
-            {competition.sponsored ? competition.title : 'Competition'}
-            {competition.pinned && <span className={styles.pinnedBadge}>PINNED</span>}
-          </h1>
-          
-          {competition.sponsored && competition.sponsor_name && (
-            <p className={styles.sponsorInfo}>
-              Sponsored by {competition.sponsor_name}
-            </p>
-          )}
-        </div>
-        
-        <div className={styles.headerActions}>
-          {getStatusBadge()}
-        </div>
       </div>
-
-      {/* Competition Info */}
-      <div className={styles.competitionInfo}>
-        <div className={styles.infoGrid}>
-          <div className={styles.infoItem}>
-            <FaDollarSign />
-            <div>
-              <span className={styles.infoLabel}>Prize</span>
-              <span className={styles.infoValue}>
-                {competition.prize_amount ? `$${(competition.prize_amount / 100).toFixed(0)}` : 'Prize TBD'}
-              </span>
-            </div>
-          </div>
-          
-          <div className={styles.infoItem}>
-            <FaUsers />
-            <div>
-              <span className={styles.infoLabel}>Entries</span>
-              <span className={styles.infoValue}>{entries.length}</span>
-            </div>
-          </div>
-          
-          <div className={styles.infoItem}>
-            <FaClock />
-            <div>
-              <span className={styles.infoLabel}>Time Remaining</span>
-              <span className={styles.infoValue}>{getTimeRemaining()}</span>
-            </div>
-          </div>
-          
-          <div className={styles.infoItem}>
-            <FaCalendarAlt />
-            <div>
-              <span className={styles.infoLabel}>Selection Method</span>
-              <span className={styles.infoValue}>
-                {competition.winner_selection_method === 'automated' ? 'Automated' : 'Curated'}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <div className={styles.dates}>
-          <div className={styles.dateItem}>
-            <strong>Duration:</strong> {formatCompetitionDateRange(competition.startdate, competition.enddate)}
-          </div>
-        </div>
-      </div>
-
-      {/* Description */}
-      {competition.description && (
-        <div className={styles.description}>
-          <h3>Description</h3>
-          <p>{competition.description}</p>
-        </div>
-      )}
 
       {/* Competition Track */}
       <div className={styles.trackSection}>
-        <h3>Competition Track</h3>
         <Competition
           competition={competition}
           allTracks={[]}

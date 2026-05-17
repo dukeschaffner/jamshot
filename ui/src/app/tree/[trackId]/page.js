@@ -14,7 +14,6 @@ import LoadingSpinner from '../../../components/LoadingSpinner';
 import TrackNode from './components/TrackNode';
 import ClusterNode from './components/ClusterNode';
 import TrackPopover from './components/TrackPopover';
-import ColorLegend from './components/ColorLegend';
 import { useMobile } from '../../../contexts/MobileContext';
 import { LoopListeningProvider } from './utils/LoopListeningContext';
 import LoopListeningPlayer from './components/LoopListeningPlayer';
@@ -26,11 +25,9 @@ import ConcentricNode from './components/ConcentricNode';
 import { generateConcentricTree, handleConcentricNodeClick, animateNodeExpand, animateNodeCollapse, getPageStartIndex, canScrollChildren } from './utils/concentricRenderer';
 import DebugOverlay from './components/DebugOverlay';
 import { DEBUG_MODE, CONCENTRIC_CONFIG, MAX_NODES_PER_LEVEL, BASE_NODE_SIZE, BASE_CLUSTER_NODE_SIZE } from './utils/config';
-import { polarRadiansToCartesian } from './utils/renderUtils';
 import api from '../../../lib/api';
 import { useToast } from '../../../lib/ToastContext';
 import { useLoopListening } from './utils/LoopListeningContext';
-// import { useAudio } from '../../../lib/AudioContext';
 import RadialScrollSeam from './components/RadialScrollSeam';
 import LoadNewTracksButton from './components/LoadNewTracksButton';
 import { TreeInteractionsProvider } from './utils/TreeInteractionsContext';
@@ -747,9 +744,7 @@ function TrackTreeContent({ currentTrack, trackPath, isPlaying, playTrack, toggl
             />
           )}
           
-          {isLoopMode && (
-            <LoopListeningPlayer />
-          )}
+          <LoopListeningPlayer />
         </div>
 
         {/* Side Panel */}
@@ -929,7 +924,7 @@ export default function TrackTreePage() {
   }
 
   // Wrap with LoopListeningProvider if in loop mode
-  if (isLoopMode && rootTrack) {
+  if (rootTrack) {
     return (
       <LoopListeningProvider rootTrack={rootTrack} treeDataManager={treeDataManager.current}>
         <LoopListeningSetup />
