@@ -8,7 +8,7 @@ import { handleRegionOverlaps } from '../misc/DAWUtils.js';
 import { COMMAND_TYPES } from './UndoManager.js';
 
 class Track {
-  constructor(id, context, regions = [], title = null) {
+  constructor(id, context, regions = [], title = null, contributor = null) {
     this.id = id;
     this.context = context;
     this.regions = regions; // Array of region objects
@@ -20,6 +20,9 @@ class Track {
     this.gain = 0.8;
     this.isSolo = false;
     this.title = title; // Store track title
+    this.username = contributor?.username ?? null;
+    this.profile_pic_url = contributor?.profile_pic_url ?? null;
+    this.verified = contributor?.verified ?? false;
     
     // Configure analyzer for meter functionality
     this.analyzer.fftSize = 2048;

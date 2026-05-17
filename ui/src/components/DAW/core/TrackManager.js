@@ -18,7 +18,9 @@ class TrackManager {
   async loadStemChain(trackData) {
     try {
       // Call the stems API endpoint to get complete stem information with signed URLs
-      const stemsResponse = await api.get(`/tracks/${trackData.id}/stems`);
+      const stemsResponse = await api.get(`/tracks/${trackData.id}/stems`, {
+        params: { includeUserDetails: true },
+      });
       const stemsData = stemsResponse.data;
 
       if (!stemsData || stemsData.length === 0) {
@@ -35,6 +37,9 @@ class TrackManager {
           gain: stem.gain,
           order: stem.order,
           title: stem.title,
+          username: stem.username,
+          verified: stem.verified,
+          profile_pic_url: stem.profile_pic_url,
           regions: stem.regions || [],
           name: `Stem ${index + 1} (Track ${stem.track_id})`
         };
@@ -71,7 +76,11 @@ class TrackManager {
       trackId: stemData.id
     });
 
-    const track = new Track(stemData.id, this.audioContext, [], stemData.title);
+    const track = new Track(stemData.id, this.audioContext, [], stemData.title, {
+      username: stemData.username,
+      profile_pic_url: stemData.profile_pic_url,
+      verified: stemData.verified,
+    });
     track.setGain(stemData.gain);
     
     // Add regions if present, otherwise add a single region covering the full buffer
@@ -103,7 +112,11 @@ class TrackManager {
       trackId: trackData.id
     });
 
-    const track = new Track(trackData.id, this.audioContext, [], trackData.title);
+    const track = new Track(trackData.id, this.audioContext, [], trackData.title, {
+      username: trackData.username,
+      profile_pic_url: trackData.profile_pic_url,
+      verified: trackData.verified,
+    });
     track.setGain(1.0);
     track.addRegion(bufferKey, null, null, null, regionName);
 
