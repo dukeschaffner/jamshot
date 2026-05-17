@@ -975,7 +975,9 @@ router.get('/:id', optionalBetterAuthMiddleware, async (req, res, next) => {
 router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { includeUserDetails } = req.query;
     const userId = req.user?.id;
+    const includeUserDetailsBool = includeUserDetails === 'true';
 
     // Check if user has access to the track
     const accessCheck = await checkTrackAccess(id, userId);
@@ -984,7 +986,7 @@ router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res, next) =>
     }
 
     // Get the complete stem chain using the utility function
-    const stemChain = await getStemChain(id);
+    const stemChain = await getStemChain(id, includeUserDetailsBool);
 
     // Convert S3 URLs to signed URLs for client access
     const stemsWithSignedUrls = stemChain.map(stem => ({

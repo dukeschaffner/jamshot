@@ -24,10 +24,18 @@
   max-width: 100%;
 }
 
+.controlRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 6px;
+}
+
 .buttonGroup {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
 }
 
 .monitorButtonWrapper {
