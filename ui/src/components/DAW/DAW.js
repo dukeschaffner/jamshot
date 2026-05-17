@@ -24,6 +24,7 @@ import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ContextMenu from './components/ContextMenu';
+import PluginInviteHint from './components/PluginInviteHint';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
@@ -420,7 +421,8 @@ function DAWContent({ track, isVisible = true }) {
             </div>
           </div>
 
-        
+          <PluginInviteHint isVisible={isVisible} />
+
         <div className={styles.dawBody}>
           <div className={styles.tracks}>
           <div className={styles.tracksHeaders}>

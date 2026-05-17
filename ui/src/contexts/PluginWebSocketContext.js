@@ -195,7 +195,7 @@ export function PluginWebSocketProvider({ children }) {
   }, [connect, disconnect]);
 
   return (
-    <PluginWebSocketContext.Provider value={{ status, log, connect, disconnect, send }}>
+    <PluginWebSocketContext.Provider value={{ status, log, connect, disconnect, send, userHasPlugin }}>
       {children}
       <ConfirmationDialog
         isOpen={showPluginErrorDialog}
