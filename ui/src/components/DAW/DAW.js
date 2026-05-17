@@ -430,7 +430,6 @@ function DAWContent({ track, isVisible = true }) {
               <TrackHeader
                 key={`${track.id}-${index}`}
                 track={track}
-                trackData={trackData && trackData.length > 0 ? trackData[0] : null}
               />
             ))}
           </div>

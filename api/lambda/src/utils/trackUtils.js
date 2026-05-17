@@ -874,7 +874,7 @@ async function deleteTrackS3Files(audioUrl, combinedAudioUrl, waveformUrl = null
 }
 
 // Get complete stem chain for a track (used by DAW)
-async function getStemChain(trackId) {
+async function getStemChain(trackId, includeUserDetails = false) {
   // Get the track with its complete stem information
   const trackResult = await pool.query(
     'SELECT id, audio_url, combined_audio_url, mix_gains FROM tracks WHERE id = $1',
@@ -888,33 +888,41 @@ async function getStemChain(trackId) {
   const track = trackResult.rows[0];
   const mixGains = track.mix_gains;
 
-
-
   // Get audio URLs and titles for all stems in the chain
   const stemIds = mixGains.stems.map(stem => stem.track_id);
   const stemsQuery = await pool.query(
-    'SELECT id, audio_url, title FROM tracks WHERE id = ANY($1)',
+    includeUserDetails
+      ? `SELECT t.id, t.audio_url, t.title, u.username, u.verified, u.profile_pic_url
+         FROM tracks t
+         LEFT JOIN users u ON t.user_id = u.id
+         WHERE t.id = ANY($1)`
+      : 'SELECT id, audio_url, title FROM tracks WHERE id = ANY($1)',
     [stemIds]
   );
 
-  // Create lookup maps for audio URLs and titles
-  const audioUrlMap = {};
-  const titleMap = {};
+  const stemMetaMap = {};
   stemsQuery.rows.forEach(row => {
-    audioUrlMap[row.id] = row.audio_url;
-    titleMap[row.id] = row.title;
+    stemMetaMap[row.id] = row;
   });
 
   // Build complete stem information
-  const stems = mixGains.stems.map(stem => ({
-    track_id: stem.track_id,
-    audio_url: audioUrlMap[stem.track_id],
-    title: titleMap[stem.track_id],
-    gain: stem.gain,
-    order: stem.order,
-    // Include regions if present
-    ...(stem.regions && { regions: stem.regions })
-  }));
+  const stems = mixGains.stems.map(stem => {
+    const meta = stemMetaMap[stem.track_id] || {};
+    return {
+      track_id: stem.track_id,
+      audio_url: meta.audio_url,
+      title: meta.title,
+      ...(includeUserDetails && {
+        username: meta.username ?? null,
+        verified: meta.verified ?? false,
+        profile_pic_url: meta.profile_pic_url ?? null,
+      }),
+      gain: stem.gain,
+      order: stem.order,
+      // Include regions if present
+      ...(stem.regions && { regions: stem.regions })
+    };
+  });
 
   // Sort by order to maintain proper sequence
   return stems.sort((a, b) => a.order - b.order);
