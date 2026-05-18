@@ -3,10 +3,24 @@ import os
 import psycopg2.pool
 from dotenv import load_dotenv
 
+VIDEO_EXPORT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _resolve_env_path() -> str:
+    env_path = os.getenv('DOTENV_PATH', '.env')
+    if os.path.isabs(env_path):
+        return env_path
+    return os.path.join(VIDEO_EXPORT_DIR, env_path)
+
+
 # Load environment variables from .env file (only if not in Lambda)
 # Lambda provides env vars directly, so we don't need to load .env file
+# Override with DOTENV_PATH=.env.prod for prod values when running locally
 if not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
-    load_dotenv()
+    env_path = _resolve_env_path()
+    if not os.path.isfile(env_path):
+        print(f"⚠️  Env file not found: {env_path}")
+    load_dotenv(env_path, override=bool(os.getenv('DOTENV_PATH')))
 
 # Database configuration from environment variables
 DB_HOST = os.getenv('DB_HOST', 'localhost')
@@ -26,6 +40,7 @@ WAVEFORM_HEIGHT = 60
 PROFILE_PIC_SIZE = 50
 PADDING = 20
 WAVEFORM_COLOR = (147, 233, 190)  # Seafoam (#93E9BE)
+MUTED_WAVEFORM_COLOR = (153, 153, 153)  # Grey progress for muted stems
 ACCENT_COLOR = (233, 169, 161)  # Rustic pink (#E9A9A1)
 BACKGROUND_COLOR = (18, 18, 18)  # Dark background
 TEXT_COLOR = (255, 255, 255)

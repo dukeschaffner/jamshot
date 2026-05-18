@@ -26,7 +26,7 @@ class DataCollectionModule:
             # Base query for track selection (similar to getBaseTrackSelectQuery)
             base_query = """
                 t.id, t.user_id, t.title, t.duration, t.waveform_url, t.combined_waveform_url,
-                t.combined_audio_url, t.mix_gains, t.parent_track_id,
+                t.audio_url, t.combined_audio_url, t.mix_gains, t.parent_track_id,
                 u.username, u.profile_pic_url
             """
             
@@ -87,6 +87,11 @@ class DataCollectionModule:
                 if profile_pic_url and not profile_pic_url.startswith('http'):
                     profile_pic_url = f"{R2_PUBLIC_URL}/{profile_pic_url}" if profile_pic_url else None
                 
+                audio_url = track_row.get('audio_url')
+                if audio_url:
+                    if audio_url.startswith('tracks/') or (not audio_url.startswith('http')):
+                        audio_url = f"{R2_PUBLIC_URL}/{audio_url}"
+
                 # Build combined audio URL (use R2_PUBLIC_URL if it's a relative path)
                 combined_audio_url = track_row.get('combined_audio_url')
                 if combined_audio_url:
@@ -110,6 +115,7 @@ class DataCollectionModule:
                     profile_pic_url=profile_pic_url,
                     waveform_url=waveform_url,
                     combined_waveform_url=combined_waveform_url,
+                    audio_url=audio_url,
                     combined_audio_url=combined_audio_url,
                     mix_gains=mix_gains,
                     is_leaf_track=track_row.get('is_leaf_track', False)
@@ -166,44 +172,85 @@ class DataCollectionModule:
         track.profile_pic_data = response.content
         print(f"✅ Downloaded profile pic for {track.username} ({len(track.profile_pic_data)} bytes)")
     
+    @staticmethod
+    def _audio_extension(audio_url: str) -> str:
+        file_ext = ".mp3"
+        if "." in audio_url.split("/")[-1]:
+            file_ext = "." + audio_url.split(".")[-1].split("?")[0]
+        return file_ext
+
+    def download_audio_to_path(self, audio_url: str, output_path: str) -> None:
+        """Download an audio file from a URL to a local path."""
+        response = self.session.get(audio_url, stream=True)
+        response.raise_for_status()
+
+        try:
+            with open(output_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        except OSError as exc:
+            raise OSError(f"Failed to save audio file to {output_path}: {exc}") from exc
+
     def download_audio_file(self, track: TrackData, output_dir: Optional[str] = None) -> None:
-        """Download audio file from combined_audio_url and save to local file
-        
-        Raises:
-            ValueError: If audio URL is missing or invalid
-            requests.RequestException: If download fails
-            IOError: If file cannot be saved
-        """
+        """Download combined audio for a track and set audio_file_path on the track object."""
         if not track.combined_audio_url:
-            raise ValueError(f"No audio URL for track {track.id} ({track.title})")
-        
-        # Create temporary directory if not provided - use Lambda temp directory if in Lambda
+            raise ValueError(f"No combined audio URL for track {track.id} ({track.title})")
+
         if output_dir is None:
             temp_base = get_temp_dir()
             output_dir = tempfile.mkdtemp(dir=temp_base, prefix="audio_download_")
-        
-        # Determine file extension from URL or default to .mp3
-        audio_url = track.combined_audio_url
-        file_ext = '.mp3'  # default
-        if '.' in audio_url.split('/')[-1]:
-            file_ext = '.' + audio_url.split('.')[-1].split('?')[0]
-        
-        # Download audio file
-        response = self.session.get(audio_url, stream=True)
-        response.raise_for_status()
-        
-        # Save to temporary file
+
+        file_ext = self._audio_extension(track.combined_audio_url)
         audio_file_path = os.path.join(output_dir, f"track_{track.id}_audio{file_ext}")
-        try:
-            with open(audio_file_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-        except IOError as e:
-            raise IOError(f"Failed to save audio file for track {track.id}: {e}")
-        
+        self.download_audio_to_path(track.combined_audio_url, audio_file_path)
+
         track.audio_file_path = audio_file_path
         file_size = os.path.getsize(audio_file_path)
-        print(f"✅ Downloaded audio for track {track.id} ({file_size / 1024 / 1024:.2f} MB)")
+        print(f"✅ Downloaded combined audio for track {track.id} ({file_size / 1024 / 1024:.2f} MB)")
+
+    def export_track_audio_files(
+        self,
+        tracks: List[TrackData],
+        output_dir: str,
+    ) -> List[str]:
+        """Download individual stem audio for every track and combined audio for the leaf."""
+        exported_paths: List[str] = []
+        leaf_track = tracks[-1]
+
+        for track in tracks:
+            if not track.audio_url:
+                print(f"⚠️  No individual audio URL for track {track.id} ({track.title})")
+                continue
+
+            file_ext = self._audio_extension(track.audio_url)
+            output_path = os.path.join(output_dir, f"audio_track_{track.id}{file_ext}")
+            self.download_audio_to_path(track.audio_url, output_path)
+            file_size = os.path.getsize(output_path)
+            exported_paths.append(output_path)
+            print(
+                f"✅ Downloaded stem audio for track {track.id} "
+                f"({file_size / 1024 / 1024:.2f} MB)"
+            )
+
+        if leaf_track.combined_audio_url:
+            file_ext = self._audio_extension(leaf_track.combined_audio_url)
+            combined_path = os.path.join(
+                output_dir,
+                f"audio_combined_track_{leaf_track.id}{file_ext}",
+            )
+            self.download_audio_to_path(leaf_track.combined_audio_url, combined_path)
+            file_size = os.path.getsize(combined_path)
+            exported_paths.append(combined_path)
+            print(
+                f"✅ Downloaded combined audio for track {leaf_track.id} "
+                f"({file_size / 1024 / 1024:.2f} MB)"
+            )
+        else:
+            print(
+                f"⚠️  No combined audio URL for leaf track {leaf_track.id} ({leaf_track.title})"
+            )
+
+        return exported_paths
     
     def collect_all_data(self, track_id: Union[int, str], download_audio: bool = True) -> List[TrackData]:
         """Main method to collect all required data
