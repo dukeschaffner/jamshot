@@ -8,6 +8,7 @@ env/
 # Output directories
 test_output/
 real_output/
+generated_assets/
 
 # Package
 package/

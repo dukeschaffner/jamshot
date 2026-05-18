@@ -2,7 +2,7 @@
 from typing import List, Optional
 from PIL import ImageDraw
 
-from utils.config import WAVEFORM_COLOR, TEXT_COLOR
+from utils.config import WAVEFORM_COLOR, MUTED_WAVEFORM_COLOR, TEXT_COLOR
 
 
 class WaveformComponent:
@@ -13,7 +13,8 @@ class WaveformComponent:
         pass
     
     def draw(self, draw: ImageDraw, peaks: List, x: int, y: int, width: int, height: int, 
-             duration: Optional[float] = None, playback_time: Optional[float] = None):
+             duration: Optional[float] = None, playback_time: Optional[float] = None,
+             muted: bool = False):
         """Draw SoundCloud-style waveform from peaks data
         
         Args:
@@ -23,6 +24,7 @@ class WaveformComponent:
             width, height: Dimensions of waveform
             duration: Track duration in seconds (for playback coloring)
             playback_time: Current playback time in seconds (None = no coloring)
+            muted: When True, played bars use grey instead of seafoam
         """
         if not peaks or len(peaks) == 0:
             return
@@ -55,8 +57,8 @@ class WaveformComponent:
             if use_playback_coloring:
                 # Calculate the time position of this bar
                 bar_time = (i / len(peaks)) * duration
-                # If bar is earlier than playback time, it's played (seafoam), otherwise white
-                bar_color = WAVEFORM_COLOR if bar_time < playback_time else TEXT_COLOR
+                played_color = MUTED_WAVEFORM_COLOR if muted else WAVEFORM_COLOR
+                bar_color = played_color if bar_time < playback_time else TEXT_COLOR
             else:
                 # Default: all bars seafoam
                 bar_color = WAVEFORM_COLOR

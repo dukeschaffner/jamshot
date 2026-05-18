@@ -14,6 +14,7 @@ class TrackData:
     profile_pic_url: Optional[str]
     waveform_url: Optional[str]  # stem peaks URL
     combined_waveform_url: Optional[str]  # combined peaks URL (for leaf track)
+    audio_url: Optional[str]  # individual stem audio URL
     combined_audio_url: Optional[str]  # combined audio URL (for leaf track)
     mix_gains: Optional[Dict] = None  # mix gains data (for leaf track)
     peaks_data: Optional[List] = None  # Downloaded peaks data
