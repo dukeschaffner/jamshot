@@ -2,11 +2,27 @@ RUNNING STRIPE:
 stripe listen --forward-to localhost:5001/api/payments/webhook
 if expired: stripe login
 
+
+
+
 RUNNING AUDIO PROCESSING DEV SERVER: 
 node ./functions/lambda/audio-processing/dev-start.js
 
+
+
+
 RUNNING VIDEO EXPORT DEV SERVER:
 node ./functions/lambda/video-export/dev-start.js
+
+cd /Users/dukeschaffner/Documents/CODING/apps/jamshot/functions/lambda/video-export
+./venv/bin/python3 generate_assets.py
+
+cd functions/lambda/video-export
+DOTENV_PATH=.env.prod ./venv/bin/python3 generate_assets.py
+
+
+
+
 
 RUNNING EMAIL NOTIFICATIONS LAMBDA LOCALLY:
 node ./functions/lambda/email-notifications/index.js                    # Run based on current date (daily/weekly/monthly schedule)
@@ -14,6 +30,9 @@ node ./functions/lambda/email-notifications/index.js daily              # Force 
 node ./functions/lambda/email-notifications/index.js weekly             # Force weekly emails only  
 node ./functions/lambda/email-notifications/index.js monthly            # Force monthly emails only
 node ./functions/lambda/email-notifications/index.js daily weekly       # Force both daily and weekly emails
+
+
+
 
 
 RUNNING ISSUES VISUALIZER:

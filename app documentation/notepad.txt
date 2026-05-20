@@ -45,3 +45,23 @@ incentives for larger artists to join/be an ambassador for the platform
 
 switch to time based upload limits
 - 
+
+
+https://discord.gg/erqDVzc6q
+https://discord.gg/grBST483
+https://discord.gg/aNGXWF9S
+
+
+
+priorities:
+- collab of the week with video
+- discord interactions
+- collab projects
+- posting 2 collabs, 2 original tracks/week
+- search for CMO/dev help
+
+- video where we let claude collab with other users
+
+- global player playing doesnt pause when i go to tree page
+- tree loops not loading in time for rob
+- null liked your track
