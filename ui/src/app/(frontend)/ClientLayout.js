@@ -16,12 +16,19 @@ import MobileNavbar from '@/components/MobileNavbar';
 import GlobalPlayer from '@/components/GlobalPlayer';
 import ReleaseNotesToast from '@/components/ReleaseNotesToast';
 import CompleteProfileForm from '@/components/CompleteProfileForm';
+import MarketingHome from '@/components/MarketingHome';
 import { PluginWebSocketProvider } from '@/contexts/PluginWebSocketContext';
 import api from '@/lib/api';
 
 // This component will be rendered after providers are initialized
 function AppContent({ children }) {
-  const { needsToCompleteProfile, logout, refreshUser } = useUser();
+  const {
+    needsToCompleteProfile,
+    shouldShowAppContent,
+    isAccessCheckReady,
+    logout,
+    refreshUser,
+  } = useUser();
   const [darkMode, setDarkMode] = useState(false);
   const { currentTrack, togglePlayPause, spaceShortcutEnabled } = useAudio();
   const [profileError, setProfileError] = useState('');
@@ -86,6 +93,16 @@ function AppContent({ children }) {
       }
     }
   }, []);
+
+  const isHomeRoute = pathname === '/';
+
+  if (isHomeRoute && !isAccessCheckReady) {
+    return null;
+  }
+
+  if (isHomeRoute && !shouldShowAppContent) {
+    return <MarketingHome />;
+  }
 
   // Show complete profile form if needed
   if (needsToCompleteProfile) {

@@ -4,6 +4,7 @@ import { authClient } from '../lib/auth-client';
 import api, { setRefreshUserState } from '../lib/api';
 import { getUserPlan } from '@sterio/subscription-utils';
 import { captureAuthLogout, identifySterioUser, resetSterioPosthog } from '../lib/posthogAnalytics';
+import { markHasLoggedInBefore, readHasLoggedInBefore } from '../lib/appAccess';
 
 // Create the context with default values
 const UserContext = createContext({
@@ -11,6 +12,8 @@ const UserContext = createContext({
   isLoading: true,
   isAuthenticated: false,
   needsToCompleteProfile: false,
+  shouldShowAppContent: false,
+  isAccessCheckReady: false,
   login: () => {},
   logout: () => {},
   refreshUser: () => {},
@@ -30,6 +33,7 @@ export const UserProvider = ({ children }) => {
   const [isFetchingUserData, setIsFetchingUserData] = useState(false);
   // Track if we're currently logging out to prevent race conditions
   const isLoggingOutRef = useRef(false);
+  const [hasLoggedInBefore, setHasLoggedInBefore] = useState(null);
 
   // Get user from session or additional data
   const user = useMemo(() => {
@@ -52,6 +56,11 @@ export const UserProvider = ({ children }) => {
 
   // Check if user is authenticated
   const isAuthenticated = !!user;
+
+  const shouldShowAppContent =
+    isAuthenticated || needsToCompleteProfile || hasLoggedInBefore === true;
+
+  const isAccessCheckReady = hasLoggedInBefore !== null && !isPending;
 
   // Calculate user plan based on user data
   const userPlan = useMemo(() => {
@@ -79,6 +88,17 @@ export const UserProvider = ({ children }) => {
       // Don't clear user data on error, keep session data
     } finally {
       setIsFetchingUserData(false);
+    }
+  }, [session?.user]);
+
+  useEffect(() => {
+    setHasLoggedInBefore(readHasLoggedInBefore());
+  }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      markHasLoggedInBefore();
+      setHasLoggedInBefore(true);
     }
   }, [session?.user]);
 
@@ -116,6 +136,11 @@ export const UserProvider = ({ children }) => {
           error: signInError.message || 'Login failed',
           isEmailNotVerified: signInError.status === 403 || signInError.message?.includes('email not verified'),
         };
+      }
+
+      if (data?.user) {
+        markHasLoggedInBefore();
+        setHasLoggedInBefore(true);
       }
 
       // Session will be automatically updated via useSession hook
@@ -202,6 +227,8 @@ export const UserProvider = ({ children }) => {
     isLoading,
     isAuthenticated,
     needsToCompleteProfile,
+    shouldShowAppContent,
+    isAccessCheckReady,
     userPlan,
     login,
     logout,
