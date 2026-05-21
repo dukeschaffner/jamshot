@@ -65,3 +65,15 @@ priorities:
 - global player playing doesnt pause when i go to tree page
 - tree loops not loading in time for rob
 - null liked your track
+- clicking track link on search results goes to undefined
+- when i change metronome on collab page, it doesnt update the metronome on the collab
+- master volume in daw and global player
+- global player not showing on track page for layer 5 track after being on tree page
+- still show readonly DAW for layer 5 track 
+
+
+
+
+
+feedback:
+- more layers OR ability to combine layers into new track

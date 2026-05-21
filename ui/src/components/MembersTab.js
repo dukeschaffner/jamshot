@@ -1,7 +1,7 @@
 'use client';
 import { FaUsers } from 'react-icons/fa';
 import UserCard from './UserCard';
-import sharedStyles from '../styles/Dashboard.module.css';
+import sharedStyles from '@/styles/Dashboard.module.css';
 
 export default function MembersTab({
   members = [],

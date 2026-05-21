@@ -1,6 +1,6 @@
 'use client';
 
-import styles from '../app/Home.module.css';
+import styles from '@/app/(frontend)/Home.module.css';
 import tabStyles from './CustomTabs.module.css';
 
 export default function CustomTabs({ 
