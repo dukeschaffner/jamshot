@@ -4,7 +4,7 @@ import { FaTimes, FaCheck, FaCrown } from 'react-icons/fa';
 import { teamApi } from '../lib/api';
 import { TEAM_PLANS, TEAM_PRODUCT_VERSIONS, formatPrice } from '@sterio/subscription-utils';
 import { loadStripe } from '@stripe/stripe-js';
-import sharedStyles from '../styles/Dashboard.module.css';
+import sharedStyles from '@/styles/Dashboard.module.css';
 import styles from './TeamSettingsModal.module.css';
 
 // Initialize Stripe

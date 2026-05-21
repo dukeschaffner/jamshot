@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { FaUsers, FaArrowRight, FaPlus } from 'react-icons/fa';
 import Link from 'next/link';
 import styles from './TeamsList.module.css';
-import sharedStyles from '../../styles/Dashboard.module.css';
+import sharedStyles from '@/styles/Dashboard.module.css';
 
 export default function TeamsList({ teams }) {
   const router = useRouter();
