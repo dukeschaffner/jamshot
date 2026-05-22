@@ -1,0 +1,14 @@
+
+
+2. Track switch assumes pre-scheduled audio already exists
+At the loop boundary, the progress handler always advances currentTrack to nextTrack:
+
+
+LoopListeningEngine.js
+Lines 577-595
+        if(!this.isCycleMode) {
+          // ...
+          this.currentTrack = this.nextTrack;
+That assumes scheduleNextTrack() already scheduled the next buffer. If decode failed or was late enough to abort, isPlaying stays true but no source is playing — UI shows playing, silence.
+
+When late scheduling sets offset !== 0, nextTrackScheduled stays false, so it may retry, but the loop boundary may have already passed and currentTrack may already have switched without audio.

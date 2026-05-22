@@ -11,6 +11,7 @@ import TrackMeta from '../../../../components/TrackMeta';
 import TimeDisplay from '../../../../components/TimeDisplay';
 import BetaSupporterBadge from '../../../../components/BetaSupporterBadge';
 import styles from './TrackPopover.module.css';
+import { loopLog } from '../utils/loopListeningLog.js';
 
 export default function TrackPopover({ track, position, onClose, onMouseEnter, isLoopMode = false, onTrackLikeUpdate, onTrackRepostUpdate }) {
   const router = useRouter();
@@ -30,6 +31,13 @@ export default function TrackPopover({ track, position, onClose, onMouseEnter, i
   const isCurrentlyPlaying = isCurrentTrack && isPlaying;
 
   const handlePlayPause = () => {
+    loopLog('ui.playPause', 'Track popover play/pause clicked', {
+      trackId: track?.id ?? null,
+      isCurrentTrack,
+      isCurrentlyPlaying,
+      isLoopMode,
+    });
+
     if (isCurrentTrack) {
       togglePlayPause();
     } else {

@@ -37,8 +37,6 @@ export default function LoopListeningPlayer() {
   
   const { isMobile } = useMobile();
 
-  console.log('currentTrack', currentTrack);
-  
   // Local progress state managed by this component
   const [progress, setProgress] = useState(0);
   

@@ -29,3 +29,6 @@ export const CONCENTRIC_CONFIG = {
 };
 
 export const DEBUG_MODE = false;
+
+/** Verbose console logging for loop-mode audio playback diagnostics */
+export const LOOP_LISTENING_DEBUG = true;
