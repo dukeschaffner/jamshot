@@ -19,6 +19,8 @@
   --color-red: #fc3232;
   --color-white: #ffffff;
 
+  --color-dark-green: rgb(40, 118, 78);
+
   --color-grey-1: #f5f5f5;
   --color-grey-2: #e0e0e0;
   --color-grey-3: #555555;
@@ -36,6 +38,7 @@ body {
   --seafoam: #93E9BE;
   --seafoam-light: #C1F4D9;
   --seafoam-dark: #65d6ad;
+  --dark-green: rgb(40, 118, 78);
   --rustic-pink: #E9A9A1;
   --rustic-pink-light: #F4C9C4;
   --red: #fc3232;

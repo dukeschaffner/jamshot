@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { authClient } from '../lib/auth-client';
+import { APP_HOME_PATH } from '@/lib/appRoutes';
 
 export default function EmailVerificationForm({ 
   onSuccess, 
@@ -20,7 +21,7 @@ export default function EmailVerificationForm({
     try {
       const { data, error: resendError } = await authClient.sendVerificationEmail({
         email: userEmail,
-        callbackURL: '/',
+        callbackURL: APP_HOME_PATH,
       });
 
       if (resendError) {

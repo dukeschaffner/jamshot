@@ -1,0 +1,29 @@
+Home page serving both marketing and app content
+
+Is there a "better" pattern?
+For a production app at scale, the cleaner version is server-side session detection:
+
+// page.js — ideal long-term
+const session = await getServerSession();
+if (session?.user) return <HomeFeed />;
+return <MarketingHome page={marketingPage} />;
+That gives you:
+
+No marketing flash for logged-in users
+No client gate on /
+Simpler mental model
+You don't have server session reading wired up yet, so the current pattern is a good interim fix, not the final architecture.
+
+
+
+
+Other gaps to address
+Issue	Impact
+Static sitemap is incomplete — missing /guide-find-producer, /guide-long-distance-collab, /privacy, /terms	Medium — crawlers may discover these slower
+Sitemap isn’t CMS-driven — new published pages won’t appear automatically	Medium
+Guides hub has placeholder cards linking to /register instead of real articles	Medium — missed long-tail SEO
+Reveal animations start at opacity: 0	Low — content is still in DOM; Google can read it
+Article schema is minimal — no datePublished, dateModified, or image	Low–medium for rich results
+Plain <img> tags instead of next/image	Low — slower LCP, minor ranking signal
+Extra H2 in phone mock on homepage hero	Low — slightly messy heading hierarchy
+Guide pages not wrapped in <article>

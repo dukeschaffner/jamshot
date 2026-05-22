@@ -1,10 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
+import { marketingBlocks } from './blocks/marketingBlocks'
+
 export const Pages: CollectionConfig = {
   slug: 'pages',
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['title', 'slug', 'status', 'updatedAt'],
+    description: 'Marketing and SEO pages for sterio.fm.',
   },
   access: {
     read: () => true,
@@ -21,7 +24,7 @@ export const Pages: CollectionConfig = {
       required: true,
       unique: true,
       admin: {
-        description: 'URL path segment, e.g. "home" or "about".',
+        description: 'URL path segment, e.g. "home", "about", or "guide-find-producer".',
       },
     },
     {
@@ -35,8 +38,51 @@ export const Pages: CollectionConfig = {
       ],
     },
     {
-      name: 'content',
-      type: 'richText',
+      type: 'group',
+      name: 'seo',
+      label: 'SEO',
+      fields: [
+        {
+          name: 'metaTitle',
+          type: 'text',
+          admin: {
+            description: 'Browser tab and search result title. Falls back to page title.',
+          },
+        },
+        {
+          name: 'metaDescription',
+          type: 'textarea',
+        },
+        {
+          name: 'ogImage',
+          type: 'text',
+          admin: {
+            description: 'Absolute URL or site path (e.g. /marketing/duke-pfp.jpg).',
+          },
+        },
+        {
+          name: 'ogImageAlt',
+          type: 'text',
+        },
+        {
+          name: 'noIndex',
+          type: 'checkbox',
+          defaultValue: false,
+        },
+        {
+          name: 'structuredData',
+          type: 'json',
+          admin: {
+            description: 'Optional JSON-LD object or array for schema.org markup.',
+          },
+        },
+      ],
+    },
+    {
+      name: 'layout',
+      type: 'blocks',
+      required: true,
+      blocks: marketingBlocks,
     },
   ],
 }

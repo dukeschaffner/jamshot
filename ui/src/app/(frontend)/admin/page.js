@@ -9,7 +9,7 @@ import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { adminApi } from '@/lib/api';
 import { useToast } from '@/lib/ToastContext';
 import styles from './moderation/AdminModeration.module.css';
-import { useAudio } from '@/lib/AudioContext';
+import { APP_HOME_PATH } from '@/lib/appRoutes';
 import { MiniPlayButton } from '@/components/MiniTrack';
 
 const MODERATION_REASONS = [
@@ -39,7 +39,7 @@ export default function AdminPage() {
   // Check admin privileges
   useEffect(() => {
     if (!userLoading && (!user || (!user.is_admin && user.is_admin !== undefined))) {
-      router.push('/');
+      router.push(APP_HOME_PATH);
       return;
     }
   }, [user, userLoading, router]);

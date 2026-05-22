@@ -14,6 +14,7 @@ import { useAudio } from '@/lib/AudioContext';
 import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import DAW from '@/components/DAW/DAW';
 import Track from '@/components/Track';
+import { APP_HOME_PATH } from '@/lib/appRoutes';
 import { captureTrackPageOpened } from '@/lib/posthogAnalytics';
 
 // Component that uses useSearchParams, wrapped in Suspense
@@ -351,7 +352,7 @@ function TrackContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <div className="text-red-500 mb-4">{error}</div>
-        <Link href="/" className="text-primary hover:underline">
+        <Link href={APP_HOME_PATH} className="text-primary hover:underline">
           Return to Home
         </Link>
       </div>
@@ -399,7 +400,7 @@ function TrackContent() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <div className="mb-4">Track not found</div>
-        <Link href="/" className="text-primary hover:underline">
+        <Link href={APP_HOME_PATH} className="text-primary hover:underline">
           Return to Home
         </Link>
       </div>

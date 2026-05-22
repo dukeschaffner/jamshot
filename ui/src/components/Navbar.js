@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef } from 'react';
+import { APP_HOME_PATH } from '@/lib/appRoutes';
 import Link from 'next/link';
 import GuardedLink from './GuardedLink';
 import { usePathname, useRouter } from 'next/navigation';
@@ -57,7 +58,7 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="logo">
-        <GuardedLink href="/">
+        <GuardedLink href={APP_HOME_PATH}>
           <span className="logo-title">sterio</span>
           <span className={styles.betaTag}>beta</span>
         </GuardedLink>
@@ -80,7 +81,7 @@ export default function Navbar() {
       )}
       
       <div className="nav-links">
-        <GuardedLink href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
+        <GuardedLink href={APP_HOME_PATH} className={`nav-link ${pathname === APP_HOME_PATH ? 'active' : ''}`}>
           <FaHome />
           Home
         </GuardedLink>

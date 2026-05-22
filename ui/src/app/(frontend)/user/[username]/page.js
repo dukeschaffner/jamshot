@@ -20,7 +20,7 @@ import {
   FaTwitter
 } from 'react-icons/fa';
 import Link from 'next/link';
-import ImageCropper from '@/components/ImageCropper';
+import { APP_HOME_PATH } from '@/lib/appRoutes';
 import { useUser } from '@/contexts/UserContext';
 import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import styles from './UserPage.module.css';
@@ -358,7 +358,7 @@ export default function UserPage() {
         <p>The user &quot;{username}&quot; does not exist.</p>
         <button 
           className="pill-btn"
-          onClick={() => router.push('/')}
+          onClick={() => router.push(APP_HOME_PATH)}
         >
           Return Home
         </button>
