@@ -8,6 +8,7 @@ import Waveform from '@/components/Waveform';
 import ConfirmationDialog from '@/components/ConfirmationDialog';
 import { adminApi } from '@/lib/api';
 import { useToast } from '@/lib/ToastContext';
+import { useAudio } from '@/lib/AudioContext';
 import styles from './moderation/AdminModeration.module.css';
 import { APP_HOME_PATH } from '@/lib/appRoutes';
 import { MiniPlayButton } from '@/components/MiniTrack';
