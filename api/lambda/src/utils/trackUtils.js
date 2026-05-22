@@ -1221,8 +1221,8 @@ async function createCollaborationNotification(parentTrackId, collaboratorUserId
 
   if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== collaboratorUserId) {
     await pool.query(
-      'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-      [parentTrackOwner.rows[0].user_id, 'new_version', parentTrackId]
+      'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+      [parentTrackOwner.rows[0].user_id, 'new_version', parentTrackId, collaboratorUserId]
     );
 
     await sendCollabEmail(collaboratorUserId, collabTrackId, parentTrackId);

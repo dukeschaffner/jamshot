@@ -31,7 +31,7 @@ router.get('/', async (req, res, next) => {
 
       const tracksQuery = `
         SELECT DISTINCT
-          t.id, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
+          t.id, t.guid, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
           t.layer, t.parent_track_id, t.play_count, t.metronome_bpm, t.created_at,
           u.username, u.verified, u.profile_pic_url, u.is_supporter,
           t2.title AS original_title,

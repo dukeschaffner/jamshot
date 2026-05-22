@@ -67,36 +67,7 @@ router.get('/', async (req, res, next) => {
       FROM notifications n
       LEFT JOIN tracks t ON n.related_track_id = t.id
       LEFT JOIN users u_related ON n.related_user_id = u_related.id
-      LEFT JOIN users u_actor ON (
-        CASE 
-          WHEN n.type = 'like' THEN (
-            SELECT user_id FROM likes
-            WHERE track_id = n.related_track_id
-            ORDER BY created_at DESC
-            LIMIT 1
-          )
-          WHEN n.type = 'comment' THEN (
-            SELECT user_id FROM comments
-            WHERE track_id = n.related_track_id
-            ORDER BY created_at DESC
-            LIMIT 1
-          )
-          WHEN n.type = 'repost' THEN (
-            SELECT user_id FROM reposts
-            WHERE track_id = n.related_track_id
-            ORDER BY created_at DESC
-            LIMIT 1
-          )
-          WHEN n.type = 'new_version' THEN (
-            SELECT user_id FROM tracks
-            WHERE parent_track_id = n.related_track_id
-            ORDER BY created_at DESC
-            LIMIT 1
-          )
-          WHEN n.type = 'follow' THEN n.related_user_id
-          ELSE NULL
-        END
-      ) = u_actor.id
+      LEFT JOIN users u_actor ON n.type != 'follow_request' AND u_actor.id = n.related_user_id
       WHERE n.user_id = $1
       ORDER BY n.created_at DESC
       LIMIT $2 OFFSET $3

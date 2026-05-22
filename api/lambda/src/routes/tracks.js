@@ -1684,8 +1684,8 @@ router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, r
       // Create notification for track owner (if not liking own track)
       if (trackOwnerId !== userId && result.rows.length > 0) {
         await client.query(
-          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-          [trackOwnerId, 'like', id]
+          'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+          [trackOwnerId, 'like', id, userId]
         );
       }
       
@@ -2225,8 +2225,8 @@ router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req,
         
         // Create notification for track owner
         await client.query(
-          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-          [track.user_id, 'repost', id]
+          'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+          [track.user_id, 'repost', id, userId]
         );
       }
       
