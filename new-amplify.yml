@@ -1,0 +1,22 @@
+version: 1
+applications:
+  - appRoot: ui
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - export NODE_ENV=production
+            - cd ..
+            - npm ci --omit=dev --workspace=ui --include-workspace-root --cache .npm --prefer-offline
+            - cd ui
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - .next/cache/**/*
+          - .npm/**/*

@@ -1,7 +1,14 @@
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { withPayload } from '@payloadcms/next/withPayload'
+
+const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
+  // Hoisted deps live in the monorepo root; required for a correct standalone trace.
+  outputFileTracingRoot: path.join(dirname, '..'),
   reactStrictMode: false,
   transpilePackages: ['@sterio/subscription-utils'],
   typescript: {
