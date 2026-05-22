@@ -7,6 +7,7 @@ import ForgotPasswordForm from './ForgotPasswordForm';
 import { validateDateOfBirth } from '../../shared/utils/validation';
 import { getErrorMessage } from '../../shared/utils/errors';
 import { validatePassword, validateUsername, validateName, validateEmail, checkPasswordRequirements } from '../lib/validation';
+import { APP_HOME_PATH, resolvePostAuthRedirect } from '@/lib/appRoutes';
 import {
   captureAuthGoogleStarted,
   captureAuthLoginFailed,
@@ -102,7 +103,7 @@ export default function LoginForm({
         if (!noRedirect && redirectUrl) {
           router.push(redirectUrl);
         } else if (!noRedirect) {
-          router.push('/');
+          router.push(APP_HOME_PATH);
         }
       } else {
         const errorMessage = 'Login failed - no user data returned';
@@ -136,7 +137,7 @@ export default function LoginForm({
     try {
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: window.location.origin + (redirectUrl || '/'),
+        callbackURL: window.location.origin + resolvePostAuthRedirect(redirectUrl),
         requestSignUp: allowSignUp,
       });
 
@@ -247,7 +248,7 @@ export default function LoginForm({
           }
           // Handle redirect if not disabled
           if (!noRedirect) {
-            router.push(redirectUrl || '/');
+            router.push(resolvePostAuthRedirect(redirectUrl));
           }
         }
       } else {
@@ -282,7 +283,7 @@ export default function LoginForm({
     
     try {
       const frontendUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const callbackURL = `${frontendUrl}${redirectUrl || '/'}`;
+      const callbackURL = `${frontendUrl}${resolvePostAuthRedirect(redirectUrl)}`;
       
       await authClient.sendVerificationEmail({
         email,

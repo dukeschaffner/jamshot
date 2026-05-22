@@ -6,7 +6,8 @@ function isPosthogConfigured() {
 
 export function deriveSiteSection(pathname) {
   if (!pathname) return 'unknown';
-  if (pathname === '/') return 'home_feed';
+  if (pathname === '/') return 'marketing_home';
+  if (pathname === '/feed') return 'home_feed';
   if (pathname.startsWith('/track/')) return 'track_page';
   if (pathname.startsWith('/user/')) return 'user_profile';
   if (pathname.startsWith('/search')) return 'search';
@@ -24,7 +25,8 @@ export function deriveSiteSection(pathname) {
 
 export function deriveDiscoveryMethod(pathname) {
   if (!pathname) return 'unknown';
-  if (pathname === '/') return 'home_feed';
+  if (pathname === '/') return 'marketing_home';
+  if (pathname === '/feed') return 'home_feed';
   if (pathname.startsWith('/user/')) return 'user_page';
   if (pathname.startsWith('/track/')) return 'track_page';
   if (pathname.startsWith('/search')) return 'search';
