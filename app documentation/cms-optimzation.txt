@@ -27,3 +27,8 @@ Article schema is minimal — no datePublished, dateModified, or image	Low–med
 Plain <img> tags instead of next/image	Low — slower LCP, minor ranking signal
 Extra H2 in phone mock on homepage hero	Low — slightly messy heading hierarchy
 Guide pages not wrapped in <article>
+
+
+
+Page unavailable
+The marketing page “home” has not been published in the CMS yet. Seed content with npm run seed:marketing --workspace=cms (CMS app).

@@ -1,5 +1,21 @@
 function getCmsUrl() {
-  return process.env.CMS_URL || 'http://localhost:3001'
+  const explicit =
+    process.env.CMS_URL ||
+    process.env.NEXT_PUBLIC_CMS_URL
+
+  if (explicit) {
+    return explicit.replace(/\/$/, '')
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
+  if (apiUrl.includes('/test/') || apiUrl.includes('test.sterio.fm')) {
+    return 'https://test-cms.sterio.fm'
+  }
+  if (apiUrl.includes('api.sterio.fm')) {
+    return 'https://cms.sterio.fm'
+  }
+
+  return 'http://localhost:3001'
 }
 
 async function fetchCmsCollection(collection, params) {
