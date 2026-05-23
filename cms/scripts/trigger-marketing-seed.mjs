@@ -1,4 +1,4 @@
-const SEED_URL = process.env.MARKETING_SEED_URL || 'http://localhost:3000/api/seed-marketing?force=true'
+const SEED_URL = process.env.MARKETING_SEED_URL || 'http://localhost:3001/api/seed-marketing?force=true'
 
 async function triggerSeed() {
   const response = await fetch(SEED_URL, { method: 'POST' })
@@ -17,6 +17,6 @@ triggerSeed()
   })
   .catch((error) => {
     console.error(error.message)
-    console.error('Start the dev server first with `npm run dev`, then rerun `npm run seed:marketing`.')
+    console.error('Start the CMS dev server first with `npm run dev --workspace=cms`, then rerun `npm run seed:marketing --workspace=cms`.')
     process.exit(1)
   })

@@ -17,6 +17,7 @@ import GlobalPlayer from '@/components/GlobalPlayer';
 import ReleaseNotesToast from '@/components/ReleaseNotesToast';
 import CompleteProfileForm from '@/components/CompleteProfileForm';
 import { isDedicatedMarketingPath } from '@/lib/marketing/constants';
+import { consumeMarketingHomeNavigation } from '@/lib/marketing/marketingHomeNav';
 import { PluginWebSocketProvider } from '@/contexts/PluginWebSocketContext';
 
 function AppContent({ children }) {
@@ -39,9 +40,9 @@ function AppContent({ children }) {
 
   useEffect(() => {
     if (pathname !== '/' || isLoading) return;
-    if (isAuthenticated || needsToCompleteProfile) {
-      router.replace('/feed');
-    }
+    if (!isAuthenticated && !needsToCompleteProfile) return;
+    if (consumeMarketingHomeNavigation()) return;
+    router.replace('/feed');
   }, [pathname, isAuthenticated, needsToCompleteProfile, isLoading, router]);
 
   useEffect(() => {

@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useUser } from '@/contexts/UserContext';
+import { APP_HOME_PATH } from '@/lib/appRoutes';
 import { MARKETING_FOOTER, MARKETING_NAV } from '@/lib/marketing/constants';
+import { marketingHomeLinkProps } from '@/lib/marketing/marketingHomeNav';
 import MarketingReveal from './MarketingReveal';
 import styles from './MarketingSite.module.css';
 
@@ -14,6 +17,7 @@ function isActiveNav(href, pathname) {
 
 export default function MarketingLayout({ children }) {
   const pathname = usePathname();
+  const { isAuthenticated, user, isLoading } = useUser();
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -31,7 +35,7 @@ export default function MarketingLayout({ children }) {
   return (
     <div className={styles.site}>
       <header className={`${styles.header} ${scrolled ? styles.headerScrolled : ''}`}>
-        <Link className={styles.brand} href="/" aria-label="Sterio home">
+        <Link className={styles.brand} href="/" aria-label="Sterio home" {...marketingHomeLinkProps('/')}>
           <span className={styles.brandMark} aria-hidden="true">S</span>
           <span>Sterio</span>
         </Link>
@@ -57,15 +61,31 @@ export default function MarketingLayout({ children }) {
               key={item.href}
               href={item.href}
               aria-current={isActiveNav(item.href, pathname) ? 'page' : undefined}
+              {...marketingHomeLinkProps(item.href)}
             >
               {item.label}
             </Link>
           ))}
-          <Link href="/feed">Browse Tracks</Link>
-          <Link className={styles.navCta} href="/register">
-            Join Sterio
-          </Link>
-          <Link href="/login">Login</Link>
+          <Link href={APP_HOME_PATH}>Browse Tracks</Link>
+          {!isLoading && (
+            isAuthenticated ? (
+              <>
+                <Link className={styles.navCta} href={APP_HOME_PATH}>
+                  Go to Feed
+                </Link>
+                {user?.username && (
+                  <Link href={`/user/${user.username}`}>My Profile</Link>
+                )}
+              </>
+            ) : (
+              <>
+                <Link className={styles.navCta} href="/register">
+                  Join Sterio
+                </Link>
+                <Link href="/login">Login</Link>
+              </>
+            )
+          )}
         </nav>
       </header>
 
@@ -73,7 +93,7 @@ export default function MarketingLayout({ children }) {
 
       <footer className={styles.footer} id="contact">
         <div>
-          <Link className={`${styles.brand} ${styles.footerBrand}`} href="/">
+          <Link className={`${styles.brand} ${styles.footerBrand}`} href="/" {...marketingHomeLinkProps('/')}>
             <span className={styles.brandMark} aria-hidden="true">S</span>
             <span>Sterio</span>
           </Link>
@@ -81,7 +101,7 @@ export default function MarketingLayout({ children }) {
         </div>
         <nav aria-label="Footer navigation">
           {MARKETING_FOOTER.map((item) => (
-            <Link key={`${item.href}-${item.label}`} href={item.href}>
+            <Link key={`${item.href}-${item.label}`} href={item.href} {...marketingHomeLinkProps(item.href)}>
               {item.label}
             </Link>
           ))}

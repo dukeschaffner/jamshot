@@ -31,7 +31,7 @@ export function MarketingFallback({ slug }) {
       <h1>Page unavailable</h1>
       <p>
         The marketing page &ldquo;{slug}&rdquo; has not been published in the CMS yet.
-        Seed content with <code>node scripts/seed-marketing-pages.mjs</code>.
+        Seed content with <code>npm run seed:marketing --workspace=cms</code> (CMS app).
       </p>
     </section>
   );

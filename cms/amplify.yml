@@ -1,13 +1,13 @@
 version: 1
 applications:
-  - appRoot: ui
+  - appRoot: cms
     frontend:
       phases:
         preBuild:
           commands:
             - cd ..
-            - npm ci --workspace=ui --include-workspace-root --cache .npm --prefer-offline
-            - cd ui
+            - npm ci --workspace=cms --include-workspace-root --cache .npm --prefer-offline
+            - cd cms
         build:
           commands:
             - export NODE_ENV=production

@@ -1,34 +1,7 @@
 import Link from 'next/link';
+import MarketingAuthAction from '@/components/marketing/MarketingAuthAction';
 import { resolveMarketingAsset } from '@/lib/marketing/constants';
 import styles from './MarketingSite.module.css';
-
-function MarketingAction({ action }) {
-  if (!action?.label || !action?.href) return null;
-
-  const className = action.variant === 'secondary'
-    ? `pill-btn ${styles.secondaryBtn}`
-    : 'pill-btn gradient-btn ';
-
-  const style = {
-    color: 'var(--text-primary)',
-    width: 'min-content',
-    justifySelf: 'center',
-  };
-
-  if (action.href.startsWith('mailto:') || action.href.startsWith('http')) {
-    return (
-      <a className={className} style={style} href={action.href}>
-        {action.label}
-      </a>
-    );
-  }
-
-  return (
-    <Link className={className} style={style} href={action.href}>
-      {action.label}
-    </Link>
-  );
-}
 
 function HeroPhoneMock() {
   return (
@@ -88,7 +61,7 @@ function renderArticleSections(block, reveal) {
           {section.heading && <h2>{section.heading}</h2>}
           {section.text && <p>{section.text}</p>}
           {section.buttonLabel && section.buttonHref && (
-            <MarketingAction
+            <MarketingAuthAction
               action={{
                 label: section.buttonLabel,
                 href: section.buttonHref,
@@ -140,7 +113,7 @@ function renderBlock(block, index) {
             {block.actions?.length > 0 && (
               <div className={styles.heroActions}>
                 {block.actions.map((action) => (
-                  <MarketingAction key={`${action.label}-${action.href}`} action={action} />
+                  <MarketingAuthAction key={`${action.label}-${action.href}`} action={action} />
                 ))}
               </div>
             )}
@@ -271,7 +244,7 @@ function renderBlock(block, index) {
             {block.eyebrow && <p className={styles.eyebrow}>{block.eyebrow}</p>}
             <h2>{block.heading}</h2>
             {block.text && <p>{block.text}</p>}
-            <MarketingAction
+            <MarketingAuthAction
               action={{ label: block.buttonLabel, href: block.buttonHref, variant: 'primary' }}
             />
           </div>
@@ -329,7 +302,7 @@ function renderBlock(block, index) {
                       {card.text && <p>{card.text}</p>}
                       {card.platform && <span className={styles.downloadPill}>{card.platform}</span>}
                     </div>
-                    <MarketingAction
+                    <MarketingAuthAction
                       action={{
                         label: card.buttonLabel || 'Download',
                         href: card.buttonHref,
@@ -395,7 +368,7 @@ function renderBlock(block, index) {
             {block.actions?.length > 0 && (
               <div className={styles.centeredActions}>
                 {block.actions.map((action) => (
-                  <MarketingAction key={`${action.label}-${action.href}`} action={action} />
+                  <MarketingAuthAction key={`${action.label}-${action.href}`} action={action} />
                 ))}
               </div>
             )}
@@ -448,7 +421,7 @@ function renderBlock(block, index) {
             {block.actions?.length > 0 && (
               <div className={styles.centeredActions}>
                 {block.actions.map((action) => (
-                  <MarketingAction key={`${action.label}-${action.href}`} action={action} />
+                  <MarketingAuthAction key={`${action.label}-${action.href}`} action={action} />
                 ))}
               </div>
             )}
