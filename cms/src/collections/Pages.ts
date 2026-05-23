@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
+import { getDraftPreviewUrl, getPublishedPageUrl } from '../lib/marketing/previewUrls'
 import { marketingBlocks } from './blocks/marketingBlocks'
 
 export const Pages: CollectionConfig = {
@@ -8,9 +9,37 @@ export const Pages: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'slug', 'status', 'updatedAt'],
     description: 'Marketing and SEO pages for sterio.fm.',
+    livePreview: {
+      url: ({ data }) => {
+        const slug = data?.slug
+        if (!slug || typeof slug !== 'string') return null
+        return getDraftPreviewUrl(slug)
+      },
+    },
+    preview: (doc) => {
+      const slug = doc?.slug
+      if (!slug || typeof slug !== 'string') return null
+      if (doc?.status === 'published') {
+        return getPublishedPageUrl(slug)
+      }
+      return getDraftPreviewUrl(slug)
+    },
   },
   access: {
-    read: () => true,
+    read: ({ req }) => {
+      const previewSecret = req.headers.get('x-preview-secret')
+      if (previewSecret && previewSecret === process.env.PREVIEW_SECRET) {
+        return true
+      }
+      if (req.user) {
+        return true
+      }
+      return {
+        status: {
+          equals: 'published',
+        },
+      }
+    },
   },
   fields: [
     {

@@ -33,6 +33,16 @@
   border: 0;
 }
 
+.previewBanner {
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #14211b;
+  background: linear-gradient(90deg, #f6d365, #fda085);
+  border-bottom: 1px solid rgba(20, 33, 27, 0.12);
+}
+
 .header {
   position: sticky;
   top: 0;

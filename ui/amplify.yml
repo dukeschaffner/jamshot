@@ -12,6 +12,8 @@ applications:
           commands:
             # Amplify console vars are build-only unless written into .env.production for SSR runtime.
             - echo "CMS_URL=\"$CMS_URL\"" > .env.production
+            - echo "PREVIEW_SECRET=\"$PREVIEW_SECRET\"" >> .env.production
+            - echo "NEXT_PUBLIC_CMS_URL=\"$CMS_URL\"" >> .env.production
             - npm run build
       artifacts:
         baseDirectory: .next

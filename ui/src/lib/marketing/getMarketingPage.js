@@ -1,3 +1,5 @@
+import { draftMode } from 'next/headers'
+
 function getCmsUrl() {
   const explicit =
     process.env.CMS_URL ||
@@ -18,10 +20,26 @@ function getCmsUrl() {
   return 'http://localhost:3001'
 }
 
-async function fetchCmsCollection(collection, params) {
+function getCmsServerUrl() {
+  return (
+    process.env.CMS_URL ||
+    process.env.NEXT_PUBLIC_CMS_URL ||
+    getCmsUrl()
+  ).replace(/\/$/, '')
+}
+
+async function fetchCmsCollection(collection, params, { preview = false } = {}) {
   const query = new URLSearchParams(params)
+  const headers = {}
+
+  if (preview && process.env.PREVIEW_SECRET) {
+    headers['x-preview-secret'] = process.env.PREVIEW_SECRET
+  }
+
   const response = await fetch(`${getCmsUrl()}/api/${collection}?${query}`, {
-    next: { revalidate: 60 },
+    headers,
+    next: preview ? { revalidate: 0 } : { revalidate: 60 },
+    cache: preview ? 'no-store' : undefined,
   })
 
   if (!response.ok) {
@@ -31,15 +49,26 @@ async function fetchCmsCollection(collection, params) {
   return response.json()
 }
 
-export async function getMarketingPage(slug) {
+export async function isPreviewMode() {
+  const { isEnabled } = await draftMode()
+  return isEnabled
+}
+
+export async function getMarketingPage(slug, options = {}) {
+  const preview = options.preview ?? (await isPreviewMode())
+
   try {
-    const result = await fetchCmsCollection('pages', {
+    const params = {
       'where[slug][equals]': slug,
-      'where[status][equals]': 'published',
       limit: '1',
       depth: '2',
-    })
+    }
 
+    if (!preview) {
+      params['where[status][equals]'] = 'published'
+    }
+
+    const result = await fetchCmsCollection('pages', params, { preview })
     return result.docs?.[0] || null
   } catch (error) {
     console.error(`Failed to load marketing page "${slug}":`, error)
@@ -61,3 +90,5 @@ export async function getPublishedMarketingSlugs() {
     return []
   }
 }
+
+export { getCmsServerUrl }

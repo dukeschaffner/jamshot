@@ -40,6 +40,7 @@
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@payloadcms/live-preview-react": "^3.84.1",
     "@sterio/formatting-utils": "file:../packages/formatting-utils",
     "@sterio/subscription-utils": "file:../packages/subscription-utils",
     "@stripe/stripe-js": "^6.0.0",
