@@ -10,6 +10,11 @@ applications:
             - cd cms
         build:
           commands:
+            # Amplify console vars are build-only unless written into .env.production for SSR runtime.
+            # Quote values so special chars (e.g. # in PAYLOAD_SECRET) are not treated as comments.
+            - echo "PAYLOAD_SECRET=\"$PAYLOAD_SECRET\"" > .env.production
+            - echo "CMS_DATABASE_URL=\"$CMS_DATABASE_URL\"" >> .env.production
+            - echo "SERVER_URL=\"$SERVER_URL\"" >> .env.production
             - npm run build
             # Payload/pino externalizes thread-stream; Lambda expects it at .next/node_modules/thread-stream.
             - mkdir -p .next/node_modules/thread-stream .next/node_modules/real-require
