@@ -7,7 +7,7 @@ export default async function MarketingPreviewTools({ page }) {
 
   return (
     <>
-      <RefreshRouteOnSave />
+      {preview && <RefreshRouteOnSave />}
       {preview && <PreviewBanner />}
     </>
   )
