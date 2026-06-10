@@ -1,5 +1,5 @@
 import express from 'express';
-import { MAX_PROJECT_DURATION_SECONDS } from '@sterio/subscription-utils';
+import { MAX_PROJECT_DURATION_SECONDS, MAX_PROJECT_TRACKS } from '@sterio/subscription-utils';
 import pool from '../config/db.js';
 import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
 import { contentCreationLimiter } from '../middleware/rateLimiting.js';
@@ -27,6 +27,68 @@ function parseOptionalInt(value) {
 function parseProjectId(rawId) {
   const parsed = parseInt(rawId, 10);
   return Number.isNaN(parsed) ? NaN : parsed;
+}
+
+function parseTrackId(rawId) {
+  const parsed = parseInt(rawId, 10);
+  return Number.isNaN(parsed) ? NaN : parsed;
+}
+
+function validateTrackName(name) {
+  if (name == null || typeof name !== 'string') {
+    return { valid: false, error: 'Track name is required' };
+  }
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { valid: false, error: 'Track name is required' };
+  }
+  if (trimmed.length > 200) {
+    return { valid: false, error: 'Track name must be 200 characters or less' };
+  }
+  return { valid: true, name: trimmed };
+}
+
+function parseBooleanField(value, fieldName) {
+  if (typeof value === 'boolean') {
+    return { valid: true, value };
+  }
+  if (value === 'true' || value === 1 || value === '1') {
+    return { valid: true, value: true };
+  }
+  if (value === 'false' || value === 0 || value === '0') {
+    return { valid: true, value: false };
+  }
+  return { valid: false, error: `${fieldName} must be a boolean` };
+}
+
+async function bumpProjectRevision(client, projectId, expectedRevision) {
+  const result = await client.query(
+    `UPDATE projects
+     SET revision = revision + 1
+     WHERE id = $1 AND revision = $2
+     RETURNING revision`,
+    [projectId, expectedRevision]
+  );
+
+  if (result.rows.length === 0) {
+    const currentResult = await client.query(
+      'SELECT revision FROM projects WHERE id = $1',
+      [projectId]
+    );
+    const currentRevision =
+      currentResult.rows.length > 0 ? Number(currentResult.rows[0].revision) : null;
+    return { ok: false, currentRevision };
+  }
+
+  return { ok: true, revision: Number(result.rows[0].revision) };
+}
+
+function revisionMismatchResponse(res, currentRevision, yourRevision) {
+  return res.status(409).json({
+    error: 'REVISION_MISMATCH',
+    current_revision: currentRevision,
+    your_revision: yourRevision,
+  });
 }
 
 function validateProjectName(name) {
@@ -351,6 +413,363 @@ router.patch('/:id', async (req, res, next) => {
         current_revision: currentRevision,
         your_revision: revisionCheck.revision,
       });
+    }
+
+    const state = await serializeProjectState(projectId);
+    res.json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/tracks', async (req, res, next) => {
+  try {
+    const projectId = parseProjectId(req.params.id);
+    if (Number.isNaN(projectId)) {
+      return res.status(400).json({ error: 'Invalid project id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const revisionCheck = parseRequiredRevision(req.body);
+    if (!revisionCheck.valid) {
+      return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const { name: nameRaw, sort_order: sortOrderRaw, color } = req.body;
+
+    let trackName = null;
+    if (nameRaw !== undefined) {
+      const nameValidation = validateTrackName(nameRaw);
+      if (!nameValidation.valid) {
+        return res.status(400).json({ error: nameValidation.error });
+      }
+      trackName = nameValidation.name;
+    }
+
+    let sortOrder = null;
+    if (sortOrderRaw !== undefined) {
+      const parsedSortOrder =
+        typeof sortOrderRaw === 'string' ? parseInt(sortOrderRaw, 10) : Number(sortOrderRaw);
+      if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 0) {
+        return res.status(400).json({ error: 'sort_order must be a non-negative integer' });
+      }
+      sortOrder = parsedSortOrder;
+    }
+
+    if (color !== undefined && color !== null) {
+      if (typeof color !== 'string' || color.length > 20) {
+        return res.status(400).json({ error: 'color must be a string of 20 characters or less' });
+      }
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const countResult = await client.query(
+        'SELECT COUNT(*)::int AS count FROM project_tracks WHERE project_id = $1',
+        [projectId]
+      );
+      const trackCount = countResult.rows[0].count;
+
+      if (trackCount >= MAX_PROJECT_TRACKS) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          error: `Track limit reached (${trackCount}/${MAX_PROJECT_TRACKS})`,
+        });
+      }
+
+      const revisionBump = await bumpProjectRevision(
+        client,
+        projectId,
+        revisionCheck.revision
+      );
+      if (!revisionBump.ok) {
+        await client.query('ROLLBACK');
+        return revisionMismatchResponse(
+          res,
+          revisionBump.currentRevision,
+          revisionCheck.revision
+        );
+      }
+
+      if (sortOrder == null) {
+        const sortResult = await client.query(
+          `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort
+           FROM project_tracks
+           WHERE project_id = $1`,
+          [projectId]
+        );
+        sortOrder = sortResult.rows[0].next_sort;
+      }
+
+      if (trackName == null) {
+        trackName = `Track ${trackCount + 1}`;
+      }
+
+      const insertResult = await client.query(
+        `INSERT INTO project_tracks (project_id, name, sort_order, color)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [projectId, trackName, sortOrder, color ?? null]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const state = await serializeProjectState(projectId);
+    res.status(201).json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:id/tracks/:trackId', async (req, res, next) => {
+  try {
+    const projectId = parseProjectId(req.params.id);
+    const trackId = parseTrackId(req.params.trackId);
+    if (Number.isNaN(projectId)) {
+      return res.status(400).json({ error: 'Invalid project id' });
+    }
+    if (Number.isNaN(trackId)) {
+      return res.status(400).json({ error: 'Invalid track id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const revisionCheck = parseRequiredRevision(req.body);
+    if (!revisionCheck.valid) {
+      return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const trackResult = await pool.query(
+      'SELECT id FROM project_tracks WHERE id = $1 AND project_id = $2',
+      [trackId, projectId]
+    );
+    if (trackResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+
+    const {
+      name,
+      sort_order: sortOrderRaw,
+      gain: gainRaw,
+      is_muted: isMutedRaw,
+      muted: mutedAlias,
+      is_solo: isSoloRaw,
+      solo: soloAlias,
+      color,
+    } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      const nameValidation = validateTrackName(name);
+      if (!nameValidation.valid) {
+        return res.status(400).json({ error: nameValidation.error });
+      }
+      updates.push(`name = $${paramIndex++}`);
+      values.push(nameValidation.name);
+    }
+
+    if (sortOrderRaw !== undefined) {
+      const parsedSortOrder =
+        typeof sortOrderRaw === 'string' ? parseInt(sortOrderRaw, 10) : Number(sortOrderRaw);
+      if (!Number.isInteger(parsedSortOrder) || parsedSortOrder < 0) {
+        return res.status(400).json({ error: 'sort_order must be a non-negative integer' });
+      }
+      updates.push(`sort_order = $${paramIndex++}`);
+      values.push(parsedSortOrder);
+    }
+
+    if (gainRaw !== undefined) {
+      const parsedGain = typeof gainRaw === 'string' ? parseFloat(gainRaw) : Number(gainRaw);
+      if (!Number.isFinite(parsedGain) || parsedGain < 0) {
+        return res.status(400).json({ error: 'gain must be a non-negative number' });
+      }
+      updates.push(`gain = $${paramIndex++}`);
+      values.push(parsedGain);
+    }
+
+    const mutedRaw = isMutedRaw !== undefined ? isMutedRaw : mutedAlias;
+    if (mutedRaw !== undefined) {
+      const mutedCheck = parseBooleanField(mutedRaw, 'is_muted');
+      if (!mutedCheck.valid) {
+        return res.status(400).json({ error: mutedCheck.error });
+      }
+      updates.push(`is_muted = $${paramIndex++}`);
+      values.push(mutedCheck.value);
+    }
+
+    const soloRaw = isSoloRaw !== undefined ? isSoloRaw : soloAlias;
+    if (soloRaw !== undefined) {
+      const soloCheck = parseBooleanField(soloRaw, 'is_solo');
+      if (!soloCheck.valid) {
+        return res.status(400).json({ error: soloCheck.error });
+      }
+      updates.push(`is_solo = $${paramIndex++}`);
+      values.push(soloCheck.value);
+    }
+
+    if (color !== undefined) {
+      if (color !== null && (typeof color !== 'string' || color.length > 20)) {
+        return res.status(400).json({ error: 'color must be a string of 20 characters or less' });
+      }
+      updates.push(`color = $${paramIndex++}`);
+      values.push(color);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const revisionBump = await bumpProjectRevision(
+        client,
+        projectId,
+        revisionCheck.revision
+      );
+      if (!revisionBump.ok) {
+        await client.query('ROLLBACK');
+        return revisionMismatchResponse(
+          res,
+          revisionBump.currentRevision,
+          revisionCheck.revision
+        );
+      }
+
+      values.push(trackId, projectId);
+
+      const updateResult = await client.query(
+        `UPDATE project_tracks
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex++} AND project_id = $${paramIndex}
+         RETURNING *`,
+        values
+      );
+
+      if (updateResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Track not found' });
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const state = await serializeProjectState(projectId);
+    res.json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/tracks/:trackId', async (req, res, next) => {
+  try {
+    const projectId = parseProjectId(req.params.id);
+    const trackId = parseTrackId(req.params.trackId);
+    if (Number.isNaN(projectId)) {
+      return res.status(400).json({ error: 'Invalid project id' });
+    }
+    if (Number.isNaN(trackId)) {
+      return res.status(400).json({ error: 'Invalid track id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const revisionCheck = parseRequiredRevision(req.body);
+    if (!revisionCheck.valid) {
+      return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const trackResult = await pool.query(
+      'SELECT id FROM project_tracks WHERE id = $1 AND project_id = $2',
+      [trackId, projectId]
+    );
+    if (trackResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const revisionBump = await bumpProjectRevision(
+        client,
+        projectId,
+        revisionCheck.revision
+      );
+      if (!revisionBump.ok) {
+        await client.query('ROLLBACK');
+        return revisionMismatchResponse(
+          res,
+          revisionBump.currentRevision,
+          revisionCheck.revision
+        );
+      }
+
+      await client.query(
+        `UPDATE project_clips
+         SET deleted_at = CURRENT_TIMESTAMP
+         WHERE project_track_id = $1 AND deleted_at IS NULL`,
+        [trackId]
+      );
+
+      const clipCountResult = await client.query(
+        'SELECT COUNT(*)::int AS count FROM project_clips WHERE project_track_id = $1',
+        [trackId]
+      );
+      const clipCount = clipCountResult.rows[0].count;
+
+      if (clipCount === 0) {
+        await client.query(
+          'DELETE FROM project_tracks WHERE id = $1 AND project_id = $2',
+          [trackId, projectId]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
 
     const state = await serializeProjectState(projectId);

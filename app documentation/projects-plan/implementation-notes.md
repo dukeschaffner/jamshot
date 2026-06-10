@@ -11,7 +11,10 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 3 — Feature flag | **Done (code)** | DB seed written; apply manually |
 | 4 — Database migration | **Done (DDL)** | Apply `api/db-updates.txt` on dev DB |
 | 5 — Project access utilities | **Done (code)** | `projectAccess.js`, `projectUtils.js` |
-| 6+ | Not started | |
+| 6 — Create & list projects | **Done (code)** | `POST /`, `GET /` in `projects.js` |
+| 7 — Get & update project metadata | **Done (code)** | `GET /:id`, `PATCH /:id` with revision contract |
+| 8 — Project tracks CRUD | **Done (code)** | `POST/PATCH/DELETE /:id/tracks/:trackId` |
+| 6b+ | Not started | |
 
 ---
 
@@ -172,9 +175,40 @@ import { checkProjectAccess } from './src/utils/projectAccess.js';
 
 ---
 
+## Step 8 — Project tracks CRUD
+
+Routes in `api/lambda/src/routes/projects.js`:
+
+| Method | Route | Notes |
+|--------|-------|-------|
+| `POST` | `/projects/:id/tracks` | Editor+; `revision` required; optional `name`, `sort_order`, `color`; defaults name to `Track N`, sort to `max+1`; enforces `MAX_PROJECT_TRACKS` (403) |
+| `PATCH` | `/projects/:id/tracks/:trackId` | Editor+; `revision` required; fields: `name`, `sort_order`, `gain`, `is_muted`/`muted`, `is_solo`/`solo`, `color` |
+| `DELETE` | `/projects/:id/tracks/:trackId` | Editor+; `revision` in body; soft-deletes active clips (`deleted_at`); hard-deletes track row only when zero clip rows ever existed |
+
+All mutating track routes bump `projects.revision` with optimistic locking (409 `REVISION_MISMATCH`). Response shape is full `serializeProjectState` + `role`.
+
+### Implementation details
+
+- `bumpProjectRevision(client, projectId, expectedRevision)` — shared helper; release pooled client **before** calling `serializeProjectState` to avoid pool exhaustion under low `max` connections.
+- Track delete keeps empty track rows when clip history exists (snapshot restore requirement per `database.md`).
+- Track count for limit uses `COUNT(*)` on `project_tracks` for the project (no `deleted_at` on tracks).
+
+### Manual verify
+
+```bash
+# Auth: x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE
+POST /api/projects/1/tracks  { "revision": N }
+PATCH /api/projects/1/tracks/2  { "revision": N, "sort_order": 0, "gain": 0.5, "muted": true }
+DELETE /api/projects/1/tracks/1  { "revision": N }  # hard-deletes if never had clips
+# 21st POST → 403 "Track limit reached (20/20)"
+```
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
 |------|------|---------|
 | 2026-06-10 | 1–4 | Foundation: shared constants/limits, feature flag + gated UI stub, full Phase 1a schema DDL |
 | 2026-06-10 | 5 | Project access checks + canonical state serializer |
+| 2026-06-10 | 6–8 | Project CRUD + tracks CRUD with revision contract |
