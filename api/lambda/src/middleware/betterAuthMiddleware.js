@@ -12,6 +12,17 @@ export const betterAuthMiddleware = async (req, res, next) => {
     return next();
   }
 
+  const devUserIdHeader = req.headers['x-dev-user-id'];
+  if (
+    process.env.NODE_ENV === 'dev' &&
+    typeof devUserIdHeader === 'string' &&
+    devUserIdHeader.trim()
+  ) {
+    req.user = { id: devUserIdHeader.trim() };
+    req.session = { isDevSpoofed: true };
+    return next();
+  }
+
   try {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),

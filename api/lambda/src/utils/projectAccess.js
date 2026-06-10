@@ -154,10 +154,112 @@ async function canAddMember(project, user, currentMemberCount, teamOrCampSize = 
   return { allowed: true };
 }
 
+/**
+ * Count projects in a create/list context (per Step 2 counting rules).
+ *
+ * @param {Object} params
+ * @param {string} params.userId - owner for personal context
+ * @param {number|null} [params.teamId]
+ * @param {number|null} [params.campId]
+ */
+async function countProjectsInContext({ userId, teamId = null, campId = null }) {
+  if (teamId != null) {
+    const result = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM projects WHERE team_id = $1',
+      [teamId]
+    );
+    return result.rows[0].count;
+  }
+
+  if (campId != null) {
+    const result = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM projects WHERE camp_id = $1',
+      [campId]
+    );
+    return result.rows[0].count;
+  }
+
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM projects
+     WHERE owner_id = $1 AND team_id IS NULL AND camp_id IS NULL`,
+    [userId]
+  );
+  return result.rows[0].count;
+}
+
+/**
+ * Enforce max_projects for personal, team, or camp context.
+ *
+ * @param {Object} user - users row (subscription fields)
+ * @param {Object} [context]
+ * @param {number|null} [context.teamId]
+ * @param {number|null} [context.campId]
+ * @param {string} [context.productVersion] - team/camp product_version when already known
+ */
+async function checkCanCreateProject(user, context = {}) {
+  const { teamId = null, campId = null, productVersion = null } = context;
+  let limits;
+
+  if (teamId != null) {
+    let pv = productVersion;
+    if (!pv) {
+      const teamResult = await pool.query(
+        'SELECT product_version FROM teams WHERE id = $1',
+        [teamId]
+      );
+      if (teamResult.rows.length === 0) {
+        return { allowed: false, reason: 'Team not found', status: 404 };
+      }
+      pv = teamResult.rows[0].product_version;
+    }
+    limits = getProjectLimits({ type: 'team', productVersion: pv, memberCount: 0 });
+  } else if (campId != null) {
+    let pv = productVersion;
+    if (!pv) {
+      const campResult = await pool.query(
+        'SELECT product_version FROM camps WHERE id = $1',
+        [campId]
+      );
+      if (campResult.rows.length === 0) {
+        return { allowed: false, reason: 'Camp not found', status: 404 };
+      }
+      pv = campResult.rows[0].product_version;
+    }
+    limits = getProjectLimits({ type: 'camp', productVersion: pv, memberCount: 0 });
+  } else {
+    limits = getProjectLimits({ type: 'personal', user });
+  }
+
+  const count = await countProjectsInContext({
+    userId: user.id,
+    teamId,
+    campId,
+  });
+
+  const max = limits.max_projects;
+  if (max === -1) {
+    return { allowed: true, count, max };
+  }
+
+  if (count >= max) {
+    return {
+      allowed: false,
+      reason: `Project limit reached (${count}/${max})`,
+      status: 403,
+      count,
+      max,
+    };
+  }
+
+  return { allowed: true, count, max };
+}
+
 export {
   ROLE_RANK,
   hasMinimumProjectRole,
   checkProjectAccess,
   getProjectLimitsForContext,
   canAddMember,
+  countProjectsInContext,
+  checkCanCreateProject,
 };

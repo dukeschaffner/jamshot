@@ -247,6 +247,37 @@ async function serializeProjectState(projectId, options = {}) {
  * Collect unique asset IDs from a snapshot state object (for project_snapshot_assets).
  * @param {Object} state - snapshot JSON from serializeProjectState(..., { variant: 'snapshot' })
  */
+/**
+ * List/create response shape (metadata only, no tracks).
+ * @param {Object} row - projects row (+ optional pm.role)
+ * @param {string} [role] - caller's membership role
+ */
+function formatProjectSummary(row, role) {
+  const summary = {
+    id: row.id,
+    guid: row.guid,
+    name: row.name,
+    ownerId: row.owner_id,
+    teamId: row.team_id,
+    campId: row.camp_id,
+    bpm: row.bpm,
+    timeSignature: row.time_signature,
+    metronomeOffset: row.metronome_offset,
+    durationSeconds: row.duration_seconds,
+    revision: Number(row.revision),
+    isPrivate: row.is_private,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+
+  const membershipRole = role ?? row.role;
+  if (membershipRole != null) {
+    summary.role = membershipRole;
+  }
+
+  return summary;
+}
+
 function collectSnapshotAssetIds(state) {
   const assetIds = new Set();
 
@@ -263,6 +294,7 @@ function collectSnapshotAssetIds(state) {
 
 export {
   getProjectAssetPublicUrl,
+  formatProjectSummary,
   serializeProjectState,
   collectSnapshotAssetIds,
 };
