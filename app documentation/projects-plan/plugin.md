@@ -1,11 +1,161 @@
+# Projects — Plugin Integration
 
-MVP
-phase 1
-- if user is active, project updates should auto sync to plugin session
-- may need some sort of persistent, project-based state so that if the user closes logic and reopens it, it knows which track or project to open back up
+Extends existing Sterio plugin (`plugin/Source/`). Track-mode plugin already supports stem playback + local WebSocket server.
 
+Parent: [overview.md](./overview.md) · Decisions: [decisions.md](./decisions.md)
 
-phase 2:
-- add new view "Projects" - list of user's projects or "create a project" button if user has none that goes to sterio web app
-- new view "project"
-    - shows all the tracks and their regions' waveforms (rendered according to region metadata) - fully zoomed out. no zoom for this timeline view. show playhead over the waveforms thats in sync with the DAW's playhead
+**Auth:** same OAuth (`PluginState`, `SterioApiClient`).
+
+**Audio URLs:** public R2 paths from API — **no signed URLs**. Plugin downloads from `${R2_PUBLIC_URL}/{storage_key}`.
+
+---
+
+## Current plugin (track mode)
+
+| Piece | Role |
+|---|---|
+| `StemPlaybackEngine` | Stem playback synced to host DAW transport |
+| `TrackLoader` | Fetches `/tracks/:id/stems` |
+| `ConnectionManager` | Local WS server (port 59327) |
+| `PluginProcessor.cpp` | `set_track`, `stem_metadata_sync` (requires `track_id` today) |
+
+---
+
+## Phase 1a — project playback + sync (Steps 29–32)
+
+### PluginProcessor routing (prerequisite)
+
+Restructure `handleIncomingMessage` to branch on **`type` first**:
+
+```cpp
+if (type == "set_track") { ... }      // existing; requires track_id
+else if (type == "set_project") { ... }
+else if (type == "project_sync") { ... }
+```
+
+Do **not** require `track_id` for project messages.
+
+### `set_project`
+
+Web → plugin:
+
+```json
+{
+  "type": "set_project",
+  "project_id": "123",
+  "payload": {
+    "bpm": 120,
+    "timeSignature": "4/4",
+    "durationSeconds": 120,
+    "clips": [
+      {
+        "clipId": 10,
+        "trackId": 1,
+        "audioUrl": "https://...r2.../projects/1/42/audio.wav",
+        "startTime": 0,
+        "trimStart": 0,
+        "trimEnd": 4.5,
+        "gain": 0.8,
+        "trackGain": 0.8
+      }
+    ]
+  }
+}
+```
+
+Plugin may fetch `GET /projects/:id/plugin-payload` instead of inline payload — either works; prefer fetch for large projects.
+
+### `project_sync`
+
+```json
+{
+  "type": "project_sync",
+  "project_id": "123",
+  "payload": { "clips": [ ... ] }
+}
+```
+
+**Do not** use `stem_metadata_sync` merge logic — replace/update clips by `clipId`.
+
+### Plugin work
+
+1. `ProjectLoader` — fetch `plugin-payload`; download audio by public URL
+2. Map clips → `StemPlaybackEngine` (see Clip mapping below)
+3. Cache by `(project_id, clip_id)` in `CacheManager`
+4. `PluginState.last_project_id` for reopen (Step 32)
+
+### Web work
+
+- `ProjectPluginSync` on project toolbar: Open in Plugin, manual sync, auto-sync toggle, stale badge
+- Extend `PluginWebSocketContext` message maps for `set_project` / `project_sync`
+- Update `plugin/ws-message-schema.json`
+
+### Auto-sync (default on)
+
+Debounced `project_sync` after REST saves (Phase 1). After Phase 2: also after WS ops.
+
+---
+
+## Clip → StemPlaybackEngine mapping
+
+Track stems:
+
+```
+{ track_id, audio_url, gain, order, regions: [{ start, end, offset }] }
+```
+
+Project clips:
+
+```
+{ clipId, audioUrl, startTime, trimStart, trimEnd, gain, trackGain }
+```
+
+Adapter:
+
+- `order` = track sort order
+- `regions` = `[{ start: clip.startTime, end: ..., offset: trimStart }]`
+- Combined gain = clip gain × track gain
+
+---
+
+## Transport / playhead
+
+**MVP:** plugin follows **host DAW** transport only. No web ↔ plugin playhead sync.
+
+Step 29 "in sync with transport" means host DAW transport, not web playhead.
+
+---
+
+## Post-MVP — timeline view (Step 43)
+
+`ProjectTimelineView` — read-only waveforms, host playhead. No editing in plugin.
+
+---
+
+## REST API
+
+`GET /projects/:id/plugin-payload` — editors only; public R2 URLs.
+
+`SterioApiClient` adds project fetch methods.
+
+---
+
+## Testing
+
+- Extend `plugin/ws.js` for project messages
+- Integration: web project page → `set_project` → audio in Logic/REAPER
+- Cache: clip `asset_id` change → `project_sync` refreshes buffer
+
+---
+
+## Files to touch
+
+```
+plugin/Source/api/ProjectLoader.h/.cpp
+plugin/Source/PluginProcessor.cpp      (type-first routing)
+plugin/Source/PluginState.h/.cpp       (last_project_id)
+plugin/Source/StemModels.h             (clip id identity)
+plugin/ws-message-schema.json
+ui/src/components/DAW/components/PluginSync.js  (or ProjectPluginSync.js)
+ui/src/contexts/PluginWebSocketContext.js
+```

@@ -3,5 +3,21 @@ a new "project" entity that is more of a real time collaborative workspace inste
 
 
 features:
-- lock regions/tracks when being edited
+- track-level locks when being edited (cross-track moves need both source + destination locks)
 - DO NOT include undo/redo. keep project snapshots
+- phased delivery: Phase 1a solo + plugin; Phase 1b import/invites; Phase 2 realtime collab (see overview.md)
+- clip upload: multipart to API + shared audio-processing lambda (project branch)
+- audio URLs: public R2 paths (no signed URLs)
+
+---
+implementation plan (split by area):
+- overview.md
+- database.md
+- api.md
+- realtime-sync.md
+- snapshots.md
+- assets.md
+- web-daw.md (includes DAW reuse analysis)
+- plugin.md
+- decisions.md
+- implementation-steps.md
