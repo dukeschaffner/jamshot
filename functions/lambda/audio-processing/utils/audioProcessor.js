@@ -273,6 +273,154 @@ class AudioProcessor {
     }
   }
 
+  buildProjectAssetFinalKey(projectId, assetId) {
+    return `projects/${projectId}/${assetId}/audio.wav`;
+  }
+
+  async processProjectAsset(assetId, s3KeyOverride = null) {
+    let localFilePath = null;
+    let tempS3Key = null;
+
+    try {
+      const assetResult = await getPool().query(
+        `SELECT id, project_id, storage_key, name, mime_type
+         FROM project_assets
+         WHERE id = $1`,
+        [assetId]
+      );
+
+      if (assetResult.rows.length === 0) {
+        throw new Error(`Project asset ${assetId} not found`);
+      }
+
+      const asset = assetResult.rows[0];
+      const projectId = asset.project_id;
+      tempS3Key = s3KeyOverride || asset.storage_key;
+      const finalStorageKey = this.buildProjectAssetFinalKey(projectId, assetId);
+
+      if (!tempS3Key) {
+        throw new Error(`Could not locate source audio for project asset ${assetId}`);
+      }
+
+      await getPool().query(
+        'UPDATE project_assets SET processing_status = $1 WHERE id = $2',
+        ['processing', assetId]
+      );
+
+      const originalExtension = path.extname(tempS3Key) || '.wav';
+      localFilePath = path.join(
+        this.tempDir,
+        `project-asset-${assetId}-raw-${Date.now()}${originalExtension}`
+      );
+
+      await this.downloadS3File(tempS3Key, localFilePath);
+
+      const wavPath = path.join(this.tempDir, `project-asset-${assetId}-${Date.now()}.wav`);
+      await this.convertToProjectWav(localFilePath, wavPath);
+
+      const duration = await this.getAudioDuration(wavPath);
+      const fileStats = await fsPromises.stat(wavPath);
+
+      await this.uploadToS3(wavPath, finalStorageKey, 'audio/wav');
+
+      await getPool().query(
+        `UPDATE project_assets
+         SET processing_status = $1,
+             storage_key = $2,
+             audio_url = $2,
+             duration_seconds = $3,
+             file_size_bytes = $4,
+             mime_type = $5,
+             processing_error = NULL
+         WHERE id = $6`,
+        ['completed', finalStorageKey, duration, fileStats.size, 'audio/wav', assetId]
+      );
+
+      if (tempS3Key.startsWith('temp/projects/')) {
+        try {
+          await s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.R2_BUCKET,
+              Key: tempS3Key,
+            })
+          );
+        } catch (deleteError) {
+          logger.error({
+            message: 'Failed to delete temporary project asset S3 file',
+            s3Key: tempS3Key,
+            error: deleteError?.message,
+          });
+        }
+      }
+
+      await fsPromises.unlink(localFilePath).catch(() => {});
+      await fsPromises.unlink(wavPath).catch(() => {});
+
+      return {
+        status: 'success',
+        asset_id: assetId,
+        message: 'Project asset processing completed successfully',
+      };
+    } catch (error) {
+      if (localFilePath) {
+        await fsPromises.unlink(localFilePath).catch(() => {});
+      }
+
+      if (tempS3Key && tempS3Key.startsWith('temp/projects/')) {
+        try {
+          await s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.R2_BUCKET,
+              Key: tempS3Key,
+            })
+          );
+        } catch (deleteError) {
+          logger.error({
+            message: 'Failed to delete temporary project asset S3 file after error',
+            s3Key: tempS3Key,
+            error: deleteError?.message,
+          });
+        }
+      }
+
+      await getPool()
+        .query(
+          'UPDATE project_assets SET processing_status = $1, processing_error = $2 WHERE id = $3',
+          ['failed', error.message, assetId]
+        )
+        .catch((dbError) => {
+          logger.error({
+            message: 'Failed to update project asset status to failed',
+            error: dbError?.message,
+          });
+        });
+
+      throw error;
+    }
+  }
+
+  async convertToProjectWav(inputPath, outputPath) {
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .audioCodec('pcm_s16le')
+        .audioFrequency(44100)
+        .audioChannels(1)
+        .on('end', () => {
+          logger.info({ message: 'Project WAV conversion completed', outputPath });
+          resolve();
+        })
+        .on('error', (err) => {
+          logger.error({
+            message: 'Project WAV conversion failed',
+            error: err?.message,
+            stack: err?.stack,
+          });
+          reject(err);
+        })
+        .save(outputPath);
+    });
+  }
+
   async processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl) {
 
     // Get stem chain
@@ -485,14 +633,14 @@ class AudioProcessor {
     await fsPromises.writeFile(localPath, byteArray);
   }
 
-  async uploadToS3(localPath, s3Key) {
+  async uploadToS3(localPath, s3Key, contentType = 'audio/mpeg') {
     const fileStream = fs.createReadStream(localPath);
 
     const uploadParams = {
       Bucket: process.env.R2_BUCKET,
       Key: s3Key,
       Body: fileStream,
-      ContentType: 'audio/mpeg'
+      ContentType: contentType,
     };
 
     await s3Client.send(new PutObjectCommand(uploadParams));

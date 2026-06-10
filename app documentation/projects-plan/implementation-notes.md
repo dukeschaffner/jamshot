@@ -14,6 +14,8 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 6 — Create & list projects | **Done (code)** | `POST /`, `GET /` in `projects.js` |
 | 7 — Get & update project metadata | **Done (code)** | `GET /:id`, `PATCH /:id` with revision contract |
 | 8 — Project tracks CRUD | **Done (code)** | `POST/PATCH/DELETE /:id/tracks/:trackId` |
+| 9 — Clip upload | **Done (code)** | Multipart clip upload + audio-processing lambda branch |
+| 9b — Asset processing status | **Done (code)** | `GET .../assets/:assetId/processing-status`; clips include `processingStatus` on GET |
 | 6b+ | Not started | |
 
 ---
@@ -205,6 +207,88 @@ DELETE /api/projects/1/tracks/1  { "revision": N }  # hard-deletes if never had 
 
 ---
 
+## Step 9 — Clip upload (multipart + audio-processing lambda)
+
+### API route
+
+| Method | Route | Notes |
+|--------|-------|-------|
+| `POST` | `/projects/:id/tracks/:trackId/clips` | `multipart/form-data`; `uploadLimiter` + `getActiveUploadBan`; **skips** social upload quotas |
+
+**Multipart fields:** `file` (required), `revision` (required), `start_time_seconds`, `trim_start_seconds`, `trim_end_seconds` (optional), `clip_id` (re-record/retry).
+
+**Response (201):** `{ assetId, clipId, processing_status: 'pending', revision }`
+
+### Flow
+
+1. Transaction: insert `project_assets` (`pending`, temp `storage_key`) + `project_clips` (or update clip `asset_id` on retry); bump `projects.revision` + `last_referenced_at`.
+2. Upload temp file to R2: `temp/projects/{projectId}/{assetId}/source.{ext}`.
+3. Emit EventBridge `project_asset_created` (skipped in `NODE_ENV=dev`; dev-server polls `pending` assets).
+4. Audio-processing lambda `processProjectAsset`: mono 44.1kHz WAV → `projects/{projectId}/{assetId}/audio.wav`; no peaks/normalization/combined mix.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `api/lambda/src/routes/projects.js` | Clip upload route + multer |
+| `api/lambda/src/utils/projectAssetUtils.js` | R2 upload, EventBridge emit, temp/final key helpers |
+| `functions/lambda/audio-processing/index.js` | Routes on `asset_id` vs `track_id`; `projectAssetCreatedHandler` |
+| `functions/lambda/audio-processing/utils/audioProcessor.js` | `processProjectAsset`, `convertToProjectWav` |
+| `functions/lambda/audio-processing/dev-server.js` | Polls `project_assets` where `processing_status = 'pending'` |
+
+### Manual verify
+
+```bash
+# Auth: x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE
+curl -X POST http://localhost:5001/api/projects/1/tracks/3/clips \
+  -H "x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE" \
+  -F "file=@/path/to/clip.wav" -F "revision=N" -F "start_time_seconds=0"
+
+# Re-record/retry (new asset, same clip):
+# ... -F "clip_id=1"
+
+# Run audio-processing dev-server (or manual):
+cd functions/lambda/audio-processing && npm run dev
+# Or: ASSET_ID=1 S3_KEY=temp/projects/1/1/source.wav node index.js (with .env loaded)
+```
+
+---
+
+## Step 9b — Asset processing status
+
+### API route
+
+| Method | Route | Notes |
+|--------|-------|-------|
+| `GET` | `/projects/:id/assets/:assetId/processing-status` | Project member access; mirrors `GET /tracks/:id/status` |
+
+**Response:**
+
+```json
+{
+  "asset_id": 2,
+  "status": "pending|processing|completed|failed",
+  "error": null,
+  "estimated_time_remaining": 120
+}
+```
+
+- `error` sanitized via `sanitizeProcessingError` (exported from `projectUtils.js`) — generic message only when `status === 'failed'`.
+- `estimated_time_remaining` (seconds) returned for `pending` and `processing` (5-minute estimate from `created_at`).
+
+### GET /projects/:id clips
+
+Already included from Step 5/9 via `serializeProjectState`: each clip has `processingStatus`; `processingError` when failed.
+
+### Manual verify
+
+```bash
+curl http://localhost:5001/api/projects/1/assets/2/processing-status \
+  -H "x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE"
+```
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
@@ -212,3 +296,5 @@ DELETE /api/projects/1/tracks/1  { "revision": N }  # hard-deletes if never had 
 | 2026-06-10 | 1–4 | Foundation: shared constants/limits, feature flag + gated UI stub, full Phase 1a schema DDL |
 | 2026-06-10 | 5 | Project access checks + canonical state serializer |
 | 2026-06-10 | 6–8 | Project CRUD + tracks CRUD with revision contract |
+| 2026-06-10 | 9 | Clip multipart upload, R2 temp path, audio-processing project branch |
+| 2026-06-10 | 9b | Asset processing-status polling endpoint |

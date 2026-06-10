@@ -294,6 +294,7 @@ function collectSnapshotAssetIds(state) {
 
 export {
   getProjectAssetPublicUrl,
+  sanitizeProcessingError,
   formatProjectSummary,
   serializeProjectState,
   collectSnapshotAssetIds,

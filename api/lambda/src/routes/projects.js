@@ -1,8 +1,15 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import * as mm from 'music-metadata';
 import { MAX_PROJECT_DURATION_SECONDS, MAX_PROJECT_TRACKS } from '@sterio/subscription-utils';
 import pool from '../config/db.js';
 import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
-import { contentCreationLimiter } from '../middleware/rateLimiting.js';
+import { contentCreationLimiter, uploadLimiter } from '../middleware/rateLimiting.js';
 import { requireProjectsFeature } from '../middleware/projectsFeatureMiddleware.js';
 import { validateTeamAccess } from '../utils/teamUtils.js';
 import { validateCampAccess } from '../utils/campUtils.js';
@@ -11,9 +18,63 @@ import {
   checkProjectAccess,
   hasMinimumProjectRole,
 } from '../utils/projectAccess.js';
-import { formatProjectSummary, serializeProjectState } from '../utils/projectUtils.js';
+import {
+  formatProjectSummary,
+  sanitizeProcessingError,
+  serializeProjectState,
+} from '../utils/projectUtils.js';
+import { getActiveUploadBan } from '../utils/trackUtils.js';
+import {
+  buildProjectAssetTempKey,
+  uploadLocalFileToR2,
+  emitProjectAssetCreatedEvent,
+} from '../utils/projectAssetUtils.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const clipUploadTempDir =
+  process.env.NODE_ENV !== 'dev' ? '/tmp' : path.join(__dirname, '../../temp');
 
 const router = express.Router();
+
+const clipUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      if (!fs.existsSync(clipUploadTempDir)) {
+        fs.mkdirSync(clipUploadTempDir, { recursive: true });
+      }
+      cb(null, clipUploadTempDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${file.originalname}`;
+      cb(null, uniqueName);
+    },
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
+
+function handleClipMulterError(error, req, res, next) {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File too large. Maximum size is 100MB.' });
+    }
+    return res.status(400).json({ error: `Upload error: ${error.message}` });
+  }
+  if (error) {
+    return res.status(400).json({ error: `Upload error: ${error.message}` });
+  }
+  next();
+}
+
+async function getAudioMetadataParser() {
+  if (typeof mm.parseFile === 'function') {
+    return mm;
+  }
+  if (typeof mm.loadMusicMetadata === 'function') {
+    return await mm.loadMusicMetadata();
+  }
+  throw new Error('No parseFile or loadMusicMetadata found in music-metadata');
+}
 
 router.use(requireProjectsFeature);
 router.use(authMiddleware);
@@ -32,6 +93,32 @@ function parseProjectId(rawId) {
 function parseTrackId(rawId) {
   const parsed = parseInt(rawId, 10);
   return Number.isNaN(parsed) ? NaN : parsed;
+}
+
+function parseClipId(rawId) {
+  const parsed = parseInt(rawId, 10);
+  return Number.isNaN(parsed) ? NaN : parsed;
+}
+
+function parseAssetId(rawId) {
+  const parsed = parseInt(rawId, 10);
+  return Number.isNaN(parsed) ? NaN : parsed;
+}
+
+function parsePlacementSeconds(value, fieldName, { required = false, min = 0 } = {}) {
+  if (value == null || value === '') {
+    if (required) {
+      return { valid: false, error: `${fieldName} is required` };
+    }
+    return { valid: true, value: min };
+  }
+
+  const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
+  if (!Number.isFinite(parsed) || parsed < min) {
+    return { valid: false, error: `${fieldName} must be a number >= ${min}` };
+  }
+
+  return { valid: true, value: parsed };
 }
 
 function validateTrackName(name) {
@@ -290,6 +377,64 @@ router.get('/:id', async (req, res, next) => {
     }
 
     res.json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/assets/:assetId/processing-status', async (req, res, next) => {
+  try {
+    const projectId = parseProjectId(req.params.id);
+    const assetId = parseAssetId(req.params.assetId);
+
+    if (Number.isNaN(projectId)) {
+      return res.status(400).json({ error: 'Invalid project id' });
+    }
+    if (Number.isNaN(assetId)) {
+      return res.status(400).json({ error: 'Invalid asset id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    const result = await pool.query(
+      `SELECT processing_status, processing_error, created_at
+       FROM project_assets
+       WHERE id = $1 AND project_id = $2 AND deleted_at IS NULL`,
+      [assetId, projectId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Asset not found' });
+    }
+
+    const asset = result.rows[0];
+    const status = asset.processing_status || 'pending';
+
+    let estimatedTimeRemaining = null;
+    if (status === 'pending' || status === 'processing') {
+      const createdAt = new Date(asset.created_at);
+      const elapsedMs = Date.now() - createdAt.getTime();
+      const estimatedTotalMs = 5 * 60 * 1000;
+      const remainingMs = Math.max(0, estimatedTotalMs - elapsedMs);
+      if (remainingMs > 0) {
+        estimatedTimeRemaining = Math.ceil(remainingMs / 1000);
+      }
+    }
+
+    const sanitizedError =
+      status === 'failed' && asset.processing_error
+        ? sanitizeProcessingError(asset.processing_error)
+        : null;
+
+    res.json({
+      asset_id: assetId,
+      status,
+      error: sanitizedError,
+      estimated_time_remaining: estimatedTimeRemaining,
+    });
   } catch (err) {
     next(err);
   }
@@ -778,5 +923,294 @@ router.delete('/:id/tracks/:trackId', async (req, res, next) => {
     next(err);
   }
 });
+
+router.post(
+  '/:id/tracks/:trackId/clips',
+  uploadLimiter,
+  (req, res, next) => {
+    clipUpload.single('file')(req, res, (err) => {
+      if (err) return handleClipMulterError(err, req, res, next);
+      next();
+    });
+  },
+  async (req, res, next) => {
+    let localFilePath = req.file?.path ?? null;
+
+    try {
+      const userId = req.user.id;
+      const projectId = parseProjectId(req.params.id);
+      const trackId = parseTrackId(req.params.trackId);
+
+      if (Number.isNaN(projectId)) {
+        return res.status(400).json({ error: 'Invalid project id' });
+      }
+      if (Number.isNaN(trackId)) {
+        return res.status(400).json({ error: 'Invalid track id' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'Audio file is required' });
+      }
+
+      const activeUploadBan = await getActiveUploadBan(userId);
+      if (activeUploadBan) {
+        return res.status(403).json({
+          error: 'USER_BANNED',
+          ban_type: activeUploadBan.ban_type,
+          message: activeUploadBan.reason
+            ? `You are temporarily blocked from uploading due to ${activeUploadBan.reason.toLowerCase()}.`
+            : 'You are temporarily blocked from uploading.',
+          expires_at: activeUploadBan.expires_at,
+        });
+      }
+
+      const access = await checkProjectAccess(projectId, userId);
+      if (!access.hasAccess) {
+        return res.status(access.status).json({ error: access.error });
+      }
+
+      if (!hasMinimumProjectRole(access.role, 'editor')) {
+        return res.status(403).json({ error: 'Editor access required' });
+      }
+
+      const revisionCheck = parseRequiredRevision(req.body);
+      if (!revisionCheck.valid) {
+        return res.status(400).json({ error: revisionCheck.error });
+      }
+
+      const trackResult = await pool.query(
+        'SELECT id FROM project_tracks WHERE id = $1 AND project_id = $2',
+        [trackId, projectId]
+      );
+      if (trackResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Track not found' });
+      }
+
+      const projectResult = await pool.query(
+        'SELECT duration_seconds FROM projects WHERE id = $1',
+        [projectId]
+      );
+      const projectDuration = Number(projectResult.rows[0]?.duration_seconds ?? 0);
+
+      const startTimeCheck = parsePlacementSeconds(
+        req.body.start_time_seconds,
+        'start_time_seconds',
+        { required: true }
+      );
+      if (!startTimeCheck.valid) {
+        return res.status(400).json({ error: startTimeCheck.error });
+      }
+
+      const trimStartCheck = parsePlacementSeconds(
+        req.body.trim_start_seconds,
+        'trim_start_seconds'
+      );
+      if (!trimStartCheck.valid) {
+        return res.status(400).json({ error: trimStartCheck.error });
+      }
+
+      let trimEnd = null;
+      if (req.body.trim_end_seconds != null && req.body.trim_end_seconds !== '') {
+        const trimEndCheck = parsePlacementSeconds(
+          req.body.trim_end_seconds,
+          'trim_end_seconds'
+        );
+        if (!trimEndCheck.valid) {
+          return res.status(400).json({ error: trimEndCheck.error });
+        }
+        trimEnd = trimEndCheck.value;
+        if (trimEnd <= trimStartCheck.value) {
+          return res.status(400).json({
+            error: 'trim_end_seconds must be greater than trim_start_seconds',
+          });
+        }
+      }
+
+      localFilePath = req.file.path;
+      const parser = await getAudioMetadataParser();
+      const metadata = await parser.parseFile(localFilePath);
+      const fileDuration = metadata.format.duration;
+
+      if (!fileDuration || !Number.isFinite(fileDuration) || fileDuration <= 0) {
+        return res.status(400).json({ error: 'Could not determine audio file duration' });
+      }
+
+      if (fileDuration > MAX_PROJECT_DURATION_SECONDS) {
+        return res.status(400).json({
+          error: `Audio duration cannot exceed ${MAX_PROJECT_DURATION_SECONDS} seconds`,
+        });
+      }
+
+      const clipDuration =
+        trimEnd != null ? trimEnd - trimStartCheck.value : fileDuration - trimStartCheck.value;
+
+      if (clipDuration <= 0) {
+        return res.status(400).json({ error: 'Clip duration must be greater than 0' });
+      }
+
+      const clipEndOnTimeline = startTimeCheck.value + clipDuration;
+      if (clipEndOnTimeline > projectDuration) {
+        return res.status(400).json({
+          error: `Clip extends beyond project duration (${projectDuration}s)`,
+        });
+      }
+
+      const clipIdRaw = req.body.clip_id;
+      let existingClipId = null;
+      if (clipIdRaw != null && clipIdRaw !== '') {
+        existingClipId = parseClipId(clipIdRaw);
+        if (Number.isNaN(existingClipId)) {
+          return res.status(400).json({ error: 'Invalid clip_id' });
+        }
+      }
+
+      const client = await pool.connect();
+      let assetId;
+      let clipId;
+      let tempStorageKey;
+      let newRevision;
+
+      try {
+        await client.query('BEGIN');
+
+        const revisionBump = await bumpProjectRevision(
+          client,
+          projectId,
+          revisionCheck.revision
+        );
+        if (!revisionBump.ok) {
+          await client.query('ROLLBACK');
+          return revisionMismatchResponse(
+            res,
+            revisionBump.currentRevision,
+            revisionCheck.revision
+          );
+        }
+        newRevision = revisionBump.revision;
+
+        const assetInsert = await client.query(
+          `INSERT INTO project_assets (
+             project_id, storage_key, name, file_size_bytes, mime_type,
+             uploaded_by, processing_status
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+           RETURNING id`,
+          [
+            projectId,
+            'pending',
+            req.file.originalname || null,
+            req.file.size,
+            req.file.mimetype || null,
+            userId,
+          ]
+        );
+        assetId = assetInsert.rows[0].id;
+
+        tempStorageKey = buildProjectAssetTempKey(
+          projectId,
+          assetId,
+          req.file.originalname
+        );
+        await client.query(
+          `UPDATE project_assets
+           SET storage_key = $1, last_referenced_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [tempStorageKey, assetId]
+        );
+
+        if (existingClipId != null) {
+          const clipUpdate = await client.query(
+            `UPDATE project_clips
+             SET asset_id = $1,
+                 start_time_seconds = $2,
+                 trim_start_seconds = $3,
+                 trim_end_seconds = $4,
+                 deleted_at = NULL,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $5
+               AND project_track_id = $6
+               AND deleted_at IS NULL
+             RETURNING id`,
+            [
+              assetId,
+              startTimeCheck.value,
+              trimStartCheck.value,
+              trimEnd,
+              existingClipId,
+              trackId,
+            ]
+          );
+
+          if (clipUpdate.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Clip not found' });
+          }
+
+          clipId = clipUpdate.rows[0].id;
+        } else {
+          const clipInsert = await client.query(
+            `INSERT INTO project_clips (
+               project_track_id, asset_id, start_time_seconds,
+               trim_start_seconds, trim_end_seconds
+             )
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id`,
+            [trackId, assetId, startTimeCheck.value, trimStartCheck.value, trimEnd]
+          );
+          clipId = clipInsert.rows[0].id;
+        }
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      try {
+        await uploadLocalFileToR2(
+          localFilePath,
+          tempStorageKey,
+          req.file.mimetype || 'audio/*'
+        );
+      } catch (uploadErr) {
+        console.error('Project clip R2 upload failed:', uploadErr);
+        await pool.query(
+          `UPDATE project_assets
+           SET processing_status = 'failed',
+               processing_error = $1
+           WHERE id = $2`,
+          [uploadErr.message || 'R2 upload failed', assetId]
+        );
+        return res.status(500).json({ error: 'Failed to upload audio file' });
+      }
+
+      try {
+        await emitProjectAssetCreatedEvent({
+          assetId,
+          projectId,
+          s3Key: tempStorageKey,
+          correlationId: req.correlationId,
+        });
+      } catch (eventErr) {
+        console.error('Failed to emit project_asset_created event:', eventErr);
+      }
+
+      res.status(201).json({
+        assetId,
+        clipId,
+        processing_status: 'pending',
+        revision: newRevision,
+      });
+    } catch (err) {
+      next(err);
+    } finally {
+      if (localFilePath) {
+        await fsPromises.unlink(localFilePath).catch(() => {});
+      }
+    }
+  }
+);
 
 export default router;
