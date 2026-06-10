@@ -46,6 +46,23 @@ function mapTrackRow(row, { variant, includeProcessingDetails }) {
     return track;
   }
 
+  if (variant === 'plugin') {
+    if (row.processing_status !== 'completed') {
+      return null;
+    }
+    track.clips.push({
+      clipId: row.clip_id,
+      trackId: row.track_id,
+      audioUrl: getProjectAssetPublicUrl(row.storage_key || row.audio_url),
+      startTime: row.start_time_seconds,
+      trimStart: row.trim_start_seconds,
+      trimEnd: row.trim_end_seconds,
+      gain: row.track_gain,
+      trackGain: row.track_gain,
+    });
+    return track;
+  }
+
   const clip = {
     id: row.clip_id,
     assetId: row.asset_id,
@@ -71,16 +88,6 @@ function mapTrackRow(row, { variant, includeProcessingDetails }) {
         clip.processingError = sanitizeProcessingError(row.processing_error);
       }
     }
-  }
-
-  if (variant === 'plugin') {
-    if (row.processing_status !== 'completed') {
-      return null;
-    }
-    clip.audioUrl = getProjectAssetPublicUrl(row.storage_key || row.audio_url);
-    clip.trackId = row.track_id;
-    clip.trackGain = row.track_gain;
-    clip.gain = row.track_gain;
   }
 
   track.clips.push(clip);

@@ -459,6 +459,46 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+router.get('/:id/plugin-payload', async (req, res, next) => {
+  try {
+    const projectId = parseProjectId(req.params.id);
+    if (Number.isNaN(projectId)) {
+      return res.status(400).json({ error: 'Invalid project id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const payload = await serializeProjectState(projectId, { variant: 'plugin' });
+    if (!payload) {
+      return res.status(403).json({ error: 'You do not have access to this project' });
+    }
+
+    await pool.query(
+      `UPDATE project_assets pa
+       SET last_referenced_at = CURRENT_TIMESTAMP
+       FROM project_clips pc
+       JOIN project_tracks pt ON pt.id = pc.project_track_id
+       WHERE pa.id = pc.asset_id
+         AND pt.project_id = $1
+         AND pc.deleted_at IS NULL
+         AND pa.deleted_at IS NULL
+         AND pa.processing_status = 'completed'`,
+      [projectId]
+    );
+
+    res.json(payload);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/:id', async (req, res, next) => {
   try {
     const projectId = parseProjectId(req.params.id);

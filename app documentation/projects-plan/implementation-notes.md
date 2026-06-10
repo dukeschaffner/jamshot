@@ -17,6 +17,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 9 — Clip upload | **Done (code)** | Multipart clip upload + audio-processing lambda branch |
 | 9b — Asset processing status | **Done (code)** | `GET .../assets/:assetId/processing-status`; clips include `processingStatus` on GET |
 | 10 — Clip edit & soft delete | **Done (code)** | `PATCH/DELETE /:id/clips/:clipId` with overlap + duration validation |
+| 11 — Plugin payload | **Done (code)** | `GET /:id/plugin-payload`; editor+ only; flat completed clips |
 | 6b+ | Not started | |
 
 ---
@@ -325,6 +326,52 @@ DELETE /api/projects/1/clips/1  { "revision": N }
 
 ---
 
+## Step 11 — Plugin payload endpoint
+
+### API route
+
+| Method | Route | Notes |
+|--------|-------|-------|
+| `GET` | `/projects/:id/plugin-payload` | Editor+ only (viewers/non-members → 403); bumps `last_referenced_at` on completed assets |
+
+**Response shape** (matches `plugin.md` / `StemPlaybackEngine` adapter):
+
+```json
+{
+  "bpm": 128,
+  "timeSignature": "4/4",
+  "durationSeconds": 120,
+  "clips": [
+    {
+      "clipId": 1,
+      "trackId": 2,
+      "audioUrl": "https://...r2.../projects/1/3/audio.wav",
+      "startTime": 0,
+      "trimStart": 0,
+      "trimEnd": null,
+      "gain": 0.8,
+      "trackGain": 0.8
+    }
+  ]
+}
+```
+
+- Only clips with `processing_status = 'completed'` are included (pending/failed omitted — no audio URL leak).
+- `gain` and `trackGain` both reflect track gain (no per-clip gain column yet).
+- Uses `serializeProjectState(projectId, { variant: 'plugin' })` in `projectUtils.js`.
+
+### Manual verify
+
+```bash
+# Auth: x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE
+curl http://localhost:5001/api/projects/1/plugin-payload \
+  -H "x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE"
+# Viewer member → 403 "Editor access required"
+# Non-member → 403 "You do not have access to this project"
+```
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
@@ -335,3 +382,4 @@ DELETE /api/projects/1/clips/1  { "revision": N }
 | 2026-06-10 | 9 | Clip multipart upload, R2 temp path, audio-processing project branch |
 | 2026-06-10 | 9b | Asset processing-status polling endpoint |
 | 2026-06-10 | 10 | Clip PATCH (move/trim) + DELETE (soft delete) with overlap validation |
+| 2026-06-10 | 11 | Plugin-payload endpoint with flat completed clips; editor+ gate |
