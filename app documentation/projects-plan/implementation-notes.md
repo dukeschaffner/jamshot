@@ -16,6 +16,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 8 — Project tracks CRUD | **Done (code)** | `POST/PATCH/DELETE /:id/tracks/:trackId` |
 | 9 — Clip upload | **Done (code)** | Multipart clip upload + audio-processing lambda branch |
 | 9b — Asset processing status | **Done (code)** | `GET .../assets/:assetId/processing-status`; clips include `processingStatus` on GET |
+| 10 — Clip edit & soft delete | **Done (code)** | `PATCH/DELETE /:id/clips/:clipId` with overlap + duration validation |
 | 6b+ | Not started | |
 
 ---
@@ -221,7 +222,7 @@ DELETE /api/projects/1/tracks/1  { "revision": N }  # hard-deletes if never had 
 
 ### Flow
 
-1. Transaction: insert `project_assets` (`pending`, temp `storage_key`) + `project_clips` (or update clip `asset_id` on retry); bump `projects.revision` + `last_referenced_at`.
+1. Transaction: insert `project_assets` (`pending`, temp `storage_key`, `duration_seconds` from file metadata) + `project_clips` (or update clip `asset_id` on retry); bump `projects.revision` + `last_referenced_at`.
 2. Upload temp file to R2: `temp/projects/{projectId}/{assetId}/source.{ext}`.
 3. Emit EventBridge `project_asset_created` (skipped in `NODE_ENV=dev`; dev-server polls `pending` assets).
 4. Audio-processing lambda `processProjectAsset`: mono 44.1kHz WAV → `projects/{projectId}/{assetId}/audio.wav`; no peaks/normalization/combined mix.
@@ -289,6 +290,41 @@ curl http://localhost:5001/api/projects/1/assets/2/processing-status \
 
 ---
 
+## Step 10 — Clip edit & soft delete
+
+### API routes
+
+| Method | Route | Notes |
+|--------|-------|-------|
+| `PATCH` | `/projects/:id/clips/:clipId` | Editor+; `revision` required; fields: `start_time_seconds`/`start_time`, `trim_start_seconds`/`trim_start`, `trim_end_seconds`/`trim_end`, `project_track_id` (move to another track) |
+| `DELETE` | `/projects/:id/clips/:clipId` | Editor+; `revision` in body; sets `deleted_at` (soft delete) |
+
+Both routes bump `projects.revision` with optimistic locking (409 `REVISION_MISMATCH`). Response is full `serializeProjectState` + `role`. GET excludes soft-deleted clips (`deleted_at IS NULL` in serializer).
+
+### Validation
+
+- Clip end on timeline ≤ project `duration_seconds` (uses asset `duration_seconds` when `trim_end_seconds` is null)
+- `asset.project_id` must match project (enforced on move + edit)
+- No overlapping clips on the target track (server rejects with 400)
+- `trim_end_seconds` must be greater than `trim_start_seconds` when set
+
+PATCH bumps `project_assets.last_referenced_at` for the clip's asset.
+
+Placement validation uses asset `duration_seconds` when `trim_end_seconds` is null — upload stores file duration on the asset row so pending clips participate in overlap checks.
+
+### Manual verify
+
+```bash
+# Auth: x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE
+PATCH /api/projects/1/clips/1  { "revision": N, "start_time_seconds": 10 }
+PATCH /api/projects/1/clips/1  { "revision": N, "project_track_id": 2 }  # move to track 2
+DELETE /api/projects/1/clips/1  { "revision": N }
+# Overlap → 400 "Clip overlaps another clip on this track"
+# GET /api/projects/1 → deleted clip omitted from tracks[].clips
+```
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
@@ -298,3 +334,4 @@ curl http://localhost:5001/api/projects/1/assets/2/processing-status \
 | 2026-06-10 | 6–8 | Project CRUD + tracks CRUD with revision contract |
 | 2026-06-10 | 9 | Clip multipart upload, R2 temp path, audio-processing project branch |
 | 2026-06-10 | 9b | Asset processing-status polling endpoint |
+| 2026-06-10 | 10 | Clip PATCH (move/trim) + DELETE (soft delete) with overlap validation |

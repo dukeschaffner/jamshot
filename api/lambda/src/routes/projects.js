@@ -178,6 +178,106 @@ function revisionMismatchResponse(res, currentRevision, yourRevision) {
   });
 }
 
+function computeClipPlaybackDuration(trimStart, trimEnd, assetDuration) {
+  const start = trimStart ?? 0;
+  if (trimEnd != null) {
+    return trimEnd - start;
+  }
+  if (assetDuration != null) {
+    return assetDuration - start;
+  }
+  return null;
+}
+
+function clipsOverlap(startA, endA, startB, endB) {
+  return startA < endB && startB < endA;
+}
+
+async function findOverlappingClipOnTrack(
+  client,
+  trackId,
+  excludeClipId,
+  startTime,
+  endTime
+) {
+  const result = await client.query(
+    `SELECT pc.id, pc.start_time_seconds, pc.trim_start_seconds, pc.trim_end_seconds,
+            pa.duration_seconds AS asset_duration
+     FROM project_clips pc
+     JOIN project_assets pa ON pa.id = pc.asset_id
+     WHERE pc.project_track_id = $1
+       AND pc.deleted_at IS NULL
+       AND pc.id != $2`,
+    [trackId, excludeClipId]
+  );
+
+  for (const row of result.rows) {
+    const duration = computeClipPlaybackDuration(
+      row.trim_start_seconds,
+      row.trim_end_seconds,
+      row.asset_duration != null ? Number(row.asset_duration) : null
+    );
+    if (duration == null || duration <= 0) continue;
+
+    const clipStart = Number(row.start_time_seconds);
+    const clipEnd = clipStart + duration;
+    if (clipsOverlap(startTime, endTime, clipStart, clipEnd)) {
+      return row.id;
+    }
+  }
+
+  return null;
+}
+
+async function validateClipPlacement(
+  client,
+  {
+    trackId,
+    clipId,
+    startTime,
+    trimStart,
+    trimEnd,
+    assetDuration,
+    projectDuration,
+    assetProjectId,
+    trackProjectId,
+  }
+) {
+  if (assetProjectId !== trackProjectId) {
+    return { valid: false, error: 'Asset does not belong to this project' };
+  }
+
+  const duration = computeClipPlaybackDuration(trimStart, trimEnd, assetDuration);
+  if (duration == null || duration <= 0) {
+    return { valid: false, error: 'Clip duration must be greater than 0' };
+  }
+
+  if (trimEnd != null && trimEnd <= trimStart) {
+    return { valid: false, error: 'trim_end_seconds must be greater than trim_start_seconds' };
+  }
+
+  const clipEndOnTimeline = startTime + duration;
+  if (clipEndOnTimeline > projectDuration) {
+    return {
+      valid: false,
+      error: `Clip extends beyond project duration (${projectDuration}s)`,
+    };
+  }
+
+  const overlappingClipId = await findOverlappingClipOnTrack(
+    client,
+    trackId,
+    clipId,
+    startTime,
+    clipEndOnTimeline
+  );
+  if (overlappingClipId != null) {
+    return { valid: false, error: 'Clip overlaps another clip on this track' };
+  }
+
+  return { valid: true, duration };
+}
+
 function validateProjectName(name) {
   if (name == null || typeof name !== 'string') {
     return { valid: false, error: 'Project name is required' };
@@ -1090,15 +1190,16 @@ router.post(
 
         const assetInsert = await client.query(
           `INSERT INTO project_assets (
-             project_id, storage_key, name, file_size_bytes, mime_type,
+             project_id, storage_key, name, duration_seconds, file_size_bytes, mime_type,
              uploaded_by, processing_status
            )
-           VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
            RETURNING id`,
           [
             projectId,
             'pending',
             req.file.originalname || null,
+            fileDuration,
             req.file.size,
             req.file.mimetype || null,
             userId,
@@ -1212,5 +1313,315 @@ router.post(
     }
   }
 );
+
+router.patch('/:id/clips/:clipId', async (req, res, next) => {
+  try {
+    const projectId = parseProjectId(req.params.id);
+    const clipId = parseClipId(req.params.clipId);
+    if (Number.isNaN(projectId)) {
+      return res.status(400).json({ error: 'Invalid project id' });
+    }
+    if (Number.isNaN(clipId)) {
+      return res.status(400).json({ error: 'Invalid clip id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const revisionCheck = parseRequiredRevision(req.body);
+    if (!revisionCheck.valid) {
+      return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const {
+      start_time_seconds: startTimeRaw,
+      start_time: startTimeAlias,
+      trim_start_seconds: trimStartRaw,
+      trim_start: trimStartAlias,
+      trim_end_seconds: trimEndRaw,
+      trim_end: trimEndAlias,
+      project_track_id: projectTrackIdRaw,
+    } = req.body;
+
+    const hasStartTime = startTimeRaw !== undefined || startTimeAlias !== undefined;
+    const hasTrimStart = trimStartRaw !== undefined || trimStartAlias !== undefined;
+    const hasTrimEnd = trimEndRaw !== undefined || trimEndAlias !== undefined;
+    const hasTrackMove = projectTrackIdRaw !== undefined;
+
+    if (!hasStartTime && !hasTrimStart && !hasTrimEnd && !hasTrackMove) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const clipResult = await client.query(
+        `SELECT pc.id, pc.project_track_id, pc.start_time_seconds,
+                pc.trim_start_seconds, pc.trim_end_seconds, pc.asset_id,
+                pa.duration_seconds AS asset_duration, pa.project_id AS asset_project_id,
+                pt.project_id AS track_project_id,
+                p.duration_seconds AS project_duration
+         FROM project_clips pc
+         JOIN project_tracks pt ON pt.id = pc.project_track_id
+         JOIN project_assets pa ON pa.id = pc.asset_id
+         JOIN projects p ON p.id = pt.project_id
+         WHERE pc.id = $1
+           AND pt.project_id = $2
+           AND pc.deleted_at IS NULL`,
+        [clipId, projectId]
+      );
+
+      if (clipResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Clip not found' });
+      }
+
+      const existing = clipResult.rows[0];
+      const projectDuration = Number(existing.project_duration);
+      const assetDuration =
+        existing.asset_duration != null ? Number(existing.asset_duration) : null;
+
+      let targetTrackId = existing.project_track_id;
+      if (hasTrackMove) {
+        const parsedTrackId = parseTrackId(projectTrackIdRaw);
+        if (Number.isNaN(parsedTrackId)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Invalid project_track_id' });
+        }
+
+        const targetTrackResult = await client.query(
+          'SELECT id, project_id FROM project_tracks WHERE id = $1 AND project_id = $2',
+          [parsedTrackId, projectId]
+        );
+        if (targetTrackResult.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Target track not found' });
+        }
+
+        targetTrackId = parsedTrackId;
+      }
+
+      let startTime = Number(existing.start_time_seconds);
+      if (hasStartTime) {
+        const startTimeCheck = parsePlacementSeconds(
+          startTimeRaw !== undefined ? startTimeRaw : startTimeAlias,
+          'start_time_seconds',
+          { required: true }
+        );
+        if (!startTimeCheck.valid) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: startTimeCheck.error });
+        }
+        startTime = startTimeCheck.value;
+      }
+
+      let trimStart = Number(existing.trim_start_seconds ?? 0);
+      if (hasTrimStart) {
+        const trimStartCheck = parsePlacementSeconds(
+          trimStartRaw !== undefined ? trimStartRaw : trimStartAlias,
+          'trim_start_seconds'
+        );
+        if (!trimStartCheck.valid) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: trimStartCheck.error });
+        }
+        trimStart = trimStartCheck.value;
+      }
+
+      let trimEnd = existing.trim_end_seconds;
+      if (hasTrimEnd) {
+        const trimEndValue = trimEndRaw !== undefined ? trimEndRaw : trimEndAlias;
+        if (trimEndValue == null || trimEndValue === '') {
+          trimEnd = null;
+        } else {
+          const trimEndCheck = parsePlacementSeconds(trimEndValue, 'trim_end_seconds');
+          if (!trimEndCheck.valid) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: trimEndCheck.error });
+          }
+          trimEnd = trimEndCheck.value;
+        }
+      }
+
+      const placementCheck = await validateClipPlacement(client, {
+        trackId: targetTrackId,
+        clipId,
+        startTime,
+        trimStart,
+        trimEnd,
+        assetDuration,
+        projectDuration,
+        assetProjectId: existing.asset_project_id,
+        trackProjectId: projectId,
+      });
+      if (!placementCheck.valid) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: placementCheck.error });
+      }
+
+      const revisionBump = await bumpProjectRevision(
+        client,
+        projectId,
+        revisionCheck.revision
+      );
+      if (!revisionBump.ok) {
+        await client.query('ROLLBACK');
+        return revisionMismatchResponse(
+          res,
+          revisionBump.currentRevision,
+          revisionCheck.revision
+        );
+      }
+
+      const updates = [];
+      const values = [];
+      let paramIndex = 1;
+
+      if (hasStartTime) {
+        updates.push(`start_time_seconds = $${paramIndex++}`);
+        values.push(startTime);
+      }
+      if (hasTrimStart) {
+        updates.push(`trim_start_seconds = $${paramIndex++}`);
+        values.push(trimStart);
+      }
+      if (hasTrimEnd) {
+        updates.push(`trim_end_seconds = $${paramIndex++}`);
+        values.push(trimEnd);
+      }
+      if (hasTrackMove) {
+        updates.push(`project_track_id = $${paramIndex++}`);
+        values.push(targetTrackId);
+      }
+
+      values.push(clipId);
+
+      const updateResult = await client.query(
+        `UPDATE project_clips
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex} AND deleted_at IS NULL
+         RETURNING id`,
+        values
+      );
+
+      if (updateResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Clip not found' });
+      }
+
+      await client.query(
+        `UPDATE project_assets
+         SET last_referenced_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [existing.asset_id]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const state = await serializeProjectState(projectId);
+    res.json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/clips/:clipId', async (req, res, next) => {
+  try {
+    const projectId = parseProjectId(req.params.id);
+    const clipId = parseClipId(req.params.clipId);
+    if (Number.isNaN(projectId)) {
+      return res.status(400).json({ error: 'Invalid project id' });
+    }
+    if (Number.isNaN(clipId)) {
+      return res.status(400).json({ error: 'Invalid clip id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const revisionCheck = parseRequiredRevision(req.body);
+    if (!revisionCheck.valid) {
+      return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const clipResult = await client.query(
+        `SELECT pc.id
+         FROM project_clips pc
+         JOIN project_tracks pt ON pt.id = pc.project_track_id
+         WHERE pc.id = $1
+           AND pt.project_id = $2
+           AND pc.deleted_at IS NULL`,
+        [clipId, projectId]
+      );
+
+      if (clipResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Clip not found' });
+      }
+
+      const revisionBump = await bumpProjectRevision(
+        client,
+        projectId,
+        revisionCheck.revision
+      );
+      if (!revisionBump.ok) {
+        await client.query('ROLLBACK');
+        return revisionMismatchResponse(
+          res,
+          revisionBump.currentRevision,
+          revisionCheck.revision
+        );
+      }
+
+      const deleteResult = await client.query(
+        `UPDATE project_clips
+         SET deleted_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [clipId]
+      );
+
+      if (deleteResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Clip not found' });
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const state = await serializeProjectState(projectId);
+    res.json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;
