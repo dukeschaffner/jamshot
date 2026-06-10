@@ -1,6 +1,26 @@
 // Shared Subscription Configuration and Utilities
 // Single source of truth for subscription plans used by both UI and API
 
+export {
+  MAX_PROJECT_DURATION_SECONDS,
+  MAX_PROJECT_TRACKS,
+  MAX_TEAM_CAMP_COLLABORATORS,
+  LOCK_TTL_SECONDS,
+  LOCK_HEARTBEAT_INTERVAL_SECONDS,
+  AUTO_SNAPSHOT_INTERVAL_SECONDS,
+  SOFT_DELETE_CLIPS,
+  ASSET_UNUSED_WARNING_DAYS,
+  ASSET_AUTO_DELETE_GRACE_DAYS,
+  PROCESSING_ASSET_GRACE_SECONDS,
+  INVITE_DEFAULT_EXPIRY_DAYS,
+} from './projectConfig.js';
+
+import {
+  resolveProjectLimits,
+  getEffectiveMaxMembers as getEffectiveMaxMembersImpl,
+  getCampProjectLimits as getCampProjectLimitsImpl,
+} from './projectLimits.js';
+
 // Subscription Tier Constants
 export const SUBSCRIPTION_TIERS = {
   FREE: 'free',
@@ -31,7 +51,10 @@ export const SUBSCRIPTION_PLANS = {
     limits: {
       daily_uploads: 3,
       max_total_uploads: 25,
-      max_recording_duration: 300 // 5 minutes in seconds
+      max_recording_duration: 300, // 5 minutes in seconds
+      max_projects: 1,
+      max_project_members: 10,
+      max_snapshots: 10,
     },
     highlights: [
       // '3 uploads per day',
@@ -63,7 +86,10 @@ export const SUBSCRIPTION_PLANS = {
     limits: {
       daily_uploads: 5,
       max_total_uploads: 60,
-      max_recording_duration: 300 // 5 minutes in seconds
+      max_recording_duration: 300, // 5 minutes in seconds
+      max_projects: 1,
+      max_project_members: 10,
+      max_snapshots: 10,
     },
     highlights: [
       // '5 uploads per day',
@@ -96,7 +122,10 @@ export const SUBSCRIPTION_PLANS = {
     limits: {
       daily_uploads: 25,
       max_total_uploads: -1, // unlimited
-      max_recording_duration: 600 // 10 minutes in seconds
+      max_recording_duration: 600, // 10 minutes in seconds
+      max_projects: 1,
+      max_project_members: 10,
+      max_snapshots: 10,
     },
     highlights: [
       // '25 uploads per day',
@@ -139,7 +168,9 @@ export const TEAM_PLANS = {
     limits: {
       max_users: 5,
       daily_uploads: 50,
-      max_total_uploads: 500
+      max_total_uploads: 500,
+      max_projects: 1,
+      max_snapshots: 10,
     },
     highlights: [
       'Up to 5 team members',
@@ -162,7 +193,9 @@ export const TEAM_PLANS = {
     limits: {
       max_users: 10,
       daily_uploads: 100,
-      max_total_uploads: 1000
+      max_total_uploads: 1000,
+      max_projects: 1,
+      max_snapshots: 10,
     },
     highlights: [
       'Up to 10 team members',
@@ -185,7 +218,9 @@ export const TEAM_PLANS = {
     limits: {
       max_users: 25,
       daily_uploads: 250,
-      max_total_uploads: 2500
+      max_total_uploads: 2500,
+      max_projects: 1,
+      max_snapshots: 10,
     },
     highlights: [
       'Up to 25 team members',
@@ -209,7 +244,9 @@ export const TEAM_PLANS = {
     limits: {
       max_users: 50,
       daily_uploads: 500,
-      max_total_uploads: 5000
+      max_total_uploads: 5000,
+      max_projects: 1,
+      max_snapshots: 10,
     },
     highlights: [
       'Up to 50 team members',
@@ -233,7 +270,9 @@ export const TEAM_PLANS = {
     limits: {
       max_users: 100,
       daily_uploads: 1000,
-      max_total_uploads: 10000
+      max_total_uploads: 10000,
+      max_projects: 1,
+      max_snapshots: 10,
     },
     highlights: [
       'Up to 100 team members',
@@ -258,6 +297,8 @@ export const TEAM_PLANS = {
       max_users: -1, // Unlimited
       daily_uploads: -1, // Unlimited
       max_total_uploads: -1, // Unlimited
+      max_projects: -1,
+      max_snapshots: -1,
     },
     highlights: [
       'Private tracks',
@@ -427,3 +468,20 @@ export const isValidTeamProductVersion = (version) => {
 export const getTeamPlan = (productVersion) => {
   return TEAM_PLANS[productVersion] || null;
 };
+
+export const getEffectiveMaxMembers = getEffectiveMaxMembersImpl;
+
+/** Camp product_version maps to the same plan limits as teams. */
+export const getCampProjectLimits = (productVersion) =>
+  getCampProjectLimitsImpl(productVersion, getTeamPlan);
+
+/**
+ * Project limits for personal, team, or camp context.
+ * @param {Object} context
+ * @param {'personal'|'team'|'camp'} context.type
+ * @param {Object} [context.user]
+ * @param {string} [context.productVersion]
+ * @param {number} [context.memberCount]
+ */
+export const getProjectLimits = (context) =>
+  resolveProjectLimits(context, { getUserPlan, getTeamPlan });
