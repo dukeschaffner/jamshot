@@ -87,7 +87,7 @@ export const SUBSCRIPTION_PLANS = {
       daily_uploads: 5,
       max_total_uploads: 60,
       max_recording_duration: 300, // 5 minutes in seconds
-      max_projects: 1,
+      max_projects: 10,
       max_project_members: 10,
       max_snapshots: 10,
     },
@@ -123,8 +123,8 @@ export const SUBSCRIPTION_PLANS = {
       daily_uploads: 25,
       max_total_uploads: -1, // unlimited
       max_recording_duration: 600, // 10 minutes in seconds
-      max_projects: 1,
-      max_project_members: 10,
+      max_projects: 40,
+      max_project_members: 25,
       max_snapshots: 10,
     },
     highlights: [
@@ -169,7 +169,7 @@ export const TEAM_PLANS = {
       max_users: 5,
       daily_uploads: 50,
       max_total_uploads: 500,
-      max_projects: 1,
+      max_projects: 25,
       max_snapshots: 10,
     },
     highlights: [
@@ -194,7 +194,7 @@ export const TEAM_PLANS = {
       max_users: 10,
       daily_uploads: 100,
       max_total_uploads: 1000,
-      max_projects: 1,
+      max_projects: 40,
       max_snapshots: 10,
     },
     highlights: [
@@ -219,7 +219,7 @@ export const TEAM_PLANS = {
       max_users: 25,
       daily_uploads: 250,
       max_total_uploads: 2500,
-      max_projects: 1,
+      max_projects: 100,
       max_snapshots: 10,
     },
     highlights: [
@@ -245,7 +245,7 @@ export const TEAM_PLANS = {
       max_users: 50,
       daily_uploads: 500,
       max_total_uploads: 5000,
-      max_projects: 1,
+      max_projects: 200,
       max_snapshots: 10,
     },
     highlights: [
@@ -271,7 +271,7 @@ export const TEAM_PLANS = {
       max_users: 100,
       daily_uploads: 1000,
       max_total_uploads: 10000,
-      max_projects: 1,
+      max_projects: 400,
       max_snapshots: 10,
     },
     highlights: [

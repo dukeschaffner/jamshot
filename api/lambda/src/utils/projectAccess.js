@@ -1,5 +1,5 @@
 import pool from '../config/db.js';
-import { getProjectLimits } from '@sterio/subscription-utils';
+import { getProjectLimits, getUserPlan, SUBSCRIPTION_TIERS } from '@sterio/subscription-utils';
 import { isTeamSubscriptionExpired } from './teamUtils.js';
 
 /** SQL fragment: exclude team/camp projects whose parent context is inactive. */
@@ -345,13 +345,22 @@ async function checkCanCreateProject(user, context = {}) {
   }
 
   if (count >= max) {
-    return {
+    const limitResponse = {
       allowed: false,
       reason: `Project limit reached (${count}/${max})`,
       status: 403,
       count,
       max,
     };
+
+    if (teamId == null && campId == null) {
+      const tier = getUserPlan(user).id;
+      if (tier === SUBSCRIPTION_TIERS.FREE || tier === SUBSCRIPTION_TIERS.BASIC) {
+        limitResponse.upgrade_link = `${process.env.FRONTEND_URL || ''}/subscribe`;
+      }
+    }
+
+    return limitResponse;
   }
 
   return { allowed: true, count, max };

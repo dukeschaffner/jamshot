@@ -398,7 +398,11 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
       productVersion,
     });
     if (!limitCheck.allowed) {
-      return res.status(limitCheck.status || 403).json({ error: limitCheck.reason });
+      const body = { error: limitCheck.reason };
+      if (limitCheck.upgrade_link) {
+        body.upgrade_link = limitCheck.upgrade_link;
+      }
+      return res.status(limitCheck.status || 403).json(body);
     }
 
     const client = await pool.connect();

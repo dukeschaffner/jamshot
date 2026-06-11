@@ -19,6 +19,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 10 — Clip edit & soft delete | **Done (code)** | `PATCH/DELETE /:id/clips/:clipId` with overlap + duration validation |
 | 11 — Plugin payload | **Done (code)** | `GET /:id/plugin-payload`; editor+ only; flat completed clips |
 | 12 — Projects nav + list page | **Done (code)** | Nav already gated; `/projects` fetches list, cards, empty state, Create Project → `/projects/create` |
+| 13 — Create project page | **Done (code)** | `/projects/create`; optional `?team_id=` / `?camp_id=`; redirect to `/projects/{guid}` |
 | 6b+ | Not started | |
 
 ---
@@ -412,6 +413,35 @@ Nav was already wired in Step 3 (`Navbar.js`, `MoreDropdown.js`). This step adds
 
 ---
 
+## Step 13 — Create project page
+
+### UI
+
+| File | Purpose |
+|------|---------|
+| `ui/src/app/(frontend)/projects/create/page.js` | Name form, feature flag + auth gates, optional team/camp context from query params |
+| `ui/src/app/(frontend)/projects/create/ProjectCreate.module.css` | Page container + context banner |
+
+Uses shared form styles (`SharedForm.module.css`) — same pattern as team/camp create pages.
+
+### Behavior
+
+- Flag off → `notFound()`
+- Unauthenticated → login prompt with redirect back to create URL (preserves `team_id` / `camp_id` query)
+- **Default:** personal project (`POST /projects` with `{ name }` only)
+- **Optional context:** `?team_id=` or `?camp_id=` (mutually exclusive); banner shows team/camp name when fetch succeeds; passes id to API
+- Success → `router.push(/projects/{guid})`
+- Errors from API (e.g. tier limit) shown inline
+
+### Manual verify
+
+1. Enable `projects` flag
+2. Visit `/projects/create` — enter name → submit → redirects to `/projects/{guid}` (Step 14 shell loads project)
+3. At personal project limit → error message from API
+4. `/projects/create?team_id=N` — banner + team-scoped create (when team access valid)
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
@@ -424,3 +454,4 @@ Nav was already wired in Step 3 (`Navbar.js`, `MoreDropdown.js`). This step adds
 | 2026-06-10 | 10 | Clip PATCH (move/trim) + DELETE (soft delete) with overlap validation |
 | 2026-06-10 | 11 | Plugin-payload endpoint with flat completed clips; editor+ gate |
 | 2026-06-10 | 12 | Projects list page; guid routes; active team/camp context gate on list + access |
+| 2026-06-10 | 13 | Create project page with optional team/camp query context |

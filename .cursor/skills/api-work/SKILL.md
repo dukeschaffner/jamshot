@@ -6,6 +6,10 @@ description: Describes best practices when working on the api
 
 # API Development Best Practices
 
+## Coding
+
+NEVER return responses with errors that are not user-facing. Make sure error messages are user-facing and not technical.
+
 ## Testing Changes
 
 After making changes to the API - especially new routes - run the API and hit the endpoints and examine the logs and responses to make sure everything is working as expected. Also use the postgres mcp server to examine the database and make sure the changes are reflected in the database correctly.
