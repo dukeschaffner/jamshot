@@ -6,6 +6,7 @@ import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import AudioState from './AudioStateStore.js';
 import api from '../../../lib/api.js';
+import { CLIP_PROCESSING_STATUS } from '../project/projectClipUpload.js';
 
 class TrackManager {
   constructor(audioContext) {
@@ -213,13 +214,23 @@ class TrackManager {
             endTime = startTime + buffer.duration - trimStart;
           }
 
-          track.addRegion(
+          const region = track.addRegion(
             bufferKey,
             startTime,
             trimStart,
             endTime,
-            trackData.name || `Clip ${clip.id}`
+            trackData.name || `Clip ${clip.id}`,
+            false,
+            false,
+            null,
+            true
           );
+
+          if (region) {
+            region.projectClipId = clip.id;
+            region.projectAssetId = clip.assetId ?? null;
+            region.processingStatus = CLIP_PROCESSING_STATUS.COMPLETED;
+          }
         });
 
       await Promise.all(clipPromises);
@@ -296,6 +307,34 @@ class TrackManager {
     }
 
     return this.getAllTracks();
+  }
+
+  moveRegionBetweenTracks(fromTrackId, toTrackId, regionId, updatedRegion) {
+    const fromTrack = this.tracks.get(fromTrackId);
+    const toTrack = this.tracks.get(toTrackId);
+    if (!fromTrack || !toTrack) return false;
+
+    const regionIndex = fromTrack.regions.findIndex((item) => item.id === regionId);
+    if (regionIndex === -1) return false;
+
+    const region = { ...fromTrack.regions[regionIndex], ...updatedRegion };
+
+    if (fromTrackId === toTrackId) {
+      fromTrack.regions[regionIndex] = region;
+      eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region, trackId: fromTrackId });
+      return true;
+    }
+
+    fromTrack.regions.splice(regionIndex, 1);
+    eventBus.emit(DAW_EVENTS.REGION.REMOVED, {
+      region,
+      trackId: fromTrackId,
+      recordUndo: false,
+    });
+
+    toTrack.regions.push(region);
+    eventBus.emit(DAW_EVENTS.REGION.ADDED, { region, trackId: toTrackId });
+    return true;
   }
 
   // #endregion

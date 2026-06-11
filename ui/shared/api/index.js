@@ -615,6 +615,9 @@ const createApiMethods = (apiClient) => {
 
     deleteProjectClip: (projectGuid, clipId, data) =>
       api.delete(`/projects/${projectGuid}/clips/${clipId}`, { data }),
+
+    updateProjectClip: (projectGuid, clipId, data) =>
+      api.patch(`/projects/${projectGuid}/clips/${clipId}`, data),
   };
 
   // Admin API methods

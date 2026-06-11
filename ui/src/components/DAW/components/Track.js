@@ -10,6 +10,7 @@ import DAWConfig from '../misc/DAWConfig';
 import { useToast } from '@/lib/ToastContext';
 import { captureDawAudioFileImported } from '@/lib/posthogAnalytics';
 import { useProjectEditor } from '../project/ProjectEditorContext';
+import RegionDragPreview from './RegionDragPreview';
 import {
   computePlaceholderPlacement,
   decodeAudioFile,
@@ -44,10 +45,12 @@ const Track = ({
     setContextMenuPosition,
     setShowContextMenu,
     trackManagerRef,
+    tracksContainerWidth,
   } = useDAW();
   const {
     canEdit: canEditProject,
     importAudioFileToTrack,
+    crossTrackDragPreview,
   } = useProjectEditor();
   const { showToast } = useToast();
 
@@ -442,6 +445,7 @@ const Track = ({
     <div 
       className={styles.track} 
       ref={trackRef}
+      data-track-id={track.id}
       onContextMenu={handleTrackContextMenu}
       {...trackDragHandlers}
     >
@@ -494,6 +498,15 @@ const Track = ({
             aria-hidden
           />
         )}
+
+        {isProjectMode &&
+          crossTrackDragPreview?.targetTrackId === track.id && (
+            <RegionDragPreview
+              preview={crossTrackDragPreview}
+              duration={duration}
+              tracksContainerWidth={tracksContainerWidth}
+            />
+          )}
 
         {isRecording && isArmedForRecording && recordingWidth > 0 && (
           <div 

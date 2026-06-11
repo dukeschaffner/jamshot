@@ -33,7 +33,9 @@ import {
   decodeAudioFile,
   getProjectMaxImportDuration,
   validateClipPlacement,
+  buildClipPatchPayload,
 } from './projectClipPlacement';
+import { useProjectPersistence } from '@/hooks/useProjectPersistence';
 
 const ProjectEditorContext = createContext(null);
 
@@ -53,6 +55,11 @@ const INACTIVE_PROJECT_EDITOR = {
   deleteFailedClip: async () => {},
   startProjectRecording: () => {},
   importAudioFileToTrack: async () => {},
+  persistClipLayout: () => {},
+  moveProjectRegion: () => false,
+  crossTrackDragPreview: null,
+  setCrossTrackDragPreview: () => {},
+  clearCrossTrackDragPreview: () => {},
 };
 
 function updateRegionMeta(track, region, patch) {
@@ -67,6 +74,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const [armedTrackId, setArmedTrackIdState] = useState(null);
   const [isTrackMutationPending, setIsTrackMutationPending] = useState(false);
   const [inFlightClipCount, setInFlightClipCount] = useState(0);
+  const [crossTrackDragPreview, setCrossTrackDragPreviewState] = useState(null);
 
   const projectDataRef = useRef(projectData);
   const armedTrackIdRef = useRef(armedTrackId);
@@ -106,6 +114,14 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     setInFlightClipCount((count) => Math.max(0, count + delta));
   }, []);
 
+  const setCrossTrackDragPreview = useCallback((preview) => {
+    setCrossTrackDragPreviewState(preview);
+  }, []);
+
+  const clearCrossTrackDragPreview = useCallback(() => {
+    setCrossTrackDragPreviewState(null);
+  }, []);
+
   const applyProjectServerState = useCallback(
     (nextState) => {
       if (!trackManagerRef.current) return;
@@ -119,6 +135,56 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       onProjectStateChange?.(nextState);
     },
     [onProjectStateChange, syncTracksFromManager, trackManagerRef]
+  );
+
+  const { scheduleClipPersist } = useProjectPersistence({
+    projectGuid: projectData?.guid,
+    revision: projectData?.revision,
+    applyProjectServerState,
+    showToast,
+  });
+
+  const moveProjectRegion = useCallback(
+    (fromTrackId, toTrackId, regionId, updatedRegion) => {
+      if (!trackManagerRef.current) return false;
+      return trackManagerRef.current.moveRegionBetweenTracks(
+        fromTrackId,
+        toTrackId,
+        regionId,
+        updatedRegion
+      );
+    },
+    [trackManagerRef]
+  );
+
+  const persistClipLayout = useCallback(
+    ({ clipId, region, trackId, previousState }) => {
+      if (!clipId) return;
+
+      const payload = buildClipPatchPayload(
+        region,
+        trackId,
+        previousState.trackId
+      );
+
+      scheduleClipPersist({
+        clipId,
+        payload,
+        revertState: () => {
+          moveProjectRegion(
+            trackId,
+            previousState.trackId,
+            region.id,
+            {
+              startTime: previousState.startTime,
+              endTime: previousState.endTime,
+              offset: previousState.offset,
+            }
+          );
+        },
+      });
+    },
+    [moveProjectRegion, scheduleClipPersist]
   );
 
   const markRegionSyncFailed = useCallback((track, region, errorMessage) => {
@@ -607,6 +673,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       deleteFailedClip,
       startProjectRecording,
       importAudioFileToTrack,
+      persistClipLayout,
+      moveProjectRegion,
+      crossTrackDragPreview,
+      setCrossTrackDragPreview,
+      clearCrossTrackDragPreview,
       isClipInFlight,
     }),
     [
@@ -624,6 +695,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       deleteFailedClip,
       startProjectRecording,
       importAudioFileToTrack,
+      persistClipLayout,
+      moveProjectRegion,
+      crossTrackDragPreview,
+      setCrossTrackDragPreview,
+      clearCrossTrackDragPreview,
     ]
   );
 

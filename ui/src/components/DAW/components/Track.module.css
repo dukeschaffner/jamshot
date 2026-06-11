@@ -74,6 +74,32 @@
     background-color: rgba(255, 59, 48, 0.1);
   }
 
+  .crossTrackDragPreview {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    z-index: 12;
+    pointer-events: none;
+    opacity: 0.9;
+    box-sizing: border-box;
+    outline: 2px solid var(--seafoam);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .crossTrackDragPreviewInvalid {
+    opacity: 0.55;
+  }
+
+  .crossTrackDragPreviewInvalid::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px dashed var(--red, #ff3b30);
+    border-radius: 6px;
+    pointer-events: none;
+  }
+
   body.dark-mode .dropPlaceholder {
     background-color: rgba(76, 217, 172, 0.08);
   }

@@ -13,6 +13,12 @@ import DAWConfig from '../misc/DAWConfig';
 import { snapToGrid, handleRegionOverlaps } from '../misc/DAWUtils';
 import { COMMAND_TYPES } from '../core/UndoManager';
 import { useProjectEditor } from '../project/ProjectEditorContext';
+import { isClipInFlight } from '../project/projectClipUpload';
+import {
+  findTrackIdAtPoint,
+  validateRegionPlacement,
+} from '../project/projectClipPlacement';
+import { useToast } from '@/lib/ToastContext';
 
 export default function Region({ 
   region,
@@ -48,9 +54,21 @@ export default function Region({
     isActive: isProjectEditor,
     canEdit: canEditProject,
     retryClipUpload,
+    persistClipLayout,
+    moveProjectRegion,
+    crossTrackDragPreview,
+    setCrossTrackDragPreview,
+    clearCrossTrackDragPreview,
   } = useProjectEditor();
-  const isReadOnly = dawMode === 'project';
+  const { showToast } = useToast();
   const processingStatus = region?.processingStatus;
+  const isProjectMode = dawMode === 'project';
+  const isProjectClipEditable =
+    isProjectEditor &&
+    canEditProject &&
+    region?.projectClipId &&
+    !isClipInFlight(processingStatus);
+  const isReadOnly = isProjectMode ? !isProjectClipEditable : false;
   const musicGridLinesRef = useRef([]);
   const regionContainerRef = useRef(null);
   const waveformContainerRef = useRef(null);
@@ -93,6 +111,12 @@ export default function Region({
   const [isDraggingRegion, setIsDraggingRegion] = useState(false);
   const [regionStartPosBeforeDrag, setRegionStartPosBeforeDrag] = useState(0);
   const hasDraggedRef = useRef(false);
+  const isCrossTrackDragSource =
+    isProjectMode &&
+    isDraggingRegion &&
+    crossTrackDragPreview?.regionId === region.id &&
+    crossTrackDragPreview?.sourceTrackId === track.id &&
+    crossTrackDragPreview?.targetTrackId !== track.id;
 
   // Store original state for undo tracking
   const originalStateRef = useRef(null);
@@ -184,6 +208,81 @@ export default function Region({
     tracksContainerWidthRef.current = tracksContainerWidth;
   }, [tracksContainerWidth]);
 
+  const restoreRegionVisualState = useCallback(
+    (state) => {
+      if (!state || !duration) return;
+      setStartTime(state.startTime);
+      setEndTime(state.endTime);
+      setOffset(state.offset);
+      setRegionLeftPos((state.startTime / duration) * 100);
+      setWidth(((state.endTime - state.startTime) / duration) * 100);
+    },
+    [duration]
+  );
+
+  const commitProjectLayoutChange = useCallback(
+    ({ targetTrackId, newStartTime, newEndTime, newOffset, previousState }) => {
+      if (!trackManagerRef?.current || !region?.projectClipId) return false;
+
+      const resolvedTrackId = targetTrackId ?? track.id;
+      const targetTrackInstance = trackManagerRef.current.getTrack(resolvedTrackId);
+      if (!targetTrackInstance) {
+        restoreRegionVisualState(previousState);
+        return false;
+      }
+
+      const validation = validateRegionPlacement({
+        track: targetTrackInstance,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        projectDuration: duration,
+        excludeRegionId: region.id,
+      });
+
+      if (!validation.valid) {
+        showToast({ message: validation.error, variant: 'error' });
+        restoreRegionVisualState(previousState);
+        return false;
+      }
+
+      const updatedRegion = {
+        ...region,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        offset: newOffset,
+      };
+
+      moveProjectRegion(track.id, resolvedTrackId, region.id, {
+        startTime: newStartTime,
+        endTime: newEndTime,
+        offset: newOffset,
+      });
+
+      setStartTime(newStartTime);
+      setEndTime(newEndTime);
+      setOffset(newOffset);
+
+      persistClipLayout({
+        clipId: region.projectClipId,
+        region: updatedRegion,
+        trackId: resolvedTrackId,
+        previousState,
+      });
+
+      return true;
+    },
+    [
+      duration,
+      moveProjectRegion,
+      persistClipLayout,
+      region,
+      restoreRegionVisualState,
+      showToast,
+      track.id,
+      trackManagerRef,
+    ]
+  );
+
 
   useEffect(() => {
     if (!buffer || !tracksContainerWidth || !duration) return;
@@ -228,7 +327,7 @@ export default function Region({
     e.preventDefault();
     e.stopPropagation();
 
-    if (isReadOnly || isRecording) return;
+    if (isReadOnly || isRecording || isProjectMode) return;
 
     // Emit event to close other context menus (including other regions)
     eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'region', regionId: region.id });
@@ -392,6 +491,40 @@ export default function Region({
       const newRegionLeftPos = boundedLeftPos / tracksContainerWidth * 100;
       const snappedRegionLeftPos = snapToGrid(newRegionLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
       setRegionLeftPos(snappedRegionLeftPos);
+
+      if (isProjectMode && isProjectClipEditable) {
+        const targetTrackId = findTrackIdAtPoint(e.clientX, e.clientY) ?? track.id;
+        const newStartTime = (snappedRegionLeftPos / 100) * duration;
+        const regionDuration = endTime - startTime;
+        const newEndTime = newStartTime + regionDuration;
+        const targetTrackInstance = trackManagerRef?.current?.getTrack(targetTrackId);
+        const validation = targetTrackInstance
+          ? validateRegionPlacement({
+              track: targetTrackInstance,
+              startTime: newStartTime,
+              endTime: newEndTime,
+              projectDuration: duration,
+              excludeRegionId: region.id,
+            })
+          : { valid: false };
+
+        if (targetTrackId !== track.id) {
+          setCrossTrackDragPreview({
+            regionId: region.id,
+            sourceTrackId: track.id,
+            targetTrackId,
+            leftPercent: snappedRegionLeftPos,
+            widthPercent: (regionDuration / duration) * 100,
+            startTime: newStartTime,
+            endTime: newEndTime,
+            offset,
+            bufferKey,
+            isValid: validation.valid,
+          });
+        } else {
+          clearCrossTrackDragPreview();
+        }
+      }
     };
     
     const handleMouseUp = (e) => {
@@ -400,13 +533,43 @@ export default function Region({
       setIsDraggingRegion(false);
       hasDraggedRef.current = false;
 
+      if (isProjectMode) {
+        clearCrossTrackDragPreview();
+      }
+
       // Only update the region's start time if it was actually dragged
       if (wasDragging && track && bufferKey && duration && tracksContainerWidth) {
-        // Use the snapped position for calculating the new start time
-        const snappedRegionLeftPos = snapToGrid(regionLeftPos, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
+        const snappedRegionLeftPos = snapToGrid(
+          regionLeftPos,
+          snapToGridEnabled,
+          duration,
+          musicGridLinesRef.current,
+          tracksContainerWidthRef.current,
+          DAWConfig.ui.gridSnapThreshold
+        );
         const newStartTime = (snappedRegionLeftPos / 100) * duration;
         const regionDuration = endTime - startTime;
         const newEndTime = newStartTime + regionDuration;
+
+        if (isProjectMode && isProjectClipEditable) {
+          const previousState = {
+            trackId: track.id,
+            startTime: originalStateRef.current?.startTime ?? startTime,
+            endTime: originalStateRef.current?.endTime ?? endTime,
+            offset: originalStateRef.current?.offset ?? offset,
+          };
+          const targetTrackId = findTrackIdAtPoint(e.clientX, e.clientY) ?? track.id;
+
+          commitProjectLayoutChange({
+            targetTrackId,
+            newStartTime,
+            newEndTime,
+            newOffset: offset,
+            previousState,
+          });
+          originalStateRef.current = null;
+          return;
+        }
 
         // Check for overlaps with other regions and handle them
         handleRegionOverlaps(track, region.id, newStartTime, newEndTime, track.id, eventBus, DAW_EVENTS);
@@ -455,7 +618,13 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, snapToGridEnabled, selectRegion]);
+  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, offset, snapToGridEnabled, selectRegion, isProjectMode, isProjectClipEditable, commitProjectLayoutChange, trackManagerRef, setCrossTrackDragPreview, clearCrossTrackDragPreview]);
+
+  useEffect(() => {
+    if (!isDraggingRegion && isProjectMode) {
+      clearCrossTrackDragPreview();
+    }
+  }, [isDraggingRegion, isProjectMode, clearCrossTrackDragPreview]);
 
   // #endregion
 
@@ -697,6 +866,28 @@ export default function Region({
           const snappedEndPercentage = snapToGrid(newEndTimePercentage, snapToGridEnabled, duration, musicGridLinesRef.current, tracksContainerWidthRef.current, DAWConfig.ui.gridSnapThreshold);
           newEndTime = (snappedEndPercentage / 100) * duration;
         }
+
+        if (isProjectMode && isProjectClipEditable) {
+          const previousState = {
+            trackId: track.id,
+            startTime: originalStateRef.current?.startTime ?? startTime,
+            endTime: originalStateRef.current?.endTime ?? endTime,
+            offset: originalStateRef.current?.offset ?? offset,
+          };
+
+          commitProjectLayoutChange({
+            targetTrackId: track.id,
+            newStartTime,
+            newEndTime,
+            newOffset,
+            previousState,
+          });
+
+          setIsDraggingCropStart(false);
+          setIsDraggingCropEnd(false);
+          originalStateRef.current = null;
+          return;
+        }
         
         
         // Check for overlaps with other regions and handle them
@@ -752,7 +943,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, cropStartPercentage, cropEndPercentage, buffer, region, regionCropLeftPos, regionCropWidth]);
+  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, cropStartPercentage, cropEndPercentage, buffer, region, regionCropLeftPos, regionCropWidth, snapToGridEnabled, isProjectMode, isProjectClipEditable, commitProjectLayoutChange]);
 
   // #endregion
 
@@ -810,7 +1001,7 @@ export default function Region({
 
   return (
     <div 
-      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''} ${isSelected ? styles.selected : ''}`} 
+      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''} ${isSelected ? styles.selected : ''} ${isCrossTrackDragSource ? styles.crossTrackDragSource : ''}`} 
       style={{ 
         width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : width}%`, 
         height: '100%',

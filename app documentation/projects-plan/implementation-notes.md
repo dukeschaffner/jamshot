@@ -25,6 +25,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 16 — Add / remove tracks in DAW | **Done (code)** | `projectApi` track routes; `TrackManager.applyProjectState`; Add track + delete in project DAW |
 | 17 — Record clip to armed track | **Done (code)** | Armed track record → optimistic clip → multipart upload → poll → server audio swap; failure retry/delete |
 | 18 — Upload file to any track | **Done (code)** | Click/drag import on any track; 300s max; dashed drop placeholder on non-empty tracks; same upload pipeline as Step 17 |
+| 19 — Clip drag, trim, cross-track move | **Done (code)** | Project clip drag/trim/cross-track in `Region.js`; debounced PATCH via `useProjectPersistence` |
 | 6b+ | Not started | |
 
 ---
@@ -596,6 +597,53 @@ Editor+ only (`owner` / `admin` / `editor`). Track limit uses `MAX_PROJECT_TRACK
 
 ---
 
+## Step 19 — Clip drag, trim, cross-track move
+
+### API client
+
+| Method | Route |
+|--------|-------|
+| `updateProjectClip(projectGuid, clipId, data)` | `PATCH /projects/:guid/clips/:clipId` |
+
+Body fields: `revision`, `start_time_seconds`, `trim_start_seconds`, `trim_end_seconds`, `project_track_id` (cross-track move).
+
+### Persistence hook
+
+| File | Purpose |
+|------|---------|
+| `hooks/useProjectPersistence.js` | Debounced clip PATCH (500ms); dirty clip tracking; 409 → reload project state + revert local edit |
+| `project/ProjectsConfig.js` | `CLIP_PERSIST_DEBOUNCE_MS` |
+
+Wired in `ProjectEditorContext` as `persistClipLayout` + `moveProjectRegion`.
+
+### DAW
+
+| File | Change |
+|------|--------|
+| `components/Region.js` | Project clips editable when `projectClipId` + not in-flight; drag/trim; cross-track drop via `data-track-id`; overlap/duration validation (reject, no collab trim); debounced save on commit |
+| `components/Track.js` | `data-track-id` on track row for hit-testing |
+| `core/TrackManager.js` | `loadProject` sets `projectClipId` / `processingStatus` on regions; `moveRegionBetweenTracks` |
+| `project/projectClipPlacement.js` | `validateRegionPlacement`, `findTrackIdAtPoint`, `buildClipPatchPayload` |
+
+### Behavior
+
+- Only **completed** clips (`projectClipId` + not uploading/processing) are draggable/trimmable
+- Cross-track move allowed (unlike collab DAW)
+- Invalid placement (overlap, beyond project duration) → toast + revert to pre-drag state; no server call
+- Successful commit → optimistic local update → debounced PATCH; revision bumped on response
+- Clips uploading/processing keep read-only overlay UX from Step 17
+
+### Manual verify
+
+1. Open project with completed clips as editor+
+2. Drag clip horizontally on same track → refresh → position persisted
+3. Trim with edge handles → refresh → trim persisted
+4. Drag clip to another track → refresh → clip on new track
+5. Drag into overlapping position → toast, clip snaps back
+6. Clip still uploading/processing → not draggable
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -697,4 +745,5 @@ Editor+ only (`owner` / `admin` / `editor`). Track limit uses `MAX_PROJECT_TRACK
 | 2026-06-10 | 16 | Project DAW add/delete tracks wired to Step 8 API; ghost-track filter on GET |
 | 2026-06-10 | 17 | Project record-to-armed-track: upload pipeline, processing overlay, retry/delete, beforeunload guard |
 | 2026-06-10 | 18 | Project file import: click/drag on any track, 300s limit, drop placeholder, shared upload pipeline |
+| 2026-06-10 | 19 | Project clip drag/trim/cross-track move with debounced PATCH persistence |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |

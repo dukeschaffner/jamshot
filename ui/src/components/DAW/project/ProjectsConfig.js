@@ -1,2 +1,3 @@
 export const PROCESSING_POLL_INTERVAL_MS = 3000;
 export const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
+export const CLIP_PERSIST_DEBOUNCE_MS = 500;

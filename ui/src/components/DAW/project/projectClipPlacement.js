@@ -93,6 +93,59 @@ export function validateClipPlacement({
   };
 }
 
+export function validateRegionPlacement({
+  track,
+  startTime,
+  endTime,
+  projectDuration,
+  excludeRegionId = null,
+}) {
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+    return { valid: false, error: 'Clip duration must be greater than 0.' };
+  }
+
+  if (endTime > projectDuration) {
+    return {
+      valid: false,
+      error: `Clip extends beyond project duration (${projectDuration}s).`,
+    };
+  }
+
+  if (wouldClipOverlap(track, startTime, endTime, excludeRegionId)) {
+    return { valid: false, error: 'Clip overlaps another clip on this track.' };
+  }
+
+  return { valid: true, startTime, endTime };
+}
+
+export function findTrackIdAtPoint(clientX, clientY) {
+  const el = document.elementFromPoint(clientX, clientY);
+  if (!el) return null;
+
+  const trackEl = el.closest('[data-track-id]');
+  if (!trackEl) return null;
+
+  const rawId = trackEl.getAttribute('data-track-id');
+  if (rawId == null) return null;
+
+  const parsed = parseInt(rawId, 10);
+  return Number.isNaN(parsed) ? rawId : parsed;
+}
+
+export function buildClipPatchPayload(region, targetTrackId, sourceTrackId) {
+  const payload = {
+    start_time_seconds: region.startTime,
+    trim_start_seconds: region.offset ?? 0,
+    trim_end_seconds: (region.offset ?? 0) + (region.endTime - region.startTime),
+  };
+
+  if (targetTrackId != null && targetTrackId !== sourceTrackId) {
+    payload.project_track_id = targetTrackId;
+  }
+
+  return payload;
+}
+
 export function computePlaceholderPlacement({
   track,
   startTime,
