@@ -1,0 +1,131 @@
+.projectPageContainer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: calc(100vh - 80px);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.backLink:hover {
+  color: var(--seafoam);
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.headerInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.headerIcon {
+  font-size: 32px;
+  color: var(--seafoam);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.role {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  background: var(--grey-1);
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.memberCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.dawPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 420px;
+  padding: 48px 24px;
+  background: var(--grey-1);
+  border: 2px dashed var(--grey-2);
+  border-radius: 16px;
+}
+
+.dawPlaceholderIcon {
+  font-size: 3rem;
+  color: var(--seafoam);
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.dawPlaceholder h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.dawPlaceholder p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .projectPageContainer {
+    padding: 15px;
+  }
+
+  .headerContent {
+    flex-direction: column;
+  }
+
+  .title {
+    font-size: 22px;
+    white-space: normal;
+  }
+}

@@ -20,6 +20,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 11 — Plugin payload | **Done (code)** | `GET /:id/plugin-payload`; editor+ only; flat completed clips |
 | 12 — Projects nav + list page | **Done (code)** | Nav already gated; `/projects` fetches list, cards, empty state, Create Project → `/projects/create` |
 | 13 — Create project page | **Done (code)** | `/projects/create`; optional `?team_id=` / `?camp_id=`; redirect to `/projects/{guid}` |
+| 14 — Project page shell | **Done (code)** | `/projects/[projectId]`; header + DAW placeholder; desktop-only gate; 403 for non-members |
 | 6b+ | Not started | |
 
 ---
@@ -442,6 +443,34 @@ Uses shared form styles (`SharedForm.module.css`) — same pattern as team/camp 
 
 ---
 
+## Step 14 — Project page shell
+
+### UI
+
+| File | Purpose |
+|------|---------|
+| `ui/src/app/(frontend)/projects/[projectId]/page.js` | Feature flag + auth gates; fetches `GET /projects/:guid`; header + DAW placeholder |
+| `ui/src/app/(frontend)/projects/[projectId]/ProjectPage.module.css` | Page layout, header, DAW placeholder styles |
+
+### Behavior
+
+- Flag off → `notFound()`
+- Unauthenticated → login prompt with redirect to `/projects/{guid}`
+- Loads project via `projectApi.getProject(projectGuid)` — full state from API (metadata + tracks; DAW not wired yet)
+- **403** (non-member or unknown project) → access error + back link (consistent with API no-leak policy)
+- Header: project name, role badge, **member count placeholder** (`Members —` until Step 28 members API)
+- Desktop: dashed DAW workspace placeholder (Step 15 replaces with `DAWProvider mode="project"`)
+- Mobile: same `mobile-collab-message` as collab DAW / upload page
+
+### Manual verify
+
+1. Enable `projects` flag; create or open a project from list
+2. `/projects/{guid}` — name in header, role shown, DAW placeholder on desktop
+3. Resize to mobile — desktop-required message
+4. Open another user's project guid while logged out as non-member → 403 message
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
@@ -455,3 +484,4 @@ Uses shared form styles (`SharedForm.module.css`) — same pattern as team/camp 
 | 2026-06-10 | 11 | Plugin-payload endpoint with flat completed clips; editor+ gate |
 | 2026-06-10 | 12 | Projects list page; guid routes; active team/camp context gate on list + access |
 | 2026-06-10 | 13 | Create project page with optional team/camp query context |
+| 2026-06-10 | 14 | Project page shell with header, DAW placeholder, desktop-only gate |
