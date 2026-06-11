@@ -170,6 +170,17 @@ async function fetchProjectTimelineRows(projectId) {
      LEFT JOIN project_assets pa
        ON pa.id = pc.asset_id AND pa.deleted_at IS NULL
      WHERE pt.project_id = $1
+       AND (
+         NOT EXISTS (
+           SELECT 1 FROM project_clips pc_hist
+           WHERE pc_hist.project_track_id = pt.id
+         )
+         OR EXISTS (
+           SELECT 1 FROM project_clips pc_active
+           WHERE pc_active.project_track_id = pt.id
+             AND pc_active.deleted_at IS NULL
+         )
+       )
      ORDER BY pt.sort_order, pt.id, pc.start_time_seconds, pc.id`,
     [projectId]
   );

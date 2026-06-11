@@ -1,0 +1,13 @@
+
+
+
+- confirmation dialog on track delete, including hint that you can restore snapshot or access audio files
+- move delete track to ellipses button menu
+- virtual render of tracks vertically
+- add better zoom controls (ie mac zoom gesture over the timeline should zoom in and out horizontally)
+- make sure new project starts with one track
+- project page should be tabbed like track page
+
+- on file import, if a region will be deleted (e.g. if it overlaps with the new region), show confirmation dialog noting that the region will be deleted and asking if the user wants to continue
+- what if on clip upload retry, both the original and the new region are uploaded?
+- are audio files cached client side?

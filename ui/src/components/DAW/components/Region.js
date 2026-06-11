@@ -5,12 +5,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { bufferRegistry } from '../core/BufferRegistry';
 import WaveformChunk from './waveform/WaveformChunk';
 import NudgeIndicator from './NudgeIndicator';
+import RegionProcessingIndicator from './RegionProcessingIndicator';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import DAWConfig from '../misc/DAWConfig';
 import { snapToGrid, handleRegionOverlaps } from '../misc/DAWUtils';
 import { COMMAND_TYPES } from '../core/UndoManager';
+import { useProjectEditor } from '../project/ProjectEditorContext';
 
 export default function Region({ 
   region,
@@ -21,6 +23,7 @@ export default function Region({
   isRecordingTrack = false
 }) {
   const { 
+    dawMode,
     duration, 
     zoom, 
     isPlaying, 
@@ -41,8 +44,13 @@ export default function Region({
     setContextMenuPosition,
     setShowContextMenu,
   } = useDAW();
-
-
+  const {
+    isActive: isProjectEditor,
+    canEdit: canEditProject,
+    retryClipUpload,
+  } = useProjectEditor();
+  const isReadOnly = dawMode === 'project';
+  const processingStatus = region?.processingStatus;
   const musicGridLinesRef = useRef([]);
   const regionContainerRef = useRef(null);
   const waveformContainerRef = useRef(null);
@@ -190,6 +198,7 @@ export default function Region({
   // Handle mouse down on region for dragging
   const handleRegionMouseDown = (e) => {
     e.stopPropagation();
+    if (isReadOnly) return;
     // Only allow dragging if not playing or recording
     if (isRecording) return;
     
@@ -219,7 +228,7 @@ export default function Region({
     e.preventDefault();
     e.stopPropagation();
 
-    if (isRecording) return;
+    if (isReadOnly || isRecording) return;
 
     // Emit event to close other context menus (including other regions)
     eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'region', regionId: region.id });
@@ -487,6 +496,7 @@ export default function Region({
   // Handle mouse down on crop start handle
   const handleCropStartMouseDown = (e) => {
     e.stopPropagation();
+    if (isReadOnly) return;
     
     // Capture original state for undo
     originalStateRef.current = {
@@ -506,6 +516,7 @@ export default function Region({
   // Handle mouse down on crop end handle
   const handleCropEndMouseDown = (e) => {
     e.stopPropagation();
+    if (isReadOnly) return;
     
     // Capture original state for undo
     originalStateRef.current = {
@@ -524,6 +535,7 @@ export default function Region({
 
   // Check if mouse is hovering near edges to show crop handles
   const handleWaveformMouseMove = (e) => {
+    if (isReadOnly) return;
     // Allow trimming for non-recording tracks (isRecordingTrack is false)
     if (!regionContainerRef.current) return;
     
@@ -803,7 +815,7 @@ export default function Region({
         width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : width}%`, 
         height: '100%',
         left: `${isDraggingCropStart || isDraggingCropEnd ? regionCropLeftPos : regionLeftPos}%`,
-        cursor: isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
+        cursor: isReadOnly || isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
       }}
       ref={regionContainerRef}
       onClick={e => e.stopPropagation()}
@@ -877,6 +889,15 @@ export default function Region({
       </>
     )}
 
+    {isProjectEditor && processingStatus && (
+      <RegionProcessingIndicator
+        processingStatus={processingStatus}
+        regionId={region.id}
+        trackId={track.id}
+        onRetry={retryClipUpload}
+        canRetry={canEditProject}
+      />
+    )}
 
     </div>
   );

@@ -24,7 +24,8 @@ const Track = ({
   const [recordingWidth, setRecordingWidth] = useState(0);
   
   // Get DAW context for recording state and playhead position
-  const { isRecording, playheadLocation, duration, isCollab, clipboard, pasteRegion, tracksContainerWidth, setContextMenuItems, setContextMenuPosition, setShowContextMenu } = useDAW();
+  const { dawMode, isRecording, playheadLocation, duration, isCollab, clipboard, pasteRegion, tracksContainerWidth, setContextMenuItems, setContextMenuPosition, setShowContextMenu } = useDAW();
+  const isReadOnly = dawMode === 'project';
   
   // Context menu state
   const [pasteTime, setPasteTime] = useState(null);
@@ -84,9 +85,11 @@ const Track = ({
     };
   }, [duration]);
 
+  const isArmedForRecording = track.isArmed || track.isRecordingTrack;
+
   // Update recording width when recording and playhead position changes
   useEffect(() => {
-    if (track.isRecordingTrack && isRecording && duration > 0) {
+    if (isArmedForRecording && isRecording && duration > 0) {
       const currentPos = (playheadLocation.time / duration) * 100;
       const indicatorWidth = currentPos - recordingStartPos;
       setRecordingWidth(indicatorWidth > 0 ? indicatorWidth : 0);
@@ -120,6 +123,7 @@ const Track = ({
   };
   
   const handleDragOver = (e) => {
+    if (isReadOnly) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(true);
@@ -132,6 +136,7 @@ const Track = ({
   };
   
   const handleDrop = async (e) => {
+    if (isReadOnly) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
@@ -318,7 +323,7 @@ const Track = ({
           )
         )}
         {/* Recording indicator - shown as overlay during recording */}
-        {isRecording && track.isRecordingTrack && recordingWidth > 0 && (
+        {isRecording && isArmedForRecording && recordingWidth > 0 && (
           <div 
             className={styles.recordingIndicator}
             style={{

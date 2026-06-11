@@ -47,7 +47,7 @@ Reuse audio engine and timeline rendering. Add `armedTrackId` and `loadProject()
 | **`DAWContext.js`** | `dawMode`; `armedTrackId`; `loadProject`; skip `UndoManager.init()` in project mode; record-stop → `bufferRegistry` optimistic clip → multipart upload → poll → swap to server audio |
 | **`core/TrackManager.js`** | `loadProject(tracks, clips)` from public R2 URLs |
 | **`core/Track.js`** | Armed track flag (not `id === 'recording-track'`) |
-| **`components/Track.js`** | Record/upload on armed track; allow file drop on non-empty tracks |
+| **`components/Track.js`** | Record on armed track only; file drop / upload on **any** track (including non-empty, non-armed) |
 | **`components/Region.js`** | Cross-track drag; debounced PATCH via `useProjectPersistence` |
 | **`components/TrackHeader.js`** | Arm button; lock badge (Phase 2) |
 | **`components/TransportControls.js`** | Hide undo/redo; no Publish collab |
@@ -86,6 +86,7 @@ Reuse audio engine and timeline rendering. Add `armedTrackId` and `loadProject()
 |---|---|---|
 | Cross-track move | Forbidden | Allowed |
 | Recording | Global `recording-track` | **Armed track** (`armedTrackId`) |
+| File upload / drop / import | N/A (collab uses global recording track) | **Any track** — target is the track the user interacted with; arm not required |
 | Empty tracks | N/A for stems | Allowed |
 | Audio source | Stem chain API | `project_clips` + public R2 URLs |
 | Mixdown | Server `combined_audio_url` | Live Web Audio only |

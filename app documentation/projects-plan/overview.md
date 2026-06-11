@@ -13,7 +13,7 @@ See also: [projects-plan.txt](./projects-plan.txt)
 | Async tree of published collabs | Yes | No (different model) |
 | Real-time multi-user editing | No | Yes (Phase 2) |
 | Move regions between tracks | No | Yes |
-| Record / upload on any track | No (recording track only) | Yes |
+| Record on armed track; upload on any track | No (recording track only) | Yes |
 | Undo / redo | Yes | **No** — use snapshots instead |
 | Edit locking | No | Yes (track-level, Phase 2) |
 | Plugin playback sync | Manual per track | Project-level, auto or manual |

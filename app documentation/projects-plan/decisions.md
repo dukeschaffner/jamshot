@@ -121,6 +121,7 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 | WS auth | JWT/session on `$connect`; authorize `join` via `projectAccess` |
 | WS deploy | New CDK construct or workflow (not in current CDK stack) |
 | DAW mode | `dawMode: 'collab' | 'original' | 'project'` + `armedTrackId` (replaces global `recording-track` in project mode) |
+| Upload target track | **Any track** via drop, file picker, or per-track Import — arm state not required; `armedTrackId` is record-only. It will attempt to get lock on track before uploading. |
 | ProjectEndOverlay | Reuse/adapt for project duration extension |
 
 ---

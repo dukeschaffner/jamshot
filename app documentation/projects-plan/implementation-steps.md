@@ -296,25 +296,25 @@ Wire UI to Step 8 API; refresh local state on success.
 
 ---
 
-### Step 18 — Upload file to armed track
+### Step 18 — Upload file to any track
 
-File picker / drop on armed track (including tracks with existing clips) → same upload pipeline as Step 17 (no local `bufferRegistry` unless re-uploading after failure).
+File picker / drop on **any** track row (armed or not; including tracks with existing clips) → same upload pipeline as Step 17 (no local `bufferRegistry` unless re-uploading after failure). Target track is the track the user dropped on or picked from — **arm state is not required** for file upload (arm is record-only; see Step 17).
 
 Validate 300s max duration on upload (not collab 900s default).
 
-**Done when:** Upload wav to track 3 → clip visible on timeline; processing failure shows same error/retry/delete UX as Step 17.
+**Done when:** Upload wav to track 3 while track 2 is armed → clip visible on track 3; processing failure shows same error/retry/delete UX as Step 17.
 
 ---
 
 ### Step 18b — Import audio from host DAW (manual return path)
 
-Toolbar / track header: **"Import audio"** on any armed track.
+Toolbar / track header: **"Import audio"** on **every** track row (not gated on arm state).
 
 - File picker for WAV/MP3 exported from Logic/etc.
-- Same upload pipeline as Step 17
+- Same upload pipeline as Step 17; uploads to the track whose control was used
 - In-product copy: *"Export WAV from your DAW, then import here."*
 
-**Done when:** User can add audio to a non-empty track without recording in browser.
+**Done when:** User can import audio onto a non-armed, non-empty track without recording in browser.
 
 ---
 

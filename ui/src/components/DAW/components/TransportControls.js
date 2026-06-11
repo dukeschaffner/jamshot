@@ -19,6 +19,7 @@ import styles from '../DAW.module.css';
 import { useUser } from '../../../contexts/UserContext';
 import DAWConfig from '../misc/DAWConfig';
 import { useDAW } from '../DAWContext';
+import { useProjectEditor } from '../project/ProjectEditorContext';
 import PluginSync from './PluginSync';
 
 const timeSignatureOptions = DAWConfig.timeSignature.options;
@@ -40,7 +41,9 @@ const TransportControls = ({
   const bpmControlRef = useRef(null);
   const menuRef = useRef(null);
 
-  const { isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo, isFullscreen, setIsFullscreen, isLoop} = useDAW();
+  const { dawMode, isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo, isFullscreen, setIsFullscreen, isLoop} = useDAW();
+  const { canEdit: canEditProject, armedTrackId, startProjectRecording } = useProjectEditor();
+  const isProjectMode = dawMode === 'project';
 
   const { isAuthenticated } = useUser();
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -76,17 +79,22 @@ const TransportControls = ({
 
   const toggleRecording = () => {
     if (isRecording) {
-      // Stop recording
       eventBus.emit(DAW_EVENTS.RECORDING.STOP);
-    } else {
-      // Start recording
-      if(isAuthenticatedRef.current) {
-        eventBus.emit(DAW_EVENTS.RECORDING.START);
-      }
-      else {
-        alert('Please sign in to record');
-      }
+      return;
     }
+
+    if (!isAuthenticatedRef.current) {
+      alert('Please sign in to record');
+      return;
+    }
+
+    if (isProjectMode) {
+      if (!canEditProject) return;
+      startProjectRecording();
+      return;
+    }
+
+    eventBus.emit(DAW_EVENTS.RECORDING.START);
   };
 
   // Handle BPM input change
@@ -263,7 +271,7 @@ const TransportControls = ({
   return (
     <>
     <div className={styles.transportControls}>
-        {!isRecording && (isCollab || recordingTrackHasAudio) && (
+        {!isRecording && (isCollab || recordingTrackHasAudio || isProjectMode) && (
             <button 
             className={styles.controlButton + ' ' + styles.playPause} 
             onClick={togglePlayPause}
@@ -271,10 +279,18 @@ const TransportControls = ({
             <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
         </button>
         )}
-        {(isRecording || !isPlaying) && (
-        <button 
+        {((isProjectMode && canEditProject) || !isProjectMode) && (isRecording || !isPlaying) && (
+        <button
             className={styles.controlButton + ' ' + styles.recordStop}
             onClick={toggleRecording}
+            disabled={isProjectMode && !isRecording && armedTrackId == null}
+            title={
+              isProjectMode && !isRecording && armedTrackId == null
+                ? 'Arm a track to record'
+                : isRecording
+                  ? 'Stop recording'
+                  : 'Record'
+            }
         >
             <FontAwesomeIcon icon={isRecording ? faStop : faCircle}/>
         </button>
@@ -344,22 +360,26 @@ const TransportControls = ({
             <CountInIcon isEnabled={isCountInEnabled} />
         </button>
     </div>
-    <button 
-        className={`${styles.controlButton} ${!canUndo ? styles.disabled : ''}`}
-        onClick={undo}
-        disabled={!canUndo}
-        title="Undo (Ctrl+Z)"
-    >
-        <FontAwesomeIcon icon={faUndo} />
-    </button>
-    <button 
-        className={`${styles.controlButton} ${!canRedo ? styles.disabled : ''}`}
-        onClick={redo}
-        disabled={!canRedo}
-        title="Redo (Ctrl+Shift+Z)"
-    >
-        <FontAwesomeIcon icon={faRedo} />
-    </button>
+    {!isProjectMode && (
+      <>
+        <button 
+            className={`${styles.controlButton} ${!canUndo ? styles.disabled : ''}`}
+            onClick={undo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+        >
+            <FontAwesomeIcon icon={faUndo} />
+        </button>
+        <button 
+            className={`${styles.controlButton} ${!canRedo ? styles.disabled : ''}`}
+            onClick={redo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+        >
+            <FontAwesomeIcon icon={faRedo} />
+        </button>
+      </>
+    )}
     <button 
         className={styles.controlButton + ' ' + styles.settings}
         onClick={() => setShowAudioSettingsModal(true)}

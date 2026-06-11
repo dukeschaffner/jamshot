@@ -79,7 +79,8 @@ Config: `LOCK_TTL_SECONDS` = 60, `LOCK_HEARTBEAT_INTERVAL_SECONDS` = 15.
 | Edit | Locks required |
 |---|---|
 | Trim / move on same track | Source track |
-| Record / upload | Armed track |
+| Record | Armed track |
+| Upload / import | Target track (any track; arm not required) |
 | Track metadata | That track |
 | Cross-track move | Source + destination (lower `trackId` first) |
 | `track.reorder` | **Project metadata lock** (short TTL, one per project) |

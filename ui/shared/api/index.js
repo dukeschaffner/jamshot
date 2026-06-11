@@ -598,6 +598,23 @@ const createApiMethods = (apiClient) => {
     createProject: (data) => api.post('/projects', data),
 
     getProject: (projectGuid) => api.get(`/projects/${projectGuid}`),
+
+    createProjectTrack: (projectGuid, data) =>
+      api.post(`/projects/${projectGuid}/tracks`, data),
+
+    deleteProjectTrack: (projectGuid, trackId, data) =>
+      api.delete(`/projects/${projectGuid}/tracks/${trackId}`, { data }),
+
+    uploadProjectClip: (projectGuid, trackId, formData) =>
+      api.post(`/projects/${projectGuid}/tracks/${trackId}/clips`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }),
+
+    getProjectAssetProcessingStatus: (projectGuid, assetId) =>
+      api.get(`/projects/${projectGuid}/assets/${assetId}/processing-status`),
+
+    deleteProjectClip: (projectGuid, clipId, data) =>
+      api.delete(`/projects/${projectGuid}/clips/${clipId}`, { data }),
   };
 
   // Admin API methods

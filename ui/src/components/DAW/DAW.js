@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useDAW, DAWProvider } from './DAWContext';
+import { ProjectEditorProvider, useProjectEditor } from './project/ProjectEditorContext';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
 import Waveform from './components/Region';
@@ -19,7 +20,7 @@ import MusicalGrid from './components/MusicalGrid';
 import Takes from './components/Takes';
 import { useNavigationGuardHook } from '../../contexts/NavigationGuardContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload } from '@fortawesome/free-solid-svg-icons';
+import { faUpload, faPlus } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
@@ -28,9 +29,11 @@ import PluginInviteHint from './components/PluginInviteHint';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
+import { MAX_PROJECT_TRACKS } from '@sterio/subscription-utils';
 
 function DAWContent({ track, isVisible = true }) {
   const {
+    dawMode,
     isCollab,
     trackManagerRef,
     audioEngineRef,
@@ -72,10 +75,21 @@ function DAWContent({ track, isVisible = true }) {
     setShowContextMenu,
     isLoop,
   } = useDAW();
+  const {
+    isActive: isProjectEditor,
+    canEdit: canEditProject,
+    isAtTrackLimit,
+    isTrackMutationPending,
+    hasInFlightClipWork,
+    armedTrackId,
+    startProjectRecording,
+    addProjectTrack,
+  } = useProjectEditor();
 
   const { showToast } = useToast();
   const [saved, setSaved] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const isProjectMode = dawMode === 'project';
 
   useEffect(() => {
     if (!isVisible) return;
@@ -100,10 +114,16 @@ function DAWContent({ track, isVisible = true }) {
   };
 
   useNavigationGuardHook({
-    enabled: !!recordingTrackHasAudio && !saved,
+    enabled:
+      (!isProjectMode && !!recordingTrackHasAudio && !saved) ||
+      (isProjectMode && hasInFlightClipWork),
     confirm: () => {
-      const ok = window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.");
-      if (ok) {
+      const ok = window.confirm(
+        isProjectMode
+          ? 'A clip is still uploading or processing. Leave anyway? Unsaved local audio may be lost.'
+          : "You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost."
+      );
+      if (ok && !isProjectMode) {
         captureDawLeaveUnsavedConfirmed({
           upload_flow_type: isCollab ? 'collab' : 'original',
         });
@@ -111,6 +131,18 @@ function DAWContent({ track, isVisible = true }) {
       return ok;
     },
   });
+
+  useEffect(() => {
+    if (!isProjectMode || !hasInFlightClipWork) return;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isProjectMode, hasInFlightClipWork]);
 
   const tracksAndTimelineRef = useRef(null);
   const tracksScrollContainerRef = useRef(null);
@@ -165,7 +197,7 @@ function DAWContent({ track, isVisible = true }) {
         eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: 0 });
       }
       // Handle Cmd/Ctrl+Z for undo (with shift for redo)
-      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
+      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
         if (!isRecording) {
           e.preventDefault();
           if (e.shiftKey) {
@@ -182,35 +214,35 @@ function DAWContent({ track, isVisible = true }) {
         }
       }
       // Handle Cmd/Ctrl+Y for redo (alternative)
-      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y')) {
+      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y')) {
         if (!isRecording && canRedo) {
           e.preventDefault();
           redo();
         }
       }
       // Handle Cmd/Ctrl+C for copy
-      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyC' || e.key === 'c' || e.key === 'C')) {
+      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyC' || e.key === 'c' || e.key === 'C')) {
         if (selectedRegionId && !isRecording) {
           e.preventDefault();
           copyRegion();
         }
       }
       // Handle Cmd/Ctrl+V for paste
-      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyV' || e.key === 'v' || e.key === 'V')) {
+      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyV' || e.key === 'v' || e.key === 'V')) {
         if (clipboard && !isRecording) {
           e.preventDefault();
           pasteRegion();
         }
       }
       // Handle Cmd/Ctrl+R for repeat region
-      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
+      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
         if (selectedRegionId && !isRecording) {
           e.preventDefault();
           repeatRegion();
         }
       }
       // Handle 't' key for split region (only when no modifiers are pressed)
-      else if (!e.metaKey && !e.ctrlKey && (e.code === 'KeyT' || e.key === 't' || e.key === 'T')) {
+      else if (!isProjectMode && !e.metaKey && !e.ctrlKey && (e.code === 'KeyT' || e.key === 't' || e.key === 'T')) {
         if (selectedRegionId && !isRecording) {
           e.preventDefault();
           splitRegion();
@@ -220,15 +252,17 @@ function DAWContent({ track, isVisible = true }) {
       else if (!e.metaKey && !e.ctrlKey && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
         e.preventDefault();
         if (isRecording) {
-          // Stop recording if currently recording
           eventBus.emit(DAW_EVENTS.RECORDING.STOP);
+        } else if (isProjectMode) {
+          if (canEditProject) {
+            startProjectRecording();
+          }
         } else {
-          // Start recording if not currently recording
           eventBus.emit(DAW_EVENTS.RECORDING.START);
         }
       }
       // Handle Delete/Backspace key for deleting selected region
-      else if ((e.code === 'Delete' || e.code === 'Backspace' || e.key === 'Delete' || e.key === 'Backspace') && !isRecording) {
+      else if (!isProjectMode && (e.code === 'Delete' || e.code === 'Backspace' || e.key === 'Delete' || e.key === 'Backspace') && !isRecording) {
         if (selectedRegionId && selectedTrackId && trackManagerRef && trackManagerRef.current) {
           e.preventDefault();
           const track = trackManagerRef.current.getTrack(selectedTrackId);
@@ -260,7 +294,7 @@ function DAWContent({ track, isVisible = true }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible, isProjectMode, canEditProject, startProjectRecording, armedTrackId]); // Include dependencies
 
   // Handle toast notifications from the event bus
   useEffect(() => {
@@ -407,7 +441,7 @@ function DAWContent({ track, isVisible = true }) {
             />
             <TimeDisplay />
             <div>
-              {recordingTrackHasAudio && !isRecording && (track ? track.layer < 4 : true) && (
+              {!isProjectMode && recordingTrackHasAudio && !isRecording && (track ? track.layer < 4 : true) && (
                   <button
                     className="pill-btn gradient-btn"
                     style={{justifySelf: 'end'}}
@@ -432,6 +466,24 @@ function DAWContent({ track, isVisible = true }) {
                 track={track}
               />
             ))}
+            {isProjectEditor && canEditProject && (
+              <div className={styles.addTrackRow}>
+                <button
+                  type="button"
+                  className={styles.addTrackButton}
+                  onClick={addProjectTrack}
+                  disabled={isAtTrackLimit || isTrackMutationPending}
+                  aria-label="Add track"
+                  title={
+                    isAtTrackLimit
+                      ? `Track limit reached (${MAX_PROJECT_TRACKS})`
+                      : 'Add track'
+                  }
+                >
+                  <FontAwesomeIcon icon={faPlus} aria-hidden />
+                </button>
+              </div>
+            )}
           </div>
           <div 
             className={styles.tracksScrollContainer} 
@@ -501,7 +553,7 @@ function DAWContent({ track, isVisible = true }) {
         onClose={() => setShowContextMenu(false)}
       />
 
-      {recordingTrackHasAudio && showUploadForm && (
+      {!isProjectMode && recordingTrackHasAudio && showUploadForm && (
         <UploadForm
           isCollab={isCollab}
           hasActiveCompetition={track?.has_active_competition || false}
@@ -533,6 +585,24 @@ function DAW({ track, isVisible = true }) {
   );
 }
 
+function ProjectDAW({ project, isVisible = true, onProjectChange }) {
+  const projectData = useMemo(
+    () => project,
+    [project?.guid, project?.revision, project?.updatedAt]
+  );
+
+  return (
+    <DAWProvider mode="project" projectData={projectData}>
+      <ProjectEditorProvider
+        projectData={projectData}
+        onProjectStateChange={onProjectChange}
+      >
+        <DAWWrapper isVisible={isVisible} />
+      </ProjectEditorProvider>
+    </DAWProvider>
+  );
+}
+
 // Wrapper component that handles fullscreen modal rendering
 function DAWWrapper({ track, isVisible = true }) {
   const { isFullscreen } = useDAW();
@@ -551,4 +621,5 @@ function DAWWrapper({ track, isVisible = true }) {
   return <DAWContent track={track} isVisible={isVisible} />;
 }
 
+export { ProjectDAW };
 export default DAW;

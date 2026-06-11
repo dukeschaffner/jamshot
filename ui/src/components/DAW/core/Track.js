@@ -16,6 +16,8 @@ class Track {
     this.analyzer = context.createAnalyser();
     this.sources = new Set();
     this.isRecordingTrack = id === 'recording-track';
+    this.isArmed = false;
+    this._recordingTrackRouting = this.isRecordingTrack;
 
     this.gain = 0.8;
     this.isSolo = false;
@@ -57,7 +59,7 @@ class Track {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
       let isNudged = false;
-      if(this.isRecordingTrack && data.region.latencyData) { // this is a recorded region
+      if ((this.isRecordingTrack || this.isArmed) && data.region.latencyData) {
         const region = this.regions.find(r => r.id === data.region.id);
         if(region) {
           if((region.offset !== data.region.offset) || (region.startTime !== data.region.startTime)) {
@@ -191,6 +193,71 @@ class Track {
     return Math.max(
       ...this.regions.map(region => region.endTime)
     );
+  }
+
+  usesRecordingTrackRouting() {
+    return this.isRecordingTrack || this._recordingTrackRouting;
+  }
+
+  enableRecordingTrackRouting() {
+    if (this.isRecordingTrack) {
+      if (!this.meterGainNode) {
+        this.meterGainNode = this.context.createGain();
+        this.meterGainNode.gain.value = this.gain;
+        this.meterGainNode.connect(this.analyzer);
+      }
+      return;
+    }
+
+    if (this._recordingTrackRouting) {
+      return;
+    }
+
+    this._recordingTrackRouting = true;
+
+    if (!this.meterGainNode) {
+      this.meterGainNode = this.context.createGain();
+      this.meterGainNode.gain.value = this.gain;
+      this.meterGainNode.connect(this.analyzer);
+    }
+
+    try {
+      this.gainNode.disconnect(this.analyzer);
+    } catch (_) { /* not connected */ }
+    try {
+      this.analyzer.disconnect(this.context.destination);
+    } catch (_) { /* not connected */ }
+
+    this.gainNode.connect(this.analyzer);
+    this.gainNode.connect(this.context.destination);
+  }
+
+  disableRecordingTrackRouting() {
+    if (this.isRecordingTrack || !this._recordingTrackRouting) {
+      return;
+    }
+
+    this._recordingTrackRouting = false;
+
+    try {
+      this.gainNode.disconnect(this.analyzer);
+    } catch (_) { /* not connected */ }
+    try {
+      this.gainNode.disconnect(this.context.destination);
+    } catch (_) { /* not connected */ }
+    if (this.meterGainNode) {
+      try {
+        this.meterGainNode.disconnect(this.analyzer);
+      } catch (_) { /* not connected */ }
+      this.meterGainNode = null;
+    }
+
+    this.gainNode.connect(this.analyzer);
+    this.analyzer.connect(this.context.destination);
+  }
+
+  ensureMeterInputNode() {
+    this.enableRecordingTrackRouting();
   }
 
   setGain(gain) {

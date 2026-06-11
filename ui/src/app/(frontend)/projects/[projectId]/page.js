@@ -8,14 +8,15 @@ import {
   FaDesktop,
   FaExclamationTriangle,
   FaFolderOpen,
-  FaMusic,
   FaUsers,
 } from 'react-icons/fa';
 import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import { useMobile } from '@/contexts/MobileContext';
 import { useUser } from '@/contexts/UserContext';
+import { useAudio } from '@/lib/AudioContext';
 import { projectApi } from '@/lib/api';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { ProjectDAW } from '@/components/DAW/DAW';
 import sharedStyles from '@/styles/Dashboard.module.css';
 import styles from './ProjectPage.module.css';
 
@@ -25,10 +26,22 @@ export default function ProjectPage() {
   const { isFeatureEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { isAuthenticated, isLoading: userLoading } = useUser();
   const { isMobile } = useMobile();
+  const { setSpaceShortcutEnabled } = useAudio();
 
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isMobile || !project) {
+      setSpaceShortcutEnabled(true);
+      return;
+    }
+    setSpaceShortcutEnabled(false);
+    return () => {
+      setSpaceShortcutEnabled(true);
+    };
+  }, [isMobile, project, setSpaceShortcutEnabled]);
 
   useEffect(() => {
     if (flagsLoading || userLoading) return;
@@ -186,13 +199,12 @@ export default function ProjectPage() {
           <p>Use Desktop version to record or upload file to collaborate</p>
         </div>
       ) : (
-        <div className={styles.dawPlaceholder}>
-          <FaMusic className={styles.dawPlaceholderIcon} aria-hidden />
-          <h2>DAW workspace</h2>
-          <p>
-            The project editor will load here. Tracks, recording, and clip editing
-            arrive in the next milestone.
-          </p>
+        <div className={styles.dawWorkspace}>
+          <ProjectDAW
+            project={project}
+            isVisible
+            onProjectChange={setProject}
+          />
         </div>
       )}
     </div>

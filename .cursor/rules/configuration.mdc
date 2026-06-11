@@ -1,0 +1,10 @@
+---
+description: When creating new configuration values
+alwaysApply: false
+---
+# Configuration Best Practices
+
+When creating new configuration values:
+- if config value is standalone, put it at the top of the file it's used in
+- if it's used in a specific feature, use a config file for that feature and put the value in that file
+- if the value is likely to be used in different places throughout the codebase (ui, api, etc), put it in a shared package in the packages folder

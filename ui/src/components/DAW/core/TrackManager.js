@@ -169,6 +169,136 @@ class TrackManager {
   getAllTracks() {
     return Array.from(this.tracks.values());
   }
+
+  // #region projects
+
+
+  /**
+   * Load project tracks and clips from GET /projects/:id state.
+   * Only clips with a completed audioUrl are loaded for playback.
+   */
+  async loadProject(projectState) {
+    const projectTracks = [...(projectState?.tracks || [])].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
+
+    const loadPromises = projectTracks.map(async (trackData) => {
+      const track = new Track(trackData.id, this.audioContext, [], trackData.name);
+      track.setGain(trackData.gain ?? 0.8);
+      track.isMuted = !!trackData.muted;
+      track.isSolo = !!trackData.solo;
+
+      const clipPromises = (trackData.clips || [])
+        .filter((clip) => clip.audioUrl)
+        .map(async (clip) => {
+          const buffer = await getAudioBufferFromS3(clip.audioUrl, this.audioContext);
+          const bufferKey = bufferRegistry.generateBufferKey(
+            trackData.id,
+            `clip-${clip.id}`
+          );
+          bufferRegistry.storeBuffer(bufferKey, buffer, {
+            name: `clip-${clip.id}`,
+            trackId: trackData.id,
+            clipId: clip.id,
+          });
+
+          const trimStart = clip.trimStart ?? 0;
+          const startTime = clip.startTime ?? 0;
+          let endTime;
+          if (clip.trimEnd != null) {
+            endTime = startTime + (clip.trimEnd - trimStart);
+          } else if (clip.duration != null) {
+            endTime = startTime + clip.duration;
+          } else {
+            endTime = startTime + buffer.duration - trimStart;
+          }
+
+          track.addRegion(
+            bufferKey,
+            startTime,
+            trimStart,
+            endTime,
+            trackData.name || `Clip ${clip.id}`
+          );
+        });
+
+      await Promise.all(clipPromises);
+      this.tracks.set(trackData.id, track);
+      eventBus.emit(DAW_EVENTS.TRACK.ADD, { track });
+      return track;
+    });
+
+    const tracks = await Promise.all(loadPromises);
+
+    const projectDuration =
+      projectState?.durationSeconds ?? AudioState.dawDuration;
+    AudioState.dawDuration = projectDuration;
+    eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: projectDuration });
+
+    return tracks;
+  }
+
+  removeTrack(trackId) {
+    const track = this.tracks.get(trackId);
+    if (!track) return;
+
+    if (track.destroy) {
+      track.destroy();
+    }
+    this.tracks.delete(trackId);
+    eventBus.emit(DAW_EVENTS.TRACK.REMOVE, { trackId });
+  }
+
+  addEmptyProjectTrack(trackData) {
+    const track = new Track(trackData.id, this.audioContext, [], trackData.name);
+    track.setGain(trackData.gain ?? 0.8);
+    track.isMuted = !!trackData.muted;
+    track.isSolo = !!trackData.solo;
+    this.tracks.set(trackData.id, track);
+    eventBus.emit(DAW_EVENTS.TRACK.ADD, { track });
+    return track;
+  }
+
+  /**
+   * Sync local tracks with server project state after track add/remove.
+   * Clip layout reload is handled on full page load; clip edits come in later steps.
+   */
+  applyProjectState(projectState) {
+    const sortedTracks = [...(projectState?.tracks || [])].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
+    const newTrackIds = new Set(sortedTracks.map((track) => track.id));
+
+    for (const trackId of [...this.tracks.keys()]) {
+      if (!newTrackIds.has(trackId)) {
+        this.removeTrack(trackId);
+      }
+    }
+
+    for (const trackData of sortedTracks) {
+      if (!this.tracks.has(trackData.id)) {
+        this.addEmptyProjectTrack(trackData);
+        continue;
+      }
+
+      const track = this.tracks.get(trackData.id);
+      track.title = trackData.name;
+      track.setGain(trackData.gain ?? 0.8);
+      track.isMuted = !!trackData.muted;
+      track.isSolo = !!trackData.solo;
+    }
+
+    if (projectState?.durationSeconds != null) {
+      AudioState.dawDuration = projectState.durationSeconds;
+      eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, {
+        duration: projectState.durationSeconds,
+      });
+    }
+
+    return this.getAllTracks();
+  }
+
+  // #endregion
   
   destroy() {
     // Cleanup tracks

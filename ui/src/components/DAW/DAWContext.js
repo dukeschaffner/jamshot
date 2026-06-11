@@ -10,10 +10,22 @@ import { undoManager, COMMAND_TYPES } from './core/UndoManager';
 import DAWConfig from './misc/DAWConfig';
 import AudioState from './core/AudioStateStore';
 import { captureDawRecordStarted } from '@/lib/posthogAnalytics';
+import {
+  emitProjectTrackMixerState,
+  loadProjectIntoTrackManager,
+} from './project/projectLoader';
 
 const DAWContext = createContext();
 
-export function DAWProvider({ children, trackData, isCollab }) {
+export function DAWProvider({
+  children,
+  trackData,
+  isCollab,
+  mode,
+  projectData,
+}) {
+  const dawMode = mode ?? (isCollab ? 'collab' : 'original');
+  const isProjectMode = dawMode === 'project';
   const { isPlaying: isPlayingGlobal, togglePlayPause } = useAudio();
   const trackManagerRef = useRef(null);
   const audioEngineRef = useRef(null);
@@ -79,8 +91,17 @@ export function DAWProvider({ children, trackData, isCollab }) {
   useEffect(() => {
     const initializeDAW = async () => {
       try {
-        if(isLoading || (!trackData && !isCollab) || audioEngineRef.current || trackManagerRef.current) return;
-        console.log('Initializing DAW. Loading:', isLoading, 'Track data:', trackData, 'Is collab:', isCollab);
+        const hasCollabData = trackData && trackData.length > 0;
+        const canInitialize = isProjectMode ? !!projectData : hasCollabData || isCollab;
+        if (
+          isLoading ||
+          !canInitialize ||
+          audioEngineRef.current ||
+          trackManagerRef.current
+        ) {
+          return;
+        }
+        console.log('Initializing DAW. Mode:', dawMode, 'Track data:', trackData, 'Project:', projectData?.guid);
         setIsLoading(true);
         
         // Clean up existing instances first
@@ -94,8 +115,10 @@ export function DAWProvider({ children, trackData, isCollab }) {
         }
 
         AudioState.reset();
-        undoManager.clear(); // Clear undo history when initializing DAW
-        undoManager.init(); // Initialize undo manager event listeners
+        if (!isProjectMode) {
+          undoManager.clear();
+          undoManager.init();
+        }
         
         // Initialize audio context
         let audioContext;
@@ -118,33 +141,44 @@ export function DAWProvider({ children, trackData, isCollab }) {
         let timeSignature = null;
         let metronomeOffset = null;
         let isLoopMode = false;
-        if(trackData && trackData.length > 0) {
+
+        let projectDurationSeconds = null;
+
+        if (isProjectMode && projectData) {
+          const projectSettings = await loadProjectIntoTrackManager(tm, projectData);
+          metronomeBpm = projectSettings.metronomeBpm;
+          timeSignature = projectSettings.timeSignature;
+          metronomeOffset = projectSettings.metronomeOffset;
+          projectDurationSeconds = projectSettings.durationSeconds;
+        } else if (trackData && trackData.length > 0) {
           metronomeBpm = trackData[0].metronome_bpm;
           timeSignature = trackData[0].time_signature;
           metronomeOffset = trackData[0].metronome_offset;
           isLoopMode = trackData[0].is_loop || false;
-        }
-        
-        // Load existing tracks if provided
-        if (trackData && trackData.length > 0) {
-          // Check if this is a collaboration (has parent) - use hybrid loading
+
           const isCollaboration = trackData[0]?.parent_track_id !== null;
 
           if (isCollaboration) {
-            // Use hybrid stem chain loading for collaborations
             await tm.loadStemChain(trackData[0]);
           } else {
-            // Use legacy loading for original tracks
             await tm.loadAllTracks(trackData);
           }
         }
-        
-        // Always create an empty track for recording
-        tm.createEmptyTrack('recording-track');
+
+        if (!isProjectMode) {
+          tm.createEmptyTrack('recording-track');
+        }
         
         // Initialize audio engine
-        const ae = new AudioEngine(audioContext, isCollab);
+        const ae = new AudioEngine(audioContext, isCollab && !isProjectMode);
         await ae.initialize(tm, metronomeBpm, timeSignature, metronomeOffset);
+
+        if (isProjectMode) {
+          emitProjectTrackMixerState(tm);
+          if (projectDurationSeconds) {
+            setDuration(projectDurationSeconds);
+          }
+        }
         
         trackManagerRef.current = tm;
         audioEngineRef.current = ae;
@@ -174,11 +208,17 @@ export function DAWProvider({ children, trackData, isCollab }) {
       }
     };
     
-    // Initialize DAW even if no trackData is provided
     initializeDAW();
-  }, [trackData]);
+  }, [trackData, projectData, dawMode, isProjectMode]);
 
   useEffect(() => {
+    if (isProjectMode) {
+      if (projectData?.durationSeconds) {
+        setDuration(projectData.durationSeconds);
+      }
+      return;
+    }
+
     if (tracks.length > 0) {
       // Find the latest region end time from all tracks
       let latestEndTime = 0;
@@ -199,7 +239,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       // Default duration when no tracks exist
       setDuration(DAWConfig.project.defaultDuration);
     }
-  }, [tracks]);
+  }, [tracks, isProjectMode, projectData]);
 
   useEffect(() => {
     return () => {
@@ -210,9 +250,11 @@ export function DAWProvider({ children, trackData, isCollab }) {
       if (trackManagerRef.current) {
         trackManagerRef.current.destroy();
       }
-      undoManager.destroy();
+      if (!isProjectMode) {
+        undoManager.destroy();
+      }
     };
-  }, []);
+  }, [isProjectMode]);
 
   // Region selection handlers (defined before useEffect that uses them)
   const selectRegion = useCallback((regionId, trackId) => {
@@ -495,8 +537,14 @@ export function DAWProvider({ children, trackData, isCollab }) {
     
     const handleRecordingStopped = (data) => {
       setIsRecording(false);
+      AudioState.recordingTargetTrackId = null;
+
+      if (isProjectMode) {
+        return;
+      }
 
       const track = trackManagerRef.current.getTrack('recording-track');
+      if (!track) return;
       const overwriteTrack = recordingModeRef.current === 'take';
       track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true, data.latencyData);
     };
@@ -612,7 +660,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_STRENGTH_CHANGE, handleSnapStrengthChange);
       eventBus.off(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
     };
-  }, [selectedRegionId, selectedTrackId, clearSelection, isPlayingGlobal, togglePlayPause, isCollab, trackData]); 
+  }, [selectedRegionId, selectedTrackId, clearSelection, isPlayingGlobal, togglePlayPause, isCollab, trackData, isProjectMode]); 
 
   const recordPlay = async () => {
     if (!trackData || !isCollab || playRecordedRef.current) return;
@@ -646,10 +694,19 @@ export function DAWProvider({ children, trackData, isCollab }) {
     eventBus.emit(DAW_EVENTS.UI.VIEW_CHANGE, { scrollLeft: newOffset });
   };
 
+  const syncTracksFromManager = useCallback(() => {
+    if (!trackManagerRef.current) return [];
+    const nextTracks = trackManagerRef.current.getAllTracks();
+    setTracks(nextTracks);
+    return nextTracks;
+  }, []);
+
   return (
     <DAWContext.Provider value={{
+      dawMode,
       isCollab,
       trackManagerRef,
+      syncTracksFromManager,
       audioEngineRef,
       trackData,
       isLoading,

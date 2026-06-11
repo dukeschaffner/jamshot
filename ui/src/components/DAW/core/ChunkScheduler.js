@@ -168,7 +168,13 @@ class ChunkScheduler {
     // Process each track
     tracks.forEach(track => {
       // If we're recording, don't schedule segments for the recording track
-      if(AudioState.isRecording && track.id === 'recording-track') return;
+      if (
+        AudioState.isRecording &&
+        (track.id === 'recording-track' ||
+          track.id === AudioState.recordingTargetTrackId)
+      ) {
+        return;
+      }
       
       this.processTrackSegments(track, windowStart, windowEnd);
     });

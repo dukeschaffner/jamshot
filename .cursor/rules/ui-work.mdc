@@ -1,0 +1,10 @@
+---
+globs: ui/**
+alwaysApply: false
+---
+# UI Development Best Practices
+
+## Coding
+
+ALWAYS use the relevant api client to make API calls (e.g. `userApi`)
+Always prefer to reuse existing components and patterns rather than creating new ones.

@@ -21,6 +21,9 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 12 — Projects nav + list page | **Done (code)** | Nav already gated; `/projects` fetches list, cards, empty state, Create Project → `/projects/create` |
 | 13 — Create project page | **Done (code)** | `/projects/create`; optional `?team_id=` / `?camp_id=`; redirect to `/projects/{guid}` |
 | 14 — Project page shell | **Done (code)** | `/projects/[projectId]`; header + DAW placeholder; desktop-only gate; 403 for non-members |
+| 15 — DAW project mode read-only load | **Done (code)** | `ProjectDAW`, `TrackManager.loadProject`, no undo/recording; clips play via Web Audio |
+| 16 — Add / remove tracks in DAW | **Done (code)** | `projectApi` track routes; `TrackManager.applyProjectState`; Add track + delete in project DAW |
+| 17 — Record clip to armed track | **Done (code)** | Armed track record → optimistic clip → multipart upload → poll → server audio swap; failure retry/delete |
 | 6b+ | Not started | |
 
 ---
@@ -133,6 +136,48 @@ DDL lives in `api/db-updates.txt` under **Migration: Projects schema (2026-06-10
 3. **Audio URLs** — public R2 paths from `storage_key`; no signed URLs for project assets.
 4. **Clip uploads** — skip social upload quotas; still use `uploadLimiter` / upload ban checks.
 5. **Revision** — mutating routes will require `revision` (Step 7+); plan for conflict handling in `projectUtils.js`.
+6. **DAW project work** — follow the layered DAW design in **DAW architecture (required)** below. Do not add project API calls, revision sync, or role gating back into `DAWContext.js`.
+
+---
+
+## DAW architecture (required)
+
+All project-related DAW work **must** follow this split. Do not fork a parallel “Project DAW” component tree — reuse the shared editor UI and audio core.
+
+### Layer responsibilities
+
+| Layer | Location | Owns |
+|-------|----------|------|
+| **Shared DAW runtime** | `ui/src/components/DAW/DAWContext.js` | Playback, recording (collab), undo, selection, transport, zoom, event bus wiring. Accepts `mode="project"` + `projectData` only for **one-time init** (load tracks into `TrackManager`). Exposes `syncTracksFromManager()` as a thin bridge after local track-map changes. |
+| **Project orchestration** | `ui/src/components/DAW/project/ProjectEditorContext.js` | Role gating (`canEdit`), `projectApi` mutations, server ↔ local sync (`applyProjectServerState`), armed track, mutation pending state, revision-driven page updates via `onProjectStateChange`. |
+| **Project load helpers** | `ui/src/components/DAW/project/projectLoader.js` | Transport settings extraction, `loadProjectIntoTrackManager`, mixer state emit on init. |
+| **In-memory track model** | `ui/src/components/DAW/core/TrackManager.js` | `loadProject`, `applyProjectState`, `addEmptyProjectTrack` — how project tracks/clips exist in memory, not React/API concerns. |
+
+### Provider composition (project pages)
+
+```
+ProjectDAW
+  └── DAWProvider (mode="project", projectData)     ← init + shared runtime
+        └── ProjectEditorProvider (projectData, onProjectStateChange)   ← API + sync
+              └── DAWWrapper / DAWContent
+```
+
+Collab/original flows use `DAWProvider` only — no `ProjectEditorProvider`.
+
+### Rules for new project DAW features
+
+When implementing upcoming steps (clip edit sync, record-to-track, mute/solo persistence, processing polling, revision conflicts, etc.):
+
+1. **Add orchestration in `ProjectEditorContext.js`** — new API methods, `applyProjectServerState` callers, editor-only flags. Extend `useProjectEditor()` surface; keep safe no-op defaults for collab mode.
+2. **Add load/sync logic in `TrackManager.js`** when the change is “how tracks/regions live in memory” (e.g. applying a full clip layout from server state).
+3. **Use `projectLoader.js`** for init-only helpers — not for per-mutation API code.
+4. **UI components** — consume project capabilities via `useProjectEditor()` (`isActive`, `canEdit`, `addProjectTrack`, …). Use `useDAW()` only for shared runtime (`dawMode`, transport, tracks, selection). Avoid new `dawMode === 'project'` branches when a project-editor hook value exists.
+5. **Do not** put `projectApi` calls, revision handling, or `canEditProject` logic in `DAWContext.js`.
+6. **Do not** duplicate `Track`, `Region`, `TransportControls`, etc. for projects.
+
+### Constants
+
+Editor roles: `ui/src/components/DAW/project/projectEditorConstants.js` (`hasProjectEditorRole`).
 
 ---
 
@@ -471,6 +516,130 @@ Uses shared form styles (`SharedForm.module.css`) — same pattern as team/camp 
 
 ---
 
+## Step 16 — Add / remove tracks in DAW
+
+### API client
+
+`projectApi` in `ui/shared/api/index.js`:
+
+| Method | Route |
+|--------|-------|
+| `createProjectTrack(projectGuid, { revision, name?, sort_order?, color? })` | `POST /projects/:guid/tracks` |
+| `deleteProjectTrack(projectGuid, trackId, { revision })` | `DELETE /projects/:guid/tracks/:trackId` |
+
+Both return full `serializeProjectState` + `role` (same as Step 8).
+
+### Serializer tweak (ghost tracks)
+
+`fetchProjectTimelineRows` in `projectUtils.js` excludes tracks that have clip history but no active clips — so DELETE with soft-deleted clips removes the row from GET (DB row kept for snapshot restore).
+
+### DAW
+
+| File | Change |
+|------|--------|
+| `TrackManager.js` | `removeTrack`, `addEmptyProjectTrack`, `applyProjectState` |
+| `project/ProjectEditorContext.js` | `addProjectTrack`, `deleteProjectTrack`, `canEdit`, `applyProjectServerState` — project orchestration (see **DAW architecture**) |
+| `DAWContext.js` | `mode="project"` init only; `syncTracksFromManager` bridge |
+| `DAW.js` | "Add track" button via `useProjectEditor()`; `ProjectDAW` wraps `ProjectEditorProvider` |
+| `TrackHeader.js` | Delete button via `useProjectEditor()` (editor+) |
+| `projects/[projectId]/page.js` | `onProjectChange={setProject}` keeps page `revision` in sync |
+
+Editor+ only (`owner` / `admin` / `editor`). Track limit uses `MAX_PROJECT_TRACKS` (20). Errors surface via toast.
+
+### Manual verify
+
+1. Open project on desktop as editor+
+2. Click **Add track** → empty track row appears; revision bumps
+3. Delete track with clips → row disappears; clips soft-deleted server-side
+4. Delete empty track → row disappears (hard-deleted on server)
+5. At 20 tracks → Add track disabled; API returns 403 if forced
+6. Viewer role → no add/delete controls
+
+---
+
+## Step 17 — Record clip to armed track
+
+### API client
+
+`projectApi` in `ui/shared/api/index.js`:
+
+| Method | Route |
+|--------|-------|
+| `uploadProjectClip(projectGuid, trackId, formData)` | `POST /projects/:guid/tracks/:trackId/clips` |
+| `getProjectAssetProcessingStatus(projectGuid, assetId)` | `GET /projects/:guid/assets/:assetId/processing-status` |
+| `deleteProjectClip(projectGuid, clipId, { revision })` | `DELETE /projects/:guid/clips/:clipId` |
+
+### Project orchestration
+
+| File | Purpose |
+|------|---------|
+| `project/ProjectEditorContext.js` | Armed track, `startProjectRecording`, record-stop → optimistic region → upload → poll → swap server audio; `retryClipUpload`, `deleteFailedClip`, `hasInFlightClipWork` |
+| `project/projectClipUpload.js` | WAV export, multipart form builder, processing poll (3s interval, 5m timeout), status constants |
+
+### DAW runtime changes
+
+| File | Change |
+|------|--------|
+| `Recorder.js` | Uses `AudioState.recordingTargetTrackId` for buffer key + STOPPED payload |
+| `AudioEngine.js` | Input metering/monitor uses `AudioState.armedTrackId` (not only `recording-track`) |
+| `core/Track.js` | `ensureMeterInputNode()` for armed project tracks |
+| `ChunkScheduler.js` | Skip armed track during recording |
+| `DAWContext.js` | Skips collab `handleRecordingStopped` in project mode |
+| `TransportControls.js` | Record button in project mode (requires armed track) |
+| `TrackHeader.js` | Arm/disarm button; monitor on armed track |
+| `Track.js` | Recording indicator on armed track |
+| `Region.js` | Upload/processing overlay; failed state with Record again + Delete |
+| `DAW.js` | `beforeunload` + navigation guard when clip upload/processing in flight; `r` key records in project mode |
+
+### Flow
+
+1. Editor arms a track (auto-arms first track on load).
+2. Record → `Recorder` stores buffer → optimistic clip on timeline (local playback).
+3. Multipart `POST` clip upload (Step 9); revision bumped on success.
+4. Poll processing status (Step 9b) until `completed` or `failed`.
+5. On `completed`: decode server `audioUrl`, swap region buffer, release local buffer.
+6. On failure: error overlay; **Record again** re-POSTs with `clip_id` + local buffer; **Delete** soft-deletes server clip (if any) and removes region.
+
+### Manual verify
+
+1. Open project as editor+ on desktop; arm track 2.
+2. Record at playhead → hear take immediately from local buffer.
+3. After audio-processing dev-server runs → clip plays from server URL; overlay clears.
+4. Simulate lambda failure → failed overlay; Record again retries without re-recording; Delete removes clip.
+5. Start upload then refresh/leave → `beforeunload` warning.
+
+---
+
+## Step 15 — DAW `project` mode (read-only load)
+
+### UI
+
+| File | Purpose |
+|------|---------|
+| `ui/src/components/DAW/DAW.js` | `ProjectDAW` export; hides collab upload/welcome/invite UI in project mode |
+| `ui/src/components/DAW/DAWContext.js` | `mode="project"`, `projectData`, `dawMode`; skips `UndoManager.init()` |
+| `ui/src/components/DAW/project/` | Project orchestration layer — see **DAW architecture (required)** |
+| `ui/src/components/DAW/core/TrackManager.js` | `loadProject(state)` — decodes completed clip `audioUrl`s into regions |
+| `ui/src/app/(frontend)/projects/[projectId]/page.js` | Replaces DAW placeholder with `<ProjectDAW project={project} />` |
+
+### Behavior
+
+- `DAWProvider mode="project"` + `projectData` from `GET /projects/:guid`
+- Loads tracks sorted by `sortOrder`; only clips with `audioUrl` (processing completed) are playable
+- Project `durationSeconds`, `bpm`, `timeSignature`, `metronomeOffset` applied on init
+- No `recording-track`; no undo buttons or keyboard shortcuts; regions read-only (no drag/trim/delete)
+- Transport play/pause + seek work; record button hidden until Step 17
+- Track mute/solo from API applied via `TRACK.MUTE` / `TRACK.SOLO` events after audio engine init
+
+### Manual verify
+
+1. Open project with completed clips on desktop → waveforms visible on timeline
+2. Press play → hear clips; space toggles transport
+3. Undo/redo buttons absent; clips cannot be dragged or trimmed
+4. Pending/failed clips (no `audioUrl`) omitted from timeline
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
@@ -485,3 +654,7 @@ Uses shared form styles (`SharedForm.module.css`) — same pattern as team/camp 
 | 2026-06-10 | 12 | Projects list page; guid routes; active team/camp context gate on list + access |
 | 2026-06-10 | 13 | Create project page with optional team/camp query context |
 | 2026-06-10 | 14 | Project page shell with header, DAW placeholder, desktop-only gate |
+| 2026-06-10 | 15 | Project DAW read-only load: `loadProject`, `ProjectDAW`, playback without undo |
+| 2026-06-10 | 16 | Project DAW add/delete tracks wired to Step 8 API; ghost-track filter on GET |
+| 2026-06-10 | 17 | Project record-to-armed-track: upload pipeline, processing overlay, retry/delete, beforeunload guard |
+| 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |

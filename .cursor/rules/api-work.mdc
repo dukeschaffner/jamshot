@@ -1,12 +1,14 @@
 ---
-name: api-work
-description: Describes best practices when working on the api
+globs: api/**
+alwaysApply: false
 ---
-
-
 # API Development Best Practices
 
 ## Coding
+
+Routes should be minimal. business logic should be in services helper logic should be in utils.
+
+ALWAYS use the "next" function to call the next middleware in the chain on error.
 
 NEVER return responses with errors that are not user-facing. Make sure error messages are user-facing and not technical.
 

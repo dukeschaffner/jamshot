@@ -80,39 +80,10 @@
   color: var(--text-secondary);
 }
 
-.dawPlaceholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-height: 420px;
-  padding: 48px 24px;
-  background: var(--grey-1);
-  border: 2px dashed var(--grey-2);
+.dawWorkspace {
+  min-height: 520px;
   border-radius: 16px;
-}
-
-.dawPlaceholderIcon {
-  font-size: 3rem;
-  color: var(--seafoam);
-  margin-bottom: 16px;
-  opacity: 0.8;
-}
-
-.dawPlaceholder h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-}
-
-.dawPlaceholder p {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  margin: 0;
-  max-width: 360px;
-  line-height: 1.5;
+  overflow: hidden;
 }
 
 @media (max-width: 768px) {

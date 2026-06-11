@@ -41,7 +41,8 @@ export const DAW_EVENTS = {
       METRONOME_VOLUME_CHANGE: 'audio:settings:metronome:volume:change',
       MONITOR_TOGGLE: 'audio:settings:monitor:toggle',
       MONITOR_STARTED: 'audio:settings:monitor:started',
-      MONITOR_STOPPED: 'audio:settings:monitor:stopped'
+      MONITOR_STOPPED: 'audio:settings:monitor:stopped',
+      ARMED_TRACK_CHANGE: 'audio:settings:armed:track:change',
     },
     
     // Metronome events

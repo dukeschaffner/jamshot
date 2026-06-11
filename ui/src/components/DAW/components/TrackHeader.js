@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useDAW } from '../DAWContext';
+import { useProjectEditor } from '../project/ProjectEditorContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faTrash, faCircle } from '@fortawesome/free-solid-svg-icons';
 import styles from './TrackHeader.module.css';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
@@ -22,7 +23,20 @@ export default function TrackHeader({
 
   const [isSolo, setIsSolo] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const { isPlaying, isRecording, isMonitoring } = useDAW();
+  const {
+    isPlaying,
+    isRecording,
+    isMonitoring,
+  } = useDAW();
+  const {
+    isActive: isProjectEditor,
+    canEdit: canEditProject,
+    isTrackMutationPending,
+    armedTrackId,
+    setArmedTrackId,
+    deleteProjectTrack,
+  } = useProjectEditor();
+
   const { user } = useUser();
 
   const [meterLevel, setMeterLevel] = useState(-60);
@@ -89,8 +103,9 @@ export default function TrackHeader({
         // For recording track: show meter when playing (not soloed), monitoring enabled, OR input device selected
         // For other tracks: show meter when playing and not soloed
         const isRecordingTrack = track.id === 'recording-track';
+        const isArmedProjectTrack = isProjectEditor && track.id === armedTrackId;
         const shouldShowMeter = isPlaying ||
-          (isRecordingTrack && (isMonitoring || hasInputDevice));
+          ((isRecordingTrack || isArmedProjectTrack) && (isMonitoring || hasInputDevice));
         
         if (analyzer && shouldShowMeter) {
           const dataArray = new Uint8Array(analyzer.frequencyBinCount);
@@ -178,6 +193,18 @@ export default function TrackHeader({
     setIsMuted(prev => !prev);
   };
 
+  const handleDeleteTrack = (e) => {
+    e.stopPropagation();
+    if (!canEditProject || isTrackMutationPending) return;
+    deleteProjectTrack(track.id);
+  };
+
+  const handleArmTrack = (e) => {
+    e.stopPropagation();
+    if (!canEditProject || isRecording) return;
+    setArmedTrackId(track.id === armedTrackId ? null : track.id);
+  };
+
   const handleMonitorClick = (e) => {
     e.stopPropagation();
     const enabled = !isMonitoring;
@@ -257,7 +284,11 @@ export default function TrackHeader({
         verified: track.verified,
       };
 
-  const showContributorAvatar = track.id === 'recording-track' ? !!user : true;
+  const showContributorAvatar = isProjectEditor
+    ? false
+    : track.id === 'recording-track'
+      ? !!user
+      : true;
 
   return (
     <div className={`${styles.trackHeader}`}>
@@ -290,7 +321,30 @@ export default function TrackHeader({
           <span>S</span>
         </button>
         
-        {track.id === 'recording-track' && (
+        {isProjectEditor && canEditProject && (
+          <>
+            <button
+              className={`${styles.controlButton} ${armedTrackId === track.id ? styles.armActive : ''}`}
+              onClick={handleArmTrack}
+              disabled={isRecording}
+              title={armedTrackId === track.id ? 'Disarm track' : 'Arm track for recording'}
+              type="button"
+            >
+              <FontAwesomeIcon icon={faCircle} />
+            </button>
+            <button
+              className={`${styles.controlButton} ${styles.deleteTrackButton}`}
+              onClick={handleDeleteTrack}
+              disabled={isTrackMutationPending}
+              title="Delete track"
+              type="button"
+            >
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          </>
+        )}
+
+        {(track.id === 'recording-track' || (isProjectEditor && armedTrackId === track.id)) && (
           <>
             <div
               ref={monitorPopoverAnchorRef}

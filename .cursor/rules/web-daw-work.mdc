@@ -1,0 +1,12 @@
+---
+globs: ui/src/components/DAW/**
+alwaysApply: false
+---
+# Web DAW Development Best Practices
+
+## Coding
+
+### Configuration
+- UI-only DAW config values should go in DAWConfig.js
+- UI-only project config values should go in ProjectsConfig.js
+- Values that are used in ui/api, etc, should go in their own shared package in the packages folder

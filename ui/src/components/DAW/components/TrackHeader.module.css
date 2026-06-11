@@ -38,6 +38,11 @@
   margin-left: auto;
 }
 
+.deleteTrackButton:hover:not(:disabled) {
+  color: #ff3b30;
+  border-color: #ff3b30;
+}
+
 .monitorButtonWrapper {
   display: flex;
 }
@@ -95,6 +100,12 @@
 .controlButton.active.muteActive {
   background-color: #ff3b30;
   border-color: #ff3b30;
+}
+
+.armActive {
+  background-color: #ff3b30;
+  border-color: #ff3b30;
+  color: #fff;
 }
 
 .recordingIndicator {
