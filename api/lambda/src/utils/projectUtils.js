@@ -282,6 +282,13 @@ function formatProjectSummary(row, role) {
     summary.role = membershipRole;
   }
 
+  if (row.team_name) {
+    summary.teamName = row.team_name;
+  }
+  if (row.camp_name) {
+    summary.campName = row.camp_name;
+  }
+
   return summary;
 }
 

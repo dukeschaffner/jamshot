@@ -582,6 +582,24 @@ const createApiMethods = (apiClient) => {
     cancelSubscription: (teamId) => api.post(`/teams/${teamId}/cancel-subscription`),
   };
 
+  // Project API methods
+  const projectApi = {
+    listProjects: (params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      const query = queryParams.toString();
+      return api.get(query ? `/projects?${query}` : '/projects');
+    },
+
+    createProject: (data) => api.post('/projects', data),
+
+    getProject: (projectGuid) => api.get(`/projects/${projectGuid}`),
+  };
+
   // Admin API methods
   const adminApi = {
     getModerationTracks: (rootId, params = {}) => {
@@ -618,6 +636,7 @@ const createApiMethods = (apiClient) => {
     campApi,
     teamApi,
     groupApi,
+    projectApi,
     adminApi,
     api, // Raw axios instance for custom requests
     // Callback management methods

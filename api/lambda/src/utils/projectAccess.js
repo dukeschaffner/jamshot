@@ -1,5 +1,20 @@
 import pool from '../config/db.js';
 import { getProjectLimits } from '@sterio/subscription-utils';
+import { isTeamSubscriptionExpired } from './teamUtils.js';
+
+/** SQL fragment: exclude team/camp projects whose parent context is inactive. */
+const PROJECT_ACTIVE_CONTEXT_WHERE = `
+  AND (
+    p.team_id IS NULL
+    OR (
+      t.subscription_status IN ('active', 'trialing')
+      AND (t.subscription_expires_at IS NULL OR t.subscription_expires_at > NOW())
+    )
+  )
+  AND (
+    p.camp_id IS NULL
+    OR c.end_date > NOW()
+  )`;
 
 const ROLE_RANK = {
   viewer: 0,
@@ -7,6 +22,46 @@ const ROLE_RANK = {
   admin: 2,
   owner: 3,
 };
+
+const PROJECT_GUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isProjectGuid(ref) {
+  return typeof ref === 'string' && PROJECT_GUID_REGEX.test(ref);
+}
+
+/**
+ * Resolve a route param to internal project id (accepts guid or legacy numeric id).
+ *
+ * @param {string|number} rawRef
+ * @returns {Promise<{ ok: true, projectId: number } | { ok: false, status: number, error: string }>}
+ */
+async function resolveProjectRef(rawRef) {
+  if (rawRef == null || String(rawRef).trim() === '') {
+    return { ok: false, status: 400, error: 'Invalid project id' };
+  }
+
+  const ref = String(rawRef).trim();
+
+  if (isProjectGuid(ref)) {
+    const result = await pool.query('SELECT id FROM projects WHERE guid = $1', [ref]);
+    if (result.rows.length === 0) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'You do not have access to this project',
+      };
+    }
+    return { ok: true, projectId: result.rows[0].id };
+  }
+
+  const parsed = parseInt(ref, 10);
+  if (Number.isNaN(parsed) || String(parsed) !== ref) {
+    return { ok: false, status: 400, error: 'Invalid project id' };
+  }
+
+  return { ok: true, projectId: parsed };
+}
 
 /**
  * @param {string} userRole
@@ -17,8 +72,37 @@ function hasMinimumProjectRole(userRole, minimumRole) {
 }
 
 /**
+ * Team/camp projects are inaccessible when the parent subscription or camp has ended.
+ * Personal projects (no team_id / camp_id) are always active.
+ *
+ * @param {Object} row - projects row with joined team/camp fields
+ */
+function isProjectContextActive(row) {
+  if (row.team_id) {
+    if (
+      !row.subscription_status ||
+      (row.subscription_status !== 'active' && row.subscription_status !== 'trialing')
+    ) {
+      return false;
+    }
+    if (isTeamSubscriptionExpired({ subscription_expires_at: row.subscription_expires_at })) {
+      return false;
+    }
+  }
+
+  if (row.camp_id) {
+    if (!row.camp_end_date || new Date(row.camp_end_date) <= new Date()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Verify project membership and return role.
  * Non-members and unknown projects both return 403 (do not leak existence).
+ * Team/camp projects with expired parent context also return 403.
  *
  * @param {number|string} projectId
  * @param {string|null} userId
@@ -31,9 +115,13 @@ async function checkProjectAccess(projectId, userId) {
 
   try {
     const result = await pool.query(
-      `SELECT p.*, pm.role
+      `SELECT p.*, pm.role,
+              t.subscription_status, t.subscription_expires_at,
+              c.end_date AS camp_end_date
        FROM projects p
        JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $2
+       LEFT JOIN teams t ON t.id = p.team_id
+       LEFT JOIN camps c ON c.id = p.camp_id
        WHERE p.id = $1`,
       [projectId, userId]
     );
@@ -47,7 +135,22 @@ async function checkProjectAccess(projectId, userId) {
     }
 
     const row = result.rows[0];
-    const { role, ...project } = row;
+
+    if (!isProjectContextActive(row)) {
+      return {
+        hasAccess: false,
+        error: 'You do not have access to this project',
+        status: 403,
+      };
+    }
+
+    const {
+      role,
+      subscription_status: _subscriptionStatus,
+      subscription_expires_at: _subscriptionExpiresAt,
+      camp_end_date: _campEndDate,
+      ...project
+    } = row;
 
     return { hasAccess: true, role, project };
   } catch (error) {
@@ -256,6 +359,10 @@ async function checkCanCreateProject(user, context = {}) {
 
 export {
   ROLE_RANK,
+  PROJECT_ACTIVE_CONTEXT_WHERE,
+  isProjectGuid,
+  isProjectContextActive,
+  resolveProjectRef,
   hasMinimumProjectRole,
   checkProjectAccess,
   getProjectLimitsForContext,

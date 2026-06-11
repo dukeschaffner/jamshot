@@ -18,6 +18,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 9b — Asset processing status | **Done (code)** | `GET .../assets/:assetId/processing-status`; clips include `processingStatus` on GET |
 | 10 — Clip edit & soft delete | **Done (code)** | `PATCH/DELETE /:id/clips/:clipId` with overlap + duration validation |
 | 11 — Plugin payload | **Done (code)** | `GET /:id/plugin-payload`; editor+ only; flat completed clips |
+| 12 — Projects nav + list page | **Done (code)** | Nav already gated; `/projects` fetches list, cards, empty state, Create Project → `/projects/create` |
 | 6b+ | Not started | |
 
 ---
@@ -372,6 +373,45 @@ curl http://localhost:5001/api/projects/1/plugin-payload \
 
 ---
 
+## Step 12 — Projects nav + list page
+
+Nav was already wired in Step 3 (`Navbar.js`, `MoreDropdown.js`). This step adds the list UI.
+
+### UI
+
+| File | Purpose |
+|------|---------|
+| `ui/src/app/(frontend)/projects/page.js` | Feature flag gate, auth redirect, fetches `GET /projects` |
+| `ui/src/components/projects/ProjectsList.js` | Card grid, empty state, Create Project link |
+| `ui/src/components/projects/ProjectsList.module.css` | List/card styles (mirrors `TeamsList`) |
+
+### API client
+
+`projectApi` in `ui/shared/api/index.js` — `listProjects`, `createProject`, `getProject(projectGuid)`; exported from `ui/src/lib/api.js`.
+
+**Route params:** all `/api/projects/:id/*` routes accept project **guid** (UUID). Legacy numeric id still works for curl/dev.
+
+**List response:** includes `teamName` / `campName` when project belongs to a team or camp.
+
+**Active context gate:** team/camp projects are hidden and return 403 when the parent team subscription is inactive/expired or the camp has ended (mirrors `validateTeamAccess` / `validateCampAccess`). Personal projects unaffected.
+
+### Behavior
+
+- Flag off → `notFound()` (unchanged)
+- Unauthenticated → redirect `/login`
+- **Scope:** all member projects with an active parent context (personal + active team/camp)
+- Team/camp cards show `Team: {name}` / `Camp: {name}` subheading
+- Cards link to `/projects/{guid}`
+- Create Project links to `/projects/create` (Step 13)
+
+### Manual verify
+
+1. Enable `projects` flag in DB
+2. Log in; confirm desktop nav shows Projects
+3. Visit `/projects` — cards match API list; empty state when none
+
+---
+
 ## Changelog
 
 | Date | Step | Summary |
@@ -383,3 +423,4 @@ curl http://localhost:5001/api/projects/1/plugin-payload \
 | 2026-06-10 | 9b | Asset processing-status polling endpoint |
 | 2026-06-10 | 10 | Clip PATCH (move/trim) + DELETE (soft delete) with overlap validation |
 | 2026-06-10 | 11 | Plugin-payload endpoint with flat completed clips; editor+ gate |
+| 2026-06-10 | 12 | Projects list page; guid routes; active team/camp context gate on list + access |

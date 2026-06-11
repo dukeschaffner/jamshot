@@ -17,6 +17,8 @@ import {
   checkCanCreateProject,
   checkProjectAccess,
   hasMinimumProjectRole,
+  PROJECT_ACTIVE_CONTEXT_WHERE,
+  resolveProjectRef,
 } from '../utils/projectAccess.js';
 import {
   formatProjectSummary,
@@ -85,9 +87,13 @@ function parseOptionalInt(value) {
   return Number.isNaN(parsed) ? NaN : parsed;
 }
 
-function parseProjectId(rawId) {
-  const parsed = parseInt(rawId, 10);
-  return Number.isNaN(parsed) ? NaN : parsed;
+async function resolveProjectRouteParam(req, res) {
+  const resolved = await resolveProjectRef(req.params.id);
+  if (!resolved.ok) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return null;
+  }
+  return resolved.projectId;
 }
 
 function parseTrackId(rawId) {
@@ -442,11 +448,14 @@ router.get('/', async (req, res, next) => {
     }
 
     const result = await pool.query(
-      `SELECT p.*, pm.role
+      `SELECT p.*, pm.role, t.name AS team_name, c.name AS camp_name
        FROM projects p
        JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $1
+       LEFT JOIN teams t ON t.id = p.team_id
+       LEFT JOIN camps c ON c.id = p.camp_id
        WHERE ($2::int IS NULL OR p.team_id = $2)
          AND ($3::int IS NULL OR p.camp_id = $3)
+         ${PROJECT_ACTIVE_CONTEXT_WHERE}
        ORDER BY p.updated_at DESC, p.id DESC`,
       [userId, teamId, campId]
     );
@@ -461,10 +470,8 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:id/plugin-payload', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
 
     const access = await checkProjectAccess(projectId, req.user.id);
     if (!access.hasAccess) {
@@ -501,10 +508,8 @@ router.get('/:id/plugin-payload', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
 
     const access = await checkProjectAccess(projectId, req.user.id);
     if (!access.hasAccess) {
@@ -524,12 +529,10 @@ router.get('/:id', async (req, res, next) => {
 
 router.get('/:id/assets/:assetId/processing-status', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
     const assetId = parseAssetId(req.params.assetId);
 
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
     if (Number.isNaN(assetId)) {
       return res.status(400).json({ error: 'Invalid asset id' });
     }
@@ -582,10 +585,8 @@ router.get('/:id/assets/:assetId/processing-status', async (req, res, next) => {
 
 router.patch('/:id', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
 
     const access = await checkProjectAccess(projectId, req.user.id);
     if (!access.hasAccess) {
@@ -709,10 +710,8 @@ router.patch('/:id', async (req, res, next) => {
 
 router.post('/:id/tracks', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
 
     const access = await checkProjectAccess(projectId, req.user.id);
     if (!access.hasAccess) {
@@ -824,11 +823,9 @@ router.post('/:id/tracks', async (req, res, next) => {
 
 router.patch('/:id/tracks/:trackId', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
     const trackId = parseTrackId(req.params.trackId);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
     if (Number.isNaN(trackId)) {
       return res.status(400).json({ error: 'Invalid track id' });
     }
@@ -980,11 +977,9 @@ router.patch('/:id/tracks/:trackId', async (req, res, next) => {
 
 router.delete('/:id/tracks/:trackId', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
     const trackId = parseTrackId(req.params.trackId);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
     if (Number.isNaN(trackId)) {
       return res.status(400).json({ error: 'Invalid track id' });
     }
@@ -1078,12 +1073,10 @@ router.post(
 
     try {
       const userId = req.user.id;
-      const projectId = parseProjectId(req.params.id);
+      const projectId = await resolveProjectRouteParam(req, res);
+      if (projectId == null) return;
       const trackId = parseTrackId(req.params.trackId);
 
-      if (Number.isNaN(projectId)) {
-        return res.status(400).json({ error: 'Invalid project id' });
-      }
       if (Number.isNaN(trackId)) {
         return res.status(400).json({ error: 'Invalid track id' });
       }
@@ -1356,11 +1349,9 @@ router.post(
 
 router.patch('/:id/clips/:clipId', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
     const clipId = parseClipId(req.params.clipId);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
     if (Number.isNaN(clipId)) {
       return res.status(400).json({ error: 'Invalid clip id' });
     }
@@ -1580,11 +1571,9 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
 
 router.delete('/:id/clips/:clipId', async (req, res, next) => {
   try {
-    const projectId = parseProjectId(req.params.id);
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
     const clipId = parseClipId(req.params.clipId);
-    if (Number.isNaN(projectId)) {
-      return res.status(400).json({ error: 'Invalid project id' });
-    }
     if (Number.isNaN(clipId)) {
       return res.status(400).json({ error: 'Invalid clip id' });
     }
