@@ -56,3 +56,28 @@
     pointer-events: none;
     transition: width 0.1s ease;
   }
+
+  .dropPlaceholder {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border: 2px dashed var(--seafoam);
+    border-radius: 6px;
+    background-color: rgba(76, 217, 172, 0.12);
+    z-index: 8;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+
+  .dropPlaceholderInvalid {
+    border-color: var(--red, #ff3b30);
+    background-color: rgba(255, 59, 48, 0.1);
+  }
+
+  body.dark-mode .dropPlaceholder {
+    background-color: rgba(76, 217, 172, 0.08);
+  }
+
+  body.dark-mode .dropPlaceholderInvalid {
+    background-color: rgba(255, 59, 48, 0.08);
+  }

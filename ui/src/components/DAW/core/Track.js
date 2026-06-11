@@ -121,7 +121,7 @@ class Track {
   
   // Region structure: { key, startTime, duration, name }
   // @param {boolean} recordUndo - Whether to record this operation for undo (default: false)
-  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false, latencyData = null) {
+  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false, latencyData = null, skipOverlapHandling = false) {
     const duration = bufferRegistry.getMetadata(bufferKey)?.duration || 0;
     startTime = startTime || 0;
     offset = offset || 0;
@@ -153,7 +153,7 @@ class Track {
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
       });
     }
-    else {
+    else if (!skipOverlapHandling) {
       // Handle overlaps with existing regions before adding the new region
       handleRegionOverlaps(this, null, region.startTime, region.endTime, this.id, eventBus, DAW_EVENTS);
     }

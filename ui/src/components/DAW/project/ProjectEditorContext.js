@@ -29,6 +29,11 @@ import {
   pollProjectAssetStatus,
   sanitizeProjectProcessingError,
 } from './projectClipUpload';
+import {
+  decodeAudioFile,
+  getProjectMaxImportDuration,
+  validateClipPlacement,
+} from './projectClipPlacement';
 
 const ProjectEditorContext = createContext(null);
 
@@ -47,6 +52,7 @@ const INACTIVE_PROJECT_EDITOR = {
   retryClipUpload: async () => {},
   deleteFailedClip: async () => {},
   startProjectRecording: () => {},
+  importAudioFileToTrack: async () => {},
 };
 
 function updateRegionMeta(track, region, patch) {
@@ -156,7 +162,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   );
 
   const uploadClipFromBuffer = useCallback(
-    async ({ track, region, bufferKey, clipId = null }) => {
+    async ({ track, region, bufferKey, clipId = null, uploadFile = null }) => {
       const currentProject = projectDataRef.current;
       if (!currentProject?.guid || currentProject.revision == null) return;
 
@@ -173,11 +179,13 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       });
 
       try {
-        const wavBlob = audioBufferToWavBlob(buffer);
+        const fileBlob = uploadFile ?? audioBufferToWavBlob(buffer);
+        const fileName = uploadFile?.name ?? 'recording.wav';
         const trimStart = region.offset ?? 0;
         const trimEnd = region.endTime - region.startTime + trimStart;
         const formData = buildClipUploadFormData({
-          file: wavBlob,
+          file: fileBlob,
+          fileName,
           revision: currentProject.revision,
           startTimeSeconds: region.startTime,
           trimStartSeconds: trimStart,
@@ -314,7 +322,8 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         track.title || 'Recording',
         false,
         false,
-        data.latencyData
+        data.latencyData,
+        true
       );
 
       if (!region) return;
@@ -333,6 +342,101 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       });
     },
     [showToast, trackManagerRef, uploadClipFromBuffer]
+  );
+
+  const importAudioFileToTrack = useCallback(
+    async (trackId, file, startTimeSeconds) => {
+      if (!canEdit) return false;
+      if (!file?.type?.startsWith('audio/')) {
+        showToast({ message: 'Please select an audio file.', variant: 'error' });
+        return false;
+      }
+
+      const currentProject = projectDataRef.current;
+      if (!currentProject?.guid || currentProject.revision == null) return false;
+      if (!trackManagerRef.current) return false;
+
+      const track = trackManagerRef.current.getTrack(trackId);
+      if (!track) return false;
+
+      const audioContext = trackManagerRef.current.audioContext;
+      if (!audioContext) return false;
+
+      let audioBuffer;
+      try {
+        audioBuffer = await decodeAudioFile(file, audioContext);
+      } catch {
+        showToast({
+          message: 'Could not read audio file. Please try a different format.',
+          variant: 'error',
+        });
+        return false;
+      }
+
+      const maxDuration = getProjectMaxImportDuration();
+      if (audioBuffer.duration > maxDuration) {
+        const minutes = Math.floor(maxDuration / 60);
+        showToast({
+          message: `File is too long. Please select a file shorter than ${minutes} minutes.`,
+          variant: 'error',
+        });
+        return false;
+      }
+
+      const projectDuration =
+        currentProject.durationSeconds ?? AudioState.dawDuration;
+      const placement = validateClipPlacement({
+        track,
+        startTime: startTimeSeconds ?? 0,
+        fileDuration: audioBuffer.duration,
+        projectDuration,
+      });
+
+      if (!placement.valid) {
+        showToast({ message: placement.error, variant: 'error' });
+        return false;
+      }
+
+      const bufferKey = bufferRegistry.generateBufferKey(trackId, file.name);
+      bufferRegistry.storeBuffer(bufferKey, audioBuffer, {
+        name: file.name,
+        trackId,
+      });
+
+      const region = track.addRegion(
+        bufferKey,
+        placement.startTime,
+        0,
+        placement.endTime,
+        file.name,
+        false,
+        false,
+        null,
+        true
+      );
+
+      if (!region) {
+        bufferRegistry.removeBuffer(bufferKey);
+        return false;
+      }
+
+      updateRegionMeta(track, region, {
+        processingStatus: CLIP_PROCESSING_STATUS.UPLOADING,
+        projectClipId: null,
+        projectAssetId: null,
+        processingError: null,
+      });
+
+      await uploadClipFromBuffer({
+        track,
+        region,
+        bufferKey,
+        uploadFile: file,
+      });
+
+      return true;
+    },
+    [canEdit, showToast, trackManagerRef, uploadClipFromBuffer]
   );
 
   const startProjectRecording = useCallback(() => {
@@ -502,6 +606,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       retryClipUpload,
       deleteFailedClip,
       startProjectRecording,
+      importAudioFileToTrack,
       isClipInFlight,
     }),
     [
@@ -518,6 +623,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       retryClipUpload,
       deleteFailedClip,
       startProjectRecording,
+      importAudioFileToTrack,
     ]
   );
 

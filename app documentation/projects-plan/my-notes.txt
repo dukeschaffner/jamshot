@@ -11,3 +11,5 @@
 - on file import, if a region will be deleted (e.g. if it overlaps with the new region), show confirmation dialog noting that the region will be deleted and asking if the user wants to continue
 - what if on clip upload retry, both the original and the new region are uploaded?
 - are audio files cached client side?
+- switch to event/operation based instead of state based for project persistence
+- make sure temp uploaded files in R2 get deleted

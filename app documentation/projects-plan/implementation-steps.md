@@ -298,23 +298,27 @@ Wire UI to Step 8 API; refresh local state on success.
 
 ### Step 18 — Upload file to any track
 
-File picker / drop on **any** track row (armed or not; including tracks with existing clips) → same upload pipeline as Step 17 (no local `bufferRegistry` unless re-uploading after failure). Target track is the track the user dropped on or picked from — **arm state is not required** for file upload (arm is record-only; see Step 17).
+Add audio to **any** track via click (empty tracks only) or drag-and-drop. Same upload pipeline as Step 17. Target track is the track the user interacted with — **arm state is not required** (arm is record-only; see Step 17). No separate **"Import audio"** control in track headers or toolbar for now.
 
-Validate 300s max duration on upload (not collab 900s default).
+Validate 300s max duration on upload (not collab 900s default). On file pick or drop, decode duration client-side first; if longer than the mode limit (`DAWConfig.audio.maxFileUploadDuration` for collab/original; `DAWConfig.audio.maxRecordingDuration` / 300s for projects), **do not import** — show a **toast** error instead of placing a clip.
 
-**Done when:** Upload wav to track 3 while track 2 is armed → clip visible on track 3; processing failure shows same error/retry/delete UX as Step 17.
+**Empty track (no clips):**
 
----
+- **Click** anywhere on the track row → native file picker (audio files only) → clip placed at playhead (or `0` if playhead is unset)
+- **Drag** an audio file over the track → existing empty-track drop target styling → clip placed at drop X position on the timeline
 
-### Step 18b — Import audio from host DAW (manual return path)
+**Track with existing clips:**
 
-Toolbar / track header: **"Import audio"** on **every** track row (not gated on arm state).
+- **Drag** an audio file over the track only (click does not open file picker)
+- While dragging over the track, show a **placeholder region** at the cursor position:
+  - Dashed outline (distinct from real clips)
+  - Width reflects file duration (clamped to project duration and non-overlap rules from Step 10)
+  - Follows horizontal cursor position within the track timeline
+- On drop → start upload at placeholder position; placeholder becomes the optimistic clip
 
-- File picker for WAV/MP3 exported from Logic/etc.
-- Same upload pipeline as Step 17; uploads to the track whose control was used
-- In-product copy: *"Export WAV from your DAW, then import here."*
+Covers the host-DAW return path (e.g. export WAV from Logic, drag onto a non-empty track) without a dedicated import button.
 
-**Done when:** User can import audio onto a non-armed, non-empty track without recording in browser.
+**Done when:** Click on empty track opens picker and places clip; drag onto empty track works; drag onto non-empty track shows dashed placeholder while hovering and places clip on drop; file longer than max duration shows toast and is not imported; upload to track 3 while track 2 is armed → clip visible on track 3; processing failure shows same error/retry/delete UX as Step 17.
 
 ---
 
@@ -630,7 +634,7 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 ### Phase 1a demo script
 
 1. Create personal project (free tier limit enforced)
-2. Add tracks, record clip, upload clip, import audio file
+2. Add tracks, record clip, upload clip (click empty track or drag onto any track)
 2b. Simulate processing failure → failed clip UI → retry with local buffer (no re-record) → delete failed clip
 3. Move clip between tracks, trim, set BPM
 4. Create manual snapshot, preview it, restore it

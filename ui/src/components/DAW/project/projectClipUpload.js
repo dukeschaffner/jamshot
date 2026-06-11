@@ -27,6 +27,7 @@ export function audioBufferToWavBlob(buffer) {
 
 export function buildClipUploadFormData({
   file,
+  fileName = 'recording.wav',
   revision,
   startTimeSeconds,
   trimStartSeconds = 0,
@@ -34,7 +35,7 @@ export function buildClipUploadFormData({
   clipId,
 }) {
   const formData = new FormData();
-  formData.append('file', file, 'recording.wav');
+  formData.append('file', file, fileName);
   formData.append('revision', String(revision));
   formData.append('start_time_seconds', String(startTimeSeconds));
   formData.append('trim_start_seconds', String(trimStartSeconds));

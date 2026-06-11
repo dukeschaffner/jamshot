@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import styles from './Track.module.css';
@@ -7,7 +7,15 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 import DAWConfig from '../misc/DAWConfig';
+import { useToast } from '@/lib/ToastContext';
 import { captureDawAudioFileImported } from '@/lib/posthogAnalytics';
+import { useProjectEditor } from '../project/ProjectEditorContext';
+import {
+  computePlaceholderPlacement,
+  decodeAudioFile,
+  getAudioFileFromDataTransfer,
+  getTimelineTimeFromEvent,
+} from '../project/projectClipPlacement';
 
 
 const Track = ({
@@ -18,19 +26,42 @@ const Track = ({
   const trackRef = useRef(null);  
   const [regions, setRegions] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [dropPlaceholder, setDropPlaceholder] = useState(null);
   
   // Recording state
   const [recordingStartPos, setRecordingStartPos] = useState(0);
   const [recordingWidth, setRecordingWidth] = useState(0);
   
-  // Get DAW context for recording state and playhead position
-  const { dawMode, isRecording, playheadLocation, duration, isCollab, clipboard, pasteRegion, tracksContainerWidth, setContextMenuItems, setContextMenuPosition, setShowContextMenu } = useDAW();
-  const isReadOnly = dawMode === 'project';
+  const {
+    dawMode,
+    isRecording,
+    playheadLocation,
+    duration,
+    isCollab,
+    clipboard,
+    pasteRegion,
+    setContextMenuItems,
+    setContextMenuPosition,
+    setShowContextMenu,
+    trackManagerRef,
+  } = useDAW();
+  const {
+    canEdit: canEditProject,
+    importAudioFileToTrack,
+  } = useProjectEditor();
+  const { showToast } = useToast();
+
+  const isProjectMode = dawMode === 'project';
+  const isReadOnly = isProjectMode;
+  const canImportAudio = !isProjectMode || (canEditProject && !isRecording);
   
   // Context menu state
   const [pasteTime, setPasteTime] = useState(null);
 
   const durationRef = useRef(duration);
+  const dragDepthRef = useRef(0);
+  const dragFileDurationRef = useRef(null);
+  const dragDecodePromiseRef = useRef(null);
 
   useEffect(() => {
     durationRef.current = duration;
@@ -47,8 +78,12 @@ const Track = ({
   useEffect(() => {
     const handleRegionAdd = (data) => {
       if (data.trackId === track.id) {
-        if(regions.find(region => region.id === data.region.id)) return; // Don't add region if it already exists
-        setRegions(prevRegions => [...prevRegions, data.region]);
+        setRegions((prevRegions) => {
+          if (prevRegions.find((region) => region.id === data.region.id)) {
+            return prevRegions;
+          }
+          return [...prevRegions, data.region];
+        });
       }
     };
     
@@ -64,9 +99,7 @@ const Track = ({
       }
     };
 
-    // Listen for recording started event
     const handlePlaybackStarted = (data) => {
-      // Convert current playhead time to percentage position
       const startPos = (data.playbackTime / duration) * 100;
       setRecordingStartPos(startPos);
       setRecordingWidth(0);
@@ -83,11 +116,10 @@ const Track = ({
       eventBus.off(DAW_EVENTS.REGION.REMOVED, handleRegionRemove);
       eventBus.off(DAW_EVENTS.PLAYBACK.STARTED, handlePlaybackStarted);
     };
-  }, [duration]);
+  }, [duration, track]);
 
   const isArmedForRecording = track.isArmed || track.isRecordingTrack;
 
-  // Update recording width when recording and playhead position changes
   useEffect(() => {
     if (isArmedForRecording && isRecording && duration > 0) {
       const currentPos = (playheadLocation.time / duration) * 100;
@@ -96,26 +128,124 @@ const Track = ({
     } else {
       setRecordingWidth(0);
     }
-  }, [isRecording, playheadLocation.time, recordingStartPos, duration]);
+  }, [isRecording, playheadLocation.time, recordingStartPos, duration, isArmedForRecording]);
 
-  // File processing function from RecordingWidget
+  const resetDragState = useCallback(() => {
+    dragDepthRef.current = 0;
+    dragFileDurationRef.current = null;
+    dragDecodePromiseRef.current = null;
+    setIsDragOver(false);
+    setDropPlaceholder(null);
+  }, []);
+
+  const ensureDragFileDuration = useCallback(
+    async (dataTransfer) => {
+      if (dragFileDurationRef.current != null) {
+        return dragFileDurationRef.current;
+      }
+
+      if (dragDecodePromiseRef.current) {
+        return dragDecodePromiseRef.current;
+      }
+
+      const file = getAudioFileFromDataTransfer(dataTransfer);
+      if (!file) return null;
+
+      const audioContext = trackManagerRef.current?.audioContext;
+      if (!audioContext) return null;
+
+      dragDecodePromiseRef.current = decodeAudioFile(file, audioContext)
+        .then((buffer) => {
+          dragFileDurationRef.current = buffer.duration;
+          return buffer.duration;
+        })
+        .catch(() => null)
+        .finally(() => {
+          dragDecodePromiseRef.current = null;
+        });
+
+      return dragDecodePromiseRef.current;
+    },
+    [trackManagerRef]
+  );
+
+  const updateProjectDropPlaceholder = useCallback(
+    async (event) => {
+      const fileDuration = await ensureDragFileDuration(event.dataTransfer);
+      if (fileDuration == null) {
+        setDropPlaceholder(null);
+        return;
+      }
+
+      const startTime = getTimelineTimeFromEvent(
+        event,
+        trackRef.current,
+        durationRef.current
+      );
+      const placement = computePlaceholderPlacement({
+        track,
+        startTime,
+        fileDuration,
+        projectDuration: durationRef.current,
+      });
+
+      setDropPlaceholder(placement);
+    },
+    [ensureDragFileDuration, track]
+  );
+
+  const handleProjectDragEnter = (e) => {
+    if (!canImportAudio) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current += 1;
+    setIsDragOver(true);
+  };
+
+  const handleProjectDragOver = (e) => {
+    if (!canImportAudio) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+    updateProjectDropPlaceholder(e);
+  };
+
+  const handleProjectDragLeave = (e) => {
+    if (!canImportAudio) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current -= 1;
+    if (dragDepthRef.current <= 0) {
+      resetDragState();
+    }
+  };
+
+  const handleProjectDrop = async (e) => {
+    if (!canImportAudio) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const file = getAudioFileFromDataTransfer(e.dataTransfer);
+    const startTime =
+      dropPlaceholder?.isValid && dropPlaceholder.startTime != null
+        ? dropPlaceholder.startTime
+        : getTimelineTimeFromEvent(e, trackRef.current, durationRef.current);
+
+    resetDragState();
+
+    if (!file) return;
+    await importAudioFileToTrack(track.id, file, startTime);
+  };
+
   const processAudioChunks = async (chunks) => {
     if (!chunks || chunks.length === 0) return;
     
     try {
-      // Create blob from chunks
       const blob = new Blob(chunks, { type: 'audio/webm' });
-      
-      // Convert blob to array buffer
       const arrayBuffer = await blob.arrayBuffer();
-      
-      // Create audio context for decoding
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContext();
-      
-      // Decode audio data
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      
       return audioBuffer;
     } catch (error) {
       console.error('Error processing audio chunks:', error);
@@ -123,6 +253,10 @@ const Track = ({
   };
   
   const handleDragOver = (e) => {
+    if (isProjectMode) {
+      handleProjectDragOver(e);
+      return;
+    }
     if (isReadOnly) return;
     e.preventDefault();
     e.stopPropagation();
@@ -130,68 +264,89 @@ const Track = ({
   };
   
   const handleDragLeave = (e) => {
+    if (isProjectMode) {
+      handleProjectDragLeave(e);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
   };
   
   const handleDrop = async (e) => {
+    if (isProjectMode) {
+      await handleProjectDrop(e);
+      return;
+    }
     if (isReadOnly) return;
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
     
     const file = e.dataTransfer.files[0];
-    await createRegionFromFile(file, 'drag_drop');
+    const startTime = getTimelineTimeFromEvent(
+      e,
+      trackRef.current,
+      durationRef.current
+    );
+    await createRegionFromFile(file, 'drag_drop', startTime);
   };
 
-  // File handling functions from RecordingWidget
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    await createRegionFromFile(file, 'file_input');
+    e.target.value = '';
+
+    if (isProjectMode) {
+      const startTime = playheadLocation?.time ?? 0;
+      await importAudioFileToTrack(track.id, file, startTime);
+      return;
+    }
+
+    await createRegionFromFile(file, 'file_input', 0);
   };
 
-  const createRegionFromFile = async (file, importSource) => {
+  const rejectFileTooLong = (maxDurationSeconds) => {
+    const minutes = Math.floor(maxDurationSeconds / 60);
+    showToast({
+      message: `File is too long. Please select a file shorter than ${minutes} minutes.`,
+      variant: 'error',
+    });
+  };
+
+  const createRegionFromFile = async (file, importSource, startTime = 0) => {
     if (!file) return;
     
-    // Check if file is an audio file
     if (!file.type.startsWith('audio/')) {
-      alert('Please select an audio file');
+      showToast({ message: 'Please select an audio file.', variant: 'error' });
       return;
     }
     
     try {
-      // Read file as array buffer
       const arrayBuffer = await file.arrayBuffer();
-      
-      // Create chunks
       const chunks = [new Uint8Array(arrayBuffer)];
-      
-      // Process the file
       const fileBuffer = await processAudioChunks(chunks);
       
       if (fileBuffer) {
-        if (fileBuffer.duration > DAWConfig.audio.maxFileUploadDuration) {
-          const minutes = Math.floor(DAWConfig.audio.maxFileUploadDuration / 60);
-          alert(`File is too long. Please select a file shorter than ${minutes} minutes.`);
+        const maxUploadDuration = DAWConfig.audio.maxFileUploadDuration;
+        if (fileBuffer.duration > maxUploadDuration) {
+          rejectFileTooLong(maxUploadDuration);
           return;
         }
 
-        let endTime = fileBuffer.duration;
-        if(!isCollab) { // Set DAW duration to file duration or max upload duration
-          let duration = fileBuffer.duration;
-          if(duration > DAWConfig.audio.maxRecordingDuration) {
-            duration = DAWConfig.audio.maxRecordingDuration;
-            endTime = duration;
+        let endTime = startTime + fileBuffer.duration;
+        if(!isCollab) {
+          let nextDuration = fileBuffer.duration;
+          if(nextDuration > DAWConfig.audio.maxRecordingDuration) {
+            nextDuration = DAWConfig.audio.maxRecordingDuration;
+            endTime = startTime + nextDuration;
           }
-          eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: duration });
+          eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: nextDuration });
         }
-        else if (fileBuffer.duration > durationRef.current) {
+        else if (endTime > durationRef.current) {
           endTime = durationRef.current;
         }
 
-        // Create a new region from the file
-        track.addRegionFromBuffer(fileBuffer, 0, 0, endTime, file.name);
+        track.addRegionFromBuffer(fileBuffer, startTime, 0, endTime, file.name);
         captureDawAudioFileImported({
           upload_flow_type: isCollab ? 'collab' : 'original',
           import_source: importSource,
@@ -202,13 +357,16 @@ const Track = ({
       }
     } catch (error) {
       console.error('Error processing uploaded file:', error);
+      showToast({
+        message: 'Could not read audio file. Please try a different format.',
+        variant: 'error',
+      });
     }
   };
 
-  // Handle right-click on track for context menu
   const handleTrackContextMenu = (e) => {
-    // Don't show track context menu if clicking on a region (regions handle their own)
-    // Check if the click target or its parents have region-related classes
+    if (isProjectMode) return;
+
     let target = e.target;
     while (target && target !== e.currentTarget) {
       if (target.className && typeof target.className === 'string' &&
@@ -223,10 +381,7 @@ const Track = ({
 
     if (isRecording) return;
 
-    // Calculate time position based on click location
-    // Find the tracksAndTimelineContainer parent to match timeline calculation
     if (trackRef.current && duration > 0 && tracksScrollContainerRef && tracksScrollContainerRef.current) {
-      // Find the tracksAndTimelineContainer by traversing up the DOM
       let container = trackRef.current.parentElement;
       while (container && !container.className?.toString().includes('tracksAndTimelineContainer')) {
         container = container.parentElement;
@@ -240,30 +395,23 @@ const Track = ({
       }
     }
 
-    // Emit event to close other context menus
     eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'track' });
-
-    // Set context menu items and position context menu at mouse position
     setContextMenuItems(menuItems);
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
   };
 
-  // Handle paste from context menu
   const handleTrackPaste = () => {
     if (isRecording) return;
 
     if (clipboard && clipboard.trackId === track.id) {
-      // Use pasteTime if available (from right-click position), otherwise use playhead
       pasteRegion(pasteTime !== null ? pasteTime : undefined);
     }
     setShowContextMenu(false);
     setPasteTime(null);
   };
 
-  // Check if paste is available for this track
   const canPaste = clipboard && clipboard.trackId === track.id;
-
 
   const menuItems = [
     ...(canPaste ? [
@@ -275,13 +423,28 @@ const Track = ({
   ] : []),
   ];
 
+  const openFilePicker = (e) => {
+    e.stopPropagation();
+    if (isProjectMode && !canEditProject) return;
+    document.getElementById(`audio-file-input-${track.id}`)?.click();
+  };
+
+  const trackDragHandlers = canImportAudio
+    ? {
+        onDragEnter: isProjectMode ? handleProjectDragEnter : undefined,
+        onDragOver: handleDragOver,
+        onDragLeave: handleDragLeave,
+        onDrop: handleDrop,
+      }
+    : {};
+
   return (
     <div 
       className={styles.track} 
       ref={trackRef}
       onContextMenu={handleTrackContextMenu}
+      {...trackDragHandlers}
     >
-        {/* Always show regions when they exist */}
         {regions.length > 0 ? (
           regions.map((region, index) => (
             region.active && (
@@ -297,20 +460,18 @@ const Track = ({
             )
           ))
         ) : (
-          !isRecording && (
+          !isRecording && canImportAudio && (
             <div 
               className={`${styles.emptyTrack} ${isDragOver ? styles.dragOver : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                document.getElementById(`audio-file-input-${track.id}`).click();
-              }}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
+              onClick={openFilePicker}
             >
               <div className="empty-message">
                 <FontAwesomeIcon icon={faCloudUploadAlt} />
-                <span>Upload audio file or start recording</span>
+                <span>
+                  {isProjectMode
+                    ? 'Click to upload or drag an audio file here'
+                    : 'Upload audio file or start recording'}
+                </span>
                 <input 
                   type="file" 
                   id={`audio-file-input-${track.id}`}
@@ -322,7 +483,18 @@ const Track = ({
             </div>
           )
         )}
-        {/* Recording indicator - shown as overlay during recording */}
+
+        {isProjectMode && dropPlaceholder && dropPlaceholder.widthPercent > 0 && (
+          <div
+            className={`${styles.dropPlaceholder} ${dropPlaceholder.isValid ? '' : styles.dropPlaceholderInvalid}`}
+            style={{
+              left: `${dropPlaceholder.leftPercent}%`,
+              width: `${dropPlaceholder.widthPercent}%`,
+            }}
+            aria-hidden
+          />
+        )}
+
         {isRecording && isArmedForRecording && recordingWidth > 0 && (
           <div 
             className={styles.recordingIndicator}

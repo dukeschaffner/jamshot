@@ -86,13 +86,13 @@ Reuse audio engine and timeline rendering. Add `armedTrackId` and `loadProject()
 |---|---|---|
 | Cross-track move | Forbidden | Allowed |
 | Recording | Global `recording-track` | **Armed track** (`armedTrackId`) |
-| File upload / drop / import | N/A (collab uses global recording track) | **Any track** — target is the track the user interacted with; arm not required |
+| File upload / drop | N/A (collab uses global recording track) | **Any track** — click empty track or drag onto any track; arm not required |
 | Empty tracks | N/A for stems | Allowed |
 | Audio source | Stem chain API | `project_clips` + public R2 URLs |
 | Mixdown | Server `combined_audio_url` | Live Web Audio only |
 | Undo | Yes | No — snapshots |
 | Upload max duration | 900s (non-collab) | **300s** |
-| Return path from host DAW | N/A | **Import audio** (Step 18b) |
+| Return path from host DAW | N/A | Drag exported WAV onto timeline (Step 18); dashed placeholder while dragging over non-empty tracks |
 
 ---
 

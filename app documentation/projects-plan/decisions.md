@@ -27,7 +27,7 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 | **2** | Real-time collaboration (Milestone 7) |
 | **3** | Post-MVP polish |
 
-**Phase 1a exit criteria:** create project → edit in browser → open in plugin → record in Logic → export WAV → import back via web (Step 18b).
+**Phase 1a exit criteria:** create project → edit in browser → open in plugin → record in Logic → export WAV → drag back onto web timeline (Step 18).
 
 **Phase 1b invites (pre-realtime):** either (a) invited users are **viewer-only** until Phase 2, or (b) defer Step 28 until after Milestone 7. **Default: (a)** with prominent warning for editors.
 

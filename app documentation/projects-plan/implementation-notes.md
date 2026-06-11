@@ -24,6 +24,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 15 — DAW project mode read-only load | **Done (code)** | `ProjectDAW`, `TrackManager.loadProject`, no undo/recording; clips play via Web Audio |
 | 16 — Add / remove tracks in DAW | **Done (code)** | `projectApi` track routes; `TrackManager.applyProjectState`; Add track + delete in project DAW |
 | 17 — Record clip to armed track | **Done (code)** | Armed track record → optimistic clip → multipart upload → poll → server audio swap; failure retry/delete |
+| 18 — Upload file to any track | **Done (code)** | Click/drag import on any track; 300s max; dashed drop placeholder on non-empty tracks; same upload pipeline as Step 17 |
 | 6b+ | Not started | |
 
 ---
@@ -557,6 +558,44 @@ Editor+ only (`owner` / `admin` / `editor`). Track limit uses `MAX_PROJECT_TRACK
 
 ---
 
+## Step 18 — Upload file to any track
+
+### Project orchestration
+
+| File | Purpose |
+|------|---------|
+| `project/ProjectEditorContext.js` | `importAudioFileToTrack(trackId, file, startTimeSeconds)` — decode, 300s validation, overlap/duration placement check, optimistic region, upload original file |
+| `project/projectClipPlacement.js` | Timeline position from drag X, overlap validation, placeholder width math |
+| `project/projectClipUpload.js` | `buildClipUploadFormData` accepts optional `fileName` for non-WAV imports |
+
+### DAW UI
+
+| File | Change |
+|------|--------|
+| `components/Track.js` | Project mode: empty track click → file picker at playhead; drag on any track; dashed placeholder on non-empty tracks while hovering |
+| `components/Track.module.css` | `.dropPlaceholder` dashed outline (invalid = red tint) |
+| `core/Track.js` | `addRegion(..., skipOverlapHandling)` — project clips skip collab overlap trimming |
+
+### Behavior
+
+- **Max duration:** `DAWConfig.audio.maxRecordingDuration` (300s) for projects — toast and no import if longer
+- **Empty track:** click opens picker (clip at playhead); drag places at drop X
+- **Non-empty track:** drag only (no click picker); dashed placeholder follows cursor; drop starts upload
+- **Arm state:** not required for import (record-only)
+- **Upload pipeline:** same as Step 17 — local buffer playback → multipart POST → poll → server audio swap; failure uses `RegionProcessingIndicator` retry
+- **Placement:** client rejects overlap / beyond project duration before creating region (server Step 10 rules)
+
+### Manual verify
+
+1. Open project as editor+; empty track click → pick file → clip at playhead
+2. Drag WAV onto empty track → clip at drop position
+3. Drag onto track with existing clips → dashed placeholder while hovering → drop places clip
+4. File > 300s → toast, no clip
+5. Upload to track 3 while track 2 armed → clip on track 3 only
+6. Simulated processing failure → same retry overlay as Step 17
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -657,4 +696,5 @@ Editor+ only (`owner` / `admin` / `editor`). Track limit uses `MAX_PROJECT_TRACK
 | 2026-06-10 | 15 | Project DAW read-only load: `loadProject`, `ProjectDAW`, playback without undo |
 | 2026-06-10 | 16 | Project DAW add/delete tracks wired to Step 8 API; ghost-track filter on GET |
 | 2026-06-10 | 17 | Project record-to-armed-track: upload pipeline, processing overlay, retry/delete, beforeunload guard |
+| 2026-06-10 | 18 | Project file import: click/drag on any track, 300s limit, drop placeholder, shared upload pipeline |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |

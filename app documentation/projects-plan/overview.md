@@ -60,7 +60,7 @@ See also: [projects-plan.txt](./projects-plan.txt)
 - Plugin: `set_project` + auto-sync (default on)
 - Multipart clip upload → shared audio-processing lambda (project branch); local `bufferRegistry` playback until processed audio is ready
 
-**Exit criteria:** One user creates a project, edits in browser, opens in plugin, records in Logic, exports WAV, imports back via web (Step 18b).
+**Exit criteria:** One user creates a project, edits in browser, opens in plugin, records in Logic, exports WAV, drags it back onto the web timeline (Step 18).
 
 ### Phase 1b — Context & sharing (REST-only)
 
