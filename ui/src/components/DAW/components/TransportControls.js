@@ -163,16 +163,19 @@ const TransportControls = ({
     }
   };
   
+  const isProjectSettingsLocked =
+    isLoop || (isProjectMode && !canEditProject);
+
   // Start editing BPM
   const startEditingBpm = () => {
-    if (isLoop) return; // Disable BPM editing in loop mode
+    if (isProjectSettingsLocked) return;
     setBpmInputValue(metronomeBpm.toString());
     setIsEditingBpm(true);
   };
 
   // Start editing time signature
   const startEditingTimeSignature = () => {
-    if (isLoop) return; // Disable time signature editing in loop mode
+    if (isProjectSettingsLocked) return;
     setIsEditingTimeSignature(true);
   };
 
@@ -318,8 +321,17 @@ const TransportControls = ({
         ) : (
         <span 
             onClick={startEditingBpm}
-            title={isLoop ? "BPM is locked in loop mode" : "Click to edit BPM"}
-            style={{ cursor: isLoop ? 'not-allowed' : 'pointer', opacity: isLoop ? 0.6 : 1 }}
+            title={
+              isProjectSettingsLocked
+                ? isLoop
+                  ? 'BPM is locked in loop mode'
+                  : 'Editor access required to change BPM'
+                : 'Click to edit BPM'
+            }
+            style={{
+              cursor: isProjectSettingsLocked ? 'not-allowed' : 'pointer',
+              opacity: isProjectSettingsLocked ? 0.6 : 1,
+            }}
         >
             {metronomeBpm} BPM
         </span>
@@ -340,8 +352,17 @@ const TransportControls = ({
         )}
         <span 
         onClick={startEditingTimeSignature}
-        title={isLoop ? "Time signature is locked in loop mode" : "Click to edit Time Signature"}
-        style={{ cursor: isLoop ? 'not-allowed' : 'pointer', opacity: isLoop ? 0.6 : 1 }}
+        title={
+          isProjectSettingsLocked
+            ? isLoop
+              ? 'Time signature is locked in loop mode'
+              : 'Editor access required to change time signature'
+            : 'Click to edit Time Signature'
+        }
+        style={{
+          cursor: isProjectSettingsLocked ? 'not-allowed' : 'pointer',
+          opacity: isProjectSettingsLocked ? 0.6 : 1,
+        }}
         >
         {timeSignature}
         </span>

@@ -3,11 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from './MusicalGrid.module.css';
 import { useDAW } from '../DAWContext';
+import { useProjectEditor } from '../project/ProjectEditorContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 
 function MusicalGrid() {
-  const { isPlaying, metronomeOffset, timeSignature, metronomeBpm, duration, tracksContainerWidth, gridLines, updateGridLines } = useDAW();
+  const { dawMode, isPlaying, metronomeOffset, timeSignature, metronomeBpm, duration, tracksContainerWidth, gridLines, updateGridLines } = useDAW();
+  const { canEdit: canEditProject } = useProjectEditor();
+  const canEditMetronomeOffset = dawMode !== 'project' || canEditProject;
 
   const [isDraggingOffset, setIsDraggingOffset] = useState(false);
   const offsetHandleRef = useRef(null);
@@ -87,7 +90,7 @@ function MusicalGrid() {
   // Handle metronome offset dragging
   const handleOffsetMouseDown = (e) => {
     e.stopPropagation();
-    if (isPlaying) return;
+    if (isPlaying || !canEditMetronomeOffset) return;
     setIsDraggingOffset(true);
   };
 

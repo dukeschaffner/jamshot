@@ -36,6 +36,7 @@ import {
   buildClipPatchPayload,
 } from './projectClipPlacement';
 import { useProjectPersistence } from '@/hooks/useProjectPersistence';
+import { applyProjectTransportSettings } from './projectLoader';
 
 const ProjectEditorContext = createContext(null);
 
@@ -79,6 +80,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const projectDataRef = useRef(projectData);
   const armedTrackIdRef = useRef(armedTrackId);
   const inFlightRegionIdsRef = useRef(new Set());
+  const suppressSettingsPersistRef = useRef(false);
   useEffect(() => {
     projectDataRef.current = projectData;
   }, [projectData]);
@@ -125,19 +127,27 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const applyProjectServerState = useCallback(
     (nextState) => {
       if (!trackManagerRef.current) return;
-      trackManagerRef.current.applyProjectState(nextState);
-      const nextTracks = syncTracksFromManager();
-      setArmedTrackIdState((current) =>
-        current != null && !nextTracks.some((track) => track.id === current)
-          ? (nextTracks[0]?.id ?? null)
-          : current
-      );
-      onProjectStateChange?.(nextState);
+
+      suppressSettingsPersistRef.current = true;
+      try {
+        trackManagerRef.current.applyProjectState(nextState);
+        applyProjectTransportSettings(nextState);
+        const nextTracks = syncTracksFromManager();
+        setArmedTrackIdState((current) =>
+          current != null && !nextTracks.some((track) => track.id === current)
+            ? (nextTracks[0]?.id ?? null)
+            : current
+        );
+        projectDataRef.current = nextState;
+        onProjectStateChange?.(nextState);
+      } finally {
+        suppressSettingsPersistRef.current = false;
+      }
     },
     [onProjectStateChange, syncTracksFromManager, trackManagerRef]
   );
 
-  const { scheduleClipPersist } = useProjectPersistence({
+  const { scheduleClipPersist, scheduleProjectSettingsPersist } = useProjectPersistence({
     projectGuid: projectData?.guid,
     revision: projectData?.revision,
     applyProjectServerState,
@@ -586,6 +596,67 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     if (!canEdit || armedTrackId != null || tracks.length === 0) return;
     setArmedTrackIdState(tracks[0].id);
   }, [canEdit, armedTrackId, tracks]);
+
+  useEffect(() => {
+    if (!canEdit || !projectData?.guid) return;
+
+    const persistSetting = (fields, revertState) => {
+      if (suppressSettingsPersistRef.current) return;
+      scheduleProjectSettingsPersist({ fields, revertState });
+    };
+
+    const handleBpmChange = ({ bpm }) => {
+      const previousBpm = projectDataRef.current?.bpm ?? 120;
+      if (bpm === previousBpm) return;
+
+      persistSetting({ bpm }, () => {
+        eventBus.emit(DAW_EVENTS.METRONOME.BPM_CHANGE, { bpm: previousBpm });
+      });
+    };
+
+    const handleTimeSignatureChange = ({ timeSignature }) => {
+      const previousTimeSignature = projectDataRef.current?.timeSignature ?? '4/4';
+      if (timeSignature === previousTimeSignature) return;
+
+      persistSetting({ timeSignature }, () => {
+        eventBus.emit(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, {
+          timeSignature: previousTimeSignature,
+        });
+      });
+    };
+
+    const handleMetronomeOffsetChange = ({ offset }) => {
+      const previousOffset = projectDataRef.current?.metronomeOffset ?? 0;
+      if (offset === previousOffset) return;
+
+      persistSetting({ metronomeOffset: offset }, () => {
+        eventBus.emit(DAW_EVENTS.METRONOME.OFFSET_CHANGE, { offset: previousOffset });
+      });
+    };
+
+    const handleDurationChange = ({ duration: nextDuration }) => {
+      const previousDuration = projectDataRef.current?.durationSeconds;
+      if (previousDuration == null || nextDuration === previousDuration) return;
+
+      persistSetting({ duration: nextDuration }, () => {
+        eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, {
+          duration: previousDuration,
+        });
+      });
+    };
+
+    eventBus.on(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
+    eventBus.on(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
+    eventBus.on(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
+    eventBus.on(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.METRONOME.BPM_CHANGE, handleBpmChange);
+      eventBus.off(DAW_EVENTS.METRONOME.TIME_SIGNATURE_CHANGE, handleTimeSignatureChange);
+      eventBus.off(DAW_EVENTS.METRONOME.OFFSET_CHANGE, handleMetronomeOffsetChange);
+      eventBus.off(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, handleDurationChange);
+    };
+  }, [canEdit, projectData?.guid, scheduleProjectSettingsPersist]);
 
   useEffect(() => {
     const handleRecordingStopped = (data) => {

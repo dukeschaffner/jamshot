@@ -524,7 +524,7 @@ function DAWContent({ track, isVisible = true }) {
                     <ProjectEndOverlay 
                       containerRef={tracksAndTimelineRef}
                       duration={duration}
-                      zoom={zoom}
+                      canEdit={!isProjectMode || canEditProject}
                     />
                   )}
                   

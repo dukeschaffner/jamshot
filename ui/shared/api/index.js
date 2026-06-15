@@ -599,6 +599,8 @@ const createApiMethods = (apiClient) => {
 
     getProject: (projectGuid) => api.get(`/projects/${projectGuid}`),
 
+    updateProject: (projectGuid, data) => api.patch(`/projects/${projectGuid}`, data),
+
     createProjectTrack: (projectGuid, data) =>
       api.post(`/projects/${projectGuid}/tracks`, data),
 
