@@ -24,6 +24,7 @@ import { faUpload, faPlus } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
+import ProjectSnapshotsPanel from './project/ProjectSnapshotsPanel';
 import ContextMenu from './components/ContextMenu';
 import PluginInviteHint from './components/PluginInviteHint';
 import { useToast } from '../../lib/ToastContext';
@@ -89,6 +90,7 @@ function DAWContent({ track, isVisible = true }) {
   const { showToast } = useToast();
   const [saved, setSaved] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [isSnapshotsOpen, setIsSnapshotsOpen] = useState(false);
   const isProjectMode = dawMode === 'project';
 
   useEffect(() => {
@@ -428,6 +430,12 @@ function DAWContent({ track, isVisible = true }) {
           </p>
         </>
       </ConfirmationDialog>
+      {isProjectEditor && (
+        <ProjectSnapshotsPanel
+          isOpen={isSnapshotsOpen}
+          onClose={() => setIsSnapshotsOpen(false)}
+        />
+      )}
       <div 
         className={styles.dawContainer}
         style={{display: showUploadForm ? 'none' : 'block'}}
@@ -438,6 +446,7 @@ function DAWContent({ track, isVisible = true }) {
               isPlaying={isPlaying}
               metronomeBpm={metronomeBpm}
               timeSignature={timeSignature}
+              onOpenSnapshots={() => setIsSnapshotsOpen(true)}
             />
             <TimeDisplay />
             <div>

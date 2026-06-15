@@ -22,10 +22,10 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 
 | Phase | Scope |
 |---|---|
-| **1a** | Solo user: DB, REST, DAW, snapshots, plugin (Milestones 0–4, 5–11, 12–21, 22–25, 29–32) |
+| **1a** | Solo user: DB, REST, DAW, manual snapshot (create + list), plugin (Milestones 0–4, 5–11, 12–21, 22, 29–32) |
 | **1b** | Import, team/camp projects, invites (Milestones 6 / Steps 26–28) |
 | **2** | Real-time collaboration (Milestone 7) |
-| **3** | Post-MVP polish |
+| **3** | Post-MVP: snapshot auto/preview/restore (Steps 23–25), asset library, polish |
 
 **Phase 1a exit criteria:** create project → edit in browser → open in plugin → record in Logic → export WAV → drag back onto web timeline (Step 18).
 
@@ -77,9 +77,11 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 
 | Topic | Decision |
 |---|---|
-| Auto snapshots | Yes — **server-side** interval |
-| Preview before restore | Yes — read-only audition |
-| Restore | Canonical algorithm in [database.md](./database.md) — undelete clips, soft-delete extras |
+| MVP scope | Manual snapshot create + list only (Step 22) |
+| Post-MVP | Auto snapshots, preview, restore (Steps 23–25) |
+| Auto snapshots | Yes — **server-side** interval (post-MVP) |
+| Preview before restore | Yes — read-only audition (post-MVP) |
+| Restore | Canonical algorithm in [database.md](./database.md) — undelete clips, soft-delete extras (post-MVP) |
 | Snapshot kinds | `manual`, `auto`, `pre_restore` |
 | Retention | Tier-based; prune oldest `auto` only |
 

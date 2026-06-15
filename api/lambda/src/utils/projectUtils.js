@@ -144,8 +144,8 @@ function buildTracksFromRows(rows, options) {
   return trackOrder.map((id) => tracksById.get(id));
 }
 
-async function fetchProjectTimelineRows(projectId) {
-  const result = await pool.query(
+async function fetchProjectTimelineRows(projectId, executor = pool) {
+  const result = await executor.query(
     `SELECT
        pt.id AS track_id,
        pt.sort_order,
@@ -201,8 +201,9 @@ async function fetchProjectTimelineRows(projectId) {
 async function serializeProjectState(projectId, options = {}) {
   const variant = options.variant || 'rest';
   const includeProcessingDetails = options.includeProcessingDetails !== false;
+  const executor = options.client ?? pool;
 
-  const projectResult = await pool.query(
+  const projectResult = await executor.query(
     `SELECT id, guid, name, owner_id, team_id, camp_id,
             bpm, time_signature, metronome_offset, duration_seconds,
             is_private, revision, created_at, updated_at
@@ -216,7 +217,7 @@ async function serializeProjectState(projectId, options = {}) {
   }
 
   const project = projectResult.rows[0];
-  const rows = await fetchProjectTimelineRows(projectId);
+  const rows = await fetchProjectTimelineRows(projectId, executor);
   const buildOptions = {
     variant: variant === 'snapshot' ? 'snapshot' : variant,
     includeProcessingDetails,

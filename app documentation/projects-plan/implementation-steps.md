@@ -17,10 +17,10 @@ Decisions: [decisions.md](./decisions.md) · Schema: [database.md](./database.md
 
 | Phase | Milestones | Goal |
 |---|---|---|
-| **1a** | 0–4, 5–11, 12–21, 22–25, **29–32** | Solo user: edit in browser, snapshots, plugin loop |
+| **1a** | 0–4, 5–11, 12–21, 22, **29–32** | Solo user: edit in browser, manual snapshot (create only), plugin loop |
 | **1b** | 26–28 | Import, team/camp context, invites (REST-only; see [decisions.md](./decisions.md)) |
 | **2** | 33–38 | Real-time collaboration |
-| **Post-MVP** | 39–41, 42+ | Asset library, cleanup, polish |
+| **Post-MVP** | 23–25, 39–41, 42+ | Snapshot auto/preview/restore, asset library, cleanup, polish |
 
 Phase 1b invites are **view-only** for non-owners until Phase 2 ships, OR defer Step 28 until after Milestone 7 — pick one in [decisions.md](./decisions.md) before implementing invites.
 
@@ -368,50 +368,18 @@ On `PATCH` 409 (`{ error, current_revision, server_revision }`):
 
 ---
 
-## Milestone 4 — Snapshots
+## Milestone 4 — Manual snapshot (MVP)
+
+> Steps 23–25 (auto snapshot, preview, restore) are **post-MVP** — see Milestone 8.
 
 ### Step 22 — Manual snapshot
 
 - `POST /projects/:id/snapshots` — full state JSON in `project_snapshots.state`; `snapshot_kind = 'manual'`
 - Populate `project_snapshot_assets` for every `asset_id` in serialized state
 - Toolbar button + optional label
+- List snapshots in UI (read-only list; no preview/restore until post-MVP)
 
 **Done when:** Create snapshot → appears in list with timestamp; `project_snapshot_assets` rows match clip assets in state.
-
----
-
-### Step 23 — Auto snapshot interval
-
-**Server-side** timer (mutation hook or lightweight scheduled job — not client-only). Respect tier `max_snapshots` (prune oldest `auto` snapshots; never prune `pre_restore`).
-
-Pruning deletes snapshot row; `project_snapshot_assets` cascades.
-
-**Done when:** Wait interval → new snapshot created; exceeding tier limit drops oldest auto snapshot.
-
----
-
-### Step 24 — Snapshot preview
-
-- Load snapshot state into **read-only** DAW view (or toggle "preview mode")
-- Audition playback without mutating live project
-- Re-resolve `audio_url` from `asset_id` at preview time (do not trust stale URLs in JSON)
-
-**Done when:** Select snapshot → hear that version; exit preview → live project unchanged.
-
----
-
-### Step 25 — Restore snapshot
-
-- `POST /projects/:id/snapshots/:id/restore`
-- Auto-create pre-restore snapshot (`snapshot_kind = 'pre_restore'`)
-- **Canonical restore algorithm** ([database.md](./database.md)):
-  1. Upsert project metadata from snapshot JSON
-  2. For each snapshot track: upsert `project_tracks` by id
-  3. For each snapshot clip: `UPDATE project_clips SET deleted_at = NULL, ...` if row exists; else `INSERT`
-  4. Soft-delete clips on live project **not** in snapshot
-  5. Bump `revision`; reject if concurrent editor holds locks (Phase 2)
-
-**Done when:** Delete clip → restore old snapshot → clip back on timeline; tracks absent from snapshot are soft-deleted.
 
 ---
 
@@ -573,7 +541,44 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 
 ---
 
-## Milestone 8 — Asset library & cleanup (post-MVP)
+## Milestone 8 — Snapshots (post-MVP)
+
+### Step 23 — Auto snapshot interval
+
+**Server-side** timer (mutation hook or lightweight scheduled job — not client-only). Respect tier `max_snapshots` (prune oldest `auto` snapshots; never prune `pre_restore`).
+
+Pruning deletes snapshot row; `project_snapshot_assets` cascades.
+
+**Done when:** Wait interval → new snapshot created; exceeding tier limit drops oldest auto snapshot.
+
+---
+
+### Step 24 — Snapshot preview
+
+- Load snapshot state into **read-only** DAW view (or toggle "preview mode")
+- Audition playback without mutating live project
+- Re-resolve `audio_url` from `asset_id` at preview time (do not trust stale URLs in JSON)
+
+**Done when:** Select snapshot → hear that version; exit preview → live project unchanged.
+
+---
+
+### Step 25 — Restore snapshot
+
+- `POST /projects/:id/snapshots/:id/restore`
+- Auto-create pre-restore snapshot (`snapshot_kind = 'pre_restore'`)
+- **Canonical restore algorithm** ([database.md](./database.md)):
+  1. Upsert project metadata from snapshot JSON
+  2. For each snapshot track: upsert `project_tracks` by id
+  3. For each snapshot clip: `UPDATE project_clips SET deleted_at = NULL, ...` if row exists; else `INSERT`
+  4. Soft-delete clips on live project **not** in snapshot
+  5. Bump `revision`; reject if concurrent editor holds locks (Phase 2)
+
+**Done when:** Delete clip → restore old snapshot → clip back on timeline; tracks absent from snapshot are soft-deleted.
+
+---
+
+## Milestone 9 — Asset library & cleanup (post-MVP)
 
 ### Step 39 — Assets list API
 
@@ -601,7 +606,7 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 
 ---
 
-## Milestone 9 — Post-MVP polish (defer)
+## Milestone 10 — Post-MVP polish (defer)
 
 | Step | Feature |
 |---|---|
@@ -621,11 +626,12 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 | 3 | 9–11, 9b | Clips + processing + plugin payload |
 | 4 | 12–14 | List/create/shell UI |
 | 5 | 15–21, 20b | Project DAW core + persistence |
-| 6 | 22–25 | Snapshots |
+| 6 | 22 | Manual snapshot (create + list) |
 | 7 | 29–32 | Plugin (Phase 1a exit) |
 | 8 | 26–28 | Import + team/camp + invites (Phase 1b) |
 | 9 | 33–38 | Realtime |
-| 10 | 39–41 | Asset library + cleanup |
+| 10 | 23–25 | Snapshot auto/preview/restore (post-MVP) |
+| 11 | 39–41 | Asset library + cleanup |
 
 ---
 
@@ -637,7 +643,7 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 2. Add tracks, record clip, upload clip (click empty track or drag onto any track)
 2b. Simulate processing failure → failed clip UI → retry with local buffer (no re-record) → delete failed clip
 3. Move clip between tracks, trim, set BPM
-4. Create manual snapshot, preview it, restore it
+4. Create manual snapshot; verify it appears in list
 5. Open in plugin; verify playback in host DAW
 6. Edit in web; verify auto-sync to plugin
 7. Delete project; verify cleanup
@@ -654,8 +660,10 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 
 ### Post-MVP
 
-12. Remove clip from timeline → asset still in Files panel
-13. Auto-cleanup dry-run does not list snapshot-referenced assets
+12. Auto snapshot created on interval; tier limit prunes oldest auto snapshot
+13. Preview snapshot in read-only DAW; restore snapshot → deleted clip returns
+14. Remove clip from timeline → asset still in Files panel
+15. Auto-cleanup dry-run does not list snapshot-referenced assets
 
 ### Automation (recommended)
 

@@ -620,6 +620,12 @@ const createApiMethods = (apiClient) => {
 
     updateProjectClip: (projectGuid, clipId, data) =>
       api.patch(`/projects/${projectGuid}/clips/${clipId}`, data),
+
+    listProjectSnapshots: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/snapshots`),
+
+    createProjectSnapshot: (projectGuid, data = {}) =>
+      api.post(`/projects/${projectGuid}/snapshots`, data),
   };
 
   // Admin API methods

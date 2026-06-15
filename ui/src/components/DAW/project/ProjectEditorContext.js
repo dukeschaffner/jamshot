@@ -37,6 +37,11 @@ import {
 } from './projectClipPlacement';
 import { useProjectPersistence } from '@/hooks/useProjectPersistence';
 import { applyProjectTransportSettings } from './projectLoader';
+import {
+  getRevisionConflictInfo,
+  isRevisionConflict,
+} from './projectRevisionConflict';
+import ProjectRevisionConflictDialog from './ProjectRevisionConflictDialog';
 
 const ProjectEditorContext = createContext(null);
 
@@ -76,6 +81,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const [isTrackMutationPending, setIsTrackMutationPending] = useState(false);
   const [inFlightClipCount, setInFlightClipCount] = useState(0);
   const [crossTrackDragPreview, setCrossTrackDragPreviewState] = useState(null);
+  const [revisionConflictPrompt, setRevisionConflictPrompt] = useState(null);
 
   const projectDataRef = useRef(projectData);
   const armedTrackIdRef = useRef(armedTrackId);
@@ -147,12 +153,40 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     [onProjectStateChange, syncTracksFromManager, trackManagerRef]
   );
 
-  const { scheduleClipPersist, scheduleProjectSettingsPersist } = useProjectPersistence({
-    projectGuid: projectData?.guid,
-    revision: projectData?.revision,
-    applyProjectServerState,
-    showToast,
-  });
+  const onConflictPrompt = useCallback(({ onReload, onDiscard }) => {
+    setRevisionConflictPrompt({ onReload, onDiscard });
+  }, []);
+
+  const onRevisionOnlyUpdate = useCallback(
+    (nextRevision) => {
+      const current = projectDataRef.current;
+      if (!current || nextRevision == null) return;
+      onProjectStateChange?.({ ...current, revision: nextRevision });
+    },
+    [onProjectStateChange]
+  );
+
+  const { scheduleClipPersist, scheduleProjectSettingsPersist, handleRevisionConflict } =
+    useProjectPersistence({
+      projectGuid: projectData?.guid,
+      revision: projectData?.revision,
+      applyProjectServerState,
+      onRevisionOnlyUpdate,
+      showToast,
+      onConflictPrompt,
+    });
+
+  const resolveRevisionConflictReload = useCallback(async () => {
+    const prompt = revisionConflictPrompt;
+    setRevisionConflictPrompt(null);
+    await prompt?.onReload?.();
+  }, [revisionConflictPrompt]);
+
+  const resolveRevisionConflictDiscard = useCallback(() => {
+    const prompt = revisionConflictPrompt;
+    setRevisionConflictPrompt(null);
+    prompt?.onDiscard?.();
+  }, [revisionConflictPrompt]);
 
   const moveProjectRegion = useCallback(
     (fromTrackId, toTrackId, regionId, updatedRegion) => {
@@ -571,6 +605,13 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           );
           applyProjectServerState(response.data);
         } catch (err) {
+          if (isRevisionConflict(err)) {
+            await handleRevisionConflict({
+              conflictInfo: getRevisionConflictInfo(err),
+            });
+            return;
+          }
+
           const message =
             err.response?.data?.error ||
             'Failed to delete clip. Please try again.';
@@ -589,7 +630,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         recordUndo: false,
       });
     },
-    [applyProjectServerState, showToast, trackManagerRef]
+    [applyProjectServerState, handleRevisionConflict, showToast, trackManagerRef]
   );
 
   useEffect(() => {
@@ -682,15 +723,22 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       });
       applyProjectServerState(response.data);
     } catch (err) {
-      const message =
-        err.response?.data?.error || 'Failed to add track. Please try again.';
-      showToast({ message, variant: 'error' });
+      if (isRevisionConflict(err)) {
+        await handleRevisionConflict({
+          conflictInfo: getRevisionConflictInfo(err),
+        });
+      } else {
+        const message =
+          err.response?.data?.error || 'Failed to add track. Please try again.';
+        showToast({ message, variant: 'error' });
+      }
     } finally {
       setIsTrackMutationPending(false);
     }
   }, [
     applyProjectServerState,
     canEdit,
+    handleRevisionConflict,
     isTrackMutationPending,
     projectData,
     showToast,
@@ -711,9 +759,15 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         );
         applyProjectServerState(response.data);
       } catch (err) {
-        const message =
-          err.response?.data?.error || 'Failed to delete track. Please try again.';
-        showToast({ message, variant: 'error' });
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+        } else {
+          const message =
+            err.response?.data?.error || 'Failed to delete track. Please try again.';
+          showToast({ message, variant: 'error' });
+        }
       } finally {
         setIsTrackMutationPending(false);
       }
@@ -721,6 +775,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     [
       applyProjectServerState,
       canEdit,
+      handleRevisionConflict,
       isTrackMutationPending,
       projectData,
       showToast,
@@ -777,6 +832,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   return (
     <ProjectEditorContext.Provider value={value}>
       {children}
+      <ProjectRevisionConflictDialog
+        isOpen={revisionConflictPrompt != null}
+        onReload={resolveRevisionConflictReload}
+        onDiscard={resolveRevisionConflictDiscard}
+      />
     </ProjectEditorContext.Provider>
   );
 }

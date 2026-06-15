@@ -2,7 +2,7 @@
 
 Product requirement: **no undo/redo** in project DAW. Use **project snapshots** instead.
 
-**Source of truth:** [decisions.md](./decisions.md) · Implementation: Steps 22–25 of [implementation-steps.md](./implementation-steps.md).
+**Source of truth:** [decisions.md](./decisions.md) · Implementation: Step 22 (MVP); Steps 23–25 post-MVP — [implementation-steps.md](./implementation-steps.md).
 
 ---
 

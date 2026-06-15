@@ -25,6 +25,11 @@ import {
   sanitizeProcessingError,
   serializeProjectState,
 } from '../utils/projectUtils.js';
+import {
+  createManualProjectSnapshot,
+  listProjectSnapshots,
+  validateSnapshotLabel,
+} from '../utils/projectSnapshotUtils.js';
 import { getActiveUploadBan } from '../utils/trackUtils.js';
 import {
   buildProjectAssetTempKey,
@@ -467,6 +472,58 @@ router.get('/', async (req, res, next) => {
     res.json({
       projects: result.rows.map((row) => formatProjectSummary(row)),
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/snapshots', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    const snapshots = await listProjectSnapshots(projectId);
+    res.json({ snapshots });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/snapshots', contentCreationLimiter, async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const labelValidation = validateSnapshotLabel(req.body?.label);
+    if (!labelValidation.valid) {
+      return res.status(400).json({ error: labelValidation.error });
+    }
+
+    const snapshot = await createManualProjectSnapshot({
+      projectId,
+      userId: req.user.id,
+      label: labelValidation.label,
+    });
+
+    if (!snapshot) {
+      return res.status(403).json({ error: 'You do not have access to this project' });
+    }
+
+    res.status(201).json(snapshot);
   } catch (err) {
     next(err);
   }

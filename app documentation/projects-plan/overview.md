@@ -56,7 +56,7 @@ See also: [projects-plan.txt](./projects-plan.txt)
 
 - DB schema + REST CRUD
 - Project page with **Project DAW** (single user)
-- Manual + auto snapshots (preview before restore)
+- Manual snapshot (create + list)
 - Plugin: `set_project` + auto-sync (default on)
 - Multipart clip upload → shared audio-processing lambda (project branch); local `bufferRegistry` playback until processed audio is ready
 

@@ -26,6 +26,10 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 17 — Record clip to armed track | **Done (code)** | Armed track record → optimistic clip → multipart upload → poll → server audio swap; failure retry/delete |
 | 18 — Upload file to any track | **Done (code)** | Click/drag import on any track; 300s max; dashed drop placeholder on non-empty tracks; same upload pipeline as Step 17 |
 | 19 — Clip drag, trim, cross-track move | **Done (code)** | Project clip drag/trim/cross-track in `Region.js`; debounced PATCH via `useProjectPersistence` |
+| 20 — Transport & project settings persistence | **Done (code)** | BPM, time signature, metronome offset, duration via debounced PATCH; `ProjectEndOverlay` up to 300s |
+| 20b — `useProjectPersistence` hook | **Done (code)** | Debounced clip + transport saves; dirty tracking for 409 UX |
+| 21 — Revision conflict handling | **Done (code)** | Silent rebase when clean; toast + reload/discard dialog when dirty |
+| 22 — Manual snapshot | **Done (code)** | `POST/GET .../snapshots`; toolbar panel with optional label + history list |
 | 6b+ | Not started | |
 
 ---
@@ -611,7 +615,7 @@ Body fields: `revision`, `start_time_seconds`, `trim_start_seconds`, `trim_end_s
 
 | File | Purpose |
 |------|---------|
-| `hooks/useProjectPersistence.js` | Debounced clip PATCH (500ms); dirty clip tracking; 409 → reload project state + revert local edit |
+| `hooks/useProjectPersistence.js` | Debounced clip PATCH (500ms); dirty clip tracking; Step 21 conflict UX |
 | `project/ProjectsConfig.js` | `CLIP_PERSIST_DEBOUNCE_MS` |
 
 Wired in `ProjectEditorContext` as `persistClipLayout` + `moveProjectRegion`.
@@ -641,6 +645,116 @@ Wired in `ProjectEditorContext` as `persistClipLayout` + `moveProjectRegion`.
 4. Drag clip to another track → refresh → clip on new track
 5. Drag into overlapping position → toast, clip snaps back
 6. Clip still uploading/processing → not draggable
+
+---
+
+## Step 20 — Transport & project settings persistence
+
+### Persistence hook
+
+| File | Purpose |
+|------|---------|
+| `hooks/useProjectPersistence.js` | Debounced `PATCH /projects/:id` for transport fields |
+| `project/projectTransportPersistence.js` | Map DAW transport fields ↔ API payload |
+
+Wired in `ProjectEditorContext` via event bus listeners on BPM, time signature, metronome offset, duration change events.
+
+### DAW
+
+| File | Change |
+|------|--------|
+| `components/ProjectEndOverlay.js` | Project mode duration extend up to 300s |
+| `components/MusicalGrid.js` | Project duration grid support |
+| `components/TransportControls.js` | Looper enabled in project mode |
+
+### Manual verify
+
+1. Change BPM → wait for debounce → refresh → value persisted
+2. Extend duration to 300s via end overlay → refresh → timeline length persisted
+
+---
+
+## Step 20b — `useProjectPersistence` hook
+
+Central debounced REST write path for Phase 1 project edits:
+
+| Concern | Detail |
+|---------|--------|
+| Clip layout | `scheduleClipPersist` → `PATCH /clips/:id` (500ms debounce) |
+| Transport | `scheduleProjectSettingsPersist` → `PATCH /projects/:id` |
+| Dirty tracking | `dirtyClipIdsRef`, `dirtyProjectSettingsRef`, pending debounce queues |
+| Revision | `revisionRef` synced from page state; bumped on successful saves |
+
+---
+
+## Step 21 — Revision conflict handling
+
+On `409 REVISION_MISMATCH` (`current_revision`, `your_revision`):
+
+| Local state | Behavior |
+|-------------|----------|
+| No other pending edits | **Silent rebase** — `GET /projects/:id`, apply server state, no toast |
+| Other pending edits | Toast + **Reload latest** / **Discard my changes** dialog |
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `project/projectRevisionConflict.js` | `isRevisionConflict`, `getRevisionConflictInfo` |
+| `project/ProjectRevisionConflictDialog.js` | Reload vs discard prompt |
+| `hooks/useProjectPersistence.js` | Conflict routing for debounced clip + transport saves |
+| `project/ProjectEditorContext.js` | Dialog state; track/clip delete 409 handling |
+
+### Discard vs reload
+
+- **Reload latest** — fetch full project state, clear pending saves, apply server timeline + transport
+- **Discard my changes** — revert all pending local edits (clips + transport), bump local `revision` to `current_revision` without full reload
+
+### Manual verify
+
+1. Open project in two tabs
+2. Tab A: add track (or change BPM) and wait for save
+3. Tab B with no unsaved edits: make a change → should silently pick up Tab A's revision (no toast)
+4. Tab B: drag a clip (don't wait for debounce) while Tab A saves → toast + dialog
+5. **Reload latest** → Tab A's state visible, local drag lost
+6. Repeat with **Discard my changes** → drag reverts, revision updated
+
+---
+
+## Step 22 — Manual snapshot
+
+### API routes
+
+| Method | Route | Notes |
+|--------|-------|-------|
+| `GET` | `/projects/:id/snapshots` | All project members; list metadata (no `state` JSON) |
+| `POST` | `/projects/:id/snapshots` | Editor+; body `{ label? }`; `snapshot_kind = 'manual'` |
+
+**POST response (201):** `{ id, label, snapshotKind, revision, createdAt, createdBy? }`
+
+**GET response:** `{ snapshots: [...] }` — same shape per item, newest first.
+
+### Implementation
+
+| File | Purpose |
+|------|---------|
+| `api/lambda/src/utils/projectSnapshotUtils.js` | `createManualProjectSnapshot`, `listProjectSnapshots`, `validateSnapshotLabel` |
+| `api/lambda/src/utils/projectUtils.js` | `serializeProjectState(..., { client })` — optional pooled client for transactions (`max: 1` pool) |
+| `api/lambda/src/routes/projects.js` | Routes registered before `/:id/plugin-payload` |
+| `ui/shared/api/index.js` | `listProjectSnapshots`, `createProjectSnapshot` |
+| `ui/src/components/DAW/project/ProjectSnapshotsPanel.js` | Toolbar **Snapshot** button → modal with optional label + history list |
+
+On create: serializes `variant: 'snapshot'` state into `project_snapshots.state`; inserts `project_snapshot_assets` for every clip `assetId`; bumps `project_assets.last_referenced_at`. Does **not** bump `projects.revision`.
+
+### Manual verify
+
+```bash
+# Auth: x-dev-user-id: RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE
+POST /api/projects/{guid}/snapshots  { "label": "Before mix" }
+GET  /api/projects/{guid}/snapshots
+# Viewer → POST 403; GET allowed for members
+# project_snapshot_assets rows match distinct asset_ids in live clips
+```
 
 ---
 
@@ -746,4 +860,8 @@ Wired in `ProjectEditorContext` as `persistClipLayout` + `moveProjectRegion`.
 | 2026-06-10 | 17 | Project record-to-armed-track: upload pipeline, processing overlay, retry/delete, beforeunload guard |
 | 2026-06-10 | 18 | Project file import: click/drag on any track, 300s limit, drop placeholder, shared upload pipeline |
 | 2026-06-10 | 19 | Project clip drag/trim/cross-track move with debounced PATCH persistence |
+| 2026-06-10 | 20 | Transport & project settings debounced persistence; duration up to 300s |
+| 2026-06-10 | 20b | `useProjectPersistence` hook — clip + transport writes, dirty tracking |
+| 2026-06-10 | 21 | Revision 409 UX — silent rebase when clean; reload/discard dialog when dirty |
+| 2026-06-15 | 22 | Manual snapshots API + DAW toolbar panel; `project_snapshot_assets` index on create |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |

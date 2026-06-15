@@ -7,13 +7,15 @@ import { mapProjectSettingsToApiPayload } from '@/components/DAW/project/project
 
 /**
  * Debounced REST persistence for project clip layout and transport settings (Phase 1).
- * Step 21 adds full 409 conflict UX; dirty fields are tracked for that flow.
+ * Revision conflicts: silent rebase when clean; toast + prompt when dirty (Step 21).
  */
 export function useProjectPersistence({
   projectGuid,
   revision,
   applyProjectServerState,
+  onRevisionOnlyUpdate,
   showToast,
+  onConflictPrompt,
 }) {
   const revisionRef = useRef(revision);
   const dirtyClipIdsRef = useRef(new Set());
@@ -39,36 +41,124 @@ export function useProjectPersistence({
     };
   }, []);
 
-  const revertClipEdit = useCallback((revertState) => {
-    revertState?.();
+  const clearAllPending = useCallback(() => {
+    for (const timer of timersRef.current.values()) {
+      clearTimeout(timer);
+    }
+    timersRef.current.clear();
+    latestEditsRef.current.clear();
+    dirtyClipIdsRef.current.clear();
+
+    if (projectSettingsTimerRef.current) {
+      clearTimeout(projectSettingsTimerRef.current);
+      projectSettingsTimerRef.current = null;
+    }
+    pendingProjectSettingsRef.current = { fields: {}, revertStates: [] };
+    dirtyProjectSettingsRef.current = false;
   }, []);
 
-  const revertProjectSettings = useCallback((revertStates) => {
+  const hasPendingLocalEdits = useCallback((exclude = {}) => {
+    const { excludeClipId = null, excludeProjectSettings = false } = exclude;
+
+    let hasClips = false;
+    if (excludeClipId == null) {
+      hasClips =
+        dirtyClipIdsRef.current.size > 0 || latestEditsRef.current.size > 0;
+    } else {
+      hasClips =
+        [...dirtyClipIdsRef.current].some((id) => id !== excludeClipId) ||
+        [...latestEditsRef.current.keys()].some((id) => id !== excludeClipId);
+    }
+
+    const hasSettings =
+      !excludeProjectSettings &&
+      (dirtyProjectSettingsRef.current ||
+        Object.keys(pendingProjectSettingsRef.current.fields).length > 0 ||
+        pendingProjectSettingsRef.current.revertStates.length > 0);
+
+    return hasClips || hasSettings;
+  }, []);
+
+  const collectRevertStates = useCallback((additional = []) => {
+    const revertStates = [...additional];
+
+    for (const pending of latestEditsRef.current.values()) {
+      if (pending.revertState) {
+        revertStates.push(pending.revertState);
+      }
+    }
+
+    revertStates.push(...pendingProjectSettingsRef.current.revertStates);
+    return revertStates;
+  }, []);
+
+  const revertCollectedStates = useCallback((revertStates) => {
     for (let index = revertStates.length - 1; index >= 0; index -= 1) {
       revertStates[index]?.();
     }
   }, []);
 
-  const handleRevisionConflict = useCallback(
-    async (revertState) => {
+  const silentRebase = useCallback(async () => {
+    clearAllPending();
+
+    try {
+      const projectResponse = await projectApi.getProject(projectGuid);
+      revisionRef.current = projectResponse.data.revision;
+      applyProjectServerState?.(projectResponse.data);
+    } catch {
       showToast?.({
-        message: 'Project was updated elsewhere. Reloading latest state.',
+        message: 'Could not reload project. Please refresh the page.',
+        variant: 'error',
+      });
+    }
+  }, [applyProjectServerState, clearAllPending, projectGuid, showToast]);
+
+  const handleRevisionConflict = useCallback(
+    async ({ revertStates = [], conflictInfo = null, exclude = {} } = {}) => {
+      const hasDirty = hasPendingLocalEdits(exclude);
+      const allRevertStates = collectRevertStates(revertStates);
+
+      if (!hasDirty) {
+        await silentRebase();
+        return;
+      }
+
+      showToast?.({
+        message: 'This project was updated in another tab.',
         variant: 'error',
       });
 
-      try {
-        const projectResponse = await projectApi.getProject(projectGuid);
-        applyProjectServerState?.(projectResponse.data);
-      } catch {
-        showToast?.({
-          message: 'Could not reload project. Please refresh the page.',
-          variant: 'error',
-        });
+      const runReload = async () => {
+        await silentRebase();
+      };
+
+      const runDiscard = () => {
+        clearAllPending();
+        revertCollectedStates(allRevertStates);
+
+        if (conflictInfo?.currentRevision != null) {
+          revisionRef.current = conflictInfo.currentRevision;
+          onRevisionOnlyUpdate?.(conflictInfo.currentRevision);
+        }
+      };
+
+      if (onConflictPrompt) {
+        onConflictPrompt({ onReload: runReload, onDiscard: runDiscard });
+        return;
       }
 
-      revertState?.();
+      await runReload();
     },
-    [applyProjectServerState, projectGuid, showToast]
+    [
+      clearAllPending,
+      collectRevertStates,
+      hasPendingLocalEdits,
+      onConflictPrompt,
+      onRevisionOnlyUpdate,
+      revertCollectedStates,
+      showToast,
+      silentRebase,
+    ]
   );
 
   const flushProjectSettings = useCallback(async () => {
@@ -98,21 +188,27 @@ export function useProjectPersistence({
         err.response?.data?.error ||
         'Failed to save project settings. Please try again.';
 
-      dirtyProjectSettingsRef.current = false;
-
       if (status === 409) {
-        await handleRevisionConflict(() => revertProjectSettings(revertStates));
+        await handleRevisionConflict({
+          revertStates,
+          conflictInfo: {
+            currentRevision: err.response?.data?.current_revision ?? null,
+            yourRevision: err.response?.data?.your_revision ?? null,
+          },
+          exclude: { excludeProjectSettings: true },
+        });
         return;
       }
 
-      revertProjectSettings(revertStates);
+      dirtyProjectSettingsRef.current = false;
+      revertCollectedStates(revertStates);
       showToast?.({ message, variant: 'error' });
     }
   }, [
     applyProjectServerState,
     handleRevisionConflict,
     projectGuid,
-    revertProjectSettings,
+    revertCollectedStates,
     showToast,
   ]);
 
@@ -164,11 +260,18 @@ export function useProjectPersistence({
 
         if (status === 409) {
           dirtyClipIdsRef.current.delete(clipId);
-          await handleRevisionConflict(pending.revertState);
+          await handleRevisionConflict({
+            revertStates: pending.revertState ? [pending.revertState] : [],
+            conflictInfo: {
+              currentRevision: err.response?.data?.current_revision ?? null,
+              yourRevision: err.response?.data?.your_revision ?? null,
+            },
+            exclude: { excludeClipId: clipId },
+          });
           return;
         }
 
-        revertClipEdit(pending.revertState);
+        revertCollectedStates(pending.revertState ? [pending.revertState] : []);
         dirtyClipIdsRef.current.delete(clipId);
         showToast?.({ message, variant: 'error' });
       }
@@ -177,7 +280,7 @@ export function useProjectPersistence({
       applyProjectServerState,
       handleRevisionConflict,
       projectGuid,
-      revertClipEdit,
+      revertCollectedStates,
       showToast,
     ]
   );
@@ -205,13 +308,14 @@ export function useProjectPersistence({
   );
 
   const hasDirtyEdits = useCallback(
-    () => dirtyClipIdsRef.current.size > 0 || dirtyProjectSettingsRef.current,
-    []
+    () => hasPendingLocalEdits(),
+    [hasPendingLocalEdits]
   );
 
   return {
     scheduleClipPersist,
     scheduleProjectSettingsPersist,
     hasDirtyEdits,
+    handleRevisionConflict,
   };
 }

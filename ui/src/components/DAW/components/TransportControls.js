@@ -29,6 +29,7 @@ const TransportControls = ({
   isPlaying,
   metronomeBpm,
   timeSignature,
+  onOpenSnapshots,
 }) => {
 
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
@@ -243,6 +244,11 @@ const TransportControls = ({
     setShowMenu(false);
   };
 
+  const handleSnapshotsClick = () => {
+    onOpenSnapshots?.();
+    setShowMenu(false);
+  };
+
 
   // handle click outside bpm control to finish editing bpm or time signature and close menu
   useEffect(() => {
@@ -430,6 +436,14 @@ const TransportControls = ({
           >
             Fullscreen
           </button>
+          {isProjectMode && canEditProject && (
+            <button
+              className={styles.menuItem}
+              onClick={handleSnapshotsClick}
+            >
+              Snapshots
+            </button>
+          )}
           <PluginSync setShowMenu={setShowMenu}/>
         </div>
       )}
