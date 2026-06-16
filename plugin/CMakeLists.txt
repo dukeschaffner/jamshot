@@ -110,6 +110,8 @@ target_sources(SterioPlugin
         Source/api/SterioApiClient.h
         Source/api/TrackLoader.cpp
         Source/api/TrackLoader.h
+        Source/api/ProjectLoader.cpp
+        Source/api/ProjectLoader.h
         Source/api/ConnectionManager.cpp
         Source/api/ConnectionManager.h
         Source/auth/AuthCallbackServer.cpp
@@ -164,6 +166,8 @@ source_group("Sterio" FILES
     Source/api/SterioApiClient.h
     Source/api/TrackLoader.cpp
     Source/api/TrackLoader.h
+    Source/api/ProjectLoader.cpp
+    Source/api/ProjectLoader.h
     Source/api/ConnectionManager.cpp
     Source/api/ConnectionManager.h
     Source/auth/AuthCallbackServer.cpp

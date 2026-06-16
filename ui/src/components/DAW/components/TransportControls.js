@@ -21,6 +21,7 @@ import DAWConfig from '../misc/DAWConfig';
 import { useDAW } from '../DAWContext';
 import { useProjectEditor } from '../project/ProjectEditorContext';
 import PluginSync from './PluginSync';
+import ProjectPluginSync from '../project/ProjectPluginSync';
 
 const timeSignatureOptions = DAWConfig.timeSignature.options;
 
@@ -444,7 +445,11 @@ const TransportControls = ({
               Snapshots
             </button>
           )}
-          <PluginSync setShowMenu={setShowMenu}/>
+          {isProjectMode && canEditProject ? (
+            <ProjectPluginSync setShowMenu={setShowMenu} />
+          ) : (
+            <PluginSync setShowMenu={setShowMenu} />
+          )}
         </div>
       )}
     </div>

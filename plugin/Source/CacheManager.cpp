@@ -342,3 +342,27 @@ Result CacheManager::ensureTrackDirectoryExists(const String& trackId)
 
     return Result::ok();
 }
+
+String CacheManager::projectAssetCacheKey(const String& projectId, int assetId) const
+{
+    return "project_" + projectId + "_asset_" + String(assetId);
+}
+
+bool CacheManager::hasProjectAssetAudio(const String& projectId, int assetId) const
+{
+    return hasAudio(projectAssetCacheKey(projectId, assetId));
+}
+
+Result CacheManager::loadProjectAssetAudio(const String& projectId,
+                                           int assetId,
+                                           std::shared_ptr<AudioBuffer<float>>& audioBuffer)
+{
+    return loadAudio(projectAssetCacheKey(projectId, assetId), audioBuffer);
+}
+
+Result CacheManager::saveProjectAssetAudioRaw(const String& projectId,
+                                              int assetId,
+                                              const MemoryBlock& rawAudioData)
+{
+    return saveAudioRaw(projectAssetCacheKey(projectId, assetId), rawAudioData);
+}

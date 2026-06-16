@@ -7,6 +7,56 @@
 }
 
 
+// set_project:
+{
+    "type": "set_project",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "My Project",
+    "payload": {
+        "name": "My Project",
+        "bpm": 120,
+        "timeSignature": "4/4",
+        "durationSeconds": 120,
+        "clips": [
+            {
+                "clipId": 10,
+                "assetId": 42,
+                "trackId": 1,
+                "audioUrl": "https://cdn.example.com/projects/1/42/audio.wav",
+                "startTime": 0,
+                "trimStart": 0,
+                "trimEnd": null,
+                "gain": 0.8,
+                "trackGain": 0.8
+            }
+        ]
+    }
+}
+
+
+// plugin → web (project load lifecycle)
+// project_load_progress:
+{
+    "type": "project_load_progress",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000",
+    "current": 4,
+    "total": 21
+}
+
+// project_load_complete:
+{
+    "type": "project_load_complete",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+
+// project_load_error:
+{
+    "type": "project_load_error",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000",
+    "error": "Failed to download project asset audio"
+}
+
+
 // stem_metadata_sync:
 {
     "type": "stem_metadata_sync",

@@ -38,6 +38,17 @@ function waitForWebSocketOpen(socket, { timeoutMs = 5000 } = {}) {
   });
 }
 
+const DEFERRED_SUCCESS_TYPES = new Set(['set_project']);
+
+function parseIncomingMessage(data) {
+  if (!data || typeof data !== 'string') return null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
 // Context
 const PluginWebSocketContext = createContext(null);
 
@@ -53,6 +64,13 @@ export function PluginWebSocketProvider({ children }) {
     return localStorage.getItem(USER_HAS_PLUGIN_KEY) === 'true';
   });
   const { showSuccess, showError } = useToast();
+  const showSuccessRef = useRef(showSuccess);
+  const showErrorRef = useRef(showError);
+
+  useEffect(() => {
+    showSuccessRef.current = showSuccess;
+    showErrorRef.current = showError;
+  }, [showSuccess, showError]);
 
   const addLog = useCallback((text, type = 'system') => {
     setLog(prev => [...prev, { text, type, id: Date.now() + Math.random() }]);
@@ -61,12 +79,30 @@ export function PluginWebSocketProvider({ children }) {
   const successMessages = {
     'set_track': 'Track opened in plugin successfully!',
     'stem_metadata_sync': 'Edits synced to plugin successfully!',
+    'set_project': 'Project opened in plugin successfully!',
   };
 
   const errorMessages = {
     'set_track': 'Failed to open track in plugin. Make sure the plugin is installed and running in a DAW.',
     'stem_metadata_sync': 'Failed to sync edits to plugin. Make sure the plugin is installed and running in a DAW.',
+    'set_project': 'Failed to open project in plugin. Make sure the plugin is installed and running in a DAW.',
   };
+
+  const handleIncomingPluginMessage = useCallback((rawMessage) => {
+    const parsed = parseIncomingMessage(rawMessage);
+    if (!parsed?.type) return;
+
+    if (parsed.type === 'project_load_complete') {
+      showSuccessRef.current(successMessages.set_project);
+      return;
+    }
+
+    if (parsed.type === 'project_load_error') {
+      showErrorRef.current(
+        parsed.error || errorMessages.set_project
+      );
+    }
+  }, []);
 
   const getMessageType = (msg) => {
     if (!msg) return null;
@@ -120,13 +156,14 @@ export function PluginWebSocketProvider({ children }) {
   
       ws.current.onmessage = (e) => {
         addLog(e.data, 'incoming');
+        handleIncomingPluginMessage(e.data);
       };
     }
     catch (err) {
       setStatus('error');
       addLog('Connection error');
     }
-  }, [addLog]);
+  }, [addLog, handleIncomingPluginMessage]);
 
   const disconnect = useCallback(() => {
     ws.current?.close();
@@ -175,7 +212,7 @@ export function PluginWebSocketProvider({ children }) {
       socket.send(msg);
       addLog(msg, 'outgoing');
 
-      if (successMessage) {
+      if (successMessage && !DEFERRED_SUCCESS_TYPES.has(type)) {
         showSuccess(successMessage);
       }
       return true;
@@ -195,7 +232,9 @@ export function PluginWebSocketProvider({ children }) {
   }, [connect, disconnect]);
 
   return (
-    <PluginWebSocketContext.Provider value={{ status, log, connect, disconnect, send, userHasPlugin }}>
+    <PluginWebSocketContext.Provider
+      value={{ status, log, connect, disconnect, send, userHasPlugin }}
+    >
       {children}
       <ConfirmationDialog
         isOpen={showPluginErrorDialog}

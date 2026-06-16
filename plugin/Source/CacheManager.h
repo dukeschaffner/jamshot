@@ -62,6 +62,22 @@ public:
     /** Clean up old cache entries if over size limit */
     void cleanupIfNeeded();
 
+    /** Cache key for project asset audio: (project_id, asset_id) */
+    juce::String projectAssetCacheKey(const juce::String& projectId, int assetId) const;
+
+    /** Check if project asset audio is cached */
+    bool hasProjectAssetAudio(const juce::String& projectId, int assetId) const;
+
+    /** Load cached project asset audio */
+    juce::Result loadProjectAssetAudio(const juce::String& projectId,
+                                       int assetId,
+                                       std::shared_ptr<juce::AudioBuffer<float>>& audioBuffer);
+
+    /** Save raw project asset audio to cache */
+    juce::Result saveProjectAssetAudioRaw(const juce::String& projectId,
+                                          int assetId,
+                                          const juce::MemoryBlock& rawAudioData);
+
 private:
     /** Get the directory for a specific track */
     juce::File getTrackDirectory(const juce::String& trackId) const;

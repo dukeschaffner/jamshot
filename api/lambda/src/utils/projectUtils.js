@@ -237,6 +237,7 @@ async function serializeProjectState(projectId, options = {}) {
 
   if (variant === 'plugin') {
     return {
+      name: project.name,
       bpm: project.bpm,
       timeSignature: project.time_signature,
       durationSeconds: project.duration_seconds,

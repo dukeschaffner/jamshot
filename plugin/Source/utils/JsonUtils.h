@@ -98,4 +98,70 @@ struct JsonUtils
 
         return regions;
     }
+
+    static int parseProjectAssetIdFromUrl(const juce::String& audioUrl)
+    {
+        const int projectsMarker = audioUrl.indexOf("/projects/");
+        if (projectsMarker < 0)
+            return 0;
+
+        auto remainder = audioUrl.substring(projectsMarker + juce::String("/projects/").length());
+        const int projectIdEnd = remainder.indexOfChar('/');
+        if (projectIdEnd < 0)
+            return 0;
+
+        auto assetSegment = remainder.substring(projectIdEnd + 1);
+        const int assetIdEnd = assetSegment.indexOfChar('/');
+        if (assetIdEnd < 0)
+            return 0;
+
+        const int assetId = assetSegment.substring(0, assetIdEnd).getIntValue();
+        return assetId > 0 ? assetId : 0;
+    }
+
+    static ProjectClip parseProjectClip(const juce::var& clipJson)
+    {
+        ProjectClip clip;
+        clip.clipId = static_cast<int>(clipJson.getProperty("clipId", 0));
+        clip.trackId = static_cast<int>(clipJson.getProperty("trackId", 0));
+        clip.audioUrl = clipJson.getProperty("audioUrl", "").toString();
+        clip.assetId = static_cast<int>(clipJson.getProperty("assetId", 0));
+        if (clip.assetId <= 0)
+            clip.assetId = static_cast<int>(clipJson.getProperty("asset_id", 0));
+        if (clip.assetId <= 0)
+            clip.assetId = parseProjectAssetIdFromUrl(clip.audioUrl);
+        clip.startTime = static_cast<double>(clipJson.getProperty("startTime", 0.0));
+        clip.trimStart = static_cast<double>(clipJson.getProperty("trimStart", 0.0));
+
+        auto trimEndVar = clipJson.getProperty("trimEnd", juce::var());
+        if (!trimEndVar.isVoid() && !trimEndVar.isUndefined())
+            clip.trimEnd = static_cast<double>(trimEndVar);
+
+        clip.gain = static_cast<float>(clipJson.getProperty("gain", 1.0));
+        clip.trackGain = static_cast<float>(clipJson.getProperty("trackGain", 1.0));
+        return clip;
+    }
+
+    static juce::Array<ProjectClip> parseProjectClips(const juce::var& clipsJson)
+    {
+        juce::Array<ProjectClip> clips;
+        if (!clipsJson.isArray())
+            return clips;
+
+        for (int i = 0; i < clipsJson.size(); ++i)
+            clips.add(parseProjectClip(clipsJson[i]));
+
+        return clips;
+    }
+
+    static ProjectPluginPayload parseProjectPluginPayload(const juce::var& json)
+    {
+        ProjectPluginPayload payload;
+        payload.name = json.getProperty("name", "").toString();
+        payload.bpm = static_cast<int>(json.getProperty("bpm", 120));
+        payload.timeSignature = json.getProperty("timeSignature", "4/4").toString();
+        payload.durationSeconds = static_cast<double>(json.getProperty("durationSeconds", 60.0));
+        payload.clips = parseProjectClips(json.getProperty("clips", juce::var()));
+        return payload;
+    }
 };

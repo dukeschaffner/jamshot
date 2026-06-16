@@ -10,6 +10,7 @@
 #include "CacheManager.h"
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
+#include "api/ProjectLoader.h"
 #include "StemModels.h"
 #include "Services.h"
 #include "PluginState.h"
@@ -75,7 +76,10 @@ public:
 
     void loadStemsForTrack();
 
-    /** Request reload of current stems with new sample rate */
+    /** Load project clips for playback after set_project message. */
+    void loadProjectClips(const juce::String& projectId, const juce::Array<ProjectClip>& clips);
+
+    /** Request reload of current stems or project clips with new sample rate */
     void requestStemReload();
 
     /** Handle incoming message from WebSocket */
@@ -84,6 +88,14 @@ public:
     Services& getServices() { return services; }
 
 private:
+    void handleSetTrackMessage(juce::DynamicObject* obj);
+    void handleStemMetadataSyncMessage(juce::DynamicObject* obj);
+    void handleSetProjectMessage(juce::DynamicObject* obj);
+
+    void sendProjectLoadProgress(const juce::String& projectId, int current, int total);
+    void sendProjectLoadComplete(const juce::String& projectId);
+    void sendProjectLoadError(const juce::String& projectId, const juce::String& error);
+
     /** Handle sample rate changes and convert stems if necessary */
     void handleSampleRateChange(double newSampleRate);
 
@@ -97,6 +109,7 @@ private:
     SterioApiClient apiClient { authManager };
     ConnectionManager connectionManager;
     TrackLoader trackLoader { apiClient, cacheManager };
+    ProjectLoader projectLoader { apiClient, cacheManager };
     PluginState pluginState;
     Services services { authManager, apiClient, cacheManager, trackLoader, pluginState };
 
@@ -116,6 +129,9 @@ private:
 
     // Track and stem state management (thread-safe)
     std::shared_ptr<juce::Array<StemTrack>> stems;
+    juce::CriticalSection projectPayloadLock;
+    juce::String loadedProjectId;
+    juce::Array<ProjectClip> loadedProjectClips;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };

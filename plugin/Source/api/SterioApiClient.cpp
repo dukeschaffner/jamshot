@@ -151,6 +151,15 @@ ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoi
     return ApiResult<var>::ok(json);
 }
 
+ApiResult<ProjectPluginPayload> SterioApiClient::getProjectPluginPayload(const String& projectId)
+{
+    auto result = makeAuthenticatedGetRequest("/projects/" + projectId + "/plugin-payload");
+    if (result.failed())
+        return ApiResult<ProjectPluginPayload>::fail(result.getErrorMessage());
+
+    return ApiResult<ProjectPluginPayload>::ok(JsonUtils::parseProjectPluginPayload(*result));
+}
+
 UserInfo SterioApiClient::parseUserInfo(const var& json)
 {
     UserInfo info;

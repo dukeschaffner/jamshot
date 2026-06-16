@@ -626,6 +626,9 @@ const createApiMethods = (apiClient) => {
 
     createProjectSnapshot: (projectGuid, data = {}) =>
       api.post(`/projects/${projectGuid}/snapshots`, data),
+
+    getProjectPluginPayload: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/plugin-payload`),
   };
 
   // Admin API methods
