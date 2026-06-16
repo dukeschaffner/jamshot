@@ -17,10 +17,10 @@ Decisions: [decisions.md](./decisions.md) · Schema: [database.md](./database.md
 
 | Phase | Milestones | Goal |
 |---|---|---|
-| **1a** | 0–4, 5–11, 12–21, 22, **29–32** | Solo user: edit in browser, manual snapshot (create only), plugin loop |
+| **1a** | 0–4, 5–11, 12–21, 22, **29–31** | Solo user: edit in browser, manual snapshot (create only), plugin loop |
 | **1b** | 26–28 | Import, team/camp context, invites (REST-only; see [decisions.md](./decisions.md)) |
 | **2** | 33–38 | Real-time collaboration |
-| **Post-MVP** | 23–25, 39–41, 42+ | Snapshot auto/preview/restore, asset library, cleanup, polish |
+| **Post-MVP** | 23–25, 32, 39–41, 42+ | Snapshot auto/preview/restore, last project persistence, asset library, cleanup, polish |
 
 Phase 1b invites are **view-only** for non-owners until Phase 2 ships, OR defer Step 28 until after Milestone 7 — pick one in [decisions.md](./decisions.md) before implementing invites.
 
@@ -386,6 +386,7 @@ On `PATCH` 409 (`{ error, current_revision, server_revision }`):
 ## Milestone 5 — Plugin (single user) — Phase 1a exit
 
 > Moved before import/invites so Phase 1a exit criteria (browser → plugin → Logic) is reachable.
+> Step 32 (last project persistence) is **post-MVP** — see Milestone 10.
 
 ### Step 29 — Plugin `set_project` handler
 
@@ -419,7 +420,7 @@ On `PATCH` 409 (`{ error, current_revision, server_revision }`):
 
 ---
 
-### Step 32 — Last project persistence (plugin local)
+### Step 32 — Last project persistence (plugin local) *(post-MVP — deferred)*
 
 Store `last_project_id` in `PluginState`; offer reopen on plugin launch.
 
@@ -612,6 +613,7 @@ Pruning deletes snapshot row; `project_snapshot_assets` cascades.
 
 | Step | Feature |
 |---|---|
+| 32 | Last project persistence (plugin local) |
 | 42 | Publish project mixdown to public feed |
 | 43 | Plugin zoomed-out timeline view |
 | 44 | DAW ↔ web playhead sync |
@@ -629,7 +631,7 @@ Pruning deletes snapshot row; `project_snapshot_assets` cascades.
 | 4 | 12–14 | List/create/shell UI |
 | 5 | 15–21, 20b | Project DAW core + persistence |
 | 6 | 22 | Manual snapshot (create + list) |
-| 7 | 29–32 | Plugin (Phase 1a exit) |
+| 7 | 29–31 | Plugin (Phase 1a exit) |
 | 8 | 26–28 | Import + team/camp + invites (Phase 1b) |
 | 9 | 33–38 | Realtime |
 | 10 | 23–25 | Snapshot auto/preview/restore (post-MVP) |
@@ -662,10 +664,11 @@ Pruning deletes snapshot row; `project_snapshot_assets` cascades.
 
 ### Post-MVP
 
-12. Auto snapshot created on interval; tier limit prunes oldest auto snapshot
-13. Preview snapshot in read-only DAW; restore snapshot → deleted clip returns
-14. Remove clip from timeline → asset still in Files panel
-15. Auto-cleanup dry-run does not list snapshot-referenced assets
+12. Reopen DAW host → plugin offers last project (Step 32)
+13. Auto snapshot created on interval; tier limit prunes oldest auto snapshot
+14. Preview snapshot in read-only DAW; restore snapshot → deleted clip returns
+15. Remove clip from timeline → asset still in Files panel
+16. Auto-cleanup dry-run does not list snapshot-referenced assets
 
 ### Automation (recommended)
 

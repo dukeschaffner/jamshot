@@ -36,12 +36,16 @@ import {
   buildClipPatchPayload,
 } from './projectClipPlacement';
 import { useProjectPersistence } from '@/hooks/useProjectPersistence';
+import { useProjectPluginAutoSync } from '@/hooks/useProjectPluginAutoSync';
 import { applyProjectTransportSettings } from './projectLoader';
 import {
   getRevisionConflictInfo,
   isRevisionConflict,
 } from './projectRevisionConflict';
 import ProjectRevisionConflictDialog from './ProjectRevisionConflictDialog';
+import { fetchProjectPluginPayload } from './projectPluginSyncApi';
+import { buildSetProjectMessage } from './projectPluginSyncMessages';
+import { usePluginWebSocket } from '@/contexts/PluginWebSocketContext';
 
 const ProjectEditorContext = createContext(null);
 
@@ -66,6 +70,11 @@ const INACTIVE_PROJECT_EDITOR = {
   crossTrackDragPreview: null,
   setCrossTrackDragPreview: () => {},
   clearCrossTrackDragPreview: () => {},
+  pluginAutoSyncEnabled: true,
+  setPluginAutoSyncEnabled: () => {},
+  isPluginStale: false,
+  syncProjectToPlugin: async () => {},
+  openProjectInPlugin: async () => {},
 };
 
 function updateRegionMeta(track, region, patch) {
@@ -75,6 +84,7 @@ function updateRegionMeta(track, region, patch) {
 
 export function ProjectEditorProvider({ projectData, onProjectStateChange, children }) {
   const { showToast } = useToast();
+  const { send: sendPluginMessage } = usePluginWebSocket();
   const { trackManagerRef, tracks, syncTracksFromManager } = useDAW();
 
   const [armedTrackId, setArmedTrackIdState] = useState(null);
@@ -166,6 +176,18 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     [onProjectStateChange]
   );
 
+  const {
+    autoSyncEnabled: pluginAutoSyncEnabled,
+    setAutoSyncEnabled: setPluginAutoSyncEnabled,
+    isPluginStale,
+    clearPluginStale,
+    notifyProjectMutated,
+    syncToPluginNow,
+  } = useProjectPluginAutoSync({
+    projectGuid: projectData?.guid,
+    canEdit,
+  });
+
   const { scheduleClipPersist, scheduleProjectSettingsPersist, handleRevisionConflict } =
     useProjectPersistence({
       projectGuid: projectData?.guid,
@@ -174,6 +196,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       onRevisionOnlyUpdate,
       showToast,
       onConflictPrompt,
+      onRestSaveSuccess: notifyProjectMutated,
     });
 
   const resolveRevisionConflictReload = useCallback(async () => {
@@ -187,6 +210,30 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     setRevisionConflictPrompt(null);
     prompt?.onDiscard?.();
   }, [revisionConflictPrompt]);
+
+  const openProjectInPlugin = useCallback(async () => {
+    const current = projectDataRef.current;
+    if (!current?.guid || !canEdit) return false;
+
+    try {
+      const payload = await fetchProjectPluginPayload(current.guid);
+      const message = buildSetProjectMessage(current.guid, current.name, payload);
+      const sent = await sendPluginMessage(JSON.stringify(message));
+      if (sent) {
+        clearPluginStale();
+      }
+      return sent;
+    } catch (err) {
+      const message =
+        err.response?.data?.error || 'Failed to load project for plugin. Please try again.';
+      showToast({ message, variant: 'error' });
+      return false;
+    }
+  }, [canEdit, clearPluginStale, sendPluginMessage, showToast]);
+
+  const syncProjectToPlugin = useCallback(async () => {
+    return syncToPluginNow({ silentSuccess: false });
+  }, [syncToPluginNow]);
 
   const moveProjectRegion = useCallback(
     (fromTrackId, toTrackId, regionId, updatedRegion) => {
@@ -354,6 +401,8 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           const swapped = await swapRegionToServerAudio(track, region, audioUrl);
           if (!swapped) {
             markRegionSyncFailed(track, region, pollResult.error);
+          } else {
+            notifyProjectMutated();
           }
         } else {
           markRegionSyncFailed(
@@ -388,6 +437,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     [
       bumpInFlight,
       markRegionSyncFailed,
+      notifyProjectMutated,
       onProjectStateChange,
       showToast,
       swapRegionToServerAudio,
@@ -604,6 +654,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
             { revision: currentProject.revision }
           );
           applyProjectServerState(response.data);
+          notifyProjectMutated();
         } catch (err) {
           if (isRevisionConflict(err)) {
             await handleRevisionConflict({
@@ -630,7 +681,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         recordUndo: false,
       });
     },
-    [applyProjectServerState, handleRevisionConflict, showToast, trackManagerRef]
+    [applyProjectServerState, handleRevisionConflict, notifyProjectMutated, showToast, trackManagerRef]
   );
 
   useEffect(() => {
@@ -722,6 +773,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         revision: projectData.revision,
       });
       applyProjectServerState(response.data);
+      notifyProjectMutated();
     } catch (err) {
       if (isRevisionConflict(err)) {
         await handleRevisionConflict({
@@ -740,6 +792,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     canEdit,
     handleRevisionConflict,
     isTrackMutationPending,
+    notifyProjectMutated,
     projectData,
     showToast,
     tracks.length,
@@ -758,6 +811,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           { revision: projectData.revision }
         );
         applyProjectServerState(response.data);
+        notifyProjectMutated();
       } catch (err) {
         if (isRevisionConflict(err)) {
           await handleRevisionConflict({
@@ -777,6 +831,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       canEdit,
       handleRevisionConflict,
       isTrackMutationPending,
+      notifyProjectMutated,
       projectData,
       showToast,
     ]
@@ -805,6 +860,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       setCrossTrackDragPreview,
       clearCrossTrackDragPreview,
       isClipInFlight,
+      pluginAutoSyncEnabled,
+      setPluginAutoSyncEnabled,
+      isPluginStale,
+      syncProjectToPlugin,
+      openProjectInPlugin,
     }),
     [
       projectData,
@@ -826,6 +886,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       crossTrackDragPreview,
       setCrossTrackDragPreview,
       clearCrossTrackDragPreview,
+      pluginAutoSyncEnabled,
+      setPluginAutoSyncEnabled,
+      isPluginStale,
+      syncProjectToPlugin,
+      openProjectInPlugin,
     ]
   );
 

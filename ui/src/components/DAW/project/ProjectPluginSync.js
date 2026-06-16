@@ -1,55 +1,33 @@
 'use client';
 
 import { useProjectEditor } from './ProjectEditorContext';
-import { usePluginWebSocket } from '../../../contexts/PluginWebSocketContext';
-import { projectApi } from '@/lib/api';
-import { useToast } from '@/lib/ToastContext';
-import {
-  buildProjectSyncMessage,
-  buildSetProjectMessage,
-} from './projectPluginSyncMessages';
 import styles from '../DAW.module.css';
-
-async function fetchPluginPayload(projectGuid) {
-  const response = await projectApi.getProjectPluginPayload(projectGuid);
-  return response.data;
-}
+import pluginStyles from './ProjectPluginSync.module.css';
 
 export default function ProjectPluginSync({ setShowMenu }) {
-  const { send } = usePluginWebSocket();
-  const { isActive, canEdit, projectData } = useProjectEditor();
-  const { showToast } = useToast();
+  const {
+    isActive,
+    canEdit,
+    pluginAutoSyncEnabled,
+    setPluginAutoSyncEnabled,
+    isPluginStale,
+    syncProjectToPlugin,
+    openProjectInPlugin,
+  } = useProjectEditor();
 
-  const handlePluginError = (err, fallbackMessage) => {
-    const message = err.response?.data?.error || fallbackMessage;
-    showToast({ message, variant: 'error' });
+  const handleAutoSyncToggle = (event) => {
+    setPluginAutoSyncEnabled(event.target.checked);
   };
 
-  const openInPlugin = async () => {
-    if (!isActive || !canEdit || !projectData?.guid) return;
-
-    try {
-      const payload = await fetchPluginPayload(projectData.guid);
-      const msg = buildSetProjectMessage(projectData.guid, projectData.name, payload);
-      await send(JSON.stringify(msg));
-    } catch (err) {
-      handlePluginError(err, 'Failed to load project for plugin. Please try again.');
-    }
-
+  const handleOpenInPlugin = async () => {
+    if (!isActive || !canEdit) return;
+    await openProjectInPlugin();
     setShowMenu?.(false);
   };
 
-  const syncToPlugin = async () => {
-    if (!isActive || !canEdit || !projectData?.guid) return;
-
-    try {
-      const payload = await fetchPluginPayload(projectData.guid);
-      const msg = buildProjectSyncMessage(projectData.guid, payload);
-      await send(JSON.stringify(msg));
-    } catch (err) {
-      handlePluginError(err, 'Failed to sync project to plugin. Please try again.');
-    }
-
+  const handleSyncToPlugin = async () => {
+    if (!isActive || !canEdit) return;
+    await syncProjectToPlugin();
     setShowMenu?.(false);
   };
 
@@ -59,12 +37,24 @@ export default function ProjectPluginSync({ setShowMenu }) {
 
   return (
     <>
-      <button type="button" className={styles.menuItem} onClick={openInPlugin}>
+      <label className={pluginStyles.autoSyncRow}>
+        <input
+          type="checkbox"
+          className={pluginStyles.autoSyncInput}
+          checked={pluginAutoSyncEnabled}
+          onChange={handleAutoSyncToggle}
+        />
+        <span>Auto-sync edits to plugin</span>
+      </label>
+      <button type="button" className={styles.menuItem} onClick={handleOpenInPlugin}>
         Open in Plugin
       </button>
-      <button type="button" className={styles.menuItem} onClick={syncToPlugin}>
-        Sync to Plugin
-      </button>
+      {!pluginAutoSyncEnabled ? (
+        <button type="button" className={styles.menuItem} onClick={handleSyncToPlugin}>
+          Sync edits to plugin
+          {isPluginStale ? <span className={pluginStyles.staleBadge}>stale</span> : null}
+        </button>
+      ) : null}
     </>
   );
 }

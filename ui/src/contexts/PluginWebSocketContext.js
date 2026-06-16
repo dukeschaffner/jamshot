@@ -66,6 +66,8 @@ export function PluginWebSocketProvider({ children }) {
   const { showSuccess, showError } = useToast();
   const showSuccessRef = useRef(showSuccess);
   const showErrorRef = useRef(showError);
+  const silentSuccessTypesRef = useRef(new Set());
+  const messageListenersRef = useRef(new Set());
 
   useEffect(() => {
     showSuccessRef.current = showSuccess;
@@ -95,7 +97,11 @@ export function PluginWebSocketProvider({ children }) {
     if (!parsed?.type) return;
 
     if (parsed.type === 'project_load_complete') {
-      showSuccessRef.current(successMessages.set_project);
+      if (!silentSuccessTypesRef.current.has('set_project')) {
+        showSuccessRef.current(successMessages.set_project);
+      } else {
+        silentSuccessTypesRef.current.delete('set_project');
+      }
       return;
     }
 
@@ -107,7 +113,11 @@ export function PluginWebSocketProvider({ children }) {
     }
 
     if (parsed.type === 'project_sync_complete') {
-      showSuccessRef.current(successMessages.project_sync);
+      if (!silentSuccessTypesRef.current.has('project_sync')) {
+        showSuccessRef.current(successMessages.project_sync);
+      } else {
+        silentSuccessTypesRef.current.delete('project_sync');
+      }
       return;
     }
 
@@ -171,6 +181,13 @@ export function PluginWebSocketProvider({ children }) {
       ws.current.onmessage = (e) => {
         addLog(e.data, 'incoming');
         handleIncomingPluginMessage(e.data);
+        for (const listener of messageListenersRef.current) {
+          try {
+            listener(e.data);
+          } catch (err) {
+            console.error('Plugin message listener error:', err);
+          }
+        }
       };
     }
     catch (err) {
@@ -186,12 +203,20 @@ export function PluginWebSocketProvider({ children }) {
     addLog('Manually disconnected');
   }, [addLog]);
 
-  const send = useCallback(async (msg) => {
+  const subscribeToMessages = useCallback((listener) => {
+    messageListenersRef.current.add(listener);
+    return () => {
+      messageListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const send = useCallback(async (msg, options = {}) => {
     if (!msg || (typeof msg === 'string' && !msg.trim())) return false;
 
     const type = getMessageType(msg);
     const successMessage = successMessages[type];
     const errorMessage = errorMessages[type] || 'Failed to send message to plugin. Make sure the plugin is installed and running in a DAW.';
+    const silentSuccess = options.silentSuccess === true;
 
     const fail = () => {
       addLog('Send failed: ' + errorMessage, 'system');
@@ -226,6 +251,10 @@ export function PluginWebSocketProvider({ children }) {
       socket.send(msg);
       addLog(msg, 'outgoing');
 
+      if (silentSuccess && type) {
+        silentSuccessTypesRef.current.add(type);
+      }
+
       if (successMessage && !DEFERRED_SUCCESS_TYPES.has(type)) {
         showSuccess(successMessage);
       }
@@ -247,7 +276,7 @@ export function PluginWebSocketProvider({ children }) {
 
   return (
     <PluginWebSocketContext.Provider
-      value={{ status, log, connect, disconnect, send, userHasPlugin }}
+      value={{ status, log, connect, disconnect, send, subscribeToMessages, userHasPlugin }}
     >
       {children}
       <ConfirmationDialog

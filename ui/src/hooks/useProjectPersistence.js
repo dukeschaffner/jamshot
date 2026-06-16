@@ -16,6 +16,7 @@ export function useProjectPersistence({
   onRevisionOnlyUpdate,
   showToast,
   onConflictPrompt,
+  onRestSaveSuccess,
 }) {
   const revisionRef = useRef(revision);
   const dirtyClipIdsRef = useRef(new Set());
@@ -182,6 +183,7 @@ export function useProjectPersistence({
       revisionRef.current = response.data.revision;
       dirtyProjectSettingsRef.current = false;
       applyProjectServerState?.(response.data);
+      onRestSaveSuccess?.();
     } catch (err) {
       const status = err.response?.status;
       const message =
@@ -207,6 +209,7 @@ export function useProjectPersistence({
   }, [
     applyProjectServerState,
     handleRevisionConflict,
+    onRestSaveSuccess,
     projectGuid,
     revertCollectedStates,
     showToast,
@@ -252,6 +255,7 @@ export function useProjectPersistence({
         revisionRef.current = response.data.revision;
         dirtyClipIdsRef.current.delete(clipId);
         applyProjectServerState?.(response.data);
+        onRestSaveSuccess?.();
       } catch (err) {
         const status = err.response?.status;
         const message =
@@ -279,6 +283,7 @@ export function useProjectPersistence({
     [
       applyProjectServerState,
       handleRevisionConflict,
+      onRestSaveSuccess,
       projectGuid,
       revertCollectedStates,
       showToast,

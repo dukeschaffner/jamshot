@@ -21,7 +21,7 @@ Parent: [overview.md](./overview.md) · Decisions: [decisions.md](./decisions.md
 
 ---
 
-## Phase 1a — project playback + sync (Steps 29–32)
+## Phase 1a — project playback + sync (Steps 29–31; Step 32 post-MVP)
 
 ### PluginProcessor routing (prerequisite)
 
@@ -83,7 +83,7 @@ Plugin may fetch `GET /projects/:id/plugin-payload` instead of inline payload �
 1. `ProjectLoader` — fetch `plugin-payload`; download audio by public URL
 2. Map clips → `StemPlaybackEngine` (see Clip mapping below)
 3. Cache **audio files** by `(project_id, asset_id)` in `CacheManager` (see Audio cache below)
-4. `PluginState.last_project_id` for reopen (Step 32)
+4. `PluginState.last_project_id` for reopen (Step 32 — post-MVP)
 
 ### Audio cache
 

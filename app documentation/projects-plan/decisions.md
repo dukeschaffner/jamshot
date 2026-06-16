@@ -22,10 +22,10 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 
 | Phase | Scope |
 |---|---|
-| **1a** | Solo user: DB, REST, DAW, manual snapshot (create + list), plugin (Milestones 0–4, 5–11, 12–21, 22, 29–32) |
+| **1a** | Solo user: DB, REST, DAW, manual snapshot (create + list), plugin (Milestones 0–4, 5–11, 12–21, 22, 29–31) |
 | **1b** | Import, team/camp projects, invites (Milestones 6 / Steps 26–28) |
 | **2** | Real-time collaboration (Milestone 7) |
-| **3** | Post-MVP: snapshot auto/preview/restore (Steps 23–25), asset library, polish |
+| **3** | Post-MVP: snapshot auto/preview/restore (Steps 23–25), last project persistence (Step 32), asset library, polish |
 
 **Phase 1a exit criteria:** create project → edit in browser → open in plugin → record in Logic → export WAV → drag back onto web timeline (Step 18).
 

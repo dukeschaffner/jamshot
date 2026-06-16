@@ -30,6 +30,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 20b — `useProjectPersistence` hook | **Done (code)** | Debounced clip + transport saves; dirty tracking for 409 UX |
 | 21 — Revision conflict handling | **Done (code)** | Silent rebase when clean; toast + reload/discard dialog when dirty |
 | 22 — Manual snapshot | **Done (code)** | `POST/GET .../snapshots`; toolbar panel with optional label + history list |
+| 31 — Auto-sync (default on) | **Done (code)** | Debounced `project_sync` after REST saves when plugin connected; toolbar toggle |
 | 6b+ | Not started | |
 
 ---
@@ -759,6 +760,50 @@ GET  /api/projects/{guid}/snapshots
 
 ---
 
+## Step 31 — Auto-sync (default on)
+
+Debounced `project_sync` to the local plugin after REST saves when auto-sync is enabled and the plugin WS is connected.
+
+### Behavior
+
+| Condition | Behavior |
+|-----------|----------|
+| Auto-sync **on** (default) + plugin connected | After REST save → mark stale → debounced `project_sync` (500ms, silent success toast) |
+| Auto-sync **off** | REST save → mark stale only; manual **Sync to Plugin** required |
+| Plugin disconnected | Mark stale; no send attempt or error spam |
+| Plugin reconnects while stale + auto-sync on | Debounced sync scheduled |
+| `project_sync_complete` / `project_load_complete` | Clears stale badge |
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `hooks/useProjectPluginAutoSync.js` | Debounced sync, stale state, auto-sync preference |
+| `project/projectPluginAutoSyncStorage.js` | `localStorage` preference (default on) |
+| `project/projectPluginSyncApi.js` | `fetchProjectPluginPayload` helper |
+| `project/ProjectPluginSync.js` | Auto-sync toggle, stale badge, manual sync / open |
+| `project/ProjectsConfig.js` | `PLUGIN_AUTO_SYNC_DEBOUNCE_MS`, storage key |
+| `hooks/useProjectPersistence.js` | `onRestSaveSuccess` after clip + transport PATCH |
+| `project/ProjectEditorContext.js` | Wires hook; notifies after track/clip REST mutations |
+| `contexts/PluginWebSocketContext.js` | `subscribeToMessages`, `send(..., { silentSuccess })` |
+
+### REST paths that trigger plugin sync notification
+
+- Debounced clip PATCH + transport PATCH (`useProjectPersistence`)
+- Track add/delete
+- Clip delete (failed clip cleanup)
+- Clip upload when processing completes and server audio is swapped (not on upload POST)
+
+### Manual verify
+
+1. Open project in web + plugin in DAW; **Open in Plugin** once
+2. Confirm **Auto-sync to plugin** is checked by default
+3. Drag a clip → within ~500ms plugin reflects change (no manual sync click)
+4. Uncheck auto-sync → edit → plugin unchanged; **Sync to Plugin** shows **stale** badge → manual sync updates plugin
+5. With auto-sync on, close plugin WS → edit → no error toast; reconnect plugin → auto-sync catches up
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -865,4 +910,5 @@ GET  /api/projects/{guid}/snapshots
 | 2026-06-10 | 20b | `useProjectPersistence` hook — clip + transport writes, dirty tracking |
 | 2026-06-10 | 21 | Revision 409 UX — silent rebase when clean; reload/discard dialog when dirty |
 | 2026-06-15 | 22 | Manual snapshots API + DAW toolbar panel; `project_snapshot_assets` index on create |
+| 2026-06-16 | 31 | Plugin auto-sync: debounced `project_sync` after REST saves; toolbar toggle (default on) |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |
