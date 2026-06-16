@@ -50,6 +50,7 @@ Web → plugin:
     "clips": [
       {
         "clipId": 10,
+        "assetId": 42,
         "trackId": 1,
         "audioUrl": "https://...r2.../projects/1/42/audio.wav",
         "startTime": 0,
@@ -81,8 +82,28 @@ Plugin may fetch `GET /projects/:id/plugin-payload` instead of inline payload �
 
 1. `ProjectLoader` — fetch `plugin-payload`; download audio by public URL
 2. Map clips → `StemPlaybackEngine` (see Clip mapping below)
-3. Cache by `(project_id, clip_id)` in `CacheManager`
+3. Cache **audio files** by `(project_id, asset_id)` in `CacheManager` (see Audio cache below)
 4. `PluginState.last_project_id` for reopen (Step 32)
+
+### Audio cache
+
+Multiple clips can share one asset. Cache **audio bytes** by asset, not by clip — same check-before-download pattern as track mode (`cacheManager.txt`).
+
+| Layer | Key | Contents |
+|---|---|---|
+| Disk cache | `(project_id, asset_id)` | Raw/decoded WAV (mirrors R2 path `projects/{projectId}/{assetId}/audio.wav`) |
+| Playback state | `clipId` | Pointer to cached asset buffer + trim/start/gain |
+| Sync diff | `clipId` | Replace/update clip metadata on `project_sync` |
+
+Flow:
+
+1. On load/sync, collect distinct `assetId`s from clips
+2. For each asset: if not cached, download from `audioUrl` and store; else reuse
+3. Wire each clip to its asset buffer with clip-specific trim/placement
+
+Invalidation: re-download only when a clip's `assetId` changes (re-record/retry). Trim, gain, and position changes update playback state only — no re-download.
+
+Extend `CacheManager` with project asset methods (or a `ProjectCacheManager` wrapper) — do not duplicate the same WAV once per clip.
 
 ### Web work
 
@@ -107,7 +128,7 @@ Track stems:
 Project clips:
 
 ```
-{ clipId, audioUrl, startTime, trimStart, trimEnd, gain, trackGain }
+{ clipId, assetId, audioUrl, startTime, trimStart, trimEnd, gain, trackGain }
 ```
 
 Adapter:
@@ -144,7 +165,7 @@ Step 29 "in sync with transport" means host DAW transport, not web playhead.
 
 - Extend `plugin/ws.js` for project messages
 - Integration: web project page → `set_project` → audio in Logic/REAPER
-- Cache: clip `asset_id` change → `project_sync` refreshes buffer
+- Cache: two clips sharing `assetId` → one download; clip `assetId` change on re-record → fetch new asset only
 
 ---
 

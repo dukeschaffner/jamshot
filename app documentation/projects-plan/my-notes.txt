@@ -14,3 +14,4 @@
 - switch to event/operation based instead of state based for project persistence
 - make sure temp uploaded files in R2 get deleted
 - project storage management (ie if several audio files are uploaded with only 3s regions made from them... storage could get out of control)
+    - make sure clips made from the same audio file do not create duplicate assets

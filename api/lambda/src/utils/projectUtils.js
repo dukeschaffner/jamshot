@@ -52,6 +52,7 @@ function mapTrackRow(row, { variant, includeProcessingDetails }) {
     }
     track.clips.push({
       clipId: row.clip_id,
+      assetId: row.asset_id,
       trackId: row.track_id,
       audioUrl: getProjectAssetPublicUrl(row.storage_key || row.audio_url),
       startTime: row.start_time_seconds,

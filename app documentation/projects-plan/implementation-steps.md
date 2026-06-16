@@ -221,7 +221,7 @@ Validate: clip end ≤ project duration; `asset.project_id` matches track's proj
 
 ### Step 11 — Plugin payload endpoint
 
-- `GET /projects/:id/plugin-payload` — flat clip list with **public R2 URLs** (`${R2_PUBLIC_URL}/{storage_key}`), timeline layout, gains
+- `GET /projects/:id/plugin-payload` — flat clip list with **`assetId`**, **public R2 URLs** (`${R2_PUBLIC_URL}/{storage_key}`), timeline layout, gains
 
 Editors only (viewers get 403 — no audio URL leak).
 
@@ -392,18 +392,20 @@ On `PATCH` 409 (`{ error, current_revision, server_revision }`):
 - Restructure `PluginProcessor::handleIncomingMessage` to branch on `type` first (`set_track` vs `set_project`)
 - Parse `set_project` WS message
 - Fetch `plugin-payload` with auth token (or use inline payload)
-- Map clips → `StemPlaybackEngine`; cache by `(project_id, clip_id)`
+- Map clips → `StemPlaybackEngine`; cache **audio** by `(project_id, asset_id)` in `CacheManager` (see [plugin.md](./plugin.md#audio-cache))
+- Plugin payload / WS clip shape includes `assetId` for cache lookup and sync diffing
 
-**Done when:** Web "Open in Plugin" → audio plays in DAW host following host transport.
+**Done when:** Web "Open in Plugin" → audio plays in DAW host following host transport; shared assets downloaded once.
 
 ---
 
 ### Step 30 — Manual `project_sync`
 
 - Web sends `project_sync` after edits when auto-sync off
-- Plugin replaces clip metadata + re-downloads changed audio (by `clipId`, not `stem_metadata_sync` merge)
+- Plugin replaces clip metadata by `clipId` (not `stem_metadata_sync` merge)
+- Re-download audio only when a clip's `assetId` changes; trim/gain/position updates skip download
 
-**Done when:** Edit clip gain/position in web → manual sync → plugin reflects change.
+**Done when:** Edit clip gain/position in web → manual sync → plugin reflects change without re-download; re-record → new asset fetched once.
 
 ---
 

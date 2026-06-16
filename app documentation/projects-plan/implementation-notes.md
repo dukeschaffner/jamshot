@@ -219,7 +219,7 @@ Delegates to `getProjectLimits` from `@sterio/subscription-utils`:
 |-----------|----------|-------|
 | `'rest'` (default) | `GET /projects/:id` | Project metadata + nested tracks/clips; public R2 URLs on completed clips; `processingStatus` on clips |
 | `'snapshot'` | `project_snapshots.state` | Timeline only; clips reference `assetId` (no URLs) |
-| `'plugin'` | `GET .../plugin-payload` | Flat `clips[]` with completed audio only |
+| `'plugin'` | `GET .../plugin-payload` | Flat `clips[]` with `assetId`, completed audio URLs only |
 
 Audio URLs: `${R2_PUBLIC_URL}/${storage_key}` via `getProjectAssetPublicUrl`. Soft-deleted clips excluded.
 
@@ -398,6 +398,7 @@ DELETE /api/projects/1/clips/1  { "revision": N }
   "clips": [
     {
       "clipId": 1,
+      "assetId": 3,
       "trackId": 2,
       "audioUrl": "https://...r2.../projects/1/3/audio.wav",
       "startTime": 0,

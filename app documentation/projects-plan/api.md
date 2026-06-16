@@ -221,7 +221,7 @@ See [snapshots.md](./snapshots.md).
 |---|---|---|
 | `GET` | `/projects/:id/plugin-payload` | Public R2 URLs + clip layout for plugin |
 
-Returns flat clip list with timeline positions, gains — optimized for `StemPlaybackEngine` adapter (see [plugin.md](./plugin.md)).
+Returns flat clip list with `assetId`, timeline positions, gains, and public R2 URLs — optimized for `StemPlaybackEngine` adapter and asset-keyed plugin cache (see [plugin.md](./plugin.md)).
 
 **Editors only** — viewers receive 403.
 

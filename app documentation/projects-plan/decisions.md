@@ -94,6 +94,7 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 | Auto-sync default | On |
 | Auth | Same OAuth as today |
 | Audio fetch | Public R2 URLs from `plugin-payload` |
+| Plugin audio cache | By `(project_id, asset_id)` in `CacheManager`; clips share asset buffers |
 | Playhead sync | None between DAW and web for MVP |
 | Timeline view in plugin | Future phase |
 | Last project | Stored locally in plugin |
