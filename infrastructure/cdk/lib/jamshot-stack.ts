@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { LogRetention } from 'aws-cdk-lib/aws-logs';
 import { EmailNotificationsConstruct } from './constructs/email-notifications-construct';
+import { ProjectWsConstruct } from './constructs/project-ws-construct';
 import { VideoExportConstruct } from './constructs/video-export-construct';
 
 export class JamshotStack extends cdk.Stack {
@@ -19,6 +20,11 @@ export class JamshotStack extends cdk.Stack {
       stack: this,
     });
 
+    // Project WebSocket API + Lambda (realtime sync)
+    new ProjectWsConstruct(this, 'ProjectWs', {
+      stack: this,
+    });
+
     // Adding log retention to existing Lambda functions not managed by CDK
     const existingLambdas = [
       'sterio-analytics-aggregator',
@@ -29,7 +35,9 @@ export class JamshotStack extends cdk.Stack {
       'sterio-audio-processor-test',
       'sterio-competition-processor-test',
       'sterio-analytics-cleanup',
-      'sterio-analytics-cleanup-test'
+      'sterio-analytics-cleanup-test',
+      'sterio-project-ws',
+      'sterio-project-ws-test',
     ];
 
     // Apply log retention to all existing Lambda functions

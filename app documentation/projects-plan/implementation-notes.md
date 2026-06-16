@@ -31,6 +31,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 21 — Revision conflict handling | **Done (code)** | Silent rebase when clean; toast + reload/discard dialog when dirty |
 | 22 — Manual snapshot | **Done (code)** | `POST/GET .../snapshots`; toolbar panel with optional label + history list |
 | 31 — Auto-sync (default on) | **Done (code)** | Debounced `project_sync` after REST saves when plugin connected; toolbar toggle |
+| 33 — WS infra + realtime tables | **Done (code)** | API Gateway WS CDK construct, lambda handlers, Neon tables, local dev server |
 | 6b+ | Not started | |
 
 ---
@@ -117,7 +118,7 @@ DDL lives in `api/db-updates.txt` under **Migration: Projects schema (2026-06-10
 
 ### Not in this migration (later steps)
 
-- `project_ws_connections`, `project_track_locks` — **Step 33** (Phase 2 realtime)
+- ~~`project_ws_connections`, `project_track_locks` — **Step 33** (Phase 2 realtime)~~ **Done (Step 33)**
 - No FK to social `tracks` — import is copy-only
 
 ### Implementation choices
@@ -804,6 +805,73 @@ Debounced `project_sync` to the local plugin after REST saves when auto-sync is 
 
 ---
 
+## Step 33 — API Gateway WebSocket infra + Neon realtime tables
+
+Central project sync WebSocket (Phase 2). Plugin local WS unchanged.
+
+### Database (`api/db-updates.txt`)
+
+| Table | Purpose |
+|-------|---------|
+| `project_ws_connections` | Active room membership after `join` |
+| `project_ws_connection_auth` | Ephemeral `$connect` auth binding (deleted on disconnect) |
+| `project_track_locks` | Track locks (schema only — enforcement in Step 35+) |
+
+Apply migration manually on dev DB (same block as in `db-updates.txt`).
+
+### Lambda + routes
+
+| Route | Behavior |
+|-------|----------|
+| `$connect` | Validate `?token=` (Better Auth bearer) or `?devUserId=` when `NODE_ENV=dev`; store auth binding |
+| `$default` | `join` → `checkProjectAccess`, connection cap, insert `project_ws_connections`; `presence` → touch `last_seen_at` |
+| `$disconnect` | Delete connection + auth rows |
+
+Gated by `projects` feature flag (404 when off).
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `api/lambda/src/projectWs/*` | Router, auth, join handler, connection DB helpers |
+| `functions/lambda/project-ws/index.js` | Lambda entry |
+| `functions/lambda/project-ws/dev-server.js` | Local WS on port **5003** |
+| `infrastructure/cdk/lib/constructs/project-ws-construct.ts` | WS API + Lambda (test/prod) + `execute-api:ManageConnections` IAM |
+| `.github/workflows/deploy-project-ws-lambda.yml` | Deploy `sterio-project-ws-test` / `sterio-project-ws` |
+
+### Local test
+
+```bash
+# 1. Apply Step 33 migration on dev DB (see db-updates.txt)
+
+# 2. Terminal A — WS dev server (loads api/lambda/.env)
+cd functions/lambda/project-ws && npm run dev
+
+# 3. Terminal B — connect + join + verify DB row
+cd api/lambda && node testing/project-ws-connect-test.js --projectId=1
+# Or: --projectGuid=<uuid>
+```
+
+Connect URL: `ws://localhost:5003?devUserId=RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE`
+
+Join message:
+
+```json
+{ "type": "join", "projectId": 1, "revision": 1, "protocolVersion": 1 }
+```
+
+Success response: `{ "type": "joined", "projectId", "revision", "role", "protocolVersion": 1 }`
+
+### AWS deploy
+
+1. `cd infrastructure/cdk && cdk deploy` — creates WS APIs + placeholder Lambdas (once)
+2. Push lambda code — GitHub Actions `deploy-project-ws-lambda.yml`
+3. WS URL from CDK output `ProjectWsTestUrl` / `ProjectWsProdUrl`
+
+Production clients connect with `?token=<better-auth-bearer-token>`.
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -911,4 +979,5 @@ Debounced `project_sync` to the local plugin after REST saves when auto-sync is 
 | 2026-06-10 | 21 | Revision 409 UX — silent rebase when clean; reload/discard dialog when dirty |
 | 2026-06-15 | 22 | Manual snapshots API + DAW toolbar panel; `project_snapshot_assets` index on create |
 | 2026-06-16 | 31 | Plugin auto-sync: debounced `project_sync` after REST saves; toolbar toggle (default on) |
+| 2026-06-16 | 33 | Project WS infra: Neon realtime tables, API Gateway CDK construct, lambda handlers, local dev server on :5003 |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |

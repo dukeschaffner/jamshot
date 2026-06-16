@@ -38,3 +38,10 @@ node ./functions/lambda/email-notifications/index.js daily weekly       # Force 
 RUNNING ISSUES VISUALIZER:
 cd issues-visualizer
 npm run dev
+
+
+
+
+
+PROJECTS WS DEV SERVER:
+cd functions/lambda/project-ws && npm run dev
