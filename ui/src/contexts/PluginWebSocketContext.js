@@ -38,7 +38,7 @@ function waitForWebSocketOpen(socket, { timeoutMs = 5000 } = {}) {
   });
 }
 
-const DEFERRED_SUCCESS_TYPES = new Set(['set_project']);
+const DEFERRED_SUCCESS_TYPES = new Set(['set_project', 'project_sync']);
 
 function parseIncomingMessage(data) {
   if (!data || typeof data !== 'string') return null;
@@ -80,12 +80,14 @@ export function PluginWebSocketProvider({ children }) {
     'set_track': 'Track opened in plugin successfully!',
     'stem_metadata_sync': 'Edits synced to plugin successfully!',
     'set_project': 'Project opened in plugin successfully!',
+    'project_sync': 'Project synced to plugin successfully!',
   };
 
   const errorMessages = {
     'set_track': 'Failed to open track in plugin. Make sure the plugin is installed and running in a DAW.',
     'stem_metadata_sync': 'Failed to sync edits to plugin. Make sure the plugin is installed and running in a DAW.',
     'set_project': 'Failed to open project in plugin. Make sure the plugin is installed and running in a DAW.',
+    'project_sync': 'Failed to sync project to plugin. Make sure the plugin is installed and running in a DAW.',
   };
 
   const handleIncomingPluginMessage = useCallback((rawMessage) => {
@@ -100,6 +102,18 @@ export function PluginWebSocketProvider({ children }) {
     if (parsed.type === 'project_load_error') {
       showErrorRef.current(
         parsed.error || errorMessages.set_project
+      );
+      return;
+    }
+
+    if (parsed.type === 'project_sync_complete') {
+      showSuccessRef.current(successMessages.project_sync);
+      return;
+    }
+
+    if (parsed.type === 'project_sync_error') {
+      showErrorRef.current(
+        parsed.error || errorMessages.project_sync
       );
     }
   }, []);

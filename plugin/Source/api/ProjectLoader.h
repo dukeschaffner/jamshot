@@ -30,6 +30,16 @@ public:
                                             const juce::Array<ProjectClip>& clips,
                                             double targetSampleRate);
 
+    /**
+     * Apply project_sync clip updates. Reuses cached audio when assetId is unchanged;
+     * downloads only when a clip's assetId changes or is new.
+     */
+    juce::Array<StemTrack> syncProjectClips(const juce::String& projectId,
+                                             const juce::Array<ProjectClip>& previousClips,
+                                             const juce::Array<ProjectClip>& newClips,
+                                             const juce::Array<StemTrack>& existingStems,
+                                             double targetSampleRate);
+
     using LoadProgressCallback = std::function<void(int current, int total)>;
 
     /** Optional callback invoked as each distinct project asset is loaded (0..total). */

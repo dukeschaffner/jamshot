@@ -57,6 +57,41 @@
 }
 
 
+// project_sync:
+{
+    "type": "project_sync",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000",
+    "payload": {
+        "clips": [
+            {
+                "clipId": 10,
+                "assetId": 42,
+                "trackId": 1,
+                "audioUrl": "https://cdn.example.com/projects/1/42/audio.wav",
+                "startTime": 0,
+                "trimStart": 0,
+                "trimEnd": null,
+                "gain": 0.8,
+                "trackGain": 0.8
+            }
+        ]
+    }
+}
+
+// project_sync_complete:
+{
+    "type": "project_sync_complete",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+
+// project_sync_error:
+{
+    "type": "project_sync_error",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000",
+    "error": "No matching project loaded in plugin. Open the project in the plugin first."
+}
+
+
 // stem_metadata_sync:
 {
     "type": "stem_metadata_sync",

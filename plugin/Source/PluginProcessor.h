@@ -79,6 +79,11 @@ public:
     /** Load project clips for playback after set_project message. */
     void loadProjectClips(const juce::String& projectId, const juce::Array<ProjectClip>& clips);
 
+    /** Apply project_sync clip updates without full reload when possible. */
+    void syncProjectClips(const juce::String& projectId,
+                          const juce::Array<ProjectClip>& previousClips,
+                          const juce::Array<ProjectClip>& newClips);
+
     /** Request reload of current stems or project clips with new sample rate */
     void requestStemReload();
 
@@ -91,10 +96,13 @@ private:
     void handleSetTrackMessage(juce::DynamicObject* obj);
     void handleStemMetadataSyncMessage(juce::DynamicObject* obj);
     void handleSetProjectMessage(juce::DynamicObject* obj);
+    void handleProjectSyncMessage(juce::DynamicObject* obj);
 
     void sendProjectLoadProgress(const juce::String& projectId, int current, int total);
     void sendProjectLoadComplete(const juce::String& projectId);
     void sendProjectLoadError(const juce::String& projectId, const juce::String& error);
+    void sendProjectSyncComplete(const juce::String& projectId);
+    void sendProjectSyncError(const juce::String& projectId, const juce::String& error);
 
     /** Handle sample rate changes and convert stems if necessary */
     void handleSampleRateChange(double newSampleRate);

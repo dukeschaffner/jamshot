@@ -218,6 +218,86 @@ Array<StemTrack> ProjectLoader::loadProjectClips(const String& projectId,
     return stems;
 }
 
+juce::Array<StemTrack> ProjectLoader::syncProjectClips(const String& projectId,
+                                                       const Array<ProjectClip>& previousClips,
+                                                       const Array<ProjectClip>& newClips,
+                                                       const Array<StemTrack>& existingStems,
+                                                       double targetSampleRate)
+{
+    if (newClips.isEmpty())
+        return {};
+
+    std::map<int, int> previousAssetByClipId;
+    for (const auto& clip : previousClips)
+        previousAssetByClipId.emplace(clip.clipId, clip.assetId);
+
+    std::map<int, std::shared_ptr<AudioBuffer<float>>> assetBuffers;
+    for (const auto& stem : existingStems)
+    {
+        if (!stem.audioBuffer)
+            continue;
+
+        const auto previousAssetIt = previousAssetByClipId.find(stem.trackId);
+        if (previousAssetIt != previousAssetByClipId.end() && previousAssetIt->second > 0)
+            assetBuffers.emplace(previousAssetIt->second, stem.audioBuffer);
+    }
+
+    std::map<int, String> assetUrls;
+    for (const auto& clip : newClips)
+    {
+        if (clip.assetId > 0 && clip.audioUrl.isNotEmpty())
+            assetUrls.emplace(clip.assetId, clip.audioUrl);
+    }
+
+    for (const auto& [assetId, audioUrl] : assetUrls)
+    {
+        if (assetBuffers.find(assetId) != assetBuffers.end() && assetBuffers[assetId])
+            continue;
+
+        assetBuffers[assetId] = loadAssetAudio(projectId, assetId, audioUrl);
+    }
+
+    Array<StemTrack> stems;
+    for (const auto& clip : newClips)
+    {
+        if (clip.assetId <= 0 || clip.audioUrl.isEmpty())
+            continue;
+
+        const auto assetIt = assetBuffers.find(clip.assetId);
+        if (assetIt == assetBuffers.end() || !assetIt->second)
+            throw std::runtime_error("Missing audio buffer for project asset "
+                                     + String(clip.assetId).toStdString());
+
+        stems.add(clipToStemTrack(clip, assetIt->second));
+    }
+
+    if (stems.isEmpty())
+        return stems;
+
+    if (!SampleRateConverter::needsConversion(kProjectSourceSampleRate, targetSampleRate))
+        return stems;
+
+    if (!SampleRateConverter::isSampleRateSupported(targetSampleRate))
+    {
+        DBG("ProjectLoader: Target sample rate " + String(targetSampleRate) + " Hz not supported");
+        return stems;
+    }
+
+    for (auto& stem : stems)
+    {
+        if (!stem.audioBuffer)
+            continue;
+
+        auto convertedBuffer = sampleRateConverter.convertSampleRate(
+            *stem.audioBuffer, kProjectSourceSampleRate, targetSampleRate);
+
+        if (convertedBuffer)
+            stem.audioBuffer = convertedBuffer;
+    }
+
+    return stems;
+}
+
 ApiResult<MemoryBlock> ProjectLoader::downloadAudio(const String& audioUrl)
 {
     URL url(audioUrl);
