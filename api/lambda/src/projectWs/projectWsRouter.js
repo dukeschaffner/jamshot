@@ -6,7 +6,13 @@ import {
   storeConnectionAuth,
 } from './projectWsConnections.js';
 import { handleJoinMessage } from './handleJoin.js';
+import {
+  handleLockAcquireMessage,
+  handleLockHeartbeatMessage,
+  handleLockReleaseMessage,
+} from './handleLocks.js';
 import { handlePresenceMessage } from './handlePresence.js';
+import { shortenLocksOnDisconnect } from '../utils/projectTrackLocks.js';
 import { broadcastProjectPresence, getGatewayContextFromSendContext } from './projectWsPresence.js';
 
 /**
@@ -68,6 +74,7 @@ async function handleConnect(event, connectionId) {
 }
 
 async function handleDisconnect(connectionId, sendContext) {
+  await shortenLocksOnDisconnect(connectionId);
   const projectId = await removeProjectConnection(connectionId);
   await removeConnectionAuth(connectionId);
 
@@ -103,6 +110,18 @@ async function handleDefault(event, connectionId, sendContext) {
 
   if (parsed?.type === 'presence') {
     return handlePresenceMessage({ connectionId, body, sendContext });
+  }
+
+  if (parsed?.type === 'lock_acquire') {
+    return handleLockAcquireMessage({ connectionId, body, sendContext });
+  }
+
+  if (parsed?.type === 'lock_release') {
+    return handleLockReleaseMessage({ connectionId, body, sendContext });
+  }
+
+  if (parsed?.type === 'lock_heartbeat') {
+    return handleLockHeartbeatMessage({ connectionId, body });
   }
 
   return { statusCode: 400, body: 'Unsupported message type' };

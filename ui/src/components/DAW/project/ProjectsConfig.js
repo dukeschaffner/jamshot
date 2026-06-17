@@ -8,6 +8,8 @@ export const PROJECT_PLUGIN_AUTO_SYNC_STORAGE_KEY = 'project_plugin_auto_sync_en
 export const PROJECT_WS_PROTOCOL_VERSION = 1;
 export const PROJECT_WS_DEV_PORT = 5003;
 export const PROJECT_PRESENCE_HEARTBEAT_MS = 30_000;
+/** Debounced hover before acquiring destination track lock during cross-track drag. */
+export const CROSS_TRACK_LOCK_DEBOUNCE_MS = 150;
 
 export function getProjectWsUrl() {
   if (process.env.NEXT_PUBLIC_PROJECT_WS_URL) {

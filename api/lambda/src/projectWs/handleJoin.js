@@ -16,6 +16,7 @@ import {
   broadcastProjectPresence,
   getGatewayContextFromSendContext,
 } from './projectWsPresence.js';
+import { sendActiveLocksToConnection } from './handleLocks.js';
 
 function parseJoinMessage(body) {
   let parsed;
@@ -153,6 +154,8 @@ export async function handleJoinMessage({ connectionId, body, sendContext }) {
     role: access.role,
     protocolVersion: PROJECT_WS_PROTOCOL_VERSION,
   });
+
+  await sendActiveLocksToConnection(resolved.projectId, sendContext);
 
   const gatewayContext = getGatewayContextFromSendContext(sendContext);
   await broadcastProjectPresence(resolved.projectId, gatewayContext);

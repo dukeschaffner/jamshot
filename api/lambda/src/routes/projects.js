@@ -36,6 +36,7 @@ import {
   uploadLocalFileToR2,
   emitProjectAssetCreatedEvent,
 } from '../utils/projectAssetUtils.js';
+import { assertTracksNotLockedByOther } from '../utils/projectTrackLocks.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -109,6 +110,15 @@ function parseTrackId(rawId) {
 function parseClipId(rawId) {
   const parsed = parseInt(rawId, 10);
   return Number.isNaN(parsed) ? NaN : parsed;
+}
+
+async function enforceTrackLocks(res, projectId, userId, trackIds) {
+  const lockCheck = await assertTracksNotLockedByOther({ projectId, trackIds, userId });
+  if (!lockCheck.ok) {
+    res.status(403).json({ error: lockCheck.message, code: lockCheck.code });
+    return false;
+  }
+  return true;
 }
 
 function parseAssetId(rawId) {
@@ -913,6 +923,10 @@ router.patch('/:id/tracks/:trackId', async (req, res, next) => {
       return res.status(404).json({ error: 'Track not found' });
     }
 
+    if (!(await enforceTrackLocks(res, projectId, req.user.id, [trackId]))) {
+      return;
+    }
+
     const {
       name,
       sort_order: sortOrderRaw,
@@ -1067,6 +1081,10 @@ router.delete('/:id/tracks/:trackId', async (req, res, next) => {
       return res.status(404).json({ error: 'Track not found' });
     }
 
+    if (!(await enforceTrackLocks(res, projectId, req.user.id, [trackId]))) {
+      return;
+    }
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -1178,6 +1196,10 @@ router.post(
       );
       if (trackResult.rows.length === 0) {
         return res.status(404).json({ error: 'Track not found' });
+      }
+
+      if (!(await enforceTrackLocks(res, projectId, userId, [trackId]))) {
+        return;
       }
 
       const projectResult = await pool.query(
@@ -1476,11 +1498,9 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
       }
 
       const existing = clipResult.rows[0];
-      const projectDuration = Number(existing.project_duration);
-      const assetDuration =
-        existing.asset_duration != null ? Number(existing.asset_duration) : null;
+      const sourceTrackId = Number(existing.project_track_id);
 
-      let targetTrackId = existing.project_track_id;
+      let targetTrackId = sourceTrackId;
       if (hasTrackMove) {
         const parsedTrackId = parseTrackId(projectTrackIdRaw);
         if (Number.isNaN(parsedTrackId)) {
@@ -1499,6 +1519,25 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
 
         targetTrackId = parsedTrackId;
       }
+
+      const lockTrackIds =
+        targetTrackId !== sourceTrackId
+          ? [Math.min(sourceTrackId, targetTrackId), Math.max(sourceTrackId, targetTrackId)]
+          : [sourceTrackId];
+      const lockCheck = await assertTracksNotLockedByOther({
+        projectId,
+        trackIds: lockTrackIds,
+        userId: req.user.id,
+        client,
+      });
+      if (!lockCheck.ok) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: lockCheck.message, code: lockCheck.code });
+      }
+
+      const projectDuration = Number(existing.project_duration);
+      const assetDuration =
+        existing.asset_duration != null ? Number(existing.asset_duration) : null;
 
       let startTime = Number(existing.start_time_seconds);
       if (hasStartTime) {
@@ -1651,6 +1690,22 @@ router.delete('/:id/clips/:clipId', async (req, res, next) => {
     const revisionCheck = parseRequiredRevision(req.body);
     if (!revisionCheck.valid) {
       return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const clipTrackResult = await pool.query(
+      `SELECT pc.project_track_id
+       FROM project_clips pc
+       JOIN project_tracks pt ON pt.id = pc.project_track_id
+       WHERE pc.id = $1 AND pt.project_id = $2 AND pc.deleted_at IS NULL`,
+      [clipId, projectId]
+    );
+    if (clipTrackResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Clip not found' });
+    }
+
+    const clipTrackId = Number(clipTrackResult.rows[0].project_track_id);
+    if (!(await enforceTrackLocks(res, projectId, req.user.id, [clipTrackId]))) {
+      return;
     }
 
     const client = await pool.connect();

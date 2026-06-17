@@ -33,6 +33,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 31 — Auto-sync (default on) | **Done (code)** | Debounced `project_sync` after REST saves when plugin connected; toolbar toggle |
 | 33 — WS infra + realtime tables | **Done (code)** | API Gateway WS CDK construct, lambda handlers, Neon tables, local dev server |
 | 34 — Join room + presence | **Done (code)** | WS presence broadcast, `ProjectSyncContext`, `ProjectPresenceAvatars` header UI |
+| 35 — Track locks | **Done (code)** | WS lock_acquire/release/heartbeat, REST enforcement, Region.js acquire on edit |
 | 6b+ | Not started | |
 
 ---
@@ -913,6 +914,56 @@ Presence list: one entry per distinct `userId` (dedupe multiple tabs); includes 
 
 ---
 
+## Step 35 — Track lock acquire / release / heartbeat
+
+### WS protocol
+
+| Message | Behavior |
+|---------|----------|
+| `lock_acquire` | Upsert `project_track_locks` (TTL 60s); broadcast `{ type: 'lock', action: 'acquired' }`; deny with `LOCK_DENIED` if held by another user |
+| `lock_release` | Delete lock for connection+track; broadcast `released` |
+| `lock_heartbeat` | Batch renew `expires_at` for `trackIds` held by connection |
+| `$disconnect` | Shorten lock `expires_at` to grace window (35s); do not delete immediately |
+
+On `join`, server sends active lock snapshots to the joining client.
+
+Same user may steal lock from own other tab (`user_id` match on conflict).
+
+### API files
+
+| File | Purpose |
+|------|---------|
+| `api/lambda/src/utils/projectTrackLocks.js` | Acquire/release/renew/REST guard (`assertTracksNotLockedByOther`) |
+| `api/lambda/src/projectWs/handleLocks.js` | WS handlers |
+| `api/lambda/src/projectWs/projectWsLockBroadcast.js` | Fan-out lock events |
+| `api/lambda/src/routes/projects.js` | REST lock checks on track/clip mutate routes |
+
+### UI
+
+| File | Purpose |
+|------|---------|
+| `project/ProjectSyncContext.js` | `acquireTrackLock`, `releaseTrackLock`, `isTrackLockedByOther`, lock heartbeat (15s) |
+| `project/ProjectsConfig.js` | `CROSS_TRACK_LOCK_DEBOUNCE_MS` (150) |
+| `components/Region.js` | Acquire source on mousedown; debounced dest lock on cross-track hover; release on drop/ESC |
+
+### REST routes with lock enforcement
+
+Deny with **403** `LOCK_DENIED` when another user holds a non-expired lock:
+
+- `PATCH/DELETE .../tracks/:trackId`
+- `POST .../tracks/:trackId/clips`
+- `PATCH/DELETE .../clips/:clipId` (both tracks on cross-track move)
+
+### Manual verify
+
+1. Start project-ws dev server
+2. Open same project in two tabs as different editor users
+3. Tab A: start dragging a clip on track 1 → Tab B cannot drag clips on track 1
+4. Tab A: release (drop or ESC) → Tab B can edit track 1
+5. Automated: `node api/lambda/testing/project-ws-locks-test.js --projectId=1 --trackId=1`
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -1022,4 +1073,5 @@ Presence list: one entry per distinct `userId` (dedupe multiple tabs); includes 
 | 2026-06-16 | 31 | Plugin auto-sync: debounced `project_sync` after REST saves; toolbar toggle (default on) |
 | 2026-06-16 | 33 | Project WS infra: Neon realtime tables, API Gateway CDK construct, lambda handlers, local dev server on :5003 |
 | 2026-06-16 | 34 | Project room presence: WS broadcast on join/disconnect/editingTrackId change; header avatar stack via `ProjectSyncContext` |
+| 2026-06-16 | 35 | Track locks: WS acquire/release/heartbeat, REST enforcement, Region.js auto-lock on edit |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |
