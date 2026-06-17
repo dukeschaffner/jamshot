@@ -4,9 +4,10 @@ import {
   removeConnectionAuth,
   removeProjectConnection,
   storeConnectionAuth,
-  touchConnectionLastSeen,
 } from './projectWsConnections.js';
 import { handleJoinMessage } from './handleJoin.js';
+import { handlePresenceMessage } from './handlePresence.js';
+import { broadcastProjectPresence, getGatewayContextFromSendContext } from './projectWsPresence.js';
 
 /**
  * @typedef {object} WsSendContext
@@ -15,6 +16,8 @@ import { handleJoinMessage } from './handleJoin.js';
  * @property {string} [domainName]
  * @property {string} [stage]
  * @property {(payload: object) => Promise<void>|void} [send]
+ * @property {(projectId: number) => void} [setProjectId]
+ * @property {(projectId: number, payload: object) => Promise<void>} [broadcastToProject]
  */
 
 /**
@@ -43,7 +46,7 @@ export async function routeProjectWsEvent(event, localSendContext = null) {
   }
 
   if (routeKey === '$disconnect') {
-    return handleDisconnect(connectionId);
+    return handleDisconnect(connectionId, sendContext);
   }
 
   return handleDefault(event, connectionId, sendContext);
@@ -64,9 +67,15 @@ async function handleConnect(event, connectionId) {
   return { statusCode: 200 };
 }
 
-async function handleDisconnect(connectionId) {
-  await removeProjectConnection(connectionId);
+async function handleDisconnect(connectionId, sendContext) {
+  const projectId = await removeProjectConnection(connectionId);
   await removeConnectionAuth(connectionId);
+
+  if (projectId != null && sendContext) {
+    const gatewayContext = getGatewayContextFromSendContext(sendContext);
+    await broadcastProjectPresence(projectId, gatewayContext);
+  }
+
   return { statusCode: 200 };
 }
 
@@ -93,8 +102,7 @@ async function handleDefault(event, connectionId, sendContext) {
   }
 
   if (parsed?.type === 'presence') {
-    await touchConnectionLastSeen(connectionId);
-    return { statusCode: 200 };
+    return handlePresenceMessage({ connectionId, body, sendContext });
   }
 
   return { statusCode: 400, body: 'Unsupported message type' };

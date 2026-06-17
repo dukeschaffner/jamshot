@@ -59,15 +59,76 @@ export async function upsertProjectConnection({
   );
 }
 
-export async function removeProjectConnection(connectionId) {
-  await pool.query('DELETE FROM project_ws_connections WHERE connection_id = $1', [
-    connectionId,
-  ]);
-}
-
 export async function touchConnectionLastSeen(connectionId) {
   await pool.query(
     'UPDATE project_ws_connections SET last_seen_at = NOW() WHERE connection_id = $1',
     [connectionId]
   );
+}
+
+/**
+ * @returns {Promise<number|null>}
+ */
+export async function getConnectionProjectId(connectionId) {
+  const result = await pool.query(
+    'SELECT project_id FROM project_ws_connections WHERE connection_id = $1',
+    [connectionId]
+  );
+  return result.rows.length > 0 ? result.rows[0].project_id : null;
+}
+
+/**
+ * @returns {Promise<number|null>}
+ */
+export async function getConnectionEditingTrack(connectionId) {
+  const result = await pool.query(
+    'SELECT editing_track_id FROM project_ws_connections WHERE connection_id = $1',
+    [connectionId]
+  );
+  if (result.rows.length === 0) {
+    return null;
+  }
+  const value = result.rows[0].editing_track_id;
+  return value != null ? Number(value) : null;
+}
+
+/**
+ * @returns {Promise<string[]>}
+ */
+export async function getProjectConnectionIds(projectId) {
+  const result = await pool.query(
+    'SELECT connection_id FROM project_ws_connections WHERE project_id = $1',
+    [projectId]
+  );
+  return result.rows.map((row) => row.connection_id);
+}
+
+/**
+ * @param {string} connectionId
+ * @param {number|null} editingTrackId
+ */
+export async function updateConnectionPresence(connectionId, editingTrackId) {
+  await pool.query(
+    `UPDATE project_ws_connections
+     SET editing_track_id = $2, last_seen_at = NOW()
+     WHERE connection_id = $1`,
+    [connectionId, editingTrackId]
+  );
+}
+
+/**
+ * @returns {Promise<number|null>} project_id if the connection was in a room
+ */
+export async function removeProjectConnection(connectionId) {
+  const existing = await pool.query(
+    'SELECT project_id FROM project_ws_connections WHERE connection_id = $1',
+    [connectionId]
+  );
+  const projectId = existing.rows.length > 0 ? existing.rows[0].project_id : null;
+
+  await pool.query('DELETE FROM project_ws_connections WHERE connection_id = $1', [
+    connectionId,
+  ]);
+
+  return projectId;
 }

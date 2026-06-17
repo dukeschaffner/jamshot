@@ -12,6 +12,10 @@ import {
   upsertProjectConnection,
 } from './projectWsConnections.js';
 import { sendWsMessage } from './projectWsApiGateway.js';
+import {
+  broadcastProjectPresence,
+  getGatewayContextFromSendContext,
+} from './projectWsPresence.js';
 
 function parseJoinMessage(body) {
   let parsed;
@@ -138,6 +142,10 @@ export async function handleJoinMessage({ connectionId, body, sendContext }) {
     userId,
   });
 
+  if (sendContext?.setProjectId) {
+    sendContext.setProjectId(resolved.projectId);
+  }
+
   await sendWsMessage(sendContext, {
     type: 'joined',
     projectId: resolved.projectId,
@@ -145,6 +153,9 @@ export async function handleJoinMessage({ connectionId, body, sendContext }) {
     role: access.role,
     protocolVersion: PROJECT_WS_PROTOCOL_VERSION,
   });
+
+  const gatewayContext = getGatewayContextFromSendContext(sendContext);
+  await broadcastProjectPresence(resolved.projectId, gatewayContext);
 
   return { statusCode: 200 };
 }

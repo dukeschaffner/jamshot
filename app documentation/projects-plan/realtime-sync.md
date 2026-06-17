@@ -50,6 +50,8 @@ Phase 1 skips realtime — REST autosave only. **REST mutating routes must enfor
 { "type": "presence", "editingTrackId": 1 }
 ```
 
+Client sends `presence` on an interval (and when `editingTrackId` changes). Server touches `last_seen_at` and rebroadcasts room presence.
+
 ### Server → client
 
 ```json
@@ -58,7 +60,12 @@ Phase 1 skips realtime — REST autosave only. **REST mutating routes must enfor
 { "type": "op", "fromUserId": "...", "revision": 43, "payload": { ... } }
 { "type": "op_nack", "opId": "uuid", "code": "REVISION_MISMATCH|LOCK_DENIED|VALIDATION_ERROR", "message": "..." }
 { "type": "lock", "action": "acquired|released", "resource": { "type": "track", "id": 1 }, "userId": "..." }
-{ "type": "presence", "users": [ ... ] }
+{
+  "type": "presence",
+  "users": [
+    { "userId": "...", "username": "...", "profilePicUrl": "...", "editingTrackId": 1 }
+  ]
+}
 { "type": "asset.processing_update", "clipId": 10, "assetId": 42, "status": "completed|failed", "error": "..." }
 { "type": "locks_clear" }
 { "type": "error", "code": "LOCK_DENIED", "message": "..." }

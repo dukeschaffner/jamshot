@@ -17,6 +17,8 @@ import { useAudio } from '@/lib/AudioContext';
 import { projectApi } from '@/lib/api';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { ProjectDAW } from '@/components/DAW/DAW';
+import { ProjectSyncProvider } from '@/components/DAW/project/ProjectSyncContext';
+import ProjectPresenceAvatars from '@/components/DAW/project/ProjectPresenceAvatars';
 import sharedStyles from '@/styles/Dashboard.module.css';
 import styles from './ProjectPage.module.css';
 
@@ -166,47 +168,50 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className={styles.projectPageContainer}>
-      <Link href="/projects" className={styles.backLink}>
-        <FaArrowLeft />
-        All Projects
-      </Link>
+    <ProjectSyncProvider project={project}>
+      <div className={styles.projectPageContainer}>
+        <Link href="/projects" className={styles.backLink}>
+          <FaArrowLeft />
+          All Projects
+        </Link>
 
-      <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.headerInfo}>
-            <FaFolderOpen className={styles.headerIcon} aria-hidden />
-            <div>
-              <h1 className={styles.title}>{project.name}</h1>
-              <div className={styles.meta}>
-                {project.role && (
-                  <span className={styles.role}>{project.role}</span>
-                )}
-                <span className={styles.memberCount}>
-                  <FaUsers aria-hidden />
-                  Members —
-                </span>
+        <header className={styles.header}>
+          <div className={styles.headerContent}>
+            <div className={styles.headerInfo}>
+              <FaFolderOpen className={styles.headerIcon} aria-hidden />
+              <div>
+                <h1 className={styles.title}>{project.name}</h1>
+                <div className={styles.meta}>
+                  {project.role && (
+                    <span className={styles.role}>{project.role}</span>
+                  )}
+                  <span className={styles.memberCount}>
+                    <FaUsers aria-hidden />
+                    Members —
+                  </span>
+                </div>
               </div>
             </div>
+            <ProjectPresenceAvatars />
           </div>
-        </div>
-      </header>
+        </header>
 
-      {isMobile ? (
-        <div className="mobile-collab-message">
-          <FaDesktop className="mobile-collab-icon" />
-          <h3>Desktop Required</h3>
-          <p>Use Desktop version to record or upload file to collaborate</p>
-        </div>
-      ) : (
-        <div className={styles.dawWorkspace}>
-          <ProjectDAW
-            project={project}
-            isVisible
-            onProjectChange={setProject}
-          />
-        </div>
-      )}
-    </div>
+        {isMobile ? (
+          <div className="mobile-collab-message">
+            <FaDesktop className="mobile-collab-icon" />
+            <h3>Desktop Required</h3>
+            <p>Use Desktop version to record or upload file to collaborate</p>
+          </div>
+        ) : (
+          <div className={styles.dawWorkspace}>
+            <ProjectDAW
+              project={project}
+              isVisible
+              onProjectChange={setProject}
+            />
+          </div>
+        )}
+      </div>
+    </ProjectSyncProvider>
   );
 }

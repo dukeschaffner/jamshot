@@ -17,3 +17,4 @@
     - make sure clips made from the same audio file do not create duplicate assets
 - naming tracks
 - make sure plugin plays in stereo
+- need a way to indicate who recorded audio/made what changes

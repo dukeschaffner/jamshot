@@ -494,11 +494,35 @@ Neon migration (see [database.md](./database.md)):
 
 ### Step 34 — Join project room + minimal presence
 
-Messages: `join`, `presence` → `{ userId, username, editingTrackId? }`
+**WS protocol**
+
+- Client: periodic `presence` heartbeat (`editingTrackId` optional; omit until Step 35 locks)
+- Server → room: `{ "type": "presence", "users": [{ "userId", "username", "profilePicUrl", "editingTrackId?" }] }`
+  - One entry per **distinct `userId`** (dedupe multiple tabs for the same user)
+  - Include `profilePicUrl` from `users.profile_pic_url` (fallback `/avatar.svg` in UI)
+- Broadcast on join, disconnect, and when a client's `presence` heartbeat updates `editingTrackId`
 
 Viewers may join room (receive ops) but cannot send ops.
 
-**Done when:** Two browser tabs → each sees "User B is in project".
+**UI — `ProjectPresenceAvatars`**
+
+Placement: top-right of the project page header (`ProjectPage` `.headerContent`, opposite project title).
+
+Layout:
+
+- Row of small circular avatars, overlapping slightly (negative margin), aligned to the right
+- Size ~32px (slightly smaller than navbar avatar at 40px); reuse global `.avatar` + a CSS module for stack layout
+- **≤ 5 online:** show one circle per user (1–5 avatars)
+- **> 5 online:** show the first **4** user avatars, then a **"+N"** overflow circle on the far right (same 32px size), where `N = totalOnline - 4` (e.g. 11 users → 4 avatars + `+7`)
+
+Popovers (reuse existing `Popover` component; hover to open, same pattern as `TrackHeader` monitor popover):
+
+- **Each avatar:** popover with that user's username (`@username`)
+- **"+N" overflow circle:** popover listing the remaining users (avatar + username per row)
+
+Wire via lightweight `ProjectSyncContext` (or interim hook) that opens WS on project load, sends `join`, maintains `onlineUsers` from server `presence` messages.
+
+**Done when:** Two browser tabs on the same project → each sees the other's avatar in the header; with 6+ users, overflow collapses to `+N` and hover reveals the rest.
 
 ---
 

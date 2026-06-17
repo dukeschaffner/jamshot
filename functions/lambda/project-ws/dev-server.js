@@ -18,6 +18,9 @@ const { PROJECT_WS_DEV_PORT } = await import(
 
 const PORT = Number(process.env.PROJECT_WS_PORT || PROJECT_WS_DEV_PORT);
 
+/** @type {Map<string, { socket: import('ws').WebSocket, projectId?: number }>} */
+const connectionRegistry = new Map();
+
 const wss = new WebSocketServer({ port: PORT });
 
 function buildApiGatewayEvent({ routeKey, connectionId, query, body }) {
@@ -34,11 +37,8 @@ function buildApiGatewayEvent({ routeKey, connectionId, query, body }) {
   };
 }
 
-wss.on('connection', (socket, request) => {
-  const connectionId = crypto.randomUUID();
-  const query = Object.fromEntries(new URL(request.url, 'http://localhost').searchParams.entries());
-
-  const sendContext = {
+function createSendContext(connectionId, socket) {
+  return {
     mode: 'local',
     connectionId,
     send: async (payload) => {
@@ -46,7 +46,29 @@ wss.on('connection', (socket, request) => {
         socket.send(JSON.stringify(payload));
       }
     },
+    setProjectId: (projectId) => {
+      const entry = connectionRegistry.get(connectionId);
+      if (entry) {
+        entry.projectId = projectId;
+      }
+    },
+    broadcastToProject: async (projectId, payload) => {
+      const body = JSON.stringify(payload);
+      for (const [id, entry] of connectionRegistry) {
+        if (entry.projectId === projectId && entry.socket.readyState === entry.socket.OPEN) {
+          entry.socket.send(body);
+        }
+      }
+    },
   };
+}
+
+wss.on('connection', (socket, request) => {
+  const connectionId = crypto.randomUUID();
+  const query = Object.fromEntries(new URL(request.url, 'http://localhost').searchParams.entries());
+
+  connectionRegistry.set(connectionId, { socket });
+  const sendContext = createSendContext(connectionId, socket);
 
   (async () => {
     const connectResult = await routeProjectWsEvent(
@@ -55,6 +77,7 @@ wss.on('connection', (socket, request) => {
     );
 
     if (connectResult.statusCode !== 200) {
+      connectionRegistry.delete(connectionId);
       socket.close(connectResult.statusCode === 401 ? 4401 : 4404, 'Connect rejected');
       return;
     }
@@ -62,6 +85,7 @@ wss.on('connection', (socket, request) => {
     console.log(`[project-ws-dev] connected ${connectionId} user=${query.devUserId || 'token'}`);
   })().catch((error) => {
     console.error('[project-ws-dev] connect error:', error);
+    connectionRegistry.delete(connectionId);
     socket.close(1011, 'Connect failed');
   });
 
@@ -89,6 +113,8 @@ wss.on('connection', (socket, request) => {
       console.log(`[project-ws-dev] disconnected ${connectionId}`);
     } catch (error) {
       console.error('[project-ws-dev] disconnect error:', error);
+    } finally {
+      connectionRegistry.delete(connectionId);
     }
   });
 });

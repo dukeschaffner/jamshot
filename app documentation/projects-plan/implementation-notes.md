@@ -32,6 +32,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 22 — Manual snapshot | **Done (code)** | `POST/GET .../snapshots`; toolbar panel with optional label + history list |
 | 31 — Auto-sync (default on) | **Done (code)** | Debounced `project_sync` after REST saves when plugin connected; toolbar toggle |
 | 33 — WS infra + realtime tables | **Done (code)** | API Gateway WS CDK construct, lambda handlers, Neon tables, local dev server |
+| 34 — Join room + presence | **Done (code)** | WS presence broadcast, `ProjectSyncContext`, `ProjectPresenceAvatars` header UI |
 | 6b+ | Not started | |
 
 ---
@@ -872,6 +873,46 @@ Production clients connect with `?token=<better-auth-bearer-token>`.
 
 ---
 
+## Step 34 — Join project room + minimal presence
+
+### WS protocol (server)
+
+| Event | Behavior |
+|-------|----------|
+| `join` success | Upsert `project_ws_connections`; reply `joined`; **broadcast** `{ type: 'presence', users: [...] }` to room |
+| `presence` heartbeat | Touch `last_seen_at`; rebroadcast only when `editingTrackId` **changes** (omit field until Step 35) |
+| `$disconnect` | Remove connection row; rebroadcast presence to remaining clients |
+
+Presence list: one entry per distinct `userId` (dedupe multiple tabs); includes `username`, `profilePicUrl` from `users.profile_pic_url`.
+
+### API files
+
+| File | Purpose |
+|------|---------|
+| `api/lambda/src/projectWs/projectWsPresence.js` | Build + fan-out presence payload |
+| `api/lambda/src/projectWs/handlePresence.js` | `presence` message handler |
+| `api/lambda/src/projectWs/projectWsConnections.js` | `getProjectConnectionIds`, `updateConnectionPresence`, disconnect returns `project_id` |
+| `functions/lambda/project-ws/dev-server.js` | Connection registry + `broadcastToProject` for local fan-out |
+
+### UI
+
+| File | Purpose |
+|------|---------|
+| `project/ProjectSyncContext.js` | Opens WS on project load, `join`, periodic `presence` heartbeat, `onlineUsers` state |
+| `project/ProjectPresenceAvatars.js` | Header avatar stack (≤5 all shown; >5 → 4 avatars + `+N`); hover popovers |
+| `project/projectWsConnectUrl.js` | Dev `?devUserId=` / prod `?token=` from `accessToken` cookie |
+| `project/ProjectsConfig.js` | `PROJECT_PRESENCE_HEARTBEAT_MS` (30s), `getProjectWsUrl()` (`NEXT_PUBLIC_PROJECT_WS_URL` or `ws://localhost:5003` in dev) |
+| `projects/[projectId]/page.js` | `ProjectSyncProvider` + avatars in `.headerContent` (top-right) |
+
+### Manual verify
+
+1. Start project-ws dev server (`functions/lambda/project-ws && npm run dev`)
+2. Open same project in two browser tabs (different users ideal; same user shows one deduped avatar)
+3. Each tab shows the other user's avatar in the project header
+4. Automated: `node api/lambda/testing/project-ws-presence-test.js --projectId=2` (uses dev users `RS2VUu…` + `13`)
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -980,4 +1021,5 @@ Production clients connect with `?token=<better-auth-bearer-token>`.
 | 2026-06-15 | 22 | Manual snapshots API + DAW toolbar panel; `project_snapshot_assets` index on create |
 | 2026-06-16 | 31 | Plugin auto-sync: debounced `project_sync` after REST saves; toolbar toggle (default on) |
 | 2026-06-16 | 33 | Project WS infra: Neon realtime tables, API Gateway CDK construct, lambda handlers, local dev server on :5003 |
+| 2026-06-16 | 34 | Project room presence: WS broadcast on join/disconnect/editingTrackId change; header avatar stack via `ProjectSyncContext` |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |
