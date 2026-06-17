@@ -5,6 +5,7 @@ import {
   removeProjectConnection,
   storeConnectionAuth,
 } from './projectWsConnections.js';
+import { handleOpMessage } from './handleOps.js';
 import { handleJoinMessage } from './handleJoin.js';
 import {
   handleLockAcquireMessage,
@@ -12,7 +13,8 @@ import {
   handleLockReleaseMessage,
 } from './handleLocks.js';
 import { handlePresenceMessage } from './handlePresence.js';
-import { shortenLocksOnDisconnect } from '../utils/projectTrackLocks.js';
+import { shortenLocksOnDisconnect, LOCK_DISCONNECT_GRACE_SECONDS } from '../utils/projectTrackLocks.js';
+import { shortenMetadataLockOnDisconnect } from '../utils/projectMetadataLocks.js';
 import { broadcastProjectPresence, getGatewayContextFromSendContext } from './projectWsPresence.js';
 
 /**
@@ -75,6 +77,7 @@ async function handleConnect(event, connectionId) {
 
 async function handleDisconnect(connectionId, sendContext) {
   await shortenLocksOnDisconnect(connectionId);
+  await shortenMetadataLockOnDisconnect(connectionId, LOCK_DISCONNECT_GRACE_SECONDS);
   const projectId = await removeProjectConnection(connectionId);
   await removeConnectionAuth(connectionId);
 
@@ -122,6 +125,10 @@ async function handleDefault(event, connectionId, sendContext) {
 
   if (parsed?.type === 'lock_heartbeat') {
     return handleLockHeartbeatMessage({ connectionId, body });
+  }
+
+  if (parsed?.type === 'op') {
+    return handleOpMessage({ connectionId, body, sendContext });
   }
 
   return { statusCode: 400, body: 'Unsupported message type' };

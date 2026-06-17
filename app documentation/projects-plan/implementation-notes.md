@@ -34,6 +34,8 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 33 — WS infra + realtime tables | **Done (code)** | API Gateway WS CDK construct, lambda handlers, Neon tables, local dev server |
 | 34 — Join room + presence | **Done (code)** | WS presence broadcast, `ProjectSyncContext`, `ProjectPresenceAvatars` header UI |
 | 35 — Track locks | **Done (code)** | WS lock_acquire/release/heartbeat, REST enforcement, Region.js acquire on edit |
+| 36 — Broadcast ops | **Done (code)** | WS `op` persist + ACK/NACK + room fan-out; metadata locks; op dedup |
+| 37 — ProjectSyncContext UI wiring | **Done (code)** | DAW edits → WS ops; remote ops → TrackManager via event bus; REST fallback when disconnected |
 | 6b+ | Not started | |
 
 ---
@@ -964,6 +966,120 @@ Deny with **403** `LOCK_DENIED` when another user holds a non-expired lock:
 
 ---
 
+## Step 36 — Broadcast ops (WS persist + fan-out)
+
+Server-side collaborative edits via WS `op` messages. UI wiring is **Step 37**.
+
+### WS protocol
+
+**Client → server**
+
+```json
+{
+  "type": "op",
+  "opId": "uuid",
+  "baseRevision": 42,
+  "payload": { "kind": "clip.move", "clipId": 1, "trackId": 2, "startTime": 10 }
+}
+```
+
+**Server → sender:** `{ "type": "op_ack", "opId", "revision" }` or `{ "type": "op_nack", "opId", "code", "message" }`
+
+**Server → room:** `{ "type": "op", "fromUserId", "revision", "payload": { "kind", ... } }`
+
+**Idempotency:** `(connection_id, op_id)` dedup in `project_ws_op_dedup` — retries get the same `op_ack`.
+
+### Supported op kinds
+
+| Kind | Lock required |
+|------|----------------|
+| `clip.move`, `clip.trim`, `clip.delete` | Track lock holder |
+| `clip.move_to_track` | Both source + dest track locks |
+| `track.create` | None |
+| `track.delete`, `track.update` | Track lock holder |
+| `track.reorder` | Project metadata lock |
+| `project.transport` | Project metadata lock |
+
+Uploads/imports remain REST. Server can push `asset.processing_update` via `broadcastAssetProcessingUpdate` (not yet wired from audio-processing lambda).
+
+### Metadata lock
+
+`lock_acquire` / `lock_release` with `resource: { "type": "project_metadata" }` — 30s TTL, one per project. Same user may steal from own other tab.
+
+### Database (`api/db-updates.txt` — Step 36 block)
+
+| Table | Purpose |
+|-------|---------|
+| `project_ws_op_dedup` | Idempotent op replay per connection |
+| `project_metadata_locks` | Project-wide lock for transport + reorder |
+
+Apply migration manually on dev DB (same block as in `db-updates.txt`).
+
+### API files
+
+| File | Purpose |
+|------|---------|
+| `utils/projectOpMutations.js` | Execute op kinds in a transaction (mirrors REST validation) |
+| `utils/projectWsOpDedup.js` | Op idempotency store |
+| `utils/projectMetadataLocks.js` | Metadata lock acquire/release/assert |
+| `projectWs/handleOps.js` | `op` message handler — ACK/NACK + broadcast |
+| `projectWs/projectWsOpBroadcast.js` | Fan-out ops + `asset.processing_update` helper |
+| `projectWs/handleLocks.js` | Extended for `project_metadata` resource |
+| `projectWs/projectWsRouter.js` | Routes `op` messages |
+
+### Manual verify
+
+```bash
+# 1. Apply Step 36 migration on dev DB
+
+# 2. Start project-ws dev server
+cd functions/lambda/project-ws && npm run dev
+
+# 3. Two tabs / automated test
+node api/lambda/testing/project-ws-ops-test.js --projectId=1 --clipId=1 --trackId=1 --startTime=5
+# Tab A: lock_acquire track → send clip.move op → Tab B receives op broadcast within ~1s
+```
+
+---
+
+## Step 37 — `ProjectSyncContext` UI wiring
+
+Local DAW edits send WS `op` messages when connected; remote ops apply to `TrackManager` via the event bus. REST remains for initial load, reconnect, and uploads.
+
+### Behavior
+
+| Condition | Persistence path |
+|-----------|------------------|
+| WS **connected** | Debounced clip edits → `clip.trim` / `clip.move_to_track` ops; transport → `project.transport` (with metadata lock); track add/delete → `track.create` / `track.delete` ops |
+| WS **disconnected** | Existing REST path via `useProjectPersistence` / `projectApi` |
+| Remote `op` broadcast | Revision-ordered queue; clip layout ops buffered during active clip drag |
+| Own clip/transport ops | Skipped on apply (already optimistic); revision still advanced from broadcast |
+| Own `track.create` | Applied from broadcast (not optimistic before send) |
+
+### UI files
+
+| File | Purpose |
+|------|---------|
+| `project/ProjectSyncContext.js` | `sendProjectOp`, metadata lock acquire/release, `op`/`op_ack`/`op_nack` handling, remote op fan-out via event bus; fixed WS reconnect on revision bump |
+| `hooks/useProjectPersistence.js` | WS op path for clip + transport when connected; REST fallback on disconnect/timeout |
+| `project/projectWsOpPayloads.js` | Map clip PATCH + transport fields → WS op payloads |
+| `project/projectRemoteOpApplier.js` | Apply remote op kinds to `TrackManager` + transport event bus |
+| `project/projectRemoteOpQueue.js` | Revision ordering + drag-time buffering |
+| `project/ProjectEditorContext.js` | Wires persistence + remote op listener; track add/delete via WS when connected |
+| `misc/DAWEvents.js` | `PROJECT.REMOTE_OP`, `CLIP_DRAG_START`, `CLIP_DRAG_END` |
+| `components/Region.js` | Emits clip drag start/end for remote op buffering |
+
+### Manual verify
+
+1. Start project-ws dev server (`functions/lambda/project-ws && npm run dev`)
+2. Open same project in two browser tabs as different editor users
+3. Tab A: drag a clip → within ~1s Tab B sees the move (no REST polling)
+4. Tab A: change BPM → Tab B transport updates
+5. Disconnect WS (stop dev server) → edit in Tab A → REST save still works on reconnect fallback
+6. Tab A: add track while WS connected → Tab B sees new empty track row
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -1074,4 +1190,6 @@ Deny with **403** `LOCK_DENIED` when another user holds a non-expired lock:
 | 2026-06-16 | 33 | Project WS infra: Neon realtime tables, API Gateway CDK construct, lambda handlers, local dev server on :5003 |
 | 2026-06-16 | 34 | Project room presence: WS broadcast on join/disconnect/editingTrackId change; header avatar stack via `ProjectSyncContext` |
 | 2026-06-16 | 35 | Track locks: WS acquire/release/heartbeat, REST enforcement, Region.js auto-lock on edit |
+| 2026-06-16 | 36 | WS broadcast ops: persist clip/track/transport mutations, ACK/NACK, room fan-out, metadata locks |
+| 2026-06-16 | 37 | ProjectSyncContext UI: local edits → WS ops, remote ops → TrackManager, REST fallback when disconnected |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |

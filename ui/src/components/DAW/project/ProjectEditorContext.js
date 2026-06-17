@@ -12,10 +12,10 @@ import {
 import { projectApi } from '@/lib/api';
 import { MAX_PROJECT_TRACKS } from '@sterio/subscription-utils';
 import { useToast } from '@/lib/ToastContext';
+import { useUser } from '@/contexts/UserContext';
 import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
-import { bufferRegistry } from '../core/BufferRegistry';
 import AudioState from '../core/AudioStateStore';
 import { getAudioBufferFromS3 } from '../misc/DAWUtils';
 import { hasProjectEditorRole } from './projectEditorConstants';
@@ -46,6 +46,14 @@ import ProjectRevisionConflictDialog from './ProjectRevisionConflictDialog';
 import { fetchProjectPluginPayload } from './projectPluginSyncApi';
 import { buildSetProjectMessage } from './projectPluginSyncMessages';
 import { usePluginWebSocket } from '@/contexts/PluginWebSocketContext';
+import { useProjectSync } from './ProjectSyncContext';
+import {
+  applyRemoteProjectOp,
+  mergeTransportIntoProjectState,
+  shouldApplyRemoteOp,
+} from './projectRemoteOpApplier';
+import { ProjectRemoteOpQueue } from './projectRemoteOpQueue';
+import { bufferRegistry } from '../core/BufferRegistry';
 
 const ProjectEditorContext = createContext(null);
 
@@ -84,7 +92,16 @@ function updateRegionMeta(track, region, patch) {
 
 export function ProjectEditorProvider({ projectData, onProjectStateChange, children }) {
   const { showToast } = useToast();
+  const { user } = useUser();
   const { send: sendPluginMessage } = usePluginWebSocket();
+  const {
+    sendProjectOp,
+    isWsConnected,
+    acquireMetadataLock,
+    releaseMetadataLock,
+    acquireTrackLock,
+    releaseTrackLock,
+  } = useProjectSync();
   const { trackManagerRef, tracks, syncTracksFromManager } = useDAW();
 
   const [armedTrackId, setArmedTrackIdState] = useState(null);
@@ -97,6 +114,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const armedTrackIdRef = useRef(armedTrackId);
   const inFlightRegionIdsRef = useRef(new Set());
   const suppressSettingsPersistRef = useRef(false);
+  const remoteOpQueueRef = useRef(null);
+  if (!remoteOpQueueRef.current) {
+    remoteOpQueueRef.current = new ProjectRemoteOpQueue();
+  }
   useEffect(() => {
     projectDataRef.current = projectData;
   }, [projectData]);
@@ -197,6 +218,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       showToast,
       onConflictPrompt,
       onRestSaveSuccess: notifyProjectMutated,
+      sendProjectOp,
+      isWsConnected,
+      acquireMetadataLock,
+      releaseMetadataLock,
     });
 
   const resolveRevisionConflictReload = useCallback(async () => {
@@ -261,6 +286,8 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       scheduleClipPersist({
         clipId,
         payload,
+        trackId,
+        sourceTrackId: previousState.trackId,
         revertState: () => {
           moveProjectRegion(
             trackId,
@@ -690,6 +717,130 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   }, [canEdit, armedTrackId, tracks]);
 
   useEffect(() => {
+    if (projectData?.revision != null) {
+      remoteOpQueueRef.current.setLastAppliedRevision(projectData.revision);
+    }
+  }, [projectData?.revision]);
+
+  useEffect(() => {
+    const applyRemoteOpMessage = (opMessage) => {
+      const applyChange = () => {
+        if (
+          !shouldApplyRemoteOp(
+            opMessage.payload,
+            opMessage.fromUserId,
+            user?.id
+          )
+        ) {
+          return;
+        }
+
+        if (!trackManagerRef.current) return;
+
+        const isTransportOp = opMessage.payload?.kind === 'project.transport';
+        if (isTransportOp) {
+          suppressSettingsPersistRef.current = true;
+        }
+
+        let applied = false;
+        try {
+          applied = applyRemoteProjectOp(
+            trackManagerRef.current,
+            opMessage.payload
+          );
+        } finally {
+          if (isTransportOp) {
+            suppressSettingsPersistRef.current = false;
+          }
+        }
+
+        if (!applied) return;
+
+        const nextTracks = syncTracksFromManager();
+        setArmedTrackIdState((current) =>
+          current != null && !nextTracks.some((track) => track.id === current)
+            ? (nextTracks[0]?.id ?? null)
+            : current
+        );
+
+        const current = projectDataRef.current;
+        if (!current) return;
+
+        let nextState = { ...current, revision: opMessage.revision };
+        nextState = mergeTransportIntoProjectState(nextState, opMessage.payload);
+
+        if (opMessage.payload?.kind === 'track.create') {
+          const trackExists = (nextState.tracks || []).some(
+            (track) => track.id === opMessage.payload.trackId
+          );
+          if (!trackExists) {
+            nextState = {
+              ...nextState,
+              tracks: [
+                ...(nextState.tracks || []),
+                {
+                  id: opMessage.payload.trackId,
+                  name: opMessage.payload.name,
+                  sortOrder: opMessage.payload.sortOrder,
+                  gain: opMessage.payload.gain,
+                  muted: opMessage.payload.muted,
+                  solo: opMessage.payload.solo,
+                  clips: [],
+                },
+              ],
+            };
+          }
+        }
+
+        if (opMessage.payload?.kind === 'track.delete') {
+          nextState = {
+            ...nextState,
+            tracks: (nextState.tracks || []).filter(
+              (track) => track.id !== opMessage.payload.trackId
+            ),
+          };
+        }
+
+        suppressSettingsPersistRef.current = true;
+        try {
+          projectDataRef.current = nextState;
+          onProjectStateChange?.(nextState);
+        } finally {
+          suppressSettingsPersistRef.current = false;
+        }
+
+        notifyProjectMutated();
+      };
+
+      remoteOpQueueRef.current.enqueue(opMessage, applyChange);
+    };
+
+    const handleDragStart = () => {
+      remoteOpQueueRef.current.setClipDragActive(true);
+    };
+
+    const handleDragEnd = () => {
+      remoteOpQueueRef.current.setClipDragActive(false);
+    };
+
+    eventBus.on(DAW_EVENTS.PROJECT.REMOTE_OP, applyRemoteOpMessage);
+    eventBus.on(DAW_EVENTS.PROJECT.CLIP_DRAG_START, handleDragStart);
+    eventBus.on(DAW_EVENTS.PROJECT.CLIP_DRAG_END, handleDragEnd);
+
+    return () => {
+      eventBus.off(DAW_EVENTS.PROJECT.REMOTE_OP, applyRemoteOpMessage);
+      eventBus.off(DAW_EVENTS.PROJECT.CLIP_DRAG_START, handleDragStart);
+      eventBus.off(DAW_EVENTS.PROJECT.CLIP_DRAG_END, handleDragEnd);
+    };
+  }, [
+    notifyProjectMutated,
+    onProjectStateChange,
+    syncTracksFromManager,
+    trackManagerRef,
+    user?.id,
+  ]);
+
+  useEffect(() => {
     if (!canEdit || !projectData?.guid) return;
 
     const persistSetting = (fields, revertState) => {
@@ -769,6 +920,31 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
 
     setIsTrackMutationPending(true);
     try {
+      if (isWsConnected()) {
+        const result = await sendProjectOp({ kind: 'track.create' });
+        if (!result.fallbackRest) {
+          if (result.ok) {
+            onRevisionOnlyUpdate(result.revision);
+            notifyProjectMutated();
+            return;
+          }
+          if (result.code === 'REVISION_MISMATCH') {
+            await handleRevisionConflict({
+              conflictInfo: {
+                currentRevision: result.currentRevision ?? null,
+                yourRevision: projectData.revision,
+              },
+            });
+            return;
+          }
+          showToast({
+            message: result.message || 'Failed to add track. Please try again.',
+            variant: 'error',
+          });
+          return;
+        }
+      }
+
       const response = await projectApi.createProjectTrack(projectData.guid, {
         revision: projectData.revision,
       });
@@ -792,8 +968,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     canEdit,
     handleRevisionConflict,
     isTrackMutationPending,
+    isWsConnected,
     notifyProjectMutated,
+    onRevisionOnlyUpdate,
     projectData,
+    sendProjectOp,
     showToast,
     tracks.length,
   ]);
@@ -805,6 +984,45 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
 
       setIsTrackMutationPending(true);
       try {
+        if (isWsConnected()) {
+          const lockAcquired = await acquireTrackLock(trackId);
+          if (!lockAcquired) {
+            showToast({
+              message: 'Another collaborator is editing this track.',
+              variant: 'error',
+            });
+            return;
+          }
+
+          const result = await sendProjectOp({
+            kind: 'track.delete',
+            trackId,
+          });
+          releaseTrackLock(trackId);
+
+          if (!result.fallbackRest) {
+            if (result.ok) {
+              onRevisionOnlyUpdate(result.revision);
+              notifyProjectMutated();
+              return;
+            }
+            if (result.code === 'REVISION_MISMATCH') {
+              await handleRevisionConflict({
+                conflictInfo: {
+                  currentRevision: result.currentRevision ?? null,
+                  yourRevision: projectData.revision,
+                },
+              });
+              return;
+            }
+            showToast({
+              message: result.message || 'Failed to delete track. Please try again.',
+              variant: 'error',
+            });
+            return;
+          }
+        }
+
         const response = await projectApi.deleteProjectTrack(
           projectData.guid,
           trackId,
@@ -827,12 +1045,17 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       }
     },
     [
+      acquireTrackLock,
       applyProjectServerState,
       canEdit,
       handleRevisionConflict,
       isTrackMutationPending,
+      isWsConnected,
       notifyProjectMutated,
+      onRevisionOnlyUpdate,
       projectData,
+      releaseTrackLock,
+      sendProjectOp,
       showToast,
     ]
   );

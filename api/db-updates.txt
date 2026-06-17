@@ -272,3 +272,28 @@ CREATE INDEX IF NOT EXISTS idx_project_ws_connections_user
   ON project_ws_connections(user_id);
 CREATE INDEX IF NOT EXISTS idx_project_track_locks_expires
   ON project_track_locks(expires_at);
+
+-- Migration: Projects WS ops (Phase 2 — Step 36)
+-- Date: 2026-06-16
+-- Op idempotency + project metadata locks for track.reorder / project.transport
+
+CREATE TABLE IF NOT EXISTS project_ws_op_dedup (
+  connection_id VARCHAR(128) NOT NULL,
+  op_id VARCHAR(64) NOT NULL,
+  revision BIGINT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (connection_id, op_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_ws_op_dedup_created
+  ON project_ws_op_dedup(created_at);
+
+CREATE TABLE IF NOT EXISTS project_metadata_locks (
+  project_id INT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  connection_id VARCHAR(128) NOT NULL,
+  expires_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_metadata_locks_expires
+  ON project_metadata_locks(expires_at);

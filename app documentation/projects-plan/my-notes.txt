@@ -18,3 +18,4 @@
 - naming tracks
 - make sure plugin plays in stereo
 - need a way to indicate who recorded audio/made what changes
+- only sync to plugin when plugin is connected and project is loaded? dont need to show toast on every success

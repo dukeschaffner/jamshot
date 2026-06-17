@@ -2,36 +2,13 @@ import { getProjectConnectionIds } from './projectWsConnections.js';
 import { postToConnection } from './projectWsApiGateway.js';
 
 /**
- * @param {number} trackId
- * @param {string} userId
- * @param {'acquired'|'released'} action
- */
-export function buildLockMessage(trackId, userId, action) {
-  return {
-    type: 'lock',
-    action,
-    resource: { type: 'track', id: trackId },
-    userId,
-  };
-}
-
-export function buildMetadataLockMessage(userId, action) {
-  return {
-    type: 'lock',
-    action,
-    resource: { type: 'project_metadata' },
-    userId,
-  };
-}
-
-/**
- * Fan out a lock event to every connection in the project room.
+ * Fan out an op event to every connection in the project room.
  *
  * @param {number} projectId
  * @param {object} payload
  * @param {import('./projectWsPresence.js').WsGatewayContext} gatewayContext
  */
-export async function broadcastProjectLockEvent(projectId, payload, gatewayContext) {
+export async function broadcastProjectOpEvent(projectId, payload, gatewayContext) {
   const connectionIds = await getProjectConnectionIds(projectId);
   if (connectionIds.length === 0) {
     return;
@@ -57,8 +34,31 @@ export async function broadcastProjectLockEvent(projectId, payload, gatewayConte
         if (error?.name === 'GoneException' || error?.$metadata?.httpStatusCode === 410) {
           return;
         }
-        console.error(`Failed to post lock event to connection ${connectionId}:`, error);
+        console.error(`Failed to post op event to connection ${connectionId}:`, error);
       })
     )
   );
+}
+
+/**
+ * Push asset processing status to all connections in a project room.
+ *
+ * @param {number} projectId
+ * @param {object} update
+ * @param {number} update.clipId
+ * @param {number} update.assetId
+ * @param {'completed'|'failed'|'processing'|'pending'} update.status
+ * @param {string|null} [update.error]
+ * @param {import('./projectWsPresence.js').WsGatewayContext} gatewayContext
+ */
+export async function broadcastAssetProcessingUpdate(projectId, update, gatewayContext) {
+  const payload = {
+    type: 'asset.processing_update',
+    clipId: update.clipId,
+    assetId: update.assetId,
+    status: update.status,
+    error: update.error ?? null,
+  };
+
+  await broadcastProjectOpEvent(projectId, payload, gatewayContext);
 }

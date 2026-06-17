@@ -4,10 +4,14 @@ import { useCallback, useEffect, useRef } from 'react';
 import { projectApi } from '@/lib/api';
 import { CLIP_PERSIST_DEBOUNCE_MS } from '@/components/DAW/project/ProjectsConfig';
 import { mapProjectSettingsToApiPayload } from '@/components/DAW/project/projectTransportPersistence';
+import {
+  buildClipOpPayload,
+  buildTransportOpPayload,
+} from '@/components/DAW/project/projectWsOpPayloads';
 
 /**
- * Debounced REST persistence for project clip layout and transport settings (Phase 1).
- * Revision conflicts: silent rebase when clean; toast + prompt when dirty (Step 21).
+ * Debounced persistence for project clip layout and transport settings.
+ * Uses WS ops when connected; REST fallback otherwise.
  */
 export function useProjectPersistence({
   projectGuid,
@@ -17,6 +21,10 @@ export function useProjectPersistence({
   showToast,
   onConflictPrompt,
   onRestSaveSuccess,
+  sendProjectOp,
+  isWsConnected,
+  acquireMetadataLock,
+  releaseMetadataLock,
 }) {
   const revisionRef = useRef(revision);
   const dirtyClipIdsRef = useRef(new Set());
@@ -162,6 +170,29 @@ export function useProjectPersistence({
     ]
   );
 
+  const handleOpFailure = useCallback(
+    async ({ result, revertStates, exclude }) => {
+      if (result.code === 'REVISION_MISMATCH') {
+        await handleRevisionConflict({
+          revertStates,
+          conflictInfo: {
+            currentRevision: result.currentRevision ?? null,
+            yourRevision: revisionRef.current,
+          },
+          exclude,
+        });
+        return;
+      }
+
+      revertCollectedStates(revertStates);
+      showToast?.({
+        message: result.message || 'Failed to save changes. Please try again.',
+        variant: 'error',
+      });
+    },
+    [handleRevisionConflict, revertCollectedStates, showToast]
+  );
+
   const flushProjectSettings = useCallback(async () => {
     projectSettingsTimerRef.current = null;
 
@@ -169,8 +200,56 @@ export function useProjectPersistence({
     const { fields, revertStates } = pending;
     pendingProjectSettingsRef.current = { fields: {}, revertStates: [] };
 
+    if (Object.keys(fields).length === 0 || !projectGuid || revisionRef.current == null) {
+      return;
+    }
+
+    const useWs = isWsConnected?.() && sendProjectOp;
+
+    if (useWs) {
+      const lockAcquired = await acquireMetadataLock?.();
+      if (!lockAcquired) {
+        revertCollectedStates(revertStates);
+        dirtyProjectSettingsRef.current = false;
+        showToast?.({
+          message: 'Another collaborator is editing project settings.',
+          variant: 'error',
+        });
+        return;
+      }
+
+      const opPayload = buildTransportOpPayload(fields);
+      const result = await sendProjectOp(opPayload);
+      releaseMetadataLock?.();
+
+      if (result.fallbackRest) {
+        pendingProjectSettingsRef.current = { fields, revertStates };
+        dirtyProjectSettingsRef.current = true;
+        projectSettingsTimerRef.current = setTimeout(() => {
+          flushProjectSettings();
+        }, 0);
+        return;
+      }
+
+      if (result.ok) {
+        revisionRef.current = result.revision;
+        dirtyProjectSettingsRef.current = false;
+        onRevisionOnlyUpdate?.(result.revision);
+        onRestSaveSuccess?.();
+        return;
+      }
+
+      dirtyProjectSettingsRef.current = false;
+      await handleOpFailure({
+        result,
+        revertStates,
+        exclude: { excludeProjectSettings: true },
+      });
+      return;
+    }
+
     const apiPayload = mapProjectSettingsToApiPayload(fields);
-    if (Object.keys(apiPayload).length === 0 || !projectGuid || revisionRef.current == null) {
+    if (Object.keys(apiPayload).length === 0) {
       return;
     }
 
@@ -207,11 +286,17 @@ export function useProjectPersistence({
       showToast?.({ message, variant: 'error' });
     }
   }, [
+    acquireMetadataLock,
     applyProjectServerState,
+    handleOpFailure,
     handleRevisionConflict,
+    isWsConnected,
     onRestSaveSuccess,
+    onRevisionOnlyUpdate,
     projectGuid,
+    releaseMetadataLock,
     revertCollectedStates,
+    sendProjectOp,
     showToast,
   ]);
 
@@ -245,6 +330,46 @@ export function useProjectPersistence({
 
       latestEditsRef.current.delete(clipId);
       timersRef.current.delete(clipId);
+
+      const useWs = isWsConnected?.() && sendProjectOp;
+
+      if (useWs) {
+        const opPayload = buildClipOpPayload({
+          clipId,
+          trackId: pending.trackId,
+          sourceTrackId: pending.sourceTrackId,
+          patchPayload: pending.payload,
+        });
+
+        const result = await sendProjectOp(opPayload);
+
+        if (result.fallbackRest) {
+          latestEditsRef.current.set(clipId, pending);
+          timersRef.current.set(
+            clipId,
+            setTimeout(() => {
+              flushClipEdit(clipId);
+            }, 0)
+          );
+          return;
+        }
+
+        if (result.ok) {
+          revisionRef.current = result.revision;
+          dirtyClipIdsRef.current.delete(clipId);
+          onRevisionOnlyUpdate?.(result.revision);
+          onRestSaveSuccess?.();
+          return;
+        }
+
+        dirtyClipIdsRef.current.delete(clipId);
+        await handleOpFailure({
+          result,
+          revertStates: pending.revertState ? [pending.revertState] : [],
+          exclude: { excludeClipId: clipId },
+        });
+        return;
+      }
 
       try {
         const response = await projectApi.updateProjectClip(projectGuid, clipId, {
@@ -282,20 +407,29 @@ export function useProjectPersistence({
     },
     [
       applyProjectServerState,
+      handleOpFailure,
       handleRevisionConflict,
+      isWsConnected,
       onRestSaveSuccess,
+      onRevisionOnlyUpdate,
       projectGuid,
       revertCollectedStates,
+      sendProjectOp,
       showToast,
     ]
   );
 
   const scheduleClipPersist = useCallback(
-    ({ clipId, payload, revertState }) => {
+    ({ clipId, payload, revertState, trackId, sourceTrackId }) => {
       if (!clipId || !projectGuid || revisionRef.current == null) return;
 
       dirtyClipIdsRef.current.add(clipId);
-      latestEditsRef.current.set(clipId, { payload, revertState });
+      latestEditsRef.current.set(clipId, {
+        payload,
+        revertState,
+        trackId,
+        sourceTrackId,
+      });
 
       const existingTimer = timersRef.current.get(clipId);
       if (existingTimer) {

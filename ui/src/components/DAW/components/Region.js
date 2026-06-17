@@ -373,6 +373,9 @@ export default function Region({
 
       crossTrackDestLockRef.current = null;
       setIsDraggingRegion(true);
+      if (isProjectMode) {
+        eventBus.emit(DAW_EVENTS.PROJECT.CLIP_DRAG_START);
+      }
       hasDraggedRef.current = false;
       setDragStartX(e.clientX);
       const regionLeftPixels = regionLeftPos * tracksContainerWidth / 100;
@@ -623,6 +626,9 @@ export default function Region({
       e.stopPropagation();
       const wasDragging = hasDraggedRef.current;
       setIsDraggingRegion(false);
+      if (isProjectMode) {
+        eventBus.emit(DAW_EVENTS.PROJECT.CLIP_DRAG_END);
+      }
       hasDraggedRef.current = false;
 
       if (isProjectMode) {
@@ -707,6 +713,7 @@ export default function Region({
         setIsDraggingRegion(false);
         hasDraggedRef.current = false;
         if (isProjectMode) {
+          eventBus.emit(DAW_EVENTS.PROJECT.CLIP_DRAG_END);
           clearCrossTrackDragPreview();
           releaseProjectDragLocks();
         }

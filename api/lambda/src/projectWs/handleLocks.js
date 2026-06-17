@@ -1,4 +1,9 @@
 import {
+  acquireMetadataLock,
+  getActiveMetadataLock,
+  releaseMetadataLock,
+} from '../utils/projectMetadataLocks.js';
+import {
   acquireTrackLock,
   getProjectTrackLocks,
   releaseTrackLock,
@@ -14,19 +19,29 @@ import { sendWsMessage } from './projectWsApiGateway.js';
 import {
   broadcastProjectLockEvent,
   buildLockMessage,
+  buildMetadataLockMessage,
 } from './projectWsLockBroadcast.js';
 import { getGatewayContextFromSendContext } from './projectWsPresence.js';
 
 function parseLockResource(body) {
   const resource = body?.resource;
-  if (!resource || resource.type !== 'track') {
-    return { ok: false, error: 'resource.type must be "track"' };
+  if (!resource?.type) {
+    return { ok: false, error: 'resource.type is required' };
   }
+
+  if (resource.type === 'project_metadata') {
+    return { ok: true, resourceType: 'project_metadata' };
+  }
+
+  if (resource.type !== 'track') {
+    return { ok: false, error: 'resource.type must be "track" or "project_metadata"' };
+  }
+
   const trackId = Number(resource.id);
   if (!Number.isFinite(trackId)) {
     return { ok: false, error: 'resource.id must be a number' };
   }
-  return { ok: true, trackId };
+  return { ok: true, resourceType: 'track', trackId };
 }
 
 function parseTrackIdsList(body) {
@@ -86,6 +101,29 @@ export async function handleLockAcquireMessage({ connectionId, body, sendContext
       message: joined.error,
     });
     return { statusCode: joined.statusCode };
+  }
+
+  if (resource.resourceType === 'project_metadata') {
+    const result = await acquireMetadataLock({
+      projectId: joined.projectId,
+      userId: joined.userId,
+      connectionId,
+    });
+
+    if (!result.ok) {
+      await sendWsMessage(sendContext, {
+        type: 'error',
+        code: result.code,
+        message: result.message,
+        resource: { type: 'project_metadata' },
+      });
+      return { statusCode: 403 };
+    }
+
+    const lockPayload = buildMetadataLockMessage(joined.userId, 'acquired');
+    const gatewayContext = getGatewayContextFromSendContext(sendContext);
+    await broadcastProjectLockEvent(joined.projectId, lockPayload, gatewayContext);
+    return { statusCode: 200 };
   }
 
   const result = await acquireTrackLock({
@@ -148,6 +186,22 @@ export async function handleLockReleaseMessage({ connectionId, body, sendContext
       message: joined.error,
     });
     return { statusCode: joined.statusCode };
+  }
+
+  if (resource.resourceType === 'project_metadata') {
+    const result = await releaseMetadataLock({
+      projectId: joined.projectId,
+      userId: joined.userId,
+      connectionId,
+    });
+
+    if (result.released) {
+      const lockPayload = buildMetadataLockMessage(joined.userId, 'released');
+      const gatewayContext = getGatewayContextFromSendContext(sendContext);
+      await broadcastProjectLockEvent(joined.projectId, lockPayload, gatewayContext);
+    }
+
+    return { statusCode: 200 };
   }
 
   const result = await releaseTrackLock({
@@ -216,6 +270,14 @@ export async function sendActiveLocksToConnection(projectId, sendContext) {
     await sendWsMessage(
       sendContext,
       buildLockMessage(lock.trackId, lock.userId, 'acquired')
+    );
+  }
+
+  const metadataLock = await getActiveMetadataLock(projectId);
+  if (metadataLock) {
+    await sendWsMessage(
+      sendContext,
+      buildMetadataLockMessage(metadataLock.userId, 'acquired')
     );
   }
 }

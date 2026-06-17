@@ -11,6 +11,8 @@ import {
 } from 'react';
 import { LOCK_HEARTBEAT_INTERVAL_SECONDS } from '@sterio/subscription-utils';
 import { useUser } from '@/contexts/UserContext';
+import { eventBus } from '../misc/EventBus';
+import { DAW_EVENTS } from '../misc/DAWEvents';
 import {
   PROJECT_PRESENCE_HEARTBEAT_MS,
   PROJECT_WS_PROTOCOL_VERSION,
@@ -19,6 +21,7 @@ import { buildProjectWsConnectUrl } from './projectWsConnectUrl';
 
 const RECONNECT_DELAY_MS = 3000;
 const LOCK_ACQUIRE_TIMEOUT_MS = 5000;
+const OP_ACK_TIMEOUT_MS = 10000;
 const LOCK_HEARTBEAT_MS = LOCK_HEARTBEAT_INTERVAL_SECONDS * 1000;
 
 const ProjectSyncContext = createContext(null);
@@ -29,6 +32,16 @@ const ProjectSyncContext = createContext(null);
  * @property {string} username
  * @property {string|null} [profilePicUrl]
  * @property {number} [editingTrackId]
+ */
+
+/**
+ * @typedef {object} ProjectOpResult
+ * @property {boolean} ok
+ * @property {number} [revision]
+ * @property {string} [code]
+ * @property {string} [message]
+ * @property {number} [currentRevision]
+ * @property {boolean} [fallbackRest]
  */
 
 /**
@@ -43,16 +56,29 @@ export function ProjectSyncProvider({ project, children }) {
   const [trackLockHolders, setTrackLockHolders] = useState(
     /** @type {Record<number, string>} */ ({})
   );
+  const [metadataLockHolder, setMetadataLockHolder] = useState(/** @type {string|null} */ (null));
+
   const wsRef = useRef(null);
   const heartbeatRef = useRef(null);
   const lockHeartbeatRef = useRef(null);
   const heldTrackIdsRef = useRef(new Set());
+  const holdsMetadataLockRef = useRef(false);
+  const revisionRef = useRef(project?.revision ?? null);
   const pendingAcquireRef = useRef(
     /** @type {Map<string, { resolve: (ok: boolean) => void, trackId: number }>} */ (new Map())
   );
+  const pendingMetadataAcquireRef = useRef(/** @type {{ resolve: (ok: boolean) => void } | null} */ (null));
+  const pendingOpsRef = useRef(
+    /** @type {Map<string, { resolve: (result: ProjectOpResult) => void }>} */ (new Map())
+  );
 
   const projectRef = project?.guid ?? project?.id;
-  const revision = project?.revision;
+
+  useEffect(() => {
+    if (project?.revision != null) {
+      revisionRef.current = project.revision;
+    }
+  }, [project?.revision]);
 
   const applyLockAcquired = useCallback((trackId, userId) => {
     setTrackLockHolders((prev) => ({ ...prev, [trackId]: userId }));
@@ -80,10 +106,33 @@ export function ProjectSyncProvider({ project, children }) {
     }
   }, [user?.id]);
 
+  const applyMetadataLockAcquired = useCallback((userId) => {
+    setMetadataLockHolder(userId);
+    if (userId === user?.id) {
+      holdsMetadataLockRef.current = true;
+    }
+    if (pendingMetadataAcquireRef.current) {
+      pendingMetadataAcquireRef.current.resolve(userId === user?.id);
+      pendingMetadataAcquireRef.current = null;
+    }
+  }, [user?.id]);
+
+  const applyMetadataLockReleased = useCallback((userId) => {
+    setMetadataLockHolder((current) => (current === userId ? null : current));
+    if (userId === user?.id) {
+      holdsMetadataLockRef.current = false;
+    }
+  }, [user?.id]);
+
   const handleWsMessage = useCallback(
     (data) => {
       if (data.type === 'presence' && Array.isArray(data.users)) {
         setOnlineUsers(data.users);
+        return;
+      }
+
+      if (data.type === 'joined' && data.revision != null) {
+        revisionRef.current = data.revision;
         return;
       }
 
@@ -100,7 +149,56 @@ export function ProjectSyncProvider({ project, children }) {
         return;
       }
 
+      if (data.type === 'lock' && data.resource?.type === 'project_metadata') {
+        if (!data.userId) return;
+        if (data.action === 'acquired') {
+          applyMetadataLockAcquired(data.userId);
+        } else if (data.action === 'released') {
+          applyMetadataLockReleased(data.userId);
+        }
+        return;
+      }
+
+      if (data.type === 'op') {
+        eventBus.emit(DAW_EVENTS.PROJECT.REMOTE_OP, data);
+        return;
+      }
+
+      if (data.type === 'op_ack' && data.opId) {
+        const pending = pendingOpsRef.current.get(data.opId);
+        if (pending) {
+          pendingOpsRef.current.delete(data.opId);
+          if (data.revision != null) {
+            revisionRef.current = data.revision;
+          }
+          pending.resolve({ ok: true, revision: data.revision });
+        }
+        return;
+      }
+
+      if (data.type === 'op_nack' && data.opId) {
+        const pending = pendingOpsRef.current.get(data.opId);
+        if (pending) {
+          pendingOpsRef.current.delete(data.opId);
+          pending.resolve({
+            ok: false,
+            code: data.code,
+            message: data.message,
+            currentRevision: data.currentRevision ?? data.current_revision ?? null,
+          });
+        }
+        return;
+      }
+
       if (data.type === 'error' && data.code === 'LOCK_DENIED') {
+        if (data.resource?.type === 'project_metadata') {
+          if (pendingMetadataAcquireRef.current) {
+            pendingMetadataAcquireRef.current.resolve(false);
+            pendingMetadataAcquireRef.current = null;
+          }
+          return;
+        }
+
         const trackId = Number(data.resource?.id);
         if (Number.isFinite(trackId)) {
           const pending = pendingAcquireRef.current.get(String(trackId));
@@ -111,7 +209,12 @@ export function ProjectSyncProvider({ project, children }) {
         }
       }
     },
-    [applyLockAcquired, applyLockReleased]
+    [
+      applyLockAcquired,
+      applyLockReleased,
+      applyMetadataLockAcquired,
+      applyMetadataLockReleased,
+    ]
   );
 
   useEffect(() => {
@@ -149,7 +252,7 @@ export function ProjectSyncProvider({ project, children }) {
           JSON.stringify({
             type: 'join',
             projectId: projectRef,
-            revision: revision ?? null,
+            revision: revisionRef.current ?? null,
             protocolVersion: PROJECT_WS_PROTOCOL_VERSION,
           })
         );
@@ -171,8 +274,15 @@ export function ProjectSyncProvider({ project, children }) {
         setConnectionStatus('idle');
         setOnlineUsers([]);
         setTrackLockHolders({});
+        setMetadataLockHolder(null);
         heldTrackIdsRef.current.clear();
+        holdsMetadataLockRef.current = false;
         pendingAcquireRef.current.clear();
+        pendingMetadataAcquireRef.current = null;
+        for (const pending of pendingOpsRef.current.values()) {
+          pending.resolve({ ok: false, fallbackRest: true });
+        }
+        pendingOpsRef.current.clear();
         reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
       };
 
@@ -219,9 +329,54 @@ export function ProjectSyncProvider({ project, children }) {
         wsRef.current = null;
       }
       heldTrackIdsRef.current.clear();
+      holdsMetadataLockRef.current = false;
       pendingAcquireRef.current.clear();
+      pendingMetadataAcquireRef.current = null;
+      pendingOpsRef.current.clear();
     };
-  }, [projectRef, revision, user?.id, handleWsMessage]);
+  }, [projectRef, user?.id, handleWsMessage]);
+
+  const isWsConnected = useCallback(
+    () => connectionStatus === 'connected',
+    [connectionStatus]
+  );
+
+  const sendProjectOp = useCallback(
+    (payload) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN || connectionStatus !== 'connected') {
+        return Promise.resolve({ ok: false, fallbackRest: true });
+      }
+
+      if (revisionRef.current == null) {
+        return Promise.resolve({ ok: false, fallbackRest: true });
+      }
+
+      const opId = crypto.randomUUID();
+
+      return new Promise((resolve) => {
+        pendingOpsRef.current.set(opId, { resolve });
+
+        ws.send(
+          JSON.stringify({
+            type: 'op',
+            opId,
+            baseRevision: revisionRef.current,
+            payload,
+          })
+        );
+
+        setTimeout(() => {
+          const pending = pendingOpsRef.current.get(opId);
+          if (pending) {
+            pendingOpsRef.current.delete(opId);
+            resolve({ ok: false, fallbackRest: true });
+          }
+        }, OP_ACK_TIMEOUT_MS);
+      });
+    },
+    [connectionStatus]
+  );
 
   const acquireTrackLock = useCallback(
     (trackId) => {
@@ -290,6 +445,53 @@ export function ProjectSyncProvider({ project, children }) {
     heldTrackIdsRef.current.delete(numericTrackId);
   }, []);
 
+  const acquireMetadataLock = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN || connectionStatus !== 'connected') {
+      return Promise.resolve(true);
+    }
+
+    if (holdsMetadataLockRef.current) {
+      return Promise.resolve(true);
+    }
+
+    if (metadataLockHolder && metadataLockHolder !== user?.id) {
+      return Promise.resolve(false);
+    }
+
+    return new Promise((resolve) => {
+      pendingMetadataAcquireRef.current = { resolve };
+      ws.send(
+        JSON.stringify({
+          type: 'lock_acquire',
+          resource: { type: 'project_metadata' },
+        })
+      );
+      setTimeout(() => {
+        if (pendingMetadataAcquireRef.current) {
+          pendingMetadataAcquireRef.current = null;
+          resolve(false);
+        }
+      }, LOCK_ACQUIRE_TIMEOUT_MS);
+    });
+  }, [connectionStatus, metadataLockHolder, user?.id]);
+
+  const releaseMetadataLock = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !holdsMetadataLockRef.current) {
+      holdsMetadataLockRef.current = false;
+      return;
+    }
+
+    ws.send(
+      JSON.stringify({
+        type: 'lock_release',
+        resource: { type: 'project_metadata' },
+      })
+    );
+    holdsMetadataLockRef.current = false;
+  }, []);
+
   const releaseAllHeldTrackLocks = useCallback(() => {
     const heldIds = [...heldTrackIdsRef.current];
     for (const trackId of heldIds) {
@@ -311,19 +513,29 @@ export function ProjectSyncProvider({ project, children }) {
       onlineUsers,
       connectionStatus,
       trackLockHolders,
+      metadataLockHolder,
       acquireTrackLock,
       releaseTrackLock,
       releaseAllHeldTrackLocks,
+      acquireMetadataLock,
+      releaseMetadataLock,
       isTrackLockedByOther,
+      isWsConnected,
+      sendProjectOp,
     }),
     [
       onlineUsers,
       connectionStatus,
       trackLockHolders,
+      metadataLockHolder,
       acquireTrackLock,
       releaseTrackLock,
       releaseAllHeldTrackLocks,
+      acquireMetadataLock,
+      releaseMetadataLock,
       isTrackLockedByOther,
+      isWsConnected,
+      sendProjectOp,
     ]
   );
 
@@ -341,10 +553,15 @@ export function useProjectSync() {
       onlineUsers: [],
       connectionStatus: 'idle',
       trackLockHolders: {},
+      metadataLockHolder: null,
       acquireTrackLock: async () => true,
       releaseTrackLock: () => {},
       releaseAllHeldTrackLocks: () => {},
+      acquireMetadataLock: async () => true,
+      releaseMetadataLock: () => {},
       isTrackLockedByOther: () => false,
+      isWsConnected: () => false,
+      sendProjectOp: async () => ({ ok: false, fallbackRest: true }),
     };
   }
   return context;

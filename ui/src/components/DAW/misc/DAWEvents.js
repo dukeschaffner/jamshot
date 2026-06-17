@@ -163,6 +163,13 @@ export const DAW_EVENTS = {
       CLEAR: 'undo:clear'
     },
 
+    // Project collaboration events (Phase 2 realtime)
+    PROJECT: {
+      REMOTE_OP: 'project:remote_op',
+      CLIP_DRAG_START: 'project:clip_drag:start',
+      CLIP_DRAG_END: 'project:clip_drag:end',
+    },
+
     // Loop Listening events
     LOOP_LISTENING: {
       TRACK_STARTED: 'loop_listening:track:started',
