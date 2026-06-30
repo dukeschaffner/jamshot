@@ -136,6 +136,14 @@ export function ProjectSyncProvider({ project, children }) {
         return;
       }
 
+      if (data.type === 'state' && data.project) {
+        if (data.revision != null) {
+          revisionRef.current = data.revision;
+        }
+        eventBus.emit(DAW_EVENTS.PROJECT.WS_STATE_RESYNC, data);
+        return;
+      }
+
       if (data.type === 'lock' && data.resource?.type === 'track') {
         const trackId = Number(data.resource.id);
         if (!Number.isFinite(trackId) || !data.userId) {

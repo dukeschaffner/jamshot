@@ -209,7 +209,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     canEdit,
   });
 
-  const { scheduleClipPersist, scheduleProjectSettingsPersist, handleRevisionConflict } =
+  const { scheduleClipPersist, scheduleProjectSettingsPersist, handleRevisionConflict, clearPendingEdits } =
     useProjectPersistence({
       projectGuid: projectData?.guid,
       revision: projectData?.revision,
@@ -721,6 +721,28 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       remoteOpQueueRef.current.setLastAppliedRevision(projectData.revision);
     }
   }, [projectData?.revision]);
+
+  useEffect(() => {
+    const handleWsStateResync = (data) => {
+      const project = data?.project;
+      if (!project) return;
+
+      clearPendingEdits();
+      remoteOpQueueRef.current.reset();
+      remoteOpQueueRef.current.setLastAppliedRevision(project.revision);
+
+      const current = projectDataRef.current;
+      applyProjectServerState({
+        ...project,
+        role: current?.role ?? project.role,
+      });
+    };
+
+    eventBus.on(DAW_EVENTS.PROJECT.WS_STATE_RESYNC, handleWsStateResync);
+    return () => {
+      eventBus.off(DAW_EVENTS.PROJECT.WS_STATE_RESYNC, handleWsStateResync);
+    };
+  }, [applyProjectServerState, clearPendingEdits]);
 
   useEffect(() => {
     const applyRemoteOpMessage = (opMessage) => {

@@ -17,6 +17,10 @@ import {
   getGatewayContextFromSendContext,
 } from './projectWsPresence.js';
 import { sendActiveLocksToConnection } from './handleLocks.js';
+import {
+  sendFullStateOnJoin,
+  shouldSendFullStateOnJoin,
+} from './projectWsResync.js';
 
 function parseJoinMessage(body) {
   let parsed;
@@ -156,6 +160,15 @@ export async function handleJoinMessage({ connectionId, body, sendContext }) {
   });
 
   await sendActiveLocksToConnection(resolved.projectId, sendContext);
+
+  const serverRevision =
+    access.project.revision != null ? Number(access.project.revision) : null;
+  const clientRevision =
+    parsed.revision != null ? Number(parsed.revision) : null;
+
+  if (shouldSendFullStateOnJoin(clientRevision, serverRevision)) {
+    await sendFullStateOnJoin(resolved.projectId, serverRevision, sendContext);
+  }
 
   const gatewayContext = getGatewayContextFromSendContext(sendContext);
   await broadcastProjectPresence(resolved.projectId, gatewayContext);

@@ -456,5 +456,6 @@ export function useProjectPersistence({
     scheduleProjectSettingsPersist,
     hasDirtyEdits,
     handleRevisionConflict,
+    clearPendingEdits: clearAllPending,
   };
 }

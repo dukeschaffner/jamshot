@@ -36,6 +36,7 @@ The purpose of this file is to keep a record of assumptions, decisions, or any o
 | 35 — Track locks | **Done (code)** | WS lock_acquire/release/heartbeat, REST enforcement, Region.js acquire on edit |
 | 36 — Broadcast ops | **Done (code)** | WS `op` persist + ACK/NACK + room fan-out; metadata locks; op dedup |
 | 37 — ProjectSyncContext UI wiring | **Done (code)** | DAW edits → WS ops; remote ops → TrackManager via event bus; REST fallback when disconnected |
+| 38 — Reconnect & full resync | **Done (code)** | Join with stale revision → server pushes `state` + lock snapshots; client applies via event bus |
 | 6b+ | Not started | |
 
 ---
@@ -1080,6 +1081,52 @@ Local DAW edits send WS `op` messages when connected; remote ops apply to `Track
 
 ---
 
+## Step 38 — Reconnect & full resync
+
+On WS reconnect the client re-joins with `revisionRef` (last known revision). When behind the server, the join handler pushes a full REST-shaped snapshot instead of op diffs.
+
+### Resync threshold
+
+`shouldSendFullStateOnJoin(clientRevision, serverRevision)` → true when `clientRevision` is null/unknown or `clientRevision < serverRevision` (any gap). Step text in `implementation-steps.md` mentions `serverRevision - 1`; MVP uses **any behind** so a single missed op while disconnected still resyncs.
+
+### WS protocol
+
+After `joined` + active lock snapshots, server may send:
+
+```json
+{ "type": "state", "revision": 43, "project": { ... } }
+```
+
+`project` matches `GET /projects/:id` REST shape (`serializeProjectState` variant `rest`).
+
+### API files
+
+| File | Purpose |
+|------|---------|
+| `projectWs/projectWsResync.js` | `shouldSendFullStateOnJoin`, `sendFullStateOnJoin` |
+| `projectWs/handleJoin.js` | Calls resync helper after locks when stale |
+
+### UI files
+
+| File | Purpose |
+|------|---------|
+| `misc/DAWEvents.js` | `PROJECT.WS_STATE_RESYNC` |
+| `project/ProjectSyncContext.js` | Handles `state` message; emits resync event; updates `revisionRef` |
+| `project/ProjectEditorContext.js` | Applies full state, clears pending edits, resets remote op queue |
+| `hooks/useProjectPersistence.js` | Exports `clearPendingEdits` for resync |
+
+### Manual verify
+
+1. Start project-ws dev server
+2. Open project in Tab A; note revision
+3. Stop dev server (or kill WS)
+4. Tab B: edit project (revision advances)
+5. Restart dev server; Tab A reconnects automatically (~3s)
+6. Tab A timeline matches Tab B without manual refresh
+7. Automated: `node api/lambda/testing/project-ws-resync-test.js --projectId=1`
+
+---
+
 ## Step 17 — Record clip to armed track
 
 ### API client
@@ -1192,4 +1239,5 @@ Local DAW edits send WS `op` messages when connected; remote ops apply to `Track
 | 2026-06-16 | 35 | Track locks: WS acquire/release/heartbeat, REST enforcement, Region.js auto-lock on edit |
 | 2026-06-16 | 36 | WS broadcast ops: persist clip/track/transport mutations, ACK/NACK, room fan-out, metadata locks |
 | 2026-06-16 | 37 | ProjectSyncContext UI: local edits → WS ops, remote ops → TrackManager, REST fallback when disconnected |
+| 2026-06-16 | 38 | Reconnect resync: stale join pushes WS `state` snapshot + locks; client applies full server state |
 | 2026-06-10 | — | DAW refactor: project orchestration extracted to `project/ProjectEditorContext.js`; architecture documented as required convention |

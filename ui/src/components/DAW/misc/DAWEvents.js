@@ -166,6 +166,7 @@ export const DAW_EVENTS = {
     // Project collaboration events (Phase 2 realtime)
     PROJECT: {
       REMOTE_OP: 'project:remote_op',
+      WS_STATE_RESYNC: 'project:ws_state_resync',
       CLIP_DRAG_START: 'project:clip_drag:start',
       CLIP_DRAG_END: 'project:clip_drag:end',
     },
