@@ -58,6 +58,10 @@ import {
 } from './projectWsOpAck';
 import { ProjectRemoteOpQueue } from './projectRemoteOpQueue';
 import { bufferRegistry } from '../core/BufferRegistry';
+import {
+  buildClipDeleteOpPayload,
+  removeProjectRegionLocally,
+} from './projectClipDelete';
 
 const ProjectEditorContext = createContext(null);
 
@@ -75,6 +79,7 @@ const INACTIVE_PROJECT_EDITOR = {
   applyProjectServerState: () => {},
   retryClipUpload: async () => {},
   deleteFailedClip: async () => {},
+  deleteProjectRegion: async () => {},
   startProjectRecording: () => {},
   importAudioFileToTrack: async () => {},
   placeLibraryAssetOnTrack: async () => false,
@@ -244,7 +249,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     canEdit,
   });
 
-  const { scheduleClipPersist, scheduleProjectSettingsPersist, handleRevisionConflict, clearPendingEdits } =
+  const { scheduleClipPersist, scheduleProjectSettingsPersist, handleRevisionConflict, clearPendingEdits, clearPendingClipEdit } =
     useProjectPersistence({
       projectGuid: projectData?.guid,
       revision: projectData?.revision,
@@ -775,10 +780,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     [trackManagerRef, uploadClipFromBuffer]
   );
 
-  const deleteFailedClip = useCallback(
+  const deleteProjectRegion = useCallback(
     async (regionId, trackId) => {
       const currentProject = projectDataRef.current;
-      if (!currentProject?.guid || currentProject.revision == null) return;
+      if (!currentProject?.guid || currentProject.revision == null || !canEdit) return;
       if (!trackManagerRef.current) return;
 
       const track = trackManagerRef.current.getTrack(trackId);
@@ -787,42 +792,117 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       const region = track.regions.find((item) => item.id === regionId);
       if (!region) return;
 
-      if (region.projectClipId) {
-        try {
-          const response = await projectApi.deleteProjectClip(
-            currentProject.guid,
-            region.projectClipId,
-            { revision: currentProject.revision }
-          );
-          applyProjectServerState(response.data);
-          notifyProjectMutated();
-        } catch (err) {
-          if (isRevisionConflict(err)) {
+      if (
+        isClipInFlight(region.processingStatus) &&
+        !isFailedClipStatus(region.processingStatus)
+      ) {
+        return;
+      }
+
+      if (inFlightRegionIdsRef.current.has(region.id)) {
+        inFlightRegionIdsRef.current.delete(region.id);
+        bumpInFlight(-1);
+      }
+
+      const clipId = region.projectClipId;
+      if (clipId == null) {
+        removeProjectRegionLocally({ trackId: track.id, region });
+        return;
+      }
+
+      clearPendingClipEdit(clipId);
+
+      if (isWsConnected()) {
+        const lockAcquired = await acquireTrackLock(trackId);
+        if (!lockAcquired) {
+          showToast({
+            message: 'Another collaborator is editing this track.',
+            variant: 'error',
+          });
+          return;
+        }
+
+        const result = await sendProjectOp(
+          buildClipDeleteOpPayload({ clipId, trackId })
+        );
+        releaseTrackLock(trackId);
+
+        if (!result.fallbackRest) {
+          if (result.ok) {
+            applyLocalWsOpResult(result);
+            notifyProjectMutated();
+            return;
+          }
+          if (result.code === 'REVISION_MISMATCH') {
             await handleRevisionConflict({
-              conflictInfo: getRevisionConflictInfo(err),
+              conflictInfo: {
+                currentRevision: result.currentRevision ?? null,
+                yourRevision: currentProject.revision,
+              },
             });
             return;
           }
-
-          const message =
-            err.response?.data?.error ||
-            'Failed to delete clip. Please try again.';
-          showToast({ message, variant: 'error' });
+          showToast({
+            message: result.message || 'Failed to delete clip. Please try again.',
+            variant: 'error',
+          });
           return;
         }
       }
 
-      if (region.key && bufferRegistry.hasBuffer(region.key)) {
-        bufferRegistry.removeBuffer(region.key);
-      }
+      try {
+        const response = await projectApi.deleteProjectClip(
+          currentProject.guid,
+          clipId,
+          { revision: currentProject.revision }
+        );
+        applyProjectServerState(response.data);
+        notifyProjectMutated();
+      } catch (err) {
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+          return;
+        }
 
-      eventBus.emit(DAW_EVENTS.REGION.REMOVE, {
-        region,
-        trackId: track.id,
-        recordUndo: false,
-      });
+        const message =
+          err.response?.data?.error ||
+          'Failed to delete clip. Please try again.';
+        showToast({ message, variant: 'error' });
+      }
     },
-    [applyProjectServerState, handleRevisionConflict, notifyProjectMutated, showToast, trackManagerRef]
+    [
+      acquireTrackLock,
+      applyLocalWsOpResult,
+      applyProjectServerState,
+      bumpInFlight,
+      canEdit,
+      clearPendingClipEdit,
+      handleRevisionConflict,
+      isWsConnected,
+      notifyProjectMutated,
+      releaseTrackLock,
+      sendProjectOp,
+      showToast,
+      trackManagerRef,
+    ]
+  );
+
+  const deleteFailedClip = useCallback(
+    async (regionId, trackId) => {
+      if (!trackManagerRef.current) return;
+
+      const track = trackManagerRef.current.getTrack(trackId);
+      if (!track) return;
+
+      const region = track.regions.find((item) => item.id === regionId);
+      if (!region) return;
+      if (!isFailedClipStatus(region.processingStatus)) return;
+
+      await deleteProjectRegion(regionId, trackId);
+    },
+    [deleteProjectRegion, trackManagerRef]
   );
 
   useEffect(() => {
@@ -1231,6 +1311,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       applyProjectServerState,
       retryClipUpload,
       deleteFailedClip,
+      deleteProjectRegion,
       startProjectRecording,
       importAudioFileToTrack,
       placeLibraryAssetOnTrack,
@@ -1260,6 +1341,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       applyProjectServerState,
       retryClipUpload,
       deleteFailedClip,
+      deleteProjectRegion,
       startProjectRecording,
       importAudioFileToTrack,
       placeLibraryAssetOnTrack,

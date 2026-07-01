@@ -23,3 +23,5 @@
 
 - project web daw is calling /assets and /plugin-payload endpoints too often. we need to optimize this.
 - No matching project loaded in plugin. Open the project in the plugin first. - this message displays every time a projec tupdate is made
+- should ONLY people who recorded asset and project owner be able to delete assets?
+    - make sure to show confirmation if snapshot depends on the asset as well

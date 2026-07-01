@@ -451,11 +451,24 @@ export function useProjectPersistence({
     [hasPendingLocalEdits]
   );
 
+  const clearPendingClipEdit = useCallback((clipId) => {
+    if (clipId == null) return;
+
+    const timer = timersRef.current.get(clipId);
+    if (timer) {
+      clearTimeout(timer);
+    }
+    timersRef.current.delete(clipId);
+    latestEditsRef.current.delete(clipId);
+    dirtyClipIdsRef.current.delete(clipId);
+  }, []);
+
   return {
     scheduleClipPersist,
     scheduleProjectSettingsPersist,
     hasDirtyEdits,
     handleRevisionConflict,
     clearPendingEdits: clearAllPending,
+    clearPendingClipEdit,
   };
 }

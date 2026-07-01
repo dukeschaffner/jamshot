@@ -13,7 +13,10 @@ import DAWConfig from '../misc/DAWConfig';
 import { snapToGrid, handleRegionOverlaps } from '../misc/DAWUtils';
 import { COMMAND_TYPES } from '../core/UndoManager';
 import { useProjectEditor } from '../project/ProjectEditorContext';
-import { isClipInFlight } from '../project/projectClipUpload';
+import {
+  isClipInFlight,
+  isFailedClipStatus,
+} from '../project/projectClipUpload';
 import {
   findTrackIdAtPoint,
   validateRegionPlacement,
@@ -56,6 +59,7 @@ export default function Region({
     isActive: isProjectEditor,
     canEdit: canEditProject,
     retryClipUpload,
+    deleteProjectRegion,
     persistClipLayout,
     moveProjectRegion,
     crossTrackDragPreview,
@@ -354,6 +358,8 @@ export default function Region({
   // Handle mouse down on region for dragging
   const handleRegionMouseDown = (e) => {
     e.stopPropagation();
+    // Right-click and macOS ctrl+click open the context menu — don't start a drag.
+    if (e.button !== 0 || e.ctrlKey) return;
     if (isReadOnly) return;
     // Only allow dragging if not playing or recording
     if (isRecording) return;
@@ -399,13 +405,18 @@ export default function Region({
     e.preventDefault();
     e.stopPropagation();
 
-    if (isReadOnly || isRecording || isProjectMode) return;
+    if (isRecording) return;
+    if (isProjectMode) {
+      if (!canDeleteProjectRegion) return;
+    } else if (isReadOnly) {
+      return;
+    }
 
     // Emit event to close other context menus (including other regions)
     eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'region', regionId: region.id });
 
     // Set context menu items and position context menu at mouse position
-    setContextMenuItems(menuItems);
+    setContextMenuItems(isProjectMode ? projectMenuItems : menuItems);
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
   };
@@ -413,6 +424,17 @@ export default function Region({
   // Handle region deletion
   const handleRegionDelete = () => {
     if (isRecording) return;
+
+    if (isProjectMode) {
+      if (!canDeleteProjectRegion) {
+        setShowContextMenu(false);
+        return;
+      }
+
+      deleteProjectRegion(region.id, track.id);
+      setShowContextMenu(false);
+      return;
+    }
     
     // Prevent deletion if this is the only region left in a non-recording track
     if (track && region) {
@@ -526,7 +548,22 @@ export default function Region({
   const canPaste = clipboard && clipboard.trackId === track.id;
   
   // Check if delete should be shown (hide if it's the last region in a non-recording track)
-  const canDelete = isRecordingTrack || (track && track.getActiveRegions().length > 1);
+  const canDelete =
+    isProjectMode
+      ? canEditProject &&
+        !isTrackLockedByOther(track.id) &&
+        (isProjectClipEditable || isFailedClipStatus(processingStatus))
+      : isRecordingTrack || (track && track.getActiveRegions().length > 1);
+  const canDeleteProjectRegion = isProjectMode && canDelete;
+
+  const projectMenuItems = canDeleteProjectRegion
+    ? [
+        {
+          label: 'Delete Region',
+          action: () => handleRegionDelete(),
+        },
+      ]
+    : [];
 
 
   // Mouse event handlers for region dragging

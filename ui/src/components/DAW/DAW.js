@@ -86,6 +86,7 @@ function DAWContent({ track, isVisible = true }) {
     armedTrackId,
     startProjectRecording,
     addProjectTrack,
+    deleteProjectRegion,
   } = useProjectEditor();
 
   const { showToast } = useToast();
@@ -265,8 +266,15 @@ function DAWContent({ track, isVisible = true }) {
         }
       }
       // Handle Delete/Backspace key for deleting selected region
-      else if (!isProjectMode && (e.code === 'Delete' || e.code === 'Backspace' || e.key === 'Delete' || e.key === 'Backspace') && !isRecording) {
+      else if ((e.code === 'Delete' || e.code === 'Backspace' || e.key === 'Delete' || e.key === 'Backspace') && !isRecording) {
         if (selectedRegionId && selectedTrackId && trackManagerRef && trackManagerRef.current) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            deleteProjectRegion(selectedRegionId, selectedTrackId);
+            return;
+          }
+
           e.preventDefault();
           const track = trackManagerRef.current.getTrack(selectedTrackId);
           if (track) {
@@ -297,7 +305,7 @@ function DAWContent({ track, isVisible = true }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible, isProjectMode, canEditProject, startProjectRecording, armedTrackId]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible, isProjectMode, canEditProject, startProjectRecording, armedTrackId, deleteProjectRegion, trackManagerRef]);
 
   // Handle toast notifications from the event bus
   useEffect(() => {

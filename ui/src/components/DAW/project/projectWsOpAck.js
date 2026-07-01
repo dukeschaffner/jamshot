@@ -2,6 +2,7 @@ import {
   applyRemoteProjectOp,
   mergeTransportIntoProjectState,
 } from './projectRemoteOpApplier';
+import { mergeClipDeleteIntoProjectState } from './projectClipDelete';
 import { emitProjectTrackMixerState } from './projectLoader';
 
 export function mergeProjectStateAfterOp(currentState, opPayload, revision) {
@@ -40,6 +41,10 @@ export function mergeProjectStateAfterOp(currentState, opPayload, revision) {
         (track) => track.id !== opPayload.trackId
       ),
     };
+  }
+
+  if (opPayload?.kind === 'clip.delete') {
+    nextState = mergeClipDeleteIntoProjectState(nextState, opPayload, revision);
   }
 
   return nextState;

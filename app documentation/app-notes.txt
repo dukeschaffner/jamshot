@@ -199,6 +199,16 @@ Sterio loop listening mode stream
   - in the web app's DAW, the user can click "sync edits to plugin" to sync the edits made in the DAW (region edits, gain changes, etc) to the plugin
 </STERIO_PLUGIN>
 
+
+<PROJECTS>
+a "project" entity that is more of a real time collaborative workspace instead of the async collaboration mechanics supported by the regular track feature. 
+  - so kinda like bandlab, but with some key differences. 
+    - the project could be opened in the sterio daw with less restrictions than the existing DAW so they can have closer to a standard DAW experience (moving regions between tracks, recording/uploading audio to any track, etc). 
+      - this would be the source of truth/repository for the project. 
+    - a project could be shared between x people. and it's kinda like a live project, where the users can make updates in real time that propagate to all users' web app sessions and plugins. 
+    - here's what i think makes it different from bandlab/soundtrap: the web app would serve as the place for editing/uploading audio, but the plugin would be used to playback the project audio in the users' own daw, so they can record in their own daw where they have all their favorite tools. and the project audio that plays back in the plugin would always be up to date. plugin could eventually display waveforms, gain, and playhead position for extra context
+</PROJECTS>
+
 Progress:
 - Responsive web app
   - fully featured with social feed, profile, search, DAW, Teams, and Camps
