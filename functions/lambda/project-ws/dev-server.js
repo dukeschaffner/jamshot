@@ -2,7 +2,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { WebSocketServer } from 'ws';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const { WebSocketServer } = require('ws');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../../api/lambda/.env') });

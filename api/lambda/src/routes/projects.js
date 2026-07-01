@@ -36,6 +36,13 @@ import {
   uploadLocalFileToR2,
   emitProjectAssetCreatedEvent,
 } from '../utils/projectAssetUtils.js';
+import {
+  deleteProjectAsset,
+  listProjectAssets,
+  parseAssetDeleteConfirm,
+  parseAssetPlacementBody,
+  placeProjectAssetClip,
+} from '../utils/projectAssetLibraryUtils.js';
 import { assertTracksNotLockedByOther } from '../utils/projectTrackLocks.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -593,6 +600,128 @@ router.get('/:id', async (req, res, next) => {
     }
 
     res.json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/assets', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    const assets = await listProjectAssets(projectId);
+    res.json({ assets, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/assets/:assetId', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+    const assetId = parseAssetId(req.params.assetId);
+    if (Number.isNaN(assetId)) {
+      return res.status(400).json({ error: 'Invalid asset id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const revisionCheck = parseRequiredRevision(req.body);
+    if (!revisionCheck.valid) {
+      return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const result = await deleteProjectAsset({
+      projectId,
+      assetId,
+      userId: req.user.id,
+      revision: revisionCheck.revision,
+      confirm: parseAssetDeleteConfirm(req),
+    });
+
+    if (!result.ok) {
+      const payload = { error: result.error };
+      if (result.code) payload.code = result.code;
+      if (result.requiresConfirm) payload.requiresConfirm = true;
+      if (result.currentRevision != null) {
+        payload.currentRevision = result.currentRevision;
+        payload.yourRevision = revisionCheck.revision;
+      }
+      return res.status(result.status).json(payload);
+    }
+
+    const state = await serializeProjectState(projectId);
+    res.json({ ...state, role: access.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/assets/:assetId/clips', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+    const assetId = parseAssetId(req.params.assetId);
+    if (Number.isNaN(assetId)) {
+      return res.status(400).json({ error: 'Invalid asset id' });
+    }
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const revisionCheck = parseRequiredRevision(req.body);
+    if (!revisionCheck.valid) {
+      return res.status(400).json({ error: revisionCheck.error });
+    }
+
+    const placement = parseAssetPlacementBody(req.body);
+    if (!placement.valid) {
+      return res.status(400).json({ error: placement.error });
+    }
+
+    const result = await placeProjectAssetClip({
+      projectId,
+      assetId,
+      userId: req.user.id,
+      revision: revisionCheck.revision,
+      trackId: placement.trackId,
+      startTime: placement.startTime,
+      trimStart: placement.trimStart,
+      trimEnd: placement.trimEnd,
+    });
+
+    if (!result.ok) {
+      const payload = { error: result.error };
+      if (result.code) payload.code = result.code;
+      if (result.currentRevision != null) {
+        payload.currentRevision = result.currentRevision;
+        payload.yourRevision = revisionCheck.revision;
+      }
+      return res.status(result.status).json(payload);
+    }
+
+    const state = await serializeProjectState(projectId);
+    res.json({ ...state, role: access.role, clipId: result.clipId });
   } catch (err) {
     next(err);
   }

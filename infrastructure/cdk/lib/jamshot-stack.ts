@@ -38,6 +38,8 @@ export class JamshotStack extends cdk.Stack {
       'sterio-analytics-cleanup-test',
       'sterio-project-ws',
       'sterio-project-ws-test',
+      'sterio-project-asset-cleanup',
+      'sterio-project-asset-cleanup-test',
     ];
 
     // Apply log retention to all existing Lambda functions

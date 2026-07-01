@@ -83,6 +83,10 @@ function mapTrackRow(row, { variant, includeProcessingDetails }) {
         ? getProjectAssetPublicUrl(row.storage_key || row.audio_url)
         : null;
 
+    if (row.processing_status === 'completed' && row.waveform_url) {
+      clip.waveformUrl = getProjectAssetPublicUrl(row.waveform_url);
+    }
+
     if (includeProcessingDetails) {
       clip.processingStatus = row.processing_status;
       if (row.processing_status === 'failed') {
@@ -162,6 +166,7 @@ async function fetchProjectTimelineRows(projectId, executor = pool) {
        pa.id AS asset_id,
        pa.storage_key,
        pa.audio_url,
+       pa.waveform_url,
        pa.duration_seconds AS asset_duration,
        pa.processing_status,
        pa.processing_error

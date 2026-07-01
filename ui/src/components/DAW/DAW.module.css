@@ -27,8 +27,18 @@
 
 .dawBody {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: stretch;
     width: 100%;
+    position: relative;
+    gap: 0;
+}
+
+.dawMain {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
     position: relative;
 }
 

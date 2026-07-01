@@ -277,6 +277,10 @@ class AudioProcessor {
     return `projects/${projectId}/${assetId}/audio.wav`;
   }
 
+  buildProjectAssetWaveformKey(projectId, assetId) {
+    return `waveforms/projects/${projectId}/${assetId}.json`;
+  }
+
   async processProjectAsset(assetId, s3KeyOverride = null) {
     let localFilePath = null;
     let tempS3Key = null;
@@ -323,6 +327,21 @@ class AudioProcessor {
 
       await this.uploadToS3(wavPath, finalStorageKey, 'audio/wav');
 
+      let waveformUrl = null;
+      try {
+        const peaks = await this.generateWaveformPeaks(wavPath, 256);
+        const waveformKey = this.buildProjectAssetWaveformKey(projectId, assetId);
+        await this.saveWaveformPeaks(peaks, waveformKey, 256);
+        waveformUrl = waveformKey;
+      } catch (waveformError) {
+        logger.error({
+          message: 'Failed to generate project asset waveform peaks',
+          assetId,
+          error: waveformError?.message,
+          stack: waveformError?.stack,
+        });
+      }
+
       await getPool().query(
         `UPDATE project_assets
          SET processing_status = $1,
@@ -331,9 +350,10 @@ class AudioProcessor {
              duration_seconds = $3,
              file_size_bytes = $4,
              mime_type = $5,
+             waveform_url = $6,
              processing_error = NULL
-         WHERE id = $6`,
-        ['completed', finalStorageKey, duration, fileStats.size, 'audio/wav', assetId]
+         WHERE id = $7`,
+        ['completed', finalStorageKey, duration, fileStats.size, 'audio/wav', waveformUrl, assetId]
       );
 
       if (tempS3Key.startsWith('temp/projects/')) {

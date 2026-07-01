@@ -162,6 +162,7 @@ export async function handleOpMessage({ connectionId, body, sendContext }) {
     type: 'op_ack',
     opId: parsed.opId,
     revision: result.revision,
+    payload: result.broadcastPayload,
   });
 
   const gatewayContext = getGatewayContextFromSendContext(sendContext);

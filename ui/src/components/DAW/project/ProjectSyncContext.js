@@ -179,7 +179,11 @@ export function ProjectSyncProvider({ project, children }) {
           if (data.revision != null) {
             revisionRef.current = data.revision;
           }
-          pending.resolve({ ok: true, revision: data.revision });
+          pending.resolve({
+            ok: true,
+            revision: data.revision,
+            payload: data.payload,
+          });
         }
         return;
       }

@@ -1,3 +1,6 @@
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
 /**
  * Format seconds into MM:SS format
  * @param {number} seconds - Duration in seconds
@@ -156,6 +159,10 @@ export function getLikeCountString(likeCount) {
   if(likeCount === 0) return '0 likes';
   if(likeCount === 1) return '1 like';
   return `${Number(likeCount).toLocaleString()} likes`;
+}
+
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
 }
 
 export function audioBufferToWav(buffer, sampleRate) {

@@ -45,3 +45,12 @@ npm run dev
 
 PROJECTS WS DEV SERVER:
 cd functions/lambda/project-ws && npm run dev
+
+
+
+
+
+
+CLEAR PROJECT DATA:
+cd api/lambda
+npm run wipe-projects:confirm      # actually deletes everything

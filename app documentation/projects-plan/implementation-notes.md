@@ -287,7 +287,7 @@ DELETE /api/projects/1/tracks/1  { "revision": N }  # hard-deletes if never had 
 1. Transaction: insert `project_assets` (`pending`, temp `storage_key`, `duration_seconds` from file metadata) + `project_clips` (or update clip `asset_id` on retry); bump `projects.revision` + `last_referenced_at`.
 2. Upload temp file to R2: `temp/projects/{projectId}/{assetId}/source.{ext}`.
 3. Emit EventBridge `project_asset_created` (skipped in `NODE_ENV=dev`; dev-server polls `pending` assets).
-4. Audio-processing lambda `processProjectAsset`: mono 44.1kHz WAV → `projects/{projectId}/{assetId}/audio.wav`; no peaks/normalization/combined mix.
+4. Audio-processing lambda `processProjectAsset`: mono 44.1kHz WAV → `projects/{projectId}/{assetId}/audio.wav`; preview peaks → `waveforms/projects/{projectId}/{assetId}.json`; no normalization/combined mix.
 
 ### Files
 

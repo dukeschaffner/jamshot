@@ -1,0 +1,199 @@
+.panel {
+  flex-shrink: 0;
+  width: 280px;
+  max-width: 30%;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--grey-2);
+  background: var(--background);
+  max-height: 520px;
+  transition: width 0.18s ease, min-width 0.18s ease, max-width 0.18s ease;
+}
+
+.collapsedPanel {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.collapseButton {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.collapsedIcon {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.collapsedLabel {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.filters {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--grey-2);
+}
+
+.filterList {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.listSection {
+  flex: 1;
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.assetList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assetItem {
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  background: var(--grey-1);
+}
+
+.assetCardContent {
+  padding: 10px;
+}
+
+.assetItem.draggable {
+  cursor: grab;
+}
+
+.assetItem.draggable:active {
+  cursor: grabbing;
+}
+
+.assetHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.assetName {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deleteButton {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  width: 24px;
+  height: 24px;
+}
+
+.deleteButton:hover:not(:disabled) {
+  color: var(--rustic-pink);
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.assetMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.usageBadge {
+  border: 1px solid var(--grey-2);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 10px;
+}
+
+.warningBadge {
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 10px;
+  background: color-mix(in srgb, var(--rustic-pink) 20%, transparent);
+  color: var(--rustic-pink);
+}
+
+.statusText,
+.statusTextError {
+  margin: 0;
+  font-size: 11px;
+}
+
+.statusText {
+  color: var(--text-secondary);
+}
+
+.statusTextError {
+  color: var(--rustic-pink);
+}
+
+.emptyState {
+  margin: 0;
+  padding: 12px 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--grey-2);
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+body.dark-mode .panel {
+  border-left-color: var(--dark-border-color);
+}
+
+body.dark-mode .assetItem {
+  background: var(--dark-hover-color);
+  border-color: var(--dark-border-color);
+}

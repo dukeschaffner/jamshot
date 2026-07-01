@@ -1243,6 +1243,7 @@ CREATE TABLE project_assets (
   project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   storage_key VARCHAR(500),
   audio_url VARCHAR(1000),
+  waveform_url VARCHAR(1000),
   name VARCHAR(200),
   duration_seconds FLOAT,
   file_size_bytes BIGINT,

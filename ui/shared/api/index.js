@@ -615,6 +615,15 @@ const createApiMethods = (apiClient) => {
     getProjectAssetProcessingStatus: (projectGuid, assetId) =>
       api.get(`/projects/${projectGuid}/assets/${assetId}/processing-status`),
 
+    listProjectAssets: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/assets`),
+
+    deleteProjectAsset: (projectGuid, assetId, data) =>
+      api.delete(`/projects/${projectGuid}/assets/${assetId}`, { data }),
+
+    placeProjectAssetClip: (projectGuid, assetId, data) =>
+      api.post(`/projects/${projectGuid}/assets/${assetId}/clips`, data),
+
     deleteProjectClip: (projectGuid, clipId, data) =>
       api.delete(`/projects/${projectGuid}/clips/${clipId}`, { data }),
 

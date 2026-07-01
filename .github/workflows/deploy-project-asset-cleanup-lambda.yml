@@ -1,0 +1,171 @@
+name: Deploy Project Asset Cleanup Lambda to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'functions/lambda/project-asset-cleanup/**'
+      - 'packages/db-config/**'
+      - 'packages/subscription-utils/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - prod
+      reason:
+        description: 'Reason for deployment'
+        required: false
+        default: 'Manual deployment'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./functions/lambda/project-asset-cleanup/
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js 22
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: './package-lock.json'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build Lambda package
+      run: npm run build
+
+    - name: Create deployment package
+      run: zip -r project-asset-cleanup-lambda.zip dist/
+
+    - name: Configure AWS credentials for S3 upload
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Upload artifact to S3
+      run: |
+        aws s3 cp project-asset-cleanup-lambda.zip s3://sterio/lambda-artifacts/project-asset-cleanup-lambda-latest.zip --acl private
+
+  deploy-to-test:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: project-asset-cleanup-test
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
+
+    steps:
+    - name: Configure AWS credentials for S3 download
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Download artifact from S3
+      run: |
+        aws s3 cp s3://sterio/lambda-artifacts/project-asset-cleanup-lambda-latest.zip project-asset-cleanup-lambda.zip
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION_TEST || 'us-east-2' }}
+
+    - name: Deploy to Test Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-project-asset-cleanup-test \
+          --zip-file fileb://project-asset-cleanup-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: aws lambda wait function-updated --function-name sterio-project-asset-cleanup-test
+
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-project-asset-cleanup-test \
+          --handler index.handler \
+          --environment Variables="{
+            DB_HOST=${{ secrets.DB_HOST_TEST }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_TEST }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_TEST }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_TEST }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_TEST }},
+            PROJECT_ASSET_CLEANUP_DRY_RUN=true,
+            NODE_ENV=test
+          }"
+
+  deploy-to-prod:
+    runs-on: ubuntu-latest
+    needs: [build, deploy-to-test]
+    environment:
+      name: project-asset-cleanup-prod
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
+
+    steps:
+    - name: Configure AWS credentials for S3 download
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-2
+
+    - name: Download artifact from S3
+      run: |
+        aws s3 cp s3://sterio/lambda-artifacts/project-asset-cleanup-lambda-latest.zip project-asset-cleanup-lambda.zip
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION_PROD || 'us-east-2' }}
+
+    - name: Deploy to Prod Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name sterio-project-asset-cleanup \
+          --zip-file fileb://project-asset-cleanup-lambda.zip
+
+    - name: Wait for code deployment to complete
+      run: aws lambda wait function-updated --function-name sterio-project-asset-cleanup
+
+    - name: Update Lambda configuration
+      run: |
+        aws lambda update-function-configuration \
+          --function-name sterio-project-asset-cleanup \
+          --handler index.handler \
+          --environment Variables="{
+            DB_HOST=${{ secrets.DB_HOST_PROD }},
+            DB_NAME=${{ secrets.DB_NAME }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+            DB_PORT=${{ secrets.DB_PORT }},
+            DB_USER=${{ secrets.DB_USER }},
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID_PROD }},
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY_PROD }},
+            R2_ENDPOINT=${{ secrets.R2_ENDPOINT_PROD }},
+            R2_BUCKET=${{ secrets.R2_BUCKET_PROD }},
+            PROJECT_ASSET_CLEANUP_DRY_RUN=true,
+            NODE_ENV=production
+          }"

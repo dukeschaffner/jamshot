@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { s3Client } from './trackUtils.js';
 
@@ -17,6 +17,10 @@ function getEventBusName() {
 
 function buildProjectAssetFinalKey(projectId, assetId) {
   return `projects/${projectId}/${assetId}/audio.wav`;
+}
+
+function buildProjectAssetWaveformKey(projectId, assetId) {
+  return `waveforms/projects/${projectId}/${assetId}.json`;
 }
 
 function buildProjectAssetTempKey(projectId, assetId, originalFilename) {
@@ -71,9 +75,40 @@ async function emitProjectAssetCreatedEvent({
   console.log(`EventBridge project_asset_created emitted for asset ${assetId}`);
 }
 
+/**
+ * Copy existing stem waveform peaks into a project asset (e.g. import-track).
+ * Returns the destination R2 key, or null if copy failed or source missing.
+ */
+async function copyProjectAssetWaveformFromSource(sourceWaveformKey, projectId, assetId) {
+  if (!sourceWaveformKey || !sourceWaveformKey.startsWith('waveforms/')) {
+    return null;
+  }
+
+  const destKey = buildProjectAssetWaveformKey(projectId, assetId);
+
+  try {
+    await s3Client.send(
+      new CopyObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: destKey,
+        CopySource: `${process.env.R2_BUCKET}/${encodeURIComponent(sourceWaveformKey)}`,
+      })
+    );
+    return destKey;
+  } catch (err) {
+    console.warn(
+      `Failed to copy waveform peaks from ${sourceWaveformKey} to ${destKey}:`,
+      err.message
+    );
+    return null;
+  }
+}
+
 export {
   buildProjectAssetFinalKey,
+  buildProjectAssetWaveformKey,
   buildProjectAssetTempKey,
   uploadLocalFileToR2,
   emitProjectAssetCreatedEvent,
+  copyProjectAssetWaveformFromSource,
 };

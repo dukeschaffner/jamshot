@@ -17,6 +17,7 @@ import {
   getAudioFileFromDataTransfer,
   getTimelineTimeFromEvent,
 } from '../project/projectClipPlacement';
+import { getProjectAssetFromDataTransfer } from '../project/projectAssetDrag';
 
 
 const Track = ({
@@ -50,6 +51,7 @@ const Track = ({
   const {
     canEdit: canEditProject,
     importAudioFileToTrack,
+    placeLibraryAssetOnTrack,
     crossTrackDragPreview,
   } = useProjectEditor();
   const { showToast } = useToast();
@@ -133,10 +135,13 @@ const Track = ({
     }
   }, [isRecording, playheadLocation.time, recordingStartPos, duration, isArmedForRecording]);
 
+  const dragAssetRef = useRef(null);
+
   const resetDragState = useCallback(() => {
     dragDepthRef.current = 0;
     dragFileDurationRef.current = null;
     dragDecodePromiseRef.current = null;
+    dragAssetRef.current = null;
     setIsDragOver(false);
     setDropPlaceholder(null);
   }, []);
@@ -172,9 +177,23 @@ const Track = ({
     [trackManagerRef]
   );
 
+  const resolveDragDuration = useCallback(
+    async (dataTransfer) => {
+      const asset = getProjectAssetFromDataTransfer(dataTransfer);
+      if (asset?.durationSeconds != null) {
+        dragAssetRef.current = asset;
+        return asset.durationSeconds;
+      }
+
+      dragAssetRef.current = null;
+      return ensureDragFileDuration(dataTransfer);
+    },
+    [ensureDragFileDuration]
+  );
+
   const updateProjectDropPlaceholder = useCallback(
     async (event) => {
-      const fileDuration = await ensureDragFileDuration(event.dataTransfer);
+      const fileDuration = await resolveDragDuration(event.dataTransfer);
       if (fileDuration == null) {
         setDropPlaceholder(null);
         return;
@@ -194,7 +213,7 @@ const Track = ({
 
       setDropPlaceholder(placement);
     },
-    [ensureDragFileDuration, track]
+    [resolveDragDuration, track]
   );
 
   const handleProjectDragEnter = (e) => {
@@ -228,6 +247,7 @@ const Track = ({
     e.preventDefault();
     e.stopPropagation();
 
+    const asset = dragAssetRef.current ?? getProjectAssetFromDataTransfer(e.dataTransfer);
     const file = getAudioFileFromDataTransfer(e.dataTransfer);
     const startTime =
       dropPlaceholder?.isValid && dropPlaceholder.startTime != null
@@ -235,6 +255,11 @@ const Track = ({
         : getTimelineTimeFromEvent(e, trackRef.current, durationRef.current);
 
     resetDragState();
+
+    if (asset) {
+      await placeLibraryAssetOnTrack(track.id, asset, startTime);
+      return;
+    }
 
     if (!file) return;
     await importAudioFileToTrack(track.id, file, startTime);

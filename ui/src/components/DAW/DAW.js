@@ -25,6 +25,7 @@ import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ProjectSnapshotsPanel from './project/ProjectSnapshotsPanel';
+import ProjectFilesPanel from './project/ProjectFilesPanel';
 import ContextMenu from './components/ContextMenu';
 import PluginInviteHint from './components/PluginInviteHint';
 import { useToast } from '../../lib/ToastContext';
@@ -467,6 +468,7 @@ function DAWContent({ track, isVisible = true }) {
           <PluginInviteHint isVisible={isVisible} />
 
         <div className={styles.dawBody}>
+          <div className={styles.dawMain}>
           <div className={styles.tracks}>
           <div className={styles.tracksHeaders}>
             {tracks.map((track, index) => (
@@ -551,6 +553,8 @@ function DAWContent({ track, isVisible = true }) {
               zoom={zoom}
               onZoomChange={setZoomLevel}
             />
+          </div>
+          {isProjectEditor && <ProjectFilesPanel />}
         </div>
       </div>
 

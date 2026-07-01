@@ -609,7 +609,7 @@ Pruning deletes snapshot row; `project_snapshot_assets` cascades.
 
 ### Step 39 — Assets list API
 
-- `GET /projects/:id/assets` — all assets with status: live, soft-deleted clip, snapshot-only, unused
+- `GET /projects/:id/assets` — all assets with status: live, soft-deleted clip, snapshot-only, unused; include `waveformUrl` for completed assets
 - `DELETE /projects/:id/assets/:assetId` — soft-delete asset + soft-delete all referencing clips; confirm if snapshot-referenced
 - `POST /projects/:id/assets/:assetId/clips` — place library asset on timeline
 
@@ -620,8 +620,10 @@ Pruning deletes snapshot row; `project_snapshot_assets` cascades.
 ### Step 40 — Files panel UI
 
 - Project page sidebar: list assets, filters, drag to timeline, manual delete with snapshot warning
+- Mini waveforms from `waveformUrl` peaks JSON (lazy-load per visible row); do **not** fetch full `audioUrl` for list rendering
+- refactor the existing waveform component - extract a new componnent "WaveFormUI" that only renders the waveform component based on the peaks data and does not include any audio logic or functionality - the exising waveform component should use this new component to render the waveform. Create a new DAW component called WaveformWithAudio that uses the WaveFormUI component to render the waveform and also includes a play/pause button and plays the audio using howler.js. it should also ensure no other audio sources are playing when the waveform is playing (DAW, global player, or another asset playing)
 
-**Done when:** Upload clip, remove from timeline, still visible in Files; drag back without re-upload.
+**Done when:** Upload clip, remove from timeline, still visible in Files; drag back without re-upload; waveforms visible without downloading every asset.
 
 ---
 

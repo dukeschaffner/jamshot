@@ -37,7 +37,7 @@ import {
 } from './projectClipPlacement';
 import { useProjectPersistence } from '@/hooks/useProjectPersistence';
 import { useProjectPluginAutoSync } from '@/hooks/useProjectPluginAutoSync';
-import { applyProjectTransportSettings } from './projectLoader';
+import { applyProjectTransportSettings, emitProjectTrackMixerState } from './projectLoader';
 import {
   getRevisionConflictInfo,
   isRevisionConflict,
@@ -49,9 +49,13 @@ import { usePluginWebSocket } from '@/contexts/PluginWebSocketContext';
 import { useProjectSync } from './ProjectSyncContext';
 import {
   applyRemoteProjectOp,
-  mergeTransportIntoProjectState,
   shouldApplyRemoteOp,
 } from './projectRemoteOpApplier';
+import { syncProjectClipsFromState } from './projectClipSync';
+import {
+  applyProjectWsOpAck,
+  mergeProjectStateAfterOp,
+} from './projectWsOpAck';
 import { ProjectRemoteOpQueue } from './projectRemoteOpQueue';
 import { bufferRegistry } from '../core/BufferRegistry';
 
@@ -73,6 +77,8 @@ const INACTIVE_PROJECT_EDITOR = {
   deleteFailedClip: async () => {},
   startProjectRecording: () => {},
   importAudioFileToTrack: async () => {},
+  placeLibraryAssetOnTrack: async () => false,
+  deleteProjectAsset: async () => ({ ok: false }),
   persistClipLayout: () => {},
   moveProjectRegion: () => false,
   crossTrackDragPreview: null,
@@ -115,6 +121,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const inFlightRegionIdsRef = useRef(new Set());
   const suppressSettingsPersistRef = useRef(false);
   const remoteOpQueueRef = useRef(null);
+  const clipSyncGenerationRef = useRef(0);
   if (!remoteOpQueueRef.current) {
     remoteOpQueueRef.current = new ProjectRemoteOpQueue();
   }
@@ -165,11 +172,15 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     (nextState) => {
       if (!trackManagerRef.current) return;
 
+      const prevTrackCount = trackManagerRef.current.getAllTracks().length;
       suppressSettingsPersistRef.current = true;
       try {
         trackManagerRef.current.applyProjectState(nextState);
         applyProjectTransportSettings(nextState);
         const nextTracks = syncTracksFromManager();
+        if (trackManagerRef.current.getAllTracks().length > prevTrackCount) {
+          emitProjectTrackMixerState(trackManagerRef.current);
+        }
         setArmedTrackIdState((current) =>
           current != null && !nextTracks.some((track) => track.id === current)
             ? (nextTracks[0]?.id ?? null)
@@ -180,6 +191,30 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       } finally {
         suppressSettingsPersistRef.current = false;
       }
+
+      const generation = ++clipSyncGenerationRef.current;
+      void syncProjectClipsFromState(trackManagerRef.current, nextState).then(() => {
+        if (generation !== clipSyncGenerationRef.current) return;
+        syncTracksFromManager();
+      });
+    },
+    [onProjectStateChange, syncTracksFromManager, trackManagerRef]
+  );
+
+  const applyLocalWsOpResult = useCallback(
+    (result) => {
+      applyProjectWsOpAck({
+        trackManager: trackManagerRef.current,
+        opPayload: result.payload,
+        revision: result.revision,
+        currentProjectState: projectDataRef.current,
+        projectDataRef,
+        remoteOpQueue: remoteOpQueueRef.current,
+        syncTracksFromManager,
+        onProjectStateChange,
+        setArmedTrackId: setArmedTrackIdState,
+        suppressSettingsPersistRef,
+      });
     },
     [onProjectStateChange, syncTracksFromManager, trackManagerRef]
   );
@@ -626,6 +661,85 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     [canEdit, showToast, trackManagerRef, uploadClipFromBuffer]
   );
 
+  const placeLibraryAssetOnTrack = useCallback(
+    async (trackId, asset, startTimeSeconds) => {
+      if (!canEdit) return false;
+
+      const currentProject = projectDataRef.current;
+      if (!currentProject?.guid || currentProject.revision == null) return false;
+      if (!trackManagerRef.current) return false;
+      if (!asset?.assetId) return false;
+
+      const track = trackManagerRef.current.getTrack(trackId);
+      if (!track) return false;
+
+      const projectDuration =
+        currentProject.durationSeconds ?? AudioState.dawDuration;
+      const duration = asset.durationSeconds;
+      if (duration == null || duration <= 0) {
+        showToast({
+          message: 'This file is not ready to place yet.',
+          variant: 'error',
+        });
+        return false;
+      }
+
+      const placement = validateClipPlacement({
+        track,
+        startTime: startTimeSeconds ?? 0,
+        fileDuration: duration,
+        projectDuration,
+      });
+
+      if (!placement.valid) {
+        showToast({ message: placement.error, variant: 'error' });
+        return false;
+      }
+
+      try {
+        const placementPayload = {
+          revision: currentProject.revision,
+          track_id: trackId,
+          start_time_seconds: placement.startTime,
+        };
+
+        if (placement.clipDuration < duration) {
+          placementPayload.trim_end_seconds = placement.clipDuration;
+        }
+
+        const response = await projectApi.placeProjectAssetClip(
+          currentProject.guid,
+          asset.assetId,
+          placementPayload
+        );
+        applyProjectServerState(response.data);
+        notifyProjectMutated();
+        return true;
+      } catch (err) {
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+          return false;
+        }
+
+        const message =
+          err.response?.data?.error ||
+          'Failed to place file on timeline. Please try again.';
+        showToast({ message, variant: 'error' });
+        return false;
+      }
+    },
+    [
+      applyProjectServerState,
+      canEdit,
+      handleRevisionConflict,
+      notifyProjectMutated,
+      showToast,
+      trackManagerRef,
+    ]
+  );
+
   const startProjectRecording = useCallback(() => {
     if (!canEdit) return false;
     if (armedTrackIdRef.current == null) {
@@ -788,40 +902,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         const current = projectDataRef.current;
         if (!current) return;
 
-        let nextState = { ...current, revision: opMessage.revision };
-        nextState = mergeTransportIntoProjectState(nextState, opMessage.payload);
-
-        if (opMessage.payload?.kind === 'track.create') {
-          const trackExists = (nextState.tracks || []).some(
-            (track) => track.id === opMessage.payload.trackId
-          );
-          if (!trackExists) {
-            nextState = {
-              ...nextState,
-              tracks: [
-                ...(nextState.tracks || []),
-                {
-                  id: opMessage.payload.trackId,
-                  name: opMessage.payload.name,
-                  sortOrder: opMessage.payload.sortOrder,
-                  gain: opMessage.payload.gain,
-                  muted: opMessage.payload.muted,
-                  solo: opMessage.payload.solo,
-                  clips: [],
-                },
-              ],
-            };
-          }
-        }
-
-        if (opMessage.payload?.kind === 'track.delete') {
-          nextState = {
-            ...nextState,
-            tracks: (nextState.tracks || []).filter(
-              (track) => track.id !== opMessage.payload.trackId
-            ),
-          };
-        }
+        const nextState = mergeProjectStateAfterOp(
+          current,
+          opMessage.payload,
+          opMessage.revision
+        );
 
         suppressSettingsPersistRef.current = true;
         try {
@@ -946,7 +1031,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         const result = await sendProjectOp({ kind: 'track.create' });
         if (!result.fallbackRest) {
           if (result.ok) {
-            onRevisionOnlyUpdate(result.revision);
+            applyLocalWsOpResult(result);
             notifyProjectMutated();
             return;
           }
@@ -986,13 +1071,13 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       setIsTrackMutationPending(false);
     }
   }, [
+    applyLocalWsOpResult,
     applyProjectServerState,
     canEdit,
     handleRevisionConflict,
     isTrackMutationPending,
     isWsConnected,
     notifyProjectMutated,
-    onRevisionOnlyUpdate,
     projectData,
     sendProjectOp,
     showToast,
@@ -1024,7 +1109,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
 
           if (!result.fallbackRest) {
             if (result.ok) {
-              onRevisionOnlyUpdate(result.revision);
+              applyLocalWsOpResult(result);
               notifyProjectMutated();
               return;
             }
@@ -1068,16 +1153,65 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     },
     [
       acquireTrackLock,
+      applyLocalWsOpResult,
       applyProjectServerState,
       canEdit,
       handleRevisionConflict,
       isTrackMutationPending,
       isWsConnected,
       notifyProjectMutated,
-      onRevisionOnlyUpdate,
       projectData,
       releaseTrackLock,
       sendProjectOp,
+      showToast,
+    ]
+  );
+
+  const deleteProjectAsset = useCallback(
+    async (assetId, { confirm = false } = {}) => {
+      const currentProject = projectDataRef.current;
+      if (!canEdit || !currentProject?.guid || currentProject.revision == null) {
+        return { ok: false };
+      }
+
+      try {
+        const response = await projectApi.deleteProjectAsset(
+          currentProject.guid,
+          assetId,
+          { revision: currentProject.revision, confirm }
+        );
+        applyProjectServerState(response.data);
+        notifyProjectMutated();
+        return { ok: true };
+      } catch (err) {
+        if (err.response?.status === 409 && err.response?.data?.requiresConfirm) {
+          return {
+            ok: false,
+            requiresConfirm: true,
+            message:
+              err.response?.data?.error ||
+              'This file is referenced by a snapshot. Confirm deletion to proceed.',
+          };
+        }
+
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+          return { ok: false };
+        }
+
+        const message =
+          err.response?.data?.error || 'Failed to delete file. Please try again.';
+        showToast({ message, variant: 'error' });
+        return { ok: false };
+      }
+    },
+    [
+      applyProjectServerState,
+      canEdit,
+      handleRevisionConflict,
+      notifyProjectMutated,
       showToast,
     ]
   );
@@ -1099,6 +1233,8 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       deleteFailedClip,
       startProjectRecording,
       importAudioFileToTrack,
+      placeLibraryAssetOnTrack,
+      deleteProjectAsset,
       persistClipLayout,
       moveProjectRegion,
       crossTrackDragPreview,
@@ -1126,6 +1262,8 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       deleteFailedClip,
       startProjectRecording,
       importAudioFileToTrack,
+      placeLibraryAssetOnTrack,
+      deleteProjectAsset,
       persistClipLayout,
       moveProjectRegion,
       crossTrackDragPreview,

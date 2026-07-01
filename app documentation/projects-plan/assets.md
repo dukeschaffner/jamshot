@@ -23,6 +23,7 @@ Benefits:
 ## Storage & URLs
 
 - R2 keys in `project_assets.storage_key` (e.g. `projects/{projectId}/{assetId}/audio.wav`)
+- Preview peaks in `project_assets.waveform_url` (e.g. `waveforms/projects/{projectId}/{assetId}.json`) — generated at processing time; ~few KB per asset for Files panel / library UI
 - Public URLs: `${R2_PUBLIC_URL}/{storage_key}` — **no signed URLs**
 - Upload: multipart to API → `temp/projects/...` → audio-processing lambda → final key
 

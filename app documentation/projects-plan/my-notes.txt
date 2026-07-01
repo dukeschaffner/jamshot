@@ -19,3 +19,7 @@
 - make sure plugin plays in stereo
 - need a way to indicate who recorded audio/made what changes
 - only sync to plugin when plugin is connected and project is loaded? dont need to show toast on every success
+
+
+- project web daw is calling /assets and /plugin-payload endpoints too often. we need to optimize this.
+- No matching project loaded in plugin. Open the project in the plugin first. - this message displays every time a projec tupdate is made
