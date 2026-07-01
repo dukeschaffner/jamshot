@@ -170,7 +170,7 @@ export const marketingBlocks: Block[] = [
         name: 'paragraphs',
         type: 'array',
         required: true,
-        fields: [{ name: 'text', type: 'textarea', required: true }],
+        fields: [{ name: 'text', type: 'richText', required: true }],
       },
     ],
   },
@@ -255,7 +255,7 @@ export const marketingBlocks: Block[] = [
       { name: 'backLabel', type: 'text', defaultValue: 'Back to Guides' },
       { name: 'meta', type: 'text' },
       { name: 'headline', type: 'text', required: true },
-      { name: 'intro', type: 'textarea' },
+      { name: 'intro', type: 'richText' },
     ],
   },
   {
@@ -275,10 +275,29 @@ export const marketingBlocks: Block[] = [
               { label: 'Heading', value: 'heading' },
               { label: 'Paragraph', value: 'paragraph' },
               { label: 'Callout', value: 'callout' },
+              { label: 'HTML Snippet', value: 'html' },
             ],
           },
           { name: 'heading', type: 'text' },
-          { name: 'text', type: 'textarea' },
+          { name: 'text', type: 'richText' },
+          {
+            name: 'html',
+            type: 'code',
+            admin: {
+              language: 'html',
+              condition: (_, siblingData) => siblingData?.type === 'html',
+              description:
+                'Paste trusted embed HTML (charts, iframes, etc.). Only use code from sources you trust.',
+            },
+          },
+          {
+            name: 'caption',
+            type: 'text',
+            admin: {
+              condition: (_, siblingData) => siblingData?.type === 'html',
+              description: 'Optional caption shown below the embed.',
+            },
+          },
           { name: 'buttonLabel', type: 'text' },
           { name: 'buttonHref', type: 'text' },
         ],

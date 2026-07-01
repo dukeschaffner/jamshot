@@ -1,5 +1,4 @@
 import { postgresAdapter } from '@payloadcms/db-postgres'
-import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -7,6 +6,7 @@ import sharp from 'sharp'
 
 import { Pages } from './collections/Pages'
 import { Users } from './collections/Users'
+import { marketingLexicalEditor } from './lib/marketing/marketingLexicalEditor'
 import { seedMarketingPages } from './lib/marketing/seedMarketingPages'
 
 const filename = fileURLToPath(import.meta.url)
@@ -18,6 +18,7 @@ export default buildConfig({
     user: Users.slug,
     importMap: {
       baseDir: path.resolve(dirname),
+      importMapFile: path.resolve(dirname, 'app/cms/importMap.js'),
     },
   },
   collections: [Users, Pages],
@@ -35,7 +36,7 @@ export default buildConfig({
       console.error('[marketing-seed] Failed to seed marketing pages on init:', error)
     }
   },
-  editor: lexicalEditor(),
+  editor: marketingLexicalEditor,
   secret: process.env.PAYLOAD_SECRET || '',
   routes: {
     admin: '/cms',

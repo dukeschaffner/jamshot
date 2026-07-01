@@ -2,11 +2,13 @@
   "name": "cms",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev -p 3001",
-    "build": "next build",
+    "build": "npm run generate:importmap && next build",
     "start": "next start -p 3001",
-    "seed:marketing": "node scripts/trigger-marketing-seed.mjs"
+    "seed:marketing": "node scripts/trigger-marketing-seed.mjs",
+    "generate:importmap": "payload generate:importmap"
   },
   "dependencies": {
     "@payloadcms/db-postgres": "^3.84.1",

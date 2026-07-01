@@ -1,7 +1,81 @@
 import Link from 'next/link';
+import HtmlEmbed from '@/components/marketing/HtmlEmbed';
 import MarketingAuthAction from '@/components/marketing/MarketingAuthAction';
 import { resolveMarketingAsset } from '@/lib/marketing/constants';
 import styles from './MarketingSite.module.css';
+
+function isLexicalRichText(value) {
+  return Boolean(value?.root?.children && Array.isArray(value.root.children));
+}
+
+function renderTextNode(node, key) {
+  let content = node.text || '';
+
+  if (node.format & 1) content = <strong>{content}</strong>;
+  if (node.format & 2) content = <em>{content}</em>;
+  if (node.format & 8) content = <u>{content}</u>;
+  if (node.format & 16) content = <code>{content}</code>;
+
+  return <span key={key}>{content}</span>;
+}
+
+function renderHtmlSnippet(html, caption, key) {
+  return <HtmlEmbed key={key} html={html} caption={caption} />;
+}
+
+function renderRichTextNodes(nodes = [], keyPrefix) {
+  return nodes.map((node, index) => {
+    const key = `${keyPrefix}-${index}`;
+
+    if (node.type === 'text') {
+      return renderTextNode(node, key);
+    }
+
+    if (node.type === 'linebreak') {
+      return <br key={key} />;
+    }
+
+    if (node.type === 'link') {
+      const href = node.fields?.url || node.url || node.href;
+      const children = renderRichTextNodes(node.children, key);
+
+      return href ? (
+        <a href={href} key={key}>
+          {children}
+        </a>
+      ) : (
+        <span key={key}>{children}</span>
+      );
+    }
+
+    if (node.type === 'list') {
+      const ListTag = node.listType === 'number' || node.tag === 'ol' ? 'ol' : 'ul';
+      return <ListTag key={key}>{renderRichTextNodes(node.children, key)}</ListTag>;
+    }
+
+    if (node.type === 'listitem') {
+      return <li key={key}>{renderRichTextNodes(node.children, key)}</li>;
+    }
+
+    if (node.type === 'paragraph') {
+      return <p key={key}>{renderRichTextNodes(node.children, key)}</p>;
+    }
+
+    if (node.type === 'block' && node.fields?.blockType === 'htmlSnippet') {
+      return renderHtmlSnippet(node.fields.html, node.fields.caption, key);
+    }
+
+    return node.children ? <span key={key}>{renderRichTextNodes(node.children, key)}</span> : null;
+  });
+}
+
+function renderRichText(value, keyPrefix) {
+  if (!value) return null;
+  if (typeof value === 'string') return <p key={keyPrefix}>{value}</p>;
+  if (!isLexicalRichText(value)) return null;
+
+  return renderRichTextNodes(value.root.children, keyPrefix);
+}
 
 function HeroPhoneMock() {
   return (
@@ -59,7 +133,7 @@ function renderArticleSections(block, reveal) {
       return (
         <div className={styles.articleCallout} key={`callout-${sectionIndex}`}>
           {section.heading && <h2>{section.heading}</h2>}
-          {section.text && <p>{section.text}</p>}
+          {renderRichText(section.text, `callout-text-${sectionIndex}`)}
           {section.buttonLabel && section.buttonHref && (
             <MarketingAuthAction
               action={{
@@ -73,7 +147,11 @@ function renderArticleSections(block, reveal) {
       );
     }
 
-    return <p key={`paragraph-${sectionIndex}`}>{section.text}</p>;
+    if (section.type === 'html') {
+      return renderHtmlSnippet(section.html, section.caption, `html-${sectionIndex}`);
+    }
+
+    return renderRichText(section.text, `paragraph-${sectionIndex}`);
   });
 }
 
@@ -89,7 +167,7 @@ function renderArticlePage(headerBlock, sectionsBlock, index) {
         </Link>
         {headerBlock.meta && <p className={styles.guideMeta}>{headerBlock.meta}</p>}
         <h1>{headerBlock.headline}</h1>
-        {headerBlock.intro && <p>{headerBlock.intro}</p>}
+        {renderRichText(headerBlock.intro, 'article-intro')}
       </header>
       <div className={`${styles.articleBody} ${reveal}`} data-reveal>
         {renderArticleSections(sectionsBlock, reveal)}
@@ -260,9 +338,9 @@ function renderBlock(block, index) {
           <div className={`${styles.storyCopy} ${reveal}`} data-reveal>
             {block.eyebrow && <p className={styles.eyebrow}>{block.eyebrow}</p>}
             <h2>{block.heading}</h2>
-            {block.paragraphs?.map((paragraph) => (
-              <p key={paragraph.text.slice(0, 24)}>{paragraph.text}</p>
-            ))}
+            {block.paragraphs?.map((paragraph, paragraphIndex) =>
+              renderRichText(paragraph.text, `story-${paragraph.id || paragraphIndex}`),
+            )}
           </div>
         </section>
       );
@@ -393,7 +471,7 @@ function renderBlock(block, index) {
             </Link>
             {block.meta && <p className={styles.guideMeta}>{block.meta}</p>}
             <h1>{block.headline}</h1>
-            {block.intro && <p>{block.intro}</p>}
+            {renderRichText(block.intro, `article-intro-${key}`)}
           </header>
         </article>
       );

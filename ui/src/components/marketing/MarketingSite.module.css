@@ -716,6 +716,25 @@
   border-radius: 26px;
 }
 
+.htmlEmbed {
+  margin: 32px 0;
+  overflow-x: auto;
+}
+
+.htmlEmbed iframe,
+.htmlEmbed canvas,
+.htmlEmbed svg,
+.htmlEmbed img {
+  max-width: 100%;
+}
+
+.htmlEmbed figcaption {
+  margin-top: 10px;
+  color: var(--marketing-muted);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
 .footer {
   display: grid;
   grid-template-columns: minmax(240px, 0.7fr) 1fr;
