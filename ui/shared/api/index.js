@@ -607,6 +607,9 @@ const createApiMethods = (apiClient) => {
     deleteProjectTrack: (projectGuid, trackId, data) =>
       api.delete(`/projects/${projectGuid}/tracks/${trackId}`, { data }),
 
+    updateProjectTrack: (projectGuid, trackId, data) =>
+      api.patch(`/projects/${projectGuid}/tracks/${trackId}`, data),
+
     uploadProjectClip: (projectGuid, trackId, formData) =>
       api.post(`/projects/${projectGuid}/tracks/${trackId}/clips`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

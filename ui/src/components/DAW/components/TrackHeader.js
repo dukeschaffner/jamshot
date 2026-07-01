@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useDAW } from '../DAWContext';
 import { useProjectEditor } from '../project/ProjectEditorContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone, faTrash, faCircle } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faTrash, faCircle, faGripVertical } from '@fortawesome/free-solid-svg-icons';
 import styles from './TrackHeader.module.css';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
@@ -16,6 +16,10 @@ import { useUser } from '../../../contexts/UserContext';
 
 export default function TrackHeader({
   track,
+  canReorder = false,
+  isTrackMutationPending: isTrackMutationPendingProp = false,
+  onDragStart,
+  onDragEnd,
 }) {
   const [faderValue, setFaderValue] = useState(0.8);
   const [isDraggingFader, setIsDraggingFader] = useState(false);
@@ -35,6 +39,7 @@ export default function TrackHeader({
     armedTrackId,
     setArmedTrackId,
     deleteProjectTrack,
+    renameProjectTrack,
   } = useProjectEditor();
 
   const { user } = useUser();
@@ -45,6 +50,10 @@ export default function TrackHeader({
   const [isMonitorPopoverVisible, setIsMonitorPopoverVisible] = useState(false);
   const monitorPopoverAnchorRef = useRef(null);
   const monitorPopoverCloseTimeoutRef = useRef(null);
+  const renameInputRef = useRef(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
 
   // Listen for input device changes
   useEffect(() => {
@@ -195,7 +204,7 @@ export default function TrackHeader({
 
   const handleDeleteTrack = (e) => {
     e.stopPropagation();
-    if (!canEditProject || isTrackMutationPending) return;
+    if (!canEditProject || trackMutationPending) return;
     deleteProjectTrack(track.id);
   };
 
@@ -269,7 +278,72 @@ export default function TrackHeader({
     if (track.id === 'recording-track') {
       return 'Recording Track';
     }
-    return track.title || 'Track ' + (track.id || 1);
+    return track.title || `Track ${track.id || 1}`;
+  };
+
+  const canRenameTrack =
+    isProjectEditor && canEditProject && track.id !== 'recording-track';
+  const trackMutationPending = isTrackMutationPending || isTrackMutationPendingProp;
+
+  const startRenaming = () => {
+    if (!canRenameTrack || trackMutationPending) return;
+    setRenameValue(getTrackDisplayName());
+    setIsRenaming(true);
+  };
+
+  useEffect(() => {
+    if (!isRenaming) return;
+    renameInputRef.current?.focus();
+    renameInputRef.current?.select();
+  }, [isRenaming]);
+
+  const cancelRenaming = () => {
+    setIsRenaming(false);
+    setRenameValue('');
+  };
+
+  const commitRename = async () => {
+    if (!isRenaming) return;
+
+    const nextName = renameValue.trim();
+    const currentName = getTrackDisplayName();
+    setIsRenaming(false);
+    setRenameValue('');
+
+    if (!nextName || nextName === currentName) {
+      return;
+    }
+
+    await renameProjectTrack(track.id, nextName);
+  };
+
+  const handleRenameKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void commitRename();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelRenaming();
+    }
+  };
+
+  const handleDragHandleMouseDown = (event) => {
+    event.stopPropagation();
+  };
+
+  const handleDragStart = (event) => {
+    if (!canReorder || trackMutationPending) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(track.id));
+    onDragStart?.(track.id);
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd?.();
   };
 
   const contributorProfile = track.id === 'recording-track' && user
@@ -292,9 +366,47 @@ export default function TrackHeader({
 
   return (
     <div className={`${styles.trackHeader}`}>
-      <span className={styles.trackName}>
-        {getTrackDisplayName()}
-      </span>
+      <div className={styles.trackNameRow}>
+        {canReorder && (
+          <button
+            type="button"
+            className={styles.dragHandle}
+            draggable={!trackMutationPending}
+            onMouseDown={handleDragHandleMouseDown}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            disabled={trackMutationPending}
+            aria-label="Drag to reorder track"
+            title="Drag to reorder track"
+          >
+            <FontAwesomeIcon icon={faGripVertical} aria-hidden />
+          </button>
+        )}
+
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            className={styles.trackNameInput}
+            value={renameValue}
+            onChange={(event) => setRenameValue(event.target.value)}
+            onBlur={() => void commitRename()}
+            onKeyDown={handleRenameKeyDown}
+            maxLength={200}
+            aria-label="Track name"
+          />
+        ) : (
+          <button
+            type="button"
+            className={`${styles.trackName} ${canRenameTrack ? styles.trackNameEditable : ''}`}
+            onClick={canRenameTrack ? startRenaming : undefined}
+            onDoubleClick={canRenameTrack ? startRenaming : undefined}
+            disabled={!canRenameTrack || trackMutationPending}
+            title={canRenameTrack ? 'Click to rename track' : undefined}
+          >
+            {getTrackDisplayName()}
+          </button>
+        )}
+      </div>
 
       <div className={styles.controlRow}>
         {showContributorAvatar && (
@@ -335,7 +447,7 @@ export default function TrackHeader({
             <button
               className={`${styles.controlButton} ${styles.deleteTrackButton}`}
               onClick={handleDeleteTrack}
-              disabled={isTrackMutationPending}
+              disabled={trackMutationPending}
               title="Delete track"
               type="button"
             >

@@ -20,18 +20,18 @@ import MusicalGrid from './components/MusicalGrid';
 import Takes from './components/Takes';
 import { useNavigationGuardHook } from '../../contexts/NavigationGuardContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ProjectSnapshotsPanel from './project/ProjectSnapshotsPanel';
 import ProjectFilesPanel from './project/ProjectFilesPanel';
+import ProjectTrackHeadersList from './project/ProjectTrackHeadersList';
 import ContextMenu from './components/ContextMenu';
 import PluginInviteHint from './components/PluginInviteHint';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
-import { MAX_PROJECT_TRACKS } from '@sterio/subscription-utils';
 
 function DAWContent({ track, isVisible = true }) {
   const {
@@ -80,12 +80,9 @@ function DAWContent({ track, isVisible = true }) {
   const {
     isActive: isProjectEditor,
     canEdit: canEditProject,
-    isAtTrackLimit,
-    isTrackMutationPending,
     hasInFlightClipWork,
     armedTrackId,
     startProjectRecording,
-    addProjectTrack,
     deleteProjectRegion,
   } = useProjectEditor();
 
@@ -478,32 +475,15 @@ function DAWContent({ track, isVisible = true }) {
         <div className={styles.dawBody}>
           <div className={styles.dawMain}>
           <div className={styles.tracks}>
-          <div className={styles.tracksHeaders}>
-            {tracks.map((track, index) => (
-              <TrackHeader
-                key={`${track.id}-${index}`}
-                track={track}
-              />
-            ))}
-            {isProjectEditor && canEditProject && (
-              <div className={styles.addTrackRow}>
-                <button
-                  type="button"
-                  className={styles.addTrackButton}
-                  onClick={addProjectTrack}
-                  disabled={isAtTrackLimit || isTrackMutationPending}
-                  aria-label="Add track"
-                  title={
-                    isAtTrackLimit
-                      ? `Track limit reached (${MAX_PROJECT_TRACKS})`
-                      : 'Add track'
-                  }
-                >
-                  <FontAwesomeIcon icon={faPlus} aria-hidden />
-                </button>
-              </div>
-            )}
-          </div>
+          {isProjectEditor ? (
+            <ProjectTrackHeadersList tracks={tracks} />
+          ) : (
+            <div className={styles.tracksHeaders}>
+              {tracks.map((track) => (
+                <TrackHeader key={track.id} track={track} />
+              ))}
+            </div>
+          )}
           <div 
             className={styles.tracksScrollContainer} 
             onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)} 
@@ -533,8 +513,8 @@ function DAWContent({ track, isVisible = true }) {
                     <Looper/>
                   </div>
                   <div className={styles.tracksContainer} ref={setTracksContainer}>
-                    {tracks.map((track, index) => (
-                      <Track key={index} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
+                    {tracks.map((track) => (
+                      <Track key={track.id} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
                     ))}
                     <Playhead/>
                   </div>

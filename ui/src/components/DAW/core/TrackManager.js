@@ -168,7 +168,9 @@ class TrackManager {
   }
   
   getAllTracks() {
-    return Array.from(this.tracks.values());
+    return Array.from(this.tracks.values()).sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
   }
 
   // #region projects
@@ -188,6 +190,7 @@ class TrackManager {
       track.setGain(trackData.gain ?? 0.8);
       track.isMuted = !!trackData.muted;
       track.isSolo = !!trackData.solo;
+      track.sortOrder = trackData.sortOrder ?? 0;
 
       const clipPromises = (trackData.clips || [])
         .filter((clip) => clip.audioUrl)
@@ -265,6 +268,7 @@ class TrackManager {
     track.setGain(trackData.gain ?? 0.8);
     track.isMuted = !!trackData.muted;
     track.isSolo = !!trackData.solo;
+    track.sortOrder = trackData.sortOrder ?? 0;
     this.tracks.set(trackData.id, track);
     eventBus.emit(DAW_EVENTS.TRACK.ADD, { track });
     return track;
@@ -297,6 +301,7 @@ class TrackManager {
       track.setGain(trackData.gain ?? 0.8);
       track.isMuted = !!trackData.muted;
       track.isSolo = !!trackData.solo;
+      track.sortOrder = trackData.sortOrder ?? 0;
     }
 
     if (projectState?.durationSeconds != null) {
@@ -307,6 +312,19 @@ class TrackManager {
     }
 
     return this.getAllTracks();
+  }
+
+  reorderTracks(orders) {
+    if (!Array.isArray(orders)) return false;
+
+    for (const entry of orders) {
+      const track = this.tracks.get(entry.trackId);
+      if (track) {
+        track.sortOrder = entry.sortOrder;
+      }
+    }
+
+    return true;
   }
 
   moveRegionBetweenTracks(fromTrackId, toTrackId, regionId, updatedRegion) {

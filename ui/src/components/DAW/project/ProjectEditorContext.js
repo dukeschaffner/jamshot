@@ -62,6 +62,10 @@ import {
   buildClipDeleteOpPayload,
   removeProjectRegionLocally,
 } from './projectClipDelete';
+import {
+  buildTrackReorderOrders,
+  validateProjectTrackName,
+} from './projectTrackMutations';
 
 const ProjectEditorContext = createContext(null);
 
@@ -76,6 +80,8 @@ const INACTIVE_PROJECT_EDITOR = {
   hasInFlightClipWork: false,
   addProjectTrack: async () => {},
   deleteProjectTrack: async () => {},
+  renameProjectTrack: async () => {},
+  reorderProjectTracks: async () => {},
   applyProjectServerState: () => {},
   retryClipUpload: async () => {},
   deleteFailedClip: async () => {},
@@ -1247,6 +1253,264 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     ]
   );
 
+  const applyTrackRenameLocally = useCallback(
+    (trackId, name) => {
+      const track = trackManagerRef.current?.getTrack(trackId);
+      if (!track) return false;
+
+      track.title = name;
+      syncTracksFromManager();
+      return true;
+    },
+    [syncTracksFromManager, trackManagerRef]
+  );
+
+  const applyTrackReorderLocally = useCallback(
+    (orderedTrackIds) => {
+      if (!trackManagerRef.current) return false;
+
+      const orders = buildTrackReorderOrders(orderedTrackIds);
+      const applied = trackManagerRef.current.reorderTracks(orders);
+      if (applied) {
+        syncTracksFromManager();
+      }
+      return applied;
+    },
+    [syncTracksFromManager, trackManagerRef]
+  );
+
+  const renameProjectTrack = useCallback(
+    async (trackId, name) => {
+      if (!canEdit || isTrackMutationPending) return false;
+
+      const currentProject = projectDataRef.current;
+      if (!currentProject?.guid || currentProject.revision == null) return false;
+
+      const validation = validateProjectTrackName(name);
+      if (!validation.valid) {
+        showToast({ message: validation.error, variant: 'error' });
+        return false;
+      }
+
+      const existingTrack = trackManagerRef.current?.getTrack(trackId);
+      if (!existingTrack) return false;
+
+      const trimmedName = validation.name;
+      if (existingTrack.title === trimmedName) {
+        return true;
+      }
+
+      const previousName = existingTrack.title;
+      applyTrackRenameLocally(trackId, trimmedName);
+
+      setIsTrackMutationPending(true);
+      try {
+        if (isWsConnected()) {
+          const lockAcquired = await acquireTrackLock(trackId);
+          if (!lockAcquired) {
+            applyTrackRenameLocally(trackId, previousName);
+            showToast({
+              message: 'Another collaborator is editing this track.',
+              variant: 'error',
+            });
+            return false;
+          }
+
+          try {
+            const result = await sendProjectOp({
+              kind: 'track.update',
+              trackId,
+              name: trimmedName,
+            });
+
+            if (!result.fallbackRest) {
+              if (result.ok) {
+                applyLocalWsOpResult(result);
+                notifyProjectMutated();
+                return true;
+              }
+
+              applyTrackRenameLocally(trackId, previousName);
+              if (result.code === 'REVISION_MISMATCH') {
+                await handleRevisionConflict({
+                  conflictInfo: {
+                    currentRevision: result.currentRevision ?? null,
+                    yourRevision: currentProject.revision,
+                  },
+                });
+                return false;
+              }
+
+              showToast({
+                message: result.message || 'Failed to rename track. Please try again.',
+                variant: 'error',
+              });
+              return false;
+            }
+          } finally {
+            releaseTrackLock(trackId);
+          }
+        }
+
+        const response = await projectApi.updateProjectTrack(
+          currentProject.guid,
+          trackId,
+          { revision: currentProject.revision, name: trimmedName }
+        );
+        applyProjectServerState(response.data);
+        notifyProjectMutated();
+        return true;
+      } catch (err) {
+        applyTrackRenameLocally(trackId, previousName);
+
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+        } else {
+          const message =
+            err.response?.data?.error || 'Failed to rename track. Please try again.';
+          showToast({ message, variant: 'error' });
+        }
+        return false;
+      } finally {
+        setIsTrackMutationPending(false);
+      }
+    },
+    [
+      acquireTrackLock,
+      applyLocalWsOpResult,
+      applyProjectServerState,
+      applyTrackRenameLocally,
+      canEdit,
+      handleRevisionConflict,
+      isTrackMutationPending,
+      isWsConnected,
+      notifyProjectMutated,
+      releaseTrackLock,
+      sendProjectOp,
+      showToast,
+      trackManagerRef,
+    ]
+  );
+
+  const reorderProjectTracks = useCallback(
+    async (orderedTrackIds) => {
+      if (!canEdit || isTrackMutationPending) return false;
+
+      const currentProject = projectDataRef.current;
+      if (!currentProject?.guid || currentProject.revision == null) return false;
+      if (!Array.isArray(orderedTrackIds) || orderedTrackIds.length === 0) {
+        return false;
+      }
+
+      const currentOrder = tracks.map((track) => track.id);
+      const orderUnchanged =
+        currentOrder.length === orderedTrackIds.length &&
+        currentOrder.every((trackId, index) => trackId === orderedTrackIds[index]);
+      if (orderUnchanged) {
+        return true;
+      }
+
+      const previousOrder = [...currentOrder];
+      const orders = buildTrackReorderOrders(orderedTrackIds);
+      applyTrackReorderLocally(orderedTrackIds);
+
+      setIsTrackMutationPending(true);
+      try {
+        if (isWsConnected()) {
+          const lockAcquired = await acquireMetadataLock();
+          if (!lockAcquired) {
+            applyTrackReorderLocally(previousOrder);
+            showToast({
+              message: 'Another collaborator is editing project settings.',
+              variant: 'error',
+            });
+            return false;
+          }
+
+          try {
+            const result = await sendProjectOp({
+              kind: 'track.reorder',
+              orders,
+            });
+
+            if (!result.fallbackRest) {
+              if (result.ok) {
+                applyLocalWsOpResult(result);
+                notifyProjectMutated();
+                return true;
+              }
+
+              applyTrackReorderLocally(previousOrder);
+              if (result.code === 'REVISION_MISMATCH') {
+                await handleRevisionConflict({
+                  conflictInfo: {
+                    currentRevision: result.currentRevision ?? null,
+                    yourRevision: currentProject.revision,
+                  },
+                });
+                return false;
+              }
+
+              showToast({
+                message: result.message || 'Failed to reorder tracks. Please try again.',
+                variant: 'error',
+              });
+              return false;
+            }
+          } finally {
+            releaseMetadataLock();
+          }
+        }
+
+        let latestState = currentProject;
+        for (const entry of orders) {
+          const response = await projectApi.updateProjectTrack(
+            currentProject.guid,
+            entry.trackId,
+            { revision: latestState.revision, sort_order: entry.sortOrder }
+          );
+          latestState = response.data;
+        }
+
+        applyProjectServerState(latestState);
+        notifyProjectMutated();
+        return true;
+      } catch (err) {
+        applyTrackReorderLocally(previousOrder);
+
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+        } else {
+          const message =
+            err.response?.data?.error || 'Failed to reorder tracks. Please try again.';
+          showToast({ message, variant: 'error' });
+        }
+        return false;
+      } finally {
+        setIsTrackMutationPending(false);
+      }
+    },
+    [
+      acquireMetadataLock,
+      applyLocalWsOpResult,
+      applyProjectServerState,
+      applyTrackReorderLocally,
+      canEdit,
+      handleRevisionConflict,
+      isTrackMutationPending,
+      isWsConnected,
+      notifyProjectMutated,
+      releaseMetadataLock,
+      sendProjectOp,
+      showToast,
+      tracks,
+    ]
+  );
+
   const deleteProjectAsset = useCallback(
     async (assetId, { confirm = false } = {}) => {
       const currentProject = projectDataRef.current;
@@ -1308,6 +1572,8 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       hasInFlightClipWork,
       addProjectTrack,
       deleteProjectTrack,
+      renameProjectTrack,
+      reorderProjectTracks,
       applyProjectServerState,
       retryClipUpload,
       deleteFailedClip,
@@ -1338,6 +1604,8 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       hasInFlightClipWork,
       addProjectTrack,
       deleteProjectTrack,
+      renameProjectTrack,
+      reorderProjectTracks,
       applyProjectServerState,
       retryClipUpload,
       deleteFailedClip,

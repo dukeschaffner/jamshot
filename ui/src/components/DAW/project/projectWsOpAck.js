@@ -4,6 +4,10 @@ import {
 } from './projectRemoteOpApplier';
 import { mergeClipDeleteIntoProjectState } from './projectClipDelete';
 import { emitProjectTrackMixerState } from './projectLoader';
+import {
+  mergeTrackReorderIntoProjectState,
+  mergeTrackUpdateIntoProjectState,
+} from './projectTrackMutations';
 
 export function mergeProjectStateAfterOp(currentState, opPayload, revision) {
   if (!currentState) return null;
@@ -46,6 +50,9 @@ export function mergeProjectStateAfterOp(currentState, opPayload, revision) {
   if (opPayload?.kind === 'clip.delete') {
     nextState = mergeClipDeleteIntoProjectState(nextState, opPayload, revision);
   }
+
+  nextState = mergeTrackUpdateIntoProjectState(nextState, opPayload);
+  nextState = mergeTrackReorderIntoProjectState(nextState, opPayload);
 
   return nextState;
 }

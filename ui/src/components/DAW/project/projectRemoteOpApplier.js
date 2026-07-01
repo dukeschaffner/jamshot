@@ -71,6 +71,7 @@ function applyTrackCreate(trackManager, payload) {
   trackManager.addEmptyProjectTrack({
     id: payload.trackId,
     name: payload.name,
+    sortOrder: payload.sortOrder,
     gain: payload.gain ?? 0.8,
     muted: payload.muted ?? false,
     solo: payload.solo ?? false,
@@ -113,20 +114,7 @@ function applyTrackUpdate(trackManager, payload) {
 }
 
 function applyTrackReorder(trackManager, orders) {
-  if (!trackManager || !Array.isArray(orders)) return false;
-
-  const sorted = [...orders].sort(
-    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-  );
-
-  for (const entry of sorted) {
-    const track = trackManager.getTrack(entry.trackId);
-    if (track) {
-      track.sortOrder = entry.sortOrder;
-    }
-  }
-
-  return true;
+  return trackManager?.reorderTracks(orders) ?? false;
 }
 
 function applyProjectTransport(payload) {
