@@ -40,22 +40,6 @@
   line-height: 1;
 }
 
-.popover {
-  padding: 8px 12px;
-  min-width: 0;
-}
-
-.popoverUsername {
-  font-size: 13px;
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-
-.overflowPopover {
-  padding: 8px 0;
-  min-width: 180px;
-}
-
 .overflowList {
   list-style: none;
   margin: 0;
