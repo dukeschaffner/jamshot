@@ -31,6 +31,7 @@ export default function WaveformWithAudio({
   const soundIdRef = useRef(null);
   const durationRef = useRef(durationSeconds);
   const progressFrameRef = useRef(null);
+  const waveformRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -90,6 +91,49 @@ export default function WaveformWithAudio({
     progressFrameRef.current = requestAnimationFrame(tick);
   }, [stopProgressUpdates]);
 
+  const getDuration = useCallback(() => {
+    const howl = howlRef.current;
+    return (
+      durationRef.current ||
+      (howl && howl.state() === 'loaded' ? howl.duration() : 0) ||
+      0
+    );
+  }, []);
+
+  const seekToFraction = useCallback(
+    (fraction) => {
+      const clamped = Math.min(Math.max(fraction, 0), 1);
+      setProgress(clamped);
+
+      const howl = howlRef.current;
+      if (!howl || howl.state() !== 'loaded') return;
+
+      const duration = getDuration();
+      if (!duration) return;
+
+      howl.seek(clamped * duration);
+    },
+    [getDuration]
+  );
+
+  const handleWaveformPointerDown = useCallback((event) => {
+    event.stopPropagation();
+  }, []);
+
+  const handleWaveformClick = useCallback(
+    (event) => {
+      event.stopPropagation();
+      if (!audioUrl || !waveformRef.current) return;
+
+      const rect = waveformRef.current.getBoundingClientRect();
+      if (!rect.width) return;
+
+      const fraction = (event.clientX - rect.left) / rect.width;
+      seekToFraction(fraction);
+    },
+    [audioUrl, seekToFraction]
+  );
+
   const handleTogglePlay = useCallback(() => {
     if (isPlaying) {
       stopPlayback();
@@ -103,6 +147,8 @@ export default function WaveformWithAudio({
       pauseGlobalPlayer: isGlobalPlaying ? togglePlayPause : undefined,
     });
 
+    const startProgress = progress;
+
     const howl = new Howl({
       src: [audioUrl],
       html5: true,
@@ -110,6 +156,10 @@ export default function WaveformWithAudio({
         const loadedDuration = howl.duration();
         if (loadedDuration && Number.isFinite(loadedDuration)) {
           durationRef.current = loadedDuration;
+        }
+
+        if (startProgress > 0 && loadedDuration) {
+          howl.seek(Math.min(startProgress * loadedDuration, loadedDuration));
         }
       },
       onplay: (soundId) => {
@@ -129,13 +179,13 @@ export default function WaveformWithAudio({
     audioUrl,
     isGlobalPlaying,
     isPlaying,
+    progress,
     startProgressUpdates,
     stopPlayback,
     togglePlayPause,
   ]);
 
   const canPlay = Boolean(audioUrl);
-  const normalizedProgress = isPlaying ? progress : 0;
 
   return (
     <div className={`${styles.container} ${className}`.trim()}>
@@ -148,11 +198,21 @@ export default function WaveformWithAudio({
       >
         <FontAwesomeIcon icon={isPlaying ? faPause : faPlay} />
       </button>
-      <div className={styles.waveform}>
+      <div
+        ref={waveformRef}
+        className={`${styles.waveform} ${canPlay ? styles.seekable : ''}`.trim()}
+        onPointerDown={canPlay ? handleWaveformPointerDown : undefined}
+        onClick={canPlay ? handleWaveformClick : undefined}
+        role={canPlay ? 'slider' : undefined}
+        aria-label={canPlay ? 'Seek preview playback' : undefined}
+        aria-valuemin={canPlay ? 0 : undefined}
+        aria-valuemax={canPlay ? 100 : undefined}
+        aria-valuenow={canPlay ? Math.round(progress * 100) : undefined}
+      >
         <WaveFormUI
           peaks={peaks}
           height={height}
-          progress={normalizedProgress}
+          progress={progress}
           loading={loading}
           error={error}
           barColor="#555555"

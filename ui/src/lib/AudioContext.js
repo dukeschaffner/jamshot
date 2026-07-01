@@ -287,10 +287,10 @@ export function AudioProvider({ children }) {
     };
   }, [currentTrack, isPlaying, handleTrackEnd, updateListeningTime, handleExpiredUrl, audioSourceType]);
 
-  // Pause the DAW transport when the global player is playing
+  // Notify the DAW when global playback starts so it can pause transport/asset previews.
   useEffect(() => {
-    if(isPlaying) {
-      eventBus.emit(DAW_EVENTS.TRANSPORT.PAUSE); // pause the DAW transport
+    if (isPlaying) {
+      eventBus.emit(DAW_EVENTS.GLOBAL_PLAYER.PLAYBACK_STARTED);
     }
   }, [isPlaying]);
 

@@ -14,6 +14,7 @@ import {
   emitProjectTrackMixerState,
   loadProjectIntoTrackManager,
 } from './project/projectLoader';
+import { initDawExternalPlaybackListeners } from './dawExternalPlaybackListeners';
 
 const DAWContext = createContext();
 
@@ -86,6 +87,8 @@ export function DAWProvider({
   useEffect(() => {
     durationRef.current = duration;
   }, [duration]);
+
+  useEffect(() => initDawExternalPlaybackListeners(), []);
 
   
   useEffect(() => {

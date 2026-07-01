@@ -9,6 +9,10 @@ export const DAW_EVENTS = {
       LOOP_TOGGLE: 'transport:loop:toggle',
       LOOP_SET: 'transport:loop:set'
     },
+
+    GLOBAL_PLAYER: {
+      PLAYBACK_STARTED: 'global_player:playback:started',
+    },
     
     // Recording events
     RECORDING: {
