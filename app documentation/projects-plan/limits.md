@@ -5,6 +5,7 @@ Own 2 active projects
 Up to 3 collaborators/project
 limited storage/project
 No snapshots
+maybe limit to mp3?
 
 ## Pro
 Own 20 projects
@@ -12,5 +13,6 @@ Own 20 projects
 10 collaborators/project
 Version history
 file export
+
 
 

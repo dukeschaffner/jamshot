@@ -134,7 +134,8 @@ if (isMainModule) {
 
       const result = await handler(event, {});
       console.log('✅ Local execution completed:', result);
-      process.exit(0);
+      const exitCode = result?.statusCode >= 400 ? 1 : 0;
+      process.exit(exitCode);
     } catch (error) {
       console.error('❌ Local execution failed:', error);
       process.exit(1);

@@ -15,7 +15,6 @@
 - make sure temp uploaded files in R2 get deleted
 - project storage management (ie if several audio files are uploaded with only 3s regions made from them... storage could get out of control)
     - make sure clips made from the same audio file do not create duplicate assets
-- naming tracks
 - make sure plugin plays in stereo
 - need a way to indicate who recorded audio/made what changes
 - only sync to plugin when plugin is connected and project is loaded? dont need to show toast on every success
@@ -25,3 +24,8 @@
 - No matching project loaded in plugin. Open the project in the plugin first. - this message displays every time a projec tupdate is made
 - should ONLY people who recorded asset and project owner be able to delete assets?
     - make sure to show confirmation if snapshot depends on the asset as well
+- region copy/paste (how to specify which tracks to copy/paste to)
+
+- to make a project from a collab tree, must get permission from root track owner
+- why do track reorder ops take so long?
+

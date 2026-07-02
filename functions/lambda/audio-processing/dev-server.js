@@ -26,6 +26,7 @@ console.log('Monitoring database for tracks and project assets needing processin
 // Track processing status to avoid duplicate processing
 const processingTracks = new Set();
 const processingAssets = new Set();
+let monitorCycleInProgress = false;
 
 async function checkForTracksToProcess() {
   try {
@@ -55,14 +56,44 @@ async function checkForTracksToProcess() {
   }
 }
 
+async function repairInconsistentProjectAssets() {
+  try {
+    const result = await pool.query(
+      `UPDATE project_assets
+       SET processing_status = 'completed',
+           processing_error = NULL
+       WHERE processing_status IN ('failed', 'processing')
+         AND storage_key LIKE 'projects/%/audio.wav'
+       RETURNING id`
+    );
+
+    if (result.rows.length > 0) {
+      const ids = result.rows.map((row) => row.id).join(', ');
+      console.log(`🔧 Repaired inconsistent project asset status for: ${ids}`);
+    }
+  } catch (error) {
+    console.error('❌ Error repairing project asset statuses:', error.message);
+  }
+}
+
 async function checkForProjectAssetsToProcess() {
   try {
+    await repairInconsistentProjectAssets();
+
     const result = await pool.query(
       `SELECT id, project_id, storage_key, name, processing_status, created_at
        FROM project_assets
-       WHERE processing_status = 'pending'
+       WHERE (
+         processing_status = 'pending'
+         OR (
+           processing_status = 'processing'
+           AND storage_key LIKE 'temp/%'
+           AND updated_at < NOW() - INTERVAL '2 minutes'
+         )
+       )
+       AND (storage_key IS NULL OR storage_key LIKE 'temp/%')
        AND id != ALL($1)
-       ORDER BY created_at DESC
+       ORDER BY created_at ASC
        LIMIT 5`,
       [Array.from(processingAssets)]
     );
@@ -71,6 +102,10 @@ async function checkForProjectAssetsToProcess() {
       console.log(`🔍 Found ${result.rows.length} project asset(s) to process:`);
 
       for (const asset of result.rows) {
+        if (processingAssets.has(asset.id)) {
+          continue;
+        }
+
         console.log(
           `  🎚️  Asset ${asset.id} (project ${asset.project_id}) - Created: ${asset.created_at}`
         );
@@ -193,7 +228,11 @@ async function processProjectAsset(asset) {
 
         try {
           await pool.query(
-            'UPDATE project_assets SET processing_status = $1, processing_error = $2 WHERE id = $3',
+            `UPDATE project_assets
+             SET processing_status = $1, processing_error = $2
+             WHERE id = $3
+               AND processing_status IN ('pending', 'processing')
+               AND storage_key LIKE 'temp/%'`,
             ['failed', stderr || 'Processing failed', asset.id]
           );
         } catch (updateError) {
@@ -213,15 +252,25 @@ async function processProjectAsset(asset) {
   });
 }
 
+async function runMonitorCycle() {
+  if (monitorCycleInProgress) {
+    return;
+  }
+
+  monitorCycleInProgress = true;
+  try {
+    await checkForTracksToProcess();
+    await checkForProjectAssetsToProcess();
+  } finally {
+    monitorCycleInProgress = false;
+  }
+}
+
 // Start monitoring
 console.log('🔄 Starting database monitoring...');
-checkForTracksToProcess();
-checkForProjectAssetsToProcess();
+runMonitorCycle();
 
-const monitorInterval = setInterval(() => {
-  checkForTracksToProcess();
-  checkForProjectAssetsToProcess();
-}, 15000);
+const monitorInterval = setInterval(runMonitorCycle, 15000);
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {

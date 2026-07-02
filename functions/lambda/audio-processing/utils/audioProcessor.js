@@ -287,7 +287,7 @@ class AudioProcessor {
 
     try {
       const assetResult = await getPool().query(
-        `SELECT id, project_id, storage_key, name, mime_type
+        `SELECT id, project_id, storage_key, name, mime_type, processing_status
          FROM project_assets
          WHERE id = $1`,
         [assetId]
@@ -299,17 +299,58 @@ class AudioProcessor {
 
       const asset = assetResult.rows[0];
       const projectId = asset.project_id;
-      tempS3Key = s3KeyOverride || asset.storage_key;
       const finalStorageKey = this.buildProjectAssetFinalKey(projectId, assetId);
 
-      if (!tempS3Key) {
+      if (
+        asset.processing_status === 'completed' &&
+        asset.storage_key?.startsWith('projects/')
+      ) {
+        return {
+          status: 'success',
+          asset_id: assetId,
+          message: 'Project asset already processed',
+        };
+      }
+
+      tempS3Key = s3KeyOverride || asset.storage_key;
+
+      if (!tempS3Key || !tempS3Key.startsWith('temp/projects/')) {
         throw new Error(`Could not locate source audio for project asset ${assetId}`);
       }
 
-      await getPool().query(
-        'UPDATE project_assets SET processing_status = $1 WHERE id = $2',
-        ['processing', assetId]
+      const claimResult = await getPool().query(
+        `UPDATE project_assets
+         SET processing_status = 'processing'
+         WHERE id = $1
+           AND processing_status IN ('pending', 'processing')
+           AND storage_key LIKE 'temp/%'
+         RETURNING id`,
+        [assetId]
       );
+
+      if (claimResult.rows.length === 0) {
+        const recheck = await getPool().query(
+          'SELECT processing_status, storage_key FROM project_assets WHERE id = $1',
+          [assetId]
+        );
+        const current = recheck.rows[0];
+        if (
+          current?.processing_status === 'completed' ||
+          current?.storage_key?.startsWith('projects/')
+        ) {
+          return {
+            status: 'success',
+            asset_id: assetId,
+            message: 'Project asset already processed',
+          };
+        }
+
+        return {
+          status: 'success',
+          asset_id: assetId,
+          message: 'Project asset is already being processed',
+        };
+      }
 
       const originalExtension = path.extname(tempS3Key) || '.wav';
       localFilePath = path.join(
@@ -405,7 +446,11 @@ class AudioProcessor {
 
       await getPool()
         .query(
-          'UPDATE project_assets SET processing_status = $1, processing_error = $2 WHERE id = $3',
+          `UPDATE project_assets
+           SET processing_status = $1, processing_error = $2
+           WHERE id = $3
+             AND processing_status = 'processing'
+             AND storage_key LIKE 'temp/%'`,
           ['failed', error.message, assetId]
         )
         .catch((dbError) => {
@@ -424,7 +469,7 @@ class AudioProcessor {
       ffmpeg(inputPath)
         .audioCodec('pcm_s16le')
         .audioFrequency(44100)
-        .audioChannels(1)
+        .audioChannels(2)
         .on('end', () => {
           logger.info({ message: 'Project WAV conversion completed', outputPath });
           resolve();

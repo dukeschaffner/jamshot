@@ -1,3 +1,6 @@
+/** Max bytes for persisted project asset audio cache (default 1 GB). Set to 0 to disable. */
+export const PROJECT_ASSET_CACHE_MAX_BYTES = 1024 * 1024 * 1024;
+
 export const PROCESSING_POLL_INTERVAL_MS = 3000;
 export const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
 export const CLIP_PERSIST_DEBOUNCE_MS = 500;

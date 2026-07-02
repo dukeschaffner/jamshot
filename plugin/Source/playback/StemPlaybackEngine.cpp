@@ -88,13 +88,13 @@ void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<fl
         return;
 
     const int stemChannels = stemBuffer.getNumChannels();
-    const int outputChannels = juce::jmin(buffer.getNumChannels(), stemChannels);
+    const int bufferChannels = buffer.getNumChannels();
 
-    // Mix stem audio into output buffer
-    for (int channel = 0; channel < outputChannels; ++channel)
+    // Mix stem audio into output buffer (upmix mono stems to all output channels)
+    for (int channel = 0; channel < bufferChannels; ++channel)
     {
         auto* outputPtr = buffer.getWritePointer(channel);
-        const auto* stemPtr = stemBuffer.getReadPointer(channel % stemChannels);
+        const auto* stemPtr = stemBuffer.getReadPointer(channel < stemChannels ? channel : 0);
 
         for (int sample = 0; sample < numSamples; ++sample)
         {

@@ -17,7 +17,8 @@ import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import AudioState from '../core/AudioStateStore';
-import { getAudioBufferFromS3 } from '../misc/DAWUtils';
+import { getProjectAssetAudioBuffer } from './getProjectAssetAudioBuffer';
+import { deleteCachedProjectAsset } from './projectAssetAudioCache';
 import { hasProjectEditorRole } from './projectEditorConstants';
 import {
   audioBufferToWavBlob,
@@ -365,7 +366,15 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         return false;
       }
 
-      const serverBuffer = await getAudioBufferFromS3(audioUrl, audioContext);
+      const currentProject = projectDataRef.current;
+      const serverBuffer = await getProjectAssetAudioBuffer(
+        {
+          projectGuid: currentProject?.guid ?? null,
+          assetId: region.projectAssetId,
+          audioUrl,
+        },
+        audioContext
+      );
       const oldKey = region.key;
       const newKey = bufferRegistry.generateBufferKey(
         track.id,
@@ -1525,6 +1534,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           { revision: currentProject.revision, confirm }
         );
         applyProjectServerState(response.data);
+        void deleteCachedProjectAsset({
+          projectGuid: currentProject.guid,
+          assetId,
+        });
         notifyProjectMutated();
         return { ok: true };
       } catch (err) {

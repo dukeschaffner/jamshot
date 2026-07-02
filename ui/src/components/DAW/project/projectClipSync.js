@@ -1,5 +1,5 @@
 import { bufferRegistry } from '../core/BufferRegistry';
-import { getAudioBufferFromS3 } from '../misc/DAWUtils';
+import { getProjectAssetAudioBuffer } from './getProjectAssetAudioBuffer';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { CLIP_PROCESSING_STATUS } from './projectClipUpload';
@@ -66,6 +66,7 @@ function removeRegion(track, region) {
 export async function syncProjectClipsFromState(trackManager, projectState) {
   if (!trackManager?.audioContext || !projectState) return;
 
+  const projectGuid = projectState.guid ?? null;
   const serverClips = collectServerClips(projectState);
   const serverClipIds = new Set(serverClips.keys());
 
@@ -111,8 +112,12 @@ export async function syncProjectClipsFromState(trackManager, projectState) {
         const track = trackManager.getTrack(trackId);
         if (!track) return;
 
-        const buffer = await getAudioBufferFromS3(
-          clip.audioUrl,
+        const buffer = await getProjectAssetAudioBuffer(
+          {
+            projectGuid,
+            assetId: clip.assetId,
+            audioUrl: clip.audioUrl,
+          },
           trackManager.audioContext
         );
         const bufferKey = bufferRegistry.generateBufferKey(trackId, `clip-${clipId}`);

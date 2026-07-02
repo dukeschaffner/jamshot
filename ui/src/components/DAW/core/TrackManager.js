@@ -1,6 +1,7 @@
 // ui/src/components/DAW/core/TrackManager.js
 import { bufferRegistry } from './BufferRegistry.js';
 import { getAudioBufferFromS3 } from '../misc/DAWUtils.js';
+import { getProjectAssetAudioBuffer } from '../project/getProjectAssetAudioBuffer.js';
 import Track from './Track.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
@@ -181,6 +182,7 @@ class TrackManager {
    * Only clips with a completed audioUrl are loaded for playback.
    */
   async loadProject(projectState) {
+    const projectGuid = projectState?.guid ?? null;
     const projectTracks = [...(projectState?.tracks || [])].sort(
       (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
     );
@@ -195,7 +197,14 @@ class TrackManager {
       const clipPromises = (trackData.clips || [])
         .filter((clip) => clip.audioUrl)
         .map(async (clip) => {
-          const buffer = await getAudioBufferFromS3(clip.audioUrl, this.audioContext);
+          const buffer = await getProjectAssetAudioBuffer(
+            {
+              projectGuid,
+              assetId: clip.assetId,
+              audioUrl: clip.audioUrl,
+            },
+            this.audioContext
+          );
           const bufferKey = bufferRegistry.generateBufferKey(
             trackData.id,
             `clip-${clip.id}`
