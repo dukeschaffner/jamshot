@@ -116,11 +116,6 @@ body.dark-mode .dragHandle:hover:not(:disabled) {
   margin-left: auto;
 }
 
-.deleteTrackButton:hover:not(:disabled) {
-  color: #ff3b30;
-  border-color: #ff3b30;
-}
-
 .monitorButtonWrapper {
   display: flex;
 }

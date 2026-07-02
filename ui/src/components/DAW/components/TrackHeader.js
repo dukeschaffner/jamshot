@@ -5,7 +5,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useDAW } from '../DAWContext';
 import { useProjectEditor } from '../project/ProjectEditorContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone, faTrash, faCircle, faGripVertical } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faCircle, faGripVertical } from '@fortawesome/free-solid-svg-icons';
+import ProjectTrackActionsMenu from './ProjectTrackActionsMenu';
 import styles from './TrackHeader.module.css';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
@@ -38,7 +39,6 @@ export default function TrackHeader({
     isTrackMutationPending,
     armedTrackId,
     setArmedTrackId,
-    deleteProjectTrack,
     renameProjectTrack,
   } = useProjectEditor();
 
@@ -200,12 +200,6 @@ export default function TrackHeader({
   const handleMuteClick = (e) => {
     e.stopPropagation();
     setIsMuted(prev => !prev);
-  };
-
-  const handleDeleteTrack = (e) => {
-    e.stopPropagation();
-    if (!canEditProject || trackMutationPending) return;
-    deleteProjectTrack(track.id);
   };
 
   const handleArmTrack = (e) => {
@@ -444,15 +438,7 @@ export default function TrackHeader({
             >
               <FontAwesomeIcon icon={faCircle} />
             </button>
-            <button
-              className={`${styles.controlButton} ${styles.deleteTrackButton}`}
-              onClick={handleDeleteTrack}
-              disabled={trackMutationPending}
-              title="Delete track"
-              type="button"
-            >
-              <FontAwesomeIcon icon={faTrash} />
-            </button>
+            <ProjectTrackActionsMenu track={track} disabled={trackMutationPending} />
           </>
         )}
 
