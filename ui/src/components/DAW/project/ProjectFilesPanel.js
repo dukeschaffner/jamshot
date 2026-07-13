@@ -195,7 +195,7 @@ export default function ProjectFilesPanel() {
   const [isLoading, setIsLoading] = useState(false);
   const [deletePendingId, setDeletePendingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const projectGuid = projectData?.guid;
   const revision = projectData?.revision;
