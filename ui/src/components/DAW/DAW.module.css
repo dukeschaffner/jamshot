@@ -3,9 +3,15 @@
 .dawContainer {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
     margin-top: 20px;
+    min-height: 0;
+  }
+
+  /* Project mode: fill the height-constrained page wrapper so the DAW
+     scrolls internally instead of growing the page. */
+  .dawContainerFill {
+    height: 100%;
+    margin-top: 0;
   }
 
   .dawControls {
@@ -32,6 +38,8 @@
     width: 100%;
     position: relative;
     gap: 0;
+    flex: 1;
+    min-height: 0;
 }
 
 .dawMain {
@@ -42,18 +50,25 @@
     position: relative;
 }
 
+/* Single vertical scroller for the whole DAW surface: track headers and
+   the timeline/lanes area are both children, so they scroll together. */
 .tracks {
   display: flex;
+  align-items: flex-start;
   width: 100%;
+  flex: 1;
+  min-height: 0;
   position: relative;
   background-color: var(--gray-light);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .tracksScrollContainer {
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100%;
+    min-height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
     position: relative;
@@ -63,6 +78,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
+    flex: 1 0 auto;
     transition: width 0.2s ease, min-width 0.2s ease;
     position: relative;
 }
@@ -534,6 +550,7 @@ body.dark-mode .menuItem:hover {
 
 .fullscreenOverlay .dawContainer {
   margin: 20px;
+  height: calc(100vh - 40px);
 }
 
 .addTrackRow {

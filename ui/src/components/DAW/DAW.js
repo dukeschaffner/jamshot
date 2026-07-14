@@ -146,6 +146,7 @@ function DAWContent({ track, isVisible = true }) {
   }, [isProjectMode, hasInFlightClipWork]);
 
   const tracksAndTimelineRef = useRef(null);
+  const tracksViewportRef = useRef(null);
   const tracksScrollContainerRef = useRef(null);
   const [tracksContainer, setTracksContainer] = useState(null);
 
@@ -443,8 +444,8 @@ function DAWContent({ track, isVisible = true }) {
         />
       )}
       <div 
-        className={styles.dawContainer}
-        style={{display: showUploadForm ? 'none' : 'block'}}
+        className={`${styles.dawContainer} ${isProjectMode ? styles.dawContainerFill : ''}`}
+        style={{display: showUploadForm ? 'none' : undefined}}
       >
           <div className={styles.dawControls}>
             <TransportControls
@@ -474,7 +475,7 @@ function DAWContent({ track, isVisible = true }) {
 
         <div className={styles.dawBody}>
           <div className={styles.dawMain}>
-          <div className={styles.tracks}>
+          <div className={styles.tracks} ref={tracksViewportRef}>
           {isProjectEditor ? (
             <ProjectTrackHeadersList tracks={tracks} />
           ) : (
@@ -501,24 +502,31 @@ function DAWContent({ track, isVisible = true }) {
                   }}
                 >
                   <div className={styles.timeline}>
-                    <MusicalGrid
-                      bpm={metronomeBpm}
-                      timeSignature={timeSignature}
-                      duration={duration}
-                      metronomeOffset={metronomeOffset}
-                      onMetronomeOffsetChange={handleMetronomeOffsetChange}
-                      isPlaying={isPlaying}
-                      zoom={zoom}
-                    />
                     <Looper/>
                   </div>
                   <div className={styles.tracksContainer} ref={setTracksContainer}>
                     {tracks.map((track) => (
-                      <Track key={track.id} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
+                      <Track
+                        key={track.id}
+                        track={track}
+                        tracksScrollContainerRef={tracksScrollContainerRef}
+                        tracksViewportRef={tracksViewportRef}
+                      />
                     ))}
-                    <Playhead/>
                   </div>
-                  
+
+                  {/* Full-height overlays spanning the timeline and all track lanes */}
+                  <MusicalGrid
+                    bpm={metronomeBpm}
+                    timeSignature={timeSignature}
+                    duration={duration}
+                    metronomeOffset={metronomeOffset}
+                    onMetronomeOffsetChange={handleMetronomeOffsetChange}
+                    isPlaying={isPlaying}
+                    zoom={zoom}
+                  />
+                  <Playhead/>
+
                   {!isLoop && (
                     <ProjectEndOverlay 
                       containerRef={tracksAndTimelineRef}
@@ -528,15 +536,15 @@ function DAWContent({ track, isVisible = true }) {
                   )}
                   
                 </div>
-                {zoom > 1 && (
-                  <div className={styles.zoomIndicator}>
-                    Zoom: {zoom.toFixed(1)}x
-                  </div>
-                )}
               </>
             )}
           </div>
           </div>
+          {tracks.length > 0 && zoom > 1 && (
+            <div className={styles.zoomIndicator}>
+              Zoom: {zoom.toFixed(1)}x
+            </div>
+          )}
           <ZoomSlider
               zoom={zoom}
               onZoomChange={setZoomLevel}

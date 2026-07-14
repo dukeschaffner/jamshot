@@ -1,5 +1,6 @@
 import { MAX_PROJECT_DURATION_SECONDS, MAX_PROJECT_TRACKS } from '@sterio/subscription-utils';
 import pool from '../config/db.js';
+import { countActiveProjectTracks } from './countActiveProjectTracks.js';
 import { assertMetadataNotLockedByOther } from './projectMetadataLocks.js';
 import { assertTracksNotLockedByOther } from './projectTrackLocks.js';
 
@@ -663,11 +664,7 @@ async function executeTrackCreate(client, { projectId, baseRevision, payload }) 
     }
   }
 
-  const countResult = await client.query(
-    'SELECT COUNT(*)::int AS count FROM project_tracks WHERE project_id = $1',
-    [projectId]
-  );
-  const trackCount = countResult.rows[0].count;
+  const trackCount = await countActiveProjectTracks(client, projectId);
 
   if (trackCount >= MAX_PROJECT_TRACKS) {
     return {

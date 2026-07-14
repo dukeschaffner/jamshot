@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt } from '@fortawesome/free-solid-svg-icons';
 import styles from './Track.module.css';
@@ -22,11 +22,13 @@ import { getProjectAssetFromDataTransfer } from '../project/projectAssetDrag';
 
 const Track = ({
   track,
-  tracksScrollContainerRef
+  tracksScrollContainerRef,
+  tracksViewportRef,
 }) => {
 
   const trackRef = useRef(null);  
   const [regions, setRegions] = useState([]);
+  const [isNearVerticalViewport, setIsNearVerticalViewport] = useState(true);
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropPlaceholder, setDropPlaceholder] = useState(null);
   
@@ -47,6 +49,8 @@ const Track = ({
     setShowContextMenu,
     trackManagerRef,
     tracksContainerWidth,
+    scrollLeft,
+    viewWidth,
   } = useDAW();
   const {
     canEdit: canEditProject,
@@ -59,6 +63,61 @@ const Track = ({
   const isProjectMode = dawMode === 'project';
   const isReadOnly = isProjectMode;
   const canImportAudio = !isProjectMode || (canEditProject && !isRecording);
+  const regionRenderBuffer = DAWConfig.ui.regionRenderBuffer;
+
+  useEffect(() => {
+    const trackElement = trackRef.current;
+    const viewportElement = tracksViewportRef?.current;
+
+    if (!trackElement || !viewportElement || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsNearVerticalViewport(entry.isIntersecting);
+      },
+      {
+        root: viewportElement,
+        rootMargin: `${regionRenderBuffer}px 0px`,
+      }
+    );
+
+    observer.observe(trackElement);
+    return () => observer.disconnect();
+  }, [regionRenderBuffer, tracksViewportRef]);
+
+  const renderedRegions = useMemo(() => {
+    if (!isNearVerticalViewport) return [];
+
+    return regions.filter((region) => {
+      if (!region.active) return false;
+      if (
+        duration <= 0 ||
+        tracksContainerWidth <= 0 ||
+        viewWidth <= 0 ||
+        !Number.isFinite(region.startTime) ||
+        !Number.isFinite(region.endTime)
+      ) {
+        return true;
+      }
+
+      const regionStart = (region.startTime / duration) * tracksContainerWidth;
+      const regionEnd = (region.endTime / duration) * tracksContainerWidth;
+      const viewportStart = scrollLeft - regionRenderBuffer;
+      const viewportEnd = scrollLeft + viewWidth + regionRenderBuffer;
+
+      return regionEnd >= viewportStart && regionStart <= viewportEnd;
+    });
+  }, [
+    duration,
+    isNearVerticalViewport,
+    regionRenderBuffer,
+    regions,
+    scrollLeft,
+    tracksContainerWidth,
+    viewWidth,
+  ]);
   
   // Context menu state
   const [pasteTime, setPasteTime] = useState(null);
@@ -475,18 +534,16 @@ const Track = ({
       {...trackDragHandlers}
     >
         {regions.length > 0 ? (
-          regions.map((region, index) => (
-            region.active && (
-              <Region 
-                key={index}
-                region={region}
-                bufferKey={region.key} 
-                trackRef={trackRef} 
-                track={track} 
-                tracksScrollContainerRef={tracksScrollContainerRef}
-                isRecordingTrack={track.isRecordingTrack}
-              />
-            )
+          renderedRegions.map((region) => (
+            <Region 
+              key={region.id}
+              region={region}
+              bufferKey={region.key} 
+              trackRef={trackRef} 
+              track={track} 
+              tracksScrollContainerRef={tracksScrollContainerRef}
+              isRecordingTrack={track.isRecordingTrack}
+            />
           ))
         ) : (
           !isRecording && canImportAudio && (

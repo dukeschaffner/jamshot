@@ -20,6 +20,7 @@ import {
   PROJECT_ACTIVE_CONTEXT_WHERE,
   resolveProjectRef,
 } from '../utils/projectAccess.js';
+import { countActiveProjectTracks } from '../utils/countActiveProjectTracks.js';
 import {
   formatProjectSummary,
   sanitizeProcessingError,
@@ -958,11 +959,7 @@ router.post('/:id/tracks', async (req, res, next) => {
     try {
       await client.query('BEGIN');
 
-      const countResult = await client.query(
-        'SELECT COUNT(*)::int AS count FROM project_tracks WHERE project_id = $1',
-        [projectId]
-      );
-      const trackCount = countResult.rows[0].count;
+      const trackCount = await countActiveProjectTracks(client, projectId);
 
       if (trackCount >= MAX_PROJECT_TRACKS) {
         await client.query('ROLLBACK');

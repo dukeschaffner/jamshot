@@ -5,9 +5,9 @@
   min-width: 220px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-left: 1px solid var(--grey-2);
   background: var(--background);
-  max-height: 520px;
   transition: width 0.18s ease, min-width 0.18s ease, max-width 0.18s ease;
 }
 

@@ -11,7 +11,6 @@ function MusicalGrid() {
   const secondsPerBeat = 60 / metronomeBpm;
   const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
 
-  const height = 500;
   const minBeatPixelWidth = 10;
 
   useEffect(() => {
@@ -63,7 +62,7 @@ function MusicalGrid() {
   }, [metronomeBpm, timeSignature, duration, secondsPerMeasure, beatsPerMeasure, secondsPerBeat, tracksContainerWidth, updateGridLines]);
 
   return (
-    <div className={styles.musicalGrid} style={{ height: `${height}px` }}>
+    <div className={styles.musicalGrid}>
       {gridLines.map((line, index) => (
         <div
           key={`${line.type}-${index}`}

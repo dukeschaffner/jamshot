@@ -25,6 +25,7 @@ const DAWConfig = {
       meterUpdateInterval: 60, // ms
       zoomLevels: { min: 1, max: 10, step: 0.1 },
       gridSnapThreshold: 5, // pixels
+      regionRenderBuffer: 200, // pixels beyond the visible DAW viewport
     },
     
     metronome: {
