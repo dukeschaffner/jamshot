@@ -84,6 +84,9 @@ function DAWContent({ track, isVisible = true }) {
     armedTrackId,
     startProjectRecording,
     deleteProjectRegion,
+    pasteProjectRegion,
+    repeatProjectRegion,
+    splitProjectRegion,
   } = useProjectEditor();
 
   const { showToast } = useToast();
@@ -223,29 +226,48 @@ function DAWContent({ track, isVisible = true }) {
         }
       }
       // Handle Cmd/Ctrl+C for copy
-      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyC' || e.key === 'c' || e.key === 'C')) {
+      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyC' || e.key === 'c' || e.key === 'C')) {
         if (selectedRegionId && !isRecording) {
+          if (isProjectMode && !canEditProject) return;
           e.preventDefault();
           copyRegion();
         }
       }
       // Handle Cmd/Ctrl+V for paste
-      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyV' || e.key === 'v' || e.key === 'V')) {
+      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyV' || e.key === 'v' || e.key === 'V')) {
         if (clipboard && !isRecording) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            void pasteProjectRegion();
+            return;
+          }
           e.preventDefault();
           pasteRegion();
         }
       }
       // Handle Cmd/Ctrl+R for repeat region
-      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
+      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
         if (selectedRegionId && !isRecording) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            void repeatProjectRegion();
+            return;
+          }
           e.preventDefault();
           repeatRegion();
         }
       }
       // Handle 't' key for split region (only when no modifiers are pressed)
-      else if (!isProjectMode && !e.metaKey && !e.ctrlKey && (e.code === 'KeyT' || e.key === 't' || e.key === 'T')) {
+      else if (!e.metaKey && !e.ctrlKey && (e.code === 'KeyT' || e.key === 't' || e.key === 'T')) {
         if (selectedRegionId && !isRecording) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            void splitProjectRegion();
+            return;
+          }
           e.preventDefault();
           splitRegion();
         }
@@ -303,7 +325,7 @@ function DAWContent({ track, isVisible = true }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible, isProjectMode, canEditProject, startProjectRecording, armedTrackId, deleteProjectRegion, trackManagerRef]);
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, pasteProjectRegion, repeatRegion, repeatProjectRegion, splitRegion, splitProjectRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible, isProjectMode, canEditProject, startProjectRecording, armedTrackId, deleteProjectRegion, trackManagerRef]);
 
   // Handle toast notifications from the event bus
   useEffect(() => {

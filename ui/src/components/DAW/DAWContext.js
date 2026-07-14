@@ -14,6 +14,7 @@ import {
   emitProjectTrackMixerState,
   loadProjectIntoTrackManager,
 } from './project/projectLoader';
+import { canCopyProjectRegion } from './project/projectRegionClipboard';
 import { initDawExternalPlaybackListeners } from './dawExternalPlaybackListeners';
 
 const DAWContext = createContext();
@@ -259,17 +260,38 @@ export function DAWProvider({
     };
   }, [isProjectMode]);
 
-  // Region selection handlers (defined before useEffect that uses them)
+  // Region / track selection handlers (defined before useEffect that uses them)
   const selectRegion = useCallback((regionId, trackId) => {
     setSelectedRegionId(regionId);
     setSelectedTrackId(trackId);
     eventBus.emit(DAW_EVENTS.REGION.SELECT, { regionId, trackId });
   }, []);
 
+  const selectTrack = useCallback((trackId) => {
+    if (trackId == null) return;
+    setSelectedTrackId(trackId);
+    setSelectedRegionId(null);
+  }, []);
+
   const clearSelection = useCallback(() => {
     setSelectedRegionId(null);
-    setSelectedTrackId(null);
-  }, []);
+    // Project mode always keeps exactly one track selected
+    if (!isProjectMode) {
+      setSelectedTrackId(null);
+    }
+  }, [isProjectMode]);
+
+  // Ensure project mode always has one track selected
+  useEffect(() => {
+    if (!isProjectMode || tracks.length === 0) return;
+
+    const trackStillExists =
+      selectedTrackId != null && tracks.some((track) => track.id === selectedTrackId);
+
+    if (!trackStillExists) {
+      setSelectedTrackId(tracks[0].id);
+    }
+  }, [isProjectMode, tracks, selectedTrackId]);
 
   // Copy handler
   const copyRegion = useCallback(() => {
@@ -287,16 +309,21 @@ export function DAWProvider({
       return false;
     }
 
+    if (isProjectMode && !canCopyProjectRegion(region)) {
+      return false;
+    }
+
     setClipboard({
       region: { ...region },
       trackId: selectedTrackId,
-      bufferKey: region.key
+      bufferKey: region.key,
+      projectAssetId: region.projectAssetId ?? null,
     });
 
     return true;
-  }, [selectedRegionId, selectedTrackId]);
+  }, [selectedRegionId, selectedTrackId, isProjectMode]);
 
-  // Paste handler
+  // Paste handler (collab / non-project: same-track only)
   const pasteRegion = useCallback((pasteTime = null) => {
     if (!clipboard || !trackManagerRef.current) {
       return false;
@@ -603,7 +630,7 @@ export function DAWProvider({
     };
 
     const handleRegionRemoved = (data) => {
-      // Clear selection if the removed region was selected
+      // Clear region selection if the removed region was selected (track stays selected in project mode)
       if (selectedRegionId === data.region.id && selectedTrackId === data.trackId) {
         clearSelection();
       }
@@ -741,6 +768,7 @@ export function DAWProvider({
       selectedRegionId,
       selectedTrackId,
       selectRegion,
+      selectTrack,
       clearSelection,
       copyRegion,
       pasteRegion,

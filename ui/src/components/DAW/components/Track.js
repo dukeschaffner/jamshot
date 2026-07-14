@@ -18,6 +18,7 @@ import {
   getTimelineTimeFromEvent,
 } from '../project/projectClipPlacement';
 import { getProjectAssetFromDataTransfer } from '../project/projectAssetDrag';
+import { isProjectClipboardPasteable } from '../project/projectRegionClipboard';
 
 
 const Track = ({
@@ -44,6 +45,8 @@ const Track = ({
     isCollab,
     clipboard,
     pasteRegion,
+    selectedTrackId,
+    selectTrack,
     setContextMenuItems,
     setContextMenuPosition,
     setShowContextMenu,
@@ -56,6 +59,7 @@ const Track = ({
     canEdit: canEditProject,
     importAudioFileToTrack,
     placeLibraryAssetOnTrack,
+    pasteProjectRegion,
     crossTrackDragPreview,
   } = useProjectEditor();
   const { showToast } = useToast();
@@ -63,6 +67,7 @@ const Track = ({
   const isProjectMode = dawMode === 'project';
   const isReadOnly = isProjectMode;
   const canImportAudio = !isProjectMode || (canEditProject && !isRecording);
+  const isTrackSelected = isProjectMode && selectedTrackId === track.id;
   const regionRenderBuffer = DAWConfig.ui.regionRenderBuffer;
 
   useEffect(() => {
@@ -452,8 +457,6 @@ const Track = ({
   };
 
   const handleTrackContextMenu = (e) => {
-    if (isProjectMode) return;
-
     let target = e.target;
     while (target && target !== e.currentTarget) {
       if (target.className && typeof target.className === 'string' &&
@@ -467,6 +470,11 @@ const Track = ({
     e.stopPropagation();
 
     if (isRecording) return;
+
+    if (isProjectMode) {
+      if (!canEditProject) return;
+      selectTrack(track.id);
+    }
 
     if (trackRef.current && duration > 0 && tracksScrollContainerRef && tracksScrollContainerRef.current) {
       let container = trackRef.current.parentElement;
@@ -483,6 +491,7 @@ const Track = ({
     }
 
     eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'track' });
+    if (menuItems.length === 0) return;
     setContextMenuItems(menuItems);
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
@@ -491,6 +500,18 @@ const Track = ({
   const handleTrackPaste = () => {
     if (isRecording) return;
 
+    if (isProjectMode) {
+      if (isProjectClipboardPasteable(clipboard) && canEditProject) {
+        void pasteProjectRegion(
+          pasteTime !== null ? pasteTime : null,
+          track.id
+        );
+      }
+      setShowContextMenu(false);
+      setPasteTime(null);
+      return;
+    }
+
     if (clipboard && clipboard.trackId === track.id) {
       pasteRegion(pasteTime !== null ? pasteTime : undefined);
     }
@@ -498,7 +519,9 @@ const Track = ({
     setPasteTime(null);
   };
 
-  const canPaste = clipboard && clipboard.trackId === track.id;
+  const canPaste = isProjectMode
+    ? isProjectClipboardPasteable(clipboard) && canEditProject
+    : clipboard && clipboard.trackId === track.id;
 
   const menuItems = [
     ...(canPaste ? [
@@ -510,8 +533,30 @@ const Track = ({
   ] : []),
   ];
 
+  const handleTrackClick = (e) => {
+    if (!isProjectMode) return;
+
+    // Ignore clicks that originated on a region
+    let target = e.target;
+    while (target && target !== e.currentTarget) {
+      if (
+        target.className &&
+        typeof target.className === 'string' &&
+        (target.className.includes('region') || target.className.includes('Region'))
+      ) {
+        return;
+      }
+      target = target.parentElement;
+    }
+
+    selectTrack(track.id);
+  };
+
   const openFilePicker = (e) => {
     e.stopPropagation();
+    if (isProjectMode) {
+      selectTrack(track.id);
+    }
     if (isProjectMode && !canEditProject) return;
     document.getElementById(`audio-file-input-${track.id}`)?.click();
   };
@@ -527,9 +572,10 @@ const Track = ({
 
   return (
     <div 
-      className={styles.track} 
+      className={`${styles.track} ${isTrackSelected ? styles.trackSelected : ''}`} 
       ref={trackRef}
       data-track-id={track.id}
+      onClick={handleTrackClick}
       onContextMenu={handleTrackContextMenu}
       {...trackDragHandlers}
     >

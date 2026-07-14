@@ -32,6 +32,8 @@ export default function TrackHeader({
     isPlaying,
     isRecording,
     isMonitoring,
+    selectedTrackId,
+    selectTrack,
   } = useDAW();
   const {
     isActive: isProjectEditor,
@@ -194,18 +196,31 @@ export default function TrackHeader({
 
   const handleSoloClick = (e) => {
     e.stopPropagation();
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
     setIsSolo(prev => !prev);
   };
 
   const handleMuteClick = (e) => {
     e.stopPropagation();
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
     setIsMuted(prev => !prev);
   };
 
   const handleArmTrack = (e) => {
     e.stopPropagation();
     if (!canEditProject || isRecording) return;
+    selectTrack(track.id);
     setArmedTrackId(track.id === armedTrackId ? null : track.id);
+  };
+
+  const handleHeaderClick = () => {
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
   };
 
   const handleMonitorClick = (e) => {
@@ -281,6 +296,7 @@ export default function TrackHeader({
 
   const startRenaming = () => {
     if (!canRenameTrack || trackMutationPending) return;
+    selectTrack(track.id);
     setRenameValue(getTrackDisplayName());
     setIsRenaming(true);
   };
@@ -323,6 +339,9 @@ export default function TrackHeader({
 
   const handleDragHandleMouseDown = (event) => {
     event.stopPropagation();
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
   };
 
   const handleDragStart = (event) => {
@@ -358,8 +377,13 @@ export default function TrackHeader({
       ? !!user
       : true;
 
+  const isTrackSelected = isProjectEditor && selectedTrackId === track.id;
+
   return (
-    <div className={`${styles.trackHeader}`}>
+    <div
+      className={`${styles.trackHeader} ${isTrackSelected ? styles.trackHeaderSelected : ''}`}
+      onClick={handleHeaderClick}
+    >
       <div className={styles.trackNameRow}>
         {canReorder && (
           <button

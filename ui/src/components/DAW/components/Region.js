@@ -18,6 +18,10 @@ import {
   isFailedClipStatus,
 } from '../project/projectClipUpload';
 import {
+  canCopyProjectRegion,
+  isProjectClipboardPasteable,
+} from '../project/projectRegionClipboard';
+import {
   findTrackIdAtPoint,
   validateRegionPlacement,
 } from '../project/projectClipPlacement';
@@ -62,6 +66,9 @@ export default function Region({
     deleteProjectRegion,
     persistClipLayout,
     moveProjectRegion,
+    pasteProjectRegion,
+    repeatProjectRegion,
+    splitProjectRegion,
     crossTrackDragPreview,
     setCrossTrackDragPreview,
     clearCrossTrackDragPreview,
@@ -360,13 +367,15 @@ export default function Region({
     e.stopPropagation();
     // Right-click and macOS ctrl+click open the context menu — don't start a drag.
     if (e.button !== 0 || e.ctrlKey) return;
+
+    // Selecting a region always selects its track (including read-only clicks)
+    selectRegion(region.id, track.id);
+
     if (isReadOnly) return;
     // Only allow dragging if not playing or recording
     if (isRecording) return;
 
     const startRegionDrag = () => {
-      selectRegion(region.id, track.id);
-
       originalStateRef.current = {
         startTime: region.startTime,
         endTime: region.endTime,
@@ -407,16 +416,21 @@ export default function Region({
 
     if (isRecording) return;
     if (isProjectMode) {
-      if (!canDeleteProjectRegion) return;
+      if (!canEditProject) return;
     } else if (isReadOnly) {
       return;
     }
 
+    selectRegion(region.id, track.id);
+
     // Emit event to close other context menus (including other regions)
     eventBus.emit(DAW_EVENTS.UI.CONTEXT_MENU_OPEN, { source: 'region', regionId: region.id });
 
+    const items = isProjectMode ? projectMenuItems : menuItems;
+    if (items.length === 0) return;
+
     // Set context menu items and position context menu at mouse position
-    setContextMenuItems(isProjectMode ? projectMenuItems : menuItems);
+    setContextMenuItems(items);
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
   };
@@ -461,7 +475,12 @@ export default function Region({
   // Handle copy region
   const handleRegionCopy = () => {
     if (isRecording) return;
-    
+
+    if (isProjectMode && !canCopyProjectRegion(region)) {
+      setShowContextMenu(false);
+      return;
+    }
+
     selectRegion(region.id, track.id);
     copyRegion();
     setShowContextMenu(false);
@@ -470,7 +489,15 @@ export default function Region({
   // Handle paste region
   const handleRegionPaste = () => {
     if (isRecording) return;
-    
+
+    if (isProjectMode) {
+      if (isProjectClipboardPasteable(clipboard) && canEditProject) {
+        void pasteProjectRegion(null, track.id);
+      }
+      setShowContextMenu(false);
+      return;
+    }
+
     if (clipboard && clipboard.trackId === track.id) {
       pasteRegion();
     }
@@ -484,6 +511,12 @@ export default function Region({
     // Select the region first if not already selected
     if (!isSelected) {
       selectRegion(region.id, track.id);
+    }
+
+    if (isProjectMode) {
+      void repeatProjectRegion(region.id, track.id);
+      setShowContextMenu(false);
+      return;
     }
 
     // Calculate the new start time (immediately after the region ends)
@@ -535,6 +568,12 @@ export default function Region({
       selectRegion(region.id, track.id);
     }
 
+    if (isProjectMode) {
+      void splitProjectRegion(region.id, track.id);
+      setShowContextMenu(false);
+      return;
+    }
+
     // Split the region using the splitRegion function
     splitRegion();
 
@@ -545,7 +584,9 @@ export default function Region({
   const isSelected = selectedRegionId === region.id && selectedTrackId === track.id;
   
   // Check if paste is available for this track
-  const canPaste = clipboard && clipboard.trackId === track.id;
+  const canPaste = isProjectMode
+    ? isProjectClipboardPasteable(clipboard) && canEditProject
+    : clipboard && clipboard.trackId === track.id;
   
   // Check if delete should be shown (hide if it's the last region in a non-recording track)
   const canDelete =
@@ -555,16 +596,39 @@ export default function Region({
         (isProjectClipEditable || isFailedClipStatus(processingStatus))
       : isRecordingTrack || (track && track.getActiveRegions().length > 1);
   const canDeleteProjectRegion = isProjectMode && canDelete;
+  const canCopyThisProjectRegion =
+    isProjectMode && canEditProject && canCopyProjectRegion(region);
+  const canMutateThisProjectRegion =
+    isProjectMode && canEditProject && isProjectClipEditable && !isTrackLockedByOther(track.id);
 
-  const projectMenuItems = canDeleteProjectRegion
-    ? [
-        {
-          label: 'Delete Region',
-          action: () => handleRegionDelete(),
-        },
-      ]
-    : [];
-
+  const projectMenuItems = [
+    ...(canCopyThisProjectRegion
+      ? [{ label: 'Copy Region', action: () => handleRegionCopy() }]
+      : []),
+    ...(canPaste
+      ? [{ label: 'Paste Region', action: () => handleRegionPaste() }]
+      : []),
+    ...(canMutateThisProjectRegion
+      ? [
+          {
+            label: 'Repeat Region (Cmd/Ctrl+R)',
+            action: () => handleRegionRepeat(),
+          },
+          {
+            label: 'Split at Playhead (T)',
+            action: () => handleRegionSplit(),
+          },
+        ]
+      : []),
+    ...(canDeleteProjectRegion
+      ? [
+          {
+            label: 'Delete Region',
+            action: () => handleRegionDelete(),
+          },
+        ]
+      : []),
+  ];
 
   // Mouse event handlers for region dragging
   useEffect(() => {

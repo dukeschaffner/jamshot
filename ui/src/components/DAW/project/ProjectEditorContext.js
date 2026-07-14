@@ -36,6 +36,16 @@ import {
   validateClipPlacement,
   buildClipPatchPayload,
 } from './projectClipPlacement';
+import {
+  buildPlaceClipFromTrimsPayload,
+  canCopyProjectRegion,
+  computeClipboardPlacement,
+  computeSplitClipboardSpecs,
+  getClipboardAssetId,
+  getRegionClipboardTrims,
+  isProjectClipboardPasteable,
+} from './projectRegionClipboard';
+import { buildClipOpPayload } from './projectWsOpPayloads';
 import { useProjectPersistence } from '@/hooks/useProjectPersistence';
 import { useProjectPluginAutoSync } from '@/hooks/useProjectPluginAutoSync';
 import { applyProjectTransportSettings, emitProjectTrackMixerState } from './projectLoader';
@@ -90,6 +100,9 @@ const INACTIVE_PROJECT_EDITOR = {
   startProjectRecording: () => {},
   importAudioFileToTrack: async () => {},
   placeLibraryAssetOnTrack: async () => false,
+  pasteProjectRegion: async () => false,
+  repeatProjectRegion: async () => false,
+  splitProjectRegion: async () => false,
   deleteProjectAsset: async () => ({ ok: false }),
   persistClipLayout: () => {},
   moveProjectRegion: () => false,
@@ -120,7 +133,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     acquireTrackLock,
     releaseTrackLock,
   } = useProjectSync();
-  const { trackManagerRef, tracks, syncTracksFromManager } = useDAW();
+  const { trackManagerRef, tracks, syncTracksFromManager, clipboard, selectedRegionId, selectedTrackId, playheadLocation, selectRegion } = useDAW();
 
   const [armedTrackId, setArmedTrackIdState] = useState(null);
   const [isTrackMutationPending, setIsTrackMutationPending] = useState(false);
@@ -755,6 +768,344 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       canEdit,
       handleRevisionConflict,
       notifyProjectMutated,
+      showToast,
+      trackManagerRef,
+    ]
+  );
+
+  const placeAssetClipWithTrims = useCallback(
+    async ({
+      assetId,
+      trackId,
+      startTime,
+      trimStart,
+      trimEnd,
+      excludeRegionId = null,
+    }) => {
+      if (!canEdit || assetId == null) return false;
+
+      const currentProject = projectDataRef.current;
+      if (!currentProject?.guid || currentProject.revision == null) return false;
+      if (!trackManagerRef.current) return false;
+
+      const track = trackManagerRef.current.getTrack(trackId);
+      if (!track) return false;
+
+      const projectDuration =
+        currentProject.durationSeconds ?? AudioState.dawDuration;
+      const regionDuration = trimEnd - trimStart;
+
+      const placement = computeClipboardPlacement({
+        track,
+        startTime,
+        regionDuration,
+        projectDuration,
+        excludeRegionId,
+      });
+
+      if (!placement.valid) {
+        showToast({ message: placement.error, variant: 'error' });
+        return false;
+      }
+
+      const effectiveTrimEnd = trimStart + placement.clipDuration;
+
+      try {
+        const response = await projectApi.placeProjectAssetClip(
+          currentProject.guid,
+          assetId,
+          buildPlaceClipFromTrimsPayload({
+            revision: currentProject.revision,
+            trackId,
+            startTime: placement.startTime,
+            trimStart,
+            trimEnd: effectiveTrimEnd,
+          })
+        );
+        applyProjectServerState(response.data);
+        notifyProjectMutated();
+        return true;
+      } catch (err) {
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+          return false;
+        }
+
+        const message =
+          err.response?.data?.error ||
+          'Failed to place clip on timeline. Please try again.';
+        showToast({ message, variant: 'error' });
+        return false;
+      }
+    },
+    [
+      applyProjectServerState,
+      canEdit,
+      handleRevisionConflict,
+      notifyProjectMutated,
+      showToast,
+      trackManagerRef,
+    ]
+  );
+
+  const pasteProjectRegion = useCallback(
+    async (pasteTime = null, targetTrackId = null) => {
+      if (!canEdit || !isProjectClipboardPasteable(clipboard)) {
+        return false;
+      }
+
+      const assetId = getClipboardAssetId(clipboard);
+      const trackId = targetTrackId ?? selectedTrackId;
+      if (assetId == null || trackId == null) return false;
+
+      const { trimStart, regionDuration } = getRegionClipboardTrims(clipboard.region);
+      const startTime =
+        pasteTime != null ? pasteTime : (playheadLocation?.time ?? 0);
+
+      return placeAssetClipWithTrims({
+        assetId,
+        trackId,
+        startTime,
+        trimStart,
+        trimEnd: trimStart + regionDuration,
+      });
+    },
+    [
+      canEdit,
+      clipboard,
+      placeAssetClipWithTrims,
+      playheadLocation,
+      selectedTrackId,
+    ]
+  );
+
+  const repeatProjectRegion = useCallback(
+    async (regionId = selectedRegionId, trackId = selectedTrackId) => {
+      if (!canEdit || regionId == null || trackId == null) return false;
+      if (!trackManagerRef.current) return false;
+
+      const track = trackManagerRef.current.getTrack(trackId);
+      if (!track) return false;
+
+      const region = track.regions.find((item) => item.id === regionId);
+      if (!region || !canCopyProjectRegion(region)) {
+        showToast({
+          message: 'This clip is not ready to repeat yet.',
+          variant: 'error',
+        });
+        return false;
+      }
+
+      const { trimStart, regionDuration } = getRegionClipboardTrims(region);
+
+      return placeAssetClipWithTrims({
+        assetId: region.projectAssetId,
+        trackId,
+        startTime: region.endTime,
+        trimStart,
+        trimEnd: trimStart + regionDuration,
+      });
+    },
+    [
+      canEdit,
+      placeAssetClipWithTrims,
+      selectedRegionId,
+      selectedTrackId,
+      showToast,
+      trackManagerRef,
+    ]
+  );
+
+  const splitProjectRegion = useCallback(
+    async (
+      regionId = selectedRegionId,
+      trackId = selectedTrackId,
+      playheadTime = playheadLocation?.time
+    ) => {
+      if (!canEdit || regionId == null || trackId == null) return false;
+      if (!trackManagerRef.current) return false;
+
+      const currentProject = projectDataRef.current;
+      if (!currentProject?.guid || currentProject.revision == null) return false;
+
+      const track = trackManagerRef.current.getTrack(trackId);
+      if (!track) return false;
+
+      const region = track.regions.find((item) => item.id === regionId);
+      if (!region || !canCopyProjectRegion(region)) {
+        showToast({
+          message: 'This clip is not ready to split yet.',
+          variant: 'error',
+        });
+        return false;
+      }
+
+      const specs = computeSplitClipboardSpecs(region, playheadTime);
+      if (!specs.valid) {
+        showToast({ message: specs.error, variant: 'error' });
+        return false;
+      }
+
+      const projectDuration =
+        currentProject.durationSeconds ?? AudioState.dawDuration;
+      const rightPlacement = computeClipboardPlacement({
+        track,
+        startTime: specs.right.startTime,
+        regionDuration: specs.right.regionDuration,
+        projectDuration,
+        excludeRegionId: region.id,
+      });
+      if (!rightPlacement.valid) {
+        showToast({ message: rightPlacement.error, variant: 'error' });
+        return false;
+      }
+
+      const clipId = region.projectClipId;
+      clearPendingClipEdit(clipId);
+
+      const leftPatch = buildClipPatchPayload(
+        {
+          ...region,
+          startTime: specs.left.startTime,
+          endTime: specs.left.endTime,
+          offset: specs.left.offset,
+        },
+        trackId,
+        trackId
+      );
+
+      let revisionAfterTrim = currentProject.revision;
+
+      if (isWsConnected()) {
+        const lockAcquired = await acquireTrackLock(trackId);
+        if (!lockAcquired) {
+          showToast({
+            message: 'Another collaborator is editing this track.',
+            variant: 'error',
+          });
+          return false;
+        }
+
+        const trimResult = await sendProjectOp(
+          buildClipOpPayload({
+            clipId,
+            trackId,
+            sourceTrackId: trackId,
+            patchPayload: leftPatch,
+          })
+        );
+        releaseTrackLock(trackId);
+
+        if (!trimResult.fallbackRest) {
+          if (!trimResult.ok) {
+            if (trimResult.code === 'REVISION_MISMATCH') {
+              await handleRevisionConflict({
+                conflictInfo: {
+                  currentRevision: trimResult.currentRevision ?? null,
+                  yourRevision: currentProject.revision,
+                },
+              });
+              return false;
+            }
+            showToast({
+              message: trimResult.message || 'Failed to split clip. Please try again.',
+              variant: 'error',
+            });
+            return false;
+          }
+          applyLocalWsOpResult(trimResult);
+          revisionAfterTrim = trimResult.revision;
+        } else {
+          try {
+            const response = await projectApi.updateProjectClip(
+              currentProject.guid,
+              clipId,
+              { revision: currentProject.revision, ...leftPatch }
+            );
+            applyProjectServerState(response.data);
+            revisionAfterTrim = response.data.revision;
+          } catch (err) {
+            if (isRevisionConflict(err)) {
+              await handleRevisionConflict({
+                conflictInfo: getRevisionConflictInfo(err),
+              });
+              return false;
+            }
+            showToast({
+              message:
+                err.response?.data?.error ||
+                'Failed to split clip. Please try again.',
+              variant: 'error',
+            });
+            return false;
+          }
+        }
+      } else {
+        try {
+          const response = await projectApi.updateProjectClip(
+            currentProject.guid,
+            clipId,
+            { revision: currentProject.revision, ...leftPatch }
+          );
+          applyProjectServerState(response.data);
+          revisionAfterTrim = response.data.revision;
+        } catch (err) {
+          if (isRevisionConflict(err)) {
+            await handleRevisionConflict({
+              conflictInfo: getRevisionConflictInfo(err),
+            });
+            return false;
+          }
+          showToast({
+            message:
+              err.response?.data?.error ||
+              'Failed to split clip. Please try again.',
+            variant: 'error',
+          });
+          return false;
+        }
+      }
+
+      // Ensure place uses the revision after the trim
+      if (projectDataRef.current) {
+        projectDataRef.current = {
+          ...projectDataRef.current,
+          revision: revisionAfterTrim,
+        };
+      }
+
+      const placed = await placeAssetClipWithTrims({
+        assetId: region.projectAssetId,
+        trackId,
+        startTime: specs.right.startTime,
+        trimStart: specs.right.trimStart,
+        trimEnd: specs.right.trimEnd,
+      });
+
+      if (placed) {
+        // Prefer selecting the left half (still same clip id) after sync
+        selectRegion?.(regionId, trackId);
+      }
+
+      return placed;
+    },
+    [
+      acquireTrackLock,
+      applyLocalWsOpResult,
+      applyProjectServerState,
+      canEdit,
+      clearPendingClipEdit,
+      handleRevisionConflict,
+      isWsConnected,
+      placeAssetClipWithTrims,
+      playheadLocation,
+      releaseTrackLock,
+      selectRegion,
+      selectedRegionId,
+      selectedTrackId,
+      sendProjectOp,
       showToast,
       trackManagerRef,
     ]
@@ -1594,6 +1945,9 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       startProjectRecording,
       importAudioFileToTrack,
       placeLibraryAssetOnTrack,
+      pasteProjectRegion,
+      repeatProjectRegion,
+      splitProjectRegion,
       deleteProjectAsset,
       persistClipLayout,
       moveProjectRegion,
@@ -1626,6 +1980,9 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       startProjectRecording,
       importAudioFileToTrack,
       placeLibraryAssetOnTrack,
+      pasteProjectRegion,
+      repeatProjectRegion,
+      splitProjectRegion,
       deleteProjectAsset,
       persistClipLayout,
       moveProjectRegion,

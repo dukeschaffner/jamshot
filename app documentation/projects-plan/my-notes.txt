@@ -1,7 +1,6 @@
 
 
 
-- virtual render of tracks vertically
 - add better zoom controls (ie mac zoom gesture over the timeline should zoom in and out horizontally)
 - make sure new project starts with one track
 - project page should be tabbed like track page
@@ -19,8 +18,8 @@
 - No matching project loaded in plugin. Open the project in the plugin first. - this message displays every time a projec tupdate is made
 - should ONLY people who recorded asset and project owner be able to delete assets?
     - make sure to show confirmation if snapshot depends on the asset as well
-- region copy/paste (how to specify which tracks to copy/paste to)
 
 - to make a project from a collab tree, must get permission from root track owner
 - why do track reorder ops take so long?
+- "this clip overlaps with another clip" - this is showing even when clips are directly back to back
 

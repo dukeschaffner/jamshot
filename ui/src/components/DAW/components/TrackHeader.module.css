@@ -12,6 +12,18 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.trackHeaderSelected {
+  background-color: rgba(76, 217, 172, 0.08);
+  box-shadow: inset 3px 0 0 var(--seafoam, #34c759);
+}
+
+body.dark-mode .trackHeaderSelected {
+  background-color: rgba(76, 217, 172, 0.12);
 }
 
 .trackNameRow {
