@@ -13,13 +13,21 @@ export {
   ASSET_AUTO_DELETE_GRACE_DAYS,
   PROCESSING_ASSET_GRACE_SECONDS,
   INVITE_DEFAULT_EXPIRY_DAYS,
+  BYTES_PER_GB,
+  TEAM_CAMP_PROJECT_STORAGE_BYTES,
+  PROJECT_RETENTION_GRACE_DAYS,
+  PROJECT_RETENTION_MIN_SCHEDULE_DAYS,
 } from './projectConfig.js';
+
+export { CAMP_PROJECT_LIMITS } from './campProjectLimits.js';
+export { getProjectPlanFeatures } from './projectPlanHighlights.js';
 
 import {
   resolveProjectLimits,
   getEffectiveMaxMembers as getEffectiveMaxMembersImpl,
   getCampProjectLimits as getCampProjectLimitsImpl,
 } from './projectLimits.js';
+import { BYTES_PER_GB, TEAM_CAMP_PROJECT_STORAGE_BYTES } from './projectConfig.js';
 
 // Subscription Tier Constants
 export const SUBSCRIPTION_TIERS = {
@@ -46,15 +54,18 @@ export const SUBSCRIPTION_PLANS = {
       ads: true,
       free_samples_per_month: 0,
       advanced_daw: false,
-      no_hosting_fees: false
+      no_hosting_fees: false,
+      version_history: false,
+      file_export: false,
     },
     limits: {
       daily_uploads: 3,
       max_total_uploads: 25,
       max_recording_duration: 300, // 5 minutes in seconds
-      max_projects: 1,
-      max_project_members: 10,
+      max_projects: 2,
+      max_project_members: 5,
       max_snapshots: 10,
+      max_project_storage_bytes: 1 * BYTES_PER_GB,
     },
     highlights: [
       // '3 uploads per day',
@@ -81,7 +92,9 @@ export const SUBSCRIPTION_PLANS = {
       ads: false,
       free_samples_per_month: 0,
       advanced_daw: false,
-      no_hosting_fees: false
+      no_hosting_fees: false,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       daily_uploads: 5,
@@ -90,6 +103,7 @@ export const SUBSCRIPTION_PLANS = {
       max_projects: 10,
       max_project_members: 10,
       max_snapshots: 10,
+      max_project_storage_bytes: 10 * BYTES_PER_GB,
     },
     highlights: [
       // '5 uploads per day',
@@ -117,15 +131,18 @@ export const SUBSCRIPTION_PLANS = {
       ads: false,
       free_samples_per_month: 5,
       advanced_daw: true,
-      no_hosting_fees: true
+      no_hosting_fees: true,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       daily_uploads: 25,
       max_total_uploads: -1, // unlimited
       max_recording_duration: 600, // 10 minutes in seconds
-      max_projects: 40,
+      max_projects: 50,
       max_project_members: 25,
       max_snapshots: 10,
+      max_project_storage_bytes: 50 * BYTES_PER_GB,
     },
     highlights: [
       // '25 uploads per day',
@@ -163,14 +180,17 @@ export const TEAM_PLANS = {
     billing_period: 'month',
     max_users: 5,
     features: {
-      ads: false
+      ads: false,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       max_users: 5,
       daily_uploads: 50,
       max_total_uploads: 500,
-      max_projects: 25,
+      max_projects: 20,
       max_snapshots: 10,
+      max_project_storage_bytes: TEAM_CAMP_PROJECT_STORAGE_BYTES,
     },
     highlights: [
       'Up to 5 team members',
@@ -188,14 +208,17 @@ export const TEAM_PLANS = {
     billing_period: 'month',
     max_users: 10,
     features: {
-      ads: false
+      ads: false,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       max_users: 10,
       daily_uploads: 100,
       max_total_uploads: 1000,
-      max_projects: 40,
+      max_projects: 50,
       max_snapshots: 10,
+      max_project_storage_bytes: TEAM_CAMP_PROJECT_STORAGE_BYTES,
     },
     highlights: [
       'Up to 10 team members',
@@ -213,14 +236,17 @@ export const TEAM_PLANS = {
     billing_period: 'month',
     max_users: 25,
     features: {
-      ads: false
+      ads: false,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       max_users: 25,
       daily_uploads: 250,
       max_total_uploads: 2500,
-      max_projects: 100,
+      max_projects: 150,
       max_snapshots: 10,
+      max_project_storage_bytes: TEAM_CAMP_PROJECT_STORAGE_BYTES,
     },
     highlights: [
       'Up to 25 team members',
@@ -239,14 +265,17 @@ export const TEAM_PLANS = {
     billing_period: 'month',
     max_users: 50,
     features: {
-      ads: false
+      ads: false,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       max_users: 50,
       daily_uploads: 500,
       max_total_uploads: 5000,
-      max_projects: 200,
+      max_projects: 400,
       max_snapshots: 10,
+      max_project_storage_bytes: TEAM_CAMP_PROJECT_STORAGE_BYTES,
     },
     highlights: [
       'Up to 50 team members',
@@ -265,14 +294,17 @@ export const TEAM_PLANS = {
     billing_period: 'month',
     max_users: 100,
     features: {
-      ads: false
+      ads: false,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       max_users: 100,
       daily_uploads: 1000,
       max_total_uploads: 10000,
-      max_projects: 400,
+      max_projects: 1000,
       max_snapshots: 10,
+      max_project_storage_bytes: TEAM_CAMP_PROJECT_STORAGE_BYTES,
     },
     highlights: [
       'Up to 100 team members',
@@ -292,6 +324,8 @@ export const TEAM_PLANS = {
     max_users: -1, // Unlimited
     features: {
       ads: false,
+      version_history: true,
+      file_export: true,
     },
     limits: {
       max_users: -1, // Unlimited
@@ -299,6 +333,7 @@ export const TEAM_PLANS = {
       max_total_uploads: -1, // Unlimited
       max_projects: -1,
       max_snapshots: -1,
+      max_project_storage_bytes: -1,
     },
     highlights: [
       'Private tracks',
@@ -471,9 +506,9 @@ export const getTeamPlan = (productVersion) => {
 
 export const getEffectiveMaxMembers = getEffectiveMaxMembersImpl;
 
-/** Camp product_version maps to the same plan limits as teams. */
+/** Camp product_version → project limits (distinct from team plans). */
 export const getCampProjectLimits = (productVersion) =>
-  getCampProjectLimitsImpl(productVersion, getTeamPlan);
+  getCampProjectLimitsImpl(productVersion);
 
 /**
  * Project limits for personal, team, or camp context.

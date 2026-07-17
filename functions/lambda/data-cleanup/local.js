@@ -13,7 +13,7 @@ if (!process.env.DB_HOST) {
 
 const mockContext = {
   callbackWaitsForEmptyEventLoop: false,
-  functionName: 'project-asset-cleanup-local',
+  functionName: 'data-cleanup-local',
   getRemainingTimeInMillis: () => 900000,
 };
 
@@ -51,12 +51,40 @@ async function main() {
     return;
   }
 
+  if (mode === 'assets') {
+    const response = await handler(
+      {
+        tasks: ['assetCleanup'],
+        dryRun: true,
+        assetCleanup: {
+          projectId: Number.isFinite(projectId) ? projectId : null,
+        },
+      },
+      mockContext
+    );
+    console.log(JSON.stringify(JSON.parse(response.body), null, 2));
+    return;
+  }
+
+  if (mode === 'retention') {
+    const response = await handler(
+      {
+        tasks: ['retention'],
+        dryRun: true,
+      },
+      mockContext
+    );
+    console.log(JSON.stringify(JSON.parse(response.body), null, 2));
+    return;
+  }
+
   if (mode === 'execute') {
     const response = await handler(
       {
         dryRun: false,
-        limit: 100,
-        projectId: Number.isFinite(projectId) ? projectId : null,
+        assetCleanup: {
+          projectId: Number.isFinite(projectId) ? projectId : null,
+        },
       },
       mockContext
     );
@@ -67,8 +95,9 @@ async function main() {
   const response = await handler(
     {
       dryRun: true,
-      limit: 100,
-      projectId: Number.isFinite(projectId) ? projectId : null,
+      assetCleanup: {
+        projectId: Number.isFinite(projectId) ? projectId : null,
+      },
     },
     mockContext
   );

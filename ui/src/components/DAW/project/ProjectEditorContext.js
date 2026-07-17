@@ -507,8 +507,9 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           );
         }
       } catch (err) {
+        const errorData = err.response?.data;
         const message =
-          err.response?.data?.error ||
+          errorData?.error ||
           err.message ||
           'Failed to upload recording. Please try again.';
 
@@ -522,7 +523,19 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         }
 
         if (!clipId) {
-          showToast({ message, variant: 'error' });
+          if (errorData?.upgrade_link) {
+            showToast({
+              message,
+              variant: 'error',
+              action: true,
+              actionLabel: 'Upgrade',
+              onAction: () => {
+                window.location.href = errorData.upgrade_link || '/subscribe';
+              },
+            });
+          } else {
+            showToast({ message, variant: 'error' });
+          }
         }
       } finally {
         inFlightRegionIdsRef.current.delete(region.id);

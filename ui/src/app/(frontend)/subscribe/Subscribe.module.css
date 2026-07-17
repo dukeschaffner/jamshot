@@ -312,6 +312,25 @@ body.dark-mode .planCard.currentPlan {
   flex-shrink: 0;
 }
 
+.projectFeaturesSection {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--grey-2);
+}
+
+.projectFeaturesTitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.featureExcluded {
+  opacity: 0.55;
+}
+
 .planFooter {
   margin-top: auto;
 }

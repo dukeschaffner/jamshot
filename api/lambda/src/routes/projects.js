@@ -16,6 +16,7 @@ import { validateCampAccess } from '../utils/campUtils.js';
 import {
   checkCanCreateProject,
   checkProjectAccess,
+  getProjectLimitsForContext,
   hasMinimumProjectRole,
   PROJECT_ACTIVE_CONTEXT_WHERE,
   resolveProjectRef,
@@ -44,6 +45,10 @@ import {
   parseAssetPlacementBody,
   placeProjectAssetClip,
 } from '../utils/projectAssetLibraryUtils.js';
+import {
+  checkProjectStorageLimit,
+  getProjectStorageUsage,
+} from '../utils/projectStorageLimit.js';
 import { assertTracksNotLockedByOther } from '../utils/projectTrackLocks.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -616,8 +621,20 @@ router.get('/:id/assets', async (req, res, next) => {
       return res.status(access.status).json({ error: access.error });
     }
 
-    const assets = await listProjectAssets(projectId);
-    res.json({ assets, role: access.role });
+    const [assets, usedBytes, limits] = await Promise.all([
+      listProjectAssets(projectId),
+      getProjectStorageUsage(pool, projectId),
+      getProjectLimitsForContext(access.project, req.user),
+    ]);
+
+    res.json({
+      assets,
+      role: access.role,
+      storage: {
+        usedBytes,
+        maxBytes: limits.max_project_storage_bytes,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -1311,6 +1328,23 @@ router.post(
         return res.status(403).json({ error: 'Editor access required' });
       }
 
+      const storageCheck = await checkProjectStorageLimit(
+        access.project,
+        req.user,
+        req.file.size
+      );
+      if (!storageCheck.allowed) {
+        const payload = {
+          error: storageCheck.reason,
+          usedBytes: storageCheck.usedBytes,
+          maxBytes: storageCheck.maxBytes,
+        };
+        if (storageCheck.upgrade_link) {
+          payload.upgrade_link = storageCheck.upgrade_link;
+        }
+        return res.status(storageCheck.status).json(payload);
+      }
+
       const revisionCheck = parseRequiredRevision(req.body);
       if (!revisionCheck.valid) {
         return res.status(400).json({ error: revisionCheck.error });
@@ -1328,11 +1362,7 @@ router.post(
         return;
       }
 
-      const projectResult = await pool.query(
-        'SELECT duration_seconds FROM projects WHERE id = $1',
-        [projectId]
-      );
-      const projectDuration = Number(projectResult.rows[0]?.duration_seconds ?? 0);
+      const projectDuration = Number(access.project.duration_seconds ?? 0);
 
       const startTimeCheck = parsePlacementSeconds(
         req.body.start_time_seconds,

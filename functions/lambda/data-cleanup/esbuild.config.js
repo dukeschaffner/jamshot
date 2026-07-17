@@ -55,4 +55,4 @@ fs.writeFileSync(path.join(DIST, 'package.json'), JSON.stringify(minimalPkg, nul
 
 execSync('npm install --production --omit=dev', { cwd: DIST, stdio: 'inherit' });
 
-console.log('✅ Project asset cleanup lambda build complete!');
+console.log('✅ Data cleanup lambda build complete!');

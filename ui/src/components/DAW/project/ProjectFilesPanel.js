@@ -81,6 +81,24 @@ function matchesFilter(asset, filterId) {
   }
 }
 
+function formatStorageBytes(bytes) {
+  if (bytes == null || !Number.isFinite(Number(bytes))) return '0 B';
+  const value = Number(bytes);
+  const gb = value / (1024 * 1024 * 1024);
+  if (gb >= 1) {
+    return `${gb % 1 === 0 ? gb : gb.toFixed(1)} GB`;
+  }
+  const mb = value / (1024 * 1024);
+  if (mb >= 1) {
+    return `${mb % 1 === 0 ? mb : mb.toFixed(1)} MB`;
+  }
+  const kb = value / 1024;
+  if (kb >= 1) {
+    return `${Math.round(kb)} KB`;
+  }
+  return `${Math.round(value)} B`;
+}
+
 function ProjectFilesAssetRow({
   asset,
   canEdit,
@@ -191,6 +209,7 @@ export default function ProjectFilesPanel() {
   const { showToast } = useToast();
 
   const [assets, setAssets] = useState([]);
+  const [storage, setStorage] = useState(null);
   const [filter, setFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
   const [deletePendingId, setDeletePendingId] = useState(null);
@@ -207,6 +226,7 @@ export default function ProjectFilesPanel() {
     try {
       const response = await projectApi.listProjectAssets(projectGuid);
       setAssets(response.data.assets ?? []);
+      setStorage(response.data.storage ?? null);
     } catch (err) {
       const message =
         err.response?.data?.error || 'Failed to load project files. Please try again.';
@@ -328,6 +348,29 @@ export default function ProjectFilesPanel() {
             <FontAwesomeIcon icon={faChevronRight} />
           </Button>
         </div>
+
+        {storage && storage.maxBytes != null && storage.maxBytes !== -1 && (
+          <div className="project-storage-usage">
+            <div>
+              {formatStorageBytes(storage.usedBytes)} / {formatStorageBytes(storage.maxBytes)} used
+            </div>
+            <div className="project-storage-usage-bar" aria-hidden>
+              <div
+                className={`project-storage-usage-bar-fill${
+                  storage.usedBytes / storage.maxBytes >= 0.9 ? ' near-limit' : ''
+                }`}
+                style={{
+                  width: `${Math.min(100, (storage.usedBytes / storage.maxBytes) * 100)}%`,
+                }}
+              />
+            </div>
+            {storage.usedBytes / storage.maxBytes >= 0.9 && (
+              <a className="project-storage-upgrade-link" href="/subscribe">
+                Upgrade for more storage
+              </a>
+            )}
+          </div>
+        )}
 
         <Tabs value={filter} onValueChange={setFilter} className={styles.filters}>
           <TabsList className={styles.filterList}>

@@ -144,6 +144,16 @@ async function checkProjectAccess(projectId, userId) {
       };
     }
 
+    if (row.access_revoked_at != null) {
+      return {
+        hasAccess: false,
+        error: 'This project is locked due to a subscription change. Upgrade to restore access.',
+        status: 403,
+        accessRevoked: true,
+        scheduledDeletionAt: row.scheduled_deletion_at,
+      };
+    }
+
     const {
       role,
       subscription_status: _subscriptionStatus,
@@ -268,7 +278,9 @@ async function canAddMember(project, user, currentMemberCount, teamOrCampSize = 
 async function countProjectsInContext({ userId, teamId = null, campId = null }) {
   if (teamId != null) {
     const result = await pool.query(
-      'SELECT COUNT(*)::int AS count FROM projects WHERE team_id = $1',
+      `SELECT COUNT(*)::int AS count FROM projects
+       WHERE team_id = $1
+         AND access_revoked_at IS NULL`,
       [teamId]
     );
     return result.rows[0].count;
@@ -276,7 +288,9 @@ async function countProjectsInContext({ userId, teamId = null, campId = null }) 
 
   if (campId != null) {
     const result = await pool.query(
-      'SELECT COUNT(*)::int AS count FROM projects WHERE camp_id = $1',
+      `SELECT COUNT(*)::int AS count FROM projects
+       WHERE camp_id = $1
+         AND access_revoked_at IS NULL`,
       [campId]
     );
     return result.rows[0].count;
@@ -284,7 +298,10 @@ async function countProjectsInContext({ userId, teamId = null, campId = null }) 
 
   const result = await pool.query(
     `SELECT COUNT(*)::int AS count FROM projects
-     WHERE owner_id = $1 AND team_id IS NULL AND camp_id IS NULL`,
+     WHERE owner_id = $1
+       AND team_id IS NULL
+       AND camp_id IS NULL
+       AND access_revoked_at IS NULL`,
     [userId]
   );
   return result.rows[0].count;

@@ -304,3 +304,19 @@ CREATE INDEX IF NOT EXISTS idx_project_metadata_locks_expires
 -- Server-generated preview peaks for Files panel / asset library (see assets.md)
 
 ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS waveform_url VARCHAR(1000);
+
+-- Migration: Project subscription retention
+-- Date: 2026-07-17
+-- Lock excess/expired projects and schedule hard-delete after grace period
+-- retention_reason: owner_downgrade | team_downgrade | team_expired | camp_ended
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS access_revoked_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS scheduled_deletion_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS retention_reason TEXT,
+  ADD COLUMN IF NOT EXISTS deletion_warning_7d_sent_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS deletion_warning_1d_sent_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_projects_scheduled_deletion
+  ON projects (scheduled_deletion_at)
+  WHERE scheduled_deletion_at IS NOT NULL;
+

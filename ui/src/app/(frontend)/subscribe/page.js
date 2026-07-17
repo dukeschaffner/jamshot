@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
-import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, TEAM_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade } from '@sterio/subscription-utils';
+import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, TEAM_PLANS, formatPrice, getTierRank, isUpgrade, isDowngrade, getProjectPlanFeatures } from '@sterio/subscription-utils';
 import api from '@/lib/api';
 import { loadStripe } from '@stripe/stripe-js';
 import { FaCheck, FaTimes, FaCrown, FaStar } from 'react-icons/fa';
@@ -193,6 +193,21 @@ function SubscribeContent() {
     );
   };
 
+  const renderProjectFeatures = (plan) => (
+    <div className={styles.projectFeaturesSection}>
+      <h4 className={styles.projectFeaturesTitle}>Projects</h4>
+      {getProjectPlanFeatures(plan).map((feature) => (
+        <div
+          key={feature.label}
+          className={`${styles.feature} ${!feature.included ? styles.featureExcluded : ''}`}
+        >
+          {renderFeatureIcon(feature.included)}
+          <span>{feature.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   const getPlanButtonText = (plan) => {
     if (!user) return 'Sign Up to Subscribe';
     
@@ -351,6 +366,7 @@ function SubscribeContent() {
                     <span>{highlight}</span>
                   </div>
                 ))}
+                {renderProjectFeatures(plan)}
               </div>
 
               <div className={styles.planFooter}>
@@ -400,6 +416,7 @@ function SubscribeContent() {
                     <span>{highlight}</span>
                   </div>
                 ))}
+                {renderProjectFeatures(plan)}
               </div>
 
               <div className={styles.planFooter}>

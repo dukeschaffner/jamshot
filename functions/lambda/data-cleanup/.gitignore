@@ -3,4 +3,4 @@ dist/
 .env
 *.log
 .DS_Store
-project-asset-cleanup-lambda.zip
+data-cleanup-lambda.zip

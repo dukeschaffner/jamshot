@@ -6,6 +6,7 @@ import stripe from '../config/stripe.js';
 import db from '../config/db.js';
 import { contentCreationLimiter } from '../middleware/rateLimiting.js';
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } from '../utils/subscriptionUtils.js';
+import { reconcileOwnerProjects, reconcileTeamProjects } from '../utils/projectRetention.js';
 
 // Create a checkout session for donations
 router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res, next) => {
@@ -175,9 +176,17 @@ router.post('/modify-subscription', contentCreationLimiter, authMiddleware, asyn
       [
         newTier,
         new Date(updatedSubscription.current_period_end * 1000),
-        user.id
+        req.user.id
       ]
     );
+
+    try {
+      await reconcileOwnerProjects(req.user.id, {
+        triggerDate: new Date(),
+      });
+    } catch (reconcileError) {
+      console.error('Failed to reconcile projects after tier change:', reconcileError);
+    }
 
     res.json({ 
       message: `Successfully switched to ${newPlan.name} plan`,
@@ -474,6 +483,15 @@ async function handleSubscriptionUpdated(subscription) {
     );
 
     console.log(`Team subscription updated: ${subscription.id}, status: ${status}`);
+
+    const teamId = teamResult.rows[0].id;
+    try {
+      if (status === 'active' || status === 'trialing') {
+        await reconcileTeamProjects(teamId, { triggerDate: new Date() });
+      }
+    } catch (reconcileError) {
+      console.error(`Failed to reconcile team ${teamId} projects:`, reconcileError);
+    }
     return;
   }
 
@@ -523,6 +541,14 @@ async function handleSubscriptionUpdated(subscription) {
   );
 
   console.log(`Subscription updated for user ${userId}: ${tier}`);
+
+  try {
+    await reconcileOwnerProjects(userId, {
+      triggerDate: new Date(),
+    });
+  } catch (reconcileError) {
+    console.error(`Failed to reconcile projects for user ${userId}:`, reconcileError);
+  }
 }
 
 async function handleSubscriptionDeleted(subscription) {
@@ -576,6 +602,16 @@ async function handleSubscriptionDeleted(subscription) {
   );
 
   console.log(`Subscription canceled for user ${userId}`);
+
+  try {
+    await reconcileOwnerProjects(userId, {
+      triggerDate: subscription.canceled_at
+        ? new Date(subscription.canceled_at * 1000)
+        : new Date(),
+    });
+  } catch (reconcileError) {
+    console.error(`Failed to reconcile projects for user ${userId}:`, reconcileError);
+  }
 }
 
 async function handleInvoicePaymentSucceeded(invoice) {

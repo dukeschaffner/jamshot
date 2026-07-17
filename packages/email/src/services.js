@@ -10,7 +10,8 @@ import {
   generateCompetitionWinnerTemplate,
   generateCompetitionHostTemplate,
   generateCompetitionNoEntriesTemplate,
-  generateCompetitionNoBackupWinnerTemplate
+  generateCompetitionNoBackupWinnerTemplate,
+  generateProjectDeletionWarningTemplate,
 } from './templates.js';
 
 /**
@@ -287,6 +288,42 @@ export const sendCompetitionNoBackupWinnerEmail = async (hostEmail, trackTitle, 
     to: hostEmail,
     subject: 'Competition ended - No winner selected',
     html: htmlContent
+  };
+
+  return await sendEmail(mailOptions);
+};
+
+/**
+ * Warn an owner that projects will be permanently deleted soon.
+ * @param {string} userEmail
+ * @param {string} userName
+ * @param {'7d'|'1d'} warningType
+ * @param {Array<{ name: string, scheduledDeletionAt: string|Date }>} projects
+ * @returns {Promise}
+ */
+export const sendProjectDeletionWarningEmail = async (
+  userEmail,
+  userName,
+  warningType,
+  projects
+) => {
+  if (!userEmail || !projects?.length) return null;
+
+  const subscribeUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/subscribe`;
+  const htmlContent = generateProjectDeletionWarningTemplate(
+    userName,
+    warningType,
+    projects,
+    subscribeUrl
+  );
+
+  const isOneDay = warningType === '1d';
+  const mailOptions = {
+    to: userEmail,
+    subject: isOneDay
+      ? 'Sterio projects will be deleted tomorrow'
+      : 'Sterio projects will be deleted in 7 days',
+    html: htmlContent,
   };
 
   return await sendEmail(mailOptions);

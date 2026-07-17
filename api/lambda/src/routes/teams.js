@@ -7,6 +7,7 @@ import { contentCreationLimiter, apiEndpointLimiter } from '../middleware/rateLi
 import { validateTeamAccess, validateTeamFolderAccess, getTeamDetails, checkTeamUserLimit, isTeamSubscriptionExpired, checkTeamOwner, checkTeamAdminOrOwner } from '../utils/teamUtils.js';
 import { TEAM_PRODUCT_VERSIONS, TEAM_PLANS, isValidTeamProductVersion } from '../utils/subscriptionUtils.js';
 import { getBaseTrackSelectQuery, processTrack } from '../utils/trackUtils.js';
+import { reconcileTeamProjects } from '../utils/projectRetention.js';
 import stripe from '../config/stripe.js';
 
 // Helper function to check if user is team admin
@@ -997,6 +998,15 @@ router.post('/:id/modify-subscription', contentCreationLimiter, async (req, res,
         teamId
       ]
     );
+
+    try {
+      await reconcileTeamProjects(teamId, {
+        productVersion: newProductVersion,
+        triggerDate: new Date(),
+      });
+    } catch (reconcileError) {
+      console.error('Failed to reconcile team projects after plan change:', reconcileError);
+    }
 
     res.json({ 
       message: `Successfully switched to ${newPlan.name}`,

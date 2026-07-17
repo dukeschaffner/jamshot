@@ -4,6 +4,7 @@
 - add better zoom controls (ie mac zoom gesture over the timeline should zoom in and out horizontally)
 - make sure new project starts with one track
 - project page should be tabbed like track page
+    - project management (members, delete, etc)
 - what if on clip upload retry, both the original and the new region are uploaded?
 - switch to event/operation based instead of state based for project persistence
 - make sure temp uploaded files in R2 get deleted
@@ -19,7 +20,16 @@
 - should ONLY people who recorded asset and project owner be able to delete assets?
     - make sure to show confirmation if snapshot depends on the asset as well
 
-- to make a project from a collab tree, must get permission from root track owner
+
 - why do track reorder ops take so long?
 - "this clip overlaps with another clip" - this is showing even when clips are directly back to back
 
+
+
+
+
+other features:
+- project limits/subscription management
+- create project from collab tree
+    - to make a project from a collab tree, must get permission from root track owner
+- inviting users

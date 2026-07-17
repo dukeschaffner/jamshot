@@ -1208,10 +1208,19 @@ CREATE TABLE projects (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   revision BIGINT NOT NULL DEFAULT 1,
+  access_revoked_at TIMESTAMPTZ,
+  scheduled_deletion_at TIMESTAMPTZ,
+  retention_reason TEXT,
+  deletion_warning_7d_sent_at TIMESTAMPTZ,
+  deletion_warning_1d_sent_at TIMESTAMPTZ,
   CONSTRAINT projects_team_or_camp CHECK (
     team_id IS NULL OR camp_id IS NULL
   )
 );
+
+CREATE INDEX idx_projects_scheduled_deletion
+  ON projects (scheduled_deletion_at)
+  WHERE scheduled_deletion_at IS NOT NULL;
 
 CREATE TABLE project_members (
   id SERIAL PRIMARY KEY,

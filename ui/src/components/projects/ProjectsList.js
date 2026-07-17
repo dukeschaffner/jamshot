@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FaFolderOpen, FaArrowRight, FaPlus } from 'react-icons/fa';
+import { FaFolderOpen, FaArrowRight, FaPlus, FaLock } from 'react-icons/fa';
 import { formatDate } from '@/lib/utils';
 import sharedStyles from '@/styles/Dashboard.module.css';
 import styles from './ProjectsList.module.css';
@@ -15,6 +15,19 @@ function getProjectContextLabel(project) {
     return `Camp: ${project.campName}`;
   }
   return null;
+}
+
+function formatDeletionDate(value) {
+  if (!value) return null;
+  try {
+    return new Date(value).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return null;
+  }
 }
 
 export default function ProjectsList({ projects = [], error = '' }) {
@@ -67,18 +80,33 @@ export default function ProjectsList({ projects = [], error = '' }) {
       <div className={styles.projectsGrid}>
         {projects.map((project) => {
           const contextLabel = getProjectContextLabel(project);
+          const isLocked = Boolean(project.accessRevoked);
+          const deletionDate = formatDeletionDate(project.scheduledDeletionAt);
 
           return (
             <div
               key={project.guid}
-              className={styles.projectCard}
-              onClick={() => router.push(`/projects/${project.guid}`)}
+              className={`${styles.projectCard}${isLocked ? ' project-card-locked' : ''}`}
+              onClick={() => {
+                if (isLocked) return;
+                router.push(`/projects/${project.guid}`);
+              }}
+              role={isLocked ? undefined : 'button'}
+              tabIndex={isLocked ? undefined : 0}
+              onKeyDown={(event) => {
+                if (isLocked) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  router.push(`/projects/${project.guid}`);
+                }
+              }}
             >
               <div className={styles.projectCardContent}>
                 <div className={styles.projectIcon}>
-                  <FaFolderOpen />
+                  {isLocked ? <FaLock /> : <FaFolderOpen />}
                 </div>
                 <div className={styles.projectInfo}>
+                  {isLocked && <span className="project-locked-badge">Locked</span>}
                   {contextLabel && (
                     <p className={styles.projectContext}>{contextLabel}</p>
                   )}
@@ -87,16 +115,26 @@ export default function ProjectsList({ projects = [], error = '' }) {
                     {project.role && (
                       <span className={styles.projectRole}>{project.role}</span>
                     )}
-                    {project.updatedAt && (
+                    {project.updatedAt && !isLocked && (
                       <span className={styles.projectUpdated}>
                         Updated {formatDate(project.updatedAt)}
                       </span>
                     )}
                   </div>
+                  {isLocked && (
+                    <p className="project-locked-message">
+                      <Link href="/subscribe" onClick={(e) => e.stopPropagation()}>
+                        Upgrade to restore
+                      </Link>
+                      {deletionDate ? ` — deleted on ${deletionDate}` : ''}
+                    </p>
+                  )}
                 </div>
-                <div className={styles.projectArrow}>
-                  <FaArrowRight />
-                </div>
+                {!isLocked && (
+                  <div className={styles.projectArrow}>
+                    <FaArrowRight />
+                  </div>
+                )}
               </div>
             </div>
           );

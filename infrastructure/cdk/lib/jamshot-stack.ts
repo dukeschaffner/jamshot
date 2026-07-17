@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { LogRetention } from 'aws-cdk-lib/aws-logs';
 import { EmailNotificationsConstruct } from './constructs/email-notifications-construct';
+import { DataCleanupConstruct } from './constructs/data-cleanup-construct';
 import { ProjectWsConstruct } from './constructs/project-ws-construct';
 import { VideoExportConstruct } from './constructs/video-export-construct';
 
@@ -12,6 +13,11 @@ export class JamshotStack extends cdk.Stack {
 
     // Email Notifications Lambda Construct
     const emailNotifications = new EmailNotificationsConstruct(this, 'EmailNotifications', {
+      stack: this,
+    });
+
+    // Nightly data cleanup (asset cleanup + project retention)
+    new DataCleanupConstruct(this, 'DataCleanup', {
       stack: this,
     });
 
@@ -38,8 +44,6 @@ export class JamshotStack extends cdk.Stack {
       'sterio-analytics-cleanup-test',
       'sterio-project-ws',
       'sterio-project-ws-test',
-      'sterio-project-asset-cleanup',
-      'sterio-project-asset-cleanup-test',
     ];
 
     // Apply log retention to all existing Lambda functions

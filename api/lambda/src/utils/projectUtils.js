@@ -308,6 +308,14 @@ function formatProjectSummary(row, role) {
     summary.campName = row.camp_name;
   }
 
+  if (row.access_revoked_at != null) {
+    summary.accessRevoked = true;
+    summary.scheduledDeletionAt = row.scheduled_deletion_at;
+    summary.retentionReason = row.retention_reason;
+  } else {
+    summary.accessRevoked = false;
+  }
+
   return summary;
 }
 
