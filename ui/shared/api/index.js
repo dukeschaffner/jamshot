@@ -338,11 +338,16 @@ const createApiMethods = (apiClient) => {
 
   // Search API methods
   const searchApi = {
-    searchTracks: (query, page = 1) => 
+    searchTracks: (query, page = 1) =>
       api.get(`/search/tracks?q=${encodeURIComponent(query)}&page=${page}`),
-    
-    searchUsers: (query, page = 1) => 
+
+    searchUsers: (query, page = 1) =>
       api.get(`/search/users?q=${encodeURIComponent(query)}&page=${page}`),
+
+    search: (query, type = 'all') =>
+      api.get(
+        `/search?query=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`
+      ),
   };
 
   // Notifications API methods
@@ -641,6 +646,39 @@ const createApiMethods = (apiClient) => {
 
     getProjectPluginPayload: (projectGuid) =>
       api.get(`/projects/${projectGuid}/plugin-payload`),
+
+    getMembers: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/members`),
+
+    updateMemberRole: (projectGuid, userId, role) =>
+      api.patch(`/projects/${projectGuid}/members/${userId}`, { role }),
+
+    removeMember: (projectGuid, userId) =>
+      api.delete(`/projects/${projectGuid}/members/${userId}`),
+
+    leaveProject: (projectGuid) =>
+      api.post(`/projects/${projectGuid}/members/leave`),
+
+    deleteProject: (projectGuid) =>
+      api.delete(`/projects/${projectGuid}`),
+
+    getInvites: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/invites`),
+
+    createInvite: (projectGuid, data) =>
+      api.post(`/projects/${projectGuid}/invites`, data),
+
+    revokeInvite: (projectGuid, inviteId) =>
+      api.delete(`/projects/${projectGuid}/invites/${inviteId}`),
+
+    getInvite: (token) =>
+      api.get(`/projects/invites/${token}`),
+
+    acceptInvite: (token) =>
+      api.post(`/projects/invites/${token}/accept`),
+
+    declineInvite: (token) =>
+      api.post(`/projects/invites/${token}/decline`),
   };
 
   // Admin API methods

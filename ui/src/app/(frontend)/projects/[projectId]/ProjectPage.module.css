@@ -95,6 +95,17 @@
   overflow: hidden;
 }
 
+.projectTabs {
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+
+.membersWorkspace {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 @media (max-width: 768px) {
   .projectPageContainer {
     padding: 15px;

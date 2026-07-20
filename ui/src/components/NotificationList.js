@@ -1,8 +1,9 @@
 'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FaBell, FaComment, FaHeart, FaMusic, FaRetweet, FaUserPlus, FaCheckCircle, FaTimesCircle, FaTrophy, FaExclamationTriangle } from 'react-icons/fa';
-import api from '../lib/api';
+import { FaBell, FaComment, FaHeart, FaMusic, FaRetweet, FaUserPlus, FaCheckCircle, FaTimesCircle, FaTrophy, FaExclamationTriangle, FaFolderOpen } from 'react-icons/fa';
+import api, { projectApi } from '../lib/api';
 import TimeDisplay from './TimeDisplay';
 import styles from './Notifications.module.css';
 
@@ -14,34 +15,28 @@ export default function NotificationList({
   markAsRead,
   deleteNotification,
   loadMoreNotifications,
-  showLoadMore = true
+  showLoadMore = true,
 }) {
   const router = useRouter();
-  const [processedRequests, setProcessedRequests] = useState({}); // Track accepted/rejected follow requests by ID
+  const [processedRequests, setProcessedRequests] = useState({});
+  const [processingInviteId, setProcessingInviteId] = useState(null);
 
   const handleNotificationClick = (notification) => {
-    // Mark as read
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
 
-    // For follow requests, don't navigate
-    if (notification.type === 'follow_request') {
+    if (notification.type === 'follow_request' || notification.type === 'project_invite') {
       return;
     }
 
-    // Navigate based on notification type
     if (notification.type === 'competition_winner') {
-      // Navigate to competition page (assuming we have competition pages)
       router.push(`/competition/${notification.competition_id}`);
     } else if (notification.type === 'follow') {
-      // Navigate to the user profile who started following
       router.push(`/user/${notification.actor_username}`);
     } else if (notification.type === 'track_rejected') {
-      // Navigate to the rejected track
       router.push(`/track/${notification.track_guid}`);
     } else {
-      // Navigate to the track using GUID
       router.push(`/track/${notification.track_guid}`);
     }
   };
@@ -64,13 +59,15 @@ export default function NotificationList({
         return <FaTrophy className="text-yellow-500" />;
       case 'track_rejected':
         return <FaExclamationTriangle className="text-red-500" />;
+      case 'project_invite':
+        return <FaFolderOpen className="text-green-500" />;
       default:
         return <FaBell className="text-gray-500" />;
     }
   };
 
   const getNotificationText = (notification) => {
-    const { type, actor_username, track_title, id, rejection_reason } = notification;
+    const { type, actor_username, track_title, id, rejection_reason, project_name } = notification;
     const actor = actor_username || 'Someone';
 
     switch (type) {
@@ -96,6 +93,8 @@ export default function NotificationList({
         return `🎉 You won a competition! Follow the instructions in the email to collect your prize.`;
       case 'track_rejected':
         return `Your track "${track_title}" was rejected by moderators${rejection_reason ? `: ${rejection_reason}` : ''}`;
+      case 'project_invite':
+        return `${actor} invited you to project "${project_name || 'a project'}"`;
       default:
         return `New activity on your track "${track_title}"`;
     }
@@ -104,7 +103,6 @@ export default function NotificationList({
   const handleAcceptFollowRequest = async (notification) => {
     try {
       await api.post(`/users/follow-requests/${notification.follow_request_id}/accept`);
-      // Mark as accepted in local state
       setProcessedRequests(prev => ({
         ...prev,
         [notification.id]: 'accepted'
@@ -117,13 +115,42 @@ export default function NotificationList({
   const handleRejectFollowRequest = async (notification) => {
     try {
       await api.post(`/users/follow-requests/${notification.follow_request_id}/reject`);
-      // Mark as rejected in local state
       setProcessedRequests(prev => ({
         ...prev,
         [notification.id]: 'rejected'
       }));
     } catch (err) {
       console.error('Failed to reject follow request:', err);
+    }
+  };
+
+  const handleAcceptProjectInvite = async (notification) => {
+    if (!notification.project_invite_token) return;
+    setProcessingInviteId(notification.id);
+    try {
+      const response = await projectApi.acceptInvite(notification.project_invite_token);
+      await deleteNotification(notification.id);
+      const guid = response.data?.projectGuid || notification.project_guid;
+      if (guid) {
+        router.push(`/projects/${guid}`);
+      }
+    } catch (err) {
+      console.error('Failed to accept project invite:', err);
+    } finally {
+      setProcessingInviteId(null);
+    }
+  };
+
+  const handleDeclineProjectInvite = async (notification) => {
+    if (!notification.project_invite_token) return;
+    setProcessingInviteId(notification.id);
+    try {
+      await projectApi.declineInvite(notification.project_invite_token);
+      await deleteNotification(notification.id);
+    } catch (err) {
+      console.error('Failed to decline project invite:', err);
+    } finally {
+      setProcessingInviteId(null);
     }
   };
 
@@ -185,12 +212,36 @@ export default function NotificationList({
                   </button>
                 </div>
               )}
+
+              {notification.type === 'project_invite' && notification.project_invite_token && (
+                <div className={styles.notificationActions}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAcceptProjectInvite(notification);
+                    }}
+                    className="pill-btn green-btn sm"
+                    disabled={processingInviteId === notification.id}
+                  >
+                    <FaCheckCircle className="mr-1" /> Accept
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeclineProjectInvite(notification);
+                    }}
+                    className="pill-btn pink-btn sm"
+                    disabled={processingInviteId === notification.id}
+                  >
+                    <FaTimesCircle className="mr-1" /> Decline
+                  </button>
+                </div>
+              )}
             </div>
           </li>
         ))}
       </ul>
       
-      {/* Load More Button */}
       {showLoadMore && pagination && pagination.hasNextPage && (
         <div className="load-more-container">
           <button
@@ -202,13 +253,6 @@ export default function NotificationList({
           </button>
         </div>
       )}
-      
-      {/* Pagination Info */}
-      {pagination && (
-        <div className={styles.notificationLoading}>
-          Showing {notifications.length} of {pagination.totalCount} notifications
-        </div>
-      )}
     </>
   );
-} 
+}

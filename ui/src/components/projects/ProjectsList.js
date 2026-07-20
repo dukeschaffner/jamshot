@@ -1,9 +1,35 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FaFolderOpen, FaArrowRight, FaPlus, FaLock } from 'react-icons/fa';
+import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { projectApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import sharedStyles from '@/styles/Dashboard.module.css';
 import styles from './ProjectsList.module.css';
 
@@ -30,8 +56,50 @@ function formatDeletionDate(value) {
   }
 }
 
-export default function ProjectsList({ projects = [], error = '' }) {
+export default function ProjectsList({
+  projects = [],
+  error = '',
+  onProjectRemoved,
+}) {
   const router = useRouter();
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [leaveTarget, setLeaveTarget] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setBusy(true);
+    setActionError('');
+    try {
+      await projectApi.deleteProject(deleteTarget.guid);
+      onProjectRemoved?.(deleteTarget.guid);
+      setDeleteTarget(null);
+    } catch (err) {
+      setActionError(
+        err.response?.data?.error || 'Failed to delete project'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!leaveTarget) return;
+    setBusy(true);
+    setActionError('');
+    try {
+      await projectApi.leaveProject(leaveTarget.guid);
+      onProjectRemoved?.(leaveTarget.guid);
+      setLeaveTarget(null);
+    } catch (err) {
+      setActionError(
+        err.response?.data?.error || 'Failed to leave project'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (error) {
     return (
@@ -77,11 +145,14 @@ export default function ProjectsList({ projects = [], error = '' }) {
         </div>
       </div>
 
+      {actionError && <p className={styles.errorMessage}>{actionError}</p>}
+
       <div className={styles.projectsGrid}>
         {projects.map((project) => {
           const contextLabel = getProjectContextLabel(project);
           const isLocked = Boolean(project.accessRevoked);
           const deletionDate = formatDeletionDate(project.scheduledDeletionAt);
+          const isOwner = project.role === 'owner';
 
           return (
             <div
@@ -130,16 +201,113 @@ export default function ProjectsList({ projects = [], error = '' }) {
                     </p>
                   )}
                 </div>
-                {!isLocked && (
-                  <div className={styles.projectArrow}>
-                    <FaArrowRight />
-                  </div>
-                )}
+
+                <div
+                  className="project-card-actions"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  {isOwner ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${project.name}`}
+                            onClick={() => setDeleteTarget(project)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete project</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Project actions for ${project.name}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => setLeaveTarget(project)}
+                        >
+                          Leave Project
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+
+                  {!isLocked && (
+                    <div className={styles.projectArrow}>
+                      <FaArrowRight />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !busy) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes the project and all of its tracks,
+              clips, and assets. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={busy}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(leaveTarget)}
+        onOpenChange={(open) => {
+          if (!open && !busy) setLeaveTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave {leaveTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will lose access to this project until you are invited again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleLeave}
+              disabled={busy}
+            >
+              Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

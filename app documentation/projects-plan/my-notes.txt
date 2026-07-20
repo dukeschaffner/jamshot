@@ -8,12 +8,10 @@
 - what if on clip upload retry, both the original and the new region are uploaded?
 - switch to event/operation based instead of state based for project persistence
 - make sure temp uploaded files in R2 get deleted
-- project storage management (ie if several audio files are uploaded with only 3s regions made from them... storage could get out of control)
-    - make sure clips made from the same audio file do not create duplicate assets
 - make sure plugin plays in stereo
 - need a way to indicate who recorded audio/made what changes
 - only sync to plugin when plugin is connected and project is loaded? dont need to show toast on every success
-
+- on projects page, sort by last updated, and include tag filter by "owned by me" or by camp,team, or user. if user has no camp projects, dont show camp filter. if user has no team projects, dont show team filter. if user has no user projects, dont show user filter, etc
 
 - project web daw is calling /assets and /plugin-payload endpoints too often. we need to optimize this.
 - No matching project loaded in plugin. Open the project in the plugin first. - this message displays every time a projec tupdate is made
@@ -24,12 +22,12 @@
 - why do track reorder ops take so long?
 - "this clip overlaps with another clip" - this is showing even when clips are directly back to back
 
+- make sure on project delete, it reconciles projects (ie if user/camp/team has more projects than allowed, and a project is deleted, it should check the limit and unlock projects if needed)
 
 
 
 
 other features:
-- project limits/subscription management
 - create project from collab tree
     - to make a project from a collab tree, must get permission from root track owner
 - inviting users

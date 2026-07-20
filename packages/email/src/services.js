@@ -13,6 +13,7 @@ import {
   generateCompetitionNoBackupWinnerTemplate,
   generateProjectDeletionWarningTemplate,
 } from './templates.js';
+import { generateProjectInviteTemplate } from './projectInviteTemplate.js';
 
 /**
  * Send an activity summary email
@@ -327,4 +328,35 @@ export const sendProjectDeletionWarningEmail = async (
   };
 
   return await sendEmail(mailOptions);
+};
+
+/**
+ * Send a project invite email
+ * @param {string} email
+ * @param {string} inviterName
+ * @param {string} projectName
+ * @param {string} role
+ * @param {string} inviteUrl
+ */
+export const sendProjectInviteEmail = async (
+  email,
+  inviterName,
+  projectName,
+  role,
+  inviteUrl
+) => {
+  if (!email || !inviteUrl) return null;
+
+  const htmlContent = generateProjectInviteTemplate(
+    inviterName,
+    projectName,
+    role,
+    inviteUrl
+  );
+
+  return await sendEmail({
+    to: email,
+    subject: `${inviterName || 'Someone'} invited you to ${projectName || 'a project'} on Sterio`,
+    html: htmlContent,
+  });
 };

@@ -320,3 +320,26 @@ CREATE INDEX IF NOT EXISTS idx_projects_scheduled_deletion
   ON projects (scheduled_deletion_at)
   WHERE scheduled_deletion_at IS NOT NULL;
 
+-- Migration: Project invites + project_invite notifications
+-- Date: 2026-07-17
+-- Targeted invites (invited_user_id set) get email + in-app notification.
+-- Generic link invites leave invited_user_id NULL.
+-- IMPORTANT: ALTER TYPE ... ADD VALUE cannot run inside a transaction with other statements.
+-- Run the ADD VALUE statement alone first, then the rest.
+
+ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'project_invite';
+
+ALTER TABLE project_invites
+  ADD COLUMN IF NOT EXISTS invited_user_id TEXT REFERENCES users(id) ON DELETE CASCADE;
+
+ALTER TABLE notifications
+  ADD COLUMN IF NOT EXISTS project_invite_id INT REFERENCES project_invites(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS idx_project_invites_invited_user
+  ON project_invites(invited_user_id)
+  WHERE invited_user_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_notifications_project_invite_id
+  ON notifications(project_invite_id)
+  WHERE project_invite_id IS NOT NULL;
+

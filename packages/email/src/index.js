@@ -16,6 +16,8 @@ export {
   generateProjectDeletionWarningTemplate,
 } from './templates.js';
 
+export { generateProjectInviteTemplate } from './projectInviteTemplate.js';
+
 // High-level email services
 export {
   sendActivitySummaryEmail,
@@ -29,4 +31,5 @@ export {
   sendCompetitionNoEntriesEmail,
   sendCompetitionNoBackupWinnerEmail,
   sendProjectDeletionWarningEmail,
+  sendProjectInviteEmail,
 } from './services.js';

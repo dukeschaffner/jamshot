@@ -108,16 +108,20 @@ export function NotificationProvider({ children }) {
 
   const deleteNotification = async (notificationId) => {
     if (!isAuthenticated) return;
-    
+
+    const deleted = notifications.find(n => n.id === notificationId);
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    if (deleted && !deleted.is_read) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+
     try {
       await api.delete(`/notifications/${notificationId}`);
-      const deleted = notifications.find(n => n.id === notificationId);
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      if (deleted && !deleted.is_read) {
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
     } catch (err) {
-      console.error('Failed to delete notification:', err);
+      // Invite accept/decline already deletes the notification server-side
+      if (err.response?.status !== 404) {
+        console.error('Failed to delete notification:', err);
+      }
     }
   };
 

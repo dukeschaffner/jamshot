@@ -16,9 +16,11 @@ import { useUser } from '@/contexts/UserContext';
 import { useAudio } from '@/lib/AudioContext';
 import { projectApi } from '@/lib/api';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import CustomTabs from '@/components/CustomTabs';
 import { ProjectDAW } from '@/components/DAW/DAW';
 import { ProjectSyncProvider } from '@/components/DAW/project/ProjectSyncContext';
 import ProjectPresenceAvatars from '@/components/DAW/project/ProjectPresenceAvatars';
+import ProjectMembersTab from '@/components/projects/ProjectMembersTab';
 import sharedStyles from '@/styles/Dashboard.module.css';
 import styles from './ProjectPage.module.css';
 
@@ -33,9 +35,12 @@ export default function ProjectPage() {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('daw');
+  const [membersVisited, setMembersVisited] = useState(false);
+  const [memberCount, setMemberCount] = useState(null);
 
   useEffect(() => {
-    if (isMobile || !project) {
+    if (isMobile || !project || activeTab !== 'daw') {
       setSpaceShortcutEnabled(true);
       return;
     }
@@ -43,7 +48,7 @@ export default function ProjectPage() {
     return () => {
       setSpaceShortcutEnabled(true);
     };
-  }, [isMobile, project, setSpaceShortcutEnabled]);
+  }, [isMobile, project, activeTab, setSpaceShortcutEnabled]);
 
   useEffect(() => {
     if (flagsLoading || userLoading) return;
@@ -106,6 +111,31 @@ export default function ProjectPage() {
     projectId,
   ]);
 
+  useEffect(() => {
+    if (!project?.guid) return;
+    let cancelled = false;
+    projectApi
+      .getMembers(project.guid)
+      .then((response) => {
+        if (!cancelled) {
+          setMemberCount(response.data?.members?.length ?? 0);
+        }
+      })
+      .catch(() => {
+        // Member count is optional header metadata
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.guid]);
+
+  const handleTabChange = (tabKey) => {
+    setActiveTab(tabKey);
+    if (tabKey === 'members') {
+      setMembersVisited(true);
+    }
+  };
+
   if (flagsLoading || userLoading) {
     return (
       <div className={styles.projectPageContainer}>
@@ -167,6 +197,11 @@ export default function ProjectPage() {
     );
   }
 
+  const tabs = [
+    { key: 'daw', label: 'DAW' },
+    { key: 'members', label: 'Members' },
+  ];
+
   return (
     <ProjectSyncProvider project={project}>
       <div className={styles.projectPageContainer}>
@@ -187,7 +222,7 @@ export default function ProjectPage() {
                   )}
                   <span className={styles.memberCount}>
                     <FaUsers aria-hidden />
-                    Members —
+                    Members {memberCount == null ? '—' : memberCount}
                   </span>
                 </div>
               </div>
@@ -196,20 +231,48 @@ export default function ProjectPage() {
           </div>
         </header>
 
-        {isMobile ? (
+        <CustomTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          variant="default"
+          className={styles.projectTabs}
+        />
+
+        {isMobile && activeTab === 'daw' ? (
           <div className="mobile-collab-message">
             <FaDesktop className="mobile-collab-icon" />
             <h3>Desktop Required</h3>
             <p>Use Desktop version to record or upload file to collaborate</p>
           </div>
         ) : (
-          <div className={styles.dawWorkspace}>
-            <ProjectDAW
-              project={project}
-              isVisible
-              onProjectChange={setProject}
-            />
-          </div>
+          <>
+            <div
+              className={styles.dawWorkspace}
+              style={{ display: activeTab === 'daw' ? undefined : 'none' }}
+            >
+              {!isMobile && (
+                <ProjectDAW
+                  project={project}
+                  isVisible={activeTab === 'daw'}
+                  onProjectChange={setProject}
+                />
+              )}
+            </div>
+
+            {(membersVisited || activeTab === 'members') && (
+              <div
+                className={styles.membersWorkspace}
+                style={{ display: activeTab === 'members' ? undefined : 'none' }}
+              >
+                <ProjectMembersTab
+                  projectGuid={project.guid}
+                  currentUserRole={project.role}
+                  onMemberCountChange={setMemberCount}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </ProjectSyncProvider>

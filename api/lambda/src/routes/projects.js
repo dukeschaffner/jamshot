@@ -50,6 +50,21 @@ import {
   getProjectStorageUsage,
 } from '../utils/projectStorageLimit.js';
 import { assertTracksNotLockedByOther } from '../utils/projectTrackLocks.js';
+import {
+  leaveProject,
+  listProjectMembers,
+  removeProjectMember,
+  updateProjectMemberRole,
+} from '../services/projectMemberService.js';
+import {
+  acceptProjectInvite,
+  createProjectInvite,
+  declineProjectInvite,
+  getProjectInviteByToken,
+  listProjectInvites,
+  revokeProjectInvite,
+} from '../services/projectInviteService.js';
+import { deleteProjectAsOwner } from '../services/projectDeleteService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -371,6 +386,189 @@ function validateDurationSeconds(value) {
   }
   return { valid: true, durationSeconds: parsed };
 }
+
+// --- Invite token routes (must be before /:id routes) ---
+
+router.get('/invites/:token', async (req, res, next) => {
+  try {
+    const result = await getProjectInviteByToken(req.params.token, req.user.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ invite: result.invite });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/invites/:token/accept', async (req, res, next) => {
+  try {
+    const result = await acceptProjectInvite(req.params.token, req.user.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({
+      message: result.alreadyMember ? 'Already a member' : 'Joined project',
+      projectGuid: result.projectGuid,
+      role: result.role,
+      alreadyMember: result.alreadyMember,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/invites/:token/decline', async (req, res, next) => {
+  try {
+    const result = await declineProjectInvite(req.params.token, req.user.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ message: 'Invite declined' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Members ---
+
+router.get('/:id/members', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await listProjectMembers(projectId, req.user.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ members: result.members });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:id/members/:userId', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await updateProjectMemberRole(
+      projectId,
+      req.user.id,
+      req.params.userId,
+      req.body?.role
+    );
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ message: 'Member role updated', role: result.role });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/members/:userId', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await removeProjectMember(
+      projectId,
+      req.user.id,
+      req.params.userId
+    );
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ message: 'Member removed' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/members/leave', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await leaveProject(projectId, req.user.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ message: 'Left project' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Project invites (admin+) ---
+
+router.get('/:id/invites', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await listProjectInvites(projectId, req.user.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ invites: result.invites });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/invites', contentCreationLimiter, async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await createProjectInvite(projectId, req.user.id, {
+      userId: req.body?.userId,
+      role: req.body?.role,
+    });
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.status(201).json({ invite: result.invite });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/invites/:inviteId', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const inviteId = parseInt(req.params.inviteId, 10);
+    if (Number.isNaN(inviteId)) {
+      return res.status(400).json({ error: 'Invalid invite id' });
+    }
+
+    const result = await revokeProjectInvite(projectId, req.user.id, inviteId);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ message: 'Invite revoked' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Delete project (owner only) ---
+
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const result = await deleteProjectAsOwner(req.params.id, req.user.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ message: 'Project deleted', projectGuid: result.projectGuid });
+  } catch (err) {
+    next(err);
+  }
+});
 
 router.post('/', contentCreationLimiter, async (req, res, next) => {
   try {

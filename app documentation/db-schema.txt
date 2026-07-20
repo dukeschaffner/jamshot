@@ -198,7 +198,7 @@ CREATE TABLE follows (
 );
 
 
-CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost', 'follow', 'follow_request', 'mention', 'competition_winner', 'competition_entry', 'competition_started', 'competition_ended');
+CREATE TYPE notification_type AS ENUM ('new_version', 'like', 'comment', 'featured', 'repost', 'follow', 'follow_request', 'mention', 'competition_winner', 'competition_entry', 'competition_started', 'competition_ended', 'project_invite');
 
 CREATE TYPE activity_summary_frequency AS ENUM ('daily', 'weekly', 'monthly', 'none');
 
@@ -210,8 +210,8 @@ CREATE TABLE notifications (
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   related_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-  competition_id INT REFERENCES competitions(id) ON DELETE CASCADE
-
+  competition_id INT REFERENCES competitions(id) ON DELETE CASCADE,
+  project_invite_id INT REFERENCES project_invites(id) ON DELETE CASCADE
 ); 
 
 CREATE INDEX idx_notifications_user_id_created_at ON notifications(user_id, created_at DESC);
@@ -1308,6 +1308,7 @@ CREATE TABLE project_invites (
   revoked_at TIMESTAMP,
   accepted_at TIMESTAMP,
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  invited_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1325,6 +1326,8 @@ CREATE INDEX idx_project_clips_active ON project_clips(project_track_id) WHERE d
 CREATE INDEX idx_project_snapshots_project ON project_snapshots(project_id, created_at DESC);
 CREATE INDEX idx_project_snapshot_assets_asset ON project_snapshot_assets(asset_id);
 CREATE INDEX idx_project_invites_project ON project_invites(project_id);
+CREATE INDEX idx_project_invites_invited_user ON project_invites(invited_user_id) WHERE invited_user_id IS NOT NULL;
+CREATE INDEX idx_notifications_project_invite_id ON notifications(project_invite_id) WHERE project_invite_id IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION update_project_timestamp()
 RETURNS TRIGGER AS $$

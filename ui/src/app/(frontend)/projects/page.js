@@ -88,7 +88,13 @@ export default function ProjectsPage() {
 
   return (
     <div className={sharedStyles.container}>
-      <ProjectsList projects={projects} error={error} />
+      <ProjectsList
+        projects={projects}
+        error={error}
+        onProjectRemoved={(guid) =>
+          setProjects((prev) => prev.filter((p) => p.guid !== guid))
+        }
+      />
     </div>
   );
 }
