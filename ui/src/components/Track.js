@@ -16,6 +16,7 @@ import {
   deriveSiteSection,
 } from '../lib/posthogAnalytics';
 import { FaCheckCircle, FaCheck, FaHeart, FaRegHeart, FaRetweet, FaPlay, FaPause, FaHeadphones, FaShareAlt, FaCodeBranch, FaUsers, FaInfoCircle, FaMusic, FaEye, FaComment, FaTrophy, FaClock, FaFolderOpen, FaEllipsisV, FaDoorOpen, FaFileArchive, FaVideo, FaTrash } from 'react-icons/fa';
+
 import JSZip from 'jszip';
 import Image from 'next/image';
 import TimeDisplay from './TimeDisplay';
@@ -659,6 +660,19 @@ export default function Track(
                   >
                     Open in Plugin
                   </button>
+
+                  {isFeatureEnabled('projects', false) && track?.guid && track?.processing_status !== 'processing' && track?.processing_status !== 'failed' && (
+                    <button
+                      className={styles.actionMenuItem}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowActionsMenu(false);
+                        router.push(`/projects/create?track_id=${encodeURIComponent(track.guid)}`);
+                      }}
+                    >
+                      <FaFolderOpen /> Create Project from Track
+                    </button>
+                  )}
                   
                   {/* Move to folder option (team context only) */}
                   {teamContext && (teamContext.userRole === 'contributor' || teamContext.userRole === 'admin' || teamContext.userRole === 'owner') && (

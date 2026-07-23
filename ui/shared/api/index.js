@@ -626,6 +626,31 @@ const createApiMethods = (apiClient) => {
     listProjectAssets: (projectGuid) =>
       api.get(`/projects/${projectGuid}/assets`),
 
+    getProjectCollabTracks: (projectGuid, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value);
+        }
+      });
+      const qs = queryParams.toString();
+      return api.get(`/projects/${projectGuid}/collab-tracks${qs ? `?${qs}` : ''}`);
+    },
+
+    getProjectCollabUsers: (projectGuid, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value);
+        }
+      });
+      const qs = queryParams.toString();
+      return api.get(`/projects/${projectGuid}/collab-users${qs ? `?${qs}` : ''}`);
+    },
+
+    createProjectCollabAsset: (projectGuid, data) =>
+      api.post(`/projects/${projectGuid}/collab-assets`, data),
+
     deleteProjectAsset: (projectGuid, assetId, data) =>
       api.delete(`/projects/${projectGuid}/assets/${assetId}`, { data }),
 

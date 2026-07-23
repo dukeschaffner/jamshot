@@ -18,6 +18,10 @@ import {
   getTimelineTimeFromEvent,
 } from '../project/projectClipPlacement';
 import { getProjectAssetFromDataTransfer } from '../project/projectAssetDrag';
+import {
+  getCollabTrackFromDataTransfer,
+  clearCollabTrackDrag,
+} from '../project/projectCollabTrackDrag';
 import { isProjectClipboardPasteable } from '../project/projectRegionClipboard';
 
 
@@ -59,6 +63,7 @@ const Track = ({
     canEdit: canEditProject,
     importAudioFileToTrack,
     placeLibraryAssetOnTrack,
+    placeCollabTrackOnTrack,
     pasteProjectRegion,
     crossTrackDragPreview,
   } = useProjectEditor();
@@ -200,12 +205,14 @@ const Track = ({
   }, [isRecording, playheadLocation.time, recordingStartPos, duration, isArmedForRecording]);
 
   const dragAssetRef = useRef(null);
+  const dragCollabRef = useRef(null);
 
   const resetDragState = useCallback(() => {
     dragDepthRef.current = 0;
     dragFileDurationRef.current = null;
     dragDecodePromiseRef.current = null;
     dragAssetRef.current = null;
+    dragCollabRef.current = null;
     setIsDragOver(false);
     setDropPlaceholder(null);
   }, []);
@@ -246,10 +253,19 @@ const Track = ({
       const asset = getProjectAssetFromDataTransfer(dataTransfer);
       if (asset?.durationSeconds != null) {
         dragAssetRef.current = asset;
+        dragCollabRef.current = null;
         return asset.durationSeconds;
       }
 
+      const collabTrack = getCollabTrackFromDataTransfer(dataTransfer);
+      if (collabTrack?.durationSeconds != null) {
+        dragCollabRef.current = collabTrack;
+        dragAssetRef.current = null;
+        return collabTrack.durationSeconds;
+      }
+
       dragAssetRef.current = null;
+      dragCollabRef.current = null;
       return ensureDragFileDuration(dataTransfer);
     },
     [ensureDragFileDuration]
@@ -312,6 +328,8 @@ const Track = ({
     e.stopPropagation();
 
     const asset = dragAssetRef.current ?? getProjectAssetFromDataTransfer(e.dataTransfer);
+    const collabTrack =
+      dragCollabRef.current ?? getCollabTrackFromDataTransfer(e.dataTransfer);
     const file = getAudioFileFromDataTransfer(e.dataTransfer);
     const startTime =
       dropPlaceholder?.isValid && dropPlaceholder.startTime != null
@@ -319,9 +337,15 @@ const Track = ({
         : getTimelineTimeFromEvent(e, trackRef.current, durationRef.current);
 
     resetDragState();
+    clearCollabTrackDrag();
 
     if (asset) {
       await placeLibraryAssetOnTrack(track.id, asset, startTime);
+      return;
+    }
+
+    if (collabTrack) {
+      await placeCollabTrackOnTrack(track.id, collabTrack, startTime);
       return;
     }
 

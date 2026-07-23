@@ -14,6 +14,7 @@ import {
   generateProjectDeletionWarningTemplate,
 } from './templates.js';
 import { generateProjectInviteTemplate } from './projectInviteTemplate.js';
+import { generateProjectFromTrackTemplate } from './projectFromTrackTemplate.js';
 
 /**
  * Send an activity summary email
@@ -357,6 +358,40 @@ export const sendProjectInviteEmail = async (
   return await sendEmail({
     to: email,
     subject: `${inviterName || 'Someone'} invited you to ${projectName || 'a project'} on Sterio`,
+    html: htmlContent,
+  });
+};
+
+/**
+ * Notify a lineage contributor that someone created a project from their track.
+ * @param {string} email
+ * @param {string} creatorName
+ * @param {string} trackTitle
+ * @param {string} projectName
+ * @param {string} trackUrl
+ * @param {string} [settingsUrl]
+ */
+export const sendProjectCreatedFromTrackEmail = async (
+  email,
+  creatorName,
+  trackTitle,
+  projectName,
+  trackUrl,
+  settingsUrl
+) => {
+  if (!email || !trackUrl) return null;
+
+  const htmlContent = generateProjectFromTrackTemplate(
+    creatorName,
+    trackTitle,
+    projectName,
+    trackUrl,
+    settingsUrl
+  );
+
+  return await sendEmail({
+    to: email,
+    subject: `${creatorName || 'Someone'} started a project using ${trackTitle || 'your track'} on Sterio`,
     html: htmlContent,
   });
 };

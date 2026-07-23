@@ -100,6 +100,7 @@ const INACTIVE_PROJECT_EDITOR = {
   startProjectRecording: () => {},
   importAudioFileToTrack: async () => {},
   placeLibraryAssetOnTrack: async () => false,
+  placeCollabTrackOnTrack: async () => false,
   pasteProjectRegion: async () => false,
   repeatProjectRegion: async () => false,
   splitProjectRegion: async () => false,
@@ -772,6 +773,95 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         const message =
           err.response?.data?.error ||
           'Failed to place file on timeline. Please try again.';
+        showToast({ message, variant: 'error' });
+        return false;
+      }
+    },
+    [
+      applyProjectServerState,
+      canEdit,
+      handleRevisionConflict,
+      notifyProjectMutated,
+      showToast,
+      trackManagerRef,
+    ]
+  );
+
+  const placeCollabTrackOnTrack = useCallback(
+    async (trackId, collabTrack, startTimeSeconds) => {
+      if (!canEdit) return false;
+
+      const currentProject = projectDataRef.current;
+      if (!currentProject?.guid || currentProject.revision == null) return false;
+      if (!trackManagerRef.current) return false;
+      if (!collabTrack?.trackId) return false;
+
+      const duration = collabTrack.durationSeconds;
+      if (duration == null || duration <= 0) {
+        showToast({
+          message: 'This collab stem is not ready to place yet.',
+          variant: 'error',
+        });
+        return false;
+      }
+
+      const track = trackManagerRef.current.getTrack(trackId);
+      if (!track) return false;
+
+      const projectDuration =
+        currentProject.durationSeconds ?? AudioState.dawDuration;
+      const placement = validateClipPlacement({
+        track,
+        startTime: startTimeSeconds ?? 0,
+        fileDuration: duration,
+        projectDuration,
+      });
+
+      if (!placement.valid) {
+        showToast({ message: placement.error, variant: 'error' });
+        return false;
+      }
+
+      try {
+        const copyResponse = await projectApi.createProjectCollabAsset(
+          currentProject.guid,
+          { track_id: collabTrack.trackId }
+        );
+        const asset = copyResponse.data?.asset;
+        if (!asset?.id) {
+          throw new Error('No asset returned from collab copy');
+        }
+
+        const placementPayload = {
+          revision: projectDataRef.current?.revision ?? currentProject.revision,
+          track_id: trackId,
+          start_time_seconds: placement.startTime,
+        };
+
+        const assetDuration = asset.durationSeconds ?? duration;
+        if (placement.clipDuration < assetDuration) {
+          placementPayload.trim_end_seconds = placement.clipDuration;
+        }
+
+        const response = await projectApi.placeProjectAssetClip(
+          currentProject.guid,
+          asset.id,
+          placementPayload
+        );
+        applyProjectServerState(response.data);
+        notifyProjectMutated();
+        return true;
+      } catch (err) {
+        if (isRevisionConflict(err)) {
+          await handleRevisionConflict({
+            conflictInfo: getRevisionConflictInfo(err),
+          });
+          return false;
+        }
+
+        const message =
+          err.response?.data?.error ||
+          'Failed to add collab stem to the timeline. Please try again.';
         showToast({ message, variant: 'error' });
         return false;
       }
@@ -1958,6 +2048,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       startProjectRecording,
       importAudioFileToTrack,
       placeLibraryAssetOnTrack,
+      placeCollabTrackOnTrack,
       pasteProjectRegion,
       repeatProjectRegion,
       splitProjectRegion,
@@ -1993,6 +2084,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       startProjectRecording,
       importAudioFileToTrack,
       placeLibraryAssetOnTrack,
+      placeCollabTrackOnTrack,
       pasteProjectRegion,
       repeatProjectRegion,
       splitProjectRegion,

@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 import ProjectMemberCard from './ProjectMemberCard';
 import ProjectInviteSearch from './ProjectInviteSearch';
+import ProjectCollabInviteDialog from './ProjectCollabInviteDialog';
 
 type ProjectMember = {
   id: string;
@@ -43,12 +44,14 @@ type ProjectInvite = {
 type ProjectMembersTabProps = {
   projectGuid: string;
   currentUserRole: string;
+  sourceRootId?: number | null;
   onMemberCountChange?: (count: number) => void;
 };
 
 export default function ProjectMembersTab({
   projectGuid,
   currentUserRole,
+  sourceRootId = null,
   onMemberCountChange,
 }: ProjectMembersTabProps) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -186,6 +189,14 @@ export default function ProjectMembersTab({
           projectGuid={projectGuid}
           excludedUserIds={excludedUserIds}
           onInviteCreated={loadData}
+          extraActions={
+            sourceRootId != null ? (
+              <ProjectCollabInviteDialog
+                projectGuid={projectGuid}
+                onInvitesCreated={loadData}
+              />
+            ) : null
+          }
         />
       )}
 

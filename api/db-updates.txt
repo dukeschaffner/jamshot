@@ -343,3 +343,22 @@ CREATE INDEX IF NOT EXISTS idx_notifications_project_invite_id
   ON notifications(project_invite_id)
   WHERE project_invite_id IS NOT NULL;
 
+-- Migration: Create project from collab tree track
+-- Date: 2026-07-22
+-- Projects created from a social track store source linkage for the Collabs tab,
+-- invite-from-tree flow, and attribution on copied assets.
+
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS source_track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS source_root_id INTEGER;
+
+ALTER TABLE project_assets
+  ADD COLUMN IF NOT EXISTS source_track_id INTEGER;
+
+CREATE INDEX IF NOT EXISTS idx_project_assets_source_track
+  ON project_assets(project_id, source_track_id);
+
+CREATE INDEX IF NOT EXISTS idx_projects_source_root
+  ON projects(source_root_id)
+  WHERE source_root_id IS NOT NULL;
+

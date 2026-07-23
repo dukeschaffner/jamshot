@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, Link2, Loader2, UserPlus } from 'lucide-react';
 import { projectApi, searchApi } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -43,6 +43,7 @@ type ProjectInviteSearchProps = {
   projectGuid: string;
   excludedUserIds: Set<string>;
   onInviteCreated: () => void;
+  extraActions?: ReactNode;
 };
 
 const INVITE_ROLES = [
@@ -55,6 +56,7 @@ export default function ProjectInviteSearch({
   projectGuid,
   excludedUserIds,
   onInviteCreated,
+  extraActions,
 }: ProjectInviteSearchProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -279,6 +281,8 @@ export default function ProjectInviteSearch({
             </Tooltip>
           </TooltipProvider>
         </div>
+
+        {extraActions}
       </div>
 
       {error && <p className="project-invite-error">{error}</p>}

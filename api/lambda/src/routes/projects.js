@@ -32,7 +32,7 @@ import {
   listProjectSnapshots,
   validateSnapshotLabel,
 } from '../utils/projectSnapshotUtils.js';
-import { getActiveUploadBan } from '../utils/trackUtils.js';
+import { getActiveUploadBan, checkTrackAccess } from '../utils/trackUtils.js';
 import {
   buildProjectAssetTempKey,
   uploadLocalFileToR2,
@@ -65,6 +65,16 @@ import {
   revokeProjectInvite,
 } from '../services/projectInviteService.js';
 import { deleteProjectAsOwner } from '../services/projectDeleteService.js';
+import {
+  importTrackIntoProject,
+  isGuid,
+} from '../services/projectImportService.js';
+import { notifyLineageContributorsOfProject } from '../services/projectFromTrackNotifyService.js';
+import {
+  createProjectCollabAsset,
+  listProjectCollabTracks,
+  listProjectCollabUsers,
+} from '../services/projectCollabTreeService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -573,7 +583,12 @@ router.delete('/:id', async (req, res, next) => {
 router.post('/', contentCreationLimiter, async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { name, team_id: teamIdRaw, camp_id: campIdRaw } = req.body;
+    const {
+      name,
+      team_id: teamIdRaw,
+      camp_id: campIdRaw,
+      source_track_id: sourceTrackIdRaw,
+    } = req.body;
 
     const nameValidation = validateProjectName(name);
     if (!nameValidation.valid) {
@@ -582,6 +597,10 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
 
     const teamId = parseOptionalInt(teamIdRaw);
     const campId = parseOptionalInt(campIdRaw);
+    const sourceTrackId =
+      sourceTrackIdRaw == null || sourceTrackIdRaw === ''
+        ? null
+        : sourceTrackIdRaw;
 
     if (Number.isNaN(teamId) || Number.isNaN(campId)) {
       return res.status(400).json({ error: 'Invalid team_id or camp_id' });
@@ -589,6 +608,14 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
 
     if (teamId != null && campId != null) {
       return res.status(400).json({ error: 'Cannot set both team_id and camp_id' });
+    }
+
+    if (
+      sourceTrackId != null &&
+      !isGuid(String(sourceTrackId)) &&
+      Number.isNaN(parseInt(sourceTrackId, 10))
+    ) {
+      return res.status(400).json({ error: 'Invalid source_track_id' });
     }
 
     const userResult = await pool.query(
@@ -631,7 +658,18 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
       return res.status(limitCheck.status || 403).json(body);
     }
 
+    // Verify track access BEFORE checking out a pool client. The API pool
+    // max is 1 — nested pool.query inside a held transaction deadlocks.
+    if (sourceTrackId != null) {
+      const trackAccess = await checkTrackAccess(sourceTrackId, userId);
+      if (!trackAccess.hasAccess) {
+        return res.status(trackAccess.status).json({ error: trackAccess.error });
+      }
+    }
+
     const client = await pool.connect();
+    let createdProject = null;
+    let importResult = null;
     try {
       await client.query('BEGIN');
 
@@ -641,23 +679,50 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
          RETURNING *`,
         [nameValidation.name, userId, teamId, campId]
       );
-      const project = projectResult.rows[0];
+      createdProject = projectResult.rows[0];
 
       await client.query(
         `INSERT INTO project_members (project_id, user_id, role)
          VALUES ($1, $2, 'owner')`,
-        [project.id, userId]
+        [createdProject.id, userId]
       );
 
-      await client.query('COMMIT');
+      if (sourceTrackId != null) {
+        importResult = await importTrackIntoProject(
+          client,
+          createdProject,
+          sourceTrackId,
+          userId,
+          { accessVerified: true }
+        );
+        createdProject = importResult.project;
+      }
 
-      res.status(201).json(formatProjectSummary(project, 'owner'));
+      await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
+      if (err.userFacing && err.status) {
+        return res.status(err.status).json({ error: err.message });
+      }
       throw err;
     } finally {
       client.release();
     }
+
+    if (importResult?.sourceTrack) {
+      // Fire-and-forget lineage emails — do not block the response
+      notifyLineageContributorsOfProject({
+        sourceTrackId: importResult.sourceTrack.id,
+        sourceTrackGuid: importResult.sourceTrack.guid,
+        sourceTrackTitle: importResult.sourceTrack.title,
+        projectName: createdProject.name,
+        creatorUserId: userId,
+      }).catch((err) => {
+        console.error('Lineage notify failed after project create:', err);
+      });
+    }
+
+    res.status(201).json(formatProjectSummary(createdProject, 'owner'));
   } catch (err) {
     next(err);
   }
@@ -832,6 +897,66 @@ router.get('/:id/assets', async (req, res, next) => {
         usedBytes,
         maxBytes: limits.max_project_storage_bytes,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/collab-tracks', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await listProjectCollabTracks(projectId, req.user.id, req.query);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    res.json({
+      tracks: result.tracks,
+      nextCursor: result.nextCursor,
+      sourceRootId: result.sourceRootId,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/collab-users', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const result = await listProjectCollabUsers(projectId, req.user.id, req.query);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    res.json({
+      users: result.users,
+      nextCursor: result.nextCursor,
+      sourceRootId: result.sourceRootId,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/collab-assets', contentCreationLimiter, async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const trackId = req.body?.track_id ?? req.body?.trackId;
+    const result = await createProjectCollabAsset(projectId, req.user.id, trackId);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    res.status(result.created ? 201 : 200).json({
+      asset: result.asset,
+      created: result.created,
     });
   } catch (err) {
     next(err);

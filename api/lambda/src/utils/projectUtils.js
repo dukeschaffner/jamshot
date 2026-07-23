@@ -212,7 +212,8 @@ async function serializeProjectState(projectId, options = {}) {
   const projectResult = await executor.query(
     `SELECT id, guid, name, owner_id, team_id, camp_id,
             bpm, time_signature, metronome_offset, duration_seconds,
-            is_private, revision, created_at, updated_at
+            is_private, revision, created_at, updated_at,
+            source_track_id, source_root_id
      FROM projects
      WHERE id = $1`,
     [projectId]
@@ -265,6 +266,8 @@ async function serializeProjectState(projectId, options = {}) {
     isPrivate: project.is_private,
     createdAt: project.created_at,
     updatedAt: project.updated_at,
+    sourceTrackId: project.source_track_id ?? null,
+    sourceRootId: project.source_root_id ?? null,
     tracks,
   };
 }
@@ -294,6 +297,8 @@ function formatProjectSummary(row, role) {
     isPrivate: row.is_private,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    sourceTrackId: row.source_track_id ?? null,
+    sourceRootId: row.source_root_id ?? null,
   };
 
   const membershipRole = role ?? row.role;

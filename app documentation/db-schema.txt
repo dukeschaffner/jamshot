@@ -1213,6 +1213,8 @@ CREATE TABLE projects (
   retention_reason TEXT,
   deletion_warning_7d_sent_at TIMESTAMPTZ,
   deletion_warning_1d_sent_at TIMESTAMPTZ,
+  source_track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
+  source_root_id INTEGER,
   CONSTRAINT projects_team_or_camp CHECK (
     team_id IS NULL OR camp_id IS NULL
   )
@@ -1264,7 +1266,8 @@ CREATE TABLE project_assets (
   last_referenced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  source_track_id INTEGER
 );
 
 CREATE TABLE project_clips (
@@ -1320,6 +1323,8 @@ CREATE INDEX idx_project_tracks_project ON project_tracks(project_id);
 CREATE INDEX idx_project_assets_project ON project_assets(project_id);
 CREATE INDEX idx_project_assets_cleanup ON project_assets(project_id, last_referenced_at)
   WHERE deleted_at IS NULL AND processing_status = 'completed';
+CREATE INDEX idx_project_assets_source_track ON project_assets(project_id, source_track_id);
+CREATE INDEX idx_projects_source_root ON projects(source_root_id) WHERE source_root_id IS NOT NULL;
 CREATE INDEX idx_project_clips_track ON project_clips(project_track_id);
 CREATE INDEX idx_project_clips_asset ON project_clips(asset_id);
 CREATE INDEX idx_project_clips_active ON project_clips(project_track_id) WHERE deleted_at IS NULL;

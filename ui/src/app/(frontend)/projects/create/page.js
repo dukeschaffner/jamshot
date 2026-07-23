@@ -11,8 +11,9 @@ import {
   FaExclamationTriangle,
   FaUsers,
   FaCampground,
+  FaMusic,
 } from 'react-icons/fa';
-import { projectApi, teamApi, campApi } from '@/lib/api';
+import { projectApi, teamApi, campApi, trackApi } from '@/lib/api';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import sharedStyles from '@/styles/SharedForm.module.css';
 import styles from './ProjectCreate.module.css';
@@ -31,12 +32,16 @@ function CreateProjectClient() {
 
   const teamId = parseContextId(searchParams.get('team_id'));
   const campId = parseContextId(searchParams.get('camp_id'));
+  const sourceTrackGuid = searchParams.get('track_id');
   const hasInvalidContext = searchParams.get('team_id') && teamId == null
     || searchParams.get('camp_id') && campId == null
     || (teamId != null && campId != null);
 
   const [name, setName] = useState('');
   const [contextLabel, setContextLabel] = useState('');
+  const [sourceTrackLabel, setSourceTrackLabel] = useState('');
+  const [sourceTrackReady, setSourceTrackReady] = useState(!sourceTrackGuid);
+  const [sourceTrackError, setSourceTrackError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showUpgradeLink, setShowUpgradeLink] = useState(false);
@@ -80,6 +85,59 @@ function CreateProjectClient() {
     };
   }, [teamId, campId]);
 
+  useEffect(() => {
+    if (!sourceTrackGuid) {
+      setSourceTrackLabel('');
+      setSourceTrackError('');
+      setSourceTrackReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    setSourceTrackReady(false);
+    setSourceTrackError('');
+
+    const loadTrack = async () => {
+      try {
+        const response = await trackApi.getTrack(sourceTrackGuid);
+        // getTrack returns an array (track + versions); prefer matching guid
+        const tracks = Array.isArray(response.data) ? response.data : [response.data];
+        const track =
+          tracks.find((t) => t?.guid === sourceTrackGuid) || tracks[0] || null;
+        if (cancelled) return;
+
+        if (!track) {
+          setSourceTrackError('Track not found');
+          setSourceTrackReady(true);
+          return;
+        }
+
+        const title = track.title || 'Untitled track';
+        const artist =
+          track.username || track.artist?.username || 'Unknown artist';
+        setSourceTrackLabel(`${title} by ${artist}`);
+        setName((current) => (current.trim() ? current : `${title} project`));
+        setSourceTrackReady(true);
+      } catch (err) {
+        console.error('Error loading source track:', err);
+        if (!cancelled) {
+          setSourceTrackError(
+            err.response?.data?.error || 'Could not load the track to create a project from'
+          );
+          setSourceTrackReady(true);
+        }
+      }
+    };
+
+    loadTrack();
+
+    return () => {
+      cancelled = true;
+    };
+    // Only re-fetch when track_id changes; don't reset name on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceTrackGuid]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -99,10 +157,17 @@ function CreateProjectClient() {
       return;
     }
 
+    if (sourceTrackGuid && sourceTrackError) {
+      setError(sourceTrackError);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const payload = { name: trimmedName };
       if (teamId != null) payload.team_id = teamId;
       if (campId != null) payload.camp_id = campId;
+      if (sourceTrackGuid) payload.source_track_id = sourceTrackGuid;
 
       const response = await projectApi.createProject(payload);
       const projectGuid = response.data?.guid;
@@ -134,11 +199,12 @@ function CreateProjectClient() {
   }
 
   if (!isAuthenticated) {
-    const redirectPath = teamId != null
-      ? `/projects/create?team_id=${teamId}`
-      : campId != null
-        ? `/projects/create?camp_id=${campId}`
-        : '/projects/create';
+    const redirectParams = new URLSearchParams();
+    if (teamId != null) redirectParams.set('team_id', String(teamId));
+    if (campId != null) redirectParams.set('camp_id', String(campId));
+    if (sourceTrackGuid) redirectParams.set('track_id', sourceTrackGuid);
+    const qs = redirectParams.toString();
+    const redirectPath = qs ? `/projects/create?${qs}` : '/projects/create';
 
     return (
       <div className={styles.projectCreateContainer}>
@@ -164,7 +230,11 @@ function CreateProjectClient() {
         <div className={sharedStyles.formHeader}>
           <FaFolderOpen className={sharedStyles.formHeaderIcon} />
           <h1>Create Project</h1>
-          <p>Start a new browser DAW session</p>
+          <p>
+            {sourceTrackGuid
+              ? 'Start a browser DAW session from this track'
+              : 'Start a new browser DAW session'}
+          </p>
         </div>
 
         {contextLabel && (
@@ -172,6 +242,25 @@ function CreateProjectClient() {
             {teamId != null ? <FaUsers /> : <FaCampground />}
             <span>
               Creating for <strong>{contextLabel}</strong>
+            </span>
+          </div>
+        )}
+
+        {sourceTrackGuid && (
+          <div className={styles.contextBanner}>
+            <FaMusic />
+            <span>
+              {sourceTrackReady ? (
+                sourceTrackError ? (
+                  sourceTrackError
+                ) : (
+                  <>
+                    Creating from <strong>{sourceTrackLabel}</strong>
+                  </>
+                )
+              ) : (
+                'Loading track…'
+              )}
             </span>
           </div>
         )}
@@ -241,12 +330,17 @@ function CreateProjectClient() {
             <button
               type="submit"
               className={sharedStyles.submitButton}
-              disabled={isSubmitting || !name.trim() || hasInvalidContext}
+              disabled={
+                isSubmitting
+                || !name.trim()
+                || hasInvalidContext
+                || Boolean(sourceTrackGuid && (!sourceTrackReady || sourceTrackError))
+              }
             >
               {isSubmitting ? (
                 <>
                   <FaClock className={sharedStyles.loadingIcon} />
-                  Creating Project...
+                  {sourceTrackGuid ? 'Creating & importing…' : 'Creating Project...'}
                 </>
               ) : (
                 <>

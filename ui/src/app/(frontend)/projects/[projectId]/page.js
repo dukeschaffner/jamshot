@@ -268,6 +268,7 @@ export default function ProjectPage() {
                 <ProjectMembersTab
                   projectGuid={project.guid}
                   currentUserRole={project.role}
+                  sourceRootId={project.sourceRootId}
                   onMemberCountChange={setMemberCount}
                 />
               </div>

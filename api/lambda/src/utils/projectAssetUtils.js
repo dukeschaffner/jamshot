@@ -104,6 +104,43 @@ async function copyProjectAssetWaveformFromSource(sourceWaveformKey, projectId, 
   }
 }
 
+/**
+ * Copy a social-track audio object into a project asset storage key.
+ * @param {string} sourceAudioKey - R2 key (e.g. tracks/...)
+ * @param {number|string} projectId
+ * @param {number|string} assetId
+ * @returns {Promise<string>} destination key
+ */
+async function copyProjectAssetAudioFromSource(sourceAudioKey, projectId, assetId) {
+  if (!sourceAudioKey || typeof sourceAudioKey !== 'string') {
+    throw new Error('Source audio key is required');
+  }
+
+  // Allow keys that are already tracks/... or full public URLs by stripping the public prefix
+  let sourceKey = sourceAudioKey;
+  const publicPrefix = process.env.R2_PUBLIC_URL
+    ? `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/`
+    : null;
+  if (publicPrefix && sourceKey.startsWith(publicPrefix)) {
+    sourceKey = sourceKey.slice(publicPrefix.length);
+  }
+  if (sourceKey.startsWith('http://') || sourceKey.startsWith('https://')) {
+    throw new Error('Cannot copy audio from an external URL');
+  }
+
+  const destKey = buildProjectAssetFinalKey(projectId, assetId);
+
+  await s3Client.send(
+    new CopyObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: destKey,
+      CopySource: `${process.env.R2_BUCKET}/${encodeURIComponent(sourceKey)}`,
+    })
+  );
+
+  return destKey;
+}
+
 export {
   buildProjectAssetFinalKey,
   buildProjectAssetWaveformKey,
@@ -111,4 +148,5 @@ export {
   uploadLocalFileToR2,
   emitProjectAssetCreatedEvent,
   copyProjectAssetWaveformFromSource,
+  copyProjectAssetAudioFromSource,
 };

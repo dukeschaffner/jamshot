@@ -15,7 +15,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import WaveformWithAudio from '../components/WaveformWithAudio';
 import { useProjectEditor } from './ProjectEditorContext';
 import { setProjectAssetDragData } from './projectAssetDrag';
+import ProjectCollabTracksList from './ProjectCollabTracksList';
 import styles from './ProjectFilesPanel.module.css';
+
+const PANEL_VIEWS = [
+  { id: 'library', label: 'Library' },
+  { id: 'collabs', label: 'Collabs' },
+];
 
 const FILTER_OPTIONS = [
   { id: 'all', label: 'All' },
@@ -210,6 +216,7 @@ export default function ProjectFilesPanel() {
 
   const [assets, setAssets] = useState([]);
   const [storage, setStorage] = useState(null);
+  const [panelView, setPanelView] = useState('library');
   const [filter, setFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
   const [deletePendingId, setDeletePendingId] = useState(null);
@@ -218,6 +225,13 @@ export default function ProjectFilesPanel() {
 
   const projectGuid = projectData?.guid;
   const revision = projectData?.revision;
+  const hasCollabTree = projectData?.sourceRootId != null;
+
+  useEffect(() => {
+    if (!hasCollabTree && panelView === 'collabs') {
+      setPanelView('library');
+    }
+  }, [hasCollabTree, panelView]);
 
   const loadAssets = useCallback(async () => {
     if (!projectGuid) return;
@@ -349,7 +363,7 @@ export default function ProjectFilesPanel() {
           </Button>
         </div>
 
-        {storage && storage.maxBytes != null && storage.maxBytes !== -1 && (
+        {storage && storage.maxBytes != null && storage.maxBytes !== -1 && panelView === 'library' && (
           <div className="project-storage-usage">
             <div>
               {formatStorageBytes(storage.usedBytes)} / {formatStorageBytes(storage.maxBytes)} used
@@ -372,18 +386,34 @@ export default function ProjectFilesPanel() {
           </div>
         )}
 
-        <Tabs value={filter} onValueChange={setFilter} className={styles.filters}>
-          <TabsList className={styles.filterList}>
-            {FILTER_OPTIONS.map((option) => (
-              <TabsTrigger key={option.id} value={option.id}>
-                {option.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        {hasCollabTree && (
+          <Tabs value={panelView} onValueChange={setPanelView} className={styles.filters}>
+            <TabsList className={styles.filterList}>
+              {PANEL_VIEWS.map((option) => (
+                <TabsTrigger key={option.id} value={option.id}>
+                  {option.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+
+        {panelView === 'library' && (
+          <Tabs value={filter} onValueChange={setFilter} className={styles.filters}>
+            <TabsList className={styles.filterList}>
+              {FILTER_OPTIONS.map((option) => (
+                <TabsTrigger key={option.id} value={option.id}>
+                  {option.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
 
         <ScrollArea className={styles.listSection}>
-          {isLoading && assets.length === 0 ? (
+          {panelView === 'collabs' && hasCollabTree ? (
+            <ProjectCollabTracksList projectGuid={projectGuid} canEdit={canEdit} />
+          ) : isLoading && assets.length === 0 ? (
             <p className={styles.emptyState}>Loading files…</p>
           ) : filteredAssets.length === 0 ? (
             <p className={styles.emptyState}>No files match this filter.</p>
@@ -403,7 +433,11 @@ export default function ProjectFilesPanel() {
         </ScrollArea>
 
         {canEdit && (
-          <p className={styles.hint}>Drag a file onto a track to place it on the timeline.</p>
+          <p className={styles.hint}>
+            {panelView === 'collabs'
+              ? 'Drag a collab stem onto a track to add it to the project.'
+              : 'Drag a file onto a track to place it on the timeline.'}
+          </p>
         )}
       </aside>
 
