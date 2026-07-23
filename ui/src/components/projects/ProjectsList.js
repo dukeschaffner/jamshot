@@ -60,6 +60,9 @@ export default function ProjectsList({
   projects = [],
   error = '',
   onProjectRemoved,
+  createHref = '/projects/create',
+  title = 'Your Projects',
+  subtitle = 'Personal, team, and camp projects you belong to',
 }) {
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -115,7 +118,7 @@ export default function ProjectsList({
         <FaFolderOpen className={sharedStyles.emptyIcon} />
         <h3>No Projects Yet</h3>
         <p>Create a project to start arranging clips in the browser DAW.</p>
-        <Link href="/projects/create" className={styles.createButton}>
+        <Link href={createHref} className={styles.createButton}>
           <FaPlus />
           Create Project
         </Link>
@@ -130,14 +133,12 @@ export default function ProjectsList({
           <div className={styles.headerInfo}>
             <FaFolderOpen className={styles.headerIcon} />
             <div>
-              <h1 className={styles.title}>Your Projects</h1>
-              <p className={styles.subtitle}>
-                Personal, team, and camp projects you belong to
-              </p>
+              <h1 className={styles.title}>{title}</h1>
+              <p className={styles.subtitle}>{subtitle}</p>
             </div>
           </div>
           <div className={styles.headerActions}>
-            <Link href="/projects/create" className={styles.createButton}>
+            <Link href={createHref} className={styles.createButton}>
               <FaPlus />
               Create Project
             </Link>

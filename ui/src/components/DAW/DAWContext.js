@@ -96,7 +96,12 @@ export function DAWProvider({
     const initializeDAW = async () => {
       try {
         const hasCollabData = trackData && trackData.length > 0;
-        const canInitialize = isProjectMode ? !!projectData : hasCollabData || isCollab;
+        // original (upload page): no track data — still init with an empty recording track
+        // collab: need track data (or isCollab while track is present)
+        // project: need projectData
+        const canInitialize = isProjectMode
+          ? !!projectData
+          : dawMode === 'original' || hasCollabData || isCollab;
         if (
           isLoading ||
           !canInitialize ||

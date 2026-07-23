@@ -7,6 +7,10 @@ import {
   checkProjectAccess,
   hasMinimumProjectRole,
 } from '../utils/projectAccess.js';
+import {
+  isUserInProjectScope,
+  projectScopeInviteError,
+} from '../utils/projectScopeUtils.js';
 
 const ASSIGNABLE_ROLES = new Set(['admin', 'editor', 'viewer']);
 
@@ -89,6 +93,15 @@ export async function createProjectInvite(projectId, actorUserId, body) {
     }
 
     const invitee = userResult.rows[0];
+
+    const inScope = await isUserInProjectScope(project, invitedUserId);
+    if (!inScope) {
+      return {
+        ok: false,
+        status: 400,
+        error: projectScopeInviteError(project),
+      };
+    }
 
     const existingMember = await pool.query(
       `SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2`,
@@ -411,6 +424,19 @@ export async function acceptProjectInvite(token, userId) {
       ok: false,
       status: 403,
       error: 'This invite was sent to a different user',
+    };
+  }
+
+  const scopeProject = {
+    team_id: invite.team_id,
+    camp_id: invite.camp_id,
+  };
+  const acceptorInScope = await isUserInProjectScope(scopeProject, userId);
+  if (!acceptorInScope) {
+    return {
+      ok: false,
+      status: 403,
+      error: projectScopeInviteError(scopeProject),
     };
   }
 

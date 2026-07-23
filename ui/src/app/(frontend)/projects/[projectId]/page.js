@@ -269,6 +269,8 @@ export default function ProjectPage() {
                   projectGuid={project.guid}
                   currentUserRole={project.role}
                   sourceRootId={project.sourceRootId}
+                  teamId={project.teamId ?? null}
+                  campId={project.campId ?? null}
                   onMemberCountChange={setMemberCount}
                 />
               </div>

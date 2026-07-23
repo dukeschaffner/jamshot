@@ -45,6 +45,8 @@ type ProjectMembersTabProps = {
   projectGuid: string;
   currentUserRole: string;
   sourceRootId?: number | null;
+  teamId?: number | null;
+  campId?: number | null;
   onMemberCountChange?: (count: number) => void;
 };
 
@@ -52,6 +54,8 @@ export default function ProjectMembersTab({
   projectGuid,
   currentUserRole,
   sourceRootId = null,
+  teamId = null,
+  campId = null,
   onMemberCountChange,
 }: ProjectMembersTabProps) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -188,6 +192,8 @@ export default function ProjectMembersTab({
         <ProjectInviteSearch
           projectGuid={projectGuid}
           excludedUserIds={excludedUserIds}
+          teamId={teamId}
+          campId={campId}
           onInviteCreated={loadData}
           extraActions={
             sourceRootId != null ? (

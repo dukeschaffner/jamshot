@@ -30,14 +30,17 @@ function CreateProjectClient() {
   const { isFeatureEnabled, isLoading: flagsLoading } = useFeatureFlags();
   const { isAuthenticated, isLoading: userLoading } = useUser();
 
-  const teamId = parseContextId(searchParams.get('team_id'));
-  const campId = parseContextId(searchParams.get('camp_id'));
+  const queryTeamId = parseContextId(searchParams.get('team_id'));
+  const queryCampId = parseContextId(searchParams.get('camp_id'));
   const sourceTrackGuid = searchParams.get('track_id');
-  const hasInvalidContext = searchParams.get('team_id') && teamId == null
-    || searchParams.get('camp_id') && campId == null
-    || (teamId != null && campId != null);
+  const hasInvalidQueryContext = searchParams.get('team_id') && queryTeamId == null
+    || searchParams.get('camp_id') && queryCampId == null
+    || (queryTeamId != null && queryCampId != null);
 
   const [name, setName] = useState('');
+  const [teamId, setTeamId] = useState(queryTeamId);
+  const [campId, setCampId] = useState(queryCampId);
+  const [scopeLockedFromTrack, setScopeLockedFromTrack] = useState(false);
   const [contextLabel, setContextLabel] = useState('');
   const [sourceTrackLabel, setSourceTrackLabel] = useState('');
   const [sourceTrackReady, setSourceTrackReady] = useState(!sourceTrackGuid);
@@ -45,6 +48,16 @@ function CreateProjectClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showUpgradeLink, setShowUpgradeLink] = useState(false);
+
+  // Keep query-param scope in sync when navigating without a source track
+  useEffect(() => {
+    if (scopeLockedFromTrack) return;
+    setTeamId(queryTeamId);
+    setCampId(queryCampId);
+  }, [queryTeamId, queryCampId, scopeLockedFromTrack]);
+
+  const hasInvalidContext = (teamId != null && campId != null)
+    || (!scopeLockedFromTrack && hasInvalidQueryContext);
 
   useEffect(() => {
     if (teamId == null && campId == null) {
@@ -90,6 +103,7 @@ function CreateProjectClient() {
       setSourceTrackLabel('');
       setSourceTrackError('');
       setSourceTrackReady(true);
+      setScopeLockedFromTrack(false);
       return;
     }
 
@@ -117,6 +131,22 @@ function CreateProjectClient() {
           track.username || track.artist?.username || 'Unknown artist';
         setSourceTrackLabel(`${title} by ${artist}`);
         setName((current) => (current.trim() ? current : `${title} project`));
+
+        // Lock project scope to the source track's camp/team
+        const trackCampId = parseContextId(track.camp_id);
+        const trackTeamId = parseContextId(track.team_id);
+        if (trackCampId != null) {
+          setCampId(trackCampId);
+          setTeamId(null);
+          setScopeLockedFromTrack(true);
+        } else if (trackTeamId != null) {
+          setTeamId(trackTeamId);
+          setCampId(null);
+          setScopeLockedFromTrack(true);
+        } else {
+          setScopeLockedFromTrack(false);
+        }
+
         setSourceTrackReady(true);
       } catch (err) {
         console.error('Error loading source track:', err);
@@ -241,7 +271,16 @@ function CreateProjectClient() {
           <div className={styles.contextBanner}>
             {teamId != null ? <FaUsers /> : <FaCampground />}
             <span>
-              Creating for <strong>{contextLabel}</strong>
+              {scopeLockedFromTrack ? (
+                <>
+                  This project will be created in <strong>{contextLabel}</strong>
+                  {' '}(same as the source track)
+                </>
+              ) : (
+                <>
+                  Creating for <strong>{contextLabel}</strong>
+                </>
+              )}
             </span>
           </div>
         )}

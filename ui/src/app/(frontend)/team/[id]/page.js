@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
+import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import { teamApi } from '@/lib/api';
 import CustomTabs from '@/components/CustomTabs';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import InviteLinkModal from '@/components/InviteLinkModal';
 import TeamSettingsModal from '@/components/TeamSettingsModal';
 import UserCard from '@/components/UserCard';
+import ProjectsTab from '@/components/projects/ProjectsTab';
 import TeamTracksTab from './components/TeamTracksTab';
 import TeamFoldersTab from './components/TeamFoldersTab';
 import FolderView from './components/FolderView';
@@ -24,6 +26,7 @@ export default function TeamDashboard() {
   const params = useParams();
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading: userLoading, refreshUser } = useUser();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   const teamId = parseInt(params.id);
   const inviteCode = searchParams.get('code');
@@ -240,16 +243,23 @@ export default function TeamDashboard() {
   // Build tabs array
   const tabs = [
     { key: 'tracks', label: 'Tracks' },
+  ];
+
+  if (isFeatureEnabled('projects', false)) {
+    tabs.push({ key: 'projects', label: 'Projects' });
+  }
+
+  tabs.push(
     { key: 'members', label: 'Members' },
     { key: 'folders', label: 'Folders' },
-    { 
-      key: 'learn-more', 
+    {
+      key: 'learn-more',
       label: 'Learn More',
       icon: <FaExternalLinkAlt />,
       externalLink: '/teams/about',
       onExternalClick: () => router.push('/teams/about')
     }
-  ];
+  );
 
   return (
     <div className={sharedStyles.container}>
@@ -339,6 +349,7 @@ export default function TeamDashboard() {
           </div>
         )}
         {activeTab === 'folders' && <TeamFoldersTab team={team} />}
+        {activeTab === 'projects' && <ProjectsTab teamId={teamId} />}
       </div>
 
       {/* Invite Modal */}

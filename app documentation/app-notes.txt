@@ -1,6 +1,8 @@
 
 <BACKGROUND>
 This is an app/website that allows music artists to asynchronously collaborate with smaller artists/fans, but in more of a social media format. for instance, an artist would upload a clip that they recorded, and people could attach an audio file onto the original recording as a new version. the app has a like/ranking system and has a featured page to show popular collabs.
+
+Existing music tech doesn't cut it. This app compared to Soundcloud is like LinkedIn compared to Twitter. The core attitude for Soundcloud and LinkedIn is "Hey look what I made, look how good I am". The core attitude for Sterio/Twitter is "Let's have a conversation"
 </BACKGROUND>
 
 <TEAM>

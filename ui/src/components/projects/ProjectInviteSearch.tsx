@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, Link2, Loader2, UserPlus } from 'lucide-react';
-import { projectApi, searchApi } from '@/lib/api';
+import { campApi, projectApi, searchApi, teamApi } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +42,8 @@ type SearchUser = {
 type ProjectInviteSearchProps = {
   projectGuid: string;
   excludedUserIds: Set<string>;
+  teamId?: number | null;
+  campId?: number | null;
   onInviteCreated: () => void;
   extraActions?: ReactNode;
 };
@@ -52,15 +54,26 @@ const INVITE_ROLES = [
   { value: 'viewer', label: 'Viewer' },
 ] as const;
 
+function matchesQuery(user: SearchUser, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  const username = (user.username || '').toLowerCase();
+  const name = (user.name || '').toLowerCase();
+  return username.includes(q) || name.includes(q);
+}
+
 export default function ProjectInviteSearch({
   projectGuid,
   excludedUserIds,
+  teamId = null,
+  campId = null,
   onInviteCreated,
   extraActions,
 }: ProjectInviteSearchProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchUser[]>([]);
+  const [scopeMembers, setScopeMembers] = useState<SearchUser[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [inviteRole, setInviteRole] = useState('editor');
   const [linkRole, setLinkRole] = useState('editor');
@@ -70,6 +83,49 @@ export default function ProjectInviteSearch({
   const [error, setError] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
+
+  const isScoped = teamId != null || campId != null;
+  const searchPlaceholder = isScoped
+    ? teamId != null
+      ? 'Search team members…'
+      : 'Search camp members…'
+    : 'Search users…';
+
+  useEffect(() => {
+    if (!isScoped) {
+      setScopeMembers(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadScopeMembers = async () => {
+      try {
+        let members: SearchUser[] = [];
+        if (teamId != null) {
+          const response = await teamApi.getMembers(teamId);
+          members = (response.data?.members || []) as SearchUser[];
+        } else if (campId != null) {
+          const response = await campApi.getCamp(campId);
+          members = (response.data?.members || []) as SearchUser[];
+        }
+        if (!cancelled) {
+          setScopeMembers(members);
+        }
+      } catch (err) {
+        console.error('Failed to load camp/team members for invite search:', err);
+        if (!cancelled) {
+          setScopeMembers([]);
+        }
+      }
+    };
+
+    loadScopeMembers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isScoped, teamId, campId]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -85,9 +141,17 @@ export default function ProjectInviteSearch({
     debounceRef.current = setTimeout(async () => {
       const requestId = ++requestIdRef.current;
       try {
-        const response = await searchApi.search(trimmed, 'users');
+        let users: SearchUser[] = [];
+
+        if (isScoped) {
+          const members = scopeMembers || [];
+          users = members.filter((user) => matchesQuery(user, trimmed));
+        } else {
+          const response = await searchApi.search(trimmed, 'users');
+          users = (response.data?.users || []) as SearchUser[];
+        }
+
         if (requestId !== requestIdRef.current) return;
-        const users = (response.data?.users || []) as SearchUser[];
         setResults(users.filter((user) => !excludedUserIds.has(user.id)));
       } catch (err) {
         console.error('User search failed:', err);
@@ -104,7 +168,7 @@ export default function ProjectInviteSearch({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, excludedUserIds]);
+  }, [query, excludedUserIds, isScoped, scopeMembers]);
 
   const handleInviteUser = async (user: SearchUser) => {
     setError('');
@@ -188,7 +252,7 @@ export default function ProjectInviteSearch({
               className="bg-[var(--background)] text-[var(--text-primary)]"
             >
               <CommandInput
-                placeholder="Search users…"
+                placeholder={searchPlaceholder}
                 value={query}
                 onValueChange={setQuery}
               />
@@ -200,7 +264,13 @@ export default function ProjectInviteSearch({
                   </div>
                 )}
                 {!searching && query.trim().length >= 2 && results.length === 0 && (
-                  <CommandEmpty>No users found.</CommandEmpty>
+                  <CommandEmpty>
+                    {isScoped
+                      ? teamId != null
+                        ? 'No matching team members.'
+                        : 'No matching camp members.'
+                      : 'No users found.'}
+                  </CommandEmpty>
                 )}
                 {!searching && results.length > 0 && (
                   <CommandGroup>
@@ -276,7 +346,11 @@ export default function ProjectInviteSearch({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                Create a shareable invite link and copy it
+                {teamId != null
+                  ? 'Shareable link — only team members can accept'
+                  : campId != null
+                    ? 'Shareable link — only camp members can accept'
+                    : 'Create a shareable invite link and copy it'}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

@@ -33,6 +33,7 @@ import {
   validateSnapshotLabel,
 } from '../utils/projectSnapshotUtils.js';
 import { getActiveUploadBan, checkTrackAccess } from '../utils/trackUtils.js';
+import { getTrackScope } from '../utils/projectScopeUtils.js';
 import {
   buildProjectAssetTempKey,
   uploadLocalFileToR2,
@@ -595,8 +596,8 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
       return res.status(400).json({ error: nameValidation.error });
     }
 
-    const teamId = parseOptionalInt(teamIdRaw);
-    const campId = parseOptionalInt(campIdRaw);
+    let teamId = parseOptionalInt(teamIdRaw);
+    let campId = parseOptionalInt(campIdRaw);
     const sourceTrackId =
       sourceTrackIdRaw == null || sourceTrackIdRaw === ''
         ? null
@@ -616,6 +617,46 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
       Number.isNaN(parseInt(sourceTrackId, 10))
     ) {
       return res.status(400).json({ error: 'Invalid source_track_id' });
+    }
+
+    // Camp/team tracks must produce projects in the same camp/team.
+    // Omitted scope is inherited; an explicit mismatch is rejected.
+    if (sourceTrackId != null) {
+      const trackScope = await getTrackScope(sourceTrackId);
+      if (!trackScope.found) {
+        return res.status(404).json({ error: 'Source track not found' });
+      }
+
+      const trackCampId = trackScope.campId;
+      const trackTeamId = trackScope.teamId;
+
+      if (trackCampId != null || trackTeamId != null) {
+        if (trackCampId != null) {
+          if (teamId != null) {
+            return res.status(400).json({
+              error: 'Project must be created in the same camp as the source track',
+            });
+          }
+          if (campId != null && campId !== trackCampId) {
+            return res.status(400).json({
+              error: 'Project must be created in the same camp as the source track',
+            });
+          }
+          campId = trackCampId;
+        } else if (trackTeamId != null) {
+          if (campId != null) {
+            return res.status(400).json({
+              error: 'Project must be created in the same team as the source track',
+            });
+          }
+          if (teamId != null && teamId !== trackTeamId) {
+            return res.status(400).json({
+              error: 'Project must be created in the same team as the source track',
+            });
+          }
+          teamId = trackTeamId;
+        }
+      }
     }
 
     const userResult = await pool.query(

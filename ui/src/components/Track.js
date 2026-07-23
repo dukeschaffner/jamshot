@@ -667,7 +667,16 @@ export default function Track(
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowActionsMenu(false);
-                        router.push(`/projects/create?track_id=${encodeURIComponent(track.guid)}`);
+                        const params = new URLSearchParams();
+                        params.set('track_id', track.guid);
+                        const trackCampId = track.camp_id ?? campContext?.campId;
+                        const trackTeamId = track.team_id ?? teamContext?.teamId;
+                        if (trackCampId) {
+                          params.set('camp_id', String(trackCampId));
+                        } else if (trackTeamId) {
+                          params.set('team_id', String(trackTeamId));
+                        }
+                        router.push(`/projects/create?${params.toString()}`);
                       }}
                     >
                       <FaFolderOpen /> Create Project from Track

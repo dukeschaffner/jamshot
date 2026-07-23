@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
 
 const router = express.Router();
@@ -7,6 +8,7 @@ import db from '../config/db.js';
 import { contentCreationLimiter } from '../middleware/rateLimiting.js';
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } from '../utils/subscriptionUtils.js';
 import { reconcileOwnerProjects, reconcileTeamProjects } from '../utils/projectRetention.js';
+import { scheduleCompetitionEnd } from '../utils/eventBridgeScheduler.js';
 
 // Create a checkout session for donations
 router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res, next) => {
@@ -410,7 +412,6 @@ async function handleCheckoutCompleted(session) {
 
           // Schedule the competition end event
           try {
-            const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler');
             await scheduleCompetitionEnd(competition.id, endDateUTC, winnerSelectionMethod);
             console.log(`Competition end scheduled for ID: ${competition.id} after payment`);
           } catch (scheduleError) {
@@ -650,7 +651,6 @@ async function handleCampCreation(session) {
   } = session.metadata;
 
   // Generate unique camp code
-  const crypto = require('crypto');
   const campCode = crypto.randomBytes(16).toString('hex');
 
   // Create camp
@@ -686,7 +686,6 @@ async function handleTeamCreation(session) {
   }
 
   // Generate unique team code
-  const crypto = require('crypto');
   const teamCode = crypto.randomBytes(16).toString('hex');
 
   // Create team

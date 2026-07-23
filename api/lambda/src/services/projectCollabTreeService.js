@@ -151,7 +151,23 @@ export async function listProjectCollabUsers(projectId, userId, query = {}) {
     : null;
   const limit = parseLimit(query.limit);
 
+  const project = admin.access.project;
   const params = [sourceRootId, projectId];
+  let scopeClause = '';
+  if (project.team_id) {
+    params.push(project.team_id);
+    scopeClause = `AND EXISTS (
+         SELECT 1 FROM team_members tm
+         WHERE tm.team_id = $${params.length} AND tm.user_id = u.id
+       )`;
+  } else if (project.camp_id) {
+    params.push(project.camp_id);
+    scopeClause = `AND EXISTS (
+         SELECT 1 FROM user_camps uc
+         WHERE uc.camp_id = $${params.length} AND uc.user_id = u.id
+       )`;
+  }
+
   let cursorClause = '';
   if (cursor) {
     params.push(cursor);
@@ -182,6 +198,7 @@ export async function listProjectCollabUsers(projectId, userId, query = {}) {
            AND pi.accepted_at IS NULL
            AND pi.expires_at > CURRENT_TIMESTAMP
        )
+       ${scopeClause}
        ${cursorClause}
      ORDER BY u.id ASC
      LIMIT $${params.length}`,
