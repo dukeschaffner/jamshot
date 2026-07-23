@@ -16,6 +16,7 @@ export function buildProjectSyncMessage(projectGuid, pluginPayload) {
     project_id: projectGuid,
     payload: {
       clips: pluginPayload?.clips ?? [],
+      tracks: pluginPayload?.tracks ?? [],
     },
   };
 }

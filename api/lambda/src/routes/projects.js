@@ -832,10 +832,6 @@ router.get('/:id/plugin-payload', async (req, res, next) => {
       return res.status(access.status).json({ error: access.error });
     }
 
-    if (!hasMinimumProjectRole(access.role, 'editor')) {
-      return res.status(403).json({ error: 'Editor access required' });
-    }
-
     const payload = await serializeProjectState(projectId, { variant: 'plugin' });
     if (!payload) {
       return res.status(403).json({ error: 'You do not have access to this project' });

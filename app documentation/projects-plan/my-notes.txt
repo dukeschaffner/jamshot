@@ -20,4 +20,5 @@
 - "this clip overlaps with another clip" - this is showing even when clips are directly back to back
 
 - make sure on project delete, it reconciles projects (ie if user/camp/team has more projects than allowed, and a project is deleted, it should check the limit and unlock projects if needed)
+- project duration change causing ws issue
 

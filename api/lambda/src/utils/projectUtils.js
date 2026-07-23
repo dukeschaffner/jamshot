@@ -99,6 +99,28 @@ function mapTrackRow(row, { variant, includeProcessingDetails }) {
   return track;
 }
 
+function buildTrackMetaFromRows(rows) {
+  const tracksById = new Map();
+  const trackOrder = [];
+
+  for (const row of rows) {
+    if (tracksById.has(row.track_id)) continue;
+
+    const track = {
+      trackId: row.track_id,
+      name: row.track_name,
+      sortOrder: row.sort_order,
+    };
+    if (row.color != null) {
+      track.color = row.color;
+    }
+    tracksById.set(row.track_id, track);
+    trackOrder.push(row.track_id);
+  }
+
+  return trackOrder.map((id) => tracksById.get(id));
+}
+
 function buildTracksFromRows(rows, options) {
   const tracksById = new Map();
   const trackOrder = [];
@@ -248,6 +270,7 @@ async function serializeProjectState(projectId, options = {}) {
       timeSignature: project.time_signature,
       durationSeconds: project.duration_seconds,
       clips: tracks,
+      tracks: buildTrackMetaFromRows(rows),
     };
   }
 

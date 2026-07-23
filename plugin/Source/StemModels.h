@@ -59,6 +59,29 @@ struct ProjectClip
 };
 
 //==============================================================================
+/** Track metadata for plugin timeline lanes */
+struct ProjectTrackInfo
+{
+    int trackId = 0;
+    juce::String name;
+    int sortOrder = 0;
+    juce::String color;
+};
+
+//==============================================================================
+/** Summary of a project from GET /projects */
+struct ProjectSummary
+{
+    juce::String guid;
+    juce::String name;
+    int bpm = 120;
+    juce::String timeSignature { "4/4" };
+    double durationSeconds = 60.0;
+    juce::String role;
+    juce::String updatedAt;
+};
+
+//==============================================================================
 /** Plugin payload for project playback */
 struct ProjectPluginPayload
 {
@@ -67,6 +90,7 @@ struct ProjectPluginPayload
     juce::String timeSignature { "4/4" };
     double durationSeconds = 60.0;
     juce::Array<ProjectClip> clips;
+    juce::Array<ProjectTrackInfo> tracks;
 };
 
 //==============================================================================
@@ -77,4 +101,5 @@ struct ProjectInfo
     juce::String name;
     int bpm = 120;
     juce::String timeSignature { "4/4" };
+    double durationSeconds = 60.0;
 };

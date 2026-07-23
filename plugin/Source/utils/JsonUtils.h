@@ -154,6 +154,56 @@ struct JsonUtils
         return clips;
     }
 
+    static ProjectTrackInfo parseProjectTrackInfo(const juce::var& trackJson)
+    {
+        ProjectTrackInfo track;
+        track.trackId = static_cast<int>(trackJson.getProperty("trackId", 0));
+        track.name = trackJson.getProperty("name", "").toString();
+        track.sortOrder = static_cast<int>(trackJson.getProperty("sortOrder", 0));
+        track.color = trackJson.getProperty("color", "").toString();
+        return track;
+    }
+
+    static juce::Array<ProjectTrackInfo> parseProjectTracks(const juce::var& tracksJson)
+    {
+        juce::Array<ProjectTrackInfo> tracks;
+        if (!tracksJson.isArray())
+            return tracks;
+
+        for (int i = 0; i < tracksJson.size(); ++i)
+            tracks.add(parseProjectTrackInfo(tracksJson[i]));
+
+        return tracks;
+    }
+
+    static ProjectSummary parseProjectSummary(const juce::var& json)
+    {
+        ProjectSummary summary;
+        summary.guid = json.getProperty("guid", "").toString();
+        if (summary.guid.isEmpty())
+            summary.guid = json.getProperty("id", "").toString();
+        summary.name = json.getProperty("name", "").toString();
+        summary.bpm = static_cast<int>(json.getProperty("bpm", 120));
+        summary.timeSignature = json.getProperty("timeSignature", "4/4").toString();
+        summary.durationSeconds = static_cast<double>(json.getProperty("durationSeconds", 60.0));
+        summary.role = json.getProperty("role", "").toString();
+        summary.updatedAt = json.getProperty("updatedAt", "").toString();
+        return summary;
+    }
+
+    static juce::Array<ProjectSummary> parseProjectSummaries(const juce::var& json)
+    {
+        juce::Array<ProjectSummary> projects;
+        juce::var projectsArray = json.getProperty("projects", juce::var());
+        if (!projectsArray.isArray())
+            return projects;
+
+        for (int i = 0; i < projectsArray.size(); ++i)
+            projects.add(parseProjectSummary(projectsArray[i]));
+
+        return projects;
+    }
+
     static ProjectPluginPayload parseProjectPluginPayload(const juce::var& json)
     {
         ProjectPluginPayload payload;
@@ -162,6 +212,7 @@ struct JsonUtils
         payload.timeSignature = json.getProperty("timeSignature", "4/4").toString();
         payload.durationSeconds = static_cast<double>(json.getProperty("durationSeconds", 60.0));
         payload.clips = parseProjectClips(json.getProperty("clips", juce::var()));
+        payload.tracks = parseProjectTracks(json.getProperty("tracks", juce::var()));
         return payload;
     }
 };

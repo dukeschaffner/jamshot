@@ -446,6 +446,10 @@ void SterioPluginProcessor::syncProjectClips(const juce::String& projectId,
 
             juce::MessageManager::callAsync([this, projectId]() {
                 sendProjectSyncComplete(projectId);
+                // Re-broadcast current project so ProjectView refreshes the timeline
+                auto project = pluginState.getCurrentProject();
+                if (project.hasValue())
+                    pluginState.setCurrentProject(*project);
             });
         }
         catch (const std::exception& e)
@@ -616,15 +620,93 @@ void SterioPluginProcessor::handleSetProjectMessage(juce::DynamicObject* obj)
         projectInfo.name = "Untitled Project";
     projectInfo.bpm = payload.bpm;
     projectInfo.timeSignature = payload.timeSignature;
+    projectInfo.durationSeconds = payload.durationSeconds;
     pluginState.setCurrentProject(projectInfo);
 
     {
         const juce::ScopedLock lock(projectPayloadLock);
         loadedProjectId = projectId;
         loadedProjectClips = payload.clips;
+        loadedProjectTracks = payload.tracks;
     }
 
     loadProjectClips(projectId, payload.clips);
+}
+
+void SterioPluginProcessor::selectProject(const ProjectSummary& project)
+{
+    if (project.guid.isEmpty())
+    {
+        DBG("selectProject called with empty project guid");
+        return;
+    }
+
+    pluginState.clearCurrentTrack();
+
+    ProjectInfo pendingInfo;
+    pendingInfo.guid = project.guid;
+    pendingInfo.name = project.name.isNotEmpty() ? project.name : "Untitled Project";
+    pendingInfo.bpm = project.bpm;
+    pendingInfo.timeSignature = project.timeSignature;
+    pendingInfo.durationSeconds = project.durationSeconds;
+    pluginState.setCurrentProject(pendingInfo);
+    pluginState.setProjectLoadProgress(0, 0);
+
+    juce::Thread::launch([this, project]() {
+        auto fetchResult = projectLoader.fetchPluginPayload(project.guid);
+        if (fetchResult.failed())
+        {
+            const juce::String errorMessage = fetchResult.getErrorMessage();
+            MessageStore::getInstance().pushMessage(PluginMessage{
+                .severity = PluginMessage::Severity::Error,
+                .content = "Failed to fetch project for plugin playback.",
+                .sourceModule = "SterioPluginProcessor",
+                .timestamp = std::chrono::system_clock::now()
+            });
+            DBG("Failed to fetch project plugin payload: " + errorMessage);
+
+            juce::MessageManager::callAsync([this, project, errorMessage]() {
+                pluginState.clearProjectLoadProgress();
+                sendProjectLoadError(project.guid, errorMessage);
+            });
+            return;
+        }
+
+        const auto payload = *fetchResult;
+
+        juce::MessageManager::callAsync([this, project, payload]() {
+            ProjectInfo projectInfo;
+            projectInfo.guid = project.guid;
+            projectInfo.name = payload.name.isNotEmpty() ? payload.name : project.name;
+            if (projectInfo.name.isEmpty())
+                projectInfo.name = "Untitled Project";
+            projectInfo.bpm = payload.bpm;
+            projectInfo.timeSignature = payload.timeSignature;
+            projectInfo.durationSeconds = payload.durationSeconds;
+            pluginState.setCurrentProject(projectInfo);
+
+            {
+                const juce::ScopedLock lock(projectPayloadLock);
+                loadedProjectId = project.guid;
+                loadedProjectClips = payload.clips;
+                loadedProjectTracks = payload.tracks;
+            }
+
+            loadProjectClips(project.guid, payload.clips);
+        });
+    });
+}
+
+juce::Array<ProjectTrackInfo> SterioPluginProcessor::getLoadedProjectTracks() const
+{
+    const juce::ScopedLock lock(projectPayloadLock);
+    return loadedProjectTracks;
+}
+
+juce::Array<ProjectClip> SterioPluginProcessor::getLoadedProjectClips() const
+{
+    const juce::ScopedLock lock(projectPayloadLock);
+    return loadedProjectClips;
 }
 
 void SterioPluginProcessor::handleProjectSyncMessage(juce::DynamicObject* obj)
@@ -661,6 +743,14 @@ void SterioPluginProcessor::handleProjectSyncMessage(juce::DynamicObject* obj)
     }
 
     const auto newClips = JsonUtils::parseProjectClips(payloadVar.getProperty("clips", juce::var()));
+    const auto newTracks = JsonUtils::parseProjectTracks(payloadVar.getProperty("tracks", juce::var()));
+
+    if (!newTracks.isEmpty())
+    {
+        const juce::ScopedLock lock(projectPayloadLock);
+        loadedProjectTracks = newTracks;
+    }
+
     syncProjectClips(projectId, previousClips, newClips);
 }
 

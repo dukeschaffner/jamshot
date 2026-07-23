@@ -141,6 +141,12 @@ target_sources(SterioPlugin
         Source/ui/Footer.cpp
         Source/ui/Footer.h
         Source/ui/HelpView.h
+        Source/ui/projects/ProjectListPanel.cpp
+        Source/ui/projects/ProjectListPanel.h
+        Source/ui/projects/ProjectView.cpp
+        Source/ui/projects/ProjectView.h
+        Source/ui/projects/ProjectTimelineView.cpp
+        Source/ui/projects/ProjectTimelineView.h
 )
 
 source_group("Sterio" FILES
@@ -197,6 +203,12 @@ source_group("Sterio" FILES
     Source/ui/Footer.cpp
     Source/ui/Footer.h
     Source/ui/HelpView.h
+    Source/ui/projects/ProjectListPanel.cpp
+    Source/ui/projects/ProjectListPanel.h
+    Source/ui/projects/ProjectView.cpp
+    Source/ui/projects/ProjectView.h
+    Source/ui/projects/ProjectTimelineView.cpp
+    Source/ui/projects/ProjectTimelineView.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")

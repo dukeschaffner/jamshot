@@ -78,6 +78,26 @@ ApiResult<LikedTracksResponse> SterioApiClient::getLikedTracks(const String& use
     }
 }
 
+ApiResult<Array<ProjectSummary>> SterioApiClient::getProjects()
+{
+    String accessToken = authManager.getAccessToken();
+    if (accessToken.isEmpty())
+        return ApiResult<Array<ProjectSummary>>::fail("No access token set");
+
+    auto result = makeAuthenticatedGetRequest("/projects");
+    if (result.failed())
+        return ApiResult<Array<ProjectSummary>>::fail(result.getErrorMessage());
+
+    try
+    {
+        return ApiResult<Array<ProjectSummary>>::ok(JsonUtils::parseProjectSummaries(*result));
+    }
+    catch (const std::exception& e)
+    {
+        return ApiResult<Array<ProjectSummary>>::fail("Failed to parse projects: " + String(e.what()));
+    }
+}
+
 ApiResult<var> SterioApiClient::makeAuthenticatedGetRequest(const String& endpoint)
 {
     // Construct URL by appending endpoint to base URL

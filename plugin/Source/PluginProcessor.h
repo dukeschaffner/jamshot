@@ -79,10 +79,19 @@ public:
     /** Load project clips for playback after set_project message. */
     void loadProjectClips(const juce::String& projectId, const juce::Array<ProjectClip>& clips);
 
+    /** Select a project from the plugin UI and load it for playback. */
+    void selectProject(const ProjectSummary& project);
+
     /** Apply project_sync clip updates without full reload when possible. */
     void syncProjectClips(const juce::String& projectId,
                           const juce::Array<ProjectClip>& previousClips,
                           const juce::Array<ProjectClip>& newClips);
+
+    /** Thread-safe access to currently loaded project tracks (for timeline lanes). */
+    juce::Array<ProjectTrackInfo> getLoadedProjectTracks() const;
+
+    /** Thread-safe access to currently loaded project clips (for timeline). */
+    juce::Array<ProjectClip> getLoadedProjectClips() const;
 
     /** Request reload of current stems or project clips with new sample rate */
     void requestStemReload();
@@ -140,6 +149,7 @@ private:
     juce::CriticalSection projectPayloadLock;
     juce::String loadedProjectId;
     juce::Array<ProjectClip> loadedProjectClips;
+    juce::Array<ProjectTrackInfo> loadedProjectTracks;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };
