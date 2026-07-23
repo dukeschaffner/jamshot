@@ -696,6 +696,13 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
           { accessVerified: true }
         );
         createdProject = importResult.project;
+      } else {
+        // Blank projects start with one empty track (from-track imports create their own)
+        await client.query(
+          `INSERT INTO project_tracks (project_id, name, sort_order)
+           VALUES ($1, $2, $3)`,
+          [createdProject.id, 'Track 1', 0]
+        );
       }
 
       await client.query('COMMIT');

@@ -2,7 +2,6 @@
 
 
 - add better zoom controls (ie mac zoom gesture over the timeline should zoom in and out horizontally)
-- make sure new project starts with one track
 - what if on clip upload retry, both the original and the new region are uploaded?
 - switch to event/operation based instead of state based for project persistence
 - make sure temp uploaded files in R2 get deleted
@@ -22,9 +21,3 @@
 
 - make sure on project delete, it reconciles projects (ie if user/camp/team has more projects than allowed, and a project is deleted, it should check the limit and unlock projects if needed)
 
-
-
-
-other features:
-- create project from collab tree
-    - to make a project from a collab tree, must get permission from root track owner
