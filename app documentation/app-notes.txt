@@ -41,14 +41,23 @@ Existing music tech doesn't cut it. This app compared to Soundcloud is like Link
 - collaborative starter - frictionless, transactional collaboration. if a collab resonates, the artists can export to bandlab, soundtrap, etc to continue the collaboration. this allows artists to find collaborators and have a solid idea/connections BEFORE having to do administrative work like project setup.
 </GOALS_AND_VALUE>
 
+<DISCOVERY_AND_GROWTH>
+Primary discovery path (current GTM): artists post a track on Sterio and share it externally to their community on other socials. New users land on that track (and the artist) rather than discovering via the home feed.
+- This reduces pressure on the empty-room home feed problem early on — the home feed is not the main discovery surface for now.
+- Home feed discovery can be emphasized later once the site has good traction and enough content density.
+</DISCOVERY_AND_GROWTH>
+
 <FEATURES>
 - home feed with tracks/collabs posted by user's follows mixed with popular tracks
   - click on a track to expand and see collabs on that track
+  - secondary for discovery until traction; see DISCOVERY_AND_GROWTH
 - users will have profiles and can be verified artists. There will be a profile page with the user's tracks, picture, reposted tracks, liked tracks, follower count, etc
 - It will also work as a streaming service, were a user can pick a genre and just listen
   - tracks have genre and instrument tags to help accommodate this
 - strong interaction between artists/fans or smaller artists, as well as friend groups who want to quickly and easily share ideas. success likely determined by how many medium to large artist adopt and use the platform.
 - simple built in DAW that allows users to record audio and add it to a track as a collab
+- Sterio plugin (DAW sync / open-in-plugin) — done
+- Projects (real-time collaborative workspace + plugin playback) — done
 </FEATURES>
 
 
@@ -76,31 +85,46 @@ Collabs:
 
 <MONETIZATION>
   - ads
-  - premium subscription
+  - individual subscriptions (Free / Basic / Premium)
+  - Teams and Camps (see CAMPS_AND_TEAMS)
   - (maybe) streaming revenue from published collabs
   - pinned collab competitions (artist pays to host competition, track gets pinned on feed page, part of the payment goes to the prize for the winner)
   - sponsored competitions from audio companies (best Sketch Cassette track)
 
-  FREE
-  - 3 Uploads/day
-  - 25 total uploads
-  - ads (post MVP)
+  FREE ($0)
+  - 3 uploads/day, 25 total uploads
+  - 5 minute recording limit
+  - ads
+  - no private tracks, analytics, version history, or file export
+  - Projects: 2 owned, up to 5 collaborators/project, 1 GB storage/project
+  - live collaboration on projects
+  - highlights: Sterio access, basic community features
 
-  BASIC - 4.99/month
-  - 5 Uploads/day
-  - 60 total uploads
+  BASIC - $4.99/month
+  - 5 uploads/day, 60 total uploads
+  - 5 minute recording limit
   - private tracks
-  - analytics (post MVP)
-  - no ads (post MVP)
+  - analytics
+  - no ads
+  - version history + file export
+  - Beta Supporter Badge
+  - Projects: 10 owned, up to 10 collaborators/project, 10 GB storage/project
+  - live collaboration on projects
 
-  PREMIUM - 12.99/month
-  - 25 uploads/day
-  - unlimited total uploads
+  PREMIUM - $12.99/month
+  - 25 uploads/day, unlimited total uploads
+  - 10 minute recording limit
   - private tracks
-  - no ads (post MVP)
-  - 5 free samples/month (post MVP)
-  - analytics (post MVP)
-  - advanced DAW (post MVP)
+  - analytics + streams by user
+  - no ads
+  - 5 free samples/month
+  - advanced DAW
+  - no hosting fees for competitions
+  - priority support
+  - version history + file export
+  - Beta Supporter Badge
+  - Projects: 50 owned, up to 25 collaborators/project, 50 GB storage/project
+  - live collaboration on projects
 
   Camps and Teams (see below)
 
@@ -138,16 +162,20 @@ Collabs:
 <CAMPS_AND_TEAMS>
   camps and teams: shared musical scratchpad
 
-Teams:
-- subscription feature that allows groups of users to collaborate on tracks in a private, shared workspace.
-- 10, 25, 50, 100 user plans (shared upload pool for team members)
-- includes a dashbaord with track feed, folders, and members
+Teams (monthly subscription; TEAM_PLANS):
+- private shared workspace for groups to collaborate on tracks + projects
+- plans: 5 ($29), 10 ($49), 25 ($99), 50 ($199), 100 ($299) users; enterprise (custom)
+- shared upload pool scales with plan (e.g. 5 users: 50/day 500 total; 10: 100/day 1,000 total; …)
+- project limits scale with plan (owned projects + 30 GB storage/project; collaborator cap tied to team size, max 25)
+- version history, file export, no ads, private tracks
+- dashboard with track feed, folders, and members
 - users can export stems from tracks to use in their DAW to turn the idea into a full song
 
-Camps:
-- feature that allows groups of users to collaborate on tracks in a private, shared workspace for a 1 week writing camp.
-- 10, 25, 50, 100 user plans (shared upload pool for camp members)
-- includes a dashboard with beat pool, rooms, tracks, and activity feed
+Camps (one-time / 1-week writing camp pricing mirrors team sizes):
+- private shared workspace for a 1 week writing camp
+- plans: 5 ($29), 10 ($49), 25 ($99), 50 ($199), 100 ($299) users
+- project limits by size (e.g. 5→20 projects, 10→50, 25→150, 50→300, 100→600; 30 GB storage/project)
+- dashboard with beat pool, rooms, tracks, and activity feed
 - users can export stems from tracks to use in their DAW to turn the idea into a full song
 </CAMPS_AND_TEAMS>
 
@@ -191,6 +219,8 @@ Sterio loop listening mode stream
 </LOOP_MODE_AND_STERIO_STREAM>
 
 <STERIO_PLUGIN>
+Status: done
+
 - plugin to allow users to explore and record audio in their own DAW
 - user can login to their sterio account and view their liked tracks in the plugin
 - once the user selects a track, the plugin will download the stems and metadata for the track
@@ -203,6 +233,8 @@ Sterio loop listening mode stream
 
 
 <PROJECTS>
+Status: done
+
 a "project" entity that is more of a real time collaborative workspace instead of the async collaboration mechanics supported by the regular track feature. 
   - so kinda like bandlab, but with some key differences. 
     - the project could be opened in the sterio daw with less restrictions than the existing DAW so they can have closer to a standard DAW experience (moving regions between tracks, recording/uploading audio to any track, etc). 
@@ -215,6 +247,8 @@ Progress:
 - Responsive web app
   - fully featured with social feed, profile, search, DAW, Teams, and Camps
   - DAW only available on desktop
+- Sterio plugin — done (login, liked tracks, stem playback sync, open-in-plugin, sync edits from web DAW)
+- Projects — done (real-time collaborative workspace, web DAW, plugin playback sync)
 
 
 

@@ -1,0 +1,78 @@
+CMO
+Hey Ashley, I created a music collaboration social media - it's a completely novel concept, like if Twitter used music based posts/comments instead of text based. I've got a celebrity ambassador on board, and we're looking for someone to help with marketing and growth. let's chat!
+
+dev
+Hey Mahae, I created a music collaboration social media - like if Twitter used music based posts/comments instead of text based. I've got a celebrity ambassador on board, and we're looking for someone to help with new features and preparing to scale. let's chat!
+
+https://www.youtube.com/watch?v=iqurYVWg7-g
+
+
+
+background:
+- university ECE student class of 2021
+- writing my own music since high school
+- after graduating, decided to record an album based on my projects
+- also got a software engineering job at Oil and Gas company
+- used to write music with my brother in high school and college, but he moved to california 
+    - existing remote collaboration tools not good enough to facilitate continuing to write music together
+- always been a bit of a music science nerd:
+    - learned about audio processing and signal processing in university
+    - built music reactive LED lights in university using arduino, led strips, mic, and FFT algorithm
+    - built a few basic audio effect plugins (fizzled, no sales)
+    - built an automation + application to allow users to upload a midi file and select a synthesizer to play it on
+        - nightly batch job to play midi files on hardware synthesizers and record output
+        - project fizzled
+- ended up making 3 eps and a few singles, gained some traction, but i had three young kids and a full time job and i became frustrated with how much of a production releasing music is - i just wanted to create and share music. i didnt really care about music videos, album artwork, etc. and often times, i wasnt able to even take time to turn intro/chorus ideas into full songs, and i would lose inspiration and motivation. i was really excited about these ideas that i was recording, but i wasnt able to do anything with them.
+- throughout my music journey, I always wanted to be able to collaborate with bigger artists, but i never had the connections to do so. i knew i was talented enough and worthy of working with bigger artists, but i never had the opportunity.
+
+
+problems i faced:
+- remote collaboration tools insufficient
+    - project based collabs just dont work very well for most collabs. the two most likely scenarios are:
+        - start a collab with no ideas. this often results in a lot of dead air and frustration, not inspired writing.
+        - start with a rough idea, but then after settings up the project and everything is ready to go, the inspiration and motivation to write the song fades and the project is abandoned.
+- the amount of work required in order to meaningfully share music is too much. i care about creating and sharing music, not building an identity around every release with content and hype and marketing, etc. There were times where i wouldnt even share drafts to soundcloud because i didnt have any artwork to go with it.
+
+
+
+
+i needed a solution that:
+- removes ALL friction from the process of creating and sharing music
+- makes collaboration effortless and accessible to all artists
+- makes creating, sharing, and collaborating on music easy, quick, fun, and accessible to everyone
+
+
+
+
+bonus phrase of interest: 
+like if tik tok duets was created with an audio first approach
+
+
+
+
+YC Founder Video Script
+
+Hi, I’m Duke. I’m the solo founder of sterio.
+
+I’m a software engineer for a fortune 500 company, and I’ve also been writing and releasing music since high school. Over the years I put out multiple EPs and singles, built audio plugins, and even worked on hardware music projects—but I kept running into the same problem.
+
+Making and sharing music takes way too much friction.
+Turning a good idea into a “real release” requires artwork, marketing, project setup, and coordination. Most of my best musical ideas died as 30-second drafts on my hard drive. And remote collaboration tools made this worse—by the time a project was set up, the inspiration was gone.
+
+I also always wanted to collaborate with bigger artists, but without existing connections, there was no realistic way in.
+
+So I built [App Name], a social network for music collaboration.
+
+Artists post short musical ideas—30 to 90 seconds—and anyone can attach their own audio as a new version. It’s like commenting on a post, but with music instead of text. No project setup, no coordination, no pressure to “finish a song.” If a collaboration clicks, artists can export it to their DAW and take it further.
+
+This turns music creation and collaboration into something fast, fun, and continuous.
+
+The insight is that music creation needs the same shift publishing had when it moved from books to social posts. Short-form content unlocked daily creation—and we think the same thing can happen for music.
+
+I’m building this because I lived the problem for over a decade, and I have the technical background to build the DAW, audio pipeline, and infrastructure myself.
+
+We believe [App Name] can become the default place where musical ideas start—and where artists discover collaborators they’d never otherwise meet.
+
+Optional Alternate Ending (slightly more product-forward)
+
+Our early users don’t open it to “release music”—they open it to create. That’s the behavior we think the industry is missing.
