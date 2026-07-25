@@ -1,6 +1,7 @@
 import {
   getUserPlan,
   getTeamPlan,
+  getCampProjectLimits,
   PROJECT_RETENTION_GRACE_DAYS,
   PROJECT_RETENTION_MIN_SCHEDULE_DAYS,
 } from '@sterio/subscription-utils';
@@ -10,6 +11,7 @@ export const RETENTION_REASONS = {
   OWNER_DOWNGRADE: 'owner_downgrade',
   TEAM_DOWNGRADE: 'team_downgrade',
   TEAM_EXPIRED: 'team_expired',
+  CAMP_DOWNGRADE: 'camp_downgrade',
   CAMP_ENDED: 'camp_ended',
 };
 
@@ -160,10 +162,11 @@ async function reconcileOwnerProjects(userId, options = {}) {
 
 /**
  * Lock team projects over the team's current plan max_projects (oldest first).
+ * No-op when the team subscription is not active (expired teams stay fully locked).
  *
  * @param {number} teamId
  * @param {Object} [options]
- * @param {string} [options.productVersion] - skip DB lookup when known
+ * @param {string} [options.productVersion] - preferred when known; still checks active status
  * @param {Date|string|null} [options.triggerDate]
  * @param {import('pg').Pool | import('pg').PoolClient} [options.executor]
  */
@@ -171,18 +174,25 @@ async function reconcileTeamProjects(teamId, options = {}) {
   const executor = options.executor || pool;
   const triggerDate = options.triggerDate ?? new Date();
 
-  let productVersion = options.productVersion;
-  if (!productVersion) {
-    const teamResult = await executor.query(
-      'SELECT product_version FROM teams WHERE id = $1',
-      [teamId]
-    );
-    if (teamResult.rows.length === 0) {
-      return { locked: [], restored: [], kept: [], maxProjects: 0 };
-    }
-    productVersion = teamResult.rows[0].product_version;
+  const teamResult = await executor.query(
+    `SELECT product_version, subscription_status, subscription_expires_at
+     FROM teams WHERE id = $1`,
+    [teamId]
+  );
+  if (teamResult.rows.length === 0) {
+    return { locked: [], restored: [], kept: [], maxProjects: 0 };
   }
 
+  const team = teamResult.rows[0];
+  const isActive =
+    (team.subscription_status === 'active' || team.subscription_status === 'trialing') &&
+    (team.subscription_expires_at == null ||
+      new Date(team.subscription_expires_at) > new Date());
+  if (!isActive) {
+    return { locked: [], restored: [], kept: [], maxProjects: 0 };
+  }
+
+  const productVersion = options.productVersion || team.product_version;
   const plan = getTeamPlan(productVersion);
   if (!plan) {
     return { locked: [], restored: [], kept: [], maxProjects: 0 };
@@ -260,4 +270,115 @@ async function reconcileTeamProjects(teamId, options = {}) {
   };
 }
 
-export { reconcileOwnerProjects, reconcileTeamProjects, clearProjectRetention };
+/**
+ * Lock camp projects over the camp's current plan max_projects (oldest first).
+ * Restores any previously locked projects that now fit under the limit.
+ * No-op when the camp has ended (ended camps stay fully locked).
+ *
+ * @param {number} campId
+ * @param {Object} [options]
+ * @param {string} [options.productVersion] - preferred when known; still checks end_date
+ * @param {Date|string|null} [options.triggerDate]
+ * @param {import('pg').Pool | import('pg').PoolClient} [options.executor]
+ */
+async function reconcileCampProjects(campId, options = {}) {
+  const executor = options.executor || pool;
+  const triggerDate = options.triggerDate ?? new Date();
+
+  const campResult = await executor.query(
+    `SELECT product_version, end_date FROM camps WHERE id = $1`,
+    [campId]
+  );
+  if (campResult.rows.length === 0) {
+    return { locked: [], restored: [], kept: [], maxProjects: 0 };
+  }
+
+  const camp = campResult.rows[0];
+  if (!camp.end_date || new Date(camp.end_date) <= new Date()) {
+    return { locked: [], restored: [], kept: [], maxProjects: 0 };
+  }
+
+  const productVersion = options.productVersion || camp.product_version;
+  const limits = getCampProjectLimits(productVersion);
+  if (!limits) {
+    return { locked: [], restored: [], kept: [], maxProjects: 0 };
+  }
+
+  const maxProjects = limits.max_projects;
+
+  const projectsResult = await executor.query(
+    `SELECT id, created_at, access_revoked_at
+     FROM projects
+     WHERE camp_id = $1
+     ORDER BY created_at DESC, id DESC`,
+    [campId]
+  );
+
+  const projects = projectsResult.rows;
+
+  if (maxProjects === -1) {
+    const toRestore = projects.filter((p) => p.access_revoked_at != null).map((p) => p.id);
+    await clearProjectRetention(executor, toRestore);
+    return {
+      locked: [],
+      restored: toRestore,
+      kept: projects.map((p) => p.id),
+      maxProjects,
+    };
+  }
+
+  const keepIds = new Set(projects.slice(0, maxProjects).map((p) => p.id));
+  const excess = projects.filter((p) => !keepIds.has(p.id));
+  const toRestore = projects
+    .filter((p) => keepIds.has(p.id) && p.access_revoked_at != null)
+    .map((p) => p.id);
+  const toLock = excess.filter((p) => p.access_revoked_at == null).map((p) => p.id);
+
+  await clearProjectRetention(executor, toRestore);
+
+  if (toLock.length > 0) {
+    const scheduledDeletionAt = computeScheduledDeletionAt(triggerDate);
+    await executor.query(
+      `UPDATE projects SET
+         access_revoked_at = COALESCE(access_revoked_at, NOW()),
+         scheduled_deletion_at = $2,
+         retention_reason = $3,
+         deletion_warning_7d_sent_at = NULL,
+         deletion_warning_1d_sent_at = NULL,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = ANY($1::int[])`,
+      [toLock, scheduledDeletionAt, RETENTION_REASONS.CAMP_DOWNGRADE]
+    );
+  }
+
+  const alreadyLocked = excess
+    .filter((p) => p.access_revoked_at != null && !toLock.includes(p.id))
+    .map((p) => p.id);
+
+  if (alreadyLocked.length > 0) {
+    const scheduledDeletionAt = computeScheduledDeletionAt(triggerDate);
+    await executor.query(
+      `UPDATE projects SET
+         scheduled_deletion_at = COALESCE(scheduled_deletion_at, $2),
+         retention_reason = COALESCE(retention_reason, $3),
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = ANY($1::int[])
+         AND scheduled_deletion_at IS NULL`,
+      [alreadyLocked, scheduledDeletionAt, RETENTION_REASONS.CAMP_DOWNGRADE]
+    );
+  }
+
+  return {
+    locked: toLock,
+    restored: toRestore,
+    kept: [...keepIds],
+    maxProjects,
+  };
+}
+
+export {
+  reconcileOwnerProjects,
+  reconcileTeamProjects,
+  reconcileCampProjects,
+  clearProjectRetention,
+};

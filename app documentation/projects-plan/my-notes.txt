@@ -3,7 +3,6 @@
 
 - what if on clip upload retry, both the original and the new region are uploaded?
 - switch to event/operation based instead of state based for project persistence
-- make sure temp uploaded files in R2 get deleted
 - need a way to indicate who recorded audio/made what changes
 - on projects page, sort by last updated, and include tag filter by "owned by me" or by camp,team, or user. if user has no camp projects, dont show camp filter. if user has no team projects, dont show team filter. if user has no user projects, dont show user filter, etc
 - project web daw is calling /assets and /plugin-payload endpoints too often. we need to optimize this.
@@ -11,6 +10,15 @@
     - make sure to show confirmation if snapshot depends on the asset as well
 - why do track reorder ops take so long?
 - "this clip overlaps with another clip" - this is showing even when clips are directly back to back
-- make sure on project delete, it reconciles projects (ie if user/camp/team has more projects than allowed, and a project is deleted, it should check the limit and unlock projects if needed)
+
 - project duration change causing ws issue
-- if i have a project open in the plugin, then click to the tracks tab and select a track, then click back to the project tab, it reopens the last loaded project, doesnt actually load the project. it also still shows the track as selected in the footer
+
+- implement snapshots
+
+
+
+
+
+check:
+- make sure on project delete, it reconciles projects (ie if user/camp/team has more projects than allowed, and a project is deleted, it should check the limit and unlock projects if needed)
+- make sure temp uploaded files in R2 get deleted

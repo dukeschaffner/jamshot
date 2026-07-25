@@ -5,6 +5,7 @@ import { isProjectGuid, resolveProjectRef } from '../utils/projectAccess.js';
 import {
   reconcileOwnerProjects,
   reconcileTeamProjects,
+  reconcileCampProjects,
 } from '../utils/projectRetention.js';
 
 /**
@@ -129,7 +130,9 @@ export async function deleteProjectAsOwner(projectRef, userId) {
   try {
     if (project.team_id) {
       await reconcileTeamProjects(project.team_id);
-    } else if (!project.camp_id) {
+    } else if (project.camp_id) {
+      await reconcileCampProjects(project.camp_id);
+    } else {
       await reconcileOwnerProjects(project.owner_id);
     }
   } catch (reconcileErr) {
