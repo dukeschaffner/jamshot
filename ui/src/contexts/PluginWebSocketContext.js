@@ -122,6 +122,12 @@ export function PluginWebSocketProvider({ children }) {
     }
 
     if (parsed.type === 'project_sync_error') {
+      // Auto-sync uses silentSuccess; suppress the toast so mismatch/noise
+      // only surfaces when the user manually syncs.
+      if (silentSuccessTypesRef.current.has('project_sync')) {
+        silentSuccessTypesRef.current.delete('project_sync');
+        return;
+      }
       showErrorRef.current(
         parsed.error || errorMessages.project_sync
       );

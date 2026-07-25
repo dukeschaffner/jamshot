@@ -9,11 +9,16 @@ import {
 } from '@/components/DAW/project/projectPluginAutoSyncStorage';
 import { fetchProjectPluginPayload } from '@/components/DAW/project/projectPluginSyncApi';
 import { buildProjectSyncMessage } from '@/components/DAW/project/projectPluginSyncMessages';
+import {
+  canAutoSyncProjectToPlugin,
+  createInitialPluginSyncGate,
+  reducePluginSyncGate,
+} from '@/components/DAW/project/pluginProjectSyncGate';
 
-function parsePluginMessageType(rawMessage) {
+function parsePluginMessage(rawMessage) {
   if (!rawMessage || typeof rawMessage !== 'string') return null;
   try {
-    return JSON.parse(rawMessage)?.type ?? null;
+    return JSON.parse(rawMessage);
   } catch {
     return null;
   }
@@ -22,6 +27,7 @@ function parsePluginMessageType(rawMessage) {
 /**
  * Debounced project_sync to the local plugin after REST saves (Step 31).
  * Default auto-sync on; manual sync always available via syncToPluginNow.
+ * Auto-sync is gated when the plugin has no matching project loaded.
  */
 export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
   const { status, send, subscribeToMessages } = usePluginWebSocket();
@@ -29,12 +35,15 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
     readProjectPluginAutoSyncEnabled()
   );
   const [isPluginStale, setIsPluginStale] = useState(false);
+  const [syncGate, setSyncGate] = useState(createInitialPluginSyncGate);
 
   const debounceTimerRef = useRef(null);
   const syncInFlightRef = useRef(false);
   const isPluginStaleRef = useRef(false);
   const previousStatusRef = useRef(status);
   const projectGuidRef = useRef(projectGuid);
+  const syncGateRef = useRef(syncGate);
+  const autoSyncEnabledRef = useRef(autoSyncEnabled);
 
   useEffect(() => {
     projectGuidRef.current = projectGuid;
@@ -43,6 +52,14 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
   useEffect(() => {
     isPluginStaleRef.current = isPluginStale;
   }, [isPluginStale]);
+
+  useEffect(() => {
+    syncGateRef.current = syncGate;
+  }, [syncGate]);
+
+  useEffect(() => {
+    autoSyncEnabledRef.current = autoSyncEnabled;
+  }, [autoSyncEnabled]);
 
   useEffect(() => {
     return () => {
@@ -67,12 +84,25 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
     setIsPluginStale(true);
   }, []);
 
+  const canAutoSync = useCallback(() => {
+    return canAutoSyncProjectToPlugin(
+      syncGateRef.current,
+      projectGuidRef.current,
+      status
+    );
+  }, [status]);
+
   const runPluginSync = useCallback(
     async ({ silentSuccess = false } = {}) => {
       const guid = projectGuidRef.current;
       if (!guid || !canEdit || syncInFlightRef.current) return false;
 
       if (status !== 'connected') {
+        return false;
+      }
+
+      // Auto-sync only when the plugin is known/assumed ready for this project.
+      if (silentSuccess && !canAutoSync()) {
         return false;
       }
 
@@ -88,14 +118,14 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
         syncInFlightRef.current = false;
       }
     },
-    [canEdit, send, status]
+    [canAutoSync, canEdit, send, status]
   );
 
   const flushDebouncedSync = useCallback(() => {
     debounceTimerRef.current = null;
-    if (!autoSyncEnabled || status !== 'connected') return;
+    if (!autoSyncEnabled || !canAutoSync()) return;
     runPluginSync({ silentSuccess: true });
-  }, [autoSyncEnabled, runPluginSync, status]);
+  }, [autoSyncEnabled, canAutoSync, runPluginSync]);
 
   const scheduleDebouncedSync = useCallback(() => {
     if (debounceTimerRef.current) {
@@ -109,10 +139,10 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
 
     markPluginStale();
 
-    if (autoSyncEnabled && status === 'connected') {
+    if (autoSyncEnabled && canAutoSync()) {
       scheduleDebouncedSync();
     }
-  }, [autoSyncEnabled, canEdit, markPluginStale, scheduleDebouncedSync, status]);
+  }, [autoSyncEnabled, canAutoSync, canEdit, markPluginStale, scheduleDebouncedSync]);
 
   const syncToPluginNow = useCallback(
     async ({ silentSuccess = false } = {}) => {
@@ -127,28 +157,66 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
 
   useEffect(() => {
     const unsubscribe = subscribeToMessages?.((rawMessage) => {
-      const type = parsePluginMessageType(rawMessage);
-      if (type === 'project_sync_complete' || type === 'project_load_complete') {
-        clearPluginStale();
+      const parsed = parsePluginMessage(rawMessage);
+      if (!parsed?.type) return;
+
+      const nextGate = reducePluginSyncGate(syncGateRef.current, {
+        type: parsed.type,
+        projectId: parsed.project_id ?? null,
+        error: parsed.error ?? null,
+      });
+
+      if (nextGate !== syncGateRef.current) {
+        syncGateRef.current = nextGate;
+        setSyncGate(nextGate);
+      }
+
+      if (parsed.type === 'project_sync_complete') {
+        if (!parsed.project_id || parsed.project_id === projectGuidRef.current) {
+          clearPluginStale();
+        }
+        return;
+      }
+
+      // Resume auto-sync once the matching project finishes loading in the plugin.
+      if (
+        parsed.type === 'project_load_complete' &&
+        parsed.project_id === projectGuidRef.current &&
+        autoSyncEnabledRef.current &&
+        isPluginStaleRef.current
+      ) {
+        scheduleDebouncedSync();
       }
     });
     return unsubscribe;
-  }, [clearPluginStale, subscribeToMessages]);
+  }, [clearPluginStale, scheduleDebouncedSync, subscribeToMessages]);
 
   useEffect(() => {
-    const wasConnected = previousStatusRef.current === 'connected';
+    const previousStatus = previousStatusRef.current;
+    if (previousStatus === status) return;
     previousStatusRef.current = status;
 
+    const nextGate = reducePluginSyncGate(syncGateRef.current, {
+      type: 'connection',
+      status,
+    });
+    if (nextGate !== syncGateRef.current) {
+      syncGateRef.current = nextGate;
+      setSyncGate(nextGate);
+    }
+
+    const wasConnected = previousStatus === 'connected';
     if (!wasConnected && status === 'connected' && autoSyncEnabled && isPluginStaleRef.current) {
+      // UNKNOWN after reconnect: allow a probe if still stale.
       scheduleDebouncedSync();
     }
   }, [autoSyncEnabled, scheduleDebouncedSync, status]);
 
   useEffect(() => {
-    if (autoSyncEnabled && isPluginStaleRef.current && status === 'connected') {
+    if (autoSyncEnabled && isPluginStaleRef.current && canAutoSync()) {
       scheduleDebouncedSync();
     }
-  }, [autoSyncEnabled, scheduleDebouncedSync, status]);
+  }, [autoSyncEnabled, canAutoSync, scheduleDebouncedSync, syncGate]);
 
   return {
     autoSyncEnabled,
