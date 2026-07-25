@@ -29,6 +29,7 @@ import ProjectFilesPanel from './project/ProjectFilesPanel';
 import ProjectTrackHeadersList from './project/ProjectTrackHeadersList';
 import ContextMenu from './components/ContextMenu';
 import PluginInviteHint from './components/PluginInviteHint';
+import { useTimelineWheelControls } from './hooks/useTimelineWheelControls';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
@@ -420,6 +421,14 @@ function DAWContent({ track, isVisible = true }) {
       resizeObserver.disconnect();
     };
   }, [tracksScrollContainerRef.current]);
+
+  useTimelineWheelControls({
+    scrollContainerRef: tracksScrollContainerRef,
+    contentRef: tracksAndTimelineRef,
+    zoom,
+    setZoomLevel,
+    enabled: !isLoading && !error,
+  });
 
   // Show loading state
   if (isLoading) {
