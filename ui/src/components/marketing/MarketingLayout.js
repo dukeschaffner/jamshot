@@ -95,7 +95,7 @@ export default function MarketingLayout({ children }) {
         <div>
           <Link className={`${styles.brand} ${styles.footerBrand}`} href="/" {...marketingHomeLinkProps('/')}>
             <span className={styles.brandMark} aria-hidden="true">S</span>
-            <span>Sterio</span>
+            <span>Sterio.fm</span>
           </Link>
           <p>Music collaboration that feels more like jamming than managing files.</p>
         </div>
