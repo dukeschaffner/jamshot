@@ -1,0 +1,26 @@
+version: 1
+applications:
+  - appRoot: ui
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - cd ..
+            - npm ci --cache .npm --prefer-offline
+            - cd ui
+        build:
+          commands:
+            # Amplify console vars are build-only unless written into .env.production for SSR runtime.
+            - echo "CMS_URL=\"$CMS_URL\"" > .env.production
+            - echo "PREVIEW_SECRET=\"$PREVIEW_SECRET\"" >> .env.production
+            - echo "NEXT_PUBLIC_CMS_URL=\"$CMS_URL\"" >> .env.production
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - .next/cache/**/*
+          - .npm/**/*
+          - ../node_modules/**/*

@@ -71,26 +71,27 @@ export default function NotificationList({
 
   const getNotificationText = (notification) => {
     const { type, actor_username, track_title, id, rejection_reason } = notification;
+    const actor = actor_username || 'Someone';
 
     switch (type) {
       case 'like':
-        return `${actor_username} liked your track "${track_title}"`;
+        return `${actor} liked your track "${track_title}"`;
       case 'comment':
-        return `${actor_username} commented on your track "${track_title}"`;
+        return `${actor} commented on your track "${track_title}"`;
       case 'new_version':
-        return `${actor_username} created a new version of your track "${track_title}"`;
+        return `${actor} created a new version of your track "${track_title}"`;
       case 'repost':
-        return `${actor_username} reposted your track "${track_title}"`;
+        return `${actor} reposted your track "${track_title}"`;
       case 'follow_request':
         const requestStatus = processedRequests[id];
         if (requestStatus === 'accepted') {
-          return `${actor_username}'s follow request was accepted`;
+          return `${actor}'s follow request was accepted`;
         } else if (requestStatus === 'rejected') {
-          return `${actor_username}'s follow request was rejected`;
+          return `${actor}'s follow request was rejected`;
         }
-        return `${actor_username} requested to follow you`;
+        return `${actor} requested to follow you`;
       case 'follow':
-        return `${actor_username} started following you`;
+        return `${actor} started following you`;
       case 'competition_winner':
         return `🎉 You won a competition! Follow the instructions in the email to collect your prize.`;
       case 'track_rejected':

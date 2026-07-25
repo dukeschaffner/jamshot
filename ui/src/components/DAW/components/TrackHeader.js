@@ -10,10 +10,11 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import AudioState from '../core/AudioStateStore';
 import Popover from '../../Popover';
+import TrackContributorAvatar from './TrackContributorAvatar';
+import { useUser } from '../../../contexts/UserContext';
 
 export default function TrackHeader({
   track,
-  trackData // Additional track data for stem information
 }) {
   const [faderValue, setFaderValue] = useState(0.8);
   const [isDraggingFader, setIsDraggingFader] = useState(false);
@@ -22,6 +23,7 @@ export default function TrackHeader({
   const [isSolo, setIsSolo] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const { isPlaying, isRecording, isMonitoring } = useDAW();
+  const { user } = useUser();
 
   const [meterLevel, setMeterLevel] = useState(-60);
   const meterAnimationFrameRef = useRef(null);
@@ -243,13 +245,35 @@ export default function TrackHeader({
     return track.title || 'Track ' + (track.id || 1);
   };
 
+  const contributorProfile = track.id === 'recording-track' && user
+    ? {
+        profilePicUrl: user.profile_pic_url,
+        username: user.username,
+        verified: user.verified,
+      }
+    : {
+        profilePicUrl: track.profile_pic_url,
+        username: track.username,
+        verified: track.verified,
+      };
+
+  const showContributorAvatar = track.id === 'recording-track' ? !!user : true;
+
   return (
     <div className={`${styles.trackHeader}`}>
       <span className={styles.trackName}>
         {getTrackDisplayName()}
       </span>
 
-      <div className={styles.buttonGroup}>
+      <div className={styles.controlRow}>
+        {showContributorAvatar && (
+          <TrackContributorAvatar
+            profilePicUrl={contributorProfile.profilePicUrl}
+            username={contributorProfile.username}
+            verified={contributorProfile.verified}
+          />
+        )}
+        <div className={styles.buttonGroup}>
         <button
           className={`${styles.controlButton} ${isMuted ? `${styles.active} ${styles.muteActive}` : ''}`}
           onClick={handleMuteClick}
@@ -303,6 +327,7 @@ export default function TrackHeader({
             </Popover>
           </>
         )}
+        </div>
       </div>
       
       {/* Audio Meter */}

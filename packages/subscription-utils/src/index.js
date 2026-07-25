@@ -26,7 +26,6 @@ export const SUBSCRIPTION_PLANS = {
       ads: true,
       free_samples_per_month: 0,
       advanced_daw: false,
-      host_competitions: false,
       no_hosting_fees: false
     },
     limits: {
@@ -35,10 +34,11 @@ export const SUBSCRIPTION_PLANS = {
       max_recording_duration: 300 // 5 minutes in seconds
     },
     highlights: [
-      '3 uploads per day',
-      '25 total uploads',
+      // '3 uploads per day',
+      // '25 total uploads',
     //   '5 minute recording limit',
-      'Community features'
+      'Sterio access',
+      'Basic community features'
     ]
   },
 
@@ -58,7 +58,6 @@ export const SUBSCRIPTION_PLANS = {
       ads: false,
       free_samples_per_month: 0,
       advanced_daw: false,
-      host_competitions: true,
       no_hosting_fees: false
     },
     limits: {
@@ -67,11 +66,11 @@ export const SUBSCRIPTION_PLANS = {
       max_recording_duration: 300 // 5 minutes in seconds
     },
     highlights: [
-      '5 uploads per day',
-      '60 total uploads',
+      // '5 uploads per day',
+      // '60 total uploads',
+      'Beta Supporter Badge',
       'Private tracks',
       'Analytics',
-      'Host competitions',
     //   'No ads'
     ]
   },
@@ -92,7 +91,6 @@ export const SUBSCRIPTION_PLANS = {
       ads: false,
       free_samples_per_month: 5,
       advanced_daw: true,
-      host_competitions: true,
       no_hosting_fees: true
     },
     limits: {
@@ -101,14 +99,16 @@ export const SUBSCRIPTION_PLANS = {
       max_recording_duration: 600 // 10 minutes in seconds
     },
     highlights: [
-      '25 uploads per day',
-      'Unlimited total uploads',
+      // '25 uploads per day',
+      // 'Unlimited total uploads',
+      'Beta Supporter Badge',
     //   '10 minute recording limit',
       'Private tracks',
     //   'Advanced DAW',
     //   '5 free samples per month',
-      'Analytics ( + streams by user)',
-      'Host competitions (No hosting fees)',
+      'Analytics + streams by user',
+      'No hosting fees for competitions',
+      'Priority support',
     //   'No ads'
     ]
   }

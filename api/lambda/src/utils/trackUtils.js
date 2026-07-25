@@ -151,6 +151,7 @@ function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, i
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature, t.allow_download,
     t.competition_id, t.is_competition_entry, t.waveform_url, t.combined_waveform_url, t.is_loop,
     u.username, u.verified, u.profile_pic_url, u.is_private AS creator_is_private,
+    u.is_supporter,
     t2.title AS original_title,
     ${includeDetails ? 'u2.username AS original_username,' : ''}
     ${includeChildCount ? 't.collab_count,' : ''}
@@ -873,7 +874,7 @@ async function deleteTrackS3Files(audioUrl, combinedAudioUrl, waveformUrl = null
 }
 
 // Get complete stem chain for a track (used by DAW)
-async function getStemChain(trackId) {
+async function getStemChain(trackId, includeUserDetails = false) {
   // Get the track with its complete stem information
   const trackResult = await pool.query(
     'SELECT id, audio_url, combined_audio_url, mix_gains FROM tracks WHERE id = $1',
@@ -887,33 +888,41 @@ async function getStemChain(trackId) {
   const track = trackResult.rows[0];
   const mixGains = track.mix_gains;
 
-
-
   // Get audio URLs and titles for all stems in the chain
   const stemIds = mixGains.stems.map(stem => stem.track_id);
   const stemsQuery = await pool.query(
-    'SELECT id, audio_url, title FROM tracks WHERE id = ANY($1)',
+    includeUserDetails
+      ? `SELECT t.id, t.audio_url, t.title, u.username, u.verified, u.profile_pic_url
+         FROM tracks t
+         LEFT JOIN users u ON t.user_id = u.id
+         WHERE t.id = ANY($1)`
+      : 'SELECT id, audio_url, title FROM tracks WHERE id = ANY($1)',
     [stemIds]
   );
 
-  // Create lookup maps for audio URLs and titles
-  const audioUrlMap = {};
-  const titleMap = {};
+  const stemMetaMap = {};
   stemsQuery.rows.forEach(row => {
-    audioUrlMap[row.id] = row.audio_url;
-    titleMap[row.id] = row.title;
+    stemMetaMap[row.id] = row;
   });
 
   // Build complete stem information
-  const stems = mixGains.stems.map(stem => ({
-    track_id: stem.track_id,
-    audio_url: audioUrlMap[stem.track_id],
-    title: titleMap[stem.track_id],
-    gain: stem.gain,
-    order: stem.order,
-    // Include regions if present
-    ...(stem.regions && { regions: stem.regions })
-  }));
+  const stems = mixGains.stems.map(stem => {
+    const meta = stemMetaMap[stem.track_id] || {};
+    return {
+      track_id: stem.track_id,
+      audio_url: meta.audio_url,
+      title: meta.title,
+      ...(includeUserDetails && {
+        username: meta.username ?? null,
+        verified: meta.verified ?? false,
+        profile_pic_url: meta.profile_pic_url ?? null,
+      }),
+      gain: stem.gain,
+      order: stem.order,
+      // Include regions if present
+      ...(stem.regions && { regions: stem.regions })
+    };
+  });
 
   // Sort by order to maintain proper sequence
   return stems.sort((a, b) => a.order - b.order);
@@ -1212,8 +1221,8 @@ async function createCollaborationNotification(parentTrackId, collaboratorUserId
 
   if (parentTrackOwner.rows.length > 0 && parentTrackOwner.rows[0].user_id !== collaboratorUserId) {
     await pool.query(
-      'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-      [parentTrackOwner.rows[0].user_id, 'new_version', parentTrackId]
+      'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+      [parentTrackOwner.rows[0].user_id, 'new_version', parentTrackId, collaboratorUserId]
     );
 
     await sendCollabEmail(collaboratorUserId, collabTrackId, parentTrackId);

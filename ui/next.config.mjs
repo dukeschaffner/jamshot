@@ -1,17 +1,16 @@
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const dirname = path.dirname(fileURLToPath(import.meta.url))
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingRoot: path.join(dirname, '..'),
   reactStrictMode: false,
   transpilePackages: ['@sterio/subscription-utils'],
-  // // Enable static export for Amplify deployment
-  // output: 'export',
-  // trailingSlash: true,
-  // images: {
-  //   domains: ['sterio-test.s3.us-east-2.amazonaws.com','sterio.s3.us-east-2.amazonaws.com'],
-  //   unoptimized: true, // Required for static export
-  // },
-  // // Ensure all assets are properly handled
-  // assetPrefix: process.env.NODE_ENV === 'production' ? './' : '',
-
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -32,6 +31,6 @@ const nextConfig = {
       },
     ],
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

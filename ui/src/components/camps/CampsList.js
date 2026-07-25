@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { FaCampground, FaArrowRight, FaPlus } from 'react-icons/fa';
 import Link from 'next/link';
 import styles from './CampsList.module.css';
-import sharedStyles from '../../styles/Dashboard.module.css';
+import sharedStyles from '@/styles/Dashboard.module.css';
 
 export default function CampsList({ camps }) {
   const router = useRouter();

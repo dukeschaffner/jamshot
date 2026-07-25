@@ -1,0 +1,30 @@
+# Sterio
+
+Sterio is a music collaboration platform for artists, producers, musicians, and fans. Musicians can post short musical ideas, add their own takes to other people's tracks, comment on music with music, and build versions together without starting from a blank DAW session.
+
+## Core Pages
+
+- Home: https://sterio.fm/
+- About Sterio: https://sterio.fm/about
+- Sterio Plugin: https://sterio.fm/plugin
+- Guides: https://sterio.fm/guides
+
+## Product Summary
+
+Sterio is built around music-first collaboration. Users upload a musical idea, invite additions from other musicians, discover collaborators by sound and style, and turn unfinished demos into creative momentum.
+
+The Sterio Plugin lets musicians use Sterio inside their existing DAW workflow. It plays stems from a Sterio track in sync with the DAW transport so users can record new parts with their own instruments, plugins, and production setup. The plugin should be loaded on an instrument or MIDI track, not on an audio track.
+
+## Key Topics
+
+- Online music collaboration
+- Remote collaboration for artists and producers
+- Commenting on music with music
+- Finding music producers online
+- Long-distance music collaboration
+- DAW plugin workflow for collaborative production
+- Instrument track and MIDI track setup for the Sterio Plugin
+
+## Contact
+
+Contact: hello@sterio.fm

@@ -975,7 +975,9 @@ router.get('/:id', optionalBetterAuthMiddleware, async (req, res, next) => {
 router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { includeUserDetails } = req.query;
     const userId = req.user?.id;
+    const includeUserDetailsBool = includeUserDetails === 'true';
 
     // Check if user has access to the track
     const accessCheck = await checkTrackAccess(id, userId);
@@ -984,7 +986,7 @@ router.get('/:id/stems', optionalBetterAuthMiddleware, async (req, res, next) =>
     }
 
     // Get the complete stem chain using the utility function
-    const stemChain = await getStemChain(id);
+    const stemChain = await getStemChain(id, includeUserDetailsBool);
 
     // Convert S3 URLs to signed URLs for client access
     const stemsWithSignedUrls = stemChain.map(stem => ({
@@ -1682,8 +1684,8 @@ router.post('/:id/like', interactionLimiter, betterAuthMiddleware, async (req, r
       // Create notification for track owner (if not liking own track)
       if (trackOwnerId !== userId && result.rows.length > 0) {
         await client.query(
-          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-          [trackOwnerId, 'like', id]
+          'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+          [trackOwnerId, 'like', id, userId]
         );
       }
       
@@ -1775,6 +1777,7 @@ router.get('/:id/likes', optionalBetterAuthMiddleware, async (req, res, next) =>
         u.username,
         u.name,
         u.verified,
+        u.is_supporter,
         u.profile_pic_url,
         l.created_at as liked_at,
         CASE WHEN f.follower_id IS NOT NULL THEN true ELSE false END as is_following
@@ -1854,6 +1857,7 @@ router.get('/:id/comments', optionalBetterAuthMiddleware, async (req, res, next)
         u.username,
         u.name,
         u.verified,
+        u.is_supporter,
         u.profile_pic_url,
         (SELECT COUNT(*) FROM comments WHERE parent_comment_id = c.id) AS reply_count,
         (c.user_id = $4) AS is_owner
@@ -2221,8 +2225,8 @@ router.post('/:id/repost', interactionLimiter, betterAuthMiddleware, async (req,
         
         // Create notification for track owner
         await client.query(
-          'INSERT INTO notifications (user_id, type, related_track_id) VALUES ($1, $2, $3)',
-          [track.user_id, 'repost', id]
+          'INSERT INTO notifications (user_id, type, related_track_id, related_user_id) VALUES ($1, $2, $3, $4)',
+          [track.user_id, 'repost', id, userId]
         );
       }
       

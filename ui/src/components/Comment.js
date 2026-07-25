@@ -7,6 +7,7 @@ import Cookies from 'js-cookie';
 import TimeDisplay from './TimeDisplay';
 import { trackApi } from '../lib/api';
 import styles from './Comments.module.css';
+import BetaSupporterBadge from './BetaSupporterBadge';
 
 export default function Comment({ 
   comment, 
@@ -116,6 +117,7 @@ export default function Comment({
             <span className={styles.commentUserHandle} onClick={navigateToUserProfile}>
               @{comment.username}
               {comment.verified && <FaCheckCircle className={styles.commentVerifiedIcon} />}
+              {(comment.is_supporter || comment.isSupporter) && <BetaSupporterBadge variant="icon" />}
             </span>
           </div>
           <TimeDisplay timestamp={comment.created_at} className={styles.commentTime} />

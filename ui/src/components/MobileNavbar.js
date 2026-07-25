@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { APP_HOME_PATH } from '@/lib/appRoutes';
 import GuardedLink from './GuardedLink';
 import { usePathname, useRouter } from 'next/navigation';
 import { FaHome, FaSearch, FaUser, FaBell, FaUsers } from 'react-icons/fa';
@@ -27,7 +28,7 @@ export default function MobileNavbar() {
 
   return (
     <nav className="mobile-navbar">
-      <GuardedLink href="/" className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`}>
+      <GuardedLink href={APP_HOME_PATH} className={`mobile-nav-item ${pathname === APP_HOME_PATH ? 'active' : ''}`}>
         <FaHome />
       </GuardedLink>
       

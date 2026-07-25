@@ -4,6 +4,7 @@ import { authClient } from '../lib/auth-client';
 import api, { setRefreshUserState } from '../lib/api';
 import { getUserPlan } from '@sterio/subscription-utils';
 import { captureAuthLogout, identifySterioUser, resetSterioPosthog } from '../lib/posthogAnalytics';
+import { resolvePostAuthRedirect } from '../lib/appRoutes';
 
 // Create the context with default values
 const UserContext = createContext({
@@ -30,7 +31,6 @@ export const UserProvider = ({ children }) => {
   const [isFetchingUserData, setIsFetchingUserData] = useState(false);
   // Track if we're currently logging out to prevent race conditions
   const isLoggingOutRef = useRef(false);
-
   // Get user from session or additional data
   const user = useMemo(() => {
     // Only return user if profile is completed
@@ -129,8 +129,7 @@ export const UserProvider = ({ children }) => {
       }
 
       // Redirect to provided URL or home page on successful login
-      const destination = redirectUrl || '/';
-      router.push(destination);
+      router.push(resolvePostAuthRedirect(redirectUrl));
 
       return { success: true };
     } catch (err) {

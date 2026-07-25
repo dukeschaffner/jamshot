@@ -504,15 +504,21 @@ async function handleSubscriptionUpdated(subscription) {
   // Update user subscription
   await db.query(
     `UPDATE users SET 
-     subscription_tier = $1, 
+     subscription_tier = $1::text, 
      subscription_expires_at = $2,
-     stripe_subscription_id = $3
+     stripe_subscription_id = $3,
+     is_supporter = CASE
+       WHEN $1::text = $5::text OR $1::text = $6::text THEN TRUE
+       ELSE is_supporter
+     END
      WHERE id = $4`,
     [
       tier,
       new Date(subscription.current_period_end * 1000),
       subscription.id,
-      userId
+      userId,
+      SUBSCRIPTION_TIERS.BASIC,
+      SUBSCRIPTION_TIERS.PREMIUM
     ]
   );
 
