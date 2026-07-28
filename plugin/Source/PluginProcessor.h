@@ -82,6 +82,9 @@ public:
     /** Select a project from the plugin UI and load it for playback. */
     void selectProject(const ProjectSummary& project);
 
+    /** Clear loaded track/project selection and playback stems. */
+    void clearSelection();
+
     /** Apply project_sync clip updates without full reload when possible. */
     void syncProjectClips(const juce::String& projectId,
                           const juce::Array<ProjectClip>& previousClips,

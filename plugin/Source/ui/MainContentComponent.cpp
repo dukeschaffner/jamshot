@@ -81,8 +81,15 @@ void MainContentComponent::setActiveTab(ContentTab tab)
 {
     activeTab = tab;
 
-    if (tab == ContentTab::Projects && projectsSubView == ProjectsSubView::List)
-        projectListPanel.refreshProjects();
+    // Always land on the projects list when entering the Projects tab.
+    // Restoring a stale detail view after visiting Tracks leaves a project UI
+    // that was never reloaded, while the footer can still show a selected track.
+    if (tab == ContentTab::Projects)
+    {
+        processorRef.clearSelection();
+        showProjectList();
+        return;
+    }
 
     updateLoggedInContentVisibility();
     resized();

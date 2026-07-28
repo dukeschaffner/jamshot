@@ -282,6 +282,20 @@ void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
     loadStemsForTrack();
 }
 
+void SterioPluginProcessor::clearSelection()
+{
+    pluginState.clearCurrentTrack();
+    pluginState.clearCurrentProject();
+    pluginState.clearProjectLoadProgress();
+    {
+        const juce::ScopedLock lock(projectPayloadLock);
+        loadedProjectId.clear();
+        loadedProjectClips.clear();
+        loadedProjectTracks.clear();
+    }
+    clearLoadedStems();
+}
+
 juce::Optional<TrackInfo> SterioPluginProcessor::getCurrentTrack() const
 {
     return pluginState.getCurrentTrack();

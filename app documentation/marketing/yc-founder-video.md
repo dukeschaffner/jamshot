@@ -16,15 +16,10 @@ A social network where posts and comments are music instead of text
 Post a 30 to 90 second idea, anyone can record their part on top as a reply  
 If a collab clicks, export the stems and finish it in your own DAW
 
-## 4. Why you (10s)
-
-Lived this problem for over a decade  
-Built the whole thing myself: web app, browser DAW, audio pipeline, and a native C++ plugin that syncs Sterio into Ableton or Logic
-
 ## 5. Close (10s)
 
 It's live now, in beta, with artist Rob $tone on board as ambassador  
-We think this is where songs will start, the way GitHub is where code starts
+We think this is a novel platform that fills a gap in the music production workflow
 
 ---
 
@@ -33,5 +28,4 @@ We think this is where songs will start, the way GitHub is where code starts
 - Duke, solo founder, engineer + musician since high school
 - EPs and singles, best ideas died as drafts, collab tools kill inspiration
 - Social network, posts and comments are music, 30-90s ideas, reply with audio
-- Lived it 10 years, built everything solo including the plugin
 - Live now, Rob $tone, "where songs start"
