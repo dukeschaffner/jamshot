@@ -25,6 +25,7 @@ import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
 import ProjectSnapshotsPanel from './project/ProjectSnapshotsPanel';
+import ProjectSnapshotPreviewBanner from './project/ProjectSnapshotPreviewBanner';
 import ProjectFilesPanel from './project/ProjectFilesPanel';
 import ProjectTrackHeadersList from './project/ProjectTrackHeadersList';
 import ContextMenu from './components/ContextMenu';
@@ -88,6 +89,9 @@ function DAWContent({ track, isVisible = true }) {
     pasteProjectRegion,
     repeatProjectRegion,
     splitProjectRegion,
+    isSnapshotPreview,
+    snapshotPreviewMeta,
+    exitSnapshotPreview,
   } = useProjectEditor();
 
   const { showToast } = useToast();
@@ -478,6 +482,14 @@ function DAWContent({ track, isVisible = true }) {
         className={`${styles.dawContainer} ${isProjectMode ? styles.dawContainerFill : ''}`}
         style={{display: showUploadForm ? 'none' : undefined}}
       >
+          {isProjectEditor && isSnapshotPreview && (
+            <ProjectSnapshotPreviewBanner
+              previewMeta={snapshotPreviewMeta}
+              onExit={() => {
+                void exitSnapshotPreview();
+              }}
+            />
+          )}
           <div className={styles.dawControls}>
             <TransportControls
               isRecording={isRecording}

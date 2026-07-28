@@ -44,7 +44,7 @@ const TransportControls = ({
   const menuRef = useRef(null);
 
   const { dawMode, isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo, isFullscreen, setIsFullscreen, isLoop} = useDAW();
-  const { canEdit: canEditProject, armedTrackId, startProjectRecording } = useProjectEditor();
+  const { canEdit: canEditProject, armedTrackId, startProjectRecording, isSnapshotPreview } = useProjectEditor();
   const isProjectMode = dawMode === 'project';
 
   const { isAuthenticated } = useUser();
@@ -437,7 +437,7 @@ const TransportControls = ({
           >
             Fullscreen
           </button>
-          {isProjectMode && canEditProject && (
+          {isProjectMode && (canEditProject || isSnapshotPreview) && (
             <button
               className={styles.menuItem}
               onClick={handleSnapshotsClick}

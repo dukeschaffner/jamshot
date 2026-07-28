@@ -1,5 +1,10 @@
 import pool from '../config/db.js';
-import { serializeProjectState, collectSnapshotAssetIds } from './projectUtils.js';
+import { insertProjectSnapshotRecord } from './projectSnapshotInsertUtils.js';
+import {
+  countSnapshotsTowardCap,
+  pruneOldestAutoSnapshots,
+} from './projectSnapshotPruneUtils.js';
+import { hydrateSnapshotStateForPlayback } from './projectSnapshotHydrateUtils.js';
 
 function formatSnapshotSummary(row) {
   const summary = {
@@ -50,54 +55,107 @@ async function listProjectSnapshots(projectId) {
   return result.rows.map(formatSnapshotSummary);
 }
 
-async function createManualProjectSnapshot({ projectId, userId, label }) {
+/**
+ * Fetch one snapshot with hydrated playback state (URLs resolved from assets).
+ *
+ * @param {number} projectId
+ * @param {number} snapshotId
+ * @param {Object} [liveProjectMeta] - guid/role etc merged into state for DAW load
+ */
+async function getProjectSnapshot(projectId, snapshotId, liveProjectMeta = {}) {
+  const result = await pool.query(
+    `SELECT ps.*, u.username AS created_by_username
+     FROM project_snapshots ps
+     LEFT JOIN users u ON u.id = ps.created_by
+     WHERE ps.id = $1 AND ps.project_id = $2`,
+    [snapshotId, projectId]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  const hydratedState = await hydrateSnapshotStateForPlayback(row.state, {
+    projectId,
+    executor: pool,
+  });
+
+  return {
+    ...formatSnapshotSummary(row),
+    state: {
+      ...liveProjectMeta,
+      bpm: hydratedState.bpm,
+      timeSignature: hydratedState.timeSignature,
+      metronomeOffset: hydratedState.metronomeOffset,
+      durationSeconds: hydratedState.durationSeconds,
+      tracks: hydratedState.tracks,
+    },
+  };
+}
+
+/**
+ * Create a manual snapshot. Prunes oldest autos when over max_snapshots.
+ * Rejects when the cap is still exceeded (e.g. filled entirely by manuals).
+ *
+ * @returns {Promise<
+ *   | { ok: true, snapshot: Object }
+ *   | { ok: false, status: number, error: string }
+ * >}
+ */
+async function createManualProjectSnapshot({
+  projectId,
+  userId,
+  label,
+  maxSnapshots,
+}) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const state = await serializeProjectState(projectId, {
-      variant: 'snapshot',
-      client,
-    });
-    if (!state) {
-      await client.query('ROLLBACK');
-      return null;
-    }
-
-    const projectResult = await client.query(
-      'SELECT revision FROM projects WHERE id = $1',
+    const lockResult = await client.query(
+      'SELECT id FROM projects WHERE id = $1 FOR UPDATE',
       [projectId]
     );
-    if (projectResult.rows.length === 0) {
+    if (lockResult.rows.length === 0) {
       await client.query('ROLLBACK');
-      return null;
+      return {
+        ok: false,
+        status: 403,
+        error: 'You do not have access to this project',
+      };
     }
 
-    const revision = Number(projectResult.rows[0].revision);
-    const assetIds = collectSnapshotAssetIds(state);
+    const snapshotRow = await insertProjectSnapshotRecord({
+      client,
+      projectId,
+      userId,
+      label,
+      snapshotKind: 'manual',
+    });
 
-    const insertResult = await client.query(
-      `INSERT INTO project_snapshots (project_id, created_by, label, snapshot_kind, revision, state)
-       VALUES ($1, $2, $3, 'manual', $4, $5::jsonb)
-       RETURNING *`,
-      [projectId, userId, label, revision, JSON.stringify(state)]
-    );
-    const snapshotRow = insertResult.rows[0];
+    if (!snapshotRow) {
+      await client.query('ROLLBACK');
+      return {
+        ok: false,
+        status: 403,
+        error: 'You do not have access to this project',
+      };
+    }
 
-    if (assetIds.length > 0) {
-      await client.query(
-        `INSERT INTO project_snapshot_assets (snapshot_id, asset_id)
-         SELECT $1, unnest($2::int[])
-         ON CONFLICT DO NOTHING`,
-        [snapshotRow.id, assetIds]
-      );
+    await pruneOldestAutoSnapshots(projectId, maxSnapshots, client);
 
-      await client.query(
-        `UPDATE project_assets
-         SET last_referenced_at = CURRENT_TIMESTAMP
-         WHERE id = ANY($1::int[])`,
-        [assetIds]
-      );
+    if (maxSnapshots != null && maxSnapshots >= 0) {
+      const count = await countSnapshotsTowardCap(projectId, client);
+      if (count > maxSnapshots) {
+        await client.query('ROLLBACK');
+        return {
+          ok: false,
+          status: 429,
+          error:
+            'Snapshot limit reached. Delete a snapshot to create a new one.',
+        };
+      }
     }
 
     const userResult = await client.query(
@@ -107,10 +165,13 @@ async function createManualProjectSnapshot({ projectId, userId, label }) {
 
     await client.query('COMMIT');
 
-    return formatSnapshotSummary({
-      ...snapshotRow,
-      created_by_username: userResult.rows[0]?.username ?? null,
-    });
+    return {
+      ok: true,
+      snapshot: formatSnapshotSummary({
+        ...snapshotRow,
+        created_by_username: userResult.rows[0]?.username ?? null,
+      }),
+    };
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -123,5 +184,6 @@ export {
   formatSnapshotSummary,
   validateSnapshotLabel,
   listProjectSnapshots,
+  getProjectSnapshot,
   createManualProjectSnapshot,
 };

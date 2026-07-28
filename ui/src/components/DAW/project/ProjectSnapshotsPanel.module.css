@@ -142,6 +142,59 @@
   color: var(--text-secondary);
 }
 
+.previewingBadge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-transform: lowercase;
+  background: var(--grey-2);
+  color: var(--text-primary);
+}
+
+.snapshotActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.actionButton {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.actionButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deleteButton {
+  color: var(--text-secondary);
+}
+
+.deleteButton:hover:not(:disabled) {
+  color: var(--rustic-pink);
+}
+
+.previewNotice {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--grey-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--grey-1);
+}
+
+.previewNotice p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .loading {
   margin: 0;
   color: var(--text-secondary);

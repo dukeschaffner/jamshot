@@ -669,6 +669,15 @@ const createApiMethods = (apiClient) => {
     createProjectSnapshot: (projectGuid, data = {}) =>
       api.post(`/projects/${projectGuid}/snapshots`, data),
 
+    getProjectSnapshot: (projectGuid, snapshotId) =>
+      api.get(`/projects/${projectGuid}/snapshots/${snapshotId}`),
+
+    restoreProjectSnapshot: (projectGuid, snapshotId) =>
+      api.post(`/projects/${projectGuid}/snapshots/${snapshotId}/restore`),
+
+    deleteProjectSnapshot: (projectGuid, snapshotId) =>
+      api.delete(`/projects/${projectGuid}/snapshots/${snapshotId}`),
+
     getProjectPluginPayload: (projectGuid) =>
       api.get(`/projects/${projectGuid}/plugin-payload`),
 

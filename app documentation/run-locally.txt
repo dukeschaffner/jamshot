@@ -1,3 +1,9 @@
+ALL BACKEND SERVICES (toggle in script):
+./scripts/run-backend-services.sh
+# or: npm run dev:backend
+
+
+
 RUNNING STRIPE: 
 stripe listen --forward-to localhost:5001/api/payments/webhook
 if expired: stripe login

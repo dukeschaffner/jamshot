@@ -29,9 +29,12 @@ import {
 } from '../utils/projectUtils.js';
 import {
   createManualProjectSnapshot,
+  getProjectSnapshot,
   listProjectSnapshots,
   validateSnapshotLabel,
 } from '../utils/projectSnapshotUtils.js';
+import { restoreProjectSnapshot } from '../utils/projectSnapshotRestoreUtils.js';
+import { deleteProjectSnapshot } from '../utils/projectSnapshotDeleteUtils.js';
 import { getActiveUploadBan, checkTrackAccess } from '../utils/trackUtils.js';
 import { getTrackScope } from '../utils/projectScopeUtils.js';
 import {
@@ -847,17 +850,138 @@ router.post('/:id/snapshots', contentCreationLimiter, async (req, res, next) => 
       return res.status(400).json({ error: labelValidation.error });
     }
 
-    const snapshot = await createManualProjectSnapshot({
+    const limits = await getProjectLimitsForContext(access.project, req.user);
+
+    const result = await createManualProjectSnapshot({
       projectId,
       userId: req.user.id,
       label: labelValidation.label,
+      maxSnapshots: limits.max_snapshots,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    res.status(201).json(result.snapshot);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/snapshots/:snapshotId', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    const snapshotId = Number(req.params.snapshotId);
+    if (!Number.isFinite(snapshotId)) {
+      return res.status(400).json({ error: 'Invalid snapshot id' });
+    }
+
+    const liveProject = await serializeProjectState(projectId, { variant: 'rest' });
+    if (!liveProject) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const snapshot = await getProjectSnapshot(projectId, snapshotId, {
+      id: liveProject.id,
+      guid: liveProject.guid,
+      name: liveProject.name,
+      ownerId: liveProject.ownerId,
+      teamId: liveProject.teamId,
+      campId: liveProject.campId,
+      revision: liveProject.revision,
+      isPrivate: liveProject.isPrivate,
+      createdAt: liveProject.createdAt,
+      updatedAt: liveProject.updatedAt,
+      sourceTrackId: liveProject.sourceTrackId,
+      sourceRootId: liveProject.sourceRootId,
+      role: access.role,
     });
 
     if (!snapshot) {
-      return res.status(403).json({ error: 'You do not have access to this project' });
+      return res.status(404).json({ error: 'Snapshot not found' });
     }
 
-    res.status(201).json(snapshot);
+    res.json(snapshot);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/snapshots/:snapshotId/restore', contentCreationLimiter, async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const snapshotId = Number(req.params.snapshotId);
+    if (!Number.isFinite(snapshotId)) {
+      return res.status(400).json({ error: 'Invalid snapshot id' });
+    }
+
+    const limits = await getProjectLimitsForContext(access.project, req.user);
+
+    const result = await restoreProjectSnapshot({
+      projectId,
+      snapshotId,
+      userId: req.user.id,
+      maxSnapshots: limits.max_snapshots,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    res.json({
+      ...result.project,
+      role: access.role,
+      preRestoreSnapshotId: result.preRestoreSnapshotId,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/snapshots/:snapshotId', async (req, res, next) => {
+  try {
+    const projectId = await resolveProjectRouteParam(req, res);
+    if (projectId == null) return;
+
+    const access = await checkProjectAccess(projectId, req.user.id);
+    if (!access.hasAccess) {
+      return res.status(access.status).json({ error: access.error });
+    }
+
+    if (!hasMinimumProjectRole(access.role, 'editor')) {
+      return res.status(403).json({ error: 'Editor access required' });
+    }
+
+    const snapshotId = Number(req.params.snapshotId);
+    if (!Number.isFinite(snapshotId)) {
+      return res.status(400).json({ error: 'Invalid snapshot id' });
+    }
+
+    const result = await deleteProjectSnapshot(projectId, snapshotId);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

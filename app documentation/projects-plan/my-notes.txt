@@ -10,9 +10,7 @@
     - make sure to show confirmation if snapshot depends on the asset as well
 - why do track reorder ops take so long?
 - "this clip overlaps with another clip" - this is showing even when clips are directly back to back
-
 - project duration change causing ws issue
-
 - implement snapshots
 - if i've loaded a project and then switch between the projects and tracks tabs, after it clears the state it shows "Fetching audio assets (4 of 4)" even though there is no project or track selected... its just a stale message
 

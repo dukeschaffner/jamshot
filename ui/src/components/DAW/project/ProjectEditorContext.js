@@ -77,6 +77,7 @@ import {
   buildTrackReorderOrders,
   validateProjectTrackName,
 } from './projectTrackMutations';
+import { buildSnapshotPreviewState } from './projectSnapshotPreview';
 
 const ProjectEditorContext = createContext(null);
 
@@ -86,6 +87,11 @@ const INACTIVE_PROJECT_EDITOR = {
   canEdit: false,
   isAtTrackLimit: false,
   isTrackMutationPending: false,
+  isSnapshotPreview: false,
+  snapshotPreviewMeta: null,
+  enterSnapshotPreview: async () => false,
+  exitSnapshotPreview: async () => {},
+  restoreProjectSnapshot: async () => false,
   armedTrackId: null,
   setArmedTrackId: () => {},
   hasInFlightClipWork: false,
@@ -141,6 +147,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const [inFlightClipCount, setInFlightClipCount] = useState(0);
   const [crossTrackDragPreview, setCrossTrackDragPreviewState] = useState(null);
   const [revisionConflictPrompt, setRevisionConflictPrompt] = useState(null);
+  const [snapshotPreview, setSnapshotPreview] = useState(null);
 
   const projectDataRef = useRef(projectData);
   const armedTrackIdRef = useRef(armedTrackId);
@@ -148,10 +155,13 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const suppressSettingsPersistRef = useRef(false);
   const remoteOpQueueRef = useRef(null);
   const clipSyncGenerationRef = useRef(0);
+  const liveProjectBeforePreviewRef = useRef(null);
+  const isSnapshotPreviewRef = useRef(false);
   if (!remoteOpQueueRef.current) {
     remoteOpQueueRef.current = new ProjectRemoteOpQueue();
   }
   useEffect(() => {
+    if (isSnapshotPreviewRef.current) return;
     projectDataRef.current = projectData;
   }, [projectData]);
 
@@ -174,7 +184,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     });
   }, [armedTrackId, trackManagerRef, tracks]);
 
-  const canEdit = hasProjectEditorRole(projectData?.role);
+  const hasEditorRole = hasProjectEditorRole(projectData?.role);
+  const isSnapshotPreview = snapshotPreview != null;
+  isSnapshotPreviewRef.current = isSnapshotPreview;
+  const effectiveProjectData = snapshotPreview?.state ?? projectData;
+  const canEdit = hasEditorRole && !isSnapshotPreview;
   const isAtTrackLimit = tracks.length >= MAX_PROJECT_TRACKS;
   const hasInFlightClipWork = inFlightClipCount > 0;
 
@@ -195,9 +209,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   }, []);
 
   const applyProjectServerState = useCallback(
-    (nextState) => {
+    (nextState, options = {}) => {
       if (!trackManagerRef.current) return;
 
+      const { notifyParent = true } = options;
       const prevTrackCount = trackManagerRef.current.getAllTracks().length;
       suppressSettingsPersistRef.current = true;
       try {
@@ -213,7 +228,9 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
             : current
         );
         projectDataRef.current = nextState;
-        onProjectStateChange?.(nextState);
+        if (notifyParent) {
+          onProjectStateChange?.(nextState);
+        }
       } finally {
         suppressSettingsPersistRef.current = false;
       }
@@ -226,6 +243,62 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     },
     [onProjectStateChange, syncTracksFromManager, trackManagerRef]
   );
+
+  const enterSnapshotPreview = useCallback(
+    async (snapshotId) => {
+      const current = projectDataRef.current;
+      if (!current?.guid || snapshotId == null) return false;
+
+      try {
+        const response = await projectApi.getProjectSnapshot(current.guid, snapshotId);
+        const previewState = buildSnapshotPreviewState(response.data, current);
+        if (!previewState) {
+          showToast({ message: 'Failed to load snapshot preview.', variant: 'error' });
+          return false;
+        }
+
+        if (!liveProjectBeforePreviewRef.current) {
+          liveProjectBeforePreviewRef.current = current;
+        }
+
+        applyProjectServerState(previewState, { notifyParent: false });
+        setSnapshotPreview({
+          state: previewState,
+          meta: previewState._snapshotPreview,
+        });
+        setArmedTrackIdState(null);
+        return true;
+      } catch (err) {
+        const message =
+          err.response?.data?.error || 'Failed to load snapshot preview. Please try again.';
+        showToast({ message, variant: 'error' });
+        return false;
+      }
+    },
+    [applyProjectServerState, showToast]
+  );
+
+  const exitSnapshotPreview = useCallback(async () => {
+    const guid =
+      liveProjectBeforePreviewRef.current?.guid ?? projectData?.guid ?? null;
+    liveProjectBeforePreviewRef.current = null;
+    setSnapshotPreview(null);
+
+    if (!guid) return;
+
+    try {
+      const response = await projectApi.getProject(guid);
+      applyProjectServerState(response.data);
+    } catch (err) {
+      const fallback = projectData;
+      if (fallback) {
+        applyProjectServerState(fallback, { notifyParent: false });
+      }
+      const message =
+        err.response?.data?.error || 'Failed to reload live project after preview.';
+      showToast({ message, variant: 'error' });
+    }
+  }, [applyProjectServerState, projectData, showToast]);
 
   const applyLocalWsOpResult = useCallback(
     (result) => {
@@ -284,6 +357,32 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       acquireMetadataLock,
       releaseMetadataLock,
     });
+
+  const restoreProjectSnapshotById = useCallback(
+    async (snapshotId) => {
+      const current = liveProjectBeforePreviewRef.current ?? projectDataRef.current;
+      if (!current?.guid || snapshotId == null || !hasEditorRole) return false;
+
+      try {
+        const response = await projectApi.restoreProjectSnapshot(current.guid, snapshotId);
+        const { preRestoreSnapshotId: _preRestoreSnapshotId, ...restoredProject } =
+          response.data;
+
+        liveProjectBeforePreviewRef.current = null;
+        setSnapshotPreview(null);
+        clearPendingEdits();
+        applyProjectServerState(restoredProject);
+        showToast({ message: 'Snapshot restored', variant: 'success' });
+        return true;
+      } catch (err) {
+        const message =
+          err.response?.data?.error || 'Failed to restore snapshot. Please try again.';
+        showToast({ message, variant: 'error' });
+        return false;
+      }
+    },
+    [applyProjectServerState, clearPendingEdits, hasEditorRole, showToast]
+  );
 
   const resolveRevisionConflictReload = useCallback(async () => {
     const prompt = revisionConflictPrompt;
@@ -1394,6 +1493,11 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       remoteOpQueueRef.current.reset();
       remoteOpQueueRef.current.setLastAppliedRevision(project.revision);
 
+      if (isSnapshotPreviewRef.current) {
+        liveProjectBeforePreviewRef.current = null;
+        setSnapshotPreview(null);
+      }
+
       const current = projectDataRef.current;
       applyProjectServerState({
         ...project,
@@ -1410,6 +1514,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   useEffect(() => {
     const applyRemoteOpMessage = (opMessage) => {
       const applyChange = () => {
+        if (isSnapshotPreviewRef.current) {
+          return;
+        }
+
         if (
           !shouldApplyRemoteOp(
             opMessage.payload,
@@ -2030,10 +2138,15 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
   const value = useMemo(
     () => ({
       isActive: true,
-      projectData,
+      projectData: effectiveProjectData,
       canEdit,
       isAtTrackLimit,
       isTrackMutationPending,
+      isSnapshotPreview,
+      snapshotPreviewMeta: snapshotPreview?.meta ?? null,
+      enterSnapshotPreview,
+      exitSnapshotPreview,
+      restoreProjectSnapshot: restoreProjectSnapshotById,
       armedTrackId,
       setArmedTrackId,
       hasInFlightClipWork,
@@ -2066,10 +2179,15 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       openProjectInPlugin,
     }),
     [
-      projectData,
+      effectiveProjectData,
       canEdit,
       isAtTrackLimit,
       isTrackMutationPending,
+      isSnapshotPreview,
+      snapshotPreview?.meta,
+      enterSnapshotPreview,
+      exitSnapshotPreview,
+      restoreProjectSnapshotById,
       armedTrackId,
       setArmedTrackId,
       hasInFlightClipWork,
