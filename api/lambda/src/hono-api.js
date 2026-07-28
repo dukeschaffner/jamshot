@@ -16,6 +16,42 @@ const getStagePrefix = () => {
 
 const stagePrefix = getStagePrefix();
 
+/**
+ * Better Auth matches routes against `new URL(baseURL).pathname`.
+ * baseURL is built from API_URL (e.g. https://api.sterio.fm/api/auth → /api/auth).
+ * API Gateway still prefixes production with /prod, so the Lambda path is
+ * /prod/api/auth/... while baseURL pathname is /api/auth. Test already has
+ * /test in API_URL, so its paths align. Strip the stage prefix only when it
+ * is not already part of the configured auth base path.
+ */
+const getConfiguredAuthBasePath = () => {
+  const baseUrl = process.env.NODE_ENV === 'dev'
+    ? 'http://localhost:5002/api'
+    : process.env.API_URL;
+  try {
+    return new URL(`${baseUrl}/auth`).pathname.replace(/\/$/, '') || '/api/auth';
+  } catch {
+    return '/api/auth';
+  }
+};
+
+const requestForAuthHandler = (rawRequest) => {
+  if (!stagePrefix) return rawRequest;
+
+  const configuredAuthBasePath = getConfiguredAuthBasePath();
+  if (configuredAuthBasePath.startsWith(stagePrefix)) {
+    return rawRequest;
+  }
+
+  const url = new URL(rawRequest.url);
+  if (!url.pathname.startsWith(`${stagePrefix}/`) && url.pathname !== stagePrefix) {
+    return rawRequest;
+  }
+
+  url.pathname = url.pathname.slice(stagePrefix.length) || '/';
+  return new Request(url.toString(), rawRequest);
+};
+
 // Create Hono app
 const app = new Hono();
 
@@ -71,14 +107,18 @@ app.use(
 app.on(['POST', 'GET'], `${stagePrefix}/api/auth/*`, async (c) => {
 
   try {
-    const response = await auth.handler(c.req.raw);
+    const response = await auth.handler(requestForAuthHandler(c.req.raw));
 
     // If not a 404, return this response
     if (response.status !== 404) {
       return response;
     }
 
-    console.log(`[HONO HANDLER] Auth handler returned 404, returning 404 response`);
+    console.log(`[HONO HANDLER] Auth handler returned 404, returning 404 response`, {
+      path: c.req.path,
+      configuredAuthBasePath: getConfiguredAuthBasePath(),
+      stagePrefix: stagePrefix || '(none)',
+    });
 
     // Return a proper 404 response when Better Auth doesn't handle the route
     return c.json({ error: 'Not found', message: 'Auth endpoint not found' }, 404);
