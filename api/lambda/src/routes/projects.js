@@ -33,6 +33,7 @@ import {
   listProjectSnapshots,
   validateSnapshotLabel,
 } from '../utils/projectSnapshotUtils.js';
+import { maybeCreateAutoSnapshot } from '../utils/projectSnapshotAutoUtils.js';
 import { restoreProjectSnapshot } from '../utils/projectSnapshotRestoreUtils.js';
 import { deleteProjectSnapshot } from '../utils/projectSnapshotDeleteUtils.js';
 import { getActiveUploadBan, checkTrackAccess } from '../utils/trackUtils.js';
@@ -239,6 +240,28 @@ function revisionMismatchResponse(res, currentRevision, yourRevision) {
     current_revision: currentRevision,
     your_revision: yourRevision,
   });
+}
+
+/**
+ * After a successful state-changing mutation: maybe auto-snapshot, then respond.
+ */
+async function respondAfterProjectMutation(
+  res,
+  { projectId, userId, role, state, status = 200, extra = {} }
+) {
+  try {
+    await maybeCreateAutoSnapshot({ projectId, userId });
+  } catch (err) {
+    console.error('[auto-snapshot] failed', {
+      projectId,
+      error: err?.message ?? String(err),
+    });
+  }
+  const body = { ...state, role, ...extra };
+  if (status === 200) {
+    return res.json(body);
+  }
+  return res.status(status).json(body);
 }
 
 function computeClipPlaybackDuration(trimStart, trimEnd, assetDuration) {
@@ -1174,7 +1197,12 @@ router.delete('/:id/assets/:assetId', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.json({ ...state, role: access.role });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+    });
   } catch (err) {
     next(err);
   }
@@ -1230,7 +1258,13 @@ router.post('/:id/assets/:assetId/clips', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.json({ ...state, role: access.role, clipId: result.clipId });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+      extra: { clipId: result.clipId },
+    });
   } catch (err) {
     next(err);
   }
@@ -1411,7 +1445,12 @@ router.patch('/:id', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.json({ ...state, role: access.role });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+    });
   } catch (err) {
     next(err);
   }
@@ -1520,7 +1559,13 @@ router.post('/:id/tracks', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.status(201).json({ ...state, role: access.role });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+      status: 201,
+    });
   } catch (err) {
     next(err);
   }
@@ -1678,7 +1723,12 @@ router.patch('/:id/tracks/:trackId', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.json({ ...state, role: access.role });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+    });
   } catch (err) {
     next(err);
   }
@@ -1766,7 +1816,12 @@ router.delete('/:id/tracks/:trackId', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.json({ ...state, role: access.role });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+    });
   } catch (err) {
     next(err);
   }
@@ -2061,6 +2116,15 @@ router.post(
         console.error('Failed to emit project_asset_created event:', eventErr);
       }
 
+      try {
+        await maybeCreateAutoSnapshot({ projectId, userId });
+      } catch (autoErr) {
+        console.error('[auto-snapshot] failed', {
+          projectId,
+          error: autoErr?.message ?? String(autoErr),
+        });
+      }
+
       res.status(201).json({
         assetId,
         clipId,
@@ -2310,7 +2374,12 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.json({ ...state, role: access.role });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+    });
   } catch (err) {
     next(err);
   }
@@ -2410,7 +2479,12 @@ router.delete('/:id/clips/:clipId', async (req, res, next) => {
     }
 
     const state = await serializeProjectState(projectId);
-    res.json({ ...state, role: access.role });
+    return await respondAfterProjectMutation(res, {
+      projectId,
+      userId: req.user.id,
+      role: access.role,
+      state,
+    });
   } catch (err) {
     next(err);
   }

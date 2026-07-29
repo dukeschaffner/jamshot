@@ -11,7 +11,7 @@ Product requirement: **no undo/redo** in project DAW. Use **project snapshots** 
 | Action | Behavior |
 |---|---|
 | Manual snapshot | Toolbar button → optional label → saved |
-| Auto snapshot | Server-side interval (`AUTO_SNAPSHOT_INTERVAL_SECONDS`) while project has active editors |
+| Auto snapshot | Dirty + cooldown (`AUTO_SNAPSHOT_INTERVAL_SECONDS`): after mutations / last-editor leave; skips if revision unchanged since last snapshot |
 | List snapshots | Sidebar or modal with timestamp, author, label, kind |
 | Preview snapshot | **Read-only DAW audition** — hear that version without mutating live project |
 | Restore | Confirm dialog → auto pre-restore snapshot → full state replace |
@@ -21,7 +21,7 @@ Product requirement: **no undo/redo** in project DAW. Use **project snapshots** 
 ## When to create snapshots
 
 1. **Manual** — `snapshot_kind = 'manual'`
-2. **Auto** — `snapshot_kind = 'auto'`; server-triggered (not client-only timer)
+2. **Auto** — `snapshot_kind = 'auto'`; server-triggered on mutation (and last-editor leave flush). Requires dirty revision vs last snapshot + cooldown (leave flush ignores cooldown).
 3. **Pre-restore** — `snapshot_kind = 'pre_restore'`; automatic before any restore
 
 No snapshot-on-member-join for MVP.

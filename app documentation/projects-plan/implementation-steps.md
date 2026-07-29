@@ -572,11 +572,11 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 
 ### Step 23 — Auto snapshot interval
 
-**Server-side** timer (mutation hook or lightweight scheduled job — not client-only). Respect tier `max_snapshots` (prune oldest `auto` snapshots; never prune `pre_restore`).
+**Server-side** dirty + cooldown check after mutations (and last-editor leave flush) — not a blind timer. Respect tier `max_snapshots` (prune oldest `auto` snapshots; never prune `pre_restore`).
 
 Pruning deletes snapshot row; `project_snapshot_assets` cascades.
 
-**Done when:** Wait interval → new snapshot created; exceeding tier limit drops oldest auto snapshot.
+**Done when:** After dirty edits + cooldown (or leave while dirty) → new auto snapshot; exceeding tier limit drops oldest auto snapshot.
 
 ---
 

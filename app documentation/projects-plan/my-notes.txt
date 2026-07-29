@@ -2,18 +2,18 @@
 
 
 - what if on clip upload retry, both the original and the new region are uploaded?
-- switch to event/operation based instead of state based for project persistence
 - need a way to indicate who recorded audio/made what changes
 - on projects page, sort by last updated, and include tag filter by "owned by me" or by camp,team, or user. if user has no camp projects, dont show camp filter. if user has no team projects, dont show team filter. if user has no user projects, dont show user filter, etc
-- project web daw is calling /assets and /plugin-payload endpoints too often. we need to optimize this.
 - should ONLY people who recorded asset and project owner be able to delete assets?
     - make sure to show confirmation if snapshot depends on the asset as well
 - why do track reorder ops take so long?
 - "this clip overlaps with another clip" - this is showing even when clips are directly back to back
 - project duration change causing ws issue
-- implement snapshots
 - if i've loaded a project and then switch between the projects and tracks tabs, after it clears the state it shows "Fetching audio assets (4 of 4)" even though there is no project or track selected... its just a stale message
 
+
+optimize:
+- im pretty happy with the projects implementation. but i have a couple concerns. the project DAW is calling /assets and /plugin-payload VERY frequently. and these endpoints have decent sized payloads... is this going to drive high api costs? would it be better to move to an event based model instead of state based? so only updates are pushed out, and not the entire project state every time? if so, how big of an effort is that?
 
 
 

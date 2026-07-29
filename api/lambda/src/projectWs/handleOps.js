@@ -12,6 +12,7 @@ import {
 import { sendWsMessage } from './projectWsApiGateway.js';
 import { broadcastProjectOpEvent } from './projectWsOpBroadcast.js';
 import { getGatewayContextFromSendContext } from './projectWsPresence.js';
+import { maybeCreateAutoSnapshot } from '../utils/projectSnapshotAutoUtils.js';
 
 function parseOpMessage(body) {
   let parsedBody = body;
@@ -176,6 +177,18 @@ export async function handleOpMessage({ connectionId, body, sendContext }) {
     },
     gatewayContext
   );
+
+  try {
+    await maybeCreateAutoSnapshot({
+      projectId: joined.projectId,
+      userId: joined.userId,
+    });
+  } catch (err) {
+    console.error('[auto-snapshot] failed', {
+      projectId: joined.projectId,
+      error: err?.message ?? String(err),
+    });
+  }
 
   return { statusCode: 200 };
 }

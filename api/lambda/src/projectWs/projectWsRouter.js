@@ -1,6 +1,8 @@
 import { isFeatureEnabled } from '../utils/featureFlags.js';
 import { authenticateWsConnect } from './projectWsAuth.js';
 import {
+  countProjectConnections,
+  getConnectionAuthUserId,
   removeConnectionAuth,
   removeProjectConnection,
   storeConnectionAuth,
@@ -16,6 +18,7 @@ import { handlePresenceMessage } from './handlePresence.js';
 import { shortenLocksOnDisconnect, LOCK_DISCONNECT_GRACE_SECONDS } from '../utils/projectTrackLocks.js';
 import { shortenMetadataLockOnDisconnect } from '../utils/projectMetadataLocks.js';
 import { broadcastProjectPresence, getGatewayContextFromSendContext } from './projectWsPresence.js';
+import { maybeCreateAutoSnapshot } from '../utils/projectSnapshotAutoUtils.js';
 
 /**
  * @typedef {object} WsSendContext
@@ -78,12 +81,31 @@ async function handleConnect(event, connectionId) {
 async function handleDisconnect(connectionId, sendContext) {
   await shortenLocksOnDisconnect(connectionId);
   await shortenMetadataLockOnDisconnect(connectionId, LOCK_DISCONNECT_GRACE_SECONDS);
+
+  const userId = await getConnectionAuthUserId(connectionId);
   const projectId = await removeProjectConnection(connectionId);
   await removeConnectionAuth(connectionId);
 
   if (projectId != null && sendContext) {
     const gatewayContext = getGatewayContextFromSendContext(sendContext);
     await broadcastProjectPresence(projectId, gatewayContext);
+
+    const remaining = await countProjectConnections(projectId);
+    if (remaining === 0) {
+      // Dirty leave flush: ignore cooldown so a short edit session still checkpoints.
+      try {
+        await maybeCreateAutoSnapshot({
+          projectId,
+          userId,
+          ignoreCooldown: true,
+        });
+      } catch (err) {
+        console.error('[auto-snapshot] leave flush failed', {
+          projectId,
+          error: err?.message ?? String(err),
+        });
+      }
+    }
   }
 
   return { statusCode: 200 };
