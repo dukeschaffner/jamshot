@@ -1052,6 +1052,12 @@ function validateAndUpdateStemChain(stemChain, parsedStems, maxStems = 10) {
         if (typeof region.offset !== 'number' || region.offset < 0) {
           return { valid: false, error: `Invalid offset in region for track_id ${stemEntry.track_id}` };
         }
+        if (
+          region.loopEnd != null &&
+          (typeof region.loopEnd !== 'number' || region.loopEnd <= region.endTime)
+        ) {
+          return { valid: false, error: `Invalid loopEnd in region for track_id ${stemEntry.track_id}` };
+        }
       }
     }
   }

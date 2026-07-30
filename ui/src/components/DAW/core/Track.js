@@ -6,6 +6,10 @@ import { audioBufferToWav } from '../../../lib/utils.js';
 import AudioState from './AudioStateStore.js';
 import { handleRegionOverlaps } from '../misc/DAWUtils.js';
 import { COMMAND_TYPES } from './UndoManager.js';
+import {
+  getLoopedSegments,
+  getRegionEffectiveEnd,
+} from './regionLoopUtils.js';
 
 class Track {
   constructor(id, context, regions = [], title = null, contributor = null) {
@@ -138,6 +142,8 @@ class Track {
       offset,
       startTime,
       endTime,
+      // Absolute timeline end of the loop area; null = no loop (Logic Pro-style)
+      loopEnd: null,
       duration: duration,
       active: true,
       name: name || `Region ${this.regions.length + 1}`,
@@ -189,9 +195,15 @@ class Track {
   
   calculateTotalDuration() {
     if (this.regions.length === 0) return 0;
-    
+
     return Math.max(
-      ...this.regions.map(region => region.endTime)
+      ...this.regions.map((region) => {
+        const loopEnd = region.loopEnd;
+        if (loopEnd != null && loopEnd > region.endTime) {
+          return loopEnd;
+        }
+        return region.endTime;
+      })
     );
   }
 
@@ -310,7 +322,11 @@ class Track {
         return {
           startTime: region.startTime,
           endTime: clampedEndTime,
-          offset: region.offset
+          offset: region.offset,
+          ...(region.loopEnd != null &&
+            region.loopEnd > clampedEndTime && {
+              loopEnd: Math.min(region.loopEnd, dawDuration),
+            }),
         };
       });
   }
@@ -356,7 +372,9 @@ class Track {
 
   hasSilenceAtEnd() {
     const activeRegions = this.getActiveRegions();
-    const latestEndTime = Math.max(...activeRegions.map(region => region.endTime));
+    const latestEndTime = Math.max(
+      ...activeRegions.map((region) => getRegionEffectiveEnd(region))
+    );
     return latestEndTime < AudioState.dawDuration;
   }
 
@@ -393,8 +411,10 @@ class Track {
     let startOffset = 0;
     
     if (trimSilence) {
-      // Find the latest end time of active regions
-      const endTimes = regionsWithBuffers.map(region => region.endTime);
+      // Include loop area so baked loops are not trimmed off the end
+      const endTimes = regionsWithBuffers.map((region) =>
+        getRegionEffectiveEnd(region)
+      );
       const latestEnd = Math.max(...endTimes);
       
       // Only trim silence at end when applicable (if there's silence at the end)
@@ -414,36 +434,45 @@ class Track {
     const totalLength = Math.ceil(exportDuration * sampleRate);
     const combinedBuffer = this.context.createBuffer(numberOfChannels, totalLength, sampleRate);
     
-    // Copy each region's audio data to the correct position
-    regionsWithBuffers.forEach(region => {
-      const { buffer, startTime, offset, endTime } = region;
-      
-      // Calculate the actual audio data to copy
-      const startSample = Math.floor(offset * sampleRate);
-      const endSample = Math.floor((endTime - startTime) * sampleRate);
-      const copyLength = Math.min(endSample, buffer.length - startSample);
-      
-      if (copyLength <= 0) return; // Skip invalid regions
-      
-      // Calculate destination position in the combined buffer
-      // Adjust for startOffset when trimming empty space
-      const destStartSample = Math.floor((startTime - startOffset) * sampleRate);
-      
-      // Copy audio data for each channel
-      for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sourceChannelData = buffer.getChannelData(channel);
-        const destChannelData = combinedBuffer.getChannelData(channel);
-        
-        // Copy the audio data with proper offset and timing
-        for (let i = 0; i < copyLength; i++) {
-          const sourceIndex = startSample + i;
-          const destIndex = destStartSample + i;
-          
-          if (sourceIndex < sourceChannelData.length && destIndex < destChannelData.length && destIndex >= 0) {
-            destChannelData[destIndex] += sourceChannelData[sourceIndex];
+    // Copy each region's audio data to the correct position, expanding loops
+    // into tiled segments (parent stems do this server-side via mix_gains regions;
+    // the recording track is baked client-side here).
+    regionsWithBuffers.forEach((region) => {
+      const { buffer } = region;
+      const segments = getLoopedSegments(region, 0, exportDuration);
+
+      segments.forEach((segment) => {
+        const segmentDuration = segment.endTime - segment.startTime;
+        const startSample = Math.floor(segment.offset * sampleRate);
+        const copyLength = Math.min(
+          Math.floor(segmentDuration * sampleRate),
+          buffer.length - startSample
+        );
+
+        if (copyLength <= 0) return;
+
+        const destStartSample = Math.floor(
+          (segment.startTime - startOffset) * sampleRate
+        );
+
+        for (let channel = 0; channel < numberOfChannels; channel++) {
+          const sourceChannelData = buffer.getChannelData(channel);
+          const destChannelData = combinedBuffer.getChannelData(channel);
+
+          for (let i = 0; i < copyLength; i++) {
+            const sourceIndex = startSample + i;
+            const destIndex = destStartSample + i;
+
+            if (
+              sourceIndex < sourceChannelData.length &&
+              destIndex < destChannelData.length &&
+              destIndex >= 0
+            ) {
+              destChannelData[destIndex] += sourceChannelData[sourceIndex];
+            }
           }
         }
-      }
+      });
     });
     
     // Convert the combined buffer to WAV format

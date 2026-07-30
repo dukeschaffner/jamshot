@@ -58,6 +58,7 @@ function mapTrackRow(row, { variant, includeProcessingDetails }) {
       startTime: row.start_time_seconds,
       trimStart: row.trim_start_seconds,
       trimEnd: row.trim_end_seconds,
+      loopEnd: row.loop_end_seconds ?? null,
       gain: row.track_gain,
       trackGain: row.track_gain,
     });
@@ -70,6 +71,7 @@ function mapTrackRow(row, { variant, includeProcessingDetails }) {
     startTime: row.start_time_seconds,
     trimStart: row.trim_start_seconds,
     trimEnd: row.trim_end_seconds,
+    loopEnd: row.loop_end_seconds ?? null,
     duration: computeClipDuration(
       row.trim_start_seconds,
       row.trim_end_seconds,
@@ -185,6 +187,7 @@ async function fetchProjectTimelineRows(projectId, executor = pool) {
        pc.start_time_seconds,
        pc.trim_start_seconds,
        pc.trim_end_seconds,
+       pc.loop_end_seconds,
        pa.id AS asset_id,
        pa.storage_key,
        pa.audio_url,

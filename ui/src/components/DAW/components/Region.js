@@ -28,6 +28,15 @@ import {
 import { useProjectSync } from '../project/ProjectSyncContext';
 import { CROSS_TRACK_LOCK_DEBOUNCE_MS } from '../project/ProjectsConfig';
 import { useToast } from '@/lib/ToastContext';
+import useRegionLoopDrag, {
+  isInCropEndHandleZone,
+  isInLoopHandleZone,
+} from './regionLoop/useRegionLoopDrag';
+import RegionLoopOverlay from './regionLoop/RegionLoopOverlay';
+import loopStyles from './regionLoop/RegionLoop.module.css';
+import {
+  normalizeLoopEnd,
+} from '../core/regionLoopUtils';
 
 export default function Region({ 
   region,
@@ -69,6 +78,7 @@ export default function Region({
     pasteProjectRegion,
     repeatProjectRegion,
     splitProjectRegion,
+    setProjectRegionLoop,
     crossTrackDragPreview,
     setCrossTrackDragPreview,
     clearCrossTrackDragPreview,
@@ -96,18 +106,19 @@ export default function Region({
   const musicGridLinesRef = useRef([]);
   const regionContainerRef = useRef(null);
   const waveformContainerRef = useRef(null);
+  const originalEndEdgeRef = useRef(null);
   const [chunks, setChunks] = useState([]);
   const [visibleChunks, setVisibleChunks] = useState(new Set());
   const [buffer, setBuffer] = useState(null);
   const [bufferData, setBufferData] = useState(null);
   const MAX_CHUNK_WIDTH = 1000;
 
-  const [width, setWidth] = useState(0); // width of the waveform/region in percentage
-  const widthPx = width * tracksContainerWidth / 100; // width of the waveform/region in pixels
+  const [width, setWidth] = useState(0); // width of the audible region in percentage
   const [waveformWidth, setWaveformWidth] = useState(0); // width of the waveform in pixels
 
   const [startTime, setStartTime] = useState(0); // start time of the waveform in the track
   const [endTime, setEndTime] = useState(0); // end time of the waveform in the track
+  const [loopEnd, setLoopEnd] = useState(null); // absolute timeline end of loop area
   const [offset, setOffset] = useState(0); // start time relative to buffer start
   const waveformTimelineOffsetPx = duration > 0
     ? ((startTime - offset) / duration) * tracksContainerWidth
@@ -184,6 +195,11 @@ export default function Region({
       setShouldRender(regionShouldRender);
       setStartTime(region.startTime);
       setEndTime(region.endTime);
+      setLoopEnd(
+        region.loopEnd != null && region.loopEnd > region.endTime
+          ? region.loopEnd
+          : null
+      );
       setOffset(region.offset);
       const regionWidth = (region.endTime - region.startTime) / duration * 100;
       setWidth(regionWidth);
@@ -200,6 +216,11 @@ export default function Region({
 
     setStartTime(region.startTime);
     setEndTime(region.endTime);
+    setLoopEnd(
+      region.loopEnd != null && region.loopEnd > region.endTime
+        ? region.loopEnd
+        : null
+    );
     setOffset(region.offset);
     const regionWidth = (region.endTime - region.startTime) / duration * 100;
     setWidth(regionWidth);
@@ -238,6 +259,11 @@ export default function Region({
       setStartTime(state.startTime);
       setEndTime(state.endTime);
       setOffset(state.offset);
+      setLoopEnd(
+        state.loopEnd != null && state.loopEnd > state.endTime
+          ? state.loopEnd
+          : null
+      );
       setRegionLeftPos((state.startTime / duration) * 100);
       setWidth(((state.endTime - state.startTime) / duration) * 100);
     },
@@ -245,7 +271,7 @@ export default function Region({
   );
 
   const commitProjectLayoutChange = useCallback(
-    ({ targetTrackId, newStartTime, newEndTime, newOffset, previousState }) => {
+    ({ targetTrackId, newStartTime, newEndTime, newOffset, newLoopEnd, previousState }) => {
       if (!trackManagerRef?.current || !region?.projectClipId) return false;
 
       const resolvedTrackId = targetTrackId ?? track.id;
@@ -269,22 +295,27 @@ export default function Region({
         return false;
       }
 
+      const resolvedLoopEnd = normalizeLoopEnd(newEndTime, newLoopEnd);
+
       const updatedRegion = {
         ...region,
         startTime: newStartTime,
         endTime: newEndTime,
         offset: newOffset,
+        loopEnd: resolvedLoopEnd,
       };
 
       moveProjectRegion(track.id, resolvedTrackId, region.id, {
         startTime: newStartTime,
         endTime: newEndTime,
         offset: newOffset,
+        loopEnd: resolvedLoopEnd,
       });
 
       setStartTime(newStartTime);
       setEndTime(newEndTime);
       setOffset(newOffset);
+      setLoopEnd(resolvedLoopEnd);
 
       persistClipLayout({
         clipId: region.projectClipId,
@@ -304,6 +335,84 @@ export default function Region({
       showToast,
       track.id,
       trackManagerRef,
+    ]
+  );
+
+  const commitRegionLoop = useCallback(
+    (nextLoopEnd, previousLoopEnd) => {
+      const normalized = normalizeLoopEnd(endTime, nextLoopEnd);
+
+      if (isProjectMode && isProjectClipEditable) {
+        if (typeof setProjectRegionLoop === 'function') {
+          setProjectRegionLoop(region, normalized, {
+            startTime,
+            endTime,
+            offset,
+            loopEnd: previousLoopEnd,
+          });
+        } else {
+          commitProjectLayoutChange({
+            newStartTime: startTime,
+            newEndTime: endTime,
+            newOffset: offset,
+            newLoopEnd: normalized,
+            previousState: {
+              trackId: track.id,
+              startTime,
+              endTime,
+              offset,
+              loopEnd: previousLoopEnd,
+            },
+          });
+        }
+        setLoopEnd(normalized);
+        if (isProjectMode && isProjectClipEditable) {
+          releaseTrackLock(track.id);
+        }
+        return;
+      }
+
+      const updatedRegion = {
+        ...region,
+        loopEnd: normalized,
+      };
+
+      const shouldRecordUndo = previousLoopEnd !== normalized;
+      eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
+        region: updatedRegion,
+        trackId: track.id,
+        ...(shouldRecordUndo && {
+          action: {
+            canUndo: true,
+            type: COMMAND_TYPES.REGION_LOOP,
+            before: {
+              startTime,
+              endTime,
+              offset,
+              loopEnd: previousLoopEnd,
+              key: region.key,
+              duration: region.duration,
+              active: region.active,
+              name: region.name,
+            },
+            description: 'Loop Region',
+          },
+        }),
+      });
+
+      setLoopEnd(normalized);
+    },
+    [
+      endTime,
+      startTime,
+      offset,
+      isProjectMode,
+      isProjectClipEditable,
+      setProjectRegionLoop,
+      region,
+      commitProjectLayoutChange,
+      track.id,
+      releaseTrackLock,
     ]
   );
 
@@ -362,6 +471,47 @@ export default function Region({
     }
   }, [isProjectMode, isProjectClipEditable, releaseTrackLock, track.id]);
 
+  const {
+    isHoveringLoopHandle,
+    isDraggingLoop,
+    displayLoopEnd,
+    updateHoverFromEvent,
+    clearHover: clearLoopHover,
+    beginLoopDrag,
+    loopHandleZonePx,
+  } = useRegionLoopDrag({
+    region,
+    endTime,
+    startTime,
+    duration,
+    tracksContainerWidth,
+    regionContainerRef,
+    originalEndEdgeRef,
+    snapToGridEnabled,
+    gridLinesRef: musicGridLinesRef,
+    tracksContainerWidthRef,
+    isReadOnly,
+    isRecording,
+    beginProjectTrackLock,
+    trackId: track.id,
+    onCommitLoop: commitRegionLoop,
+  });
+
+  const effectiveLoopEnd =
+    displayLoopEnd != null && displayLoopEnd > endTime
+      ? displayLoopEnd
+      : loopEnd != null && loopEnd > endTime
+        ? loopEnd
+        : null;
+  const regionIsLooped = effectiveLoopEnd != null;
+  const displayWidthPercent = duration > 0
+    ? (((regionIsLooped ? effectiveLoopEnd : endTime) - startTime) / duration) * 100
+    : width;
+  const widthPx = (displayWidthPercent / 100) * tracksContainerWidth;
+  const audibleWidthWithinRegion = regionIsLooped && effectiveLoopEnd > startTime
+    ? ((endTime - startTime) / (effectiveLoopEnd - startTime)) * 100
+    : 100;
+
   // Handle mouse down on region for dragging
   const handleRegionMouseDown = (e) => {
     e.stopPropagation();
@@ -380,6 +530,7 @@ export default function Region({
         startTime: region.startTime,
         endTime: region.endTime,
         offset: region.offset,
+        loopEnd: region.loopEnd ?? null,
         key: region.key,
         duration: region.duration,
         active: region.active,
@@ -396,6 +547,17 @@ export default function Region({
       const regionLeftPixels = regionLeftPos * tracksContainerWidth / 100;
       setRegionStartPosBeforeDrag(regionLeftPixels);
     };
+
+    // Top-right loop handle takes priority over region move
+    const containerRect = regionContainerRef.current?.getBoundingClientRect();
+    const originalRect = originalEndEdgeRef.current?.getBoundingClientRect();
+    if (
+      isInLoopHandleZone(containerRect, e.clientX, e.clientY, loopHandleZonePx) ||
+      (originalRect && isInLoopHandleZone(originalRect, e.clientX, e.clientY, loopHandleZonePx))
+    ) {
+      beginLoopDrag(e);
+      return;
+    }
 
     if (isProjectMode && isProjectClipEditable) {
       beginProjectTrackLock(track.id).then((ok) => {
@@ -757,14 +919,22 @@ export default function Region({
             startTime: originalStateRef.current?.startTime ?? startTime,
             endTime: originalStateRef.current?.endTime ?? endTime,
             offset: originalStateRef.current?.offset ?? offset,
+            loopEnd: originalStateRef.current?.loopEnd ?? loopEnd,
           };
           const targetTrackId = findTrackIdAtPoint(e.clientX, e.clientY) ?? track.id;
+          const moveDelta = newStartTime - (originalStateRef.current?.startTime ?? startTime);
+          const previousLoopEnd = originalStateRef.current?.loopEnd ?? loopEnd;
+          const shiftedLoopEnd =
+            previousLoopEnd != null && previousLoopEnd > (originalStateRef.current?.endTime ?? endTime)
+              ? previousLoopEnd + moveDelta
+              : null;
 
           commitProjectLayoutChange({
             targetTrackId,
             newStartTime,
             newEndTime,
             newOffset: offset,
+            newLoopEnd: shiftedLoopEnd,
             previousState,
           });
           originalStateRef.current = null;
@@ -774,17 +944,26 @@ export default function Region({
         // Check for overlaps with other regions and handle them
         handleRegionOverlaps(track, region.id, newStartTime, newEndTime, track.id, eventBus, DAW_EVENTS);
 
+        const moveDelta = newStartTime - (originalStateRef.current?.startTime ?? startTime);
+        const previousLoopEnd = originalStateRef.current?.loopEnd ?? loopEnd;
+        const shiftedLoopEnd =
+          previousLoopEnd != null && previousLoopEnd > (originalStateRef.current?.endTime ?? endTime)
+            ? previousLoopEnd + moveDelta
+            : null;
+
         // Update the region in the track
         const updatedRegion = {
           ...region,
           startTime: newStartTime,
-          endTime: newEndTime
+          endTime: newEndTime,
+          loopEnd: shiftedLoopEnd,
         };
 
         // Build action metadata for undo if position actually changed
         const shouldRecordUndo = originalStateRef.current && 
             (originalStateRef.current.startTime !== newStartTime || 
-             originalStateRef.current.endTime !== newEndTime);
+             originalStateRef.current.endTime !== newEndTime ||
+             (originalStateRef.current.loopEnd ?? null) !== shiftedLoopEnd);
 
         // Emit event to update the track manager (with optional undo action metadata)
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
@@ -803,6 +982,7 @@ export default function Region({
         // Update local state
         setStartTime(newStartTime);
         setEndTime(newEndTime);
+        setLoopEnd(shiftedLoopEnd);
       }
       
       // Clear original state reference
@@ -832,7 +1012,7 @@ export default function Region({
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, offset, snapToGridEnabled, selectRegion, isProjectMode, isProjectClipEditable, commitProjectLayoutChange, trackManagerRef, setCrossTrackDragPreview, clearCrossTrackDragPreview, beginProjectTrackLock, releaseProjectDragLocks, releaseTrackLock, isTrackLockedByOther]);
+  }, [isDraggingRegion, dragStartX, regionStartPosBeforeDrag, regionLeftPos, widthPx, track, bufferKey, duration, tracksContainerWidth, tracksScrollContainerRef, region, endTime, startTime, offset, loopEnd, snapToGridEnabled, selectRegion, isProjectMode, isProjectClipEditable, commitProjectLayoutChange, trackManagerRef, setCrossTrackDragPreview, clearCrossTrackDragPreview, beginProjectTrackLock, releaseProjectDragLocks, releaseTrackLock, isTrackLockedByOther]);
 
   useEffect(() => {
     if (!isDraggingRegion && isProjectMode) {
@@ -886,6 +1066,7 @@ export default function Region({
         startTime: region.startTime,
         endTime: region.endTime,
         offset: region.offset,
+        loopEnd: region.loopEnd ?? null,
         key: region.key,
         duration: region.duration,
         active: region.active,
@@ -916,6 +1097,7 @@ export default function Region({
         startTime: region.startTime,
         endTime: region.endTime,
         offset: region.offset,
+        loopEnd: region.loopEnd ?? null,
         key: region.key,
         duration: region.duration,
         active: region.active,
@@ -936,24 +1118,39 @@ export default function Region({
     startCrop();
   };
 
-  // Check if mouse is hovering near edges to show crop handles
+  // Check if mouse is hovering near edges to show crop / loop handles
   const handleWaveformMouseMove = (e) => {
     if (isReadOnly) return;
-    // Allow trimming for non-recording tracks (isRecordingTrack is false)
     if (!regionContainerRef.current) return;
-    
+    if (isDraggingLoop || isDraggingCropStart || isDraggingCropEnd || isDraggingRegion) return;
+
+    const hoveringLoop = updateHoverFromEvent(e);
     const rect = regionContainerRef.current.getBoundingClientRect();
-    const leftEdgeZone = rect.left + 15; // 15px from left edge
-    const rightEdgeZone = rect.right - 15; // 15px from right edge
-    
-    // If mouse is close to either edge, show the crop handles
-    const isNearEdge = e.clientX < leftEdgeZone || e.clientX > rightEdgeZone;
-    setShowCropHandles(isNearEdge);
-    
-    // Update cursor based on position
-    if (e.clientX < leftEdgeZone) {
-      regionContainerRef.current.style.cursor = 'col-resize';
-    } else if (e.clientX > rightEdgeZone) {
+    const zonePx = loopHandleZonePx;
+    const leftEdgeZone = rect.left + zonePx;
+
+    // When looped, crop-end zone is at the original region end edge (not far right)
+    const originalEdgeRect = originalEndEdgeRef.current?.getBoundingClientRect();
+    const cropEndRect = regionIsLooped && originalEdgeRect ? originalEdgeRect : rect;
+
+    const nearLeft = e.clientX < leftEdgeZone;
+    const nearCropEnd = isInCropEndHandleZone(cropEndRect, e.clientX, e.clientY, zonePx);
+    const nearRightFull = e.clientX > rect.right - zonePx;
+
+    if (hoveringLoop) {
+      setShowCropHandles(false);
+      regionContainerRef.current.classList.add(loopStyles.loopCursor);
+      regionContainerRef.current.style.cursor = '';
+      return;
+    }
+
+    regionContainerRef.current.classList.remove(loopStyles.loopCursor);
+
+    // Show crop handles on left edge, or bottom-right (crop) of original/right edge
+    const showCrop = nearLeft || nearCropEnd || (nearRightFull && !hoveringLoop && !regionIsLooped);
+    setShowCropHandles(showCrop);
+
+    if (nearLeft || nearCropEnd || (nearRightFull && !regionIsLooped)) {
       regionContainerRef.current.style.cursor = 'col-resize';
     } else {
       regionContainerRef.current.style.cursor = 'grab';
@@ -962,7 +1159,9 @@ export default function Region({
 
   const handleWaveformMouseLeave = () => {
     setShowCropHandles(false);
+    clearLoopHover();
     if (regionContainerRef.current) {
+      regionContainerRef.current.classList.remove(loopStyles.loopCursor);
       regionContainerRef.current.style.cursor = 'default';
     }
   };
@@ -1101,12 +1300,19 @@ export default function Region({
           newEndTime = (snappedEndPercentage / 100) * duration;
         }
 
+        // Crop-end keeps loopEnd fixed (retile); clear loop if end reaches/passes it
+        const preservedLoopEnd = normalizeLoopEnd(
+          newEndTime,
+          originalStateRef.current?.loopEnd ?? loopEnd
+        );
+
         if (isProjectMode && isProjectClipEditable) {
           const previousState = {
             trackId: track.id,
             startTime: originalStateRef.current?.startTime ?? startTime,
             endTime: originalStateRef.current?.endTime ?? endTime,
             offset: originalStateRef.current?.offset ?? offset,
+            loopEnd: originalStateRef.current?.loopEnd ?? loopEnd,
           };
 
           commitProjectLayoutChange({
@@ -1114,6 +1320,7 @@ export default function Region({
             newStartTime,
             newEndTime,
             newOffset,
+            newLoopEnd: preservedLoopEnd,
             previousState,
           });
 
@@ -1132,14 +1339,16 @@ export default function Region({
           ...region,
           startTime: newStartTime,
           endTime: newEndTime,
-          offset: newOffset
+          offset: newOffset,
+          loopEnd: preservedLoopEnd,
         };
         
         // Build action metadata for undo if crop actually changed something
         const shouldRecordUndo = originalStateRef.current && 
             (originalStateRef.current.startTime !== newStartTime || 
              originalStateRef.current.endTime !== newEndTime ||
-             originalStateRef.current.offset !== newOffset);
+             originalStateRef.current.offset !== newOffset ||
+             (originalStateRef.current.loopEnd ?? null) !== preservedLoopEnd);
         
         // Emit event to update the track manager (with optional undo action metadata)
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, {
@@ -1159,6 +1368,7 @@ export default function Region({
         setStartTime(newStartTime);
         setEndTime(newEndTime);
         setOffset(newOffset);
+        setLoopEnd(preservedLoopEnd);
       }
 
       setIsDraggingCropStart(false);
@@ -1181,7 +1391,7 @@ export default function Region({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, cropStartPercentage, cropEndPercentage, buffer, region, regionCropLeftPos, regionCropWidth, snapToGridEnabled, isProjectMode, isProjectClipEditable, commitProjectLayoutChange]);
+  }, [isDraggingCropStart, isDraggingCropEnd, track, bufferKey, duration, startTime, endTime, offset, loopEnd, cropStartPercentage, cropEndPercentage, buffer, region, regionCropLeftPos, regionCropWidth, snapToGridEnabled, isProjectMode, isProjectClipEditable, commitProjectLayoutChange, releaseTrackLock]);
 
   // #endregion
 
@@ -1239,12 +1449,14 @@ export default function Region({
 
   return (
     <div 
-      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion ? styles.dragging : ''} ${isSelected ? styles.selected : ''} ${isCrossTrackDragSource ? styles.crossTrackDragSource : ''}`} 
+      className={`${styles.region} ${isDraggingCropStart || isDraggingCropEnd ? styles.cropping : ''} ${isDraggingRegion || isDraggingLoop ? styles.dragging : ''} ${isSelected ? styles.selected : ''} ${isCrossTrackDragSource ? styles.crossTrackDragSource : ''} ${isHoveringLoopHandle || isDraggingLoop ? loopStyles.loopCursor : ''}`} 
       style={{ 
-        width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : width}%`, 
+        width: `${isDraggingCropStart || isDraggingCropEnd ? regionCropWidth : displayWidthPercent}%`, 
         height: '100%',
         left: `${isDraggingCropStart || isDraggingCropEnd ? regionCropLeftPos : regionLeftPos}%`,
-        cursor: isReadOnly || isRecording ? 'default' : (isDraggingRegion ? 'grabbing' : 'grab')
+        cursor: isReadOnly || isRecording
+          ? 'default'
+          : (isDraggingRegion ? 'grabbing' : undefined)
       }}
       ref={regionContainerRef}
       onClick={e => e.stopPropagation()}
@@ -1253,41 +1465,82 @@ export default function Region({
       onMouseLeave={handleWaveformMouseLeave}
       onContextMenu={handleRegionContextMenu}
     >
-      <div 
-        className={`${styles.waveformContainer}`}
-        ref={waveformContainerRef}
-        style={{ 
-          width: `${waveformWidth}px`, 
+      <div
+        className={styles.regionAudibleClip}
+        ref={originalEndEdgeRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: `${isDraggingCropStart || isDraggingCropEnd ? 100 : audibleWidthWithinRegion}%`,
           height: '100%',
-          left: `${isDraggingCropStart || isDraggingCropEnd ? waveformLeftCropPos : waveformLeftPos}%`
+          overflow: 'hidden',
+          zIndex: 3,
         }}
       >
         <div 
-          className={styles.waveformContent}
+          className={`${styles.waveformContainer}`}
+          ref={waveformContainerRef}
           style={{ 
-            width: '100%',
+            width: `${waveformWidth}px`, 
             height: '100%',
-            position: 'relative'
+            left: `${isDraggingCropStart || isDraggingCropEnd ? waveformLeftCropPos : waveformLeftPos}%`
           }}
         >
-          {chunks.map(chunk => (
-            <WaveformChunk
-              key={chunk.id}
-              bufferData={bufferData}
-              height={100}
-              totalWidth={waveformWidth}
-              timelineOffset={waveformTimelineOffsetPx}
-              width={chunk.width}
-              offset={chunk.offset}
-            />
-          ))}
-          
- 
+          <div 
+            className={styles.waveformContent}
+            style={{ 
+              width: '100%',
+              height: '100%',
+              position: 'relative'
+            }}
+          >
+            {chunks.map(chunk => (
+              <WaveformChunk
+                key={chunk.id}
+                bufferData={bufferData}
+                height={100}
+                totalWidth={waveformWidth}
+                timelineOffset={waveformTimelineOffsetPx}
+                width={chunk.width}
+                offset={chunk.offset}
+              />
+            ))}
+          </div>
         </div>
       </div>
+
+      {!isDraggingCropStart && !isDraggingCropEnd && regionIsLooped && (
+        <RegionLoopOverlay
+          bufferData={bufferData}
+          bufferDuration={buffer?.duration}
+          startTime={startTime}
+          endTime={endTime}
+          loopEnd={effectiveLoopEnd}
+          duration={duration}
+          tracksContainerWidth={tracksContainerWidth}
+          offset={offset}
+          onLoopHandleMouseDown={beginLoopDrag}
+          showLoopHandle={!isReadOnly && (isHoveringLoopHandle || isDraggingLoop)}
+        />
+      )}
+
+      {!isReadOnly && !isDraggingCropStart && !isDraggingCropEnd && (isHoveringLoopHandle || isDraggingLoop) && (
+        <div
+          className={loopStyles.handleOriginal}
+          style={{
+            right: regionIsLooped
+              ? `${100 - audibleWidthWithinRegion}%`
+              : 0,
+            transform: regionIsLooped ? 'translateX(50%)' : undefined,
+          }}
+          onMouseDown={beginLoopDrag}
+          title="Drag to loop region"
+        />
+      )}
+
       <NudgeIndicator region={region} trackId={track.id} />
-      {/* Crop handles */}
-      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && (
+      {showCropHandles && !isDraggingCropStart && !isDraggingCropEnd && !isHoveringLoopHandle && (
       <>
         <div 
           className={`${styles.cropHandle} ${styles.cropHandleLeft}`}
@@ -1296,13 +1549,21 @@ export default function Region({
         />
         <div 
           className={`${styles.cropHandle} ${styles.cropHandleRight}`}
+          style={
+            regionIsLooped
+              ? {
+                  right: 'auto',
+                  left: `${audibleWidthWithinRegion}%`,
+                  transform: 'translateX(-100%)',
+                }
+              : undefined
+          }
           onMouseDown={handleCropEndMouseDown}
           title="Drag to crop end"
         />
       </>
     )}
     
-    {/* Crop overlays */}
     {(isDraggingCropStart || isDraggingCropEnd) && (
       <>
         <div 
@@ -1330,4 +1591,4 @@ export default function Region({
 
     </div>
   );
-} 
+}

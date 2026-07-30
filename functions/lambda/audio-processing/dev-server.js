@@ -3,6 +3,7 @@ import { createLambdaPool } from '@sterio/db-config';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
+import { logProcessFailure } from './utils/devProcessFailure.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -160,15 +161,22 @@ async function processTrack(track) {
         console.log(`✅ Successfully processed track: ${track.title}`);
         if (stdout) console.log('Output:', stdout.trim());
       } else {
-        console.error(`❌ Failed to process track: ${track.title}`);
-        console.error('Exit code:', code);
-        if (stderr) console.error('Error:', stderr.trim());
+        const fallbackError = logProcessFailure({
+          label: `track: ${track.title}`,
+          code,
+          stdout,
+          stderr,
+        });
 
-        // Update track status to failed
+        // Lambda usually already wrote processing_error; don't clobber it with a generic message.
         try {
           await pool.query(
-            'UPDATE tracks SET processing_status = $1, processing_error = $2 WHERE id = $3',
-            ['failed', stderr || 'Processing failed', track.id]
+            `UPDATE tracks
+             SET processing_status = 'failed',
+                 processing_error = COALESCE(NULLIF(processing_error, ''), $1)
+             WHERE id = $2
+               AND processing_status != 'completed'`,
+            [fallbackError, track.id]
           );
         } catch (updateError) {
           console.error('Failed to update track status:', updateError.message);
@@ -222,18 +230,22 @@ async function processProjectAsset(asset) {
         console.log(`✅ Successfully processed project asset: ${asset.id}`);
         if (stdout) console.log('Output:', stdout.trim());
       } else {
-        console.error(`❌ Failed to process project asset: ${asset.id}`);
-        console.error('Exit code:', code);
-        if (stderr) console.error('Error:', stderr.trim());
+        const fallbackError = logProcessFailure({
+          label: `project asset: ${asset.id}`,
+          code,
+          stdout,
+          stderr,
+        });
 
         try {
           await pool.query(
             `UPDATE project_assets
-             SET processing_status = $1, processing_error = $2
-             WHERE id = $3
+             SET processing_status = 'failed',
+                 processing_error = COALESCE(NULLIF(processing_error, ''), $1)
+             WHERE id = $2
                AND processing_status IN ('pending', 'processing')
                AND storage_key LIKE 'temp/%'`,
-            ['failed', stderr || 'Processing failed', asset.id]
+            [fallbackError, asset.id]
           );
         } catch (updateError) {
           console.error('Failed to update project asset status:', updateError.message);

@@ -11,7 +11,23 @@ export function buildClipOpPayload({
   const startTime = patchPayload.start_time_seconds;
   const trimStart = patchPayload.trim_start_seconds;
   const trimEnd = patchPayload.trim_end_seconds;
+  const loopEnd = patchPayload.loop_end_seconds;
   const destTrackId = patchPayload.project_track_id;
+  const hasLoopOnly =
+    loopEnd !== undefined &&
+    startTime === undefined &&
+    trimStart === undefined &&
+    trimEnd === undefined &&
+    destTrackId === undefined;
+
+  if (hasLoopOnly) {
+    return {
+      kind: 'clip.loop',
+      clipId,
+      trackId: trackId ?? sourceTrackId,
+      loopEnd: loopEnd ?? null,
+    };
+  }
 
   if (destTrackId != null && destTrackId !== sourceTrackId) {
     return {
@@ -22,6 +38,7 @@ export function buildClipOpPayload({
       startTime,
       trimStart,
       trimEnd,
+      loopEnd: loopEnd !== undefined ? loopEnd : undefined,
     };
   }
 
@@ -32,6 +49,16 @@ export function buildClipOpPayload({
     startTime,
     trimStart,
     trimEnd,
+    loopEnd: loopEnd !== undefined ? loopEnd : undefined,
+  };
+}
+
+export function buildClipLoopOpPayload({ clipId, trackId, loopEnd }) {
+  return {
+    kind: 'clip.loop',
+    clipId,
+    trackId,
+    loopEnd: loopEnd ?? null,
   };
 }
 

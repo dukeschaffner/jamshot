@@ -16,6 +16,7 @@ import {
 } from './project/projectLoader';
 import { canCopyProjectRegion } from './project/projectRegionClipboard';
 import { initDawExternalPlaybackListeners } from './dawExternalPlaybackListeners';
+import { alignRecordedRegionToGrid } from './misc/recordingGridAlign';
 
 const DAWContext = createContext();
 
@@ -78,6 +79,8 @@ export function DAWProvider({
   }, []);
   const recordingModeRef = useRef('take');
   useEffect(() => { recordingModeRef.current = recordingMode; }, [recordingMode]);
+  const gridLinesRef = useRef([]);
+  useEffect(() => { gridLinesRef.current = gridLines; }, [gridLines]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -581,7 +584,27 @@ export function DAWProvider({
       const track = trackManagerRef.current.getTrack('recording-track');
       if (!track) return;
       const overwriteTrack = recordingModeRef.current === 'take';
-      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true, data.latencyData);
+      const rawOffset = data.offset ?? 0;
+      const rawEndTime = data.startTime + (data.duration ?? 0) - rawOffset;
+      const aligned = alignRecordedRegionToGrid(
+        {
+          startTime: data.startTime,
+          endTime: rawEndTime,
+          offset: rawOffset,
+        },
+        gridLinesRef.current,
+        (DAWConfig.ui.recordSnapThresholdMs ?? 40) / 1000
+      );
+      track.addRegion(
+        data.bufferKey,
+        aligned.startTime,
+        aligned.offset,
+        aligned.endTime,
+        '',
+        overwriteTrack,
+        true,
+        data.latencyData
+      );
     };
     
     const handleRecordingError = (error) => {

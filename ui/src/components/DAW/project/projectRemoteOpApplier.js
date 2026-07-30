@@ -16,7 +16,7 @@ function findRegionByClipId(trackManager, clipId) {
   return null;
 }
 
-function computeRegionTimesFromTrim({ startTime, trimStart, trimEnd, bufferDuration }) {
+function computeRegionTimesFromTrim({ startTime, trimStart, trimEnd, bufferDuration, loopEnd }) {
   const offset = trimStart ?? 0;
   let endTime;
   if (trimEnd != null) {
@@ -26,7 +26,9 @@ function computeRegionTimesFromTrim({ startTime, trimStart, trimEnd, bufferDurat
   } else {
     endTime = startTime;
   }
-  return { startTime, endTime, offset };
+  const resolvedLoopEnd =
+    loopEnd != null && loopEnd > endTime ? loopEnd : null;
+  return { startTime, endTime, offset, loopEnd: resolvedLoopEnd };
 }
 
 function applyClipLayout(trackManager, clipId, trackId, layout) {
@@ -35,12 +37,37 @@ function applyClipLayout(trackManager, clipId, trackId, layout) {
 
   const { track: sourceTrack, region } = found;
   const buffer = region.key ? bufferRegistry.getBuffer(region.key) : null;
+  const existingTrimEnd =
+    (region.offset ?? 0) + (region.endTime - region.startTime);
   const times = computeRegionTimesFromTrim({
-    ...layout,
+    startTime: layout.startTime ?? region.startTime,
+    trimStart:
+      layout.trimStart !== undefined ? layout.trimStart : region.offset,
+    trimEnd:
+      layout.trimEnd !== undefined ? layout.trimEnd : existingTrimEnd,
     bufferDuration: buffer?.duration ?? null,
+    loopEnd:
+      layout.loopEnd !== undefined ? layout.loopEnd : region.loopEnd,
   });
 
   trackManager.moveRegionBetweenTracks(sourceTrack.id, trackId, region.id, times);
+  return true;
+}
+
+function applyClipLoop(trackManager, clipId, trackId, loopEnd) {
+  const found = findRegionByClipId(trackManager, clipId);
+  if (!found) return false;
+
+  const { track, region } = found;
+  if (trackId != null && track.id !== trackId) return false;
+
+  const resolved =
+    loopEnd != null && loopEnd > region.endTime ? loopEnd : null;
+  region.loopEnd = resolved;
+  eventBus.emit(DAW_EVENTS.REGION.UPDATED, {
+    region: { ...region },
+    trackId: track.id,
+  });
   return true;
 }
 
@@ -157,19 +184,29 @@ export function applyRemoteProjectOp(trackManager, opPayload) {
         startTime: opPayload.startTime,
         trimStart: opPayload.trimStart,
         trimEnd: opPayload.trimEnd,
+        loopEnd: opPayload.loopEnd,
       });
     case 'clip.trim':
       return applyClipLayout(trackManager, opPayload.clipId, opPayload.trackId, {
         startTime: opPayload.startTime,
         trimStart: opPayload.trimStart,
         trimEnd: opPayload.trimEnd,
+        loopEnd: opPayload.loopEnd,
       });
     case 'clip.move_to_track':
       return applyClipLayout(trackManager, opPayload.clipId, opPayload.destTrackId, {
         startTime: opPayload.startTime,
         trimStart: opPayload.trimStart,
         trimEnd: opPayload.trimEnd,
+        loopEnd: opPayload.loopEnd,
       });
+    case 'clip.loop':
+      return applyClipLoop(
+        trackManager,
+        opPayload.clipId,
+        opPayload.trackId,
+        opPayload.loopEnd
+      );
     case 'clip.delete':
       return applyClipDelete(trackManager, opPayload.clipId, opPayload.trackId);
     case 'track.create':

@@ -362,3 +362,11 @@ CREATE INDEX IF NOT EXISTS idx_projects_source_root
   ON projects(source_root_id)
   WHERE source_root_id IS NOT NULL;
 
+
+-- Migration: Project clip region looping
+-- Date: 2026-07-29
+-- Logic Pro-style loop area for project clips. Absolute timeline end of the
+-- looped area; NULL means the clip is not looped.
+
+ALTER TABLE project_clips
+  ADD COLUMN IF NOT EXISTS loop_end_seconds FLOAT;

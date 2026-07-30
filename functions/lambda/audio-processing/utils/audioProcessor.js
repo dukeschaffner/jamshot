@@ -8,6 +8,7 @@ import mm from 'music-metadata';
 import { createLambdaPool } from '@sterio/db-config';
 import crypto from 'crypto';
 import { logger } from './logger.js';
+import { expandLoopedRegions, formatFfmpegTime } from './regionLoopExpand.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -593,33 +594,39 @@ class AudioProcessor {
    */
   async renderStemWithRegions(inputPath, outputPath, regions) {
     return new Promise((resolve, reject) => {
-      // Sort regions by startTime
-      const sortedRegions = [...regions].sort((a, b) => a.startTime - b.startTime);
-      
+      const sortedRegions = expandLoopedRegions(regions).sort(
+        (a, b) => a.startTime - b.startTime
+      );
+
+      if (sortedRegions.length === 0) {
+        reject(new Error('No valid regions to render for stem'));
+        return;
+      }
+
       // Find the maximum endTime to determine output duration
       const maxEndTime = Math.max(...sortedRegions.map(r => r.endTime));
-      
+
       // Build FFmpeg command
       const ffmpegCommand = ffmpeg();
-      
+
       // Create filter complex to extract and place each region
       const filterParts = [];
       const inputLabels = [];
-      
+
       // For each region, extract the segment and delay it to the correct position
       sortedRegions.forEach((region, index) => {
         // Extract segment: start at offset, duration is (endTime - startTime)
         const segmentDuration = region.endTime - region.startTime;
         const delayMs = Math.round(region.startTime * 1000); // Convert to milliseconds for adelay
-        
+
         // Input the file with specific start time and duration
         // Use inputOptions to seek and limit duration for this specific input
         const input = ffmpegCommand.input(inputPath);
         input.inputOptions([
-          `-ss`, region.offset.toString(),
-          `-t`, segmentDuration.toString()
+          `-ss`, formatFfmpegTime(region.offset),
+          `-t`, formatFfmpegTime(segmentDuration)
         ]);
-        
+
         // Apply delay to place segment at correct position
         // adelay expects delay in milliseconds, format: adelay=delay1|delay2 (for stereo)
         const inputLabel = `[${index}:a]`;
@@ -627,14 +634,14 @@ class AudioProcessor {
         filterParts.push(`${inputLabel}adelay=${delayMs}|${delayMs}${delayedLabel}`);
         inputLabels.push(delayedLabel);
       });
-      
+
       // Mix all delayed segments together
       const mixInputs = inputLabels.join('');
       filterParts.push(`${mixInputs}amix=inputs=${inputLabels.length}:duration=longest:normalize=0[aout]`);
-      
+
       // Trim to maxEndTime duration
-      filterParts.push(`[aout]atrim=0:${maxEndTime}[trimmed]`);
-      
+      filterParts.push(`[aout]atrim=0:${formatFfmpegTime(maxEndTime)}[trimmed]`);
+
       // Set up audio processing (WAV intermediate to avoid extra MP3 encode and generational loss)
       ffmpegCommand
         .audioCodec('pcm_s16le')

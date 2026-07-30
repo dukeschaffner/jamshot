@@ -8,6 +8,7 @@ import { DAW_EVENTS } from '../misc/DAWEvents.js';
 export const COMMAND_TYPES = {
   REGION_MOVE: 'region:move',
   REGION_CROP: 'region:crop',
+  REGION_LOOP: 'region:loop',
   REGION_ADD: 'region:add',
   REGION_REMOVE: 'region:remove',
   REGION_SPLIT: 'region:split',
@@ -94,6 +95,7 @@ class UndoManager {
         startTime: region.startTime,
         endTime: region.endTime,
         offset: region.offset,
+        loopEnd: region.loopEnd ?? null,
         key: region.key,
         duration: region.duration,
         active: region.active,
@@ -244,6 +246,7 @@ class UndoManager {
     switch (command.type) {
       case COMMAND_TYPES.REGION_MOVE:
       case COMMAND_TYPES.REGION_CROP:
+      case COMMAND_TYPES.REGION_LOOP:
         this.applyRegionUpdate(track, command, state);
         break;
 
@@ -289,7 +292,7 @@ class UndoManager {
   }
 
   /**
-   * Apply a region update (move or crop)
+   * Apply a region update (move, crop, or loop)
    */
   applyRegionUpdate(track, command, state) {
     const region = track.regions.find(r => r.id === command.regionId);
@@ -303,6 +306,9 @@ class UndoManager {
     region.startTime = state.startTime;
     region.endTime = state.endTime;
     region.offset = state.offset;
+    if ('loopEnd' in state) {
+      region.loopEnd = state.loopEnd ?? null;
+    }
 
     // Emit update event to refresh UI
     eventBus.emit(DAW_EVENTS.REGION.UPDATED, { 
@@ -345,6 +351,7 @@ class UndoManager {
       startTime: state.startTime,
       endTime: state.endTime,
       offset: state.offset,
+      loopEnd: state.loopEnd ?? null,
       duration: state.duration,
       active: state.active !== undefined ? state.active : true,
       name: state.name || 'Region'
@@ -483,6 +490,8 @@ class UndoManager {
         return `${action} Move Region`;
       case COMMAND_TYPES.REGION_CROP:
         return `${action} Crop Region`;
+      case COMMAND_TYPES.REGION_LOOP:
+        return `${action} Loop Region`;
       case COMMAND_TYPES.REGION_ADD:
         return `${action} Add Region`;
       case COMMAND_TYPES.REGION_REMOVE:

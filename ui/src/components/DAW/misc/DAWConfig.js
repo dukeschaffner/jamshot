@@ -31,6 +31,10 @@ const DAWConfig = {
       wheelZoomMaxDelta: 40,
       gridSnapThreshold: 5, // pixels
       regionRenderBuffer: 200, // pixels beyond the visible DAW viewport
+      // Right-edge hover zone for crop (bottom) / loop (top) handles
+      loopHandleZonePx: 15,
+      // After recording, snap region start/end to nearby beat gridlines within this window
+      recordSnapThresholdMs: 40,
     },
     
     metronome: {

@@ -7,6 +7,7 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 import DAWConfig from '../misc/DAWConfig';
+import { getRegionEffectiveEnd } from '../core/regionLoopUtils';
 import { useToast } from '@/lib/ToastContext';
 import { captureDawAudioFileImported } from '@/lib/posthogAnalytics';
 import { useProjectEditor } from '../project/ProjectEditorContext';
@@ -113,7 +114,8 @@ const Track = ({
       }
 
       const regionStart = (region.startTime / duration) * tracksContainerWidth;
-      const regionEnd = (region.endTime / duration) * tracksContainerWidth;
+      const regionEnd =
+        (getRegionEffectiveEnd(region) / duration) * tracksContainerWidth;
       const viewportStart = scrollLeft - regionRenderBuffer;
       const viewportEnd = scrollLeft + viewWidth + regionRenderBuffer;
 

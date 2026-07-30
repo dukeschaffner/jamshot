@@ -89,7 +89,10 @@ class TrackManager {
     if (stemData.regions && stemData.regions.length > 0) {
       // Add each region from the stem data
       stemData.regions.forEach(region => {
-        track.addRegion(bufferKey, region.startTime, region.offset, region.endTime, 'stem-region');
+        const created = track.addRegion(bufferKey, region.startTime, region.offset, region.endTime, 'stem-region');
+        if (created && region.loopEnd != null && region.loopEnd > region.endTime) {
+          created.loopEnd = region.loopEnd;
+        }
       });
     } else {
       // Default: add a single region covering the full buffer
@@ -242,6 +245,9 @@ class TrackManager {
             region.projectClipId = clip.id;
             region.projectAssetId = clip.assetId ?? null;
             region.processingStatus = CLIP_PROCESSING_STATUS.COMPLETED;
+            if (clip.loopEnd != null && clip.loopEnd > endTime) {
+              region.loopEnd = clip.loopEnd;
+            }
           }
         });
 

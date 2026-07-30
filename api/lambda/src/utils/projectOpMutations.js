@@ -209,7 +209,7 @@ async function validateClipPlacement(
 async function loadClipContext(client, clipId, projectId) {
   const clipResult = await client.query(
     `SELECT pc.id, pc.project_track_id, pc.start_time_seconds,
-            pc.trim_start_seconds, pc.trim_end_seconds, pc.asset_id,
+            pc.trim_start_seconds, pc.trim_end_seconds, pc.loop_end_seconds, pc.asset_id,
             pa.duration_seconds AS asset_duration, pa.project_id AS asset_project_id,
             pt.project_id AS track_project_id,
             p.duration_seconds AS project_duration
@@ -298,9 +298,19 @@ async function executeClipMove(client, { projectId, userId, baseRevision, payloa
     };
   }
 
+  const previousStart = Number(existing.start_time_seconds);
+  const startDelta = startTimeCheck.value - previousStart;
+  let nextLoopEnd =
+    existing.loop_end_seconds != null ? Number(existing.loop_end_seconds) : null;
+  if (nextLoopEnd != null && Number.isFinite(nextLoopEnd)) {
+    nextLoopEnd = nextLoopEnd + startDelta;
+  }
+
   await client.query(
-    `UPDATE project_clips SET start_time_seconds = $1 WHERE id = $2 AND deleted_at IS NULL`,
-    [startTimeCheck.value, clipId]
+    `UPDATE project_clips
+     SET start_time_seconds = $1, loop_end_seconds = $2
+     WHERE id = $3 AND deleted_at IS NULL`,
+    [startTimeCheck.value, nextLoopEnd, clipId]
   );
 
   await client.query(
@@ -316,6 +326,7 @@ async function executeClipMove(client, { projectId, userId, baseRevision, payloa
       clipId,
       trackId,
       startTime: startTimeCheck.value,
+      loopEnd: nextLoopEnd,
     },
   };
 }
@@ -383,6 +394,21 @@ async function executeClipTrim(client, { projectId, userId, baseRevision, payloa
     }
   }
 
+  let loopEnd =
+    existing.loop_end_seconds != null ? Number(existing.loop_end_seconds) : null;
+  const loopEndRaw = pickField(payload, 'loopEnd', 'loop_end_seconds');
+  if (loopEndRaw !== undefined) {
+    if (loopEndRaw === null || loopEndRaw === '') {
+      loopEnd = null;
+    } else {
+      const loopEndCheck = parsePlacementSeconds(loopEndRaw, 'loopEnd');
+      if (!loopEndCheck.valid) {
+        return { ok: false, code: 'VALIDATION_ERROR', message: loopEndCheck.error };
+      }
+      loopEnd = loopEndCheck.value;
+    }
+  }
+
   const assetDuration =
     existing.asset_duration != null ? Number(existing.asset_duration) : null;
 
@@ -401,6 +427,13 @@ async function executeClipTrim(client, { projectId, userId, baseRevision, payloa
     return { ok: false, code: 'VALIDATION_ERROR', message: placementCheck.error };
   }
 
+  // Clear loop if it no longer extends past the audible end
+  const playbackDuration = computeClipPlaybackDuration(trimStart, trimEnd, assetDuration);
+  const audibleEnd = startTime + (playbackDuration ?? 0);
+  if (loopEnd != null && loopEnd <= audibleEnd) {
+    loopEnd = null;
+  }
+
   const revisionBump = await bumpProjectRevision(client, projectId, baseRevision);
   if (!revisionBump.ok) {
     return {
@@ -413,9 +446,10 @@ async function executeClipTrim(client, { projectId, userId, baseRevision, payloa
 
   await client.query(
     `UPDATE project_clips
-     SET start_time_seconds = $1, trim_start_seconds = $2, trim_end_seconds = $3
-     WHERE id = $4 AND deleted_at IS NULL`,
-    [startTime, trimStart, trimEnd, clipId]
+     SET start_time_seconds = $1, trim_start_seconds = $2, trim_end_seconds = $3,
+         loop_end_seconds = $4
+     WHERE id = $5 AND deleted_at IS NULL`,
+    [startTime, trimStart, trimEnd, loopEnd, clipId]
   );
 
   await client.query(
@@ -433,6 +467,7 @@ async function executeClipTrim(client, { projectId, userId, baseRevision, payloa
       startTime,
       trimStart,
       trimEnd,
+      loopEnd,
     },
   };
 }
@@ -564,6 +599,9 @@ async function executeClipMoveToTrack(client, { projectId, userId, baseRevision,
     [existing.asset_id]
   );
 
+  const loopEnd =
+    existing.loop_end_seconds != null ? Number(existing.loop_end_seconds) : null;
+
   return {
     ok: true,
     revision: revisionBump.revision,
@@ -575,6 +613,102 @@ async function executeClipMoveToTrack(client, { projectId, userId, baseRevision,
       startTime,
       trimStart,
       trimEnd,
+      loopEnd,
+    },
+  };
+}
+
+async function executeClipLoop(client, { projectId, userId, baseRevision, payload }) {
+  const clipId = Number(pickField(payload, 'clipId', 'clip_id'));
+  const trackId = Number(pickField(payload, 'trackId', 'track_id'));
+
+  if (!Number.isFinite(clipId) || !Number.isFinite(trackId)) {
+    return { ok: false, code: 'VALIDATION_ERROR', message: 'clipId and trackId are required' };
+  }
+
+  const lockCheck = await assertTracksNotLockedByOther({
+    projectId,
+    trackIds: [trackId],
+    userId,
+    client,
+  });
+  if (!lockCheck.ok) {
+    return lockCheck;
+  }
+
+  const clipContext = await loadClipContext(client, clipId, projectId);
+  if (!clipContext.ok) {
+    return clipContext;
+  }
+
+  const existing = clipContext.clip;
+  if (Number(existing.project_track_id) !== trackId) {
+    return { ok: false, code: 'NOT_FOUND', message: 'Clip not found on track' };
+  }
+
+  let loopEnd = null;
+  const loopEndRaw = pickField(payload, 'loopEnd', 'loop_end_seconds');
+  if (loopEndRaw !== undefined && loopEndRaw !== null && loopEndRaw !== '') {
+    const loopEndCheck = parsePlacementSeconds(loopEndRaw, 'loopEnd');
+    if (!loopEndCheck.valid) {
+      return { ok: false, code: 'VALIDATION_ERROR', message: loopEndCheck.error };
+    }
+    loopEnd = loopEndCheck.value;
+  }
+
+  const startTime = Number(existing.start_time_seconds);
+  const trimStart = Number(existing.trim_start_seconds ?? 0);
+  const trimEnd = existing.trim_end_seconds;
+  const assetDuration =
+    existing.asset_duration != null ? Number(existing.asset_duration) : null;
+  const playbackDuration = computeClipPlaybackDuration(trimStart, trimEnd, assetDuration);
+  const audibleEnd = startTime + (playbackDuration ?? 0);
+
+  if (loopEnd != null) {
+    if (loopEnd <= audibleEnd) {
+      return {
+        ok: false,
+        code: 'VALIDATION_ERROR',
+        message: 'loopEnd must be greater than the clip audible end',
+      };
+    }
+    if (loopEnd > Number(existing.project_duration)) {
+      return {
+        ok: false,
+        code: 'VALIDATION_ERROR',
+        message: 'loopEnd cannot exceed project duration',
+      };
+    }
+  }
+
+  const revisionBump = await bumpProjectRevision(client, projectId, baseRevision);
+  if (!revisionBump.ok) {
+    return {
+      ok: false,
+      code: 'REVISION_MISMATCH',
+      message: 'Project revision mismatch',
+      currentRevision: revisionBump.currentRevision,
+    };
+  }
+
+  await client.query(
+    `UPDATE project_clips SET loop_end_seconds = $1 WHERE id = $2 AND deleted_at IS NULL`,
+    [loopEnd, clipId]
+  );
+
+  await client.query(
+    `UPDATE project_assets SET last_referenced_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [existing.asset_id]
+  );
+
+  return {
+    ok: true,
+    revision: revisionBump.revision,
+    broadcastPayload: {
+      kind: 'clip.loop',
+      clipId,
+      trackId,
+      loopEnd,
     },
   };
 }
@@ -1052,6 +1186,7 @@ const OP_EXECUTORS = {
   'clip.move': executeClipMove,
   'clip.trim': executeClipTrim,
   'clip.move_to_track': executeClipMoveToTrack,
+  'clip.loop': executeClipLoop,
   'clip.delete': executeClipDelete,
   'track.create': executeTrackCreate,
   'track.delete': executeTrackDelete,

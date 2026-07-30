@@ -17,6 +17,8 @@ import { useDAW } from '../DAWContext';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import AudioState from '../core/AudioStateStore';
+import DAWConfig from '../misc/DAWConfig';
+import { alignRecordedRegionToGrid } from '../misc/recordingGridAlign';
 import { getProjectAssetAudioBuffer } from './getProjectAssetAudioBuffer';
 import { deleteCachedProjectAsset } from './projectAssetAudioCache';
 import { hasProjectEditorRole } from './projectEditorConstants';
@@ -113,6 +115,7 @@ const INACTIVE_PROJECT_EDITOR = {
   deleteProjectAsset: async () => ({ ok: false }),
   persistClipLayout: () => {},
   moveProjectRegion: () => false,
+  setProjectRegionLoop: () => {},
   crossTrackDragPreview: null,
   setCrossTrackDragPreview: () => {},
   clearCrossTrackDragPreview: () => {},
@@ -140,7 +143,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     acquireTrackLock,
     releaseTrackLock,
   } = useProjectSync();
-  const { trackManagerRef, tracks, syncTracksFromManager, clipboard, selectedRegionId, selectedTrackId, playheadLocation, selectRegion } = useDAW();
+  const { trackManagerRef, tracks, syncTracksFromManager, clipboard, selectedRegionId, selectedTrackId, playheadLocation, selectRegion, gridLines } = useDAW();
 
   const [armedTrackId, setArmedTrackIdState] = useState(null);
   const [isTrackMutationPending, setIsTrackMutationPending] = useState(false);
@@ -457,12 +460,48 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
               startTime: previousState.startTime,
               endTime: previousState.endTime,
               offset: previousState.offset,
+              loopEnd: previousState.loopEnd ?? null,
             }
           );
         },
       });
     },
     [moveProjectRegion, scheduleClipPersist]
+  );
+
+  const setProjectRegionLoop = useCallback(
+    (region, loopEnd, previousState) => {
+      if (!region?.projectClipId || !trackManagerRef.current) return;
+
+      const track = trackManagerRef.current
+        .getAllTracks()
+        .find((t) => t.regions.some((r) => r.id === region.id));
+      if (!track) return;
+
+      const normalized =
+        loopEnd != null && loopEnd > region.endTime ? loopEnd : null;
+
+      moveProjectRegion(track.id, track.id, region.id, {
+        startTime: region.startTime,
+        endTime: region.endTime,
+        offset: region.offset,
+        loopEnd: normalized,
+      });
+
+      persistClipLayout({
+        clipId: region.projectClipId,
+        region: { ...region, loopEnd: normalized },
+        trackId: track.id,
+        previousState: {
+          trackId: track.id,
+          startTime: previousState?.startTime ?? region.startTime,
+          endTime: previousState?.endTime ?? region.endTime,
+          offset: previousState?.offset ?? region.offset,
+          loopEnd: previousState?.loopEnd ?? region.loopEnd ?? null,
+        },
+      });
+    },
+    [moveProjectRegion, persistClipLayout, trackManagerRef]
   );
 
   const markRegionSyncFailed = useCallback((track, region, errorMessage) => {
@@ -673,7 +712,18 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       const endTime = data.startTime + buffer.duration - (data.offset ?? 0);
       const projectDuration =
         projectDataRef.current?.durationSeconds ?? AudioState.dawDuration;
-      if (endTime > projectDuration) {
+
+      const aligned = alignRecordedRegionToGrid(
+        {
+          startTime: data.startTime,
+          endTime,
+          offset: data.offset ?? 0,
+        },
+        gridLines,
+        (DAWConfig.ui.recordSnapThresholdMs ?? 40) / 1000
+      );
+
+      if (aligned.endTime > projectDuration) {
         showToast({
           message: `Recording extends beyond project duration (${projectDuration}s).`,
           variant: 'error',
@@ -684,9 +734,9 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
 
       const region = track.addRegion(
         data.bufferKey,
-        data.startTime,
-        data.offset,
-        endTime,
+        aligned.startTime,
+        aligned.offset,
+        aligned.endTime,
         track.title || 'Recording',
         false,
         false,
@@ -709,7 +759,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         bufferKey: data.bufferKey,
       });
     },
-    [showToast, trackManagerRef, uploadClipFromBuffer]
+    [showToast, trackManagerRef, uploadClipFromBuffer, gridLines]
   );
 
   const importAudioFileToTrack = useCallback(
@@ -2168,6 +2218,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       deleteProjectAsset,
       persistClipLayout,
       moveProjectRegion,
+      setProjectRegionLoop,
       crossTrackDragPreview,
       setCrossTrackDragPreview,
       clearCrossTrackDragPreview,
@@ -2209,6 +2260,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       deleteProjectAsset,
       persistClipLayout,
       moveProjectRegion,
+      setProjectRegionLoop,
       crossTrackDragPreview,
       setCrossTrackDragPreview,
       clearCrossTrackDragPreview,

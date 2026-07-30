@@ -78,6 +78,7 @@ export class ProjectRemoteOpQueue {
       'clip.move',
       'clip.trim',
       'clip.move_to_track',
+      'clip.loop',
       'clip.delete',
     ]);
     return clipKinds.has(payload?.kind);

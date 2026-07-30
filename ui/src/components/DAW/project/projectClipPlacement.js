@@ -139,6 +139,12 @@ export function buildClipPatchPayload(region, targetTrackId, sourceTrackId) {
     trim_end_seconds: (region.offset ?? 0) + (region.endTime - region.startTime),
   };
 
+  if (region.loopEnd != null && region.loopEnd > region.endTime) {
+    payload.loop_end_seconds = region.loopEnd;
+  } else {
+    payload.loop_end_seconds = null;
+  }
+
   if (targetTrackId != null && targetTrackId !== sourceTrackId) {
     payload.project_track_id = targetTrackId;
   }

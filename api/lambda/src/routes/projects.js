@@ -2171,15 +2171,18 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
       trim_start: trimStartAlias,
       trim_end_seconds: trimEndRaw,
       trim_end: trimEndAlias,
+      loop_end_seconds: loopEndRaw,
+      loop_end: loopEndAlias,
       project_track_id: projectTrackIdRaw,
     } = req.body;
 
     const hasStartTime = startTimeRaw !== undefined || startTimeAlias !== undefined;
     const hasTrimStart = trimStartRaw !== undefined || trimStartAlias !== undefined;
     const hasTrimEnd = trimEndRaw !== undefined || trimEndAlias !== undefined;
+    const hasLoopEnd = loopEndRaw !== undefined || loopEndAlias !== undefined;
     const hasTrackMove = projectTrackIdRaw !== undefined;
 
-    if (!hasStartTime && !hasTrimStart && !hasTrimEnd && !hasTrackMove) {
+    if (!hasStartTime && !hasTrimStart && !hasTrimEnd && !hasLoopEnd && !hasTrackMove) {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
 
@@ -2189,7 +2192,7 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
 
       const clipResult = await client.query(
         `SELECT pc.id, pc.project_track_id, pc.start_time_seconds,
-                pc.trim_start_seconds, pc.trim_end_seconds, pc.asset_id,
+                pc.trim_start_seconds, pc.trim_end_seconds, pc.loop_end_seconds, pc.asset_id,
                 pa.duration_seconds AS asset_duration, pa.project_id AS asset_project_id,
                 pt.project_id AS track_project_id,
                 p.duration_seconds AS project_duration
@@ -2292,6 +2295,22 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
         }
       }
 
+      let loopEnd =
+        existing.loop_end_seconds != null ? Number(existing.loop_end_seconds) : null;
+      if (hasLoopEnd) {
+        const loopEndValue = loopEndRaw !== undefined ? loopEndRaw : loopEndAlias;
+        if (loopEndValue == null || loopEndValue === '') {
+          loopEnd = null;
+        } else {
+          const loopEndCheck = parsePlacementSeconds(loopEndValue, 'loop_end_seconds');
+          if (!loopEndCheck.valid) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: loopEndCheck.error });
+          }
+          loopEnd = loopEndCheck.value;
+        }
+      }
+
       const placementCheck = await validateClipPlacement(client, {
         trackId: targetTrackId,
         clipId,
@@ -2306,6 +2325,22 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
       if (!placementCheck.valid) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: placementCheck.error });
+      }
+
+      // Shift loop end with start-time moves; clear if it no longer extends past audible end
+      if (hasStartTime && !hasLoopEnd && loopEnd != null) {
+        const previousStart = Number(existing.start_time_seconds);
+        loopEnd = loopEnd + (startTime - previousStart);
+      }
+      const audibleLength =
+        trimEnd != null
+          ? trimEnd - trimStart
+          : assetDuration != null
+            ? assetDuration - trimStart
+            : 0;
+      const audibleEnd = startTime + audibleLength;
+      if (loopEnd != null && loopEnd <= audibleEnd) {
+        loopEnd = null;
       }
 
       const revisionBump = await bumpProjectRevision(
@@ -2337,6 +2372,10 @@ router.patch('/:id/clips/:clipId', async (req, res, next) => {
       if (hasTrimEnd) {
         updates.push(`trim_end_seconds = $${paramIndex++}`);
         values.push(trimEnd);
+      }
+      if (hasLoopEnd || hasStartTime || hasTrimStart || hasTrimEnd) {
+        updates.push(`loop_end_seconds = $${paramIndex++}`);
+        values.push(loopEnd);
       }
       if (hasTrackMove) {
         updates.push(`project_track_id = $${paramIndex++}`);
