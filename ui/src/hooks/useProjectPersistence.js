@@ -18,6 +18,8 @@ export function useProjectPersistence({
   revision,
   applyProjectServerState,
   onRevisionOnlyUpdate,
+  /** Apply successful WS op_ack into local project/DAW state (payload + revision). */
+  onWsOpSuccess,
   showToast,
   onConflictPrompt,
   onRestSaveSuccess,
@@ -234,7 +236,13 @@ export function useProjectPersistence({
       if (result.ok) {
         revisionRef.current = result.revision;
         dirtyProjectSettingsRef.current = false;
-        onRevisionOnlyUpdate?.(result.revision);
+        // Must merge transport fields into project state — revision-only updates leave
+        // stale durationSeconds/bpm/etc., and DAWContext re-syncs UI from projectData.
+        if (onWsOpSuccess) {
+          onWsOpSuccess(result);
+        } else {
+          onRevisionOnlyUpdate?.(result.revision);
+        }
         onRestSaveSuccess?.();
         return;
       }
@@ -293,6 +301,7 @@ export function useProjectPersistence({
     isWsConnected,
     onRestSaveSuccess,
     onRevisionOnlyUpdate,
+    onWsOpSuccess,
     projectGuid,
     releaseMetadataLock,
     revertCollectedStates,

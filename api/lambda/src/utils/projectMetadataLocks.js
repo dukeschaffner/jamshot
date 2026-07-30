@@ -3,8 +3,12 @@ import pool from '../config/db.js';
 /** Shorter TTL for project-wide metadata edits (BPM, duration, track reorder). */
 export const METADATA_LOCK_TTL_SECONDS = 30;
 
-export async function deleteExpiredMetadataLocks() {
-  await pool.query('DELETE FROM project_metadata_locks WHERE expires_at <= NOW()');
+/**
+ * @param {import('pg').PoolClient} [client] — use when caller already holds the pool connection (max:1)
+ */
+export async function deleteExpiredMetadataLocks(client) {
+  const query = client?.query.bind(client) ?? pool.query.bind(pool);
+  await query('DELETE FROM project_metadata_locks WHERE expires_at <= NOW()');
 }
 
 /**
@@ -89,7 +93,7 @@ export async function shortenMetadataLockOnDisconnect(connectionId, graceSeconds
  * @param {import('pg').PoolClient} [params.client]
  */
 export async function assertMetadataNotLockedByOther({ projectId, userId, client }) {
-  await deleteExpiredMetadataLocks();
+  await deleteExpiredMetadataLocks(client);
 
   const query = client?.query.bind(client) ?? pool.query.bind(pool);
   const result = await query(

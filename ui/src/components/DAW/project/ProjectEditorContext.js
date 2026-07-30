@@ -352,6 +352,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       revision: projectData?.revision,
       applyProjectServerState,
       onRevisionOnlyUpdate,
+      onWsOpSuccess: applyLocalWsOpResult,
       showToast,
       onConflictPrompt,
       onRestSaveSuccess: notifyProjectMutated,
