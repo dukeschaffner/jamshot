@@ -226,7 +226,7 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
     );
     const assetId = placeholder.rows[0].id;
 
-    const storageKey = await copyProjectAssetAudioFromSource(
+    const { storageKey, fileSizeBytes } = await copyProjectAssetAudioFromSource(
       sourceTrack.audio_url,
       project.id,
       assetId
@@ -242,12 +242,13 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
        SET storage_key = $1,
            audio_url = $1,
            waveform_url = $2,
+           file_size_bytes = $3,
            processing_status = 'completed',
            last_referenced_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3
+       WHERE id = $4
        RETURNING *`,
-      [storageKey, waveformKey, assetId]
+      [storageKey, waveformKey, fileSizeBytes, assetId]
     );
 
     if (shouldManageTransaction) {
@@ -412,7 +413,7 @@ export async function importTrackIntoProject(
     );
     const assetId = placeholder.rows[0].id;
 
-    const storageKey = await copyProjectAssetAudioFromSource(
+    const { storageKey, fileSizeBytes } = await copyProjectAssetAudioFromSource(
       plan.audioKey,
       project.id,
       assetId
@@ -428,10 +429,11 @@ export async function importTrackIntoProject(
        SET storage_key = $1,
            audio_url = $1,
            waveform_url = $2,
+           file_size_bytes = $3,
            processing_status = 'completed',
            last_referenced_at = CURRENT_TIMESTAMP
-       WHERE id = $3`,
-      [storageKey, waveformKey, assetId]
+       WHERE id = $4`,
+      [storageKey, waveformKey, fileSizeBytes, assetId]
     );
 
     const trackResult = await client.query(

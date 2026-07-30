@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { CopyObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { CopyObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { s3Client } from './trackUtils.js';
 
@@ -105,26 +105,63 @@ async function copyProjectAssetWaveformFromSource(sourceWaveformKey, projectId, 
 }
 
 /**
+ * Normalize a storage key or public R2 URL to a bucket-relative key.
+ * @param {string} keyOrUrl
+ * @returns {string|null}
+ */
+function normalizeR2ObjectKey(keyOrUrl) {
+  if (!keyOrUrl || typeof keyOrUrl !== 'string') return null;
+
+  let key = keyOrUrl;
+  const publicPrefix = process.env.R2_PUBLIC_URL
+    ? `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/`
+    : null;
+  if (publicPrefix && key.startsWith(publicPrefix)) {
+    key = key.slice(publicPrefix.length);
+  }
+  if (key.startsWith('http://') || key.startsWith('https://')) {
+    return null;
+  }
+  return key;
+}
+
+/**
+ * Read ContentLength for an R2 object.
+ * @param {string} keyOrUrl
+ * @returns {Promise<number|null>}
+ */
+async function getR2ObjectByteSize(keyOrUrl) {
+  const key = normalizeR2ObjectKey(keyOrUrl);
+  if (!key) return null;
+
+  try {
+    const head = await s3Client.send(
+      new HeadObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: key,
+      })
+    );
+    return head.ContentLength != null ? Number(head.ContentLength) : null;
+  } catch (err) {
+    console.warn(`Failed to read R2 object size for ${key}:`, err.message);
+    return null;
+  }
+}
+
+/**
  * Copy a social-track audio object into a project asset storage key.
  * @param {string} sourceAudioKey - R2 key (e.g. tracks/...)
  * @param {number|string} projectId
  * @param {number|string} assetId
- * @returns {Promise<string>} destination key
+ * @returns {Promise<{ storageKey: string, fileSizeBytes: number|null }>}
  */
 async function copyProjectAssetAudioFromSource(sourceAudioKey, projectId, assetId) {
   if (!sourceAudioKey || typeof sourceAudioKey !== 'string') {
     throw new Error('Source audio key is required');
   }
 
-  // Allow keys that are already tracks/... or full public URLs by stripping the public prefix
-  let sourceKey = sourceAudioKey;
-  const publicPrefix = process.env.R2_PUBLIC_URL
-    ? `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/`
-    : null;
-  if (publicPrefix && sourceKey.startsWith(publicPrefix)) {
-    sourceKey = sourceKey.slice(publicPrefix.length);
-  }
-  if (sourceKey.startsWith('http://') || sourceKey.startsWith('https://')) {
+  const sourceKey = normalizeR2ObjectKey(sourceAudioKey);
+  if (!sourceKey) {
     throw new Error('Cannot copy audio from an external URL');
   }
 
@@ -138,7 +175,8 @@ async function copyProjectAssetAudioFromSource(sourceAudioKey, projectId, assetI
     })
   );
 
-  return destKey;
+  const fileSizeBytes = await getR2ObjectByteSize(destKey);
+  return { storageKey: destKey, fileSizeBytes };
 }
 
 export {
@@ -149,4 +187,6 @@ export {
   emitProjectAssetCreatedEvent,
   copyProjectAssetWaveformFromSource,
   copyProjectAssetAudioFromSource,
+  normalizeR2ObjectKey,
+  getR2ObjectByteSize,
 };
