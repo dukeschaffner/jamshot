@@ -205,26 +205,24 @@ export default function ProjectPage() {
   return (
     <ProjectSyncProvider project={project}>
       <div className={styles.projectPageContainer}>
-        <Link href="/projects" className={styles.backLink}>
-          <FaArrowLeft />
-          All Projects
-        </Link>
-
         <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <div className={styles.headerInfo}>
+          <div className={styles.headerRow}>
+            <div className={styles.headerLeft}>
+              <Link href="/projects" className={styles.backLink}>
+                <FaArrowLeft />
+                <span className={styles.backLinkLabel}>All Projects</span>
+              </Link>
+              <span className={styles.headerSep} aria-hidden />
               <FaFolderOpen className={styles.headerIcon} aria-hidden />
-              <div>
-                <h1 className={styles.title}>{project.name}</h1>
-                <div className={styles.meta}>
-                  {project.role && (
-                    <span className={styles.role}>{project.role}</span>
-                  )}
-                  <span className={styles.memberCount}>
-                    <FaUsers aria-hidden />
-                    Members {memberCount == null ? '—' : memberCount}
-                  </span>
-                </div>
+              <h1 className={styles.title}>{project.name}</h1>
+              <div className={styles.meta}>
+                {project.role && (
+                  <span className={styles.role}>{project.role}</span>
+                )}
+                <span className={styles.memberCount}>
+                  <FaUsers aria-hidden />
+                  Members {memberCount == null ? '—' : memberCount}
+                </span>
               </div>
             </div>
             <ProjectPresenceAvatars />

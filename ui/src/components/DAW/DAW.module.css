@@ -23,6 +23,10 @@
     margin-bottom: 16px;
     white-space: nowrap;
   }
+
+  .dawContainerFill .dawControls {
+    margin-bottom: 8px;
+  }
   
 .transportControls {
     display: flex;
