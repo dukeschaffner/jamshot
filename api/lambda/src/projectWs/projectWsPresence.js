@@ -1,4 +1,5 @@
 import pool from '../config/db.js';
+import { pruneStaleProjectConnections } from './projectWsConnectionCleanup.js';
 import { getProjectConnectionIds } from './projectWsConnections.js';
 import { postToConnection } from './projectWsApiGateway.js';
 
@@ -49,6 +50,7 @@ export async function getProjectPresenceUsers(projectId) {
  * @returns {Promise<{ type: 'presence', users: Awaited<ReturnType<typeof getProjectPresenceUsers>> }>}
  */
 export async function buildPresenceMessage(projectId) {
+  await pruneStaleProjectConnections(projectId);
   const users = await getProjectPresenceUsers(projectId);
   return { type: 'presence', users };
 }

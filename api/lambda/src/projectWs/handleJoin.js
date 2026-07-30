@@ -1,11 +1,11 @@
 import { isFeatureEnabled } from '../utils/featureFlags.js';
-import {
-  checkProjectAccess,
-  getProjectLimitsForContext,
-  resolveProjectRef,
-} from '../utils/projectAccess.js';
+import { checkProjectAccess, resolveProjectRef } from '../utils/projectAccess.js';
 import pool from '../config/db.js';
-import { PROJECT_WS_PROTOCOL_VERSION } from './projectWsConfig.js';
+import {
+  PROJECT_WS_MAX_CONNECTIONS_PER_PROJECT,
+  PROJECT_WS_PROTOCOL_VERSION,
+} from './projectWsConfig.js';
+import { pruneStaleProjectConnections } from './projectWsConnectionCleanup.js';
 import {
   countProjectConnections,
   getConnectionAuthUserId,
@@ -109,10 +109,7 @@ export async function handleJoinMessage({ connectionId, body, sendContext }) {
     return { statusCode: access.status };
   }
 
-  const userResult = await pool.query(
-    'SELECT id, subscription_tier, subscription_expires_at FROM users WHERE id = $1',
-    [userId]
-  );
+  const userResult = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
   if (userResult.rows.length === 0) {
     await sendWsMessage(sendContext, {
       type: 'error',
@@ -122,11 +119,11 @@ export async function handleJoinMessage({ connectionId, body, sendContext }) {
     return { statusCode: 401 };
   }
 
-  const limits = await getProjectLimitsForContext(access.project, userResult.rows[0]);
+  // Membership seats are gated at invite/accept. This is only an infra socket cap.
+  await pruneStaleProjectConnections(resolved.projectId);
   const activeConnections = await countProjectConnections(resolved.projectId);
-  const maxConnections = limits.effective_max_members;
 
-  if (maxConnections !== -1 && activeConnections >= maxConnections) {
+  if (activeConnections >= PROJECT_WS_MAX_CONNECTIONS_PER_PROJECT) {
     const existing = await pool.query(
       'SELECT 1 FROM project_ws_connections WHERE connection_id = $1 AND project_id = $2',
       [connectionId, resolved.projectId]

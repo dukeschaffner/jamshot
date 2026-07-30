@@ -4,6 +4,7 @@ import {
   touchConnectionLastSeen,
   updateConnectionPresence,
 } from './projectWsConnections.js';
+import { pruneStaleProjectConnections } from './projectWsConnectionCleanup.js';
 import {
   broadcastProjectPresence,
   getGatewayContextFromSendContext,
@@ -58,16 +59,26 @@ export async function handlePresenceMessage({ connectionId, body, sendContext })
   }
 
   const previousEditingTrackId = await getConnectionEditingTrack(connectionId);
+  let shouldBroadcast = false;
 
   if (parsed.editingTrackId !== undefined) {
     await updateConnectionPresence(connectionId, parsed.editingTrackId);
 
     if (previousEditingTrackId !== parsed.editingTrackId) {
-      const gatewayContext = getGatewayContextFromSendContext(sendContext);
-      await broadcastProjectPresence(projectId, gatewayContext);
+      shouldBroadcast = true;
     }
   } else {
     await touchConnectionLastSeen(connectionId);
+  }
+
+  const pruned = await pruneStaleProjectConnections(projectId);
+  if (pruned.length > 0) {
+    shouldBroadcast = true;
+  }
+
+  if (shouldBroadcast) {
+    const gatewayContext = getGatewayContextFromSendContext(sendContext);
+    await broadcastProjectPresence(projectId, gatewayContext);
   }
 
   return { statusCode: 200 };

@@ -829,7 +829,7 @@ Apply migration manually on dev DB (same block as in `db-updates.txt`).
 | Route | Behavior |
 |-------|----------|
 | `$connect` | Validate `?token=` (Better Auth bearer) or `?devUserId=` when `NODE_ENV=dev`; store auth binding |
-| `$default` | `join` → `checkProjectAccess`, connection cap, insert `project_ws_connections`; `presence` → touch `last_seen_at` |
+| `$default` | `join` → `checkProjectAccess`, prune stale connections, infra socket cap (50), insert `project_ws_connections`; `presence` → touch `last_seen_at` |
 | `$disconnect` | Delete connection + auth rows |
 
 Gated by `projects` feature flag (404 when off).

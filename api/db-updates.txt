@@ -370,3 +370,13 @@ CREATE INDEX IF NOT EXISTS idx_projects_source_root
 
 ALTER TABLE project_clips
   ADD COLUMN IF NOT EXISTS loop_end_seconds FLOAT;
+
+
+-- Migration: Project WS stale connection pruning support
+-- Date: 2026-07-30
+-- Index for pruning abandoned sockets (missed $disconnect after restart/crash).
+-- One-time cleanup of already-stale rows; ongoing prune is in projectWsConnectionCleanup.js.
+
+CREATE INDEX IF NOT EXISTS idx_project_ws_connections_last_seen
+  ON project_ws_connections(project_id, last_seen_at);
+

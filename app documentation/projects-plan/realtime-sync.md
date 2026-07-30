@@ -33,7 +33,7 @@ Phase 1 skips realtime — REST autosave only. **REST mutating routes must enfor
 
 1. **`$connect`:** pass session JWT or auth token in query string; validate before accepting connection.
 2. **`join`:** verify `projectAccess` (membership + role); reject viewers from sending ops (viewers may receive broadcasts).
-3. **Cap:** reject join when active connections ≥ `effectiveMaxMembers`.
+3. **Cap:** reject join when active connections ≥ hard infra limit (`PROJECT_WS_MAX_CONNECTIONS_PER_PROJECT`, default 50). Membership seats are enforced at invite/accept. Stale rows (`last_seen_at` older than `PROJECT_WS_CONNECTION_STALE_SECONDS`) are pruned before the cap check and before presence broadcasts.
 
 ---
 
