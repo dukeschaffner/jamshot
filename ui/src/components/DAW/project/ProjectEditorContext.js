@@ -142,6 +142,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     releaseMetadataLock,
     acquireTrackLock,
     releaseTrackLock,
+    announceClipCreate,
   } = useProjectSync();
   const { trackManagerRef, tracks, syncTracksFromManager, clipboard, selectedRegionId, selectedTrackId, playheadLocation, selectRegion, gridLines } = useDAW();
 
@@ -637,6 +638,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           if (!swapped) {
             markRegionSyncFailed(track, region, pollResult.error);
           } else {
+            announceClipCreate({ clipId: serverClipId, revision });
             notifyProjectMutated();
           }
         } else {
@@ -683,6 +685,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       }
     },
     [
+      announceClipCreate,
       bumpInFlight,
       markRegionSyncFailed,
       notifyProjectMutated,
@@ -910,6 +913,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           placementPayload
         );
         applyProjectServerState(response.data);
+        announceClipCreate({
+          clipId: response.data.clipId,
+          revision: response.data.revision,
+        });
         notifyProjectMutated();
         return true;
       } catch (err) {
@@ -928,6 +935,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       }
     },
     [
+      announceClipCreate,
       applyProjectServerState,
       canEdit,
       handleRevisionConflict,
@@ -999,6 +1007,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           placementPayload
         );
         applyProjectServerState(response.data);
+        announceClipCreate({
+          clipId: response.data.clipId,
+          revision: response.data.revision,
+        });
         notifyProjectMutated();
         return true;
       } catch (err) {
@@ -1017,6 +1029,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       }
     },
     [
+      announceClipCreate,
       applyProjectServerState,
       canEdit,
       handleRevisionConflict,
@@ -1076,6 +1089,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           })
         );
         applyProjectServerState(response.data);
+        announceClipCreate({
+          clipId: response.data.clipId,
+          revision: response.data.revision,
+        });
         notifyProjectMutated();
         return true;
       } catch (err) {
@@ -1094,6 +1111,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       }
     },
     [
+      announceClipCreate,
       applyProjectServerState,
       canEdit,
       handleRevisionConflict,
@@ -1564,7 +1582,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
 
   useEffect(() => {
     const applyRemoteOpMessage = (opMessage) => {
-      const applyChange = () => {
+      const applyChange = async () => {
         if (isSnapshotPreviewRef.current) {
           return;
         }
@@ -1580,6 +1598,22 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         }
 
         if (!trackManagerRef.current) return;
+
+        if (opMessage.payload?.kind === 'clip.create') {
+          const guid = projectDataRef.current?.guid;
+          if (!guid) return;
+
+          try {
+            const response = await projectApi.getProject(guid);
+            if (isSnapshotPreviewRef.current) return;
+
+            applyProjectServerState(response.data);
+            notifyProjectMutated();
+          } catch (error) {
+            console.error('Failed to apply remote clip.create:', error);
+          }
+          return;
+        }
 
         const isTransportOp = opMessage.payload?.kind === 'project.transport';
         if (isTransportOp) {
@@ -1648,6 +1682,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       eventBus.off(DAW_EVENTS.PROJECT.CLIP_DRAG_END, handleDragEnd);
     };
   }, [
+    applyProjectServerState,
     notifyProjectMutated,
     onProjectStateChange,
     syncTracksFromManager,

@@ -263,6 +263,7 @@ export function shouldApplyRemoteOp(opPayload, fromUserId, localUserId) {
     'track.create',
     'track.delete',
     'track.reorder',
+    'clip.create',
   ]);
 
   return alwaysApplyKinds.has(opPayload?.kind);

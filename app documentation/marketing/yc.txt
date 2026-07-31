@@ -4,6 +4,9 @@ Hey Ashley, I created a music collaboration social media - it's a completely nov
 dev
 Hey Mahae, I created a music collaboration social media - like if Twitter used music based posts/comments instead of text based. I've got a celebrity ambassador on board, and we're looking for someone to help with new features and preparing to scale. let's chat!
 
+dev2
+Hey Randal, I created a music collaboration social media - like if Twitter used music based posts/comments instead of text based; it's a completely new method of collaboration. The platform also includes a web-based DAW and a C++ audio plugin. I've got a celebrity ambassador on board, and we're looking for a founding engineer to accelerate development. let's chat!
+
 https://www.youtube.com/watch?v=iqurYVWg7-g
 
 

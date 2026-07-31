@@ -55,9 +55,13 @@ function createSendContext(connectionId, socket) {
         entry.projectId = projectId;
       }
     },
-    broadcastToProject: async (projectId, payload) => {
+    broadcastToProject: async (projectId, payload, options = {}) => {
       const body = JSON.stringify(payload);
+      const excludeConnectionId = options.excludeConnectionId ?? null;
       for (const [id, entry] of connectionRegistry) {
+        if (excludeConnectionId && id === excludeConnectionId) {
+          continue;
+        }
         if (entry.projectId === projectId && entry.socket.readyState === entry.socket.OPEN) {
           entry.socket.send(body);
         }

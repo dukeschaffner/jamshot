@@ -8,7 +8,7 @@ import { postToConnection } from './projectWsApiGateway.js';
  * @property {'local'|'apigateway'} mode
  * @property {string} [domainName]
  * @property {string} [stage]
- * @property {(projectId: number, payload: object) => Promise<void>} [broadcastToProject]
+ * @property {(projectId: number, payload: object, options?: { excludeConnectionId?: string|null }) => Promise<void>} [broadcastToProject]
  */
 
 /**

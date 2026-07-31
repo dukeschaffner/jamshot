@@ -1,5 +1,6 @@
 /**
  * Buffers remote project ops until revision order is satisfied or clip drag ends.
+ * Supports async apply functions so clip.create can fetch full state before later ops run.
  */
 export class ProjectRemoteOpQueue {
   constructor() {
@@ -7,12 +8,27 @@ export class ProjectRemoteOpQueue {
     this.buffer = new Map();
     this.isClipDragActive = false;
     this.dragPaused = [];
+    this.applyChain = Promise.resolve();
   }
 
   setLastAppliedRevision(revision) {
     if (revision == null) return;
-    this.lastAppliedRevision = Number(revision);
-    this.flushReady();
+    const next = Number(revision);
+    if (!Number.isFinite(next)) return;
+    if (this.lastAppliedRevision != null && next < this.lastAppliedRevision) {
+      return;
+    }
+    this.lastAppliedRevision = next;
+    this.pruneBufferThrough(this.lastAppliedRevision);
+    void this.flushReady();
+  }
+
+  pruneBufferThrough(revision) {
+    for (const key of [...this.buffer.keys()]) {
+      if (key <= revision) {
+        this.buffer.delete(key);
+      }
+    }
   }
 
   setClipDragActive(active) {
@@ -24,7 +40,7 @@ export class ProjectRemoteOpQueue {
 
   /**
    * @param {object} opMessage — { revision, fromUserId, payload }
-   * @param {(message: object) => void} applyFn
+   * @param {(message: object) => void|Promise<void>} applyFn
    */
   enqueue(opMessage, applyFn) {
     const revision = Number(opMessage.revision);
@@ -44,23 +60,41 @@ export class ProjectRemoteOpQueue {
     }
 
     if (revision === this.lastAppliedRevision + 1) {
-      applyFn(opMessage);
-      this.lastAppliedRevision = revision;
-      this.flushReady(applyFn);
+      this.applyChain = this.applyChain
+        .then(async () => {
+          if (revision !== this.lastAppliedRevision + 1) {
+            if (revision > this.lastAppliedRevision) {
+              this.buffer.set(revision, { opMessage, applyFn });
+            }
+            return;
+          }
+          await applyFn(opMessage);
+          if (this.lastAppliedRevision == null || this.lastAppliedRevision < revision) {
+            this.lastAppliedRevision = revision;
+          }
+          this.pruneBufferThrough(this.lastAppliedRevision);
+          await this.flushReady();
+        })
+        .catch((error) => {
+          console.error('Remote op apply failed:', error);
+        });
       return;
     }
 
     this.buffer.set(revision, { opMessage, applyFn });
   }
 
-  flushReady(applyFn) {
+  async flushReady() {
     let nextRevision = this.lastAppliedRevision + 1;
     while (this.buffer.has(nextRevision)) {
       const entry = this.buffer.get(nextRevision);
       this.buffer.delete(nextRevision);
-      entry.applyFn(entry.opMessage);
-      this.lastAppliedRevision = nextRevision;
-      nextRevision += 1;
+      await entry.applyFn(entry.opMessage);
+      if (this.lastAppliedRevision == null || this.lastAppliedRevision < nextRevision) {
+        this.lastAppliedRevision = nextRevision;
+      }
+      this.pruneBufferThrough(this.lastAppliedRevision);
+      nextRevision = this.lastAppliedRevision + 1;
     }
   }
 
@@ -89,5 +123,6 @@ export class ProjectRemoteOpQueue {
     this.buffer.clear();
     this.dragPaused = [];
     this.isClipDragActive = false;
+    this.applyChain = Promise.resolve();
   }
 }

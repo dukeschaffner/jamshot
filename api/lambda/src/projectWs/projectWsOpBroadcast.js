@@ -7,15 +7,24 @@ import { postToConnection } from './projectWsApiGateway.js';
  * @param {number} projectId
  * @param {object} payload
  * @param {import('./projectWsPresence.js').WsGatewayContext} gatewayContext
+ * @param {{ excludeConnectionId?: string|null }} [options]
  */
-export async function broadcastProjectOpEvent(projectId, payload, gatewayContext) {
+export async function broadcastProjectOpEvent(
+  projectId,
+  payload,
+  gatewayContext,
+  options = {}
+) {
+  const excludeConnectionId = options.excludeConnectionId ?? null;
   const connectionIds = await getProjectConnectionIds(projectId);
   if (connectionIds.length === 0) {
     return;
   }
 
   if (gatewayContext.mode === 'local' && gatewayContext.broadcastToProject) {
-    await gatewayContext.broadcastToProject(projectId, payload);
+    await gatewayContext.broadcastToProject(projectId, payload, {
+      excludeConnectionId,
+    });
     return;
   }
 
@@ -23,8 +32,12 @@ export async function broadcastProjectOpEvent(projectId, payload, gatewayContext
     throw new Error('Missing API Gateway broadcast context');
   }
 
+  const targets = excludeConnectionId
+    ? connectionIds.filter((id) => id !== excludeConnectionId)
+    : connectionIds;
+
   await Promise.allSettled(
-    connectionIds.map((connectionId) =>
+    targets.map((connectionId) =>
       postToConnection({
         domainName: gatewayContext.domainName,
         stage: gatewayContext.stage,

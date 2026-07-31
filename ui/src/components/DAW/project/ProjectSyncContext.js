@@ -390,6 +390,27 @@ export function ProjectSyncProvider({ project, children }) {
     [connectionStatus]
   );
 
+  const announceClipCreate = useCallback(
+    ({ clipId, revision }) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN || connectionStatus !== 'connected') {
+        return;
+      }
+      if (clipId == null || revision == null) {
+        return;
+      }
+
+      ws.send(
+        JSON.stringify({
+          type: 'clip_announce',
+          clipId,
+          revision,
+        })
+      );
+    },
+    [connectionStatus]
+  );
+
   const acquireTrackLock = useCallback(
     (trackId) => {
       const numericTrackId = Number(trackId);
@@ -534,6 +555,7 @@ export function ProjectSyncProvider({ project, children }) {
       isTrackLockedByOther,
       isWsConnected,
       sendProjectOp,
+      announceClipCreate,
     }),
     [
       onlineUsers,
@@ -548,6 +570,7 @@ export function ProjectSyncProvider({ project, children }) {
       isTrackLockedByOther,
       isWsConnected,
       sendProjectOp,
+      announceClipCreate,
     ]
   );
 
@@ -574,6 +597,7 @@ export function useProjectSync() {
       isTrackLockedByOther: () => false,
       isWsConnected: () => false,
       sendProjectOp: async () => ({ ok: false, fallbackRest: true }),
+      announceClipCreate: () => {},
     };
   }
   return context;

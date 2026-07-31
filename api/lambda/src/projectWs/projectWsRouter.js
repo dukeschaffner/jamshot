@@ -8,6 +8,7 @@ import {
   storeConnectionAuth,
 } from './projectWsConnections.js';
 import { handleOpMessage } from './handleOps.js';
+import { handleClipAnnounceMessage } from './handleClipAnnounce.js';
 import { handleJoinMessage } from './handleJoin.js';
 import {
   handleLockAcquireMessage,
@@ -28,7 +29,7 @@ import { maybeCreateAutoSnapshot } from '../utils/projectSnapshotAutoUtils.js';
  * @property {string} [stage]
  * @property {(payload: object) => Promise<void>|void} [send]
  * @property {(projectId: number) => void} [setProjectId]
- * @property {(projectId: number, payload: object) => Promise<void>} [broadcastToProject]
+ * @property {(projectId: number, payload: object, options?: { excludeConnectionId?: string|null }) => Promise<void>} [broadcastToProject]
  */
 
 /**
@@ -151,6 +152,10 @@ async function handleDefault(event, connectionId, sendContext) {
 
   if (parsed?.type === 'op') {
     return handleOpMessage({ connectionId, body, sendContext });
+  }
+
+  if (parsed?.type === 'clip_announce') {
+    return handleClipAnnounceMessage({ connectionId, body, sendContext });
   }
 
   return { statusCode: 400, body: 'Unsupported message type' };
