@@ -92,6 +92,14 @@ struct JsonUtils
             region.startTime = regionJson.getProperty("startTime", 0.0);
             region.endTime = regionJson.getProperty("endTime", 0.0);
 
+            auto loopEndVar = regionJson.getProperty("loopEnd", juce::var());
+            if (!loopEndVar.isVoid() && !loopEndVar.isUndefined())
+            {
+                const double loopEnd = static_cast<double>(loopEndVar);
+                if (loopEnd > region.endTime)
+                    region.loopEnd = loopEnd;
+            }
+
             regions.add(region);
 
         }
@@ -136,6 +144,10 @@ struct JsonUtils
         auto trimEndVar = clipJson.getProperty("trimEnd", juce::var());
         if (!trimEndVar.isVoid() && !trimEndVar.isUndefined())
             clip.trimEnd = static_cast<double>(trimEndVar);
+
+        auto loopEndVar = clipJson.getProperty("loopEnd", juce::var());
+        if (!loopEndVar.isVoid() && !loopEndVar.isUndefined())
+            clip.loopEnd = static_cast<double>(loopEndVar);
 
         clip.gain = static_cast<float>(clipJson.getProperty("gain", 1.0));
         clip.trackGain = static_cast<float>(clipJson.getProperty("trackGain", 1.0));

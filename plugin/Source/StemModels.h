@@ -11,6 +11,7 @@ struct StemRegion
     double offset = 0.0;    // Offset in seconds
     double startTime = 0.0; // Start time in seconds
     double endTime = 0.0;   // End time in seconds
+    double loopEnd = 0.0;   // Absolute timeline end of loop area; 0 or <= endTime = no loop
 };
 
 //==============================================================================
@@ -54,6 +55,7 @@ struct ProjectClip
     double startTime = 0.0;
     double trimStart = 0.0;
     std::optional<double> trimEnd;
+    std::optional<double> loopEnd;
     float gain = 1.0f;
     float trackGain = 1.0f;
 };

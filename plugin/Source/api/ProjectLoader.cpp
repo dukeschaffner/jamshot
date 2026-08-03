@@ -415,6 +415,9 @@ StemTrack ProjectLoader::clipToStemTrack(const ProjectClip& clip,
     const double clipDuration = juce::jmax(0.0, trimEnd - clip.trimStart);
     region.endTime = clip.startTime + clipDuration;
 
+    if (clip.loopEnd.has_value() && *clip.loopEnd > region.endTime)
+        region.loopEnd = *clip.loopEnd;
+
     stem.regions.add(region);
     return stem;
 }

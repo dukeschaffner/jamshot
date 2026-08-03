@@ -7,6 +7,7 @@ using namespace juce;
 namespace
 {
     constexpr int kPeakBuckets = 128;
+    constexpr int kMaxVisibleLoopTiles = 200;
 
     std::vector<float> computeMinMaxPeaks(const AudioBuffer<float>& buffer,
                                           double trimStart,
@@ -182,6 +183,8 @@ void ProjectTimelineView::refreshFromProcessor()
                 visual.startTime = stem.regions[0].startTime;
                 visual.endTime = stem.regions[0].endTime;
                 visual.trimStart = stem.regions[0].offset;
+                if (stem.regions[0].loopEnd > stem.regions[0].endTime)
+                    visual.loopEnd = stem.regions[0].loopEnd;
                 usedRegion = true;
                 break;
             }
@@ -196,6 +199,8 @@ void ProjectTimelineView::refreshFromProcessor()
                 const double trimEnd = clip.trimEnd.has_value() ? *clip.trimEnd : assetDurationSec;
                 const double clipDuration = jmax(0.0, trimEnd - clip.trimStart);
                 visual.endTime = clip.startTime + clipDuration;
+                if (clip.loopEnd.has_value() && *clip.loopEnd > visual.endTime)
+                    visual.loopEnd = *clip.loopEnd;
             }
 
             const double trimEndForPeaks = clip.trimEnd.has_value()
@@ -279,10 +284,15 @@ void ProjectTimelineView::paintContent(Graphics& g)
         // Clips
         for (const auto& clip : lane.clips)
         {
+            const bool isLooped = clip.loopEnd > clip.endTime;
+            const double visualEnd = isLooped ? clip.loopEnd : clip.endTime;
             const float x1 = static_cast<float>(kLabelWidth) + secondsToX(clip.startTime, timelineWidth);
-            const float x2 = static_cast<float>(kLabelWidth) + secondsToX(clip.endTime, timelineWidth);
-            const float clipW = jmax(2.0f, x2 - x1);
+            const float xEnd = static_cast<float>(kLabelWidth) + secondsToX(clip.endTime, timelineWidth);
+            const float xLoop = static_cast<float>(kLabelWidth) + secondsToX(visualEnd, timelineWidth);
+            const float clipW = jmax(2.0f, xLoop - x1);
+            const float audibleW = jmax(1.0f, xEnd - x1);
             Rectangle<float> clipBounds(x1, static_cast<float>(y + 4), clipW, static_cast<float>(kLaneHeight - 8));
+            Rectangle<float> audibleBounds(x1, clipBounds.getY(), audibleW, clipBounds.getHeight());
 
             g.setColour(laneColour(i));
             g.fillRoundedRectangle(clipBounds, 3.0f);
@@ -290,18 +300,20 @@ void ProjectTimelineView::paintContent(Graphics& g)
             g.setColour(Colors::BLACK.withAlpha(0.15f));
             g.drawRoundedRectangle(clipBounds, 3.0f, 1.0f);
 
-            if (clip.peaksReady && !clip.peaks.empty())
-            {
+            auto drawWaveformInBounds = [&](Rectangle<float> bounds, float alpha) {
+                if (!clip.peaksReady || clip.peaks.empty())
+                    return;
+
                 const int numBuckets = static_cast<int>(clip.peaks.size() / 2);
                 Path waveform;
-                const float midY = clipBounds.getCentreY();
-                const float halfH = clipBounds.getHeight() * 0.4f;
+                const float midY = bounds.getCentreY();
+                const float halfH = bounds.getHeight() * 0.4f;
 
                 bool started = false;
                 for (int b = 0; b < numBuckets; ++b)
                 {
                     const float t = static_cast<float>(b) / static_cast<float>(jmax(1, numBuckets - 1));
-                    const float x = clipBounds.getX() + t * clipBounds.getWidth();
+                    const float x = bounds.getX() + t * bounds.getWidth();
                     const float maxVal = clip.peaks[static_cast<size_t>(b) * 2u + 1u];
                     const float yTop = midY - maxVal * halfH;
 
@@ -319,15 +331,64 @@ void ProjectTimelineView::paintContent(Graphics& g)
                 for (int b = numBuckets - 1; b >= 0; --b)
                 {
                     const float t = static_cast<float>(b) / static_cast<float>(jmax(1, numBuckets - 1));
-                    const float x = clipBounds.getX() + t * clipBounds.getWidth();
+                    const float x = bounds.getX() + t * bounds.getWidth();
                     const float minVal = clip.peaks[static_cast<size_t>(b) * 2u];
                     const float yBottom = midY - minVal * halfH;
                     waveform.lineTo(x, yBottom);
                 }
 
                 waveform.closeSubPath();
-                g.setColour(Colors::BLACK.withAlpha(0.35f));
+                g.setColour(Colors::BLACK.withAlpha(alpha));
                 g.fillPath(waveform);
+            };
+
+            // Audible portion — full opacity waveform
+            drawWaveformInBounds(audibleBounds, 0.35f);
+
+            if (isLooped)
+            {
+                // Light wash over the loop area
+                Rectangle<float> loopArea(xEnd, clipBounds.getY(),
+                                          jmax(0.0f, xLoop - xEnd), clipBounds.getHeight());
+                g.setColour(Colors::WHITE.withAlpha(0.12f));
+                g.fillRect(loopArea);
+
+                const double audibleLength = clip.endTime - clip.startTime;
+                if (audibleLength > 0.0)
+                {
+                    double tileStart = clip.endTime;
+                    int tileIndex = 0;
+                    while (tileStart < clip.loopEnd && tileIndex < kMaxVisibleLoopTiles)
+                    {
+                        const double tileDuration = jmin(audibleLength, clip.loopEnd - tileStart);
+                        const float tileX = static_cast<float>(kLabelWidth)
+                            + secondsToX(tileStart, timelineWidth);
+                        const float tileW = secondsToX(tileStart + tileDuration, timelineWidth)
+                            - secondsToX(tileStart, timelineWidth);
+
+                        // Boundary line at each tile start
+                        g.setColour(Colors::BLACK.withAlpha(0.18f));
+                        g.fillRect(tileX, clipBounds.getY(), 1.0f, clipBounds.getHeight());
+
+                        // Faded waveform tile (partial last tile clipped)
+                        if (clip.peaksReady && !clip.peaks.empty() && tileW > 0.5f)
+                        {
+                            const float fullTileW = secondsToX(tileStart + audibleLength, timelineWidth)
+                                - secondsToX(tileStart, timelineWidth);
+                            Rectangle<float> fullTileBounds(tileX, clipBounds.getY(),
+                                                            jmax(1.0f, fullTileW), clipBounds.getHeight());
+                            Rectangle<float> visibleTileBounds(tileX, clipBounds.getY(),
+                                                               tileW, clipBounds.getHeight());
+
+                            Graphics::ScopedSaveState saved(g);
+                            g.reduceClipRegion(visibleTileBounds.toNearestInt());
+                            drawWaveformInBounds(fullTileBounds, 0.175f);
+                        }
+
+                        tileStart += audibleLength;
+                        ++tileIndex;
+                    }
+                }
             }
         }
 

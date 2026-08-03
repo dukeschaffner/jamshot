@@ -9,7 +9,7 @@
 - if i've loaded a project and then switch between the projects and tracks tabs, after it clears the state it shows "Fetching audio assets (4 of 4)" even though there is no project or track selected... its just a stale message
 - show loops in plugin timeline
 - track that was locked still allowed record (then showed error message saying that track is locked after recording)
-
+- "open in plugin" should open the project view in the plugin as well... seems like right now it just sets the project state in the plugin, but doesnt actually open the project view
 
 Private project audio is public and enumerable — Final keys are projects/{serialProjectId}/{serialAssetId}/audio.wav on the public R2 CDN with no auth. Anyone who can guess or scrape those IDs can download invite-only project audio. Tracks use random filenames; projects don’t.
 

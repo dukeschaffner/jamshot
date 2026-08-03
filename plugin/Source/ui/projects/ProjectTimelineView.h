@@ -35,6 +35,7 @@ private:
         int trackId = 0;
         double startTime = 0.0;
         double endTime = 0.0;
+        double loopEnd = 0.0; // > endTime means looped; 0 or <= endTime = no loop
         double trimStart = 0.0;
         std::shared_ptr<juce::AudioBuffer<float>> audioBuffer;
         std::vector<float> peaks; // interleaved min/max pairs, normalized -1..1
