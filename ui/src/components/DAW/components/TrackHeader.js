@@ -14,6 +14,10 @@ import AudioState from '../core/AudioStateStore';
 import Popover from '../../Popover';
 import TrackContributorAvatar from './TrackContributorAvatar';
 import { useUser } from '../../../contexts/UserContext';
+import {
+  readTrackMuteSolo,
+  writeTrackMuteSolo,
+} from '../project/projectTrackMuteSoloStorage';
 
 export default function TrackHeader({
   track,
@@ -25,9 +29,8 @@ export default function TrackHeader({
   const [faderValue, setFaderValue] = useState(0.8);
   const [isDraggingFader, setIsDraggingFader] = useState(false);
   const faderRef = useRef(null);
+  const isDraggingFaderRef = useRef(false);
 
-  const [isSolo, setIsSolo] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
   const {
     isPlaying,
     isRecording,
@@ -42,7 +45,20 @@ export default function TrackHeader({
     armedTrackId,
     setArmedTrackId,
     renameProjectTrack,
+    persistProjectTrackGain,
+    projectData,
   } = useProjectEditor();
+
+  const projectGuid = projectData?.guid ?? null;
+
+  const [isSolo, setIsSolo] = useState(() => {
+    if (!isProjectEditor || !projectGuid || track?.id == null) return false;
+    return !!readTrackMuteSolo(projectGuid, track.id)?.solo;
+  });
+  const [isMuted, setIsMuted] = useState(() => {
+    if (!isProjectEditor || !projectGuid || track?.id == null) return false;
+    return !!readTrackMuteSolo(projectGuid, track.id)?.muted;
+  });
 
   const { user } = useUser();
 
@@ -72,12 +88,33 @@ export default function TrackHeader({
     };
   }, []);
 
-  // Initialize fader value from track gain
+  // Initialize fader value from track gain (skip while user is dragging)
   useEffect(() => {
+    if (isDraggingFaderRef.current) return;
     if (track && track.gain !== undefined) {
       setFaderValue(track.gain);
     }
   }, [track]);
+
+  // Remote gain updates (collaborators) — update fader without persisting
+  useEffect(() => {
+    const handleGainState = (data) => {
+      if (data?.trackId !== track.id || typeof data.gain !== 'number') return;
+      if (isDraggingFaderRef.current) return;
+      setFaderValue(data.gain);
+    };
+    eventBus.on(DAW_EVENTS.TRACK.GAIN_STATE, handleGainState);
+    return () => {
+      eventBus.off(DAW_EVENTS.TRACK.GAIN_STATE, handleGainState);
+    };
+  }, [track.id]);
+
+  // Persist client-only mute/solo for project tracks
+  useEffect(() => {
+    if (!isProjectEditor || !projectGuid || track?.id == null) return;
+    if (track.id === 'recording-track') return;
+    writeTrackMuteSolo(projectGuid, track.id, { muted: isMuted, solo: isSolo });
+  }, [isMuted, isSolo, isProjectEditor, projectGuid, track?.id]);
 
   // Helper function to convert dB to meter width percentage
   const dbToPercent = (db) => {
@@ -158,6 +195,7 @@ export default function TrackHeader({
 
   const handleFaderMouseDown = (e) => {
     e.stopPropagation();
+    isDraggingFaderRef.current = true;
     setIsDraggingFader(true);
   };
 
@@ -166,22 +204,22 @@ export default function TrackHeader({
     const handleMouseMove = (e) => {
       if (!isDraggingFader) return;
 
-      // Get container for mouse position calculation
-      const container = faderRef.current?.parentElement;
-      if (!container) return;
-
-      const rect = container.getBoundingClientRect();
-      const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      if (!faderRef.current) return;
 
       // Calculate the new gain value (0 to 1 range)
       const faderRect = faderRef.current.getBoundingClientRect();
       const newMousePos = Math.max(0, Math.min(100, ((e.clientX - faderRect.left) / faderRect.width) * 100));
       const newGain = Math.min(1, Math.max(0, newMousePos / 100));
       setFaderValue(newGain);
+
+      if (isProjectEditor && canEditProject && track?.id != null && track.id !== 'recording-track') {
+        persistProjectTrackGain(track.id, newGain);
+      }
     };
 
     const handleMouseUp = (e) => {
       e.stopPropagation();
+      isDraggingFaderRef.current = false;
       setIsDraggingFader(false);
     };
 
@@ -192,7 +230,13 @@ export default function TrackHeader({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingFader]);
+  }, [
+    isDraggingFader,
+    isProjectEditor,
+    canEditProject,
+    persistProjectTrackGain,
+    track?.id,
+  ]);
 
   const handleSoloClick = (e) => {
     e.stopPropagation();

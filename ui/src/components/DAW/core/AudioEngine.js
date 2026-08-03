@@ -561,10 +561,32 @@ class AudioEngine {
   handleTrackVolumeChange(data) {
     const { trackId, volume } = data;
     const track = this.trackManager.getTrack(trackId);
-    
-    if (track) {
-      track.setGain(volume);
+    if (!track || typeof volume !== 'number' || !Number.isFinite(volume)) {
+      return;
     }
+
+    // Always store the requested gain so unmute/unsolo restores the new level.
+    track.gain = volume;
+    if (track.meterGainNode) {
+      track.meterGainNode.gain.setValueAtTime(volume, this.context.currentTime);
+      track.meterGainNode.gain.linearRampToValueAtTime(
+        volume,
+        this.context.currentTime + 0.05
+      );
+    }
+
+    const allTracks = this.trackManager.getAllTracks();
+    const hasSoloTrack = allTracks.some((t) => t.isSolo);
+    const silencedBySolo = hasSoloTrack && !track.isSolo;
+    if (silencedBySolo || track.isMuted) {
+      return;
+    }
+
+    track.gainNode.gain.setValueAtTime(volume, this.context.currentTime);
+    track.gainNode.gain.linearRampToValueAtTime(
+      volume,
+      this.context.currentTime + 0.05
+    );
   }
   
   handleTrackSolo(data) {
@@ -590,32 +612,41 @@ class AudioEngine {
     const hasSoloTrack = allTracks.some(track => track.isSolo);
 
     // Apply solo logic to all tracks
-    allTracks.forEach(track => {
+    allTracks.forEach((track) => {
+      let targetGain;
       if (hasSoloTrack) {
         // If any track is solo'd, only solo tracks should play
-        const shouldPlay = track.isSolo;
-        const targetGain = shouldPlay ? track.gain : 0;
-        track.gainNode.gain.setValueAtTime(targetGain, this.context.currentTime);
-        track.gainNode.gain.linearRampToValueAtTime(targetGain, this.context.currentTime + 0.05);
+        targetGain = track.isSolo ? track.gain : 0;
       } else {
-        // If no tracks are solo'd, all tracks play normally
-        track.gainNode.gain.setValueAtTime(track.gain, this.context.currentTime);
-        track.gainNode.gain.linearRampToValueAtTime(track.gain, this.context.currentTime + 0.05);
+        // No solo — restore normal levels, respecting mute
+        targetGain = track.isMuted ? 0 : track.gain;
       }
+      track.gainNode.gain.setValueAtTime(targetGain, this.context.currentTime);
+      track.gainNode.gain.linearRampToValueAtTime(
+        targetGain,
+        this.context.currentTime + 0.05
+      );
     });
   }
 
   handleTrackMute(data) {
     const { trackId, isMuted } = data;
 
-    // Set the mute state for the target track
     const targetTrack = this.trackManager.getTrack(trackId);
-    if (targetTrack) {
-      // Apply mute logic - if muted, set gain to 0, otherwise set to track gain
-      const targetGain = isMuted ? 0 : targetTrack.gain;
-      targetTrack.gainNode.gain.setValueAtTime(targetGain, this.context.currentTime);
-      targetTrack.gainNode.gain.linearRampToValueAtTime(targetGain, this.context.currentTime + 0.05);
-    }
+    if (!targetTrack) return;
+
+    targetTrack.isMuted = !!isMuted;
+
+    const allTracks = this.trackManager.getAllTracks();
+    const hasSoloTrack = allTracks.some((t) => t.isSolo);
+    const silencedBySolo = hasSoloTrack && !targetTrack.isSolo;
+    const targetGain =
+      isMuted || silencedBySolo ? 0 : targetTrack.gain;
+    targetTrack.gainNode.gain.setValueAtTime(targetGain, this.context.currentTime);
+    targetTrack.gainNode.gain.linearRampToValueAtTime(
+      targetGain,
+      this.context.currentTime + 0.05
+    );
   }
   
   // Metronome event handlers

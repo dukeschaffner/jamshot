@@ -26,6 +26,9 @@ SterioPluginProcessor::SterioPluginProcessor()
     playbackEngine.setStemsProvider([this]() {
         return this->getLoadedStems(); // Thread-safe atomic read
     });
+    playbackEngine.setMixStateProvider([this]() {
+        return this->projectMixController.getState();
+    });
 
 #ifdef JUCE_DEBUG
     MessageStore::getInstance().setDebugMode(true);
@@ -294,6 +297,7 @@ void SterioPluginProcessor::clearSelection()
         loadedProjectTracks.clear();
     }
     clearLoadedStems();
+    projectMixController.clearActive();
 }
 
 juce::Optional<TrackInfo> SterioPluginProcessor::getCurrentTrack() const
@@ -379,7 +383,10 @@ void SterioPluginProcessor::loadProjectClips(const juce::String& projectId,
     {
         DBG("No project clips to load.");
         if (projectId.isNotEmpty())
+        {
+            projectMixController.onProjectLoaded(projectId, getLoadedProjectTrackIds());
             sendProjectLoadComplete(projectId);
+        }
         return;
     }
 
@@ -408,6 +415,7 @@ void SterioPluginProcessor::loadProjectClips(const juce::String& projectId,
             juce::MessageManager::callAsync([this, projectId]() {
                 projectLoader.setLoadProgressCallback(nullptr);
                 pluginState.clearProjectLoadProgress();
+                projectMixController.onProjectLoaded(projectId, getLoadedProjectTrackIds());
                 sendProjectLoadComplete(projectId);
             });
         }
@@ -459,6 +467,7 @@ void SterioPluginProcessor::syncProjectClips(const juce::String& projectId,
             }
 
             juce::MessageManager::callAsync([this, projectId]() {
+                projectMixController.pruneToTracks(getLoadedProjectTrackIds());
                 sendProjectSyncComplete(projectId);
                 // Re-broadcast current project so ProjectView refreshes the timeline
                 auto project = pluginState.getCurrentProject();
@@ -638,10 +647,16 @@ void SterioPluginProcessor::handleSetProjectMessage(juce::DynamicObject* obj)
     pluginState.setCurrentProject(projectInfo);
 
     {
-        const juce::ScopedLock lock(projectPayloadLock);
-        loadedProjectId = projectId;
-        loadedProjectClips = payload.clips;
-        loadedProjectTracks = payload.tracks;
+        juce::String previousId;
+        {
+            const juce::ScopedLock lock(projectPayloadLock);
+            previousId = loadedProjectId;
+            loadedProjectId = projectId;
+            loadedProjectClips = payload.clips;
+            loadedProjectTracks = payload.tracks;
+        }
+
+        projectMixController.resetIfProjectChanged(previousId, projectId);
     }
 
     loadProjectClips(projectId, payload.clips);
@@ -700,10 +715,16 @@ void SterioPluginProcessor::selectProject(const ProjectSummary& project)
             pluginState.setCurrentProject(projectInfo);
 
             {
-                const juce::ScopedLock lock(projectPayloadLock);
-                loadedProjectId = project.guid;
-                loadedProjectClips = payload.clips;
-                loadedProjectTracks = payload.tracks;
+                juce::String previousId;
+                {
+                    const juce::ScopedLock lock(projectPayloadLock);
+                    previousId = loadedProjectId;
+                    loadedProjectId = project.guid;
+                    loadedProjectClips = payload.clips;
+                    loadedProjectTracks = payload.tracks;
+                }
+
+                projectMixController.resetIfProjectChanged(previousId, project.guid);
             }
 
             loadProjectClips(project.guid, payload.clips);
@@ -860,14 +881,51 @@ juce::AudioProcessorEditor* SterioPluginProcessor::createEditor()
 }
 
 //==============================================================================
+juce::Array<int> SterioPluginProcessor::getLoadedProjectTrackIds() const
+{
+    juce::Array<int> ids;
+    const juce::ScopedLock lock(projectPayloadLock);
+    for (const auto& track : loadedProjectTracks)
+        ids.add(track.trackId);
+    return ids;
+}
+
+std::shared_ptr<const ProjectMixState> SterioPluginProcessor::getProjectMixState() const
+{
+    return projectMixController.getState();
+}
+
+void SterioPluginProcessor::toggleProjectTrackMute(int projectTrackId)
+{
+    projectMixController.toggleMute(projectTrackId);
+}
+
+void SterioPluginProcessor::toggleProjectTrackSolo(int projectTrackId)
+{
+    projectMixController.toggleSolo(projectTrackId);
+}
+
 void SterioPluginProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    juce::ignoreUnused(destData);
+    juce::String projectId;
+    {
+        const juce::ScopedLock lock(projectPayloadLock);
+        projectId = loadedProjectId;
+    }
+    projectMixController.writeToMemoryBlock(destData, projectId);
 }
 
 void SterioPluginProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    juce::ignoreUnused(data, sizeInBytes);
+    juce::String projectId;
+    juce::Array<int> trackIds;
+    {
+        const juce::ScopedLock lock(projectPayloadLock);
+        projectId = loadedProjectId;
+        for (const auto& track : loadedProjectTracks)
+            trackIds.add(track.trackId);
+    }
+    projectMixController.readFromMemory(data, sizeInBytes, projectId, trackIds);
 }
 
 

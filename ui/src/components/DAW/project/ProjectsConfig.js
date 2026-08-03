@@ -6,6 +6,8 @@ export const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
 export const CLIP_PERSIST_DEBOUNCE_MS = 500;
 export const PLUGIN_AUTO_SYNC_DEBOUNCE_MS = 500;
 export const PROJECT_PLUGIN_AUTO_SYNC_STORAGE_KEY = 'project_plugin_auto_sync_enabled';
+/** localStorage key prefix for per-project track mute/solo (client-only). */
+export const PROJECT_TRACK_MUTE_SOLO_STORAGE_KEY = 'project_track_mute_solo';
 
 /** Must match `api/lambda/src/projectWs/projectWsConfig.js`. */
 export const PROJECT_WS_PROTOCOL_VERSION = 1;

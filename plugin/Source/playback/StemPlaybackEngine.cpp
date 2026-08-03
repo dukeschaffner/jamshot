@@ -23,6 +23,11 @@ void StemPlaybackEngine::setStemsProvider(StemsProvider provider)
     resetPlayback();
 }
 
+void StemPlaybackEngine::setMixStateProvider(MixStateProvider provider)
+{
+    mixStateProvider = std::move(provider);
+}
+
 void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const TransportState& transport)
 {
     // Note: Buffer is not cleared here - we mix with existing content (input audio)
@@ -33,6 +38,10 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
 
     auto stems = stemsProvider(); // Atomic read from processor's storage
 
+    std::shared_ptr<const ProjectMixState> mixState;
+    if (mixStateProvider)
+        mixState = mixStateProvider();
+
     // Process all stems if transport is playing
     if (transport.isPlaying && transport.hasValidPosition && !stems.isEmpty())
     {
@@ -41,6 +50,9 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
         // Process each stem
         for (const auto& stem : stems)
         {
+            if (mixState && !mixState->shouldPlayTrack(stem.projectTrackId))
+                continue;
+
             processStem(stem, buffer, transport, currentSampleRate, numSamples);
         }
     }

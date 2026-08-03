@@ -8,7 +8,7 @@
 #include "../../Colors.h"
 
 //==============================================================================
-/** Read-only project timeline with track lanes, clip waveforms, and DAW-synced playhead. */
+/** Project timeline with track lanes, clip waveforms, DAW-synced playhead, and M/S. */
 class ProjectTimelineView : public juce::Component, private juce::Timer
 {
 public:
@@ -24,9 +24,11 @@ public:
     void setProjectDuration(double durationSeconds);
 
 private:
-    static constexpr int kLabelWidth = 80;
+    static constexpr int kLabelWidth = 88;
     static constexpr int kLaneHeight = 48;
     static constexpr int kLaneGap = 2;
+    static constexpr int kMixButtonSize = 16;
+    static constexpr int kMixButtonGap = 3;
     static constexpr double kDefaultSampleRate = 44100.0;
 
     struct ClipVisual
@@ -53,6 +55,10 @@ private:
     public:
         TimelineContent(ProjectTimelineView& owner) : ownerView(owner) {}
         void paint(juce::Graphics& g) override { ownerView.paintContent(g); }
+        void mouseDown(const juce::MouseEvent& event) override
+        {
+            ownerView.handleContentMouseDown(event);
+        }
 
     private:
         ProjectTimelineView& ownerView;
@@ -70,6 +76,9 @@ private:
 
     void timerCallback() override;
     void paintContent(juce::Graphics& g);
+    void handleContentMouseDown(const juce::MouseEvent& event);
+    juce::Rectangle<int> muteButtonBounds(int laneIndex) const;
+    juce::Rectangle<int> soloButtonBounds(int laneIndex) const;
     void updatePlayheadPosition();
     void computePeaksAsync(int clipId, std::shared_ptr<juce::AudioBuffer<float>> buffer,
                            double trimStart, double trimEnd, double sampleRate);

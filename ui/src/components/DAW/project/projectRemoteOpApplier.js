@@ -120,7 +120,15 @@ function applyTrackUpdate(trackManager, payload) {
     track.title = payload.name;
   }
   if (payload.gain !== undefined) {
-    track.setGain(payload.gain);
+    // Route through VOLUME_CHANGE so mute/solo silencing is preserved.
+    eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, {
+      trackId: track.id,
+      volume: payload.gain,
+    });
+    eventBus.emit(DAW_EVENTS.TRACK.GAIN_STATE, {
+      trackId: track.id,
+      gain: payload.gain,
+    });
   }
   if (payload.muted !== undefined) {
     track.isMuted = payload.muted;

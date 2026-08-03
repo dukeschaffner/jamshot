@@ -258,28 +258,78 @@ Colour ProjectTimelineView::laneColour(int index) const
     return palette[static_cast<size_t>(index) % (sizeof(palette) / sizeof(palette[0]))];
 }
 
+Rectangle<int> ProjectTimelineView::muteButtonBounds(int laneIndex) const
+{
+    const int y = laneIndex * (kLaneHeight + kLaneGap) + kLaneHeight - kMixButtonSize - 4;
+    return { 4, y, kMixButtonSize, kMixButtonSize };
+}
+
+Rectangle<int> ProjectTimelineView::soloButtonBounds(int laneIndex) const
+{
+    const int y = laneIndex * (kLaneHeight + kLaneGap) + kLaneHeight - kMixButtonSize - 4;
+    return { 4 + kMixButtonSize + kMixButtonGap, y, kMixButtonSize, kMixButtonSize };
+}
+
+void ProjectTimelineView::handleContentMouseDown(const MouseEvent& event)
+{
+    const auto pos = event.getPosition();
+    for (int i = 0; i < lanes.size(); ++i)
+    {
+        const int trackId = lanes.getReference(i).info.trackId;
+        if (muteButtonBounds(i).contains(pos))
+        {
+            processorRef.toggleProjectTrackMute(trackId);
+            content.repaint();
+            return;
+        }
+        if (soloButtonBounds(i).contains(pos))
+        {
+            processorRef.toggleProjectTrackSolo(trackId);
+            content.repaint();
+            return;
+        }
+    }
+}
+
 void ProjectTimelineView::paintContent(Graphics& g)
 {
     g.fillAll(Colors::WHITE);
 
     const int width = content.getWidth();
     const int timelineWidth = jmax(1, width - kLabelWidth);
+    const auto mixState = processorRef.getProjectMixState();
 
     for (int i = 0; i < lanes.size(); ++i)
     {
         const auto& lane = lanes.getReference(i);
         const int y = i * (kLaneHeight + kLaneGap);
+        const bool isMuted = mixState && mixState->isTrackMuted(lane.info.trackId);
+        const bool isSolo = mixState && mixState->soloTrackId == lane.info.trackId;
 
         // Lane background
         g.setColour(i % 2 == 0 ? Colors::WHITE : Colors::LIGHT_GREY);
         g.fillRect(0, y, width, kLaneHeight);
 
-        // Track label
+        // Track label (above M/S buttons)
         g.setColour(Colors::BLACK);
         g.setFont(Font(11.0f, Font::bold));
         g.drawText(lane.info.name.isNotEmpty() ? lane.info.name : ("Track " + String(lane.info.trackId)),
-                   4, y, kLabelWidth - 8, kLaneHeight,
+                   4, y + 2, kLabelWidth - 8, 18,
                    Justification::centredLeft, true);
+
+        // Mute / Solo toggles
+        auto drawMixButton = [&](Rectangle<int> bounds, const char* label, bool active, Colour activeColour) {
+            g.setColour(active ? activeColour : Colors::LIGHT_GREY.darker(0.05f));
+            g.fillRoundedRectangle(bounds.toFloat(), 3.0f);
+            g.setColour(active ? Colors::BLACK : Colors::GREY);
+            g.drawRoundedRectangle(bounds.toFloat(), 3.0f, 1.0f);
+            g.setFont(Font(10.0f, Font::bold));
+            g.setColour(Colors::BLACK);
+            g.drawText(label, bounds, Justification::centred, false);
+        };
+
+        drawMixButton(muteButtonBounds(i), "M", isMuted, Colors::RUSTIC_PINK);
+        drawMixButton(soloButtonBounds(i), "S", isSolo, Colors::SEAFOAM);
 
         // Clips
         for (const auto& clip : lane.clips)

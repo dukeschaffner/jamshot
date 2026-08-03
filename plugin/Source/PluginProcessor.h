@@ -4,6 +4,7 @@
 #include <functional>
 #include "auth/AuthManager.h"
 #include "playback/StemPlaybackEngine.h"
+#include "playback/ProjectMixController.h"
 #include "TransportState.h"
 #include "SampleRateConverter.h"
 #include "api/ConnectionManager.h"
@@ -96,6 +97,15 @@ public:
     /** Thread-safe access to currently loaded project clips (for timeline). */
     juce::Array<ProjectClip> getLoadedProjectClips() const;
 
+    /** Atomic read of project mute/solo monitor state (safe for UI + audio). */
+    std::shared_ptr<const ProjectMixState> getProjectMixState() const;
+
+    /** Toggle mute for a project track (message thread). */
+    void toggleProjectTrackMute(int projectTrackId);
+
+    /** Toggle exclusive solo for a project track (message thread). */
+    void toggleProjectTrackSolo(int projectTrackId);
+
     /** Request reload of current stems or project clips with new sample rate */
     void requestStemReload();
 
@@ -105,6 +115,7 @@ public:
     Services& getServices() { return services; }
 
 private:
+    juce::Array<int> getLoadedProjectTrackIds() const;
     void handleSetTrackMessage(juce::DynamicObject* obj);
     void handleStemMetadataSyncMessage(juce::DynamicObject* obj);
     void handleSetProjectMessage(juce::DynamicObject* obj);
@@ -149,6 +160,7 @@ private:
 
     // Track and stem state management (thread-safe)
     std::shared_ptr<juce::Array<StemTrack>> stems;
+    ProjectMixController projectMixController;
     juce::CriticalSection projectPayloadLock;
     juce::String loadedProjectId;
     juce::Array<ProjectClip> loadedProjectClips;

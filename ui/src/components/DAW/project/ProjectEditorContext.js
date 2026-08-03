@@ -49,6 +49,7 @@ import {
 } from './projectRegionClipboard';
 import { buildClipOpPayload } from './projectWsOpPayloads';
 import { useProjectPersistence } from '@/hooks/useProjectPersistence';
+import { useProjectTrackGainPersistence } from '@/hooks/useProjectTrackGainPersistence';
 import { useProjectPluginAutoSync } from '@/hooks/useProjectPluginAutoSync';
 import { applyProjectTransportSettings, emitProjectTrackMixerState } from './projectLoader';
 import {
@@ -100,6 +101,7 @@ const INACTIVE_PROJECT_EDITOR = {
   addProjectTrack: async () => {},
   deleteProjectTrack: async () => {},
   renameProjectTrack: async () => {},
+  persistProjectTrackGain: () => {},
   reorderProjectTracks: async () => {},
   applyProjectServerState: () => {},
   retryClipUpload: async () => {},
@@ -362,6 +364,27 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       acquireMetadataLock,
       releaseMetadataLock,
     });
+
+  const { scheduleTrackGainPersist } = useProjectTrackGainPersistence({
+    projectGuid: projectData?.guid,
+    revision: projectData?.revision,
+    applyProjectServerState,
+    onWsOpSuccess: applyLocalWsOpResult,
+    onRevisionOnlyUpdate,
+    showToast,
+    handleRevisionConflict,
+    onRestSaveSuccess: notifyProjectMutated,
+    sendProjectOp,
+    isWsConnected,
+  });
+
+  const persistProjectTrackGain = useCallback(
+    (trackId, gain) => {
+      if (!canEdit || isSnapshotPreview) return;
+      scheduleTrackGainPersist(trackId, gain);
+    },
+    [canEdit, isSnapshotPreview, scheduleTrackGainPersist]
+  );
 
   const restoreProjectSnapshotById = useCallback(
     async (snapshotId) => {
@@ -2239,6 +2262,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       addProjectTrack,
       deleteProjectTrack,
       renameProjectTrack,
+      persistProjectTrackGain,
       reorderProjectTracks,
       applyProjectServerState,
       retryClipUpload,
@@ -2281,6 +2305,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       addProjectTrack,
       deleteProjectTrack,
       renameProjectTrack,
+      persistProjectTrackGain,
       reorderProjectTracks,
       applyProjectServerState,
       retryClipUpload,

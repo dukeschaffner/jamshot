@@ -71,6 +71,8 @@ export const DAW_EVENTS = {
       MUTE: 'track:mute',
       SOLO: 'track:solo',
       VOLUME_CHANGE: 'track:volume:change',
+      /** Remote/local authoritative gain for UI fader sync (does not imply user drag). */
+      GAIN_STATE: 'track:gain:state',
       PAN_CHANGE: 'track:pan:change'
     },
 

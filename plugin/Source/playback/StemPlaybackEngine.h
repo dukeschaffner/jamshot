@@ -2,10 +2,12 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <functional>
+#include <memory>
 #include "../api/TrackLoader.h"
 #include "../StemModels.h"
 #include "../TransportState.h"
 #include "../SampleRateConverter.h"
+#include "ProjectMixState.h"
 
 //==============================================================================
 /** StemPlaybackEngine handles the playback of multiple audio stems in sync with DAW transport */
@@ -14,12 +16,17 @@ class StemPlaybackEngine
 public:
     /** Function type for providing stems atomically */
     using StemsProvider = std::function<juce::Array<StemTrack>()>;
+    /** Function type for providing project mix state atomically (lock-free read). */
+    using MixStateProvider = std::function<std::shared_ptr<const ProjectMixState>()>;
 
     StemPlaybackEngine();
     ~StemPlaybackEngine();
 
     /** Set the provider function that returns stems atomically. Called from processBlock. */
     void setStemsProvider(StemsProvider provider);
+
+    /** Set the provider for project mute/solo state. Called from processBlock. */
+    void setMixStateProvider(MixStateProvider provider);
 
     /** Process a block of audio. Call this from your processBlock method */
     void processBlock(juce::AudioBuffer<float>& buffer, const TransportState& transport);
@@ -42,6 +49,7 @@ private:
                     const TransportState& transport, double sampleRate, int numSamples);
 
     StemsProvider stemsProvider; // Provider function for atomically accessing stems
+    MixStateProvider mixStateProvider;
     int64_t playbackSamplePosition = 0;
     int64_t previousTransportPosition = -1; // Track previous transport position to detect seeks
     bool wasPlaying = false;

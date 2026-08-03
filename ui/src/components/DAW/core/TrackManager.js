@@ -313,9 +313,12 @@ class TrackManager {
 
       const track = this.tracks.get(trackData.id);
       track.title = trackData.name;
-      track.setGain(trackData.gain ?? 0.8);
-      track.isMuted = !!trackData.muted;
-      track.isSolo = !!trackData.solo;
+      // Gain via VOLUME_CHANGE so mute/solo silencing is preserved.
+      // Mute/solo are client-only — do not overwrite from server defaults.
+      eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, {
+        trackId: track.id,
+        volume: trackData.gain ?? 0.8,
+      });
       track.sortOrder = trackData.sortOrder ?? 0;
     }
 

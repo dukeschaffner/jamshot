@@ -18,7 +18,8 @@ struct StemRegion
 /** Represents a stem track with audio buffer and region data */
 struct StemTrack
 {
-    int trackId = 0;                    // Track ID
+    int trackId = 0;                    // Clip/stem ID (legacy + project clip id)
+    int projectTrackId = 0;             // Project track id for mute/solo gating (0 = N/A)
     juce::String audioUrl;              // CDN URL for the audio file
     float gain = 1.0f;                  // Gain multiplier (0.0 to 1.0)
     int order = 0;                      // Playback order

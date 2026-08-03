@@ -120,6 +120,9 @@ target_sources(SterioPlugin
         Source/auth/AuthManager.h
         Source/playback/StemPlaybackEngine.cpp
         Source/playback/StemPlaybackEngine.h
+        Source/playback/ProjectMixState.h
+        Source/playback/ProjectMixController.cpp
+        Source/playback/ProjectMixController.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
         Source/PluginProcessor.cpp
@@ -182,6 +185,9 @@ source_group("Sterio" FILES
     Source/auth/AuthManager.h
     Source/playback/StemPlaybackEngine.cpp
     Source/playback/StemPlaybackEngine.h
+    Source/playback/ProjectMixState.h
+    Source/playback/ProjectMixController.cpp
+    Source/playback/ProjectMixController.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/PluginProcessor.cpp

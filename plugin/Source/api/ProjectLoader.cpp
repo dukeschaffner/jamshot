@@ -399,6 +399,7 @@ StemTrack ProjectLoader::clipToStemTrack(const ProjectClip& clip,
 {
     StemTrack stem;
     stem.trackId = clip.clipId;
+    stem.projectTrackId = clip.trackId;
     stem.order = clip.trackId;
     stem.audioUrl = clip.audioUrl;
     stem.gain = clip.gain * clip.trackGain;
