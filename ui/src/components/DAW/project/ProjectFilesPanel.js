@@ -16,6 +16,10 @@ import WaveformWithAudio from '../components/WaveformWithAudio';
 import { useProjectEditor } from './ProjectEditorContext';
 import { setProjectAssetDragData } from './projectAssetDrag';
 import ProjectCollabTracksList from './ProjectCollabTracksList';
+import {
+  isProjectAccessDeniedError,
+  reloadForProjectAccessRevoked,
+} from './projectAccessRevoked';
 import styles from './ProjectFilesPanel.module.css';
 
 const PANEL_VIEWS = [
@@ -242,6 +246,10 @@ export default function ProjectFilesPanel() {
       setAssets(response.data.assets ?? []);
       setStorage(response.data.storage ?? null);
     } catch (err) {
+      if (isProjectAccessDeniedError(err)) {
+        reloadForProjectAccessRevoked();
+        return;
+      }
       const message =
         err.response?.data?.error || 'Failed to load project files. Please try again.';
       showToast({ message, variant: 'error' });

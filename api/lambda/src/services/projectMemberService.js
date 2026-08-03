@@ -3,6 +3,10 @@ import {
   checkProjectAccess,
   hasMinimumProjectRole,
 } from '../utils/projectAccess.js';
+import {
+  evictProjectMemberSessions,
+  revokeProjectMemberEditSession,
+} from '../projectWs/projectWsMemberSession.js';
 
 const ASSIGNABLE_ROLES = new Set(['admin', 'editor', 'viewer']);
 
@@ -101,6 +105,19 @@ export async function updateProjectMemberRole(
     [newRole, projectId, targetUserId]
   );
 
+  // Viewers may stay in the room for fanout, but must not keep edit locks.
+  if (newRole === 'viewer' && currentRole !== 'viewer') {
+    try {
+      await revokeProjectMemberEditSession(projectId, targetUserId);
+    } catch (err) {
+      console.error('[project-ws] failed to revoke locks after role demotion', {
+        projectId,
+        targetUserId,
+        error: err?.message ?? String(err),
+      });
+    }
+  }
+
   return { ok: true, role: newRole };
 }
 
@@ -151,6 +168,16 @@ export async function removeProjectMember(projectId, actorUserId, targetUserId) 
     [projectId, targetUserId]
   );
 
+  try {
+    await evictProjectMemberSessions(projectId, targetUserId, { reason: 'removed' });
+  } catch (err) {
+    console.error('[project-ws] failed to evict kicked member sessions', {
+      projectId,
+      targetUserId,
+      error: err?.message ?? String(err),
+    });
+  }
+
   return { ok: true };
 }
 
@@ -177,6 +204,16 @@ export async function leaveProject(projectId, userId) {
     `DELETE FROM project_members WHERE project_id = $1 AND user_id = $2`,
     [projectId, userId]
   );
+
+  try {
+    await evictProjectMemberSessions(projectId, userId, { reason: 'left' });
+  } catch (err) {
+    console.error('[project-ws] failed to evict leaving member sessions', {
+      projectId,
+      userId,
+      error: err?.message ?? String(err),
+    });
+  }
 
   return { ok: true };
 }

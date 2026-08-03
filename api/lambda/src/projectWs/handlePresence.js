@@ -5,6 +5,7 @@ import {
   updateConnectionPresence,
 } from './projectWsConnections.js';
 import { pruneStaleProjectConnections } from './projectWsConnectionCleanup.js';
+import { sendWsMessage } from './projectWsApiGateway.js';
 import {
   broadcastProjectPresence,
   getGatewayContextFromSendContext,
@@ -55,6 +56,12 @@ export async function handlePresenceMessage({ connectionId, body, sendContext })
 
   const projectId = await getConnectionProjectId(connectionId);
   if (projectId == null) {
+    // Evicted members lose their room row; tell the client to re-join (or get ACCESS_DENIED).
+    await sendWsMessage(sendContext, {
+      type: 'error',
+      code: 'NOT_JOINED',
+      message: 'Join a project before sending presence',
+    });
     return { statusCode: 400, body: 'Join a project before sending presence' };
   }
 

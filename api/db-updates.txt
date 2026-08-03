@@ -380,3 +380,11 @@ ALTER TABLE project_clips
 CREATE INDEX IF NOT EXISTS idx_project_ws_connections_last_seen
   ON project_ws_connections(project_id, last_seen_at);
 
+-- Migration: Store API Gateway endpoint on project WS connections
+-- Date: 2026-08-03
+-- Lets REST membership changes notify/close live sockets via ManageConnections.
+
+ALTER TABLE project_ws_connections
+  ADD COLUMN IF NOT EXISTS gateway_domain VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS gateway_stage VARCHAR(64);
+

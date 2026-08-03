@@ -4,6 +4,12 @@ export const PROJECT_WS_PROTOCOL_VERSION = 1;
 export const PROJECT_WS_DEV_PORT = 5003;
 
 /**
+ * Local-only HTTP path used by REST handlers to notify/close sockets
+ * (API Gateway Management API is unavailable in the WS dev server).
+ */
+export const PROJECT_WS_LOCAL_CONTROL_PATH = '/internal/evict';
+
+/**
  * Hard cap on live sockets per project room (infra safety valve).
  * Membership seats are enforced at invite/accept — not here.
  */

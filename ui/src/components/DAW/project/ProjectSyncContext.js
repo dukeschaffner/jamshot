@@ -18,6 +18,7 @@ import {
   PROJECT_WS_PROTOCOL_VERSION,
 } from './ProjectsConfig';
 import { buildProjectWsConnectUrl } from './projectWsConnectUrl';
+import { reloadForProjectAccessRevoked } from './projectAccessRevoked';
 
 const RECONNECT_DELAY_MS = 3000;
 const LOCK_ACQUIRE_TIMEOUT_MS = 5000;
@@ -64,6 +65,8 @@ export function ProjectSyncProvider({ project, children }) {
   const heldTrackIdsRef = useRef(new Set());
   const holdsMetadataLockRef = useRef(false);
   const revisionRef = useRef(project?.revision ?? null);
+  const hasJoinedRef = useRef(false);
+  const suppressReconnectRef = useRef(false);
   const pendingAcquireRef = useRef(
     /** @type {Map<string, { resolve: (ok: boolean) => void, trackId: number }>} */ (new Map())
   );
@@ -124,15 +127,65 @@ export function ProjectSyncProvider({ project, children }) {
     }
   }, [user?.id]);
 
+  const clearLocalSyncState = useCallback(() => {
+    setOnlineUsers([]);
+    setTrackLockHolders({});
+    setMetadataLockHolder(null);
+    heldTrackIdsRef.current.clear();
+    holdsMetadataLockRef.current = false;
+    pendingAcquireRef.current.clear();
+    pendingMetadataAcquireRef.current = null;
+    for (const pending of pendingOpsRef.current.values()) {
+      pending.resolve({ ok: false, fallbackRest: true });
+    }
+    pendingOpsRef.current.clear();
+  }, []);
+
   const handleWsMessage = useCallback(
     (data) => {
+      if (
+        data.type === 'error' &&
+        (data.code === 'ACCESS_REVOKED' ||
+          (data.code === 'ACCESS_DENIED' && !hasJoinedRef.current))
+      ) {
+        suppressReconnectRef.current = true;
+        hasJoinedRef.current = false;
+        setConnectionStatus('revoked');
+        clearLocalSyncState();
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.close();
+        }
+        reloadForProjectAccessRevoked();
+        return;
+      }
+
+      // Room row was dropped (e.g. kick) — re-join; ACCESS_DENIED stops the session.
+      if (data.type === 'error' && data.code === 'NOT_JOINED') {
+        hasJoinedRef.current = false;
+        const ws = wsRef.current;
+        if (ws?.readyState === WebSocket.OPEN && projectRef) {
+          ws.send(
+            JSON.stringify({
+              type: 'join',
+              projectId: projectRef,
+              revision: revisionRef.current ?? null,
+              protocolVersion: PROJECT_WS_PROTOCOL_VERSION,
+            })
+          );
+        }
+        return;
+      }
+
       if (data.type === 'presence' && Array.isArray(data.users)) {
         setOnlineUsers(data.users);
         return;
       }
 
-      if (data.type === 'joined' && data.revision != null) {
-        revisionRef.current = data.revision;
+      if (data.type === 'joined') {
+        hasJoinedRef.current = true;
+        if (data.revision != null) {
+          revisionRef.current = data.revision;
+        }
         return;
       }
 
@@ -226,6 +279,8 @@ export function ProjectSyncProvider({ project, children }) {
       applyLockReleased,
       applyMetadataLockAcquired,
       applyMetadataLockReleased,
+      clearLocalSyncState,
+      projectRef,
     ]
   );
 
@@ -236,9 +291,11 @@ export function ProjectSyncProvider({ project, children }) {
 
     let cancelled = false;
     let reconnectTimer = null;
+    hasJoinedRef.current = false;
+    suppressReconnectRef.current = false;
 
     const connect = () => {
-      if (cancelled) {
+      if (cancelled || suppressReconnectRef.current) {
         return;
       }
 
@@ -256,7 +313,7 @@ export function ProjectSyncProvider({ project, children }) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (cancelled) {
+        if (cancelled || suppressReconnectRef.current) {
           return;
         }
         setConnectionStatus('connected');
@@ -283,23 +340,18 @@ export function ProjectSyncProvider({ project, children }) {
         if (cancelled) {
           return;
         }
-        setConnectionStatus('idle');
-        setOnlineUsers([]);
-        setTrackLockHolders({});
-        setMetadataLockHolder(null);
-        heldTrackIdsRef.current.clear();
-        holdsMetadataLockRef.current = false;
-        pendingAcquireRef.current.clear();
-        pendingMetadataAcquireRef.current = null;
-        for (const pending of pendingOpsRef.current.values()) {
-          pending.resolve({ ok: false, fallbackRest: true });
+        hasJoinedRef.current = false;
+        clearLocalSyncState();
+        if (suppressReconnectRef.current) {
+          setConnectionStatus('revoked');
+          return;
         }
-        pendingOpsRef.current.clear();
+        setConnectionStatus('idle');
         reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
       };
 
       ws.onerror = () => {
-        if (!cancelled) {
+        if (!cancelled && !suppressReconnectRef.current) {
           setConnectionStatus('error');
         }
       };
@@ -340,13 +392,9 @@ export function ProjectSyncProvider({ project, children }) {
         wsRef.current.close();
         wsRef.current = null;
       }
-      heldTrackIdsRef.current.clear();
-      holdsMetadataLockRef.current = false;
-      pendingAcquireRef.current.clear();
-      pendingMetadataAcquireRef.current = null;
-      pendingOpsRef.current.clear();
+      clearLocalSyncState();
     };
-  }, [projectRef, user?.id, handleWsMessage]);
+  }, [projectRef, user?.id, handleWsMessage, clearLocalSyncState]);
 
   const isWsConnected = useCallback(
     () => connectionStatus === 'connected',

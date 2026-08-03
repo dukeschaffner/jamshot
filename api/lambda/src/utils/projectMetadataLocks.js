@@ -85,6 +85,20 @@ export async function shortenMetadataLockOnDisconnect(connectionId, graceSeconds
 }
 
 /**
+ * Immediately release the project metadata lock if held by this user.
+ * @returns {Promise<boolean>}
+ */
+export async function releaseMetadataLockForUser({ projectId, userId }) {
+  const result = await pool.query(
+    `DELETE FROM project_metadata_locks
+     WHERE project_id = $1 AND user_id = $2 AND expires_at > NOW()
+     RETURNING project_id`,
+    [projectId, userId]
+  );
+  return result.rows.length > 0;
+}
+
+/**
  * Deny when another user holds a non-expired metadata lock.
  *
  * @param {object} params

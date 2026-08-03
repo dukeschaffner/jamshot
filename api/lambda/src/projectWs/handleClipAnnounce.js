@@ -2,6 +2,7 @@ import pool from '../config/db.js';
 import {
   getConnectionAuthUserId,
   getConnectionProjectId,
+  removeProjectConnection,
 } from './projectWsConnections.js';
 import { checkProjectAccess, hasMinimumProjectRole } from '../utils/projectAccess.js';
 import { sendWsMessage } from './projectWsApiGateway.js';
@@ -83,9 +84,10 @@ export async function handleClipAnnounceMessage({ connectionId, body, sendContex
 
   const access = await checkProjectAccess(projectId, userId);
   if (!access.hasAccess) {
+    await removeProjectConnection(connectionId);
     await sendWsMessage(sendContext, {
       type: 'error',
-      code: access.status === 401 ? 'AUTHENTICATION_REQUIRED' : 'ACCESS_DENIED',
+      code: access.status === 401 ? 'AUTHENTICATION_REQUIRED' : 'ACCESS_REVOKED',
       message: access.error,
     });
     return { statusCode: access.status };

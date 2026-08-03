@@ -1,6 +1,7 @@
 import {
   getConnectionAuthUserId,
   getConnectionProjectId,
+  removeProjectConnection,
 } from './projectWsConnections.js';
 import { checkProjectAccess, hasMinimumProjectRole } from '../utils/projectAccess.js';
 import { executeProjectOp } from '../utils/projectOpMutations.js';
@@ -67,11 +68,12 @@ async function requireEditorJoinedConnection(connectionId) {
 
   const access = await checkProjectAccess(projectId, userId);
   if (!access.hasAccess) {
+    await removeProjectConnection(connectionId);
     return {
       ok: false,
       statusCode: access.status,
       error: access.error,
-      code: access.status === 401 ? 'AUTHENTICATION_REQUIRED' : 'ACCESS_DENIED',
+      code: access.status === 401 ? 'AUTHENTICATION_REQUIRED' : 'ACCESS_REVOKED',
     };
   }
 

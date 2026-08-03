@@ -120,6 +120,7 @@ class ProjectWsEnvironment extends Construct {
         actions: ['execute-api:ManageConnections'],
         resources: [
           `arn:aws:execute-api:${stack.region}:${stack.account}:${this.webSocketApi.apiId}/${stageName}/POST/@connections/*`,
+          `arn:aws:execute-api:${stack.region}:${stack.account}:${this.webSocketApi.apiId}/${stageName}/DELETE/@connections/*`,
         ],
       })
     );

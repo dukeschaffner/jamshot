@@ -9,10 +9,12 @@ import {
   releaseTrackLock,
   renewTrackLocks,
 } from '../utils/projectTrackLocks.js';
+import { checkProjectAccess, hasMinimumProjectRole } from '../utils/projectAccess.js';
 import {
   getConnectionAuthUserId,
   getConnectionEditingTrack,
   getConnectionProjectId,
+  removeProjectConnection,
   updateConnectionPresence,
 } from './projectWsConnections.js';
 import { sendWsMessage } from './projectWsApiGateway.js';
@@ -68,6 +70,38 @@ async function requireJoinedConnection(connectionId) {
 }
 
 /**
+ * Locks require current membership + editor+ (viewers may watch but not hold locks).
+ */
+async function requireEditorJoinedConnection(connectionId) {
+  const joined = await requireJoinedConnection(connectionId);
+  if (!joined.ok) {
+    return joined;
+  }
+
+  const access = await checkProjectAccess(joined.projectId, joined.userId);
+  if (!access.hasAccess) {
+    await removeProjectConnection(connectionId);
+    return {
+      ok: false,
+      statusCode: access.status,
+      error: access.error,
+      code: access.status === 401 ? 'AUTHENTICATION_REQUIRED' : 'ACCESS_REVOKED',
+    };
+  }
+
+  if (!hasMinimumProjectRole(access.role, 'editor')) {
+    return {
+      ok: false,
+      statusCode: 403,
+      error: 'Editor access required',
+      code: 'ACCESS_DENIED',
+    };
+  }
+
+  return { ok: true, userId: joined.userId, projectId: joined.projectId, role: access.role };
+}
+
+/**
  * @param {object} params
  * @param {string} params.connectionId
  * @param {string|object|null} params.body
@@ -93,11 +127,13 @@ export async function handleLockAcquireMessage({ connectionId, body, sendContext
     return { statusCode: 400 };
   }
 
-  const joined = await requireJoinedConnection(connectionId);
+  const joined = await requireEditorJoinedConnection(connectionId);
   if (!joined.ok) {
     await sendWsMessage(sendContext, {
       type: 'error',
-      code: joined.statusCode === 401 ? 'AUTHENTICATION_REQUIRED' : 'VALIDATION_ERROR',
+      code:
+        joined.code ??
+        (joined.statusCode === 401 ? 'AUTHENTICATION_REQUIRED' : 'VALIDATION_ERROR'),
       message: joined.error,
     });
     return { statusCode: joined.statusCode };
@@ -243,7 +279,7 @@ export async function handleLockHeartbeatMessage({ connectionId, body }) {
     return { statusCode: 400, body: trackIdsParsed.error };
   }
 
-  const joined = await requireJoinedConnection(connectionId);
+  const joined = await requireEditorJoinedConnection(connectionId);
   if (!joined.ok) {
     return { statusCode: joined.statusCode, body: joined.error };
   }

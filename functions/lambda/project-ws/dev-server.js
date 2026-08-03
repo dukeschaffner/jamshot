@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import crypto from 'crypto';
+import http from 'http';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -15,7 +16,10 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'dev';
 const { routeProjectWsEvent } = await import(
   '../../../api/lambda/src/projectWs/projectWsRouter.js'
 );
-const { PROJECT_WS_DEV_PORT } = await import(
+const {
+  PROJECT_WS_DEV_PORT,
+  PROJECT_WS_LOCAL_CONTROL_PATH,
+} = await import(
   '../../../api/lambda/src/projectWs/projectWsConfig.js'
 );
 
@@ -23,8 +27,6 @@ const PORT = Number(process.env.PROJECT_WS_PORT || PROJECT_WS_DEV_PORT);
 
 /** @type {Map<string, { socket: import('ws').WebSocket, projectId?: number }>} */
 const connectionRegistry = new Map();
-
-const wss = new WebSocketServer({ port: PORT });
 
 function buildApiGatewayEvent({ routeKey, connectionId, query, body }) {
   return {
@@ -69,6 +71,93 @@ function createSendContext(connectionId, socket) {
     },
   };
 }
+
+/**
+ * REST → local WS control: notify/close sockets and fan out room events.
+ * @param {import('http').IncomingMessage} req
+ * @param {import('http').ServerResponse} res
+ */
+async function handleLocalControl(req, res) {
+  if (req.method !== 'POST' || req.url !== PROJECT_WS_LOCAL_CONTROL_PATH) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+    return;
+  }
+
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+
+  let body;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid JSON' }));
+    return;
+  }
+
+  const evictConnectionIds = Array.isArray(body.evictConnectionIds)
+    ? body.evictConnectionIds.map(String)
+    : [];
+  const evictMessage = body.evictMessage ?? null;
+  const broadcasts = Array.isArray(body.broadcasts) ? body.broadcasts : [];
+
+  for (const connectionId of evictConnectionIds) {
+    const entry = connectionRegistry.get(connectionId);
+    if (!entry) {
+      continue;
+    }
+
+    if (evictMessage && entry.socket.readyState === entry.socket.OPEN) {
+      try {
+        entry.socket.send(JSON.stringify(evictMessage));
+      } catch (error) {
+        console.error(`[project-ws-dev] failed to notify ${connectionId}:`, error);
+      }
+    }
+
+    entry.projectId = undefined;
+    try {
+      entry.socket.close(4003, 'Access revoked');
+    } catch (error) {
+      console.error(`[project-ws-dev] failed to close ${connectionId}:`, error);
+    }
+  }
+
+  for (const item of broadcasts) {
+    const projectId = Number(item?.projectId);
+    const payload = item?.payload;
+    if (!Number.isFinite(projectId) || !payload) {
+      continue;
+    }
+    const message = JSON.stringify(payload);
+    for (const [id, entry] of connectionRegistry) {
+      if (evictConnectionIds.includes(id)) {
+        continue;
+      }
+      if (entry.projectId === projectId && entry.socket.readyState === entry.socket.OPEN) {
+        entry.socket.send(message);
+      }
+    }
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ ok: true, evicted: evictConnectionIds.length }));
+}
+
+const server = http.createServer((req, res) => {
+  handleLocalControl(req, res).catch((error) => {
+    console.error('[project-ws-dev] control error:', error);
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Server error' }));
+    }
+  });
+});
+
+const wss = new WebSocketServer({ server });
 
 wss.on('connection', (socket, request) => {
   const connectionId = crypto.randomUUID();
@@ -126,5 +215,8 @@ wss.on('connection', (socket, request) => {
   });
 });
 
-console.log(`Project WS dev server listening on ws://localhost:${PORT}`);
-console.log('Connect with ?devUserId=USER_ID (NODE_ENV=dev) or ?token=BEARER_TOKEN');
+server.listen(PORT, () => {
+  console.log(`Project WS dev server listening on ws://localhost:${PORT}`);
+  console.log(`Local control: POST http://127.0.0.1:${PORT}${PROJECT_WS_LOCAL_CONTROL_PATH}`);
+  console.log('Connect with ?devUserId=USER_ID (NODE_ENV=dev) or ?token=BEARER_TOKEN');
+});
