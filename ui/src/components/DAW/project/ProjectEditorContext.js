@@ -144,6 +144,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     releaseMetadataLock,
     acquireTrackLock,
     releaseTrackLock,
+    isTrackLockedByOther,
     announceClipCreate,
   } = useProjectSync();
   const { trackManagerRef, tracks, syncTracksFromManager, clipboard, selectedRegionId, selectedTrackId, playheadLocation, selectRegion, gridLines } = useDAW();
@@ -723,8 +724,15 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       const trackId = armedTrackIdRef.current;
       if (!trackId || !trackManagerRef.current) return;
 
+      const releaseRecordingLock = () => {
+        releaseTrackLock(trackId);
+      };
+
       const track = trackManagerRef.current.getTrack(trackId);
-      if (!track || !data?.bufferKey) return;
+      if (!track || !data?.bufferKey) {
+        releaseRecordingLock();
+        return;
+      }
 
       const buffer = bufferRegistry.getBuffer(data.bufferKey);
       if (!buffer || buffer.duration <= 0) {
@@ -733,6 +741,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           variant: 'error',
         });
         bufferRegistry.removeBuffer(data.bufferKey);
+        releaseRecordingLock();
         return;
       }
 
@@ -756,6 +765,7 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
           variant: 'error',
         });
         bufferRegistry.removeBuffer(data.bufferKey);
+        releaseRecordingLock();
         return;
       }
 
@@ -771,7 +781,10 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         true
       );
 
-      if (!region) return;
+      if (!region) {
+        releaseRecordingLock();
+        return;
+      }
 
       updateRegionMeta(track, region, {
         processingStatus: CLIP_PROCESSING_STATUS.UPLOADING,
@@ -780,13 +793,17 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
         processingError: null,
       });
 
-      await uploadClipFromBuffer({
-        track,
-        region,
-        bufferKey: data.bufferKey,
-      });
+      try {
+        await uploadClipFromBuffer({
+          track,
+          region,
+          bufferKey: data.bufferKey,
+        });
+      } finally {
+        releaseRecordingLock();
+      }
     },
-    [showToast, trackManagerRef, uploadClipFromBuffer, gridLines]
+    [releaseTrackLock, showToast, trackManagerRef, uploadClipFromBuffer, gridLines]
   );
 
   const importAudioFileToTrack = useCallback(
@@ -1405,19 +1422,38 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
     ]
   );
 
-  const startProjectRecording = useCallback(() => {
+  const startProjectRecording = useCallback(async () => {
     if (!canEdit) return false;
-    if (armedTrackIdRef.current == null) {
+    const trackId = armedTrackIdRef.current;
+    if (trackId == null) {
       showToast({
         message: 'Arm a track before recording.',
         variant: 'error',
       });
       return false;
     }
-    AudioState.recordingTargetTrackId = armedTrackIdRef.current;
+
+    if (isTrackLockedByOther(trackId)) {
+      showToast({
+        message: 'Another collaborator is editing this track.',
+        variant: 'error',
+      });
+      return false;
+    }
+
+    const lockAcquired = await acquireTrackLock(trackId);
+    if (!lockAcquired) {
+      showToast({
+        message: 'Another collaborator is editing this track.',
+        variant: 'error',
+      });
+      return false;
+    }
+
+    AudioState.recordingTargetTrackId = trackId;
     eventBus.emit(DAW_EVENTS.RECORDING.START);
     return true;
-  }, [canEdit, showToast]);
+  }, [acquireTrackLock, canEdit, isTrackLockedByOther, showToast]);
 
   const retryClipUpload = useCallback(
     async (regionId, trackId) => {
@@ -1779,11 +1815,20 @@ export function ProjectEditorProvider({ projectData, onProjectStateChange, child
       handleProjectRecordingStopped(data);
     };
 
+    const handleRecordingError = () => {
+      const trackId = armedTrackIdRef.current;
+      if (trackId != null) {
+        releaseTrackLock(trackId);
+      }
+    };
+
     eventBus.on(DAW_EVENTS.RECORDING.STOPPED, handleRecordingStopped);
+    eventBus.on(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
     return () => {
       eventBus.off(DAW_EVENTS.RECORDING.STOPPED, handleRecordingStopped);
+      eventBus.off(DAW_EVENTS.RECORDING.ERROR, handleRecordingError);
     };
-  }, [handleProjectRecordingStopped]);
+  }, [handleProjectRecordingStopped, releaseTrackLock]);
 
   const addProjectTrack = useCallback(async () => {
     if (!canEdit || isTrackMutationPending || tracks.length >= MAX_PROJECT_TRACKS) {

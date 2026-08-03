@@ -45,18 +45,54 @@ export async function upsertProjectConnection({
   projectId,
   userId,
   editingTrackId = null,
+  gatewayDomain = null,
+  gatewayStage = null,
 }) {
   await pool.query(
     `INSERT INTO project_ws_connections
-       (connection_id, project_id, user_id, editing_track_id, connected_at, last_seen_at)
-     VALUES ($1, $2, $3, $4, NOW(), NOW())
+       (connection_id, project_id, user_id, editing_track_id,
+        gateway_domain, gateway_stage, connected_at, last_seen_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
      ON CONFLICT (connection_id) DO UPDATE SET
        project_id = EXCLUDED.project_id,
        user_id = EXCLUDED.user_id,
        editing_track_id = EXCLUDED.editing_track_id,
+       gateway_domain = COALESCE(EXCLUDED.gateway_domain, project_ws_connections.gateway_domain),
+       gateway_stage = COALESCE(EXCLUDED.gateway_stage, project_ws_connections.gateway_stage),
        last_seen_at = NOW()`,
-    [connectionId, projectId, userId, editingTrackId]
+    [connectionId, projectId, userId, editingTrackId, gatewayDomain, gatewayStage]
   );
+}
+
+/**
+ * @returns {Promise<Array<{ connectionId: string, gatewayDomain: string|null, gatewayStage: string|null }>>}
+ */
+export async function getProjectUserConnections(projectId, userId) {
+  const result = await pool.query(
+    `SELECT connection_id, gateway_domain, gateway_stage
+     FROM project_ws_connections
+     WHERE project_id = $1 AND user_id = $2`,
+    [projectId, userId]
+  );
+  return result.rows.map((row) => ({
+    connectionId: row.connection_id,
+    gatewayDomain: row.gateway_domain ?? null,
+    gatewayStage: row.gateway_stage ?? null,
+  }));
+}
+
+/**
+ * Remove all room rows for a user in a project (kick / leave).
+ * @returns {Promise<string[]>} removed connection ids
+ */
+export async function removeProjectUserConnections(projectId, userId) {
+  const result = await pool.query(
+    `DELETE FROM project_ws_connections
+     WHERE project_id = $1 AND user_id = $2
+     RETURNING connection_id`,
+    [projectId, userId]
+  );
+  return result.rows.map((row) => row.connection_id);
 }
 
 export async function touchConnectionLastSeen(connectionId) {

@@ -9,10 +9,12 @@ import {
   releaseTrackLock,
   renewTrackLocks,
 } from '../utils/projectTrackLocks.js';
+import { checkProjectAccess, hasMinimumProjectRole } from '../utils/projectAccess.js';
 import {
   getConnectionAuthUserId,
   getConnectionEditingTrack,
   getConnectionProjectId,
+  removeProjectConnection,
   updateConnectionPresence,
 } from './projectWsConnections.js';
 import { sendWsMessage } from './projectWsApiGateway.js';
@@ -65,6 +67,38 @@ async function requireJoinedConnection(connectionId) {
   }
 
   return { ok: true, userId, projectId };
+}
+
+/**
+ * Locks require current membership + editor+ (viewers may watch but not hold locks).
+ */
+async function requireEditorJoinedConnection(connectionId) {
+  const joined = await requireJoinedConnection(connectionId);
+  if (!joined.ok) {
+    return joined;
+  }
+
+  const access = await checkProjectAccess(joined.projectId, joined.userId);
+  if (!access.hasAccess) {
+    await removeProjectConnection(connectionId);
+    return {
+      ok: false,
+      statusCode: access.status,
+      error: access.error,
+      code: access.status === 401 ? 'AUTHENTICATION_REQUIRED' : 'ACCESS_REVOKED',
+    };
+  }
+
+  if (!hasMinimumProjectRole(access.role, 'editor')) {
+    return {
+      ok: false,
+      statusCode: 403,
+      error: 'Editor access required',
+      code: 'ACCESS_DENIED',
+    };
+  }
+
+  return { ok: true, userId: joined.userId, projectId: joined.projectId, role: access.role };
 }
 
 /**

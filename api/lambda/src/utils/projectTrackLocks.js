@@ -120,6 +120,20 @@ export async function shortenLocksOnDisconnect(connectionId) {
 }
 
 /**
+ * Immediately release all track locks held by a user in a project (kick / role demotion).
+ * @returns {Promise<number[]>} released track ids
+ */
+export async function releaseAllTrackLocksForUser({ projectId, userId }) {
+  const result = await pool.query(
+    `DELETE FROM project_track_locks
+     WHERE project_id = $1 AND user_id = $2 AND expires_at > NOW()
+     RETURNING track_id`,
+    [projectId, userId]
+  );
+  return result.rows.map((row) => Number(row.track_id));
+}
+
+/**
  * @param {number} projectId
  * @returns {Promise<Array<{ trackId: number, userId: string, connectionId: string }>>}
  */

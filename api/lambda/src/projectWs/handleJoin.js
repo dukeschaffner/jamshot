@@ -138,10 +138,19 @@ export async function handleJoinMessage({ connectionId, body, sendContext }) {
     }
   }
 
+  const gatewayDomain =
+    sendContext?.mode === 'local'
+      ? 'localhost'
+      : sendContext?.domainName ?? null;
+  const gatewayStage =
+    sendContext?.mode === 'local' ? 'dev' : sendContext?.stage ?? null;
+
   await upsertProjectConnection({
     connectionId,
     projectId: resolved.projectId,
     userId,
+    gatewayDomain,
+    gatewayStage,
   });
 
   if (sendContext?.setProjectId) {
