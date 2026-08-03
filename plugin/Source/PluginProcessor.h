@@ -112,6 +112,9 @@ public:
     /** Handle incoming message from WebSocket */
     void handleIncomingMessage(const std::string& json);
 
+    /** Fires on the message thread after a project is opened remotely via set_project. */
+    juce::ChangeBroadcaster& getRemoteProjectOpenBroadcaster() { return remoteProjectOpenBroadcaster; }
+
     Services& getServices() { return services; }
 
 private:
@@ -157,6 +160,9 @@ private:
 
     // Error reporting support
     std::function<void(const juce::String&)> errorCallback;
+
+    // Notifies the UI (async, message thread) when set_project opens a project
+    juce::ChangeBroadcaster remoteProjectOpenBroadcaster;
 
     // Track and stem state management (thread-safe)
     std::shared_ptr<juce::Array<StemTrack>> stems;

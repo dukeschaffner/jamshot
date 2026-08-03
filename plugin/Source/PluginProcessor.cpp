@@ -660,6 +660,10 @@ void SterioPluginProcessor::handleSetProjectMessage(juce::DynamicObject* obj)
     }
 
     loadProjectClips(projectId, payload.clips);
+
+    // Safe from the WebSocket thread; delivered async on the message thread so
+    // the editor (if open) can navigate to the project view.
+    remoteProjectOpenBroadcaster.sendChangeMessage();
 }
 
 void SterioPluginProcessor::selectProject(const ProjectSummary& project)

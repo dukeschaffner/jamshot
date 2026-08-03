@@ -6,12 +6,14 @@ MainContentComponent::MainContentComponent(Services& services, SterioPluginProce
     : trackListPanel(services),
       projectListPanel(services),
       authRef(services.auth),
+      pluginStateRef(services.pluginState),
       processorRef(processor),
       tracksTabButton("Tracks"),
       projectsTabButton("Projects"),
       projectView(processor, services)
 {
     authRef.addChangeListener(this);
+    processorRef.getRemoteProjectOpenBroadcaster().addChangeListener(this);
 
     addAndMakeVisible(tracksTabButton);
     addAndMakeVisible(projectsTabButton);
@@ -38,10 +40,16 @@ MainContentComponent::MainContentComponent(Services& services, SterioPluginProce
     projectListPanel.setVisible(false);
 
     updateView();
+
+    // If a project is already loaded (e.g. sent from the web DAW while the
+    // editor was closed), land directly on its project view.
+    if (authRef.isLoggedIn() && pluginStateRef.getCurrentProject().hasValue())
+        openLoadedProjectView();
 }
 
 MainContentComponent::~MainContentComponent()
 {
+    processorRef.getRemoteProjectOpenBroadcaster().removeChangeListener(this);
     authRef.removeChangeListener(this);
 }
 
@@ -71,8 +79,15 @@ void MainContentComponent::updateView()
     resized();
 }
 
-void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster*)
+void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster* source)
 {
+    if (source == &processorRef.getRemoteProjectOpenBroadcaster())
+    {
+        DBG("MainContentComponent::changeListenerCallback() - remote project opened");
+        openLoadedProjectView();
+        return;
+    }
+
     DBG("MainContentComponent::changeListenerCallback() - AuthManager changed");
     updateView();
 }
@@ -102,6 +117,28 @@ void MainContentComponent::showProjectList()
     projectListPanel.refreshProjects();
     updateLoggedInContentVisibility();
     resized();
+}
+
+void MainContentComponent::openLoadedProjectView()
+{
+    if (!authRef.isLoggedIn())
+        return;
+
+    auto projectOpt = pluginStateRef.getCurrentProject();
+    if (!projectOpt.hasValue())
+        return;
+
+    const auto& info = *projectOpt;
+    ProjectSummary summary;
+    summary.guid = info.guid;
+    summary.name = info.name;
+    summary.bpm = info.bpm;
+    summary.timeSignature = info.timeSignature;
+    summary.durationSeconds = info.durationSeconds;
+
+    // Bypass setActiveTab: it clears the selection and lands on the list view.
+    activeTab = ContentTab::Projects;
+    showProjectDetail(summary);
 }
 
 void MainContentComponent::showProjectDetail(const ProjectSummary& project)

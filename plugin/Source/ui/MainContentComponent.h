@@ -42,7 +42,11 @@ private:
     void showProjectDetail(const ProjectSummary& project);
     void updateLoggedInContentVisibility();
 
+    /** Navigate to the detail view for the project currently loaded in PluginState. */
+    void openLoadedProjectView();
+
     AuthManager& authRef;
+    PluginState& pluginStateRef;
     SterioPluginProcessor& processorRef;
 
     juce::Label loginMessage;
