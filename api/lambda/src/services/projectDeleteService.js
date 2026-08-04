@@ -92,12 +92,10 @@ export async function deleteProjectAsOwner(projectRef, userId) {
 
   const keys = [];
   for (const asset of assetsResult.rows) {
-    if (
-      asset.storage_key &&
-      asset.storage_key !== 'pending' &&
-      !String(asset.storage_key).startsWith('temp/')
-    ) {
-      keys.push({ Key: asset.storage_key });
+    const storageKey = asset.storage_key ? String(asset.storage_key) : '';
+    // 'pending' is a DB placeholder, not an R2 object. temp/ keys are real uploads.
+    if (storageKey && storageKey !== 'pending') {
+      keys.push({ Key: storageKey });
     }
     if (asset.waveform_url) {
       keys.push({ Key: asset.waveform_url });

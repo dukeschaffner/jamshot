@@ -17,14 +17,15 @@ function getS3Client() {
 }
 
 function isDeletableStorageKey(storageKey) {
-  if (!storageKey || storageKey === 'pending' || storageKey.startsWith('temp/')) {
+  // 'pending' is a DB placeholder, not an R2 object. temp/ keys are real uploads.
+  if (!storageKey || storageKey === 'pending') {
     return false;
   }
   return true;
 }
 
 /**
- * Delete a single object from R2. No-op for pending/temp keys.
+ * Delete a single object from R2. No-op for placeholder pending keys.
  *
  * @returns {Promise<{ key: string, deleted: boolean, error?: string }>}
  */

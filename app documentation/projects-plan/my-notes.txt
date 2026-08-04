@@ -12,7 +12,7 @@
 
 
 Private project audio is public and enumerable — Final keys are projects/{serialProjectId}/{serialAssetId}/audio.wav on the public R2 CDN with no auth. Anyone who can guess or scrape those IDs can download invite-only project audio. Tracks use random filenames; projects don’t.
-Storage can grow unbounded on import/copy + orphaned temp objects — Clip upload checks quota; track import and collab-asset copy do not, so R2 usage can blow past plan caps. Project delete and cleanup also skip temp/ / stuck pending assets, so failed/interrupted uploads leave objects that never get deleted.
+DONE: Storage can grow unbounded on import/copy + orphaned temp objects — import/collab-copy now check project storage quota; project delete / asset delete / cleanup delete temp/ keys; stuck pending/processing assets become cleanup-eligible after grace.
 
 
 optimize:

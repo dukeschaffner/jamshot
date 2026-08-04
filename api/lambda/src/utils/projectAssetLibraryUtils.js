@@ -111,7 +111,8 @@ async function listProjectAssets(projectId) {
 }
 
 function scheduleProjectAssetR2Delete(storageKey) {
-  if (!storageKey || storageKey === 'pending' || storageKey.startsWith('temp/')) {
+  // 'pending' is a DB placeholder before any object exists. temp/ keys are real uploads.
+  if (!storageKey || storageKey === 'pending') {
     return;
   }
 

@@ -9,6 +9,7 @@ import {
   copyProjectAssetWaveformFromSource,
 } from '../utils/projectAssetUtils.js';
 import { formatAssetListItem } from '../utils/projectAssetLibraryUtils.js';
+import { checkProjectStorageForAudioSources } from '../utils/projectImportStorageCheck.js';
 
 function isGuid(value) {
   return (
@@ -17,11 +18,33 @@ function isGuid(value) {
   );
 }
 
-function serviceError(status, error) {
+function serviceError(status, error, extras = {}) {
   const err = new Error(error);
   err.status = status;
   err.userFacing = true;
+  Object.assign(err, extras);
   return err;
+}
+
+async function loadUserSubscriptionRow(userId, executor = pool) {
+  const result = await executor.query(
+    `SELECT id, subscription_tier, subscription_expires_at
+     FROM users
+     WHERE id = $1`,
+    [userId]
+  );
+  return result.rows[0] || null;
+}
+
+function storageLimitFailure(storageCheck) {
+  return {
+    ok: false,
+    status: storageCheck.status,
+    error: storageCheck.reason,
+    usedBytes: storageCheck.usedBytes,
+    maxBytes: storageCheck.maxBytes,
+    ...(storageCheck.upgrade_link ? { upgrade_link: storageCheck.upgrade_link } : {}),
+  };
 }
 
 /**
@@ -201,6 +224,21 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
     };
   }
 
+  const user = await loadUserSubscriptionRow(userId, executor);
+  if (!user) {
+    return { ok: false, status: 404, error: 'User not found' };
+  }
+
+  const storageCheck = await checkProjectStorageForAudioSources(
+    project,
+    user,
+    [sourceTrack.audio_url],
+    { executor }
+  );
+  if (!storageCheck.allowed) {
+    return storageLimitFailure(storageCheck);
+  }
+
   let client = executor;
   if (shouldManageTransaction) {
     client = await pool.connect();
@@ -370,6 +408,25 @@ export async function importTrackIntoProject(
       400,
       `This arrangement is longer than the ${MAX_PROJECT_DURATION_SECONDS}s project limit`
     );
+  }
+
+  const user = await loadUserSubscriptionRow(userId, client);
+  if (!user) {
+    throw serviceError(404, 'User not found');
+  }
+
+  const storageCheck = await checkProjectStorageForAudioSources(
+    project,
+    user,
+    stemPlans.map((plan) => plan.audioKey),
+    { executor: client }
+  );
+  if (!storageCheck.allowed) {
+    throw serviceError(storageCheck.status, storageCheck.reason, {
+      upgrade_link: storageCheck.upgrade_link,
+      usedBytes: storageCheck.usedBytes,
+      maxBytes: storageCheck.maxBytes,
+    });
   }
 
   const rootId = sourceTrack.root_id || sourceTrack.id;

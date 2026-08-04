@@ -776,7 +776,11 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
     } catch (err) {
       await client.query('ROLLBACK');
       if (err.userFacing && err.status) {
-        return res.status(err.status).json({ error: err.message });
+        const body = { error: err.message };
+        if (err.usedBytes != null) body.usedBytes = err.usedBytes;
+        if (err.maxBytes != null) body.maxBytes = err.maxBytes;
+        if (err.upgrade_link) body.upgrade_link = err.upgrade_link;
+        return res.status(err.status).json(body);
       }
       throw err;
     } finally {
@@ -1142,7 +1146,11 @@ router.post('/:id/collab-assets', contentCreationLimiter, async (req, res, next)
     const trackId = req.body?.track_id ?? req.body?.trackId;
     const result = await createProjectCollabAsset(projectId, req.user.id, trackId);
     if (!result.ok) {
-      return res.status(result.status).json({ error: result.error });
+      const payload = { error: result.error };
+      if (result.usedBytes != null) payload.usedBytes = result.usedBytes;
+      if (result.maxBytes != null) payload.maxBytes = result.maxBytes;
+      if (result.upgrade_link) payload.upgrade_link = result.upgrade_link;
+      return res.status(result.status).json(payload);
     }
 
     res.status(result.created ? 201 : 200).json({
