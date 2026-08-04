@@ -106,7 +106,7 @@ jobs:
       run: |
         aws lambda update-function-configuration \
           --function-name sterio-project-ws-test \
-          --handler index.handler \
+          --handler dist/index.handler \
           --environment Variables="{
             DB_HOST=${{ secrets.DB_HOST_TEST }},
             DB_NAME=${{ secrets.DB_NAME }},
@@ -159,7 +159,7 @@ jobs:
       run: |
         aws lambda update-function-configuration \
           --function-name sterio-project-ws \
-          --handler index.handler \
+          --handler dist/index.handler \
           --environment Variables="{
             DB_HOST=${{ secrets.DB_HOST_PROD }},
             DB_NAME=${{ secrets.DB_NAME }},

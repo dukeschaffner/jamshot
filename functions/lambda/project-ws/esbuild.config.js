@@ -46,10 +46,10 @@ const minimalPkg = {
   name: pkg.name,
   version: pkg.version,
   type: pkg.type,
+  // Keep @aws-sdk/* — Node 22 Lambda does not ship the SDK. Auth pulls in
+  // jsonwebtoken/nodemailer via api/lambda/auth.js → emailService.
   dependencies: Object.fromEntries(
-    Object.entries(pkg.dependencies).filter(
-      ([key]) => !key.startsWith('@sterio/') && !key.startsWith('@aws-sdk/')
-    )
+    Object.entries(pkg.dependencies).filter(([key]) => !key.startsWith('@sterio/'))
   ),
 };
 fs.writeFileSync(path.join(DIST, 'package.json'), JSON.stringify(minimalPkg, null, 2));
