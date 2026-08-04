@@ -869,9 +869,14 @@ Success response: `{ "type": "joined", "projectId", "revision", "role", "protoco
 
 ### AWS deploy
 
-1. `cd infrastructure/cdk && cdk deploy` — creates WS APIs + placeholder Lambdas (once)
-2. Push lambda code — GitHub Actions `deploy-project-ws-lambda.yml`
-3. WS URL from CDK output `ProjectWsTestUrl` / `ProjectWsProdUrl`
+1. Apply projects migrations on the target Neon DB (`api/db-updates.txt`), including `gateway_domain` / `gateway_stage` on `project_ws_connections` and the `projects` feature flag.
+2. `cd infrastructure/cdk && cdk deploy JamshotStack` — creates:
+   - Project WS APIs + placeholder Lambdas (test/prod) + data-cleanup placeholders
+   - EventBridge `project_asset_created` → `sterio-audio-processor(-test)`
+   - `SterioAPILambdaRole` `execute-api:ManageConnections` for kick/leave eviction
+3. Deploy code via GitHub Actions `deploy-project-ws-lambda.yml` (uses existing `test`/`prod` envs + repo secrets; also deploy API / audio-processing / UI).
+4. Set Amplify `dev` env `NEXT_PUBLIC_PROJECT_WS_URL` to CDK output `ProjectWsTestUrl`, then redeploy UI.
+5. WS URL from CDK output `ProjectWsTestUrl` / `ProjectWsProdUrl`.
 
 Production clients connect with `?token=<better-auth-bearer-token>`.
 

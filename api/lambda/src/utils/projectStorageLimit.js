@@ -27,16 +27,23 @@ async function getProjectStorageUsage(executor, projectId) {
  * @param {Object} user - users row (subscription fields)
  * @param {number} incomingBytes - size of the file about to be uploaded
  * @param {number} [currentUsageBytes] - skip DB lookup when caller already has usage
+ * @param {import('pg').Pool | import('pg').PoolClient} [executor=pool] - use transaction client when pool max is held
  * @returns {Promise<{ allowed: true, usedBytes: number, maxBytes: number } | { allowed: false, reason: string, status: number, usedBytes: number, maxBytes: number, upgrade_link?: string }>}
  */
-async function checkProjectStorageLimit(project, user, incomingBytes, currentUsageBytes = null) {
-  const limits = await getProjectLimitsForContext(project, user);
+async function checkProjectStorageLimit(
+  project,
+  user,
+  incomingBytes,
+  currentUsageBytes = null,
+  executor = pool
+) {
+  const limits = await getProjectLimitsForContext(project, user, executor);
   const maxBytes = limits.max_project_storage_bytes;
 
   const usedBytes =
     currentUsageBytes != null
       ? currentUsageBytes
-      : await getProjectStorageUsage(pool, project.id);
+      : await getProjectStorageUsage(executor, project.id);
 
   if (maxBytes === -1) {
     return { allowed: true, usedBytes, maxBytes };

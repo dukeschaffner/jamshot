@@ -174,10 +174,11 @@ async function checkProjectAccess(projectId, userId) {
  *
  * @param {Object} project - projects row (team_id, camp_id)
  * @param {Object} user - users row (subscription fields)
+ * @param {import('pg').Pool | import('pg').PoolClient} [executor=pool] - use transaction client when pool max is held
  */
-async function getProjectLimitsForContext(project, user) {
+async function getProjectLimitsForContext(project, user, executor = pool) {
   if (project.team_id) {
-    const teamResult = await pool.query(
+    const teamResult = await executor.query(
       `SELECT t.product_version,
               (SELECT COUNT(*)::int FROM team_members tm WHERE tm.team_id = t.id) AS member_count
        FROM teams t
@@ -198,7 +199,7 @@ async function getProjectLimitsForContext(project, user) {
   }
 
   if (project.camp_id) {
-    const campResult = await pool.query(
+    const campResult = await executor.query(
       `SELECT c.product_version,
               (SELECT COUNT(*)::int FROM user_camps uc WHERE uc.camp_id = c.id) AS member_count
        FROM camps c

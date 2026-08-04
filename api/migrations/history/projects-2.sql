@@ -1,51 +1,3 @@
--- Migration: Upload Moderation Feature
--- Date: 2026-03-09
--- Adds support for moderating loop track uploads
--- - Adds is_admin column to users table
--- - Adds rejection_reason column to tracks table
--- - Updates processing_status constraint to include 'waiting_for_approval' and 'rejected'
--- - Adds indexes for admin queries
-
--- Migration: Add 'tree_page' to discovery_method enum
--- Date: 2026-01-XX
--- Adds support for tracking when tracks are discovered via the tree page view
-
--- Migration: User Upload Bans
--- Date: 2026-03-23
--- Adds temporary upload ban support for moderation
-CREATE TABLE IF NOT EXISTS user_bans (
-  id SERIAL PRIMARY KEY,
-  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-  ban_type VARCHAR(20) NOT NULL, -- 'upload', 'full' (future)
-  reason TEXT,
-  created_by TEXT REFERENCES users(id),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  expires_at TIMESTAMP -- NULL = permanent
-);
-
-CREATE INDEX IF NOT EXISTS idx_user_bans_user_type_expires
-  ON user_bans (user_id, ban_type, expires_at);
-
--- Migration: Profile Social Links
--- Date: 2026-03-31
--- Adds optional external social profile URLs to user profiles
-ALTER TABLE users
-ADD COLUMN tiktok_url VARCHAR(255),
-ADD COLUMN youtube_url VARCHAR(255),
-ADD COLUMN instagram_url VARCHAR(255),
-ADD COLUMN facebook_url VARCHAR(255),
-ADD COLUMN x_url VARCHAR(255);
-
-
--- Migration: Optimize related-around pagination
--- Date: 2026-04-15
--- Supports efficient range scans by parent_track_id + processing_status + created_at (+ id tie-break)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tracks_parent_status_created_id
-  ON tracks (parent_track_id, processing_status, created_at, id);
-
--- Migration: Projects feature flag
--- Date: 2026-06-10
--- Gates projects UI and API until beta-ready
 INSERT INTO feature_flags (flag_key, flag_value, description)
 VALUES (
   'projects',
@@ -53,10 +5,6 @@ VALUES (
   'Enable collaborative Projects (web DAW, snapshots, plugin sync). When disabled, hides nav/routes and returns 404 on /api/projects/*.'
 )
 ON CONFLICT (flag_key) DO NOTHING;
-
--- Migration: Projects schema (Phase 1a core tables)
--- Date: 2026-06-10
--- See app documentation/projects-plan/database.md
 
 CREATE TABLE IF NOT EXISTS projects (
   id SERIAL PRIMARY KEY,
@@ -239,10 +187,6 @@ BEFORE UPDATE ON project_clips
 FOR EACH ROW
 EXECUTE FUNCTION update_project_clip_timestamp();
 
--- Migration: Projects realtime tables (Phase 2 — Step 33)
--- Date: 2026-06-16
--- See app documentation/projects-plan/database.md
-
 CREATE TABLE IF NOT EXISTS project_ws_connections (
   connection_id VARCHAR(128) PRIMARY KEY,
   project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -276,10 +220,6 @@ CREATE INDEX IF NOT EXISTS idx_project_ws_connections_user
 CREATE INDEX IF NOT EXISTS idx_project_track_locks_expires
   ON project_track_locks(expires_at);
 
--- Migration: Projects WS ops (Phase 2 — Step 36)
--- Date: 2026-06-16
--- Op idempotency + project metadata locks for track.reorder / project.transport
-
 CREATE TABLE IF NOT EXISTS project_ws_op_dedup (
   connection_id VARCHAR(128) NOT NULL,
   op_id VARCHAR(64) NOT NULL,
@@ -301,16 +241,8 @@ CREATE TABLE IF NOT EXISTS project_metadata_locks (
 CREATE INDEX IF NOT EXISTS idx_project_metadata_locks_expires
   ON project_metadata_locks(expires_at);
 
--- Migration: Project asset waveform peaks
--- Date: 2026-07-01
--- Server-generated preview peaks for Files panel / asset library (see assets.md)
-
 ALTER TABLE project_assets ADD COLUMN IF NOT EXISTS waveform_url VARCHAR(1000);
 
--- Migration: Project subscription retention
--- Date: 2026-07-17
--- Lock excess/expired projects and schedule hard-delete after grace period
--- retention_reason: owner_downgrade | team_downgrade | team_expired | camp_ended
 ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS access_revoked_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS scheduled_deletion_at TIMESTAMPTZ,
@@ -321,15 +253,6 @@ ALTER TABLE projects
 CREATE INDEX IF NOT EXISTS idx_projects_scheduled_deletion
   ON projects (scheduled_deletion_at)
   WHERE scheduled_deletion_at IS NOT NULL;
-
--- Migration: Project invites + project_invite notifications
--- Date: 2026-07-17
--- Targeted invites (invited_user_id set) get email + in-app notification.
--- Generic link invites leave invited_user_id NULL.
--- IMPORTANT: ALTER TYPE ... ADD VALUE cannot run inside a transaction with other statements.
--- Run the ADD VALUE statement alone first, then the rest.
-
-ALTER TYPE notification_type ADD VALUE IF NOT EXISTS 'project_invite';
 
 ALTER TABLE project_invites
   ADD COLUMN IF NOT EXISTS invited_user_id TEXT REFERENCES users(id) ON DELETE CASCADE;
@@ -345,11 +268,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_project_invite_id
   ON notifications(project_invite_id)
   WHERE project_invite_id IS NOT NULL;
 
--- Migration: Create project from collab tree track
--- Date: 2026-07-22
--- Projects created from a social track store source linkage for the Collabs tab,
--- invite-from-tree flow, and attribution on copied assets.
-
 ALTER TABLE projects
   ADD COLUMN IF NOT EXISTS source_track_id INTEGER REFERENCES tracks(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS source_root_id INTEGER;
@@ -364,31 +282,12 @@ CREATE INDEX IF NOT EXISTS idx_projects_source_root
   ON projects(source_root_id)
   WHERE source_root_id IS NOT NULL;
 
-
--- Migration: Project clip region looping
--- Date: 2026-07-29
--- Logic Pro-style loop area for project clips. Absolute timeline end of the
--- looped area; NULL means the clip is not looped.
-
 ALTER TABLE project_clips
   ADD COLUMN IF NOT EXISTS loop_end_seconds FLOAT;
-
-
--- Migration: Project WS stale connection pruning support
--- Date: 2026-07-30
--- Index for pruning abandoned sockets (missed $disconnect after restart/crash).
--- One-time cleanup of already-stale rows; ongoing prune is in projectWsConnectionCleanup.js.
 
 CREATE INDEX IF NOT EXISTS idx_project_ws_connections_last_seen
   ON project_ws_connections(project_id, last_seen_at);
 
--- Migration: Project WS gateway context for REST→WS eviction
--- Date: 2026-08-04
--- API Lambda posts to / closes WS connections on kick/leave using domain+stage
--- stored at join time (see projectWsMemberSession.js / projectWsConnections.js).
--- Safe on greenfield installs that already include these columns in CREATE TABLE above.
-
 ALTER TABLE project_ws_connections
   ADD COLUMN IF NOT EXISTS gateway_domain VARCHAR(255),
   ADD COLUMN IF NOT EXISTS gateway_stage VARCHAR(64);
-

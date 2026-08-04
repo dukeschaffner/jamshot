@@ -1,9 +1,0 @@
--- Projects feature flag (disabled by default until beta-ready)
-
-INSERT INTO feature_flags (flag_key, flag_value, description)
-VALUES (
-  'projects',
-  false,
-  'Enable collaborative Projects (web DAW, snapshots, plugin sync). When disabled, hides nav/routes and returns 404 on /api/projects/*.'
-)
-ON CONFLICT (flag_key) DO NOTHING;

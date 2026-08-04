@@ -284,7 +284,7 @@ function DAWContent({ track, isVisible = true }) {
           eventBus.emit(DAW_EVENTS.RECORDING.STOP);
         } else if (isProjectMode) {
           if (canEditProject) {
-            startProjectRecording();
+            void startProjectRecording();
           }
         } else {
           eventBus.emit(DAW_EVENTS.RECORDING.START);

@@ -1,5 +1,0 @@
--- Projects schema (Phase 1a core tables)
--- See app documentation/projects-plan/database.md
--- Realtime tables (project_ws_connections, project_track_locks) are Step 33.
-
--- Full DDL is in api/db-updates.txt (Migration: Projects schema, 2026-06-10)

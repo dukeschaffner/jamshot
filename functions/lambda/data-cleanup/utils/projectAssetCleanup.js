@@ -88,7 +88,7 @@ export async function findEligibleProjectAssets({
        AND (
          pa.processing_status = 'completed'
          OR (
-           pa.processing_status = 'failed'
+           pa.processing_status IN ('failed', 'pending', 'processing')
            AND pa.created_at < NOW() - ($2::int * INTERVAL '1 second')
          )
        )

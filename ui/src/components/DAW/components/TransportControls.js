@@ -20,6 +20,7 @@ import { useUser } from '../../../contexts/UserContext';
 import DAWConfig from '../misc/DAWConfig';
 import { useDAW } from '../DAWContext';
 import { useProjectEditor } from '../project/ProjectEditorContext';
+import { useProjectSync } from '../project/ProjectSyncContext';
 import PluginSync from './PluginSync';
 import ProjectPluginSync from '../project/ProjectPluginSync';
 
@@ -45,7 +46,10 @@ const TransportControls = ({
 
   const { dawMode, isCollab, recordingTrackHasAudio, canUndo, canRedo, undo, redo, isFullscreen, setIsFullscreen, isLoop} = useDAW();
   const { canEdit: canEditProject, armedTrackId, startProjectRecording, isSnapshotPreview } = useProjectEditor();
+  const { isTrackLockedByOther } = useProjectSync();
   const isProjectMode = dawMode === 'project';
+  const isArmedTrackLocked =
+    isProjectMode && armedTrackId != null && isTrackLockedByOther(armedTrackId);
 
   const { isAuthenticated } = useUser();
   const isAuthenticatedRef = useRef(isAuthenticated);
@@ -92,7 +96,7 @@ const TransportControls = ({
 
     if (isProjectMode) {
       if (!canEditProject) return;
-      startProjectRecording();
+      void startProjectRecording();
       return;
     }
 
@@ -293,10 +297,16 @@ const TransportControls = ({
         <button
             className={styles.controlButton + ' ' + styles.recordStop}
             onClick={toggleRecording}
-            disabled={isProjectMode && !isRecording && armedTrackId == null}
+            disabled={
+              isProjectMode &&
+              !isRecording &&
+              (armedTrackId == null || isArmedTrackLocked)
+            }
             title={
               isProjectMode && !isRecording && armedTrackId == null
                 ? 'Arm a track to record'
+                : isProjectMode && !isRecording && isArmedTrackLocked
+                  ? 'Track is locked by another collaborator'
                 : isRecording
                   ? 'Stop recording'
                   : 'Record'
