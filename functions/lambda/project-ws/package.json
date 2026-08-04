@@ -12,7 +12,9 @@
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "^3.758.0",
     "@sterio/db-config": "file:../../../packages/db-config",
+    "@sterio/email": "file:../../../packages/email",
     "@sterio/subscription-utils": "file:../../../packages/subscription-utils",
+    "@sterio/validation-utils": "file:../../../packages/validation-utils",
     "better-auth": "^1.4.10",
     "bcryptjs": "^3.0.2",
     "dotenv": "^16.4.7",

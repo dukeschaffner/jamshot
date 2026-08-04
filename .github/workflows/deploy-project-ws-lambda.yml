@@ -10,7 +10,9 @@ on:
       - 'api/lambda/src/projectWs/**'
       - 'api/lambda/auth.js'
       - 'packages/db-config/**'
+      - 'packages/email/**'
       - 'packages/subscription-utils/**'
+      - 'packages/validation-utils/**'
   workflow_dispatch:
     inputs:
       environment:
