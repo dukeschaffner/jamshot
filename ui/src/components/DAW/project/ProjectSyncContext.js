@@ -294,17 +294,21 @@ export function ProjectSyncProvider({ project, children }) {
     hasJoinedRef.current = false;
     suppressReconnectRef.current = false;
 
-    const connect = () => {
+    const connect = async () => {
       if (cancelled || suppressReconnectRef.current) {
         return;
       }
 
       let url;
       try {
-        url = buildProjectWsConnectUrl(user.id);
+        url = await buildProjectWsConnectUrl(user.id);
       } catch (error) {
         console.error('Project sync connect URL error:', error);
         setConnectionStatus('error');
+        return;
+      }
+
+      if (cancelled || suppressReconnectRef.current) {
         return;
       }
 
@@ -347,7 +351,9 @@ export function ProjectSyncProvider({ project, children }) {
           return;
         }
         setConnectionStatus('idle');
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+        reconnectTimer = setTimeout(() => {
+          void connect();
+        }, RECONNECT_DELAY_MS);
       };
 
       ws.onerror = () => {
@@ -357,7 +363,7 @@ export function ProjectSyncProvider({ project, children }) {
       };
     };
 
-    connect();
+    void connect();
 
     heartbeatRef.current = setInterval(() => {
       const ws = wsRef.current;
