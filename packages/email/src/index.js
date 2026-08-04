@@ -12,8 +12,12 @@ export {
   generateCompetitionWinnerTemplate,
   generateCompetitionHostTemplate,
   generateCompetitionNoEntriesTemplate,
-  generateCompetitionNoBackupWinnerTemplate
+  generateCompetitionNoBackupWinnerTemplate,
+  generateProjectDeletionWarningTemplate,
 } from './templates.js';
+
+export { generateProjectInviteTemplate } from './projectInviteTemplate.js';
+export { generateProjectFromTrackTemplate } from './projectFromTrackTemplate.js';
 
 // High-level email services
 export {
@@ -26,5 +30,8 @@ export {
   sendCompetitionWinnerEmail,
   sendCompetitionHostEmail,
   sendCompetitionNoEntriesEmail,
-  sendCompetitionNoBackupWinnerEmail
+  sendCompetitionNoBackupWinnerEmail,
+  sendProjectDeletionWarningEmail,
+  sendProjectInviteEmail,
+  sendProjectCreatedFromTrackEmail,
 } from './services.js';

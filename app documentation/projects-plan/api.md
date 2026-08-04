@@ -135,9 +135,10 @@ Mirror social track pipeline structure; **project branch** in same lambda.
 5. **Audio-processing lambda** — when `asset_id` in event (not `track_id`):
    - Set `processing_status = 'processing'` at start
    - Format conversion only (e.g. mono 44.1kHz WAV)
-   - **No** peaks, **no** normalization, **no** `combined_audio_url`
+   - Generate **preview peaks** (256) → `waveforms/projects/{projectId}/{assetId}.json`
+   - **No** normalization, **no** `combined_audio_url`
    - Output: `projects/{projectId}/{assetId}/audio.wav`
-   - **On success:** update `audio_url`, `duration_seconds`, `processing_status = 'completed'`
+   - **On success:** update `audio_url`, `waveform_url`, `duration_seconds`, `processing_status = 'completed'`
    - **On failure:** set `processing_status = 'failed'`, `processing_error` (raw; sanitize on read). **Do not** delete clip or roll back revision.
 6. Phase 2: broadcast `asset.processing_update` to project room (see [realtime-sync.md](./realtime-sync.md)).
 
@@ -188,6 +189,7 @@ Requirements:
 - Only `processing_status = 'completed'` stems
 - Pass **leaf** collab track id (has valid `mix_gains.stems`)
 - Server-side R2 `CopyObject` → `project_assets` (no live link to social tracks)
+- Copy stem `waveform_url` peaks to `waveforms/projects/{projectId}/{assetId}.json` when available (`copyProjectAssetWaveformFromSource`)
 - Map stems → tracks + clips with regions/gains from `mix_gains`; copy BPM/time sig if project unset
 - Enforce 20 tracks / 300s; bump `revision`
 - Editor+ only
@@ -221,7 +223,7 @@ See [snapshots.md](./snapshots.md).
 |---|---|---|
 | `GET` | `/projects/:id/plugin-payload` | Public R2 URLs + clip layout for plugin |
 
-Returns flat clip list with timeline positions, gains — optimized for `StemPlaybackEngine` adapter (see [plugin.md](./plugin.md)).
+Returns flat clip list with `assetId`, timeline positions, gains, and public R2 URLs — optimized for `StemPlaybackEngine` adapter and asset-keyed plugin cache (see [plugin.md](./plugin.md)).
 
 **Editors only** — viewers receive 403.
 

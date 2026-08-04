@@ -4,6 +4,8 @@
 PluginState::PluginState()
 {
     currentTrack = std::make_shared<juce::Optional<TrackInfo>>();
+    currentProject = std::make_shared<juce::Optional<ProjectInfo>>();
+    projectLoadProgress = std::make_shared<juce::Optional<ProjectLoadProgress>>();
 }
 
 //==============================================================================
@@ -23,10 +25,57 @@ void PluginState::clearCurrentTrack()
     triggerAsyncUpdate(); // schedules handleAsyncUpdate() on message thread
 }
 
+void PluginState::setCurrentProject(const ProjectInfo& project)
+{
+    auto newPtr = std::make_shared<juce::Optional<ProjectInfo>>(project);
+    std::atomic_store(&currentProject, newPtr);
+    triggerAsyncUpdate();
+}
+
+void PluginState::clearCurrentProject()
+{
+    auto newPtr = std::make_shared<juce::Optional<ProjectInfo>>();
+    std::atomic_store(&currentProject, newPtr);
+    triggerAsyncUpdate();
+}
+
 //==============================================================================
 juce::Optional<TrackInfo> PluginState::getCurrentTrack() const
 {
     auto ptr = std::atomic_load(&currentTrack);
+    if (ptr)
+        return *ptr;
+
+    return {};
+}
+
+juce::Optional<ProjectInfo> PluginState::getCurrentProject() const
+{
+    auto ptr = std::atomic_load(&currentProject);
+    if (ptr)
+        return *ptr;
+
+    return {};
+}
+
+void PluginState::setProjectLoadProgress(int current, int total)
+{
+    auto newPtr = std::make_shared<juce::Optional<ProjectLoadProgress>>();
+    *newPtr = ProjectLoadProgress { current, total };
+    std::atomic_store(&projectLoadProgress, newPtr);
+    triggerAsyncUpdate();
+}
+
+void PluginState::clearProjectLoadProgress()
+{
+    auto newPtr = std::make_shared<juce::Optional<ProjectLoadProgress>>();
+    std::atomic_store(&projectLoadProgress, newPtr);
+    triggerAsyncUpdate();
+}
+
+juce::Optional<PluginState::ProjectLoadProgress> PluginState::getProjectLoadProgress() const
+{
+    auto ptr = std::atomic_load(&projectLoadProgress);
     if (ptr)
         return *ptr;
 

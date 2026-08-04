@@ -108,6 +108,7 @@ CREATE TABLE project_assets (
   project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   storage_key VARCHAR(500),   -- R2 object key, e.g. projects/{projectId}/{assetId}/audio.wav
   audio_url VARCHAR(1000),  -- public URL or same as storage_key path; null while processing
+  waveform_url VARCHAR(1000),  -- R2 key for preview peaks JSON, e.g. waveforms/projects/{projectId}/{assetId}.json
   name VARCHAR(200),
   duration_seconds FLOAT,
   file_size_bytes BIGINT,
@@ -123,7 +124,7 @@ CREATE TABLE project_assets (
 );
 ```
 
-**No `combined_audio_url`**. **No server waveforms** — client-side only.
+**No `combined_audio_url`**. **Server preview peaks** at 256 resolution (generated during audio-processing; same JSON format as social tracks). Timeline playback still uses full WAV; Files panel and library UI fetch peaks only.
 
 ---
 

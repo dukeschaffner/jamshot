@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useDAW, DAWProvider } from './DAWContext';
+import { ProjectEditorProvider, useProjectEditor } from './project/ProjectEditorContext';
 import { eventBus } from './misc/EventBus';
 import { DAW_EVENTS } from './misc/DAWEvents';
 import Waveform from './components/Region';
@@ -23,14 +24,20 @@ import { faUpload } from '@fortawesome/free-solid-svg-icons';
 import UploadForm from './components/UploadForm';
 import TimeDisplay from './components/TimeDisplay';
 import ProjectEndOverlay from './components/ProjectEndOverlay';
+import ProjectSnapshotsPanel from './project/ProjectSnapshotsPanel';
+import ProjectSnapshotPreviewBanner from './project/ProjectSnapshotPreviewBanner';
+import ProjectFilesPanel from './project/ProjectFilesPanel';
+import ProjectTrackHeadersList from './project/ProjectTrackHeadersList';
 import ContextMenu from './components/ContextMenu';
 import PluginInviteHint from './components/PluginInviteHint';
+import { useTimelineWheelControls } from './hooks/useTimelineWheelControls';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
 
 function DAWContent({ track, isVisible = true }) {
   const {
+    dawMode,
     isCollab,
     trackManagerRef,
     audioEngineRef,
@@ -72,10 +79,26 @@ function DAWContent({ track, isVisible = true }) {
     setShowContextMenu,
     isLoop,
   } = useDAW();
+  const {
+    isActive: isProjectEditor,
+    canEdit: canEditProject,
+    hasInFlightClipWork,
+    armedTrackId,
+    startProjectRecording,
+    deleteProjectRegion,
+    pasteProjectRegion,
+    repeatProjectRegion,
+    splitProjectRegion,
+    isSnapshotPreview,
+    snapshotPreviewMeta,
+    exitSnapshotPreview,
+  } = useProjectEditor();
 
   const { showToast } = useToast();
   const [saved, setSaved] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [isSnapshotsOpen, setIsSnapshotsOpen] = useState(false);
+  const isProjectMode = dawMode === 'project';
 
   useEffect(() => {
     if (!isVisible) return;
@@ -100,10 +123,16 @@ function DAWContent({ track, isVisible = true }) {
   };
 
   useNavigationGuardHook({
-    enabled: !!recordingTrackHasAudio && !saved,
+    enabled:
+      (!isProjectMode && !!recordingTrackHasAudio && !saved) ||
+      (isProjectMode && hasInFlightClipWork),
     confirm: () => {
-      const ok = window.confirm("You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost.");
-      if (ok) {
+      const ok = window.confirm(
+        isProjectMode
+          ? 'A clip is still uploading or processing. Leave anyway? Unsaved local audio may be lost.'
+          : "You have unsaved recordings. Are you sure you want to leave? Your recordings will be lost."
+      );
+      if (ok && !isProjectMode) {
         captureDawLeaveUnsavedConfirmed({
           upload_flow_type: isCollab ? 'collab' : 'original',
         });
@@ -112,7 +141,20 @@ function DAWContent({ track, isVisible = true }) {
     },
   });
 
+  useEffect(() => {
+    if (!isProjectMode || !hasInFlightClipWork) return;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isProjectMode, hasInFlightClipWork]);
+
   const tracksAndTimelineRef = useRef(null);
+  const tracksViewportRef = useRef(null);
   const tracksScrollContainerRef = useRef(null);
   const [tracksContainer, setTracksContainer] = useState(null);
 
@@ -165,7 +207,7 @@ function DAWContent({ track, isVisible = true }) {
         eventBus.emit(DAW_EVENTS.TRANSPORT.SEEK, { time: 0 });
       }
       // Handle Cmd/Ctrl+Z for undo (with shift for redo)
-      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
+      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z')) {
         if (!isRecording) {
           e.preventDefault();
           if (e.shiftKey) {
@@ -182,7 +224,7 @@ function DAWContent({ track, isVisible = true }) {
         }
       }
       // Handle Cmd/Ctrl+Y for redo (alternative)
-      else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y')) {
+      else if (!isProjectMode && (e.metaKey || e.ctrlKey) && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y')) {
         if (!isRecording && canRedo) {
           e.preventDefault();
           redo();
@@ -191,6 +233,7 @@ function DAWContent({ track, isVisible = true }) {
       // Handle Cmd/Ctrl+C for copy
       else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyC' || e.key === 'c' || e.key === 'C')) {
         if (selectedRegionId && !isRecording) {
+          if (isProjectMode && !canEditProject) return;
           e.preventDefault();
           copyRegion();
         }
@@ -198,6 +241,12 @@ function DAWContent({ track, isVisible = true }) {
       // Handle Cmd/Ctrl+V for paste
       else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyV' || e.key === 'v' || e.key === 'V')) {
         if (clipboard && !isRecording) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            void pasteProjectRegion();
+            return;
+          }
           e.preventDefault();
           pasteRegion();
         }
@@ -205,6 +254,12 @@ function DAWContent({ track, isVisible = true }) {
       // Handle Cmd/Ctrl+R for repeat region
       else if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
         if (selectedRegionId && !isRecording) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            void repeatProjectRegion();
+            return;
+          }
           e.preventDefault();
           repeatRegion();
         }
@@ -212,6 +267,12 @@ function DAWContent({ track, isVisible = true }) {
       // Handle 't' key for split region (only when no modifiers are pressed)
       else if (!e.metaKey && !e.ctrlKey && (e.code === 'KeyT' || e.key === 't' || e.key === 'T')) {
         if (selectedRegionId && !isRecording) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            void splitProjectRegion();
+            return;
+          }
           e.preventDefault();
           splitRegion();
         }
@@ -220,16 +281,25 @@ function DAWContent({ track, isVisible = true }) {
       else if (!e.metaKey && !e.ctrlKey && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R')) {
         e.preventDefault();
         if (isRecording) {
-          // Stop recording if currently recording
           eventBus.emit(DAW_EVENTS.RECORDING.STOP);
+        } else if (isProjectMode) {
+          if (canEditProject) {
+            void startProjectRecording();
+          }
         } else {
-          // Start recording if not currently recording
           eventBus.emit(DAW_EVENTS.RECORDING.START);
         }
       }
       // Handle Delete/Backspace key for deleting selected region
       else if ((e.code === 'Delete' || e.code === 'Backspace' || e.key === 'Delete' || e.key === 'Backspace') && !isRecording) {
         if (selectedRegionId && selectedTrackId && trackManagerRef && trackManagerRef.current) {
+          if (isProjectMode) {
+            if (!canEditProject) return;
+            e.preventDefault();
+            deleteProjectRegion(selectedRegionId, selectedTrackId);
+            return;
+          }
+
           e.preventDefault();
           const track = trackManagerRef.current.getTrack(selectedTrackId);
           if (track) {
@@ -260,7 +330,7 @@ function DAWContent({ track, isVisible = true }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, repeatRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible]); // Include dependencies
+  }, [isPlaying, isRecording, selectedRegionId, selectedTrackId, clipboard, copyRegion, pasteRegion, pasteProjectRegion, repeatRegion, repeatProjectRegion, splitRegion, splitProjectRegion, canUndo, canRedo, undo, redo, showUploadForm, isVisible, isProjectMode, canEditProject, startProjectRecording, armedTrackId, deleteProjectRegion, trackManagerRef]);
 
   // Handle toast notifications from the event bus
   useEffect(() => {
@@ -356,6 +426,14 @@ function DAWContent({ track, isVisible = true }) {
     };
   }, [tracksScrollContainerRef.current]);
 
+  useTimelineWheelControls({
+    scrollContainerRef: tracksScrollContainerRef,
+    contentRef: tracksAndTimelineRef,
+    zoom,
+    setZoomLevel,
+    enabled: !isLoading && !error,
+  });
+
   // Show loading state
   if (isLoading) {
     return (
@@ -394,20 +472,35 @@ function DAWContent({ track, isVisible = true }) {
           </p>
         </>
       </ConfirmationDialog>
+      {isProjectEditor && (
+        <ProjectSnapshotsPanel
+          isOpen={isSnapshotsOpen}
+          onClose={() => setIsSnapshotsOpen(false)}
+        />
+      )}
       <div 
-        className={styles.dawContainer}
-        style={{display: showUploadForm ? 'none' : 'block'}}
+        className={`${styles.dawContainer} ${isProjectMode ? styles.dawContainerFill : ''}`}
+        style={{display: showUploadForm ? 'none' : undefined}}
       >
+          {isProjectEditor && isSnapshotPreview && (
+            <ProjectSnapshotPreviewBanner
+              previewMeta={snapshotPreviewMeta}
+              onExit={() => {
+                void exitSnapshotPreview();
+              }}
+            />
+          )}
           <div className={styles.dawControls}>
             <TransportControls
               isRecording={isRecording}
               isPlaying={isPlaying}
               metronomeBpm={metronomeBpm}
               timeSignature={timeSignature}
+              onOpenSnapshots={() => setIsSnapshotsOpen(true)}
             />
             <TimeDisplay />
             <div>
-              {recordingTrackHasAudio && !isRecording && (track ? track.layer < 4 : true) && (
+              {!isProjectMode && recordingTrackHasAudio && !isRecording && (track ? track.layer < 4 : true) && (
                   <button
                     className="pill-btn gradient-btn"
                     style={{justifySelf: 'end'}}
@@ -424,15 +517,17 @@ function DAWContent({ track, isVisible = true }) {
           <PluginInviteHint isVisible={isVisible} />
 
         <div className={styles.dawBody}>
-          <div className={styles.tracks}>
-          <div className={styles.tracksHeaders}>
-            {tracks.map((track, index) => (
-              <TrackHeader
-                key={`${track.id}-${index}`}
-                track={track}
-              />
-            ))}
-          </div>
+          <div className={styles.dawMain}>
+          <div className={styles.tracks} ref={tracksViewportRef}>
+          {isProjectEditor ? (
+            <ProjectTrackHeadersList tracks={tracks} />
+          ) : (
+            <div className={styles.tracksHeaders}>
+              {tracks.map((track) => (
+                <TrackHeader key={track.id} track={track} />
+              ))}
+            </div>
+          )}
           <div 
             className={styles.tracksScrollContainer} 
             onScroll={(e) => setScrollLeftValue(e.currentTarget.scrollLeft)} 
@@ -450,46 +545,55 @@ function DAWContent({ track, isVisible = true }) {
                   }}
                 >
                   <div className={styles.timeline}>
-                    <MusicalGrid
-                      bpm={metronomeBpm}
-                      timeSignature={timeSignature}
-                      duration={duration}
-                      metronomeOffset={metronomeOffset}
-                      onMetronomeOffsetChange={handleMetronomeOffsetChange}
-                      isPlaying={isPlaying}
-                      zoom={zoom}
-                    />
                     <Looper/>
                   </div>
                   <div className={styles.tracksContainer} ref={setTracksContainer}>
-                    {tracks.map((track, index) => (
-                      <Track key={index} track={track} tracksScrollContainerRef={tracksScrollContainerRef}/>
+                    {tracks.map((track) => (
+                      <Track
+                        key={track.id}
+                        track={track}
+                        tracksScrollContainerRef={tracksScrollContainerRef}
+                        tracksViewportRef={tracksViewportRef}
+                      />
                     ))}
-                    <Playhead/>
                   </div>
-                  
+
+                  {/* Full-height overlays spanning the timeline and all track lanes */}
+                  <MusicalGrid
+                    bpm={metronomeBpm}
+                    timeSignature={timeSignature}
+                    duration={duration}
+                    metronomeOffset={metronomeOffset}
+                    onMetronomeOffsetChange={handleMetronomeOffsetChange}
+                    isPlaying={isPlaying}
+                    zoom={zoom}
+                  />
+                  <Playhead/>
+
                   {!isLoop && (
                     <ProjectEndOverlay 
                       containerRef={tracksAndTimelineRef}
                       duration={duration}
-                      zoom={zoom}
+                      canEdit={!isProjectMode || canEditProject}
                     />
                   )}
                   
                 </div>
-                {zoom > 1 && (
-                  <div className={styles.zoomIndicator}>
-                    Zoom: {zoom.toFixed(1)}x
-                  </div>
-                )}
               </>
             )}
           </div>
           </div>
+          {tracks.length > 0 && zoom > 1 && (
+            <div className={styles.zoomIndicator}>
+              Zoom: {zoom.toFixed(1)}x
+            </div>
+          )}
           <ZoomSlider
               zoom={zoom}
               onZoomChange={setZoomLevel}
             />
+          </div>
+          {isProjectEditor && <ProjectFilesPanel />}
         </div>
       </div>
 
@@ -501,7 +605,7 @@ function DAWContent({ track, isVisible = true }) {
         onClose={() => setShowContextMenu(false)}
       />
 
-      {recordingTrackHasAudio && showUploadForm && (
+      {!isProjectMode && recordingTrackHasAudio && showUploadForm && (
         <UploadForm
           isCollab={isCollab}
           hasActiveCompetition={track?.has_active_competition || false}
@@ -533,6 +637,24 @@ function DAW({ track, isVisible = true }) {
   );
 }
 
+function ProjectDAW({ project, isVisible = true, onProjectChange }) {
+  const projectData = useMemo(
+    () => project,
+    [project?.guid, project?.revision, project?.updatedAt]
+  );
+
+  return (
+    <DAWProvider mode="project" projectData={projectData}>
+      <ProjectEditorProvider
+        projectData={projectData}
+        onProjectStateChange={onProjectChange}
+      >
+        <DAWWrapper isVisible={isVisible} />
+      </ProjectEditorProvider>
+    </DAWProvider>
+  );
+}
+
 // Wrapper component that handles fullscreen modal rendering
 function DAWWrapper({ track, isVisible = true }) {
   const { isFullscreen } = useDAW();
@@ -551,4 +673,5 @@ function DAWWrapper({ track, isVisible = true }) {
   return <DAWContent track={track} isVisible={isVisible} />;
 }
 
+export { ProjectDAW };
 export default DAW;

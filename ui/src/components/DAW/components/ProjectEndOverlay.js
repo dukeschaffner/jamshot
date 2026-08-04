@@ -8,7 +8,7 @@ import { snapToGrid } from '../misc/DAWUtils';
 import styles from './ProjectEndOverlay.module.css';
 import DAWConfig from '../misc/DAWConfig';
 
-export default function ProjectEndOverlay({ containerRef, duration}) {
+export default function ProjectEndOverlay({ containerRef, duration, canEdit = true }) {
   const { gridLines, tracksContainerWidth } = useDAW();
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState(null);
@@ -73,6 +73,7 @@ export default function ProjectEndOverlay({ containerRef, duration}) {
   };
 
   const handleMouseDown = (e) => {
+    if (!canEdit) return;
     e.preventDefault();
     e.stopPropagation();
     
@@ -146,9 +147,12 @@ export default function ProjectEndOverlay({ containerRef, duration}) {
       <div
         ref={overlayRef}
         className={`${styles.projectEndOverlay} ${isDragging ? styles.dragging : ''}`}
-        style={overlayStyle}
+        style={{
+          ...overlayStyle,
+          cursor: canEdit ? undefined : 'default',
+        }}
         onMouseDown={handleMouseDown}
-        title="Drag to set project end"
+        title={canEdit ? 'Drag to set project end' : 'Editor access required to change duration'}
       />
     </>
   );

@@ -17,10 +17,10 @@ Decisions: [decisions.md](./decisions.md) · Schema: [database.md](./database.md
 
 | Phase | Milestones | Goal |
 |---|---|---|
-| **1a** | 0–4, 5–11, 12–21, 22–25, **29–32** | Solo user: edit in browser, snapshots, plugin loop |
+| **1a** | 0–4, 5–11, 12–21, 22, **29–31** | Solo user: edit in browser, manual snapshot (create only), plugin loop |
 | **1b** | 26–28 | Import, team/camp context, invites (REST-only; see [decisions.md](./decisions.md)) |
 | **2** | 33–38 | Real-time collaboration |
-| **Post-MVP** | 39–41, 42+ | Asset library, cleanup, polish |
+| **Post-MVP** | 23–25, 32, 39–41, 42+ | Snapshot auto/preview/restore, last project persistence, asset library, cleanup, polish |
 
 Phase 1b invites are **view-only** for non-owners until Phase 2 ships, OR defer Step 28 until after Milestone 7 — pick one in [decisions.md](./decisions.md) before implementing invites.
 
@@ -221,7 +221,7 @@ Validate: clip end ≤ project duration; `asset.project_id` matches track's proj
 
 ### Step 11 — Plugin payload endpoint
 
-- `GET /projects/:id/plugin-payload` — flat clip list with **public R2 URLs** (`${R2_PUBLIC_URL}/{storage_key}`), timeline layout, gains
+- `GET /projects/:id/plugin-payload` — flat clip list with **`assetId`**, **public R2 URLs** (`${R2_PUBLIC_URL}/{storage_key}`), timeline layout, gains
 
 Editors only (viewers get 403 — no audio URL leak).
 
@@ -296,25 +296,29 @@ Wire UI to Step 8 API; refresh local state on success.
 
 ---
 
-### Step 18 — Upload file to armed track
+### Step 18 — Upload file to any track
 
-File picker / drop on armed track (including tracks with existing clips) → same upload pipeline as Step 17 (no local `bufferRegistry` unless re-uploading after failure).
+Add audio to **any** track via click (empty tracks only) or drag-and-drop. Same upload pipeline as Step 17. Target track is the track the user interacted with — **arm state is not required** (arm is record-only; see Step 17). No separate **"Import audio"** control in track headers or toolbar for now.
 
-Validate 300s max duration on upload (not collab 900s default).
+Validate 300s max duration on upload (not collab 900s default). On file pick or drop, decode duration client-side first; if longer than the mode limit (`DAWConfig.audio.maxFileUploadDuration` for collab/original; `DAWConfig.audio.maxRecordingDuration` / 300s for projects), **do not import** — show a **toast** error instead of placing a clip.
 
-**Done when:** Upload wav to track 3 → clip visible on timeline; processing failure shows same error/retry/delete UX as Step 17.
+**Empty track (no clips):**
 
----
+- **Click** anywhere on the track row → native file picker (audio files only) → clip placed at playhead (or `0` if playhead is unset)
+- **Drag** an audio file over the track → existing empty-track drop target styling → clip placed at drop X position on the timeline
 
-### Step 18b — Import audio from host DAW (manual return path)
+**Track with existing clips:**
 
-Toolbar / track header: **"Import audio"** on any armed track.
+- **Drag** an audio file over the track only (click does not open file picker)
+- While dragging over the track, show a **placeholder region** at the cursor position:
+  - Dashed outline (distinct from real clips)
+  - Width reflects file duration (clamped to project duration and non-overlap rules from Step 10)
+  - Follows horizontal cursor position within the track timeline
+- On drop → start upload at placeholder position; placeholder becomes the optimistic clip
 
-- File picker for WAV/MP3 exported from Logic/etc.
-- Same upload pipeline as Step 17
-- In-product copy: *"Export WAV from your DAW, then import here."*
+Covers the host-DAW return path (e.g. export WAV from Logic, drag onto a non-empty track) without a dedicated import button.
 
-**Done when:** User can add audio to a non-empty track without recording in browser.
+**Done when:** Click on empty track opens picker and places clip; drag onto empty track works; drag onto non-empty track shows dashed placeholder while hovering and places clip on drop; file longer than max duration shows toast and is not imported; upload to track 3 while track 2 is armed → clip visible on track 3; processing failure shows same error/retry/delete UX as Step 17.
 
 ---
 
@@ -364,74 +368,45 @@ On `PATCH` 409 (`{ error, current_revision, server_revision }`):
 
 ---
 
-## Milestone 4 — Snapshots
+## Milestone 4 — Manual snapshot (MVP)
+
+> Steps 23–25 (auto snapshot, preview, restore) are **post-MVP** — see Milestone 8.
 
 ### Step 22 — Manual snapshot
 
 - `POST /projects/:id/snapshots` — full state JSON in `project_snapshots.state`; `snapshot_kind = 'manual'`
 - Populate `project_snapshot_assets` for every `asset_id` in serialized state
 - Toolbar button + optional label
+- List snapshots in UI (read-only list; no preview/restore until post-MVP)
 
 **Done when:** Create snapshot → appears in list with timestamp; `project_snapshot_assets` rows match clip assets in state.
-
----
-
-### Step 23 — Auto snapshot interval
-
-**Server-side** timer (mutation hook or lightweight scheduled job — not client-only). Respect tier `max_snapshots` (prune oldest `auto` snapshots; never prune `pre_restore`).
-
-Pruning deletes snapshot row; `project_snapshot_assets` cascades.
-
-**Done when:** Wait interval → new snapshot created; exceeding tier limit drops oldest auto snapshot.
-
----
-
-### Step 24 — Snapshot preview
-
-- Load snapshot state into **read-only** DAW view (or toggle "preview mode")
-- Audition playback without mutating live project
-- Re-resolve `audio_url` from `asset_id` at preview time (do not trust stale URLs in JSON)
-
-**Done when:** Select snapshot → hear that version; exit preview → live project unchanged.
-
----
-
-### Step 25 — Restore snapshot
-
-- `POST /projects/:id/snapshots/:id/restore`
-- Auto-create pre-restore snapshot (`snapshot_kind = 'pre_restore'`)
-- **Canonical restore algorithm** ([database.md](./database.md)):
-  1. Upsert project metadata from snapshot JSON
-  2. For each snapshot track: upsert `project_tracks` by id
-  3. For each snapshot clip: `UPDATE project_clips SET deleted_at = NULL, ...` if row exists; else `INSERT`
-  4. Soft-delete clips on live project **not** in snapshot
-  5. Bump `revision`; reject if concurrent editor holds locks (Phase 2)
-
-**Done when:** Delete clip → restore old snapshot → clip back on timeline; tracks absent from snapshot are soft-deleted.
 
 ---
 
 ## Milestone 5 — Plugin (single user) — Phase 1a exit
 
 > Moved before import/invites so Phase 1a exit criteria (browser → plugin → Logic) is reachable.
+> Step 32 (last project persistence) is **post-MVP** — see Milestone 10.
 
 ### Step 29 — Plugin `set_project` handler
 
 - Restructure `PluginProcessor::handleIncomingMessage` to branch on `type` first (`set_track` vs `set_project`)
 - Parse `set_project` WS message
 - Fetch `plugin-payload` with auth token (or use inline payload)
-- Map clips → `StemPlaybackEngine`; cache by `(project_id, clip_id)`
+- Map clips → `StemPlaybackEngine`; cache **audio** by `(project_id, asset_id)` in `CacheManager` (see [plugin.md](./plugin.md#audio-cache))
+- Plugin payload / WS clip shape includes `assetId` for cache lookup and sync diffing
 
-**Done when:** Web "Open in Plugin" → audio plays in DAW host following host transport.
+**Done when:** Web "Open in Plugin" → audio plays in DAW host following host transport; shared assets downloaded once.
 
 ---
 
 ### Step 30 — Manual `project_sync`
 
 - Web sends `project_sync` after edits when auto-sync off
-- Plugin replaces clip metadata + re-downloads changed audio (by `clipId`, not `stem_metadata_sync` merge)
+- Plugin replaces clip metadata by `clipId` (not `stem_metadata_sync` merge)
+- Re-download audio only when a clip's `assetId` changes; trim/gain/position updates skip download
 
-**Done when:** Edit clip gain/position in web → manual sync → plugin reflects change.
+**Done when:** Edit clip gain/position in web → manual sync → plugin reflects change without re-download; re-record → new asset fetched once.
 
 ---
 
@@ -445,7 +420,7 @@ Pruning deletes snapshot row; `project_snapshot_assets` cascades.
 
 ---
 
-### Step 32 — Last project persistence (plugin local)
+### Step 32 — Last project persistence (plugin local) *(post-MVP — deferred)*
 
 Store `last_project_id` in `PluginState`; offer reopen on plugin launch.
 
@@ -519,11 +494,35 @@ Neon migration (see [database.md](./database.md)):
 
 ### Step 34 — Join project room + minimal presence
 
-Messages: `join`, `presence` → `{ userId, username, editingTrackId? }`
+**WS protocol**
+
+- Client: periodic `presence` heartbeat (`editingTrackId` optional; omit until Step 35 locks)
+- Server → room: `{ "type": "presence", "users": [{ "userId", "username", "profilePicUrl", "editingTrackId?" }] }`
+  - One entry per **distinct `userId`** (dedupe multiple tabs for the same user)
+  - Include `profilePicUrl` from `users.profile_pic_url` (fallback `/avatar.svg` in UI)
+- Broadcast on join, disconnect, and when a client's `presence` heartbeat updates `editingTrackId`
 
 Viewers may join room (receive ops) but cannot send ops.
 
-**Done when:** Two browser tabs → each sees "User B is in project".
+**UI — `ProjectPresenceAvatars`**
+
+Placement: top-right of the project page header (`ProjectPage` `.headerContent`, opposite project title).
+
+Layout:
+
+- Row of small circular avatars, overlapping slightly (negative margin), aligned to the right
+- Size ~32px (slightly smaller than navbar avatar at 40px); reuse global `.avatar` + a CSS module for stack layout
+- **≤ 5 online:** show one circle per user (1–5 avatars)
+- **> 5 online:** show the first **4** user avatars, then a **"+N"** overflow circle on the far right (same 32px size), where `N = totalOnline - 4` (e.g. 11 users → 4 avatars + `+7`)
+
+Popovers (reuse existing `Popover` component; hover to open, same pattern as `TrackHeader` monitor popover):
+
+- **Each avatar:** popover with that user's username (`@username`)
+- **"+N" overflow circle:** popover listing the remaining users (avatar + username per row)
+
+Wire via lightweight `ProjectSyncContext` (or interim hook) that opens WS on project load, sends `join`, maintains `onlineUsers` from server `presence` messages.
+
+**Done when:** Two browser tabs on the same project → each sees the other's avatar in the header; with 6+ users, overflow collapses to `+N` and hover reveals the rest.
 
 ---
 
@@ -569,11 +568,48 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 
 ---
 
-## Milestone 8 — Asset library & cleanup (post-MVP)
+## Milestone 8 — Snapshots (post-MVP)
+
+### Step 23 — Auto snapshot interval
+
+**Server-side** dirty + cooldown check after mutations (and last-editor leave flush) — not a blind timer. Respect tier `max_snapshots` (prune oldest `auto` snapshots; never prune `pre_restore`).
+
+Pruning deletes snapshot row; `project_snapshot_assets` cascades.
+
+**Done when:** After dirty edits + cooldown (or leave while dirty) → new auto snapshot; exceeding tier limit drops oldest auto snapshot.
+
+---
+
+### Step 24 — Snapshot preview
+
+- Load snapshot state into **read-only** DAW view (or toggle "preview mode")
+- Audition playback without mutating live project
+- Re-resolve `audio_url` from `asset_id` at preview time (do not trust stale URLs in JSON)
+
+**Done when:** Select snapshot → hear that version; exit preview → live project unchanged.
+
+---
+
+### Step 25 — Restore snapshot
+
+- `POST /projects/:id/snapshots/:id/restore`
+- Auto-create pre-restore snapshot (`snapshot_kind = 'pre_restore'`)
+- **Canonical restore algorithm** ([database.md](./database.md)):
+  1. Upsert project metadata from snapshot JSON
+  2. For each snapshot track: upsert `project_tracks` by id
+  3. For each snapshot clip: `UPDATE project_clips SET deleted_at = NULL, ...` if row exists; else `INSERT`
+  4. Soft-delete clips on live project **not** in snapshot
+  5. Bump `revision`; reject if concurrent editor holds locks (Phase 2)
+
+**Done when:** Delete clip → restore old snapshot → clip back on timeline; tracks absent from snapshot are soft-deleted.
+
+---
+
+## Milestone 9 — Asset library & cleanup (post-MVP)
 
 ### Step 39 — Assets list API
 
-- `GET /projects/:id/assets` — all assets with status: live, soft-deleted clip, snapshot-only, unused
+- `GET /projects/:id/assets` — all assets with status: live, soft-deleted clip, snapshot-only, unused; include `waveformUrl` for completed assets
 - `DELETE /projects/:id/assets/:assetId` — soft-delete asset + soft-delete all referencing clips; confirm if snapshot-referenced
 - `POST /projects/:id/assets/:assetId/clips` — place library asset on timeline
 
@@ -584,8 +620,10 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 ### Step 40 — Files panel UI
 
 - Project page sidebar: list assets, filters, drag to timeline, manual delete with snapshot warning
+- Mini waveforms from `waveformUrl` peaks JSON (lazy-load per visible row); do **not** fetch full `audioUrl` for list rendering
+- refactor the existing waveform component - extract a new componnent "WaveFormUI" that only renders the waveform component based on the peaks data and does not include any audio logic or functionality - the exising waveform component should use this new component to render the waveform. Create a new DAW component called WaveformWithAudio that uses the WaveFormUI component to render the waveform and also includes a play/pause button and plays the audio using howler.js. it should also ensure no other audio sources are playing when the waveform is playing (DAW, global player, or another asset playing)
 
-**Done when:** Upload clip, remove from timeline, still visible in Files; drag back without re-upload.
+**Done when:** Upload clip, remove from timeline, still visible in Files; drag back without re-upload; waveforms visible without downloading every asset.
 
 ---
 
@@ -597,10 +635,11 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 
 ---
 
-## Milestone 9 — Post-MVP polish (defer)
+## Milestone 10 — Post-MVP polish (defer)
 
 | Step | Feature |
 |---|---|
+| 32 | Last project persistence (plugin local) |
 | 42 | Publish project mixdown to public feed |
 | 43 | Plugin zoomed-out timeline view |
 | 44 | DAW ↔ web playhead sync |
@@ -617,11 +656,12 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 | 3 | 9–11, 9b | Clips + processing + plugin payload |
 | 4 | 12–14 | List/create/shell UI |
 | 5 | 15–21, 20b | Project DAW core + persistence |
-| 6 | 22–25 | Snapshots |
-| 7 | 29–32 | Plugin (Phase 1a exit) |
+| 6 | 22 | Manual snapshot (create + list) |
+| 7 | 29–31 | Plugin (Phase 1a exit) |
 | 8 | 26–28 | Import + team/camp + invites (Phase 1b) |
 | 9 | 33–38 | Realtime |
-| 10 | 39–41 | Asset library + cleanup |
+| 10 | 23–25 | Snapshot auto/preview/restore (post-MVP) |
+| 11 | 39–41 | Asset library + cleanup |
 
 ---
 
@@ -630,10 +670,10 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 ### Phase 1a demo script
 
 1. Create personal project (free tier limit enforced)
-2. Add tracks, record clip, upload clip, import audio file
+2. Add tracks, record clip, upload clip (click empty track or drag onto any track)
 2b. Simulate processing failure → failed clip UI → retry with local buffer (no re-record) → delete failed clip
 3. Move clip between tracks, trim, set BPM
-4. Create manual snapshot, preview it, restore it
+4. Create manual snapshot; verify it appears in list
 5. Open in plugin; verify playback in host DAW
 6. Edit in web; verify auto-sync to plugin
 7. Delete project; verify cleanup
@@ -650,8 +690,11 @@ On disconnect: rejoin with last `revision`; if `clientRevision < serverRevision 
 
 ### Post-MVP
 
-12. Remove clip from timeline → asset still in Files panel
-13. Auto-cleanup dry-run does not list snapshot-referenced assets
+12. Reopen DAW host → plugin offers last project (Step 32)
+13. Auto snapshot created on interval; tier limit prunes oldest auto snapshot
+14. Preview snapshot in read-only DAW; restore snapshot → deleted clip returns
+15. Remove clip from timeline → asset still in Files panel
+16. Auto-cleanup dry-run does not list snapshot-referenced assets
 
 ### Automation (recommended)
 

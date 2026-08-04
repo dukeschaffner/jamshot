@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { useDAW } from '../DAWContext';
+import { useProjectEditor } from '../project/ProjectEditorContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMicrophone } from '@fortawesome/free-solid-svg-icons';
+import { faMicrophone, faCircle, faGripVertical } from '@fortawesome/free-solid-svg-icons';
+import ProjectTrackActionsMenu from './ProjectTrackActionsMenu';
 import styles from './TrackHeader.module.css';
 import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
@@ -12,17 +14,52 @@ import AudioState from '../core/AudioStateStore';
 import Popover from '../../Popover';
 import TrackContributorAvatar from './TrackContributorAvatar';
 import { useUser } from '../../../contexts/UserContext';
+import {
+  readTrackMuteSolo,
+  writeTrackMuteSolo,
+} from '../project/projectTrackMuteSoloStorage';
 
 export default function TrackHeader({
   track,
+  canReorder = false,
+  isTrackMutationPending: isTrackMutationPendingProp = false,
+  onDragStart,
+  onDragEnd,
 }) {
   const [faderValue, setFaderValue] = useState(0.8);
   const [isDraggingFader, setIsDraggingFader] = useState(false);
   const faderRef = useRef(null);
+  const isDraggingFaderRef = useRef(false);
 
-  const [isSolo, setIsSolo] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const { isPlaying, isRecording, isMonitoring } = useDAW();
+  const {
+    isPlaying,
+    isRecording,
+    isMonitoring,
+    selectedTrackId,
+    selectTrack,
+  } = useDAW();
+  const {
+    isActive: isProjectEditor,
+    canEdit: canEditProject,
+    isTrackMutationPending,
+    armedTrackId,
+    setArmedTrackId,
+    renameProjectTrack,
+    persistProjectTrackGain,
+    projectData,
+  } = useProjectEditor();
+
+  const projectGuid = projectData?.guid ?? null;
+
+  const [isSolo, setIsSolo] = useState(() => {
+    if (!isProjectEditor || !projectGuid || track?.id == null) return false;
+    return !!readTrackMuteSolo(projectGuid, track.id)?.solo;
+  });
+  const [isMuted, setIsMuted] = useState(() => {
+    if (!isProjectEditor || !projectGuid || track?.id == null) return false;
+    return !!readTrackMuteSolo(projectGuid, track.id)?.muted;
+  });
+
   const { user } = useUser();
 
   const [meterLevel, setMeterLevel] = useState(-60);
@@ -31,6 +68,10 @@ export default function TrackHeader({
   const [isMonitorPopoverVisible, setIsMonitorPopoverVisible] = useState(false);
   const monitorPopoverAnchorRef = useRef(null);
   const monitorPopoverCloseTimeoutRef = useRef(null);
+  const renameInputRef = useRef(null);
+
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
 
   // Listen for input device changes
   useEffect(() => {
@@ -47,12 +88,33 @@ export default function TrackHeader({
     };
   }, []);
 
-  // Initialize fader value from track gain
+  // Initialize fader value from track gain (skip while user is dragging)
   useEffect(() => {
+    if (isDraggingFaderRef.current) return;
     if (track && track.gain !== undefined) {
       setFaderValue(track.gain);
     }
   }, [track]);
+
+  // Remote gain updates (collaborators) — update fader without persisting
+  useEffect(() => {
+    const handleGainState = (data) => {
+      if (data?.trackId !== track.id || typeof data.gain !== 'number') return;
+      if (isDraggingFaderRef.current) return;
+      setFaderValue(data.gain);
+    };
+    eventBus.on(DAW_EVENTS.TRACK.GAIN_STATE, handleGainState);
+    return () => {
+      eventBus.off(DAW_EVENTS.TRACK.GAIN_STATE, handleGainState);
+    };
+  }, [track.id]);
+
+  // Persist client-only mute/solo for project tracks
+  useEffect(() => {
+    if (!isProjectEditor || !projectGuid || track?.id == null) return;
+    if (track.id === 'recording-track') return;
+    writeTrackMuteSolo(projectGuid, track.id, { muted: isMuted, solo: isSolo });
+  }, [isMuted, isSolo, isProjectEditor, projectGuid, track?.id]);
 
   // Helper function to convert dB to meter width percentage
   const dbToPercent = (db) => {
@@ -89,8 +151,9 @@ export default function TrackHeader({
         // For recording track: show meter when playing (not soloed), monitoring enabled, OR input device selected
         // For other tracks: show meter when playing and not soloed
         const isRecordingTrack = track.id === 'recording-track';
+        const isArmedProjectTrack = isProjectEditor && track.id === armedTrackId;
         const shouldShowMeter = isPlaying ||
-          (isRecordingTrack && (isMonitoring || hasInputDevice));
+          ((isRecordingTrack || isArmedProjectTrack) && (isMonitoring || hasInputDevice));
         
         if (analyzer && shouldShowMeter) {
           const dataArray = new Uint8Array(analyzer.frequencyBinCount);
@@ -132,6 +195,7 @@ export default function TrackHeader({
 
   const handleFaderMouseDown = (e) => {
     e.stopPropagation();
+    isDraggingFaderRef.current = true;
     setIsDraggingFader(true);
   };
 
@@ -140,22 +204,22 @@ export default function TrackHeader({
     const handleMouseMove = (e) => {
       if (!isDraggingFader) return;
 
-      // Get container for mouse position calculation
-      const container = faderRef.current?.parentElement;
-      if (!container) return;
-
-      const rect = container.getBoundingClientRect();
-      const mousePos = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      if (!faderRef.current) return;
 
       // Calculate the new gain value (0 to 1 range)
       const faderRect = faderRef.current.getBoundingClientRect();
       const newMousePos = Math.max(0, Math.min(100, ((e.clientX - faderRect.left) / faderRect.width) * 100));
       const newGain = Math.min(1, Math.max(0, newMousePos / 100));
       setFaderValue(newGain);
+
+      if (isProjectEditor && canEditProject && track?.id != null && track.id !== 'recording-track') {
+        persistProjectTrackGain(track.id, newGain);
+      }
     };
 
     const handleMouseUp = (e) => {
       e.stopPropagation();
+      isDraggingFaderRef.current = false;
       setIsDraggingFader(false);
     };
 
@@ -166,16 +230,41 @@ export default function TrackHeader({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDraggingFader]);
+  }, [
+    isDraggingFader,
+    isProjectEditor,
+    canEditProject,
+    persistProjectTrackGain,
+    track?.id,
+  ]);
 
   const handleSoloClick = (e) => {
     e.stopPropagation();
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
     setIsSolo(prev => !prev);
   };
 
   const handleMuteClick = (e) => {
     e.stopPropagation();
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
     setIsMuted(prev => !prev);
+  };
+
+  const handleArmTrack = (e) => {
+    e.stopPropagation();
+    if (!canEditProject || isRecording) return;
+    selectTrack(track.id);
+    setArmedTrackId(track.id === armedTrackId ? null : track.id);
+  };
+
+  const handleHeaderClick = () => {
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
   };
 
   const handleMonitorClick = (e) => {
@@ -242,7 +331,76 @@ export default function TrackHeader({
     if (track.id === 'recording-track') {
       return 'Recording Track';
     }
-    return track.title || 'Track ' + (track.id || 1);
+    return track.title || `Track ${track.id || 1}`;
+  };
+
+  const canRenameTrack =
+    isProjectEditor && canEditProject && track.id !== 'recording-track';
+  const trackMutationPending = isTrackMutationPending || isTrackMutationPendingProp;
+
+  const startRenaming = () => {
+    if (!canRenameTrack || trackMutationPending) return;
+    selectTrack(track.id);
+    setRenameValue(getTrackDisplayName());
+    setIsRenaming(true);
+  };
+
+  useEffect(() => {
+    if (!isRenaming) return;
+    renameInputRef.current?.focus();
+    renameInputRef.current?.select();
+  }, [isRenaming]);
+
+  const cancelRenaming = () => {
+    setIsRenaming(false);
+    setRenameValue('');
+  };
+
+  const commitRename = async () => {
+    if (!isRenaming) return;
+
+    const nextName = renameValue.trim();
+    const currentName = getTrackDisplayName();
+    setIsRenaming(false);
+    setRenameValue('');
+
+    if (!nextName || nextName === currentName) {
+      return;
+    }
+
+    await renameProjectTrack(track.id, nextName);
+  };
+
+  const handleRenameKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void commitRename();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelRenaming();
+    }
+  };
+
+  const handleDragHandleMouseDown = (event) => {
+    event.stopPropagation();
+    if (isProjectEditor) {
+      selectTrack(track.id);
+    }
+  };
+
+  const handleDragStart = (event) => {
+    if (!canReorder || trackMutationPending) {
+      event.preventDefault();
+      return;
+    }
+
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(track.id));
+    onDragStart?.(track.id);
+  };
+
+  const handleDragEnd = () => {
+    onDragEnd?.();
   };
 
   const contributorProfile = track.id === 'recording-track' && user
@@ -257,13 +415,60 @@ export default function TrackHeader({
         verified: track.verified,
       };
 
-  const showContributorAvatar = track.id === 'recording-track' ? !!user : true;
+  const showContributorAvatar = isProjectEditor
+    ? false
+    : track.id === 'recording-track'
+      ? !!user
+      : true;
+
+  const isTrackSelected = isProjectEditor && selectedTrackId === track.id;
 
   return (
-    <div className={`${styles.trackHeader}`}>
-      <span className={styles.trackName}>
-        {getTrackDisplayName()}
-      </span>
+    <div
+      className={`${styles.trackHeader} ${isTrackSelected ? styles.trackHeaderSelected : ''}`}
+      onClick={handleHeaderClick}
+    >
+      <div className={styles.trackNameRow}>
+        {canReorder && (
+          <button
+            type="button"
+            className={styles.dragHandle}
+            draggable={!trackMutationPending}
+            onMouseDown={handleDragHandleMouseDown}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            disabled={trackMutationPending}
+            aria-label="Drag to reorder track"
+            title="Drag to reorder track"
+          >
+            <FontAwesomeIcon icon={faGripVertical} aria-hidden />
+          </button>
+        )}
+
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            className={styles.trackNameInput}
+            value={renameValue}
+            onChange={(event) => setRenameValue(event.target.value)}
+            onBlur={() => void commitRename()}
+            onKeyDown={handleRenameKeyDown}
+            maxLength={200}
+            aria-label="Track name"
+          />
+        ) : (
+          <button
+            type="button"
+            className={`${styles.trackName} ${canRenameTrack ? styles.trackNameEditable : ''}`}
+            onClick={canRenameTrack ? startRenaming : undefined}
+            onDoubleClick={canRenameTrack ? startRenaming : undefined}
+            disabled={!canRenameTrack || trackMutationPending}
+            title={canRenameTrack ? 'Click to rename track' : undefined}
+          >
+            {getTrackDisplayName()}
+          </button>
+        )}
+      </div>
 
       <div className={styles.controlRow}>
         {showContributorAvatar && (
@@ -290,7 +495,22 @@ export default function TrackHeader({
           <span>S</span>
         </button>
         
-        {track.id === 'recording-track' && (
+        {isProjectEditor && canEditProject && (
+          <>
+            <button
+              className={`${styles.controlButton} ${armedTrackId === track.id ? styles.armActive : ''}`}
+              onClick={handleArmTrack}
+              disabled={isRecording}
+              title={armedTrackId === track.id ? 'Disarm track' : 'Arm track for recording'}
+              type="button"
+            >
+              <FontAwesomeIcon icon={faCircle} />
+            </button>
+            <ProjectTrackActionsMenu track={track} disabled={trackMutationPending} />
+          </>
+        )}
+
+        {(track.id === 'recording-track' || (isProjectEditor && armedTrackId === track.id)) && (
           <>
             <div
               ref={monitorPopoverAnchorRef}

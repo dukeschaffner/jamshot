@@ -1,0 +1,27 @@
+
+
+
+- what if on clip upload retry, both the original and the new region are uploaded?
+- need a way to indicate who recorded audio/made what changes
+- on projects page, sort by last updated, and include tag filter by "owned by me" or by camp,team, or user. if user has no camp projects, dont show camp filter. if user has no team projects, dont show team filter. if user has no user projects, dont show user filter, etc
+- should ONLY people who recorded asset and project owner be able to delete assets?
+    - make sure to show confirmation if snapshot depends on the asset as well
+- if i've loaded a project and then switch between the projects and tracks tabs, after it clears the state it shows "Fetching audio assets (4 of 4)" even though there is no project or track selected... its just a stale message
+- in two sepatate windows with different users, I recorded on the same track one after another... the first window finished recording and the second window was able to start recording after the lock was released and before the region from the first window appeared on the timeline... both regions started at the beginning of the track. both regions we saved successully. this should not happen, because the regions are overlapping.
+
+
+
+Private project audio is public and enumerable — Final keys are projects/{serialProjectId}/{serialAssetId}/audio.wav on the public R2 CDN with no auth. Anyone who can guess or scrape those IDs can download invite-only project audio. Tracks use random filenames; projects don’t.
+
+deploy:
+Prod: API lambda needs execute-api:ManageConnections (POST+DELETE) for instant socket close; without it, fanout/locks still stop immediately and the client self-cuts on the next presence cycle.
+
+optimize:
+- im pretty happy with the projects implementation. but i have a couple concerns. the project DAW is calling /assets and /plugin-payload VERY frequently. and these endpoints have decent sized payloads... is this going to drive high api costs? would it be better to move to an event based model instead of state based? so only updates are pushed out, and not the entire project state every time? if so, how big of an effort is that? also, does the plugin-payload endpoint REALLY need to exist? can't the web DAW just forward the project state to the plugin? seems a little redundant.
+- manage localStorage mix state - clean up old/stale data
+
+
+check:
+- make sure on project delete, it reconciles projects (ie if user/camp/team has more projects than allowed, and a project is deleted, it should check the limit and unlock projects if needed)
+- make sure temp uploaded files in R2 get deleted
+- Storage can grow unbounded on import/copy + orphaned temp objects — import/collab-copy now check project storage quota; project delete / asset delete / cleanup delete temp/ keys; stuck pending/processing assets become cleanup-eligible after grace.

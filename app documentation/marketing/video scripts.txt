@@ -1,0 +1,73 @@
+
+
+vid 1 - functional intro:
+what if you could collaborate with your favorite artists instantly - from anywhere?
+STERiO is a brand new way to share music and collaborate with other artists, check it out
+
+I can listen to tracks posted by people I’m following or browse popular tracks and if I find one that resonates with me or inspires me, I can click Collab. and that brings me to the collaboration page which has a simple built-in daw. and so what I’m gonna do is loop this section and play along with it until I come up with something that I like and then I can just press record and record it and then upload the new track
+Now here’s the new track on my page. I can also go back to the original track and see my collaboration underneath it as well as collaborations created by other artists.
+
+refined: 
+
+
+
+
+What if you could collaborate with your favorite artists — instantly, from anywhere?
+STERiO is a brand-new way to share and create music together, check it out
+I can listen to tracks posted by people I follow or browse what’s trending. When I find one that inspires me, I just tap Collab — and that opens a simple built-in recording interface.
+I can loop a section, jam along, record my idea, and upload my version right on top of the original.
+Now my version shows up on my page and under the original track — so everyone can hear how artists are building on each other’s ideas.
+
+💡 Create. Collaborate. Be heard.
+
+Visit sterio.fm and start your first collab today.
+
+
+
+
+
+
+
+vid 2 - lowering the barrier to entry:
+One of my goals when creating stereo was to lower the barrier to entry to creating and sharing music. there are several features that support that goal.
+Let’s say I don’t have a DAW or or I Only know how to play guitar and sing. Normally, I wouldn;t really have a chance of turning recordings into a full song. now with stereo I can just upload my track even though it’s just guitar and vocals, and then other musicians or artists can add to my track to make it a more complete song. Also, there is no album artwork in the app, so you will never have the excuse of not having an album artwork to prevent you from sharing your music with the world. My vision is that instead of waiting months or years to release fully polished songs, or not releasing songs at all because they are not fully polished, you can share your work with the world on a daily basis as you create and get feedback and collaborate with other artists to make it better.
+
+Length: ~45 seconds
+🎙️ Making music shouldn’t require a studio, expensive software, or a full band.
+That’s why I created STERiO — to make it easy for anyone to create and share their music.
+Let’s say you only play guitar or sing — you can upload your track, and other musicians can add drums, bass, or anything else to bring it to life.
+There’s no album artwork, no pressure, no waiting months for a “perfect” release.
+Just record, upload, and connect with other artists instantly.
+Don’t wait for perfect — share your sound today on STERiO.
+
+
+
+
+vid 3 - collaboration as a social media:
+Have you ever seen one of your favorite artists collaborate with other artists and you just know that if you had the chance to collaborate with them, you would prove your talent and creativity and create something amazing? Stereo is a platform that allows you to do just that.
+
+Length: ~35 seconds
+
+🎤 Have you ever watched your favorite artists collaborate and thought — “If I had that chance, I’d create something amazing”?
+STERiO gives you that chance.
+Artists upload short tracks — and you can record your own part right on top of theirs.
+It’s your opportunity to prove your creativity, connect with other artists, and be discovered through collaboration.
+Join STERiO and turn inspiration into collaboration.
+
+vid 4:
+What if there was a social media platform where instead of sharing text-based posts and commenting with words, you can share your musical ideas and allow other people to add musical "comments" to your posts?
+
+vid 5 - how we defeat ai:
+talk about how this app brings artists together to create something unique and human, rather than AI generated content. we have to come together as a community to defeat ai.
+
+vid 6 - recording tutorial
+
+
+
+
+Recording:
+Cmd+shift+5
+Record screen + muse audio share
+In logic - record mic and synth audio
+Open muse to monitor muse audio share source
+Record video with phone 

@@ -110,6 +110,8 @@ target_sources(SterioPlugin
         Source/api/SterioApiClient.h
         Source/api/TrackLoader.cpp
         Source/api/TrackLoader.h
+        Source/api/ProjectLoader.cpp
+        Source/api/ProjectLoader.h
         Source/api/ConnectionManager.cpp
         Source/api/ConnectionManager.h
         Source/auth/AuthCallbackServer.cpp
@@ -118,6 +120,9 @@ target_sources(SterioPlugin
         Source/auth/AuthManager.h
         Source/playback/StemPlaybackEngine.cpp
         Source/playback/StemPlaybackEngine.h
+        Source/playback/ProjectMixState.h
+        Source/playback/ProjectMixController.cpp
+        Source/playback/ProjectMixController.h
         Source/PluginEditor.cpp
         Source/PluginEditor.h
         Source/PluginProcessor.cpp
@@ -139,6 +144,12 @@ target_sources(SterioPlugin
         Source/ui/Footer.cpp
         Source/ui/Footer.h
         Source/ui/HelpView.h
+        Source/ui/projects/ProjectListPanel.cpp
+        Source/ui/projects/ProjectListPanel.h
+        Source/ui/projects/ProjectView.cpp
+        Source/ui/projects/ProjectView.h
+        Source/ui/projects/ProjectTimelineView.cpp
+        Source/ui/projects/ProjectTimelineView.h
 )
 
 source_group("Sterio" FILES
@@ -164,6 +175,8 @@ source_group("Sterio" FILES
     Source/api/SterioApiClient.h
     Source/api/TrackLoader.cpp
     Source/api/TrackLoader.h
+    Source/api/ProjectLoader.cpp
+    Source/api/ProjectLoader.h
     Source/api/ConnectionManager.cpp
     Source/api/ConnectionManager.h
     Source/auth/AuthCallbackServer.cpp
@@ -172,6 +185,9 @@ source_group("Sterio" FILES
     Source/auth/AuthManager.h
     Source/playback/StemPlaybackEngine.cpp
     Source/playback/StemPlaybackEngine.h
+    Source/playback/ProjectMixState.h
+    Source/playback/ProjectMixController.cpp
+    Source/playback/ProjectMixController.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/PluginProcessor.cpp
@@ -193,6 +209,12 @@ source_group("Sterio" FILES
     Source/ui/Footer.cpp
     Source/ui/Footer.h
     Source/ui/HelpView.h
+    Source/ui/projects/ProjectListPanel.cpp
+    Source/ui/projects/ProjectListPanel.h
+    Source/ui/projects/ProjectView.cpp
+    Source/ui/projects/ProjectView.h
+    Source/ui/projects/ProjectTimelineView.cpp
+    Source/ui/projects/ProjectTimelineView.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")

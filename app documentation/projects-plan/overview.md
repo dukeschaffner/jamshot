@@ -13,7 +13,7 @@ See also: [projects-plan.txt](./projects-plan.txt)
 | Async tree of published collabs | Yes | No (different model) |
 | Real-time multi-user editing | No | Yes (Phase 2) |
 | Move regions between tracks | No | Yes |
-| Record / upload on any track | No (recording track only) | Yes |
+| Record on armed track; upload on any track | No (recording track only) | Yes |
 | Undo / redo | Yes | **No** — use snapshots instead |
 | Edit locking | No | Yes (track-level, Phase 2) |
 | Plugin playback sync | Manual per track | Project-level, auto or manual |
@@ -56,11 +56,11 @@ See also: [projects-plan.txt](./projects-plan.txt)
 
 - DB schema + REST CRUD
 - Project page with **Project DAW** (single user)
-- Manual + auto snapshots (preview before restore)
+- Manual snapshot (create + list)
 - Plugin: `set_project` + auto-sync (default on)
 - Multipart clip upload → shared audio-processing lambda (project branch); local `bufferRegistry` playback until processed audio is ready
 
-**Exit criteria:** One user creates a project, edits in browser, opens in plugin, records in Logic, exports WAV, imports back via web (Step 18b).
+**Exit criteria:** One user creates a project, edits in browser, opens in plugin, records in Logic, exports WAV, drags it back onto the web timeline (Step 18).
 
 ### Phase 1b — Context & sharing (REST-only)
 

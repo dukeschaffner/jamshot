@@ -3,6 +3,7 @@ import { createLambdaPool } from '@sterio/db-config';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import dotenv from 'dotenv';
+import { logProcessFailure } from './utils/devProcessFailure.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,10 +22,12 @@ if (useBuilt) {
 } else {
   console.log('📝 Running with source code');
 }
-console.log('Monitoring database for tracks needing processing...\n');
+console.log('Monitoring database for tracks and project assets needing processing...\n');
 
 // Track processing status to avoid duplicate processing
 const processingTracks = new Set();
+const processingAssets = new Set();
+let monitorCycleInProgress = false;
 
 async function checkForTracksToProcess() {
   try {
@@ -44,16 +47,77 @@ async function checkForTracksToProcess() {
       for (const track of result.rows) {
         console.log(`  📀 ${track.title} (ID: ${track.id}) - Created: ${track.created_at}`);
 
-        // Mark as being processed
         processingTracks.add(track.id);
-
-        // Trigger audio processing
         await processTrack(track);
       }
       console.log('');
     }
   } catch (error) {
     console.error('❌ Error checking for tracks to process:', error.message);
+  }
+}
+
+async function repairInconsistentProjectAssets() {
+  try {
+    const result = await pool.query(
+      `UPDATE project_assets
+       SET processing_status = 'completed',
+           processing_error = NULL
+       WHERE processing_status IN ('failed', 'processing')
+         AND storage_key LIKE 'projects/%/audio.wav'
+       RETURNING id`
+    );
+
+    if (result.rows.length > 0) {
+      const ids = result.rows.map((row) => row.id).join(', ');
+      console.log(`🔧 Repaired inconsistent project asset status for: ${ids}`);
+    }
+  } catch (error) {
+    console.error('❌ Error repairing project asset statuses:', error.message);
+  }
+}
+
+async function checkForProjectAssetsToProcess() {
+  try {
+    await repairInconsistentProjectAssets();
+
+    const result = await pool.query(
+      `SELECT id, project_id, storage_key, name, processing_status, created_at
+       FROM project_assets
+       WHERE (
+         processing_status = 'pending'
+         OR (
+           processing_status = 'processing'
+           AND storage_key LIKE 'temp/%'
+           AND updated_at < NOW() - INTERVAL '2 minutes'
+         )
+       )
+       AND (storage_key IS NULL OR storage_key LIKE 'temp/%')
+       AND id != ALL($1)
+       ORDER BY created_at ASC
+       LIMIT 5`,
+      [Array.from(processingAssets)]
+    );
+
+    if (result.rows.length > 0) {
+      console.log(`🔍 Found ${result.rows.length} project asset(s) to process:`);
+
+      for (const asset of result.rows) {
+        if (processingAssets.has(asset.id)) {
+          continue;
+        }
+
+        console.log(
+          `  🎚️  Asset ${asset.id} (project ${asset.project_id}) - Created: ${asset.created_at}`
+        );
+
+        processingAssets.add(asset.id);
+        await processProjectAsset(asset);
+      }
+      console.log('');
+    }
+  } catch (error) {
+    console.error('❌ Error checking for project assets to process:', error.message);
   }
 }
 
@@ -97,15 +161,22 @@ async function processTrack(track) {
         console.log(`✅ Successfully processed track: ${track.title}`);
         if (stdout) console.log('Output:', stdout.trim());
       } else {
-        console.error(`❌ Failed to process track: ${track.title}`);
-        console.error('Exit code:', code);
-        if (stderr) console.error('Error:', stderr.trim());
+        const fallbackError = logProcessFailure({
+          label: `track: ${track.title}`,
+          code,
+          stdout,
+          stderr,
+        });
 
-        // Update track status to failed
+        // Lambda usually already wrote processing_error; don't clobber it with a generic message.
         try {
           await pool.query(
-            'UPDATE tracks SET processing_status = $1, processing_error = $2 WHERE id = $3',
-            ['failed', stderr || 'Processing failed', track.id]
+            `UPDATE tracks
+             SET processing_status = 'failed',
+                 processing_error = COALESCE(NULLIF(processing_error, ''), $1)
+             WHERE id = $2
+               AND processing_status != 'completed'`,
+            [fallbackError, track.id]
           );
         } catch (updateError) {
           console.error('Failed to update track status:', updateError.message);
@@ -124,12 +195,94 @@ async function processTrack(track) {
   });
 }
 
+async function processProjectAsset(asset) {
+  return new Promise((resolve, reject) => {
+    console.log(`🎚️ Processing project asset: ${asset.id} (project ${asset.project_id})`);
+
+    const lambdaFile = useBuilt ? 'dist/index.mjs' : 'index.js';
+    const lambdaCwd = __dirname;
+
+    const lambdaProcess = spawn('node', [lambdaFile], {
+      cwd: lambdaCwd,
+      env: {
+        ...process.env,
+        ASSET_ID: String(asset.id),
+        S3_KEY: asset.storage_key || '',
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    lambdaProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    lambdaProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    lambdaProcess.on('close', async (code) => {
+      processingAssets.delete(asset.id);
+
+      if (code === 0) {
+        console.log(`✅ Successfully processed project asset: ${asset.id}`);
+        if (stdout) console.log('Output:', stdout.trim());
+      } else {
+        const fallbackError = logProcessFailure({
+          label: `project asset: ${asset.id}`,
+          code,
+          stdout,
+          stderr,
+        });
+
+        try {
+          await pool.query(
+            `UPDATE project_assets
+             SET processing_status = 'failed',
+                 processing_error = COALESCE(NULLIF(processing_error, ''), $1)
+             WHERE id = $2
+               AND processing_status IN ('pending', 'processing')
+               AND storage_key LIKE 'temp/%'`,
+            [fallbackError, asset.id]
+          );
+        } catch (updateError) {
+          console.error('Failed to update project asset status:', updateError.message);
+        }
+      }
+
+      console.log('');
+      resolve();
+    });
+
+    lambdaProcess.on('error', (error) => {
+      console.error(`❌ Process error for project asset ${asset.id}:`, error.message);
+      processingAssets.delete(asset.id);
+      reject(error);
+    });
+  });
+}
+
+async function runMonitorCycle() {
+  if (monitorCycleInProgress) {
+    return;
+  }
+
+  monitorCycleInProgress = true;
+  try {
+    await checkForTracksToProcess();
+    await checkForProjectAssetsToProcess();
+  } finally {
+    monitorCycleInProgress = false;
+  }
+}
+
 // Start monitoring
 console.log('🔄 Starting database monitoring...');
-checkForTracksToProcess();
+runMonitorCycle();
 
-// Check for new tracks every 5 seconds
-const monitorInterval = setInterval(checkForTracksToProcess, 15000);
+const monitorInterval = setInterval(runMonitorCycle, 15000);
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {

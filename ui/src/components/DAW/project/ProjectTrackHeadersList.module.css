@@ -1,0 +1,19 @@
+.trackHeaderRow {
+  position: relative;
+}
+
+.trackHeaderRow.dragging {
+  opacity: 0.45;
+}
+
+.trackHeaderRow.dragOver::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 0;
+  height: 2px;
+  background-color: var(--seafoam, #34c759);
+  border-radius: 1px;
+  z-index: 2;
+}

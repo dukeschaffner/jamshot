@@ -344,3 +344,63 @@ export const generateCompetitionNoBackupWinnerTemplate = (trackTitle, competitio
     </div>
   `;
 };
+
+/**
+ * Generate HTML template for project deletion warning email.
+ * @param {string} userName
+ * @param {'7d'|'1d'} warningType
+ * @param {Array<{ name: string, scheduledDeletionAt: string|Date }>} projects
+ * @param {string} subscribeUrl
+ * @returns {string}
+ */
+export const generateProjectDeletionWarningTemplate = (
+  userName,
+  warningType,
+  projects,
+  subscribeUrl
+) => {
+  const isOneDay = warningType === '1d';
+  const heading = isOneDay
+    ? 'Projects scheduled for deletion tomorrow'
+    : 'Projects scheduled for deletion in 7 days';
+  const urgency = isOneDay
+    ? 'These projects will be permanently deleted in about 1 day unless you restore access.'
+    : 'These projects will be permanently deleted in about 7 days unless you restore access.';
+
+  const projectList = (projects || [])
+    .map((project) => {
+      const dateLabel = project.scheduledDeletionAt
+        ? new Date(project.scheduledDeletionAt).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        : 'soon';
+      return `<li style="margin-bottom: 8px;"><strong>${escapeHtml(project.name || 'Untitled project')}</strong> — deleted on ${dateLabel}</li>`;
+    })
+    .join('');
+
+  return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+      <h2 style="color: #171717; font-size: 1.8rem; font-weight: 700; margin-bottom: 16px;">${heading}</h2>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6;">Hi ${escapeHtml(userName || 'there')},</p>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6;">${urgency}</p>
+      <ul style="color: #171717; font-size: 1rem; line-height: 1.6; padding-left: 20px;">
+        ${projectList}
+      </ul>
+      <p style="color: #171717; font-size: 1rem; line-height: 1.6;">Upgrade or renew your subscription to restore locked projects and cancel deletion.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${subscribeUrl}" style="background: linear-gradient(90deg, #93E9BE, #E9A9A1); color: #171717; padding: 12px 24px; text-decoration: none; border-radius: 24px; font-weight: 600; display: inline-block;">Manage subscription</a>
+      </div>
+    </div>
+  `;
+};
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

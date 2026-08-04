@@ -13,6 +13,7 @@
     "functions/lambda/*"
   ],
   "scripts": {
-    "build:packages": "npm run build --workspaces --if-present"
+    "build:packages": "npm run build --workspaces --if-present",
+    "dev:backend": "./scripts/run-backend-services.sh"
   }
 }

@@ -1,0 +1,11 @@
+---
+globs: **.css
+alwaysApply: false
+---
+# CSS Guidelines
+
+## General Guidelines
+
+ALWAYS prefer css module files
+ALWAYS use defined css variables for colors, fonts, etc.
+ALWAYS use existing css util classes for common patterns (buttons, etc)

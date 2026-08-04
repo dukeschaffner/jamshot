@@ -1,4 +1,5 @@
 #include "StemPlaybackEngine.h"
+#include "RegionLoopMath.h"
 
 //==============================================================================
 StemPlaybackEngine::StemPlaybackEngine()
@@ -22,6 +23,11 @@ void StemPlaybackEngine::setStemsProvider(StemsProvider provider)
     resetPlayback();
 }
 
+void StemPlaybackEngine::setMixStateProvider(MixStateProvider provider)
+{
+    mixStateProvider = std::move(provider);
+}
+
 void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const TransportState& transport)
 {
     // Note: Buffer is not cleared here - we mix with existing content (input audio)
@@ -32,6 +38,10 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
 
     auto stems = stemsProvider(); // Atomic read from processor's storage
 
+    std::shared_ptr<const ProjectMixState> mixState;
+    if (mixStateProvider)
+        mixState = mixStateProvider();
+
     // Process all stems if transport is playing
     if (transport.isPlaying && transport.hasValidPosition && !stems.isEmpty())
     {
@@ -40,6 +50,9 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
         // Process each stem
         for (const auto& stem : stems)
         {
+            if (mixState && !mixState->shouldPlayTrack(stem.projectTrackId))
+                continue;
+
             processStem(stem, buffer, transport, currentSampleRate, numSamples);
         }
     }
@@ -63,11 +76,16 @@ void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<fl
     if (stemBuffer.getNumChannels() <= 0 || stemBuffer.getNumSamples() <= 0)
         return;
 
+    if (sampleRate <= 0.0)
+        return;
+
     // Find the region that should be playing at the current transport time
+    // (including any loop area past endTime).
     const StemRegion* activeRegion = nullptr;
     for (auto& region : stem.regions)
     {
-        if (transport.timeInSeconds >= region.startTime && transport.timeInSeconds < region.endTime)
+        const double effectiveEnd = RegionLoopMath::regionEffectiveEnd(region);
+        if (transport.timeInSeconds >= region.startTime && transport.timeInSeconds < effectiveEnd)
         {
             activeRegion = &region;
             break;
@@ -78,28 +96,39 @@ void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<fl
     if (activeRegion == nullptr)
         return;
 
-    // Calculate the audio position within the stem buffer
-    const double timeIntoRegion = transport.timeInSeconds - activeRegion->startTime;
-    const double audioTime = activeRegion->offset + timeIntoRegion;
-    const int64_t audioSamplePosition = static_cast<int64_t>(audioTime * sampleRate);
-
-    // Make sure we're within the stem buffer bounds
-    if (audioSamplePosition < 0 || audioSamplePosition >= stemBuffer.getNumSamples())
-        return;
-
+    const double effectiveEnd = RegionLoopMath::regionEffectiveEnd(*activeRegion);
+    const bool looped = RegionLoopMath::isRegionLooped(*activeRegion);
+    const double audibleLength = RegionLoopMath::regionAudibleLength(*activeRegion);
     const int stemChannels = stemBuffer.getNumChannels();
-    const int outputChannels = juce::jmin(buffer.getNumChannels(), stemChannels);
+    const int bufferChannels = buffer.getNumChannels();
+    const int stemNumSamples = stemBuffer.getNumSamples();
 
-    // Mix stem audio into output buffer
-    for (int channel = 0; channel < outputChannels; ++channel)
+    // Mix stem audio into output buffer (upmix mono stems to all output channels).
+    // Per-sample wrap so blocks that cross a loop tile boundary (or loopEnd) are correct.
+    for (int channel = 0; channel < bufferChannels; ++channel)
     {
         auto* outputPtr = buffer.getWritePointer(channel);
-        const auto* stemPtr = stemBuffer.getReadPointer(channel % stemChannels);
+        const auto* stemPtr = stemBuffer.getReadPointer(channel < stemChannels ? channel : 0);
 
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            const int64_t stemSampleIndex = audioSamplePosition + sample;
-            if (stemSampleIndex >= 0 && stemSampleIndex < stemBuffer.getNumSamples())
+            const double posInRegion = (transport.timeInSeconds - activeRegion->startTime)
+                + (static_cast<double>(sample) / sampleRate);
+
+            if (activeRegion->startTime + posInRegion >= effectiveEnd)
+                break;
+
+            if (posInRegion < 0.0)
+                continue;
+
+            const double wrappedPos = (looped && audibleLength > 0.0)
+                ? RegionLoopMath::wrapTimeIntoRegion(*activeRegion, posInRegion)
+                : posInRegion;
+
+            const int64_t stemSampleIndex = static_cast<int64_t>(
+                (activeRegion->offset + wrappedPos) * sampleRate);
+
+            if (stemSampleIndex >= 0 && stemSampleIndex < stemNumSamples)
             {
                 outputPtr[sample] += stemPtr[stemSampleIndex] * stem.gain;
             }

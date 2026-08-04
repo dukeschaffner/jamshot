@@ -1,0 +1,32 @@
+{
+  "name": "@sterio/data-cleanup-lambda",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Nightly project asset cleanup and subscription project retention",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.js",
+    "test": "node local.js",
+    "test:dry-run": "node local.js dry-run",
+    "test:execute": "node local.js execute",
+    "test:retention": "node local.js retention",
+    "test:assets": "node local.js assets"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.758.0",
+    "@sterio/db-config": "file:../../../packages/db-config",
+    "@sterio/email": "file:../../../packages/email",
+    "@sterio/subscription-utils": "file:../../../packages/subscription-utils",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.7",
+    "pg": "^8.13.3",
+    "stripe": "^14.7.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.7",
+    "esbuild": "^0.23.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

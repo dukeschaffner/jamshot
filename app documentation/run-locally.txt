@@ -1,3 +1,9 @@
+ALL BACKEND SERVICES (toggle in script):
+./scripts/run-backend-services.sh
+# or: npm run dev:backend
+
+
+
 RUNNING STRIPE: 
 stripe listen --forward-to localhost:5001/api/payments/webhook
 if expired: stripe login
@@ -38,3 +44,19 @@ node ./functions/lambda/email-notifications/index.js daily weekly       # Force 
 RUNNING ISSUES VISUALIZER:
 cd issues-visualizer
 npm run dev
+
+
+
+
+
+PROJECTS WS DEV SERVER:
+cd functions/lambda/project-ws && npm run dev
+
+
+
+
+
+
+CLEAR PROJECT DATA:
+cd api/lambda
+npm run wipe-projects:confirm      # actually deletes everything

@@ -1,0 +1,19 @@
+---
+globs: api/**
+alwaysApply: false
+---
+# API Development Best Practices
+
+## Coding
+
+Routes should be minimal. business logic should be in services helper logic should be in utils.
+
+ALWAYS use the "next" function to call the next middleware in the chain on error.
+
+NEVER return responses with errors that are not user-facing. Make sure error messages are user-facing and not technical.
+
+## Testing Changes
+
+After making changes to the API - especially new routes - run the API and hit the endpoints and examine the logs and responses to make sure everything is working as expected. Also use the postgres mcp server to examine the database and make sure the changes are reflected in the database correctly.
+
+For testing API endpoints with auth, use header `x-dev-user-id` with value `RS2VUuNZAjDEMD5oJywuiO9IKBN3N2NE` to spoof the user id.

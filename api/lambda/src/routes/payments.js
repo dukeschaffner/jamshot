@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { betterAuthMiddleware as authMiddleware } from '../middleware/betterAuthMiddleware.js';
 
 const router = express.Router();
@@ -6,6 +7,8 @@ import stripe from '../config/stripe.js';
 import db from '../config/db.js';
 import { contentCreationLimiter } from '../middleware/rateLimiting.js';
 import { SUBSCRIPTION_TIERS, SUBSCRIPTION_PLANS, isValidTier } from '../utils/subscriptionUtils.js';
+import { reconcileOwnerProjects, reconcileTeamProjects } from '../utils/projectRetention.js';
+import { scheduleCompetitionEnd } from '../utils/eventBridgeScheduler.js';
 
 // Create a checkout session for donations
 router.post('/create-checkout-session', contentCreationLimiter, authMiddleware, async (req, res, next) => {
@@ -175,9 +178,17 @@ router.post('/modify-subscription', contentCreationLimiter, authMiddleware, asyn
       [
         newTier,
         new Date(updatedSubscription.current_period_end * 1000),
-        user.id
+        req.user.id
       ]
     );
+
+    try {
+      await reconcileOwnerProjects(req.user.id, {
+        triggerDate: new Date(),
+      });
+    } catch (reconcileError) {
+      console.error('Failed to reconcile projects after tier change:', reconcileError);
+    }
 
     res.json({ 
       message: `Successfully switched to ${newPlan.name} plan`,
@@ -401,7 +412,6 @@ async function handleCheckoutCompleted(session) {
 
           // Schedule the competition end event
           try {
-            const { scheduleCompetitionEnd } = require('../utils/eventBridgeScheduler');
             await scheduleCompetitionEnd(competition.id, endDateUTC, winnerSelectionMethod);
             console.log(`Competition end scheduled for ID: ${competition.id} after payment`);
           } catch (scheduleError) {
@@ -474,6 +484,15 @@ async function handleSubscriptionUpdated(subscription) {
     );
 
     console.log(`Team subscription updated: ${subscription.id}, status: ${status}`);
+
+    const teamId = teamResult.rows[0].id;
+    try {
+      if (status === 'active' || status === 'trialing') {
+        await reconcileTeamProjects(teamId, { triggerDate: new Date() });
+      }
+    } catch (reconcileError) {
+      console.error(`Failed to reconcile team ${teamId} projects:`, reconcileError);
+    }
     return;
   }
 
@@ -523,6 +542,14 @@ async function handleSubscriptionUpdated(subscription) {
   );
 
   console.log(`Subscription updated for user ${userId}: ${tier}`);
+
+  try {
+    await reconcileOwnerProjects(userId, {
+      triggerDate: new Date(),
+    });
+  } catch (reconcileError) {
+    console.error(`Failed to reconcile projects for user ${userId}:`, reconcileError);
+  }
 }
 
 async function handleSubscriptionDeleted(subscription) {
@@ -576,6 +603,16 @@ async function handleSubscriptionDeleted(subscription) {
   );
 
   console.log(`Subscription canceled for user ${userId}`);
+
+  try {
+    await reconcileOwnerProjects(userId, {
+      triggerDate: subscription.canceled_at
+        ? new Date(subscription.canceled_at * 1000)
+        : new Date(),
+    });
+  } catch (reconcileError) {
+    console.error(`Failed to reconcile projects for user ${userId}:`, reconcileError);
+  }
 }
 
 async function handleInvoicePaymentSucceeded(invoice) {
@@ -614,7 +651,6 @@ async function handleCampCreation(session) {
   } = session.metadata;
 
   // Generate unique camp code
-  const crypto = require('crypto');
   const campCode = crypto.randomBytes(16).toString('hex');
 
   // Create camp
@@ -650,7 +686,6 @@ async function handleTeamCreation(session) {
   }
 
   // Generate unique team code
-  const crypto = require('crypto');
   const teamCode = crypto.randomBytes(16).toString('hex');
 
   // Create team

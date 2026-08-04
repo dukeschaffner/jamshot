@@ -9,6 +9,10 @@ export const DAW_EVENTS = {
       LOOP_TOGGLE: 'transport:loop:toggle',
       LOOP_SET: 'transport:loop:set'
     },
+
+    GLOBAL_PLAYER: {
+      PLAYBACK_STARTED: 'global_player:playback:started',
+    },
     
     // Recording events
     RECORDING: {
@@ -41,7 +45,8 @@ export const DAW_EVENTS = {
       METRONOME_VOLUME_CHANGE: 'audio:settings:metronome:volume:change',
       MONITOR_TOGGLE: 'audio:settings:monitor:toggle',
       MONITOR_STARTED: 'audio:settings:monitor:started',
-      MONITOR_STOPPED: 'audio:settings:monitor:stopped'
+      MONITOR_STOPPED: 'audio:settings:monitor:stopped',
+      ARMED_TRACK_CHANGE: 'audio:settings:armed:track:change',
     },
     
     // Metronome events
@@ -66,6 +71,8 @@ export const DAW_EVENTS = {
       MUTE: 'track:mute',
       SOLO: 'track:solo',
       VOLUME_CHANGE: 'track:volume:change',
+      /** Remote/local authoritative gain for UI fader sync (does not imply user drag). */
+      GAIN_STATE: 'track:gain:state',
       PAN_CHANGE: 'track:pan:change'
     },
 
@@ -160,6 +167,14 @@ export const DAW_EVENTS = {
       REDO: 'undo:redo',
       STATE_CHANGE: 'undo:state:change',
       CLEAR: 'undo:clear'
+    },
+
+    // Project collaboration events (Phase 2 realtime)
+    PROJECT: {
+      REMOTE_OP: 'project:remote_op',
+      WS_STATE_RESYNC: 'project:ws_state_resync',
+      CLIP_DRAG_START: 'project:clip_drag:start',
+      CLIP_DRAG_END: 'project:clip_drag:end',
     },
 
     // Loop Listening events

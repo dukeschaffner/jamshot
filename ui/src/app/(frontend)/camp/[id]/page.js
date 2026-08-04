@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
+import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import { campApi } from '@/lib/api';
 import CustomTabs from '@/components/CustomTabs';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -19,6 +20,7 @@ import TracksTab from './components/TracksTab';
 import ActivityTab from './components/ActivityTab';
 import RoomView from './components/RoomView';
 import MembersTab from '@/components/MembersTab';
+import ProjectsTab from '@/components/projects/ProjectsTab';
 import InviteLinkModal from '@/components/InviteLinkModal';
 import SettingsModal from './components/SettingsModal';
 
@@ -27,6 +29,7 @@ export default function CampDashboard() {
   const params = useParams();
   const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading: userLoading, refreshUser } = useUser();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   const campId = parseInt(params.id);
   const inviteCode = searchParams.get('code');
@@ -296,10 +299,17 @@ export default function CampDashboard() {
   tabs.push(
     { key: 'rooms', label: 'Rooms' },
     { key: 'tracks', label: 'Tracks' },
+  );
+
+  if (isFeatureEnabled('projects', false)) {
+    tabs.push({ key: 'projects', label: 'Projects' });
+  }
+
+  tabs.push(
     { key: 'members', label: 'Members' },
     { key: 'activity', label: 'Activity' },
-    { 
-      key: 'learn-more', 
+    {
+      key: 'learn-more',
       label: 'Learn More',
       icon: <FaExternalLinkAlt />,
       externalLink: '/camps/about',
@@ -397,6 +407,7 @@ export default function CampDashboard() {
           />
         )}
         {activeTab === 'activity' && <ActivityTab camp={camp} />}
+        {activeTab === 'projects' && <ProjectsTab campId={campId} />}
       </div>
 
       {/* Invite Modal */}

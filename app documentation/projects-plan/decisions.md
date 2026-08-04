@@ -22,12 +22,12 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 
 | Phase | Scope |
 |---|---|
-| **1a** | Solo user: DB, REST, DAW, snapshots, plugin (Milestones 0–4, 5–11, 12–21, 22–25, 29–32) |
+| **1a** | Solo user: DB, REST, DAW, manual snapshot (create + list), plugin (Milestones 0–4, 5–11, 12–21, 22, 29–31) |
 | **1b** | Import, team/camp projects, invites (Milestones 6 / Steps 26–28) |
 | **2** | Real-time collaboration (Milestone 7) |
-| **3** | Post-MVP polish |
+| **3** | Post-MVP: snapshot auto/preview/restore (Steps 23–25), last project persistence (Step 32), asset library, polish |
 
-**Phase 1a exit criteria:** create project → edit in browser → open in plugin → record in Logic → export WAV → import back via web (Step 18b).
+**Phase 1a exit criteria:** create project → edit in browser → open in plugin → record in Logic → export WAV → drag back onto web timeline (Step 18).
 
 **Phase 1b invites (pre-realtime):** either (a) invited users are **viewer-only** until Phase 2, or (b) defer Step 28 until after Milestone 7. **Default: (a)** with prominent warning for editors.
 
@@ -77,9 +77,11 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 
 | Topic | Decision |
 |---|---|
-| Auto snapshots | Yes — **server-side** interval |
-| Preview before restore | Yes — read-only audition |
-| Restore | Canonical algorithm in [database.md](./database.md) — undelete clips, soft-delete extras |
+| MVP scope | Manual snapshot create + list only (Step 22) |
+| Post-MVP | Auto snapshots, preview, restore (Steps 23–25) |
+| Auto snapshots | Yes — **server-side** interval (post-MVP) |
+| Preview before restore | Yes — read-only audition (post-MVP) |
+| Restore | Canonical algorithm in [database.md](./database.md) — undelete clips, soft-delete extras (post-MVP) |
 | Snapshot kinds | `manual`, `auto`, `pre_restore` |
 | Retention | Tier-based; prune oldest `auto` only |
 
@@ -92,6 +94,7 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 | Auto-sync default | On |
 | Auth | Same OAuth as today |
 | Audio fetch | Public R2 URLs from `plugin-payload` |
+| Plugin audio cache | By `(project_id, asset_id)` in `CacheManager`; clips share asset buffers |
 | Playhead sync | None between DAW and web for MVP |
 | Timeline view in plugin | Future phase |
 | Last project | Stored locally in plugin |
@@ -121,6 +124,7 @@ Source: [open-questions.md](./open-questions.md) · Updated with team/camp colla
 | WS auth | JWT/session on `$connect`; authorize `join` via `projectAccess` |
 | WS deploy | New CDK construct or workflow (not in current CDK stack) |
 | DAW mode | `dawMode: 'collab' | 'original' | 'project'` + `armedTrackId` (replaces global `recording-track` in project mode) |
+| Upload target track | **Any track** via drop, file picker, or per-track Import — arm state not required; `armedTrackId` is record-only. It will attempt to get lock on track before uploading. |
 | ProjectEndOverlay | Reuse/adapt for project duration extension |
 
 ---

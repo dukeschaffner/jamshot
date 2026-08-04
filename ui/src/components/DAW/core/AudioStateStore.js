@@ -23,7 +23,9 @@ class AudioStateStore {
     this.dawDuration = DAWConfig.project.defaultDuration;
 
     this.isCollab = false;
-    
+    this.armedTrackId = null;
+    this.recordingTargetTrackId = null;
+
     // this.isMetronomeOn = false;
     // this.metronomeBPM = 120;
     // this.metronomeVolume = 0.8;
