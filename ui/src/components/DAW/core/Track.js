@@ -6,6 +6,10 @@ import { audioBufferToWav } from '../../../lib/utils.js';
 import AudioState from './AudioStateStore.js';
 import { handleRegionOverlaps } from '../misc/DAWUtils.js';
 import { COMMAND_TYPES } from './UndoManager.js';
+import {
+  getLoopedSegments,
+  getRegionEffectiveEnd,
+} from './regionLoopUtils.js';
 
 class Track {
   constructor(id, context, regions = [], title = null, contributor = null) {
@@ -16,6 +20,8 @@ class Track {
     this.analyzer = context.createAnalyser();
     this.sources = new Set();
     this.isRecordingTrack = id === 'recording-track';
+    this.isArmed = false;
+    this._recordingTrackRouting = this.isRecordingTrack;
 
     this.gain = 0.8;
     this.isSolo = false;
@@ -57,7 +63,7 @@ class Track {
     // Only update if the region belongs to this track
     if (data.trackId === this.id) {
       let isNudged = false;
-      if(this.isRecordingTrack && data.region.latencyData) { // this is a recorded region
+      if ((this.isRecordingTrack || this.isArmed) && data.region.latencyData) {
         const region = this.regions.find(r => r.id === data.region.id);
         if(region) {
           if((region.offset !== data.region.offset) || (region.startTime !== data.region.startTime)) {
@@ -119,7 +125,7 @@ class Track {
   
   // Region structure: { key, startTime, duration, name }
   // @param {boolean} recordUndo - Whether to record this operation for undo (default: false)
-  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false, latencyData = null) {
+  addRegion(bufferKey, startTime = null, offset = null, endTime = null, name = '', overwriteTrack = false, recordUndo = false, latencyData = null, skipOverlapHandling = false) {
     const duration = bufferRegistry.getMetadata(bufferKey)?.duration || 0;
     startTime = startTime || 0;
     offset = offset || 0;
@@ -136,6 +142,8 @@ class Track {
       offset,
       startTime,
       endTime,
+      // Absolute timeline end of the loop area; null = no loop (Logic Pro-style)
+      loopEnd: null,
       duration: duration,
       active: true,
       name: name || `Region ${this.regions.length + 1}`,
@@ -151,7 +159,7 @@ class Track {
         eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region: r, trackId: this.id });
       });
     }
-    else {
+    else if (!skipOverlapHandling) {
       // Handle overlaps with existing regions before adding the new region
       handleRegionOverlaps(this, null, region.startTime, region.endTime, this.id, eventBus, DAW_EVENTS);
     }
@@ -187,10 +195,81 @@ class Track {
   
   calculateTotalDuration() {
     if (this.regions.length === 0) return 0;
-    
+
     return Math.max(
-      ...this.regions.map(region => region.endTime)
+      ...this.regions.map((region) => {
+        const loopEnd = region.loopEnd;
+        if (loopEnd != null && loopEnd > region.endTime) {
+          return loopEnd;
+        }
+        return region.endTime;
+      })
     );
+  }
+
+  usesRecordingTrackRouting() {
+    return this.isRecordingTrack || this._recordingTrackRouting;
+  }
+
+  enableRecordingTrackRouting() {
+    if (this.isRecordingTrack) {
+      if (!this.meterGainNode) {
+        this.meterGainNode = this.context.createGain();
+        this.meterGainNode.gain.value = this.gain;
+        this.meterGainNode.connect(this.analyzer);
+      }
+      return;
+    }
+
+    if (this._recordingTrackRouting) {
+      return;
+    }
+
+    this._recordingTrackRouting = true;
+
+    if (!this.meterGainNode) {
+      this.meterGainNode = this.context.createGain();
+      this.meterGainNode.gain.value = this.gain;
+      this.meterGainNode.connect(this.analyzer);
+    }
+
+    try {
+      this.gainNode.disconnect(this.analyzer);
+    } catch (_) { /* not connected */ }
+    try {
+      this.analyzer.disconnect(this.context.destination);
+    } catch (_) { /* not connected */ }
+
+    this.gainNode.connect(this.analyzer);
+    this.gainNode.connect(this.context.destination);
+  }
+
+  disableRecordingTrackRouting() {
+    if (this.isRecordingTrack || !this._recordingTrackRouting) {
+      return;
+    }
+
+    this._recordingTrackRouting = false;
+
+    try {
+      this.gainNode.disconnect(this.analyzer);
+    } catch (_) { /* not connected */ }
+    try {
+      this.gainNode.disconnect(this.context.destination);
+    } catch (_) { /* not connected */ }
+    if (this.meterGainNode) {
+      try {
+        this.meterGainNode.disconnect(this.analyzer);
+      } catch (_) { /* not connected */ }
+      this.meterGainNode = null;
+    }
+
+    this.gainNode.connect(this.analyzer);
+    this.analyzer.connect(this.context.destination);
+  }
+
+  ensureMeterInputNode() {
+    this.enableRecordingTrackRouting();
   }
 
   setGain(gain) {
@@ -243,7 +322,11 @@ class Track {
         return {
           startTime: region.startTime,
           endTime: clampedEndTime,
-          offset: region.offset
+          offset: region.offset,
+          ...(region.loopEnd != null &&
+            region.loopEnd > clampedEndTime && {
+              loopEnd: Math.min(region.loopEnd, dawDuration),
+            }),
         };
       });
   }
@@ -289,7 +372,9 @@ class Track {
 
   hasSilenceAtEnd() {
     const activeRegions = this.getActiveRegions();
-    const latestEndTime = Math.max(...activeRegions.map(region => region.endTime));
+    const latestEndTime = Math.max(
+      ...activeRegions.map((region) => getRegionEffectiveEnd(region))
+    );
     return latestEndTime < AudioState.dawDuration;
   }
 
@@ -326,8 +411,10 @@ class Track {
     let startOffset = 0;
     
     if (trimSilence) {
-      // Find the latest end time of active regions
-      const endTimes = regionsWithBuffers.map(region => region.endTime);
+      // Include loop area so baked loops are not trimmed off the end
+      const endTimes = regionsWithBuffers.map((region) =>
+        getRegionEffectiveEnd(region)
+      );
       const latestEnd = Math.max(...endTimes);
       
       // Only trim silence at end when applicable (if there's silence at the end)
@@ -347,36 +434,45 @@ class Track {
     const totalLength = Math.ceil(exportDuration * sampleRate);
     const combinedBuffer = this.context.createBuffer(numberOfChannels, totalLength, sampleRate);
     
-    // Copy each region's audio data to the correct position
-    regionsWithBuffers.forEach(region => {
-      const { buffer, startTime, offset, endTime } = region;
-      
-      // Calculate the actual audio data to copy
-      const startSample = Math.floor(offset * sampleRate);
-      const endSample = Math.floor((endTime - startTime) * sampleRate);
-      const copyLength = Math.min(endSample, buffer.length - startSample);
-      
-      if (copyLength <= 0) return; // Skip invalid regions
-      
-      // Calculate destination position in the combined buffer
-      // Adjust for startOffset when trimming empty space
-      const destStartSample = Math.floor((startTime - startOffset) * sampleRate);
-      
-      // Copy audio data for each channel
-      for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sourceChannelData = buffer.getChannelData(channel);
-        const destChannelData = combinedBuffer.getChannelData(channel);
-        
-        // Copy the audio data with proper offset and timing
-        for (let i = 0; i < copyLength; i++) {
-          const sourceIndex = startSample + i;
-          const destIndex = destStartSample + i;
-          
-          if (sourceIndex < sourceChannelData.length && destIndex < destChannelData.length && destIndex >= 0) {
-            destChannelData[destIndex] += sourceChannelData[sourceIndex];
+    // Copy each region's audio data to the correct position, expanding loops
+    // into tiled segments (parent stems do this server-side via mix_gains regions;
+    // the recording track is baked client-side here).
+    regionsWithBuffers.forEach((region) => {
+      const { buffer } = region;
+      const segments = getLoopedSegments(region, 0, exportDuration);
+
+      segments.forEach((segment) => {
+        const segmentDuration = segment.endTime - segment.startTime;
+        const startSample = Math.floor(segment.offset * sampleRate);
+        const copyLength = Math.min(
+          Math.floor(segmentDuration * sampleRate),
+          buffer.length - startSample
+        );
+
+        if (copyLength <= 0) return;
+
+        const destStartSample = Math.floor(
+          (segment.startTime - startOffset) * sampleRate
+        );
+
+        for (let channel = 0; channel < numberOfChannels; channel++) {
+          const sourceChannelData = buffer.getChannelData(channel);
+          const destChannelData = combinedBuffer.getChannelData(channel);
+
+          for (let i = 0; i < copyLength; i++) {
+            const sourceIndex = startSample + i;
+            const destIndex = destStartSample + i;
+
+            if (
+              sourceIndex < sourceChannelData.length &&
+              destIndex < destChannelData.length &&
+              destIndex >= 0
+            ) {
+              destChannelData[destIndex] += sourceChannelData[sourceIndex];
+            }
           }
         }
-      }
+      });
     });
     
     // Convert the combined buffer to WAV format

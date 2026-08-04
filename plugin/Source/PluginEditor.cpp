@@ -13,7 +13,7 @@ SterioPluginEditor::SterioPluginEditor(SterioPluginProcessor& p)
     , processorRef(p)
     , services(p.getServices())
     , loginView(services)
-    , mainContentComponent(services)
+    , mainContentComponent(services, p)
     , footer(services)
 {
     setSize(500, 400);

@@ -1,0 +1,42 @@
+.container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.playButton {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: var(--grey-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.playButton:hover:not(:disabled) {
+  background: var(--seafoam);
+  color: var(--dark);
+}
+
+.playButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.waveform {
+  flex: 1;
+  min-width: 0;
+}
+
+.waveform.seekable {
+  cursor: pointer;
+}

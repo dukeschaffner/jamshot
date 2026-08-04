@@ -1,11 +1,13 @@
 // ui/src/components/DAW/core/TrackManager.js
 import { bufferRegistry } from './BufferRegistry.js';
 import { getAudioBufferFromS3 } from '../misc/DAWUtils.js';
+import { getProjectAssetAudioBuffer } from '../project/getProjectAssetAudioBuffer.js';
 import Track from './Track.js';
 import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import AudioState from './AudioStateStore.js';
 import api from '../../../lib/api.js';
+import { CLIP_PROCESSING_STATUS } from '../project/projectClipUpload.js';
 
 class TrackManager {
   constructor(audioContext) {
@@ -87,7 +89,10 @@ class TrackManager {
     if (stemData.regions && stemData.regions.length > 0) {
       // Add each region from the stem data
       stemData.regions.forEach(region => {
-        track.addRegion(bufferKey, region.startTime, region.offset, region.endTime, 'stem-region');
+        const created = track.addRegion(bufferKey, region.startTime, region.offset, region.endTime, 'stem-region');
+        if (created && region.loopEnd != null && region.loopEnd > region.endTime) {
+          created.loopEnd = region.loopEnd;
+        }
       });
     } else {
       // Default: add a single region covering the full buffer
@@ -167,8 +172,208 @@ class TrackManager {
   }
   
   getAllTracks() {
-    return Array.from(this.tracks.values());
+    return Array.from(this.tracks.values()).sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
   }
+
+  // #region projects
+
+
+  /**
+   * Load project tracks and clips from GET /projects/:id state.
+   * Only clips with a completed audioUrl are loaded for playback.
+   */
+  async loadProject(projectState) {
+    const projectGuid = projectState?.guid ?? null;
+    const projectTracks = [...(projectState?.tracks || [])].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
+
+    const loadPromises = projectTracks.map(async (trackData) => {
+      const track = new Track(trackData.id, this.audioContext, [], trackData.name);
+      track.setGain(trackData.gain ?? 0.8);
+      track.isMuted = !!trackData.muted;
+      track.isSolo = !!trackData.solo;
+      track.sortOrder = trackData.sortOrder ?? 0;
+
+      const clipPromises = (trackData.clips || [])
+        .filter((clip) => clip.audioUrl)
+        .map(async (clip) => {
+          const buffer = await getProjectAssetAudioBuffer(
+            {
+              projectGuid,
+              assetId: clip.assetId,
+              audioUrl: clip.audioUrl,
+            },
+            this.audioContext
+          );
+          const bufferKey = bufferRegistry.generateBufferKey(
+            trackData.id,
+            `clip-${clip.id}`
+          );
+          bufferRegistry.storeBuffer(bufferKey, buffer, {
+            name: `clip-${clip.id}`,
+            trackId: trackData.id,
+            clipId: clip.id,
+          });
+
+          const trimStart = clip.trimStart ?? 0;
+          const startTime = clip.startTime ?? 0;
+          let endTime;
+          if (clip.trimEnd != null) {
+            endTime = startTime + (clip.trimEnd - trimStart);
+          } else if (clip.duration != null) {
+            endTime = startTime + clip.duration;
+          } else {
+            endTime = startTime + buffer.duration - trimStart;
+          }
+
+          const region = track.addRegion(
+            bufferKey,
+            startTime,
+            trimStart,
+            endTime,
+            trackData.name || `Clip ${clip.id}`,
+            false,
+            false,
+            null,
+            true
+          );
+
+          if (region) {
+            region.projectClipId = clip.id;
+            region.projectAssetId = clip.assetId ?? null;
+            region.processingStatus = CLIP_PROCESSING_STATUS.COMPLETED;
+            if (clip.loopEnd != null && clip.loopEnd > endTime) {
+              region.loopEnd = clip.loopEnd;
+            }
+          }
+        });
+
+      await Promise.all(clipPromises);
+      this.tracks.set(trackData.id, track);
+      eventBus.emit(DAW_EVENTS.TRACK.ADD, { track });
+      return track;
+    });
+
+    const tracks = await Promise.all(loadPromises);
+
+    const projectDuration =
+      projectState?.durationSeconds ?? AudioState.dawDuration;
+    AudioState.dawDuration = projectDuration;
+    eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, { duration: projectDuration });
+
+    return tracks;
+  }
+
+  removeTrack(trackId) {
+    const track = this.tracks.get(trackId);
+    if (!track) return;
+
+    if (track.destroy) {
+      track.destroy();
+    }
+    this.tracks.delete(trackId);
+    eventBus.emit(DAW_EVENTS.TRACK.REMOVE, { trackId });
+  }
+
+  addEmptyProjectTrack(trackData) {
+    const track = new Track(trackData.id, this.audioContext, [], trackData.name);
+    track.setGain(trackData.gain ?? 0.8);
+    track.isMuted = !!trackData.muted;
+    track.isSolo = !!trackData.solo;
+    track.sortOrder = trackData.sortOrder ?? 0;
+    this.tracks.set(trackData.id, track);
+    eventBus.emit(DAW_EVENTS.TRACK.ADD, { track });
+    return track;
+  }
+
+  /**
+   * Sync local tracks with server project state after track add/remove.
+   * Clip layout reload is handled on full page load; clip edits come in later steps.
+   */
+  applyProjectState(projectState) {
+    const sortedTracks = [...(projectState?.tracks || [])].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+    );
+    const newTrackIds = new Set(sortedTracks.map((track) => track.id));
+
+    for (const trackId of [...this.tracks.keys()]) {
+      if (!newTrackIds.has(trackId)) {
+        this.removeTrack(trackId);
+      }
+    }
+
+    for (const trackData of sortedTracks) {
+      if (!this.tracks.has(trackData.id)) {
+        this.addEmptyProjectTrack(trackData);
+        continue;
+      }
+
+      const track = this.tracks.get(trackData.id);
+      track.title = trackData.name;
+      // Gain via VOLUME_CHANGE so mute/solo silencing is preserved.
+      // Mute/solo are client-only — do not overwrite from server defaults.
+      eventBus.emit(DAW_EVENTS.TRACK.VOLUME_CHANGE, {
+        trackId: track.id,
+        volume: trackData.gain ?? 0.8,
+      });
+      track.sortOrder = trackData.sortOrder ?? 0;
+    }
+
+    if (projectState?.durationSeconds != null) {
+      AudioState.dawDuration = projectState.durationSeconds;
+      eventBus.emit(DAW_EVENTS.PLAYBACK.DURATION_CHANGE, {
+        duration: projectState.durationSeconds,
+      });
+    }
+
+    return this.getAllTracks();
+  }
+
+  reorderTracks(orders) {
+    if (!Array.isArray(orders)) return false;
+
+    for (const entry of orders) {
+      const track = this.tracks.get(entry.trackId);
+      if (track) {
+        track.sortOrder = entry.sortOrder;
+      }
+    }
+
+    return true;
+  }
+
+  moveRegionBetweenTracks(fromTrackId, toTrackId, regionId, updatedRegion) {
+    const fromTrack = this.tracks.get(fromTrackId);
+    const toTrack = this.tracks.get(toTrackId);
+    if (!fromTrack || !toTrack) return false;
+
+    const regionIndex = fromTrack.regions.findIndex((item) => item.id === regionId);
+    if (regionIndex === -1) return false;
+
+    const region = { ...fromTrack.regions[regionIndex], ...updatedRegion };
+
+    if (fromTrackId === toTrackId) {
+      fromTrack.regions[regionIndex] = region;
+      eventBus.emit(DAW_EVENTS.REGION.UPDATE, { region, trackId: fromTrackId });
+      return true;
+    }
+
+    fromTrack.regions.splice(regionIndex, 1);
+    eventBus.emit(DAW_EVENTS.REGION.REMOVED, {
+      region,
+      trackId: fromTrackId,
+      recordUndo: false,
+    });
+
+    toTrack.regions.push(region);
+    eventBus.emit(DAW_EVENTS.REGION.ADDED, { region, trackId: toTrackId });
+    return true;
+  }
+
+  // #endregion
   
   destroy() {
     // Cleanup tracks

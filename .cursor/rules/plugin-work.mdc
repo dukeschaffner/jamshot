@@ -1,0 +1,9 @@
+---
+globs: plugin/**
+alwaysApply: false
+---
+# Plugin Development Best Practices
+
+## Coding
+
+!!IMPORTANT!!: ALWAYS make sure the audio thread is not blocked. If you need to do something that might block the audio thread, check existing patterns for safe execution and mirror them.

@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import GuardedLink from './GuardedLink';
-import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper, FaCampground, FaUsers } from 'react-icons/fa';
+import { FaBars, FaInfoCircle, FaQuestionCircle, FaEnvelope, FaShieldAlt, FaGavel, FaTimes, FaSignOutAlt, FaCrown, FaNewspaper, FaCampground, FaUsers, FaFolderOpen } from 'react-icons/fa';
 import { useMobile } from '../contexts/MobileContext';
 import { useUser } from '../contexts/UserContext';
 import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
@@ -115,6 +115,12 @@ export default function MoreDropdown() {
                   <FaUsers />
                   <span>Teams</span>
                 </GuardedLink>
+                {isFeatureEnabled('projects', false) && (
+                  <GuardedLink className="mobile-more-link" href="/projects" onClick={handleLinkClick}>
+                    <FaFolderOpen />
+                    <span>Projects</span>
+                  </GuardedLink>
+                )}
                 {isFeatureEnabled('subscriptions', false) && (
                   <GuardedLink className="mobile-more-link" href="/subscribe" onClick={handleLinkClick}>
                     <FaCrown />
@@ -182,6 +188,9 @@ export default function MoreDropdown() {
           <div className="notification-body">
             <GuardedLink className="nav-link" href={getCampsLink()} onClick={handleLinkClick}><FaCampground />Camps</GuardedLink>
             <GuardedLink className="nav-link" href={getTeamsLink()} onClick={handleLinkClick}><FaUsers />Teams</GuardedLink>
+            {isFeatureEnabled('projects', false) && (
+              <GuardedLink className="nav-link" href="/projects" onClick={handleLinkClick}><FaFolderOpen />Projects</GuardedLink>
+            )}
             {isFeatureEnabled('subscriptions', false) && (
               <GuardedLink className="nav-link" href="/subscribe" onClick={handleLinkClick}><FaCrown />Subscribe</GuardedLink>
             )}

@@ -10,8 +10,11 @@ import {
   generateCompetitionWinnerTemplate,
   generateCompetitionHostTemplate,
   generateCompetitionNoEntriesTemplate,
-  generateCompetitionNoBackupWinnerTemplate
+  generateCompetitionNoBackupWinnerTemplate,
+  generateProjectDeletionWarningTemplate,
 } from './templates.js';
+import { generateProjectInviteTemplate } from './projectInviteTemplate.js';
+import { generateProjectFromTrackTemplate } from './projectFromTrackTemplate.js';
 
 /**
  * Send an activity summary email
@@ -290,4 +293,105 @@ export const sendCompetitionNoBackupWinnerEmail = async (hostEmail, trackTitle, 
   };
 
   return await sendEmail(mailOptions);
+};
+
+/**
+ * Warn an owner that projects will be permanently deleted soon.
+ * @param {string} userEmail
+ * @param {string} userName
+ * @param {'7d'|'1d'} warningType
+ * @param {Array<{ name: string, scheduledDeletionAt: string|Date }>} projects
+ * @returns {Promise}
+ */
+export const sendProjectDeletionWarningEmail = async (
+  userEmail,
+  userName,
+  warningType,
+  projects
+) => {
+  if (!userEmail || !projects?.length) return null;
+
+  const subscribeUrl = `${process.env.FRONTEND_URL || 'https://sterio.fm'}/subscribe`;
+  const htmlContent = generateProjectDeletionWarningTemplate(
+    userName,
+    warningType,
+    projects,
+    subscribeUrl
+  );
+
+  const isOneDay = warningType === '1d';
+  const mailOptions = {
+    to: userEmail,
+    subject: isOneDay
+      ? 'Sterio projects will be deleted tomorrow'
+      : 'Sterio projects will be deleted in 7 days',
+    html: htmlContent,
+  };
+
+  return await sendEmail(mailOptions);
+};
+
+/**
+ * Send a project invite email
+ * @param {string} email
+ * @param {string} inviterName
+ * @param {string} projectName
+ * @param {string} role
+ * @param {string} inviteUrl
+ */
+export const sendProjectInviteEmail = async (
+  email,
+  inviterName,
+  projectName,
+  role,
+  inviteUrl
+) => {
+  if (!email || !inviteUrl) return null;
+
+  const htmlContent = generateProjectInviteTemplate(
+    inviterName,
+    projectName,
+    role,
+    inviteUrl
+  );
+
+  return await sendEmail({
+    to: email,
+    subject: `${inviterName || 'Someone'} invited you to ${projectName || 'a project'} on Sterio`,
+    html: htmlContent,
+  });
+};
+
+/**
+ * Notify a lineage contributor that someone created a project from their track.
+ * @param {string} email
+ * @param {string} creatorName
+ * @param {string} trackTitle
+ * @param {string} projectName
+ * @param {string} trackUrl
+ * @param {string} [settingsUrl]
+ */
+export const sendProjectCreatedFromTrackEmail = async (
+  email,
+  creatorName,
+  trackTitle,
+  projectName,
+  trackUrl,
+  settingsUrl
+) => {
+  if (!email || !trackUrl) return null;
+
+  const htmlContent = generateProjectFromTrackTemplate(
+    creatorName,
+    trackTitle,
+    projectName,
+    trackUrl,
+    settingsUrl
+  );
+
+  return await sendEmail({
+    to: email,
+    subject: `${creatorName || 'Someone'} started a project using ${trackTitle || 'your track'} on Sterio`,
+    html: htmlContent,
+  });
 };

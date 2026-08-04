@@ -15,6 +15,10 @@ RELEASE CHECKLIST
 
 
 
+- if user is a part of one camp and its expired, the camps url always redirects to /camp/{expired_camp_id}. it shouldnt redirect to expired camp page.
+
+
+
 
 
 

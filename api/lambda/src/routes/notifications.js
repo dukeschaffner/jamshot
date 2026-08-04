@@ -36,24 +36,25 @@ router.get('/', async (req, res, next) => {
         n.related_track_id,
         n.related_user_id,
         n.competition_id,
+        n.project_invite_id,
         CASE 
-          WHEN n.type = 'follow_request' THEN NULL
+          WHEN n.type IN ('follow_request', 'project_invite') THEN NULL
           ELSE t.title 
         END AS track_title,
         CASE 
-          WHEN n.type = 'follow_request' THEN NULL
+          WHEN n.type IN ('follow_request', 'project_invite') THEN NULL
           ELSE t.guid 
         END AS track_guid,
         CASE 
-          WHEN n.type = 'follow_request' THEN u_related.username
+          WHEN n.type IN ('follow_request', 'project_invite') THEN u_related.username
           ELSE u_actor.username
         END AS actor_username,
         CASE 
-          WHEN n.type = 'follow_request' THEN u_related.name
+          WHEN n.type IN ('follow_request', 'project_invite') THEN u_related.name
           ELSE u_actor.name
         END AS actor_name,
         CASE 
-          WHEN n.type = 'follow_request' THEN u_related.verified
+          WHEN n.type IN ('follow_request', 'project_invite') THEN u_related.verified
           ELSE u_actor.verified
         END AS actor_verified,
         CASE
@@ -63,11 +64,17 @@ router.get('/', async (req, res, next) => {
             LIMIT 1
           )
           ELSE NULL
-        END AS follow_request_id
+        END AS follow_request_id,
+        pi.token AS project_invite_token,
+        pi.role AS project_invite_role,
+        p.guid AS project_guid,
+        p.name AS project_name
       FROM notifications n
       LEFT JOIN tracks t ON n.related_track_id = t.id
       LEFT JOIN users u_related ON n.related_user_id = u_related.id
-      LEFT JOIN users u_actor ON n.type != 'follow_request' AND u_actor.id = n.related_user_id
+      LEFT JOIN users u_actor ON n.type NOT IN ('follow_request', 'project_invite') AND u_actor.id = n.related_user_id
+      LEFT JOIN project_invites pi ON n.project_invite_id = pi.id
+      LEFT JOIN projects p ON pi.project_id = p.id
       WHERE n.user_id = $1
       ORDER BY n.created_at DESC
       LIMIT $2 OFFSET $3

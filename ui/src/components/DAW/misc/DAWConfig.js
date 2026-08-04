@@ -24,7 +24,17 @@ const DAWConfig = {
       updateInterval: 20, // ms
       meterUpdateInterval: 60, // ms
       zoomLevels: { min: 1, max: 10, step: 0.1 },
+      // Pixel-delta multiplier for Ctrl+wheel / trackpad pinch timeline zoom.
+      // Higher = faster zoom; tuned for frequent small trackpad pinch deltas.
+      wheelZoomSensitivity: 0.012,
+      // Clamp a single wheel event so large mouse-wheel ticks don't jump too far.
+      wheelZoomMaxDelta: 40,
       gridSnapThreshold: 5, // pixels
+      regionRenderBuffer: 200, // pixels beyond the visible DAW viewport
+      // Right-edge hover zone for crop (bottom) / loop (top) handles
+      loopHandleZonePx: 15,
+      // After recording, snap region start/end to nearby beat gridlines within this window
+      recordSnapThresholdMs: 40,
     },
     
     metronome: {

@@ -150,6 +150,7 @@ function getBaseTrackSelectQuery(isAuthenticated = true, userIdParamIndex = 1, i
     t.id, t.guid, t.user_id, t.title, t.audio_url, t.combined_audio_url, t.duration,
     t.layer, t.parent_track_id, t.created_at, t.play_count, t.metronome_bpm, t.time_signature, t.allow_download,
     t.competition_id, t.is_competition_entry, t.waveform_url, t.combined_waveform_url, t.is_loop,
+    t.camp_id, t.team_id,
     u.username, u.verified, u.profile_pic_url, u.is_private AS creator_is_private,
     u.is_supporter,
     t2.title AS original_title,
@@ -1050,6 +1051,12 @@ function validateAndUpdateStemChain(stemChain, parsedStems, maxStems = 10) {
         }
         if (typeof region.offset !== 'number' || region.offset < 0) {
           return { valid: false, error: `Invalid offset in region for track_id ${stemEntry.track_id}` };
+        }
+        if (
+          region.loopEnd != null &&
+          (typeof region.loopEnd !== 'number' || region.loopEnd <= region.endTime)
+        ) {
+          return { valid: false, error: `Invalid loopEnd in region for track_id ${stemEntry.track_id}` };
         }
       }
     }

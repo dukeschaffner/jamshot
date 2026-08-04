@@ -1,0 +1,16 @@
+---
+globs: ui/**
+alwaysApply: false
+---
+# UI Development Best Practices
+
+## Coding
+
+ALWAYS use the relevant api client to make API calls (e.g. `userApi`)
+Always prefer to reuse existing components and patterns rather than creating new ones.
+
+### Components
+There's a new project preference for shadcn/ui components. Use them whenever possible. When adding a new component, use the typescript version. The project was created as .js, so files that consume these components must be converted to .tsx.
+- ALWAYS install shadcn/ui components using the `npx shadcn@latest add <component>` command.
+- ALWAYS use shadcn tooltip instead of titles or popovers.
+- ALWAYS use shimmering skeleton UI for loading states.

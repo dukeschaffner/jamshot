@@ -91,8 +91,14 @@ public:
                                                      int page = 1,
                                                      int limit = 15);
 
+    /** List projects the current user is a member of. */
+    ApiResult<juce::Array<ProjectSummary>> getProjects();
+
     /** Make an authenticated GET request. Public for use by other API classes. */
     ApiResult<juce::var> makeAuthenticatedGetRequest(const juce::String& endpoint);
+
+    /** Fetch project plugin payload for playback in the DAW. */
+    ApiResult<ProjectPluginPayload> getProjectPluginPayload(const juce::String& projectId);
 
 private:
 

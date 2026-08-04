@@ -3,6 +3,11 @@ import { eventBus } from '../misc/EventBus.js';
 import { DAW_EVENTS } from '../misc/DAWEvents.js';
 import DAWConfig from '../misc/DAWConfig.js';
 import AudioState from './AudioStateStore.js';
+import {
+  getLoopedSegments,
+  getRegionEffectiveEnd,
+  isRegionLooped,
+} from './regionLoopUtils.js';
 
 class ChunkScheduler {
   constructor(audioContext, trackManager) {
@@ -168,7 +173,13 @@ class ChunkScheduler {
     // Process each track
     tracks.forEach(track => {
       // If we're recording, don't schedule segments for the recording track
-      if(AudioState.isRecording && track.id === 'recording-track') return;
+      if (
+        AudioState.isRecording &&
+        (track.id === 'recording-track' ||
+          track.id === AudioState.recordingTargetTrackId)
+      ) {
+        return;
+      }
       
       this.processTrackSegments(track, windowStart, windowEnd);
     });
@@ -199,52 +210,61 @@ class ChunkScheduler {
     regions.forEach(region => {
       if (!region.active || !region.buffer) return;
 
+      const effectiveEnd = getRegionEffectiveEnd(region);
+
       // If region starts after the end of the scheduling window, skip it
       if(region.startTime > endTime) return;
 
-      // If region ends before the start of the scheduling window, skip it
-      if(region.endTime < startTime) return;
+      // If region (including loop area) ends before the start of the scheduling window, skip it
+      if(effectiveEnd < startTime) return;
 
       const isSchedulingLoopStart = this.pendingLoopStartTime && startTime == AudioState.loopStart;
-      
-      // Calculate segment boundaries
-      const segmentStartTime = Math.max(region.startTime, startTime);
-      const segmentEndTime = Math.min(region.endTime, endTime);
-      
-      if (segmentStartTime >= segmentEndTime) return;
 
-      const adjustedStartTime = segmentStartTime;//Math.max(segmentStartTime - this.crossfadeDuration, region.startTime);
-      const adjustedEndTime = segmentEndTime;//Math.min(segmentEndTime + this.crossfadeDuration, region.endTime);
-      const adjustedOffset = region.offset + (adjustedStartTime - region.startTime);
-      const adjustedDuration = adjustedEndTime - adjustedStartTime;
-      const crossFadeStartDuration = segmentStartTime - adjustedStartTime;
-      const crossFadeEndDuration = adjustedEndTime - segmentEndTime;
+      // Looped regions expand into one or more tile segments so the audible
+      // window repeats across [endTime, loopEnd] (Logic Pro-style).
+      const tileWindows = isRegionLooped(region)
+        ? getLoopedSegments(region, startTime, endTime)
+        : (() => {
+            const segmentStartTime = Math.max(region.startTime, startTime);
+            const segmentEndTime = Math.min(region.endTime, endTime);
+            if (segmentStartTime >= segmentEndTime) return [];
+            return [{
+              startTime: segmentStartTime,
+              endTime: segmentEndTime,
+              offset: region.offset + (segmentStartTime - region.startTime),
+            }];
+          })();
 
+      tileWindows.forEach((tile) => {
+        const adjustedStartTime = tile.startTime;
+        const adjustedEndTime = tile.endTime;
+        const adjustedOffset = tile.offset;
+        const adjustedDuration = adjustedEndTime - adjustedStartTime;
+        const crossFadeStartDuration = 0;
+        const crossFadeEndDuration = 0;
 
-      let playTime = 0;
-      if(isSchedulingLoopStart) {
-        playTime = this.pendingLoopStartTime;
-      }
-      else {
-        playTime = AudioState.startTime + (adjustedStartTime - AudioState.currentTime);
-      }
-      
-      // Create segment
-      const segment = {
-        id: `${trackId}-${region.id}-${adjustedStartTime}-${adjustedEndTime}`,
-        trackId,
-        regionId: region.id,
-        buffer: region.buffer,
-        startTime: adjustedStartTime,
-        endTime: adjustedEndTime,
-        duration: adjustedDuration,
-        offset: adjustedOffset,
-        playTime: playTime,
-        crossFadeStartDuration: crossFadeStartDuration,
-        crossFadeEndDuration: crossFadeEndDuration,
-      };
-      
-      segments.push(segment);
+        let playTime = 0;
+        if(isSchedulingLoopStart) {
+          playTime = this.pendingLoopStartTime;
+        }
+        else {
+          playTime = AudioState.startTime + (adjustedStartTime - AudioState.currentTime);
+        }
+
+        segments.push({
+          id: `${trackId}-${region.id}-${adjustedStartTime}-${adjustedEndTime}`,
+          trackId,
+          regionId: region.id,
+          buffer: region.buffer,
+          startTime: adjustedStartTime,
+          endTime: adjustedEndTime,
+          duration: adjustedDuration,
+          offset: adjustedOffset,
+          playTime: playTime,
+          crossFadeStartDuration: crossFadeStartDuration,
+          crossFadeEndDuration: crossFadeEndDuration,
+        });
+      });
     });
     
     return segments;

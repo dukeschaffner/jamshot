@@ -1,0 +1,61 @@
+.projectCreateContainer {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: calc(100vh - 80px);
+}
+
+.contextBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  background: var(--grey-1);
+  border: 1px solid var(--grey-2);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.contextBanner strong {
+  color: var(--seafoam);
+}
+
+.limitMessage {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  background: var(--grey-1);
+  border: 1px solid var(--grey-2);
+  color: var(--text-primary);
+}
+
+.limitMessageIcon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  color: var(--text-secondary);
+}
+
+.upgradeLink {
+  color: var(--seafoam);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.upgradeLink:hover {
+  color: var(--seafoam);
+  opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+  .projectCreateContainer {
+    padding: 15px;
+  }
+}

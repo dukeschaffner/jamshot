@@ -211,15 +211,20 @@ class Recorder {
     // Create final audio buffer
     const finalBuffer = this.createRecordingBuffer();
 
-    const bufferKey = bufferRegistry.generateBufferKey('recording-track', 'region');
-    bufferRegistry.storeBuffer(bufferKey, finalBuffer);
-    
+    const targetTrackId = AudioState.recordingTargetTrackId || 'recording-track';
+    const bufferKey = bufferRegistry.generateBufferKey(targetTrackId, 'region');
+    bufferRegistry.storeBuffer(bufferKey, finalBuffer, {
+      name: 'region',
+      trackId: targetTrackId,
+    });
+
     this.eventBus.emit(DAW_EVENTS.RECORDING.STOPPED, {
-      bufferKey: bufferKey,
+      bufferKey,
+      trackId: targetTrackId,
       duration: finalBuffer ? finalBuffer.duration : 0,
       startTime: this.playbackTime,
       offset: recordingOffset,
-      latencyData: this.recordingLatency
+      latencyData: this.recordingLatency,
     });
     
     // Clean up

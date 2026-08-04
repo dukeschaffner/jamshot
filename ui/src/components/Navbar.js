@@ -4,8 +4,9 @@ import { APP_HOME_PATH } from '@/lib/appRoutes';
 import Link from 'next/link';
 import GuardedLink from './GuardedLink';
 import { usePathname, useRouter } from 'next/navigation';
-import { FaHome, FaUpload, FaSearch, FaSun, FaMoon, FaTrophy } from 'react-icons/fa';
+import { FaHome, FaUpload, FaSearch, FaSun, FaMoon, FaTrophy, FaFolderOpen } from 'react-icons/fa';
 import { useUser } from '../contexts/UserContext';
+import { useFeatureFlags } from '../contexts/FeatureFlagsContext';
 import { useMobile } from '../contexts/MobileContext';
 import { useNavigationGuard } from '../contexts/NavigationGuardContext';
 import { trackSearch } from '../lib/analytics';
@@ -16,6 +17,7 @@ import styles from './Navbar.module.css';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useUser();
+  const { isFeatureEnabled } = useFeatureFlags();
   const { isMobile } = useMobile();
   const { confirmNavigation } = useNavigationGuard();
   const [darkMode, setDarkMode] = useState(false);
@@ -90,6 +92,13 @@ export default function Navbar() {
           <FaTrophy />
           Competitions
         </GuardedLink>
+
+        {isAuthenticated && isFeatureEnabled('projects', false) && (
+          <GuardedLink href="/projects" className={`nav-link ${pathname.startsWith('/projects') ? 'active' : ''}`}>
+            <FaFolderOpen />
+            Projects
+          </GuardedLink>
+        )}
 
         {isAuthenticated && (
           <div className="nav-link nav-link-pop-out-btn">

@@ -8,6 +8,7 @@ import mm from 'music-metadata';
 import { createLambdaPool } from '@sterio/db-config';
 import crypto from 'crypto';
 import { logger } from './logger.js';
+import { expandLoopedRegions, formatFfmpegTime } from './regionLoopExpand.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -273,6 +274,219 @@ class AudioProcessor {
     }
   }
 
+  buildProjectAssetFinalKey(projectId, assetId) {
+    return `projects/${projectId}/${assetId}/audio.wav`;
+  }
+
+  buildProjectAssetWaveformKey(projectId, assetId) {
+    return `waveforms/projects/${projectId}/${assetId}.json`;
+  }
+
+  async processProjectAsset(assetId, s3KeyOverride = null) {
+    let localFilePath = null;
+    let tempS3Key = null;
+
+    try {
+      const assetResult = await getPool().query(
+        `SELECT id, project_id, storage_key, name, mime_type, processing_status
+         FROM project_assets
+         WHERE id = $1`,
+        [assetId]
+      );
+
+      if (assetResult.rows.length === 0) {
+        throw new Error(`Project asset ${assetId} not found`);
+      }
+
+      const asset = assetResult.rows[0];
+      const projectId = asset.project_id;
+      const finalStorageKey = this.buildProjectAssetFinalKey(projectId, assetId);
+
+      if (
+        asset.processing_status === 'completed' &&
+        asset.storage_key?.startsWith('projects/')
+      ) {
+        return {
+          status: 'success',
+          asset_id: assetId,
+          message: 'Project asset already processed',
+        };
+      }
+
+      tempS3Key = s3KeyOverride || asset.storage_key;
+
+      if (!tempS3Key || !tempS3Key.startsWith('temp/projects/')) {
+        throw new Error(`Could not locate source audio for project asset ${assetId}`);
+      }
+
+      const claimResult = await getPool().query(
+        `UPDATE project_assets
+         SET processing_status = 'processing'
+         WHERE id = $1
+           AND processing_status IN ('pending', 'processing')
+           AND storage_key LIKE 'temp/%'
+         RETURNING id`,
+        [assetId]
+      );
+
+      if (claimResult.rows.length === 0) {
+        const recheck = await getPool().query(
+          'SELECT processing_status, storage_key FROM project_assets WHERE id = $1',
+          [assetId]
+        );
+        const current = recheck.rows[0];
+        if (
+          current?.processing_status === 'completed' ||
+          current?.storage_key?.startsWith('projects/')
+        ) {
+          return {
+            status: 'success',
+            asset_id: assetId,
+            message: 'Project asset already processed',
+          };
+        }
+
+        return {
+          status: 'success',
+          asset_id: assetId,
+          message: 'Project asset is already being processed',
+        };
+      }
+
+      const originalExtension = path.extname(tempS3Key) || '.wav';
+      localFilePath = path.join(
+        this.tempDir,
+        `project-asset-${assetId}-raw-${Date.now()}${originalExtension}`
+      );
+
+      await this.downloadS3File(tempS3Key, localFilePath);
+
+      const wavPath = path.join(this.tempDir, `project-asset-${assetId}-${Date.now()}.wav`);
+      await this.convertToProjectWav(localFilePath, wavPath);
+
+      const duration = await this.getAudioDuration(wavPath);
+      const fileStats = await fsPromises.stat(wavPath);
+
+      await this.uploadToS3(wavPath, finalStorageKey, 'audio/wav');
+
+      let waveformUrl = null;
+      try {
+        const peaks = await this.generateWaveformPeaks(wavPath, 256);
+        const waveformKey = this.buildProjectAssetWaveformKey(projectId, assetId);
+        await this.saveWaveformPeaks(peaks, waveformKey, 256);
+        waveformUrl = waveformKey;
+      } catch (waveformError) {
+        logger.error({
+          message: 'Failed to generate project asset waveform peaks',
+          assetId,
+          error: waveformError?.message,
+          stack: waveformError?.stack,
+        });
+      }
+
+      await getPool().query(
+        `UPDATE project_assets
+         SET processing_status = $1,
+             storage_key = $2,
+             audio_url = $2,
+             duration_seconds = $3,
+             file_size_bytes = $4,
+             mime_type = $5,
+             waveform_url = $6,
+             processing_error = NULL
+         WHERE id = $7`,
+        ['completed', finalStorageKey, duration, fileStats.size, 'audio/wav', waveformUrl, assetId]
+      );
+
+      if (tempS3Key.startsWith('temp/projects/')) {
+        try {
+          await s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.R2_BUCKET,
+              Key: tempS3Key,
+            })
+          );
+        } catch (deleteError) {
+          logger.error({
+            message: 'Failed to delete temporary project asset S3 file',
+            s3Key: tempS3Key,
+            error: deleteError?.message,
+          });
+        }
+      }
+
+      await fsPromises.unlink(localFilePath).catch(() => {});
+      await fsPromises.unlink(wavPath).catch(() => {});
+
+      return {
+        status: 'success',
+        asset_id: assetId,
+        message: 'Project asset processing completed successfully',
+      };
+    } catch (error) {
+      if (localFilePath) {
+        await fsPromises.unlink(localFilePath).catch(() => {});
+      }
+
+      if (tempS3Key && tempS3Key.startsWith('temp/projects/')) {
+        try {
+          await s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.R2_BUCKET,
+              Key: tempS3Key,
+            })
+          );
+        } catch (deleteError) {
+          logger.error({
+            message: 'Failed to delete temporary project asset S3 file after error',
+            s3Key: tempS3Key,
+            error: deleteError?.message,
+          });
+        }
+      }
+
+      await getPool()
+        .query(
+          `UPDATE project_assets
+           SET processing_status = $1, processing_error = $2
+           WHERE id = $3
+             AND processing_status = 'processing'
+             AND storage_key LIKE 'temp/%'`,
+          ['failed', error.message, assetId]
+        )
+        .catch((dbError) => {
+          logger.error({
+            message: 'Failed to update project asset status to failed',
+            error: dbError?.message,
+          });
+        });
+
+      throw error;
+    }
+  }
+
+  async convertToProjectWav(inputPath, outputPath) {
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .audioCodec('pcm_s16le')
+        .audioFrequency(44100)
+        .audioChannels(2)
+        .on('end', () => {
+          logger.info({ message: 'Project WAV conversion completed', outputPath });
+          resolve();
+        })
+        .on('error', (err) => {
+          logger.error({
+            message: 'Project WAV conversion failed',
+            error: err?.message,
+            stack: err?.stack,
+          });
+          reject(err);
+        })
+        .save(outputPath);
+    });
+  }
+
   async processCollaboration(track, localFilePath, finalAudioUrl, finalCombinedAudioUrl) {
 
     // Get stem chain
@@ -380,33 +594,39 @@ class AudioProcessor {
    */
   async renderStemWithRegions(inputPath, outputPath, regions) {
     return new Promise((resolve, reject) => {
-      // Sort regions by startTime
-      const sortedRegions = [...regions].sort((a, b) => a.startTime - b.startTime);
-      
+      const sortedRegions = expandLoopedRegions(regions).sort(
+        (a, b) => a.startTime - b.startTime
+      );
+
+      if (sortedRegions.length === 0) {
+        reject(new Error('No valid regions to render for stem'));
+        return;
+      }
+
       // Find the maximum endTime to determine output duration
       const maxEndTime = Math.max(...sortedRegions.map(r => r.endTime));
-      
+
       // Build FFmpeg command
       const ffmpegCommand = ffmpeg();
-      
+
       // Create filter complex to extract and place each region
       const filterParts = [];
       const inputLabels = [];
-      
+
       // For each region, extract the segment and delay it to the correct position
       sortedRegions.forEach((region, index) => {
         // Extract segment: start at offset, duration is (endTime - startTime)
         const segmentDuration = region.endTime - region.startTime;
         const delayMs = Math.round(region.startTime * 1000); // Convert to milliseconds for adelay
-        
+
         // Input the file with specific start time and duration
         // Use inputOptions to seek and limit duration for this specific input
         const input = ffmpegCommand.input(inputPath);
         input.inputOptions([
-          `-ss`, region.offset.toString(),
-          `-t`, segmentDuration.toString()
+          `-ss`, formatFfmpegTime(region.offset),
+          `-t`, formatFfmpegTime(segmentDuration)
         ]);
-        
+
         // Apply delay to place segment at correct position
         // adelay expects delay in milliseconds, format: adelay=delay1|delay2 (for stereo)
         const inputLabel = `[${index}:a]`;
@@ -414,14 +634,14 @@ class AudioProcessor {
         filterParts.push(`${inputLabel}adelay=${delayMs}|${delayMs}${delayedLabel}`);
         inputLabels.push(delayedLabel);
       });
-      
+
       // Mix all delayed segments together
       const mixInputs = inputLabels.join('');
       filterParts.push(`${mixInputs}amix=inputs=${inputLabels.length}:duration=longest:normalize=0[aout]`);
-      
+
       // Trim to maxEndTime duration
-      filterParts.push(`[aout]atrim=0:${maxEndTime}[trimmed]`);
-      
+      filterParts.push(`[aout]atrim=0:${formatFfmpegTime(maxEndTime)}[trimmed]`);
+
       // Set up audio processing (WAV intermediate to avoid extra MP3 encode and generational loss)
       ffmpegCommand
         .audioCodec('pcm_s16le')
@@ -485,14 +705,14 @@ class AudioProcessor {
     await fsPromises.writeFile(localPath, byteArray);
   }
 
-  async uploadToS3(localPath, s3Key) {
+  async uploadToS3(localPath, s3Key, contentType = 'audio/mpeg') {
     const fileStream = fs.createReadStream(localPath);
 
     const uploadParams = {
       Bucket: process.env.R2_BUCKET,
       Key: s3Key,
       Body: fileStream,
-      ContentType: 'audio/mpeg'
+      ContentType: contentType,
     };
 
     await s3Client.send(new PutObjectCommand(uploadParams));

@@ -4,12 +4,14 @@
 #include <functional>
 #include "auth/AuthManager.h"
 #include "playback/StemPlaybackEngine.h"
+#include "playback/ProjectMixController.h"
 #include "TransportState.h"
 #include "SampleRateConverter.h"
 #include "api/ConnectionManager.h"
 #include "CacheManager.h"
 #include "api/SterioApiClient.h"
 #include "api/TrackLoader.h"
+#include "api/ProjectLoader.h"
 #include "StemModels.h"
 #include "Services.h"
 #include "PluginState.h"
@@ -75,15 +77,59 @@ public:
 
     void loadStemsForTrack();
 
-    /** Request reload of current stems with new sample rate */
+    /** Load project clips for playback after set_project message. */
+    void loadProjectClips(const juce::String& projectId, const juce::Array<ProjectClip>& clips);
+
+    /** Select a project from the plugin UI and load it for playback. */
+    void selectProject(const ProjectSummary& project);
+
+    /** Clear loaded track/project selection and playback stems. */
+    void clearSelection();
+
+    /** Apply project_sync clip updates without full reload when possible. */
+    void syncProjectClips(const juce::String& projectId,
+                          const juce::Array<ProjectClip>& previousClips,
+                          const juce::Array<ProjectClip>& newClips);
+
+    /** Thread-safe access to currently loaded project tracks (for timeline lanes). */
+    juce::Array<ProjectTrackInfo> getLoadedProjectTracks() const;
+
+    /** Thread-safe access to currently loaded project clips (for timeline). */
+    juce::Array<ProjectClip> getLoadedProjectClips() const;
+
+    /** Atomic read of project mute/solo monitor state (safe for UI + audio). */
+    std::shared_ptr<const ProjectMixState> getProjectMixState() const;
+
+    /** Toggle mute for a project track (message thread). */
+    void toggleProjectTrackMute(int projectTrackId);
+
+    /** Toggle exclusive solo for a project track (message thread). */
+    void toggleProjectTrackSolo(int projectTrackId);
+
+    /** Request reload of current stems or project clips with new sample rate */
     void requestStemReload();
 
     /** Handle incoming message from WebSocket */
     void handleIncomingMessage(const std::string& json);
 
+    /** Fires on the message thread after a project is opened remotely via set_project. */
+    juce::ChangeBroadcaster& getRemoteProjectOpenBroadcaster() { return remoteProjectOpenBroadcaster; }
+
     Services& getServices() { return services; }
 
 private:
+    juce::Array<int> getLoadedProjectTrackIds() const;
+    void handleSetTrackMessage(juce::DynamicObject* obj);
+    void handleStemMetadataSyncMessage(juce::DynamicObject* obj);
+    void handleSetProjectMessage(juce::DynamicObject* obj);
+    void handleProjectSyncMessage(juce::DynamicObject* obj);
+
+    void sendProjectLoadProgress(const juce::String& projectId, int current, int total);
+    void sendProjectLoadComplete(const juce::String& projectId);
+    void sendProjectLoadError(const juce::String& projectId, const juce::String& error);
+    void sendProjectSyncComplete(const juce::String& projectId);
+    void sendProjectSyncError(const juce::String& projectId, const juce::String& error);
+
     /** Handle sample rate changes and convert stems if necessary */
     void handleSampleRateChange(double newSampleRate);
 
@@ -97,6 +143,7 @@ private:
     SterioApiClient apiClient { authManager };
     ConnectionManager connectionManager;
     TrackLoader trackLoader { apiClient, cacheManager };
+    ProjectLoader projectLoader { apiClient, cacheManager };
     PluginState pluginState;
     Services services { authManager, apiClient, cacheManager, trackLoader, pluginState };
 
@@ -114,8 +161,16 @@ private:
     // Error reporting support
     std::function<void(const juce::String&)> errorCallback;
 
+    // Notifies the UI (async, message thread) when set_project opens a project
+    juce::ChangeBroadcaster remoteProjectOpenBroadcaster;
+
     // Track and stem state management (thread-safe)
     std::shared_ptr<juce::Array<StemTrack>> stems;
+    ProjectMixController projectMixController;
+    juce::CriticalSection projectPayloadLock;
+    juce::String loadedProjectId;
+    juce::Array<ProjectClip> loadedProjectClips;
+    juce::Array<ProjectTrackInfo> loadedProjectTracks;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginProcessor)
 };

@@ -33,7 +33,7 @@ Phase 1 skips realtime — REST autosave only. **REST mutating routes must enfor
 
 1. **`$connect`:** pass session JWT or auth token in query string; validate before accepting connection.
 2. **`join`:** verify `projectAccess` (membership + role); reject viewers from sending ops (viewers may receive broadcasts).
-3. **Cap:** reject join when active connections ≥ `effectiveMaxMembers`.
+3. **Cap:** reject join when active connections ≥ hard infra limit (`PROJECT_WS_MAX_CONNECTIONS_PER_PROJECT`, default 50). Membership seats are enforced at invite/accept. Stale rows (`last_seen_at` older than `PROJECT_WS_CONNECTION_STALE_SECONDS`) are pruned before the cap check and before presence broadcasts.
 
 ---
 
@@ -50,6 +50,8 @@ Phase 1 skips realtime — REST autosave only. **REST mutating routes must enfor
 { "type": "presence", "editingTrackId": 1 }
 ```
 
+Client sends `presence` on an interval (and when `editingTrackId` changes). Server touches `last_seen_at` and rebroadcasts room presence.
+
 ### Server → client
 
 ```json
@@ -58,7 +60,12 @@ Phase 1 skips realtime — REST autosave only. **REST mutating routes must enfor
 { "type": "op", "fromUserId": "...", "revision": 43, "payload": { ... } }
 { "type": "op_nack", "opId": "uuid", "code": "REVISION_MISMATCH|LOCK_DENIED|VALIDATION_ERROR", "message": "..." }
 { "type": "lock", "action": "acquired|released", "resource": { "type": "track", "id": 1 }, "userId": "..." }
-{ "type": "presence", "users": [ ... ] }
+{
+  "type": "presence",
+  "users": [
+    { "userId": "...", "username": "...", "profilePicUrl": "...", "editingTrackId": 1 }
+  ]
+}
 { "type": "asset.processing_update", "clipId": 10, "assetId": 42, "status": "completed|failed", "error": "..." }
 { "type": "locks_clear" }
 { "type": "error", "code": "LOCK_DENIED", "message": "..." }
@@ -79,7 +86,8 @@ Config: `LOCK_TTL_SECONDS` = 60, `LOCK_HEARTBEAT_INTERVAL_SECONDS` = 15.
 | Edit | Locks required |
 |---|---|
 | Trim / move on same track | Source track |
-| Record / upload | Armed track |
+| Record | Armed track |
+| Upload / import | Target track (any track; arm not required) |
 | Track metadata | That track |
 | Cross-track move | Source + destination (lower `trackId` first) |
 | `track.reorder` | **Project metadata lock** (short TTL, one per project) |

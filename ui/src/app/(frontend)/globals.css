@@ -2407,3 +2407,286 @@ body.dark-mode .continue-anyway-btn:hover {
 .react-flow__node-clusterNode {
   border-radius: 50%;
 }
+
+/* Project subscription limits — locked projects & storage */
+.project-card-locked {
+  opacity: 0.85;
+  border-color: var(--grey-2);
+  cursor: default;
+  background: var(--grey-1);
+}
+
+.project-card-locked:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--grey-2);
+}
+
+.project-locked-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--rustic-pink);
+  background: var(--rustic-pink-light, rgba(233, 169, 161, 0.2));
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.project-locked-message {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 8px 0 0 0;
+  line-height: 1.4;
+}
+
+.project-locked-message a {
+  color: var(--seafoam);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.project-locked-message a:hover {
+  text-decoration: underline;
+}
+
+.project-storage-usage {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--grey-2);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.project-storage-usage-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--grey-2);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.project-storage-usage-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--seafoam);
+  transition: width 0.2s ease;
+}
+
+.project-storage-usage-bar-fill.near-limit {
+  background: var(--rustic-pink);
+}
+
+.project-storage-upgrade-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--seafoam);
+  text-decoration: none;
+}
+
+.project-storage-upgrade-link:hover {
+  text-decoration: underline;
+}
+/* Project members tab */
+.project-members-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 24px;
+}
+
+.project-members-section-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.project-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-member-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--grey-2);
+  border-radius: 10px;
+  background: var(--background);
+}
+
+.project-member-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+}
+
+.project-member-info {
+  min-width: 0;
+}
+
+.project-member-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-member-handle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-member-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.project-members-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--text-secondary);
+}
+
+.project-invite-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-invite-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-invite-search-trigger {
+  min-width: 180px;
+}
+
+.project-invite-link-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-invite-role-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--grey-2);
+  background: var(--background);
+}
+
+.project-invite-role-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.project-invite-searching {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.project-invite-result-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.project-invite-result-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.project-invite-result-handle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.project-invite-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--rustic-pink);
+}
+
+.project-invite-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--grey-1);
+  color: var(--text-secondary);
+}
+
+.project-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.project-invite-accept-card {
+  max-width: 480px;
+  margin: 48px auto;
+  padding: 32px;
+  border: 1px solid var(--grey-2);
+  border-radius: 16px;
+  background: var(--background);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.project-invite-accept-card h1 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--text-primary);
+}
+
+.project-invite-accept-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.project-invite-accept-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}

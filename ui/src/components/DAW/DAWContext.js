@@ -10,10 +10,25 @@ import { undoManager, COMMAND_TYPES } from './core/UndoManager';
 import DAWConfig from './misc/DAWConfig';
 import AudioState from './core/AudioStateStore';
 import { captureDawRecordStarted } from '@/lib/posthogAnalytics';
+import {
+  emitProjectTrackMixerState,
+  loadProjectIntoTrackManager,
+} from './project/projectLoader';
+import { canCopyProjectRegion } from './project/projectRegionClipboard';
+import { initDawExternalPlaybackListeners } from './dawExternalPlaybackListeners';
+import { alignRecordedRegionToGrid } from './misc/recordingGridAlign';
 
 const DAWContext = createContext();
 
-export function DAWProvider({ children, trackData, isCollab }) {
+export function DAWProvider({
+  children,
+  trackData,
+  isCollab,
+  mode,
+  projectData,
+}) {
+  const dawMode = mode ?? (isCollab ? 'collab' : 'original');
+  const isProjectMode = dawMode === 'project';
   const { isPlaying: isPlayingGlobal, togglePlayPause } = useAudio();
   const trackManagerRef = useRef(null);
   const audioEngineRef = useRef(null);
@@ -64,6 +79,8 @@ export function DAWProvider({ children, trackData, isCollab }) {
   }, []);
   const recordingModeRef = useRef('take');
   useEffect(() => { recordingModeRef.current = recordingMode; }, [recordingMode]);
+  const gridLinesRef = useRef([]);
+  useEffect(() => { gridLinesRef.current = gridLines; }, [gridLines]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -75,12 +92,28 @@ export function DAWProvider({ children, trackData, isCollab }) {
     durationRef.current = duration;
   }, [duration]);
 
+  useEffect(() => initDawExternalPlaybackListeners(), []);
+
   
   useEffect(() => {
     const initializeDAW = async () => {
       try {
-        if(isLoading || (!trackData && !isCollab) || audioEngineRef.current || trackManagerRef.current) return;
-        console.log('Initializing DAW. Loading:', isLoading, 'Track data:', trackData, 'Is collab:', isCollab);
+        const hasCollabData = trackData && trackData.length > 0;
+        // original (upload page): no track data — still init with an empty recording track
+        // collab: need track data (or isCollab while track is present)
+        // project: need projectData
+        const canInitialize = isProjectMode
+          ? !!projectData
+          : dawMode === 'original' || hasCollabData || isCollab;
+        if (
+          isLoading ||
+          !canInitialize ||
+          audioEngineRef.current ||
+          trackManagerRef.current
+        ) {
+          return;
+        }
+        console.log('Initializing DAW. Mode:', dawMode, 'Track data:', trackData, 'Project:', projectData?.guid);
         setIsLoading(true);
         
         // Clean up existing instances first
@@ -94,8 +127,10 @@ export function DAWProvider({ children, trackData, isCollab }) {
         }
 
         AudioState.reset();
-        undoManager.clear(); // Clear undo history when initializing DAW
-        undoManager.init(); // Initialize undo manager event listeners
+        if (!isProjectMode) {
+          undoManager.clear();
+          undoManager.init();
+        }
         
         // Initialize audio context
         let audioContext;
@@ -118,33 +153,44 @@ export function DAWProvider({ children, trackData, isCollab }) {
         let timeSignature = null;
         let metronomeOffset = null;
         let isLoopMode = false;
-        if(trackData && trackData.length > 0) {
+
+        let projectDurationSeconds = null;
+
+        if (isProjectMode && projectData) {
+          const projectSettings = await loadProjectIntoTrackManager(tm, projectData);
+          metronomeBpm = projectSettings.metronomeBpm;
+          timeSignature = projectSettings.timeSignature;
+          metronomeOffset = projectSettings.metronomeOffset;
+          projectDurationSeconds = projectSettings.durationSeconds;
+        } else if (trackData && trackData.length > 0) {
           metronomeBpm = trackData[0].metronome_bpm;
           timeSignature = trackData[0].time_signature;
           metronomeOffset = trackData[0].metronome_offset;
           isLoopMode = trackData[0].is_loop || false;
-        }
-        
-        // Load existing tracks if provided
-        if (trackData && trackData.length > 0) {
-          // Check if this is a collaboration (has parent) - use hybrid loading
+
           const isCollaboration = trackData[0]?.parent_track_id !== null;
 
           if (isCollaboration) {
-            // Use hybrid stem chain loading for collaborations
             await tm.loadStemChain(trackData[0]);
           } else {
-            // Use legacy loading for original tracks
             await tm.loadAllTracks(trackData);
           }
         }
-        
-        // Always create an empty track for recording
-        tm.createEmptyTrack('recording-track');
+
+        if (!isProjectMode) {
+          tm.createEmptyTrack('recording-track');
+        }
         
         // Initialize audio engine
-        const ae = new AudioEngine(audioContext, isCollab);
+        const ae = new AudioEngine(audioContext, isCollab && !isProjectMode);
         await ae.initialize(tm, metronomeBpm, timeSignature, metronomeOffset);
+
+        if (isProjectMode) {
+          emitProjectTrackMixerState(tm);
+          if (projectDurationSeconds) {
+            setDuration(projectDurationSeconds);
+          }
+        }
         
         trackManagerRef.current = tm;
         audioEngineRef.current = ae;
@@ -174,11 +220,17 @@ export function DAWProvider({ children, trackData, isCollab }) {
       }
     };
     
-    // Initialize DAW even if no trackData is provided
     initializeDAW();
-  }, [trackData]);
+  }, [trackData, projectData, dawMode, isProjectMode]);
 
   useEffect(() => {
+    if (isProjectMode) {
+      if (projectData?.durationSeconds) {
+        setDuration(projectData.durationSeconds);
+      }
+      return;
+    }
+
     if (tracks.length > 0) {
       // Find the latest region end time from all tracks
       let latestEndTime = 0;
@@ -199,7 +251,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       // Default duration when no tracks exist
       setDuration(DAWConfig.project.defaultDuration);
     }
-  }, [tracks]);
+  }, [tracks, isProjectMode, projectData]);
 
   useEffect(() => {
     return () => {
@@ -210,21 +262,44 @@ export function DAWProvider({ children, trackData, isCollab }) {
       if (trackManagerRef.current) {
         trackManagerRef.current.destroy();
       }
-      undoManager.destroy();
+      if (!isProjectMode) {
+        undoManager.destroy();
+      }
     };
-  }, []);
+  }, [isProjectMode]);
 
-  // Region selection handlers (defined before useEffect that uses them)
+  // Region / track selection handlers (defined before useEffect that uses them)
   const selectRegion = useCallback((regionId, trackId) => {
     setSelectedRegionId(regionId);
     setSelectedTrackId(trackId);
     eventBus.emit(DAW_EVENTS.REGION.SELECT, { regionId, trackId });
   }, []);
 
+  const selectTrack = useCallback((trackId) => {
+    if (trackId == null) return;
+    setSelectedTrackId(trackId);
+    setSelectedRegionId(null);
+  }, []);
+
   const clearSelection = useCallback(() => {
     setSelectedRegionId(null);
-    setSelectedTrackId(null);
-  }, []);
+    // Project mode always keeps exactly one track selected
+    if (!isProjectMode) {
+      setSelectedTrackId(null);
+    }
+  }, [isProjectMode]);
+
+  // Ensure project mode always has one track selected
+  useEffect(() => {
+    if (!isProjectMode || tracks.length === 0) return;
+
+    const trackStillExists =
+      selectedTrackId != null && tracks.some((track) => track.id === selectedTrackId);
+
+    if (!trackStillExists) {
+      setSelectedTrackId(tracks[0].id);
+    }
+  }, [isProjectMode, tracks, selectedTrackId]);
 
   // Copy handler
   const copyRegion = useCallback(() => {
@@ -242,16 +317,21 @@ export function DAWProvider({ children, trackData, isCollab }) {
       return false;
     }
 
+    if (isProjectMode && !canCopyProjectRegion(region)) {
+      return false;
+    }
+
     setClipboard({
       region: { ...region },
       trackId: selectedTrackId,
-      bufferKey: region.key
+      bufferKey: region.key,
+      projectAssetId: region.projectAssetId ?? null,
     });
 
     return true;
-  }, [selectedRegionId, selectedTrackId]);
+  }, [selectedRegionId, selectedTrackId, isProjectMode]);
 
-  // Paste handler
+  // Paste handler (collab / non-project: same-track only)
   const pasteRegion = useCallback((pasteTime = null) => {
     if (!clipboard || !trackManagerRef.current) {
       return false;
@@ -495,10 +575,36 @@ export function DAWProvider({ children, trackData, isCollab }) {
     
     const handleRecordingStopped = (data) => {
       setIsRecording(false);
+      AudioState.recordingTargetTrackId = null;
+
+      if (isProjectMode) {
+        return;
+      }
 
       const track = trackManagerRef.current.getTrack('recording-track');
+      if (!track) return;
       const overwriteTrack = recordingModeRef.current === 'take';
-      track.addRegion(data.bufferKey, data.startTime, data.offset, null, '', overwriteTrack, true, data.latencyData);
+      const rawOffset = data.offset ?? 0;
+      const rawEndTime = data.startTime + (data.duration ?? 0) - rawOffset;
+      const aligned = alignRecordedRegionToGrid(
+        {
+          startTime: data.startTime,
+          endTime: rawEndTime,
+          offset: rawOffset,
+        },
+        gridLinesRef.current,
+        (DAWConfig.ui.recordSnapThresholdMs ?? 40) / 1000
+      );
+      track.addRegion(
+        data.bufferKey,
+        aligned.startTime,
+        aligned.offset,
+        aligned.endTime,
+        '',
+        overwriteTrack,
+        true,
+        data.latencyData
+      );
     };
     
     const handleRecordingError = (error) => {
@@ -552,7 +658,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
     };
 
     const handleRegionRemoved = (data) => {
-      // Clear selection if the removed region was selected
+      // Clear region selection if the removed region was selected (track stays selected in project mode)
       if (selectedRegionId === data.region.id && selectedTrackId === data.trackId) {
         clearSelection();
       }
@@ -612,7 +718,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       eventBus.off(DAW_EVENTS.AUDIO_SETTINGS.SNAP_STRENGTH_CHANGE, handleSnapStrengthChange);
       eventBus.off(DAW_EVENTS.UNDO.STATE_CHANGE, handleUndoStateChange);
     };
-  }, [selectedRegionId, selectedTrackId, clearSelection, isPlayingGlobal, togglePlayPause, isCollab, trackData]); 
+  }, [selectedRegionId, selectedTrackId, clearSelection, isPlayingGlobal, togglePlayPause, isCollab, trackData, isProjectMode]); 
 
   const recordPlay = async () => {
     if (!trackData || !isCollab || playRecordedRef.current) return;
@@ -646,10 +752,19 @@ export function DAWProvider({ children, trackData, isCollab }) {
     eventBus.emit(DAW_EVENTS.UI.VIEW_CHANGE, { scrollLeft: newOffset });
   };
 
+  const syncTracksFromManager = useCallback(() => {
+    if (!trackManagerRef.current) return [];
+    const nextTracks = trackManagerRef.current.getAllTracks();
+    setTracks(nextTracks);
+    return nextTracks;
+  }, []);
+
   return (
     <DAWContext.Provider value={{
+      dawMode,
       isCollab,
       trackManagerRef,
+      syncTracksFromManager,
       audioEngineRef,
       trackData,
       isLoading,
@@ -681,6 +796,7 @@ export function DAWProvider({ children, trackData, isCollab }) {
       selectedRegionId,
       selectedTrackId,
       selectRegion,
+      selectTrack,
       clearSelection,
       copyRegion,
       pasteRegion,

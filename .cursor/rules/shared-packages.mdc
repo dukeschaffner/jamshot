@@ -1,0 +1,9 @@
+---
+globs: packages/**
+alwaysApply: false
+---
+# Using Shared Packages
+
+## Coding
+
+When adding a new reference to a shared package to a project, MAKE SURE the CICD for that project has the path to that package in "paths" section so that changes in that package are automatically deployed to the project.

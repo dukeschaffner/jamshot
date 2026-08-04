@@ -338,11 +338,16 @@ const createApiMethods = (apiClient) => {
 
   // Search API methods
   const searchApi = {
-    searchTracks: (query, page = 1) => 
+    searchTracks: (query, page = 1) =>
       api.get(`/search/tracks?q=${encodeURIComponent(query)}&page=${page}`),
-    
-    searchUsers: (query, page = 1) => 
+
+    searchUsers: (query, page = 1) =>
       api.get(`/search/users?q=${encodeURIComponent(query)}&page=${page}`),
+
+    search: (query, type = 'all') =>
+      api.get(
+        `/search?query=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`
+      ),
   };
 
   // Notifications API methods
@@ -582,6 +587,134 @@ const createApiMethods = (apiClient) => {
     cancelSubscription: (teamId) => api.post(`/teams/${teamId}/cancel-subscription`),
   };
 
+  // Project API methods
+  const projectApi = {
+    listProjects: (params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, value);
+        }
+      });
+      const query = queryParams.toString();
+      return api.get(query ? `/projects?${query}` : '/projects');
+    },
+
+    createProject: (data) => api.post('/projects', data),
+
+    getProject: (projectGuid) => api.get(`/projects/${projectGuid}`),
+
+    updateProject: (projectGuid, data) => api.patch(`/projects/${projectGuid}`, data),
+
+    createProjectTrack: (projectGuid, data) =>
+      api.post(`/projects/${projectGuid}/tracks`, data),
+
+    deleteProjectTrack: (projectGuid, trackId, data) =>
+      api.delete(`/projects/${projectGuid}/tracks/${trackId}`, { data }),
+
+    updateProjectTrack: (projectGuid, trackId, data) =>
+      api.patch(`/projects/${projectGuid}/tracks/${trackId}`, data),
+
+    uploadProjectClip: (projectGuid, trackId, formData) =>
+      api.post(`/projects/${projectGuid}/tracks/${trackId}/clips`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }),
+
+    getProjectAssetProcessingStatus: (projectGuid, assetId) =>
+      api.get(`/projects/${projectGuid}/assets/${assetId}/processing-status`),
+
+    listProjectAssets: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/assets`),
+
+    getProjectCollabTracks: (projectGuid, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value);
+        }
+      });
+      const qs = queryParams.toString();
+      return api.get(`/projects/${projectGuid}/collab-tracks${qs ? `?${qs}` : ''}`);
+    },
+
+    getProjectCollabUsers: (projectGuid, params = {}) => {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value);
+        }
+      });
+      const qs = queryParams.toString();
+      return api.get(`/projects/${projectGuid}/collab-users${qs ? `?${qs}` : ''}`);
+    },
+
+    createProjectCollabAsset: (projectGuid, data) =>
+      api.post(`/projects/${projectGuid}/collab-assets`, data),
+
+    deleteProjectAsset: (projectGuid, assetId, data) =>
+      api.delete(`/projects/${projectGuid}/assets/${assetId}`, { data }),
+
+    placeProjectAssetClip: (projectGuid, assetId, data) =>
+      api.post(`/projects/${projectGuid}/assets/${assetId}/clips`, data),
+
+    deleteProjectClip: (projectGuid, clipId, data) =>
+      api.delete(`/projects/${projectGuid}/clips/${clipId}`, { data }),
+
+    updateProjectClip: (projectGuid, clipId, data) =>
+      api.patch(`/projects/${projectGuid}/clips/${clipId}`, data),
+
+    listProjectSnapshots: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/snapshots`),
+
+    createProjectSnapshot: (projectGuid, data = {}) =>
+      api.post(`/projects/${projectGuid}/snapshots`, data),
+
+    getProjectSnapshot: (projectGuid, snapshotId) =>
+      api.get(`/projects/${projectGuid}/snapshots/${snapshotId}`),
+
+    restoreProjectSnapshot: (projectGuid, snapshotId) =>
+      api.post(`/projects/${projectGuid}/snapshots/${snapshotId}/restore`),
+
+    deleteProjectSnapshot: (projectGuid, snapshotId) =>
+      api.delete(`/projects/${projectGuid}/snapshots/${snapshotId}`),
+
+    getProjectPluginPayload: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/plugin-payload`),
+
+    getMembers: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/members`),
+
+    updateMemberRole: (projectGuid, userId, role) =>
+      api.patch(`/projects/${projectGuid}/members/${userId}`, { role }),
+
+    removeMember: (projectGuid, userId) =>
+      api.delete(`/projects/${projectGuid}/members/${userId}`),
+
+    leaveProject: (projectGuid) =>
+      api.post(`/projects/${projectGuid}/members/leave`),
+
+    deleteProject: (projectGuid) =>
+      api.delete(`/projects/${projectGuid}`),
+
+    getInvites: (projectGuid) =>
+      api.get(`/projects/${projectGuid}/invites`),
+
+    createInvite: (projectGuid, data) =>
+      api.post(`/projects/${projectGuid}/invites`, data),
+
+    revokeInvite: (projectGuid, inviteId) =>
+      api.delete(`/projects/${projectGuid}/invites/${inviteId}`),
+
+    getInvite: (token) =>
+      api.get(`/projects/invites/${token}`),
+
+    acceptInvite: (token) =>
+      api.post(`/projects/invites/${token}/accept`),
+
+    declineInvite: (token) =>
+      api.post(`/projects/invites/${token}/decline`),
+  };
+
   // Admin API methods
   const adminApi = {
     getModerationTracks: (rootId, params = {}) => {
@@ -618,6 +751,7 @@ const createApiMethods = (apiClient) => {
     campApi,
     teamApi,
     groupApi,
+    projectApi,
     adminApi,
     api, // Raw axios instance for custom requests
     // Callback management methods

@@ -12,6 +12,26 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.trackHeaderSelected {
+  background-color: rgba(76, 217, 172, 0.08);
+  box-shadow: inset 3px 0 0 var(--seafoam, #34c759);
+}
+
+body.dark-mode .trackHeaderSelected {
+  background-color: rgba(76, 217, 172, 0.12);
+}
+
+.trackNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .trackName {
@@ -22,6 +42,76 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+}
+
+.trackNameEditable {
+  cursor: text;
+}
+
+.trackNameEditable:hover:not(:disabled) {
+  color: var(--dark, #171717);
+}
+
+body.dark-mode .trackNameEditable:hover:not(:disabled) {
+  color: var(--dark-text-primary, #f5f5f5);
+}
+
+.trackNameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--gray-light, #f5f5f5);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 4px;
+  padding: 2px 6px;
+  text-align: right;
+}
+
+body.dark-mode .trackNameInput {
+  background: var(--dark-hover-color, #2a2a2a);
+  border-color: var(--dark-border-color, #444);
+  color: var(--dark-text-primary, #f5f5f5);
+}
+
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: grab;
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.dragHandle:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--dark, #171717);
+}
+
+body.dark-mode .dragHandle:hover:not(:disabled) {
+  color: var(--dark-text-primary, #f5f5f5);
+}
+
+.dragHandle:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
 }
 
 .controlRow {
@@ -95,6 +185,12 @@
 .controlButton.active.muteActive {
   background-color: #ff3b30;
   border-color: #ff3b30;
+}
+
+.armActive {
+  background-color: #ff3b30;
+  border-color: #ff3b30;
+  color: #fff;
 }
 
 .recordingIndicator {

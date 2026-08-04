@@ -3,6 +3,17 @@
     height: 100px;
     margin-bottom: 16px;
     position: relative;
+    border-radius: 4px;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .trackSelected {
+    background-color: rgba(76, 217, 172, 0.08);
+    box-shadow: inset 3px 0 0 var(--seafoam, #34c759);
+  }
+
+  body.dark-mode .trackSelected {
+    background-color: rgba(76, 217, 172, 0.12);
   }
 
   /* Empty track styles */
@@ -55,4 +66,55 @@
     z-index: 10;
     pointer-events: none;
     transition: width 0.1s ease;
+  }
+
+  .dropPlaceholder {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border: 2px dashed var(--seafoam);
+    border-radius: 6px;
+    background-color: rgba(76, 217, 172, 0.12);
+    z-index: 8;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+
+  .dropPlaceholderInvalid {
+    border-color: var(--red, #ff3b30);
+    background-color: rgba(255, 59, 48, 0.1);
+  }
+
+  .crossTrackDragPreview {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    z-index: 12;
+    pointer-events: none;
+    opacity: 0.9;
+    box-sizing: border-box;
+    outline: 2px solid var(--seafoam);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .crossTrackDragPreviewInvalid {
+    opacity: 0.55;
+  }
+
+  .crossTrackDragPreviewInvalid::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px dashed var(--red, #ff3b30);
+    border-radius: 6px;
+    pointer-events: none;
+  }
+
+  body.dark-mode .dropPlaceholder {
+    background-color: rgba(76, 217, 172, 0.08);
+  }
+
+  body.dark-mode .dropPlaceholderInvalid {
+    background-color: rgba(255, 59, 48, 0.08);
   }

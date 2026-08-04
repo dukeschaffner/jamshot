@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+YOU MUST avoid creating large monolith files. If adding new functionality/features to an existing file, you MUST create a new file for the new functionality/features. If you're only updating existing functionality, you may add the edits to the existing file. But in general, prefer encapsulating new functionality/features in a new file to improve readability and maintainability.
