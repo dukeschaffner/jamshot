@@ -10,6 +10,11 @@ import {
 } from '../utils/projectAssetUtils.js';
 import { formatAssetListItem } from '../utils/projectAssetLibraryUtils.js';
 import { checkProjectStorageForAudioSources } from '../utils/projectImportStorageCheck.js';
+import { getR2AudioDurationSeconds } from '../utils/projectImportAudioDuration.js';
+
+function stemHasRegions(stem) {
+  return Array.isArray(stem?.regions) && stem.regions.length > 0;
+}
 
 function isGuid(value) {
   return (
@@ -246,6 +251,19 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
   }
 
   try {
+    // Probe stem file duration — tracks.duration is combined-mix length for collabs.
+    const stemDurationSeconds = await getR2AudioDurationSeconds(sourceTrack.audio_url);
+    if (stemDurationSeconds == null) {
+      if (shouldManageTransaction) {
+        await client.query('ROLLBACK');
+      }
+      return {
+        ok: false,
+        status: 500,
+        error: 'Could not determine the track audio duration for import',
+      };
+    }
+
     // Insert placeholder row to get asset id, then copy R2 objects, then update keys.
     const placeholder = await client.query(
       `INSERT INTO project_assets (
@@ -257,7 +275,7 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
       [
         project.id,
         sourceTrack.title || 'Imported stem',
-        sourceTrack.duration != null ? Number(sourceTrack.duration) : null,
+        stemDurationSeconds,
         userId,
         sourceTrack.id,
       ]
@@ -381,11 +399,30 @@ export async function importTrackIntoProject(
 
   for (const stem of stems) {
     const meta = stemMeta.get(stem.track_id) || {};
-    const durationSeconds =
+    const audioKey = stem.audio_url || meta.audio_url;
+    const title = stem.title || meta.title || `Stem ${stem.order + 1}`;
+    const trackDuration =
       meta.duration != null ? Number(meta.duration) : null;
+
+    // Only download+probe when regions are missing. With regions, clip length
+    // comes from start/end times; tracks.duration is fine as an asset hint.
+    // Without regions, tracks.duration is combined-mix length and must not be used.
+    let durationSeconds = trackDuration;
+    if (!stemHasRegions(stem)) {
+      durationSeconds = audioKey
+        ? await getR2AudioDurationSeconds(audioKey)
+        : null;
+      if (durationSeconds == null) {
+        throw serviceError(
+          500,
+          `Could not determine audio duration for stem "${title}"`
+        );
+      }
+    }
+
     const placements = regionsToClipPlacements(stem.regions, durationSeconds);
     if (!placements.length) {
-      throw serviceError(400, `Stem "${stem.title || stem.track_id}" has no valid regions to import`);
+      throw serviceError(400, `Stem "${title}" has no valid regions to import`);
     }
     requiredDuration = Math.max(
       requiredDuration,
@@ -396,9 +433,9 @@ export async function importTrackIntoProject(
       meta,
       durationSeconds,
       placements,
-      audioKey: stem.audio_url || meta.audio_url,
+      audioKey,
       waveformKey: meta.waveform_url || null,
-      title: stem.title || meta.title || `Stem ${stem.order + 1}`,
+      title,
       gain: typeof stem.gain === 'number' ? stem.gain : 0.8,
     });
   }

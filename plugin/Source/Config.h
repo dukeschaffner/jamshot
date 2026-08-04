@@ -22,8 +22,8 @@ public:
         /** Base URL for API requests */
         static juce::String getBaseUrl()
         {
-            // return "https://api.sterio.fm/api";
-            return "http://localhost:5001/api";
+            return "https://api.sterio.fm/api";
+            // return "http://localhost:5001/api";
         }
     };
 
@@ -34,8 +34,8 @@ public:
         /** Base URL for web app */
         static juce::String getBaseUrl()
         {
-            // return "https://sterio.fm";
-            return "http://localhost:3000";
+            return "https://sterio.fm";
+            // return "http://localhost:3000";
         }
     };
 
@@ -46,7 +46,7 @@ public:
         /** Path to plugin metadata file */
         static juce::String getPluginVersion()
         {
-            return "0.1.1";
+            return "0.1.2";
         }
     };
 };
