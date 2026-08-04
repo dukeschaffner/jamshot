@@ -22,7 +22,9 @@ export const getEmailAddress = (originalEmail) => {
 // Create a transporter using custom SMTP credentials
 let transporter = null;
 
-// Only create transporter if all required environment variables are present
+// Only create transporter if all required environment variables are present.
+// Leave null otherwise — consumers like project-ws import auth (and thus email)
+// without SMTP config; sendEmail / isTransporterAvailable already handle null.
 if (process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.EMAIL && process.env.EMAIL_PASSWORD) {
     transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
@@ -37,7 +39,9 @@ if (process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.EMAIL && proce
         socketTimeout: 10000 // 10 seconds
     });
 } else {
-    throw new Error('Email transporter not initialized - missing required environment variables');
+    console.warn(
+      'Email transporter not initialized - missing required environment variables (SMTP_HOST, SMTP_PORT, EMAIL, EMAIL_PASSWORD)'
+    );
 }
 
 /**
