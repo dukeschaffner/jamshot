@@ -4,6 +4,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import { LogRetention } from 'aws-cdk-lib/aws-logs';
 import { EmailNotificationsConstruct } from './constructs/email-notifications-construct';
 import { DataCleanupConstruct } from './constructs/data-cleanup-construct';
+import { ProjectAssetEventsConstruct } from './constructs/project-asset-events-construct';
 import { ProjectWsConstruct } from './constructs/project-ws-construct';
 import { VideoExportConstruct } from './constructs/video-export-construct';
 
@@ -28,6 +29,11 @@ export class JamshotStack extends cdk.Stack {
 
     // Project WebSocket API + Lambda (realtime sync)
     new ProjectWsConstruct(this, 'ProjectWs', {
+      stack: this,
+    });
+
+    // project_asset_created → existing audio-processing Lambdas (test + prod buses)
+    new ProjectAssetEventsConstruct(this, 'ProjectAssetEvents', {
       stack: this,
     });
 

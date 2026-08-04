@@ -29,6 +29,25 @@ export class ProjectWsConstruct extends Construct {
     this.testWebSocketApi = testEnv.webSocketApi;
     this.prodWebSocketApi = prodEnv.webSocketApi;
 
+    // API Lambda kicks/leaves members and must postToConnection / deleteConnection.
+    // Role is owned outside CDK; attach scoped ManageConnections for both stages.
+    const apiRole = iam.Role.fromRoleName(
+      this,
+      'SterioApiLambdaRole',
+      'SterioAPILambdaRole'
+    );
+    apiRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'ProjectWsManageConnections',
+        effect: iam.Effect.ALLOW,
+        actions: ['execute-api:ManageConnections'],
+        resources: [
+          `arn:aws:execute-api:${stack.region}:${stack.account}:${testEnv.webSocketApi.apiId}/test/POST/@connections/*`,
+          `arn:aws:execute-api:${stack.region}:${stack.account}:${prodEnv.webSocketApi.apiId}/prod/POST/@connections/*`,
+        ],
+      })
+    );
+
     new cdk.CfnOutput(stack, 'ProjectWsTestUrl', {
       value: testEnv.stage.url,
       description: 'Project WebSocket API URL (test)',
