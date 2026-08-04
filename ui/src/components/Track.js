@@ -679,7 +679,7 @@ export default function Track(
                         router.push(`/projects/create?${params.toString()}`);
                       }}
                     >
-                      <FaFolderOpen /> Create Project from Track
+                      Create Project from Track
                     </button>
                   )}
                   
