@@ -26,6 +26,7 @@ import {
   validateRegionPlacement,
 } from '../project/projectClipPlacement';
 import { useProjectSync } from '../project/ProjectSyncContext';
+import { acquireTrackLockWhilePointerHeld, createPointerUpGuard } from '../project/acquireTrackLockWhilePointerHeld';
 import { CROSS_TRACK_LOCK_DEBOUNCE_MS } from '../project/ProjectsConfig';
 import { useToast } from '@/lib/ToastContext';
 import useRegionLoopDrag, {
@@ -103,6 +104,10 @@ export default function Region({
   const crossTrackLockTimerRef = useRef(null);
   const crossTrackDestLockRef = useRef(null);
   const lastCrossTrackHoverRef = useRef(null);
+  /** Bumped when a drag ends so in-flight cross-track acquires are discarded. */
+  const dragLockSessionRef = useRef(0);
+  /** Covers the gap between lock acquire and drag/crop mouseup listeners attaching. */
+  const pendingPointerGuardRef = useRef(null);
   const musicGridLinesRef = useRef([]);
   const regionContainerRef = useRef(null);
   const waveformContainerRef = useRef(null);
@@ -439,22 +444,40 @@ export default function Region({
         });
         return false;
       }
-      const acquired = await acquireTrackLock(trackId);
-      if (!acquired) {
-        showToast({
-          message: 'This track is being edited by another collaborator',
-          variant: 'error',
-        });
+      const result = await acquireTrackLockWhilePointerHeld(
+        acquireTrackLock,
+        releaseTrackLock,
+        trackId
+      );
+      if (!result.ok) {
+        if (!result.cancelled) {
+          showToast({
+            message: 'This track is being edited by another collaborator',
+            variant: 'error',
+          });
+        }
         return false;
       }
       return true;
     },
-    [isProjectMode, isProjectClipEditable, isTrackLockedByOther, acquireTrackLock, showToast]
+    [
+      isProjectMode,
+      isProjectClipEditable,
+      isTrackLockedByOther,
+      acquireTrackLock,
+      releaseTrackLock,
+      showToast,
+    ]
   );
 
   const releaseProjectDragLocks = useCallback(() => {
     if (!isProjectMode || !isProjectClipEditable) {
       return;
+    }
+    dragLockSessionRef.current += 1;
+    if (pendingPointerGuardRef.current) {
+      pendingPointerGuardRef.current.dispose();
+      pendingPointerGuardRef.current = null;
     }
     releaseTrackLock(track.id);
     if (
@@ -470,6 +493,11 @@ export default function Region({
       crossTrackLockTimerRef.current = null;
     }
   }, [isProjectMode, isProjectClipEditable, releaseTrackLock, track.id]);
+
+  const releaseProjectTrackLock = useCallback(
+    () => releaseTrackLock(track.id),
+    [releaseTrackLock, track.id]
+  );
 
   const {
     isHoveringLoopHandle,
@@ -493,6 +521,7 @@ export default function Region({
     isReadOnly,
     isRecording,
     beginProjectTrackLock,
+    releaseProjectTrackLock,
     trackId: track.id,
     onCommitLoop: commitRegionLoop,
   });
@@ -560,10 +589,23 @@ export default function Region({
     }
 
     if (isProjectMode && isProjectClipEditable) {
+      if (pendingPointerGuardRef.current) {
+        pendingPointerGuardRef.current.dispose();
+      }
+      const pointerGuard = createPointerUpGuard();
+      pendingPointerGuardRef.current = pointerGuard;
       beginProjectTrackLock(track.id).then((ok) => {
-        if (ok) {
-          startRegionDrag();
+        if (!ok || pointerGuard.wasReleased()) {
+          if (ok) {
+            releaseTrackLock(track.id);
+          }
+          if (pendingPointerGuardRef.current === pointerGuard) {
+            pointerGuard.dispose();
+            pendingPointerGuardRef.current = null;
+          }
+          return;
         }
+        startRegionDrag();
       });
       return;
     }
@@ -849,8 +891,15 @@ export default function Region({
             if (crossTrackLockTimerRef.current) {
               clearTimeout(crossTrackLockTimerRef.current);
             }
+            const lockSession = dragLockSessionRef.current;
             crossTrackLockTimerRef.current = setTimeout(() => {
               beginProjectTrackLock(targetTrackId).then((ok) => {
+                if (lockSession !== dragLockSessionRef.current) {
+                  if (ok) {
+                    releaseTrackLock(targetTrackId);
+                  }
+                  return;
+                }
                 if (ok) {
                   crossTrackDestLockRef.current = targetTrackId;
                 }
@@ -1002,11 +1051,26 @@ export default function Region({
     };
 
     if (isDraggingRegion) {
+      const pointerGuard = pendingPointerGuardRef.current;
+      pendingPointerGuardRef.current = null;
+      if (pointerGuard?.wasReleased()) {
+        pointerGuard.dispose();
+        setIsDraggingRegion(false);
+        hasDraggedRef.current = false;
+        if (isProjectMode) {
+          eventBus.emit(DAW_EVENTS.PROJECT.CLIP_DRAG_END);
+          clearCrossTrackDragPreview();
+          releaseProjectDragLocks();
+        }
+        return undefined;
+      }
+      pointerGuard?.dispose();
+
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       document.addEventListener('keydown', handleKeyDown);
     }
-
+    
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -1078,8 +1142,23 @@ export default function Region({
     };
 
     if (isProjectMode && isProjectClipEditable) {
+      if (pendingPointerGuardRef.current) {
+        pendingPointerGuardRef.current.dispose();
+      }
+      const pointerGuard = createPointerUpGuard();
+      pendingPointerGuardRef.current = pointerGuard;
       beginProjectTrackLock(track.id).then((ok) => {
-        if (ok) startCrop();
+        if (!ok || pointerGuard.wasReleased()) {
+          if (ok) {
+            releaseTrackLock(track.id);
+          }
+          if (pendingPointerGuardRef.current === pointerGuard) {
+            pointerGuard.dispose();
+            pendingPointerGuardRef.current = null;
+          }
+          return;
+        }
+        startCrop();
       });
       return;
     }
@@ -1109,8 +1188,23 @@ export default function Region({
     };
 
     if (isProjectMode && isProjectClipEditable) {
+      if (pendingPointerGuardRef.current) {
+        pendingPointerGuardRef.current.dispose();
+      }
+      const pointerGuard = createPointerUpGuard();
+      pendingPointerGuardRef.current = pointerGuard;
       beginProjectTrackLock(track.id).then((ok) => {
-        if (ok) startCrop();
+        if (!ok || pointerGuard.wasReleased()) {
+          if (ok) {
+            releaseTrackLock(track.id);
+          }
+          if (pendingPointerGuardRef.current === pointerGuard) {
+            pointerGuard.dispose();
+            pendingPointerGuardRef.current = null;
+          }
+          return;
+        }
+        startCrop();
       });
       return;
     }
@@ -1383,6 +1477,20 @@ export default function Region({
     };
     
     if (isDraggingCropStart || isDraggingCropEnd) {
+      const pointerGuard = pendingPointerGuardRef.current;
+      pendingPointerGuardRef.current = null;
+      if (pointerGuard?.wasReleased()) {
+        pointerGuard.dispose();
+        setIsDraggingCropStart(false);
+        setIsDraggingCropEnd(false);
+        if (isProjectMode && isProjectClipEditable) {
+          releaseTrackLock(track.id);
+        }
+        originalStateRef.current = null;
+        return undefined;
+      }
+      pointerGuard?.dispose();
+
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }

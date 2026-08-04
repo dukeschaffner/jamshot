@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import DAWConfig from '../../misc/DAWConfig';
 import { snapToGrid } from '../../misc/DAWUtils';
 import { normalizeLoopEnd } from '../../core/regionLoopUtils';
+import { createPointerUpGuard } from '../../project/acquireTrackLockWhilePointerHeld';
 
 const LOOP_HANDLE_ZONE_PX = DAWConfig.ui.loopHandleZonePx ?? 15;
 
@@ -48,6 +49,7 @@ export default function useRegionLoopDrag({
   isReadOnly,
   isRecording,
   beginProjectTrackLock,
+  releaseProjectTrackLock,
   trackId,
   onCommitLoop,
   onPreviewLoopEnd,
@@ -58,6 +60,8 @@ export default function useRegionLoopDrag({
   const originalLoopEndRef = useRef(null);
   const isDraggingLoopRef = useRef(false);
   const previewLoopEndRef = useRef(null);
+  const loopLockSessionRef = useRef(0);
+  const pendingPointerGuardRef = useRef(null);
 
   const clearHover = useCallback(() => {
     setIsHoveringLoopHandle(false);
@@ -93,7 +97,13 @@ export default function useRegionLoopDrag({
       e.preventDefault();
       if (isReadOnly || isRecording) return;
 
+      const session = ++loopLockSessionRef.current;
+
       const startDrag = () => {
+        if (session !== loopLockSessionRef.current) {
+          releaseProjectTrackLock?.();
+          return;
+        }
         originalLoopEndRef.current =
           region?.loopEnd != null && region.loopEnd > endTime
             ? region.loopEnd
@@ -106,8 +116,24 @@ export default function useRegionLoopDrag({
       };
 
       if (beginProjectTrackLock) {
+        if (pendingPointerGuardRef.current) {
+          pendingPointerGuardRef.current.dispose();
+        }
+        const pointerGuard = createPointerUpGuard();
+        pendingPointerGuardRef.current = pointerGuard;
+
         beginProjectTrackLock(trackId).then((ok) => {
-          if (ok) startDrag();
+          if (session !== loopLockSessionRef.current || !ok || pointerGuard.wasReleased()) {
+            if (ok) {
+              releaseProjectTrackLock?.();
+            }
+            if (pendingPointerGuardRef.current === pointerGuard) {
+              pointerGuard.dispose();
+              pendingPointerGuardRef.current = null;
+            }
+            return;
+          }
+          startDrag();
         });
         return;
       }
@@ -120,6 +146,7 @@ export default function useRegionLoopDrag({
       region,
       endTime,
       beginProjectTrackLock,
+      releaseProjectTrackLock,
       trackId,
       onPreviewLoopEnd,
     ]
@@ -127,6 +154,45 @@ export default function useRegionLoopDrag({
 
   useEffect(() => {
     if (!isDraggingLoop) return undefined;
+
+    const pointerGuard = pendingPointerGuardRef.current;
+    pendingPointerGuardRef.current = null;
+    if (pointerGuard?.wasReleased()) {
+      pointerGuard.dispose();
+      isDraggingLoopRef.current = false;
+      setIsDraggingLoop(false);
+      loopLockSessionRef.current += 1;
+      previewLoopEndRef.current = null;
+      setPreviewLoopEnd(null);
+      onPreviewLoopEnd?.(null);
+      releaseProjectTrackLock?.();
+      return undefined;
+    }
+    pointerGuard?.dispose();
+
+    const endLoopInteraction = ({ commit }) => {
+      isDraggingLoopRef.current = false;
+      setIsDraggingLoop(false);
+      loopLockSessionRef.current += 1;
+
+      const rawLoopEnd = previewLoopEndRef.current;
+      const normalized = normalizeLoopEnd(endTime, rawLoopEnd);
+      const previousLoopEnd =
+        region?.loopEnd != null && region.loopEnd > endTime
+          ? region.loopEnd
+          : null;
+
+      previewLoopEndRef.current = null;
+      setPreviewLoopEnd(null);
+      onPreviewLoopEnd?.(null);
+
+      if (commit && normalized !== previousLoopEnd) {
+        // commitRegionLoop releases the lock after persist work begins.
+        onCommitLoop?.(normalized, previousLoopEnd);
+      } else {
+        releaseProjectTrackLock?.();
+      }
+    };
 
     const handleMouseMove = (e) => {
       if (!duration || !tracksContainerWidth) return;
@@ -166,32 +232,12 @@ export default function useRegionLoopDrag({
     };
 
     const handleMouseUp = () => {
-      isDraggingLoopRef.current = false;
-      setIsDraggingLoop(false);
-
-      const rawLoopEnd = previewLoopEndRef.current;
-      const normalized = normalizeLoopEnd(endTime, rawLoopEnd);
-      const previousLoopEnd =
-        region?.loopEnd != null && region.loopEnd > endTime
-          ? region.loopEnd
-          : null;
-
-      previewLoopEndRef.current = null;
-      setPreviewLoopEnd(null);
-      onPreviewLoopEnd?.(null);
-
-      if (normalized !== previousLoopEnd) {
-        onCommitLoop?.(normalized, previousLoopEnd);
-      }
+      endLoopInteraction({ commit: true });
     };
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        isDraggingLoopRef.current = false;
-        setIsDraggingLoop(false);
-        previewLoopEndRef.current = null;
-        setPreviewLoopEnd(null);
-        onPreviewLoopEnd?.(null);
+        endLoopInteraction({ commit: false });
       }
     };
 
@@ -217,6 +263,7 @@ export default function useRegionLoopDrag({
     region,
     onCommitLoop,
     onPreviewLoopEnd,
+    releaseProjectTrackLock,
   ]);
 
   const displayLoopEnd =

@@ -63,6 +63,8 @@ export function ProjectSyncProvider({ project, children }) {
   const heartbeatRef = useRef(null);
   const lockHeartbeatRef = useRef(null);
   const heldTrackIdsRef = useRef(new Set());
+  /** Track IDs that should be released as soon as a pending acquire settles. */
+  const pendingReleaseTrackIdsRef = useRef(new Set());
   const holdsMetadataLockRef = useRef(false);
   const revisionRef = useRef(project?.revision ?? null);
   const hasJoinedRef = useRef(false);
@@ -75,6 +77,19 @@ export function ProjectSyncProvider({ project, children }) {
     /** @type {Map<string, { resolve: (result: ProjectOpResult) => void }>} */ (new Map())
   );
 
+  const sendTrackLockRelease = useCallback((numericTrackId) => {
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: 'lock_release',
+          resource: { type: 'track', id: numericTrackId },
+        })
+      );
+    }
+    heldTrackIdsRef.current.delete(numericTrackId);
+  }, []);
+
   const projectRef = project?.guid ?? project?.id;
 
   useEffect(() => {
@@ -84,16 +99,29 @@ export function ProjectSyncProvider({ project, children }) {
   }, [project?.revision]);
 
   const applyLockAcquired = useCallback((trackId, userId) => {
+    const key = String(trackId);
+    const pending = pendingAcquireRef.current.get(key);
+    const releaseRequested = pendingReleaseTrackIdsRef.current.has(trackId);
+
+    if (userId === user?.id && releaseRequested) {
+      pendingReleaseTrackIdsRef.current.delete(trackId);
+      pendingAcquireRef.current.delete(key);
+      sendTrackLockRelease(trackId);
+      if (pending) {
+        pending.resolve(false);
+      }
+      return;
+    }
+
     setTrackLockHolders((prev) => ({ ...prev, [trackId]: userId }));
     if (userId === user?.id) {
       heldTrackIdsRef.current.add(trackId);
     }
-    const pending = pendingAcquireRef.current.get(String(trackId));
     if (pending) {
-      pendingAcquireRef.current.delete(String(trackId));
+      pendingAcquireRef.current.delete(key);
       pending.resolve(userId === user?.id);
     }
-  }, [user?.id]);
+  }, [sendTrackLockRelease, user?.id]);
 
   const applyLockReleased = useCallback((trackId, userId) => {
     setTrackLockHolders((prev) => {
@@ -132,6 +160,7 @@ export function ProjectSyncProvider({ project, children }) {
     setTrackLockHolders({});
     setMetadataLockHolder(null);
     heldTrackIdsRef.current.clear();
+    pendingReleaseTrackIdsRef.current.clear();
     holdsMetadataLockRef.current = false;
     pendingAcquireRef.current.clear();
     pendingMetadataAcquireRef.current = null;
@@ -486,6 +515,9 @@ export function ProjectSyncProvider({ project, children }) {
         return Promise.resolve(false);
       }
 
+      // A new acquire cancels any prior release-while-pending intent for this track.
+      pendingReleaseTrackIdsRef.current.delete(numericTrackId);
+
       return new Promise((resolve) => {
         const key = String(numericTrackId);
         pendingAcquireRef.current.set(key, { resolve, trackId: numericTrackId });
@@ -513,24 +545,18 @@ export function ProjectSyncProvider({ project, children }) {
       return;
     }
 
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      heldTrackIdsRef.current.delete(numericTrackId);
-      return;
+    const key = String(numericTrackId);
+    if (pendingAcquireRef.current.has(key)) {
+      // Acquire ack may arrive after this release — drop the lock on settle.
+      pendingReleaseTrackIdsRef.current.add(numericTrackId);
     }
 
     if (!heldTrackIdsRef.current.has(numericTrackId)) {
       return;
     }
 
-    ws.send(
-      JSON.stringify({
-        type: 'lock_release',
-        resource: { type: 'track', id: numericTrackId },
-      })
-    );
-    heldTrackIdsRef.current.delete(numericTrackId);
-  }, []);
+    sendTrackLockRelease(numericTrackId);
+  }, [sendTrackLockRelease]);
 
   const acquireMetadataLock = useCallback(() => {
     const ws = wsRef.current;
