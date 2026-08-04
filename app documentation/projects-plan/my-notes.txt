@@ -7,7 +7,6 @@
 - should ONLY people who recorded asset and project owner be able to delete assets?
     - make sure to show confirmation if snapshot depends on the asset as well
 - if i've loaded a project and then switch between the projects and tracks tabs, after it clears the state it shows "Fetching audio assets (4 of 4)" even though there is no project or track selected... its just a stale message
-- track that was locked still allowed record (then showed error message saying that track is locked after recording)
 - in two sepatate windows with different users, I recorded on the same track one after another... the first window finished recording and the second window was able to start recording after the lock was released and before the region from the first window appeared on the timeline... both regions started at the beginning of the track. both regions we saved successully. this should not happen, because the regions are overlapping.
 
 
