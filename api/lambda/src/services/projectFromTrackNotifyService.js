@@ -3,7 +3,8 @@ import pool from '../config/db.js';
 import { getLineageContributorUserIds } from './projectImportService.js';
 
 /**
- * Fire-and-forget emails to lineage contributors when a project is created from a track.
+ * Email lineage contributors when a project is created from a track.
+ * Callers must await this before returning from a Lambda handler.
  */
 export async function notifyLineageContributorsOfProject({
   sourceTrackId,

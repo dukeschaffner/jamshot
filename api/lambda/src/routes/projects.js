@@ -787,17 +787,19 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
       client.release();
     }
 
+    // Await so Lambda (callbackWaitsForEmptyEventLoop=false) does not freeze before SMTP finishes
     if (importResult?.sourceTrack) {
-      // Fire-and-forget lineage emails — do not block the response
-      notifyLineageContributorsOfProject({
-        sourceTrackId: importResult.sourceTrack.id,
-        sourceTrackGuid: importResult.sourceTrack.guid,
-        sourceTrackTitle: importResult.sourceTrack.title,
-        projectName: createdProject.name,
-        creatorUserId: userId,
-      }).catch((err) => {
+      try {
+        await notifyLineageContributorsOfProject({
+          sourceTrackId: importResult.sourceTrack.id,
+          sourceTrackGuid: importResult.sourceTrack.guid,
+          sourceTrackTitle: importResult.sourceTrack.title,
+          projectName: createdProject.name,
+          creatorUserId: userId,
+        });
+      } catch (err) {
         console.error('Lineage notify failed after project create:', err);
-      });
+      }
     }
 
     res.status(201).json(formatProjectSummary(createdProject, 'owner'));

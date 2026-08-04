@@ -11,6 +11,7 @@
 - [can't reproduce] i clicked "create from project" on a track, then canceled on the project create page, then went to the projects page and clicked create, and it was seemed to have preserved the state from the previous project create page... it was still trying to create from the same track. this shouldnt happen. if i go to projects page, then to create project, it should just be a plain project with no camp/team/track context/scope.
 - creating project from track didnt send email to all contributors on the collab
 - add audit trail as premium feature
+- indicator on plugin about sync and connection state
 
 Private project audio is public and enumerable — Final keys are projects/{serialProjectId}/{serialAssetId}/audio.wav on the public R2 CDN with no auth. Anyone who can guess or scrape those IDs can download invite-only project audio. Tracks use random filenames; projects don’t.
 
