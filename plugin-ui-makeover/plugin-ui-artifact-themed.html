@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sterio Plugin — Themed UI Artifact</title>
+  <style>
+    /* ------------------------------------------------------------------
+       Sterio-themed plugin artifact.
+       Theme source: Sterio web app globals.css + look-and-feel guide.
+       Layout: same structure/states as the unthemed artifact, with
+       consolidated chrome (single header row) and tightened spacing.
+       ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      /* Brand palette */
+      --seafoam: #93E9BE;
+      --seafoam-light: #C1F4D9;
+      --seafoam-dark: #65d6ad;
+      --rustic-pink: #E9A9A1;
+      --rustic-pink-light: #F4C9C4;
+      --red: #fc3232;
+      --p1: #e4a794;
+      --p2: #f59771;
+      --s1: #86a699;
+      --s2: #036745;
+      --dark-green: rgb(40, 118, 78);
+
+      /* Neutrals */
+      --background: #ffffff;
+      --grey-1: #f5f5f5;
+      --grey-2: #e0e0e0;
+      --grey-3: #555555;
+      --grey-4: #333333;
+      --text-primary: #171717;
+      --text-secondary: #555555;
+      --text-disabled: #999999;
+
+      --gradient-brand: linear-gradient(90deg, var(--seafoam), var(--rustic-pink));
+
+      /* Spacing */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+
+      /* Radii */
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-pill: 999px;
+
+      /* Shadows */
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+      --shadow-seafoam: 0 4px 15px rgba(147, 233, 190, 0.3);
+
+      --plugin-w: 420px;
+      --plugin-h: 560px;
+      --plugin-min-w: 320px;
+      --plugin-min-h: 420px;
+      --plugin-max-w: 720px;
+      --plugin-max-h: 900px;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font: 13px/1.45 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text-primary);
+      background: linear-gradient(150deg, #f1f4f2 0%, #f6f1ef 100%);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* ---------- Shared button (brand pill pattern) ---------- */
+    .btn {
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid transparent;
+      background: var(--grey-1);
+      color: var(--text-primary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: var(--grey-2);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn:active { transform: translateY(0); box-shadow: none; }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--seafoam-dark);
+      outline-offset: 1px;
+    }
+
+    .btn.primary {
+      background: var(--gradient-brand);
+      color: var(--background);
+      box-shadow: var(--shadow-seafoam);
+    }
+
+    .btn.primary:hover {
+      background: var(--gradient-brand);
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(147, 233, 190, 0.4);
+    }
+
+    .btn.green { background: var(--seafoam-light); color: var(--grey-4); }
+    .btn.green:hover { background: var(--seafoam); color: var(--background); }
+
+    /* ---------- Page chrome (artifact harness, not part of plugin) ---------- */
+    .page {
+      display: flex;
+      gap: var(--space-5);
+      padding: var(--space-5);
+      min-height: 100vh;
+      align-items: flex-start;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .harness {
+      width: 280px;
+      flex-shrink: 0;
+      background: var(--background);
+      border: 1px solid var(--grey-2);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+    }
+
+    .harness h1 {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .harness h1 .badge {
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      background: var(--grey-1);
+      border: 1px solid var(--grey-2);
+      color: var(--text-disabled);
+      text-transform: uppercase;
+    }
+
+    .harness p {
+      margin: 0;
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+
+    .harness fieldset {
+      border: 1px solid var(--grey-2);
+      border-radius: var(--radius-sm);
+      margin: 0;
+      padding: var(--space-2) var(--space-3) var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .harness legend {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0 var(--space-1);
+      color: var(--text-disabled);
+    }
+
+    .harness label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 12px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .harness input[type="radio"],
+    .harness input[type="checkbox"] { accent-color: var(--seafoam-dark); }
+
+    .harness select {
+      font: inherit;
+      font-size: 11.5px;
+      padding: 4px 8px;
+      border: 1px solid var(--grey-2);
+      border-radius: var(--radius-sm);
+      background: var(--grey-1);
+      color: var(--text-primary);
+      width: 100%;
+    }
+
+    .harness .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .harness .btn-row button {
+      flex: 1 1 45%;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--grey-2);
+      background: var(--grey-1);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .harness .btn-row button:hover {
+      background: var(--seafoam-light);
+      border-color: var(--seafoam);
+      color: var(--text-primary);
+    }
+
+    /* ===================== Plugin shell ===================== */
+    .plugin {
+      width: var(--plugin-w);
+      height: var(--plugin-h);
+      min-width: var(--plugin-min-w);
+      min-height: var(--plugin-min-h);
+      max-width: var(--plugin-max-w);
+      max-height: var(--plugin-max-h);
+      resize: both;
+      overflow: hidden;
+      position: relative;
+      background: var(--background);
+      border: 1px solid var(--grey-2);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 70px rgba(23, 23, 23, 0.14), 0 4px 16px rgba(23, 23, 23, 0.08);
+    }
+
+    .plugin > * { flex-shrink: 0; }
+
+    .hidden { display: none !important; }
+
+    /* ---------- 1. App header (brand + chrome actions, merged) ---------- */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      height: 44px;
+      padding: 0 10px 0 14px;
+      border-bottom: 1px solid var(--grey-2);
+      background: var(--background);
+    }
+
+    .app-header .brand {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .app-header .brand img {
+      height: 17px;
+      width: auto;
+      display: block;
+    }
+
+    .app-header .actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* ---------- 2. Auth strip ---------- */
+    .auth-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--grey-2);
+      min-height: 40px;
+      background: var(--background);
+    }
+
+    .auth-strip .status {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .auth-strip .status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--grey-2);
+      flex-shrink: 0;
+    }
+
+    .auth-strip .status:empty::before { display: none; }
+
+    .auth-strip[data-auth="logged-in"] .status::before { background: var(--dark-green); }
+    .auth-strip[data-auth="loading"] .status::before {
+      background: var(--seafoam-dark);
+      animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+    .auth-strip[data-auth="failed"] .status::before { background: var(--red); }
+
+    /* ---------- 3. Sample-rate warning ---------- */
+    .sample-rate-warning {
+      padding: 8px 14px 8px 12px;
+      border-bottom: 1px solid var(--grey-2);
+      border-left: 3px solid var(--rustic-pink);
+      background: var(--rustic-pink-light);
+      font-size: 11.5px;
+      font-weight: 500;
+      line-height: 1.45;
+      color: #7c3f36;
+    }
+
+    /* ---------- 4. Message banner ---------- */
+    .message-banner {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 8px 14px 8px 12px;
+      border-bottom: 1px solid var(--grey-2);
+      border-left: 3px solid var(--red);
+      background: #fff5f5;
+    }
+
+    .message-banner .msg-text {
+      flex: 1;
+      font-size: 11.5px;
+      font-weight: 500;
+      line-height: 1.4;
+      color: var(--text-primary);
+    }
+
+    /* ---------- 5. Body ---------- */
+    .body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Logged-out prompt (brand gradient card pattern) */
+    .login-prompt {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-5);
+    }
+
+    .prompt-card {
+      background: linear-gradient(135deg, var(--seafoam-light), var(--rustic-pink-light));
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      padding: 22px 26px;
+      max-width: 260px;
+      text-align: center;
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.55;
+      color: var(--grey-4);
+    }
+
+    /* Tab shell */
+    .tab-shell {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--grey-2);
+      background: var(--background);
+    }
+
+    .tab-bar button {
+      font: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      padding: 8px 12px 7px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .tab-bar button:hover { color: var(--text-primary); }
+
+    .tab-bar button.active {
+      color: var(--text-primary);
+      font-weight: 600;
+      border-bottom-color: var(--seafoam);
+    }
+
+    .tab-bar button:focus-visible {
+      outline: 2px solid var(--seafoam-dark);
+      outline-offset: -2px;
+    }
+
+    .tab-panel {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Section chrome (title + refresh) */
+    .section-chrome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: 10px 14px 6px;
+    }
+
+    .section-chrome h2 {
+      margin: 0;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    /* List status (loading / empty / error) */
+    .list-status {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: var(--space-6);
+      color: var(--text-disabled);
+      font-size: 12.5px;
+      text-align: center;
+    }
+
+    .list-status[data-state="loading"]::before,
+    .list-status[data-state="loading-audio"]::before,
+    .project-status[data-state="loading"]::before,
+    .project-status[data-state="loading-audio"]::before {
+      content: "";
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--seafoam-light);
+      border-top-color: var(--seafoam-dark);
+      animation: spin 0.8s linear infinite;
+    }
+
+    .list-status[data-state="error"] { color: #d92727; }
+
+    /* Scrollable list */
+    .scroll-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 4px 12px 12px;
+    }
+
+    .list-row {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+      min-height: 46px;
+      padding: 7px 12px;
+      border: 1px solid var(--grey-2);
+      border-radius: var(--radius-md);
+      margin-bottom: 6px;
+      cursor: pointer;
+      background: var(--background);
+      transition: all 0.15s ease;
+    }
+
+    .list-row:hover {
+      border-color: var(--seafoam-dark);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .list-row.selected {
+      background: var(--seafoam-light);
+      border-color: var(--seafoam);
+    }
+
+    .list-row.selected:hover {
+      background: var(--seafoam-light);
+      border-color: var(--seafoam-dark);
+    }
+
+    .list-row .title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .list-row .meta {
+      font-size: 11px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .list-row.selected .meta { color: rgba(23, 23, 23, 0.62); }
+
+    .load-more {
+      display: block;
+      width: 100%;
+      font: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 8px;
+      margin-top: 2px;
+      cursor: pointer;
+      border: 1px dashed var(--grey-2);
+      background: var(--background);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+    }
+
+    .load-more:hover {
+      border-style: solid;
+      border-color: var(--seafoam-dark);
+      background: var(--seafoam-light);
+      color: var(--text-primary);
+    }
+
+    /* Projects list vs detail — mutually exclusive */
+    #projectsListSubview {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Project detail */
+    .project-detail {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Compact back — floats over content, no dedicated header row */
+    .project-back {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      z-index: 5;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      line-height: 1;
+      border-radius: var(--radius);
+      background: color-mix(in srgb, var(--background) 88%, transparent);
+      border: 1px solid var(--grey-2);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(4px);
+    }
+
+    .project-back:hover {
+      background: var(--background);
+      transform: none;
+      box-shadow: var(--shadow-md);
+    }
+
+    .project-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .project-status {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: var(--space-6);
+      color: var(--text-disabled);
+      font-size: 12.5px;
+      text-align: center;
+    }
+
+    /* Timeline */
+    .timeline {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 10px 12px 12px;
+      position: relative;
+    }
+
+    .timeline-inner {
+      position: relative;
+      min-width: 480px;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .lane {
+      display: flex;
+      align-items: stretch;
+      flex: 1 0 54px;
+      border: 1px solid var(--grey-2);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--grey-1);
+    }
+
+    .lane-controls {
+      display: flex;
+      flex-direction: column;
+      width: 98px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--grey-2);
+      background: var(--background);
+    }
+
+    .lane-label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      min-height: 0;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--grey-2);
+    }
+
+    .lane-label > span {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: 0.01em;
+      color: var(--text-secondary);
+    }
+
+    .lane-ms { display: flex; height: 20px; }
+
+    .lane-ms button {
+      flex: 1;
+      font: inherit;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 0;
+      border: none;
+      border-right: 1px solid var(--grey-2);
+      background: var(--background);
+      cursor: pointer;
+      color: var(--text-disabled);
+      transition: all 0.12s ease;
+    }
+
+    .lane-ms button:last-child { border-right: none; }
+    .lane-ms button:hover { background: var(--grey-1); color: var(--text-primary); }
+
+    .lane-ms button:first-child.active { background: var(--rustic-pink); color: var(--background); }
+    .lane-ms button:last-child.active { background: var(--seafoam); color: var(--grey-4); }
+
+    .lane-track {
+      flex: 1;
+      position: relative;
+      min-width: 0;
+    }
+
+    .clip {
+      position: absolute;
+      top: 5px;
+      bottom: 5px;
+      border: 1px solid;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      padding: 0 3px;
+    }
+
+    .clip .wave {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+      height: 72%;
+      width: 100%;
+    }
+
+    .clip .wave span {
+      flex: 1;
+      border-radius: 1px;
+      min-width: 2px;
+    }
+
+    /* Lane color-coding (brand extended palette) */
+    .lane[data-hue="0"] .clip { background: rgba(147, 233, 190, 0.28); border-color: rgba(101, 214, 173, 0.85); }
+    .lane[data-hue="0"] .wave span { background: #3ea37c; }
+
+    .lane[data-hue="1"] .clip { background: rgba(245, 151, 113, 0.2); border-color: rgba(245, 151, 113, 0.85); }
+    .lane[data-hue="1"] .wave span { background: #cf6d40; }
+
+    .lane[data-hue="2"] .clip { background: rgba(228, 167, 148, 0.24); border-color: rgba(228, 167, 148, 0.9); }
+    .lane[data-hue="2"] .wave span { background: #bd7458; }
+
+    .lane[data-hue="3"] .clip { background: rgba(134, 166, 153, 0.24); border-color: rgba(134, 166, 153, 0.9); }
+    .lane[data-hue="3"] .wave span { background: #5e8271; }
+
+    .playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--s2);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -4px;
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid var(--s2);
+    }
+
+    /* Help view */
+    .help-view {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 14px 18px 18px;
+    }
+
+    .help-view h2 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      position: relative;
+      padding-bottom: 8px;
+    }
+
+    .help-view h2::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 42px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--gradient-brand);
+    }
+
+    .help-view ol {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    .help-view li::marker { color: var(--seafoam-dark); font-weight: 700; }
+    .help-view li strong { color: var(--text-primary); font-weight: 600; }
+
+    /* ---------- 6. Footer ---------- */
+    .footer {
+      border-top: 1px solid var(--grey-2);
+      padding: 6px 14px;
+      min-height: 46px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+      background: var(--grey-1);
+    }
+
+    .footer .primary-line {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .footer .secondary-line {
+      font-size: 11px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .footer[data-mode="track"] .primary-line::before,
+    .footer[data-mode="project"] .primary-line::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--seafoam-dark);
+      margin-right: 7px;
+      vertical-align: 1px;
+    }
+
+    .footer[data-mode="fetching"] .primary-line::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--rustic-pink);
+      margin-right: 7px;
+      vertical-align: 1px;
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+
+    /* ---------- Debug console modal ---------- */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(23, 23, 23, 0.35);
+      backdrop-filter: blur(3px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      padding: var(--space-4);
+    }
+
+    .modal {
+      background: var(--background);
+      border: 1px solid var(--grey-2);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 340px;
+      max-height: 72%;
+      display: flex;
+      flex-direction: column;
+      resize: both;
+      overflow: hidden;
+      min-width: 220px;
+      min-height: 160px;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--grey-2);
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 12.5px;
+      font-weight: 700;
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    .modal-body .log-line { margin-bottom: 4px; }
+    .modal-body .sev { font-weight: 700; }
+    .modal-body .sev-info { color: var(--s2); }
+    .modal-body .sev-debug { color: var(--text-disabled); }
+    .modal-body .sev-warn { color: #c96f63; }
+    .modal-body .sev-error { color: #d92727; }
+
+    /* Thin branded scrollbars */
+    .scroll-list,
+    .timeline,
+    .help-view,
+    .modal-body,
+    .harness {
+      scrollbar-width: thin;
+      scrollbar-color: var(--grey-2) transparent;
+    }
+
+    .scroll-list::-webkit-scrollbar,
+    .timeline::-webkit-scrollbar,
+    .help-view::-webkit-scrollbar,
+    .modal-body::-webkit-scrollbar,
+    .harness::-webkit-scrollbar { width: 8px; height: 8px; }
+
+    .scroll-list::-webkit-scrollbar-thumb,
+    .timeline::-webkit-scrollbar-thumb,
+    .help-view::-webkit-scrollbar-thumb,
+    .modal-body::-webkit-scrollbar-thumb,
+    .harness::-webkit-scrollbar-thumb {
+      background: var(--grey-2);
+      border-radius: 4px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+
+    .scroll-list::-webkit-scrollbar-thumb:hover,
+    .timeline::-webkit-scrollbar-thumb:hover,
+    .help-view::-webkit-scrollbar-thumb:hover,
+    .modal-body::-webkit-scrollbar-thumb:hover { background-color: var(--seafoam-dark); }
+
+    /* Size hint under plugin */
+    .size-hint {
+      width: 100%;
+      text-align: center;
+      font-size: 10.5px;
+      color: var(--text-disabled);
+      margin-top: 10px;
+    }
+
+    .plugin-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- ============== Harness controls (not part of plugin) ============== -->
+    <aside class="harness" aria-label="Artifact state controls">
+      <h1>State harness <span class="badge">Not part of plugin</span></h1>
+      <p>Drive every view/state from the checklist. The panel on the right is the plugin surface.</p>
+
+      <fieldset>
+        <legend>Auth</legend>
+        <label><input type="radio" name="auth" value="logged-out" checked /> Logged out</label>
+        <label><input type="radio" name="auth" value="loading" /> Loading user info</label>
+        <label><input type="radio" name="auth" value="logged-in" /> Logged in</label>
+        <label><input type="radio" name="auth" value="failed" /> User info failed</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Body</legend>
+        <label><input type="radio" name="body" value="main" checked /> Main content</label>
+        <label><input type="radio" name="body" value="help" /> Help view</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Tab</legend>
+        <label><input type="radio" name="tab" value="tracks" checked /> Tracks</label>
+        <label><input type="radio" name="tab" value="projects" /> Projects</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Tracks list</legend>
+        <select id="tracksState">
+          <option value="not-loaded">Not loaded</option>
+          <option value="loading">Loading</option>
+          <option value="error">Error</option>
+          <option value="empty">Empty</option>
+          <option value="populated" selected>Populated (+ Load More)</option>
+        </select>
+      </fieldset>
+
+      <fieldset>
+        <legend>Projects list</legend>
+        <select id="projectsState">
+          <option value="not-loaded">Not loaded</option>
+          <option value="loading">Loading</option>
+          <option value="error">Error</option>
+          <option value="empty">Empty</option>
+          <option value="populated" selected>Populated</option>
+        </select>
+      </fieldset>
+
+      <fieldset>
+        <legend>Project detail</legend>
+        <label><input type="checkbox" id="inProjectDetail" /> Show detail subview</label>
+        <select id="projectDetailState">
+          <option value="loading">Loading</option>
+          <option value="loading-audio">Loading audio (n of m)</option>
+          <option value="empty">Empty clips</option>
+          <option value="ready" selected>Ready timeline</option>
+        </select>
+      </fieldset>
+
+      <fieldset>
+        <legend>Shell overlays</legend>
+        <label><input type="checkbox" id="showUpdate" /> Update Available</label>
+        <label><input type="checkbox" id="showSampleRate" /> Sample-rate warning</label>
+        <label><input type="checkbox" id="showBanner" /> Message banner</label>
+        <label><input type="checkbox" id="showDebugBtn" checked /> Debug chrome (debug build)</label>
+        <label><input type="checkbox" id="showDebugModal" /> Debug console open</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Footer override</legend>
+        <select id="footerOverride">
+          <option value="auto" selected>Auto (from selection)</option>
+          <option value="prompt">Prompt</option>
+          <option value="fetching">Fetching audio assets</option>
+          <option value="track">Track selected</option>
+          <option value="project">Project selected</option>
+        </select>
+      </fieldset>
+
+      <fieldset>
+        <legend>Quick presets</legend>
+        <div class="btn-row">
+          <button type="button" data-preset="logged-out">Logged out</button>
+          <button type="button" data-preset="tracks">Tracks + select</button>
+          <button type="button" data-preset="projects">Projects list</button>
+          <button type="button" data-preset="timeline">Project timeline</button>
+          <button type="button" data-preset="help">Help</button>
+          <button type="button" data-preset="warnings">Warnings stack</button>
+        </div>
+      </fieldset>
+    </aside>
+
+    <!-- ============== Plugin window ============== -->
+    <div class="plugin-wrap">
+      <div class="plugin" id="plugin" role="application" aria-label="Sterio plugin editor">
+
+        <!-- 1. App header: brand + chrome actions -->
+        <header class="app-header">
+          <div class="brand">
+            <img src="logo.png" alt="Sterio" />
+          </div>
+          <div class="actions">
+            <button type="button" id="btnUpdate" class="btn green hidden">Update Available</button>
+            <button type="button" id="btnDebug" class="btn hidden">Debug</button>
+            <button type="button" id="btnHelp" class="btn">Help</button>
+          </div>
+        </header>
+
+        <!-- 2. Auth strip -->
+        <div class="auth-strip" id="authStrip">
+          <span class="status" id="authStatus"></span>
+          <button type="button" id="btnAuth" class="btn primary">Log in to Sterio</button>
+        </div>
+
+        <!-- 3. Sample-rate warning -->
+        <div class="sample-rate-warning hidden" id="sampleRateWarning">
+          Host sample rate is above 100 kHz. Rates above 100 kHz are not supported — stems will not be converted.
+        </div>
+
+        <!-- 4. Message banner -->
+        <div class="message-banner hidden" id="messageBanner">
+          <div class="msg-text" id="bannerText">Failed to load tracks. Check your connection and try again.</div>
+          <button type="button" id="btnBannerOk" class="btn">OK</button>
+        </div>
+
+        <!-- 5. Body -->
+        <div class="body" id="body">
+
+          <!-- Logged-out prompt -->
+          <div class="login-prompt" id="loginPrompt">
+            <div class="prompt-card">Log in to view liked tracks and projects</div>
+          </div>
+
+          <!-- Tab shell (logged in) -->
+          <div class="tab-shell hidden" id="tabShell">
+            <div class="tab-bar" role="tablist">
+              <button type="button" role="tab" id="tabTracks" class="active" aria-selected="true">Tracks</button>
+              <button type="button" role="tab" id="tabProjects" aria-selected="false">Projects</button>
+            </div>
+
+            <!-- Tracks tab -->
+            <div class="tab-panel" id="panelTracks" role="tabpanel">
+              <div class="section-chrome">
+                <h2>Liked Tracks</h2>
+                <button type="button" id="btnRefreshTracks" class="btn">&#8635; Refresh</button>
+              </div>
+              <div class="list-status" id="tracksStatus">No tracks loaded</div>
+              <div class="scroll-list hidden" id="tracksList"></div>
+            </div>
+
+            <!-- Projects tab -->
+            <div class="tab-panel hidden" id="panelProjects" role="tabpanel">
+              <!-- List subview -->
+              <div id="projectsListSubview">
+                <div class="section-chrome">
+                  <h2>Projects</h2>
+                  <button type="button" id="btnRefreshProjects" class="btn">&#8635; Refresh</button>
+                </div>
+                <div class="list-status" id="projectsStatus">No projects loaded</div>
+                <div class="scroll-list hidden" id="projectsList"></div>
+              </div>
+
+              <!-- Detail subview — name/BPM live in footer; back floats over content -->
+              <div class="project-detail hidden" id="projectDetail">
+                <button type="button" id="btnProjectBack" class="btn project-back" title="Back to projects" aria-label="Back to projects">&larr;</button>
+                <div class="project-body">
+                  <div class="project-status" id="projectStatus">Loading project…</div>
+                  <div class="timeline hidden" id="timeline">
+                    <div class="timeline-inner" id="timelineInner"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Help view -->
+          <div class="help-view hidden" id="helpView">
+            <h2>Help</h2>
+            <ol>
+              <li><strong>Sample rate:</strong> Prefer a 44.1 kHz host / project sample rate for best results.</li>
+              <li><strong>Log in:</strong> Use <em>Log in to Sterio</em>, or open a track from the Sterio web app via <em>Open in Plugin</em>.</li>
+              <li><strong>Sync playback:</strong> Match the metronome and time signature in your DAW. Start playback from the timeline start so the plugin can sync.</li>
+              <li><strong>After recording:</strong> Bounce / export as WAV from your DAW, then import / upload in the Sterio web DAW.</li>
+              <li><strong>Sync edits:</strong> After editing in the web DAW, use <em>Sync edits to plugin</em> to push changes back here.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- 6. Footer -->
+        <div class="footer" id="footer">
+          <div class="primary-line" id="footerPrimary">Select a track from the list, or use Open in Plugin from the Sterio web app</div>
+          <div class="secondary-line" id="footerSecondary"></div>
+        </div>
+
+        <!-- Debug console modal -->
+        <div class="modal-backdrop hidden" id="debugModal">
+          <div class="modal" role="dialog" aria-labelledby="debugTitle">
+            <div class="modal-header">
+              <h3 id="debugTitle">Debug Console</h3>
+              <button type="button" id="btnDebugClose" class="btn" aria-label="Close debug console">&#10005;</button>
+            </div>
+            <div class="modal-body" id="debugLog">
+              <div class="log-line"><span class="sev sev-info">[info]</span> Plugin editor opened</div>
+              <div class="log-line"><span class="sev sev-info">[info]</span> Host sample rate: 44100</div>
+              <div class="log-line"><span class="sev sev-debug">[debug]</span> Auth session restored</div>
+              <div class="log-line"><span class="sev sev-info">[info]</span> Loaded 6 liked tracks</div>
+              <div class="log-line"><span class="sev sev-warn">[warn]</span> Stem fetch retry (1/3) for track 1042</div>
+              <div class="log-line"><span class="sev sev-info">[info]</span> WebSocket connected</div>
+              <div class="log-line"><span class="sev sev-error">[error]</span> Project asset timeout — retrying</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="size-hint">Drag corner to resize · default ~420×560</div>
+    </div>
+  </div>
+
+  <script>
+    /* Dummy data */
+    const TRACKS = [
+      { id: 1, title: "Midnight Drive", username: "alexrivers", bpm: 118, timeSig: "4/4" },
+      { id: 2, title: "Glass House (Demo)", username: "maya.k", bpm: 92, timeSig: "4/4" },
+      { id: 3, title: "Neon Pulse — Instrumental", username: "stereo.labs", bpm: 128, timeSig: "4/4" },
+      { id: 4, title: "Soft Focus", username: "junepark", bpm: 76, timeSig: "3/4" },
+      { id: 5, title: "Warehouse Loop Pack A", username: "beatdesk", bpm: 140, timeSig: "4/4" },
+      { id: 6, title: "Coastline Sketch", username: "rio.m", bpm: 102, timeSig: "6/8" },
+    ];
+
+    const MORE_TRACKS = [
+      { id: 7, title: "Amber Lights", username: "fieldtone", bpm: 110, timeSig: "4/4" },
+      { id: 8, title: "Static Bloom", username: "nova.wave", bpm: 95, timeSig: "4/4" },
+    ];
+
+    const PROJECTS = [
+      { id: "p1", name: "EP — Side A", role: "Owner", bpm: 118, timeSig: "4/4" },
+      { id: "p2", name: "Collab: Glass House", role: "Editor", bpm: 92, timeSig: "4/4" },
+      { id: "p3", name: "Live Set Rehearsal", role: "Viewer", bpm: 128, timeSig: "4/4" },
+      { id: "p4", name: "Film Cue 03", role: "Owner", bpm: 76, timeSig: "3/4" },
+    ];
+
+    const PROJECT_LANES = [
+      {
+        id: "l1", name: "Drums — Overhead L/R",
+        clips: [
+          { left: 8, width: 120, heights: [40,70,35,90,50,80,30,75,45,85,40,70] },
+          { left: 200, width: 90, heights: [50,80,40,70,60,90,35,75] },
+        ],
+      },
+      {
+        id: "l2", name: "Bass DI (Main Take)",
+        clips: [
+          { left: 8, width: 180, heights: [30,50,45,60,40,55,35,50,45,60] },
+        ],
+      },
+      {
+        id: "l3", name: "Electric Piano Layer",
+        clips: [
+          { left: 60, width: 140, heights: [55,40,70,45,65,50,75,40,60] },
+          { left: 240, width: 70, heights: [40,60,50,70,45,55] },
+        ],
+      },
+      {
+        id: "l4", name: "Lead Vocals — Verse Comp",
+        clips: [
+          { left: 100, width: 160, heights: [20,45,70,90,60,80,50,75,40,65,55,85] },
+        ],
+      },
+    ];
+
+    /* State */
+    const state = {
+      auth: "logged-out",       // logged-out | loading | logged-in | failed
+      help: false,
+      tab: "tracks",            // tracks | projects
+      tracksState: "populated", // not-loaded | loading | error | empty | populated
+      projectsState: "populated",
+      inProjectDetail: false,
+      projectDetailState: "ready", // loading | loading-audio | empty | ready
+      selectedTrackId: null,
+      selectedProjectId: null,
+      showUpdate: false,
+      showSampleRate: false,
+      showBanner: false,
+      showDebugBtn: true,
+      showDebugModal: false,
+      footerOverride: "auto",
+      tracksLoadedMore: false,
+      muteSolo: {}, // laneId -> { mute, solo }
+    };
+
+    /* Elements */
+    const $ = (id) => document.getElementById(id);
+
+    function syncHarnessFromState() {
+      document.querySelector(`input[name="auth"][value="${state.auth}"]`).checked = true;
+      document.querySelector(`input[name="body"][value="${state.help ? "help" : "main"}"]`).checked = true;
+      document.querySelector(`input[name="tab"][value="${state.tab}"]`).checked = true;
+      $("tracksState").value = state.tracksState;
+      $("projectsState").value = state.projectsState;
+      $("inProjectDetail").checked = state.inProjectDetail;
+      $("projectDetailState").value = state.projectDetailState;
+      $("showUpdate").checked = state.showUpdate;
+      $("showSampleRate").checked = state.showSampleRate;
+      $("showBanner").checked = state.showBanner;
+      $("showDebugBtn").checked = state.showDebugBtn;
+      $("showDebugModal").checked = state.showDebugModal;
+      $("footerOverride").value = state.footerOverride;
+    }
+
+    function renderAuth() {
+      const status = $("authStatus");
+      const btn = $("btnAuth");
+      $("authStrip").dataset.auth = state.auth;
+
+      if (state.auth === "logged-out") {
+        status.textContent = "";
+        btn.textContent = "Log in to Sterio";
+        btn.classList.add("primary");
+        btn.hidden = false;
+      } else if (state.auth === "loading") {
+        status.textContent = "Loading user info…";
+        btn.textContent = "Log out";
+        btn.classList.remove("primary");
+        btn.hidden = false;
+      } else if (state.auth === "logged-in") {
+        status.textContent = "Logged in as dukeschaffner";
+        btn.textContent = "Log out";
+        btn.classList.remove("primary");
+        btn.hidden = false;
+      } else if (state.auth === "failed") {
+        status.textContent = "Failed to load user info";
+        btn.textContent = "Log out";
+        btn.classList.remove("primary");
+        btn.hidden = false;
+      }
+    }
+
+    function renderTopChrome() {
+      $("btnUpdate").classList.toggle("hidden", !state.showUpdate);
+      $("btnDebug").classList.toggle("hidden", !state.showDebugBtn);
+      $("btnHelp").textContent = state.help ? "Back" : "Help";
+    }
+
+    function renderOverlays() {
+      $("sampleRateWarning").classList.toggle("hidden", !state.showSampleRate);
+      $("messageBanner").classList.toggle("hidden", !state.showBanner);
+      $("debugModal").classList.toggle("hidden", !state.showDebugModal);
+    }
+
+    function renderBody() {
+      const loggedIn = state.auth === "logged-in" || state.auth === "loading" || state.auth === "failed";
+      // Per spec: tabs/lists only when logged in. For demo, treat "logged-in" as full main content.
+      const showTabs = state.auth === "logged-in";
+
+      $("loginPrompt").classList.toggle("hidden", state.help || showTabs);
+      $("tabShell").classList.toggle("hidden", state.help || !showTabs);
+      $("helpView").classList.toggle("hidden", !state.help);
+
+      // If logged out / loading / failed and not help: show login prompt
+      if (!showTabs && !state.help) {
+        $("loginPrompt").classList.remove("hidden");
+      }
+
+      if (showTabs && !state.help) {
+        renderTabs();
+      }
+    }
+
+    function renderTabs() {
+      const onTracks = state.tab === "tracks";
+      $("tabTracks").classList.toggle("active", onTracks);
+      $("tabProjects").classList.toggle("active", !onTracks);
+      $("tabTracks").setAttribute("aria-selected", onTracks);
+      $("tabProjects").setAttribute("aria-selected", !onTracks);
+      $("panelTracks").classList.toggle("hidden", !onTracks);
+      $("panelProjects").classList.toggle("hidden", onTracks);
+
+      if (onTracks) {
+        renderTracksList();
+      } else {
+        renderProjectsTab();
+      }
+    }
+
+    function statusCopy(kind, listState) {
+      const map = {
+        tracks: {
+          "not-loaded": "No tracks loaded",
+          loading: "Loading tracks…",
+          error: "Failed to load tracks",
+          empty: "No liked tracks",
+        },
+        projects: {
+          "not-loaded": "No projects loaded",
+          loading: "Loading projects…",
+          error: "Failed to load projects",
+          empty: "No projects",
+        },
+      };
+      return map[kind][listState] || "";
+    }
+
+    function renderTracksList() {
+      const populated = state.tracksState === "populated";
+      const statusEl = $("tracksStatus");
+      const listEl = $("tracksList");
+
+      statusEl.dataset.state = state.tracksState;
+      statusEl.classList.toggle("hidden", populated);
+      listEl.classList.toggle("hidden", !populated);
+
+      if (!populated) {
+        statusEl.textContent = statusCopy("tracks", state.tracksState);
+        return;
+      }
+
+      const items = state.tracksLoadedMore ? TRACKS.concat(MORE_TRACKS) : TRACKS;
+      listEl.innerHTML = "";
+
+      items.forEach((t) => {
+        const row = document.createElement("div");
+        row.className = "list-row" + (state.selectedTrackId === t.id ? " selected" : "");
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", state.selectedTrackId === t.id);
+        row.innerHTML =
+          `<div class="title">${escapeHtml(t.title)}</div>` +
+          `<div class="meta">${escapeHtml(t.username)} · ${t.bpm} BPM · ${t.timeSig}</div>`;
+        row.addEventListener("click", () => {
+          state.selectedTrackId = t.id;
+          state.selectedProjectId = null;
+          state.inProjectDetail = false;
+          state.footerOverride = "auto";
+          syncHarnessFromState();
+          render();
+        });
+        listEl.appendChild(row);
+      });
+
+      const loadMore = document.createElement("button");
+      loadMore.type = "button";
+      loadMore.className = "load-more" + (state.tracksLoadedMore ? " hidden" : "");
+      loadMore.textContent = "Load More";
+      loadMore.addEventListener("click", () => {
+        state.tracksLoadedMore = true;
+        render();
+      });
+      listEl.appendChild(loadMore);
+    }
+
+    function renderProjectsTab() {
+      const detail = state.inProjectDetail;
+      $("projectsListSubview").classList.toggle("hidden", detail);
+      $("projectDetail").classList.toggle("hidden", !detail);
+
+      if (detail) {
+        renderProjectDetail();
+        return;
+      }
+
+      const populated = state.projectsState === "populated";
+      const statusEl = $("projectsStatus");
+      const listEl = $("projectsList");
+
+      statusEl.dataset.state = state.projectsState;
+      statusEl.classList.toggle("hidden", populated);
+      listEl.classList.toggle("hidden", !populated);
+
+      if (!populated) {
+        statusEl.textContent = statusCopy("projects", state.projectsState);
+        return;
+      }
+
+      listEl.innerHTML = "";
+      PROJECTS.forEach((p) => {
+        const row = document.createElement("div");
+        row.className = "list-row";
+        row.innerHTML =
+          `<div class="title">${escapeHtml(p.name)}</div>` +
+          `<div class="meta">${escapeHtml(p.role)} · ${p.bpm} BPM · ${p.timeSig}</div>`;
+        row.addEventListener("click", () => {
+          state.selectedProjectId = p.id;
+          state.selectedTrackId = null;
+          state.inProjectDetail = true;
+          state.projectDetailState = "ready";
+          state.footerOverride = "auto";
+          syncHarnessFromState();
+          render();
+        });
+        listEl.appendChild(row);
+      });
+    }
+
+    function currentProject() {
+      return PROJECTS.find((p) => p.id === state.selectedProjectId) || PROJECTS[0];
+    }
+
+    function renderProjectDetail() {
+      const project = currentProject();
+      if (!state.selectedProjectId) state.selectedProjectId = project.id;
+
+      const ds = state.projectDetailState;
+      const ready = ds === "ready";
+      const statusEl = $("projectStatus");
+      const timelineEl = $("timeline");
+
+      statusEl.dataset.state = ds;
+      statusEl.classList.toggle("hidden", ready);
+      timelineEl.classList.toggle("hidden", !ready);
+
+      if (ds === "loading") statusEl.textContent = "Loading project…";
+      else if (ds === "loading-audio") statusEl.textContent = "Loading audio (2 of 5)…";
+      else if (ds === "empty") statusEl.textContent = "No playable clips in this project";
+
+      if (ready) renderTimeline();
+    }
+
+    function renderTimeline() {
+      const inner = $("timelineInner");
+      inner.innerHTML = "";
+
+      // Playhead (~35% across content area after lane controls)
+      const playhead = document.createElement("div");
+      playhead.className = "playhead";
+      playhead.style.left = "210px";
+      inner.appendChild(playhead);
+
+      PROJECT_LANES.forEach((lane, laneIdx) => {
+        if (!state.muteSolo[lane.id]) {
+          state.muteSolo[lane.id] = { mute: false, solo: false };
+        }
+        const ms = state.muteSolo[lane.id];
+
+        const laneEl = document.createElement("div");
+        laneEl.className = "lane";
+        laneEl.dataset.hue = laneIdx % 4;
+
+        const controls = document.createElement("div");
+        controls.className = "lane-controls";
+        controls.innerHTML = `<div class="lane-label" title="${escapeHtml(lane.name)}"><span>${escapeHtml(lane.name)}</span></div>`;
+
+        const msRow = document.createElement("div");
+        msRow.className = "lane-ms";
+
+        const muteBtn = document.createElement("button");
+        muteBtn.type = "button";
+        muteBtn.textContent = "M";
+        muteBtn.title = "Mute";
+        muteBtn.classList.toggle("active", ms.mute);
+        muteBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          state.muteSolo[lane.id].mute = !state.muteSolo[lane.id].mute;
+          renderTimeline();
+        });
+
+        const soloBtn = document.createElement("button");
+        soloBtn.type = "button";
+        soloBtn.textContent = "S";
+        soloBtn.title = "Solo";
+        soloBtn.classList.toggle("active", ms.solo);
+        soloBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          state.muteSolo[lane.id].solo = !state.muteSolo[lane.id].solo;
+          renderTimeline();
+        });
+
+        msRow.appendChild(muteBtn);
+        msRow.appendChild(soloBtn);
+        controls.appendChild(msRow);
+
+        const track = document.createElement("div");
+        track.className = "lane-track";
+
+        lane.clips.forEach((clip) => {
+          const clipEl = document.createElement("div");
+          clipEl.className = "clip";
+          clipEl.style.left = clip.left + "px";
+          clipEl.style.width = clip.width + "px";
+
+          const wave = document.createElement("div");
+          wave.className = "wave";
+          clip.heights.forEach((h) => {
+            const bar = document.createElement("span");
+            bar.style.height = h + "%";
+            wave.appendChild(bar);
+          });
+          clipEl.appendChild(wave);
+          track.appendChild(clipEl);
+        });
+
+        laneEl.appendChild(controls);
+        laneEl.appendChild(track);
+        inner.appendChild(laneEl);
+      });
+    }
+
+    function renderFooter() {
+      const primary = $("footerPrimary");
+      const secondary = $("footerSecondary");
+      let mode = state.footerOverride;
+
+      if (mode === "auto") {
+        if (state.projectDetailState === "loading-audio" && state.inProjectDetail && state.tab === "projects") {
+          mode = "fetching";
+        } else if (state.selectedTrackId != null && state.auth === "logged-in") {
+          mode = "track";
+        } else if (state.selectedProjectId != null && state.inProjectDetail && state.auth === "logged-in") {
+          mode = "project";
+        } else {
+          mode = "prompt";
+        }
+      }
+
+      $("footer").dataset.mode = mode;
+
+      if (mode === "prompt") {
+        primary.textContent = "Select a track from the list, or use Open in Plugin from the Sterio web app";
+        secondary.textContent = "";
+      } else if (mode === "fetching") {
+        primary.textContent = "Fetching audio assets (2 of 5)";
+        secondary.textContent = "";
+      } else if (mode === "track") {
+        const t = TRACKS.concat(MORE_TRACKS).find((x) => x.id === state.selectedTrackId) || TRACKS[0];
+        primary.textContent = t.title;
+        secondary.textContent = `${t.username} · ${t.bpm} BPM · ${t.timeSig}`;
+      } else if (mode === "project") {
+        const p = currentProject();
+        primary.textContent = `Project: ${p.name}`;
+        secondary.textContent = `${p.bpm} BPM · ${p.timeSig}`;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function render() {
+      renderAuth();
+      renderTopChrome();
+      renderOverlays();
+      renderBody();
+      renderFooter();
+    }
+
+    /* Plugin interactions */
+    $("btnHelp").addEventListener("click", () => {
+      state.help = !state.help;
+      syncHarnessFromState();
+      render();
+    });
+
+    $("btnAuth").addEventListener("click", () => {
+      if (state.auth === "logged-out") {
+        state.auth = "logged-in";
+        state.tracksState = "populated";
+        state.projectsState = "populated";
+      } else {
+        state.auth = "logged-out";
+        state.selectedTrackId = null;
+        state.selectedProjectId = null;
+        state.inProjectDetail = false;
+        state.help = false;
+        state.tab = "tracks";
+      }
+      state.footerOverride = "auto";
+      syncHarnessFromState();
+      render();
+    });
+
+    $("tabTracks").addEventListener("click", () => {
+      state.tab = "tracks";
+      syncHarnessFromState();
+      render();
+    });
+
+    $("tabProjects").addEventListener("click", () => {
+      state.tab = "projects";
+      state.inProjectDetail = false;
+      state.selectedProjectId = null;
+      syncHarnessFromState();
+      render();
+    });
+
+    $("btnProjectBack").addEventListener("click", () => {
+      state.inProjectDetail = false;
+      state.selectedProjectId = null;
+      syncHarnessFromState();
+      render();
+    });
+
+    $("btnBannerOk").addEventListener("click", () => {
+      state.showBanner = false;
+      syncHarnessFromState();
+      render();
+    });
+
+    $("btnUpdate").addEventListener("click", () => {
+      window.open("https://sterio.app", "_blank");
+    });
+
+    $("btnDebug").addEventListener("click", () => {
+      state.showDebugModal = true;
+      syncHarnessFromState();
+      render();
+    });
+
+    $("btnDebugClose").addEventListener("click", () => {
+      state.showDebugModal = false;
+      syncHarnessFromState();
+      render();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && state.showDebugModal) {
+        state.showDebugModal = false;
+        syncHarnessFromState();
+        render();
+      }
+    });
+
+    $("btnRefreshTracks").addEventListener("click", () => {
+      state.tracksState = "loading";
+      syncHarnessFromState();
+      render();
+      setTimeout(() => {
+        state.tracksState = "populated";
+        state.tracksLoadedMore = false;
+        syncHarnessFromState();
+        render();
+      }, 700);
+    });
+
+    $("btnRefreshProjects").addEventListener("click", () => {
+      state.projectsState = "loading";
+      syncHarnessFromState();
+      render();
+      setTimeout(() => {
+        state.projectsState = "populated";
+        syncHarnessFromState();
+        render();
+      }, 700);
+    });
+
+    /* Harness bindings */
+    document.querySelectorAll('input[name="auth"]').forEach((el) => {
+      el.addEventListener("change", () => {
+        state.auth = el.value;
+        if (state.auth === "logged-out") {
+          state.selectedTrackId = null;
+          state.selectedProjectId = null;
+          state.inProjectDetail = false;
+        }
+        render();
+      });
+    });
+
+    document.querySelectorAll('input[name="body"]').forEach((el) => {
+      el.addEventListener("change", () => {
+        state.help = el.value === "help";
+        render();
+      });
+    });
+
+    document.querySelectorAll('input[name="tab"]').forEach((el) => {
+      el.addEventListener("change", () => {
+        state.tab = el.value;
+        if (state.tab === "projects") {
+          state.inProjectDetail = false;
+          state.selectedProjectId = null;
+        }
+        $("inProjectDetail").checked = state.inProjectDetail;
+        render();
+      });
+    });
+
+    $("tracksState").addEventListener("change", (e) => {
+      state.tracksState = e.target.value;
+      render();
+    });
+
+    $("projectsState").addEventListener("change", (e) => {
+      state.projectsState = e.target.value;
+      render();
+    });
+
+    $("inProjectDetail").addEventListener("change", (e) => {
+      state.inProjectDetail = e.target.checked;
+      state.tab = "projects";
+      if (state.inProjectDetail && !state.selectedProjectId) {
+        state.selectedProjectId = PROJECTS[0].id;
+        state.selectedTrackId = null;
+      }
+      if (!state.inProjectDetail) state.selectedProjectId = null;
+      document.querySelector('input[name="tab"][value="projects"]').checked = true;
+      render();
+    });
+
+    $("projectDetailState").addEventListener("change", (e) => {
+      state.projectDetailState = e.target.value;
+      if (!state.inProjectDetail) {
+        state.inProjectDetail = true;
+        state.tab = "projects";
+        state.selectedProjectId = PROJECTS[0].id;
+        syncHarnessFromState();
+      }
+      render();
+    });
+
+    ["showUpdate", "showSampleRate", "showBanner", "showDebugBtn", "showDebugModal"].forEach((id) => {
+      $(id).addEventListener("change", (e) => {
+        const key = id;
+        state[key] = e.target.checked;
+        render();
+      });
+    });
+
+    $("footerOverride").addEventListener("change", (e) => {
+      state.footerOverride = e.target.value;
+      render();
+    });
+
+    document.querySelectorAll("[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const p = btn.getAttribute("data-preset");
+        if (p === "logged-out") {
+          Object.assign(state, {
+            auth: "logged-out", help: false, tab: "tracks",
+            selectedTrackId: null, selectedProjectId: null, inProjectDetail: false,
+            showUpdate: false, showSampleRate: false, showBanner: false,
+            showDebugModal: false, footerOverride: "auto",
+          });
+        } else if (p === "tracks") {
+          Object.assign(state, {
+            auth: "logged-in", help: false, tab: "tracks",
+            tracksState: "populated", selectedTrackId: 2,
+            selectedProjectId: null, inProjectDetail: false,
+            showUpdate: false, showSampleRate: false, showBanner: false,
+            showDebugModal: false, footerOverride: "auto",
+          });
+        } else if (p === "projects") {
+          Object.assign(state, {
+            auth: "logged-in", help: false, tab: "projects",
+            projectsState: "populated", inProjectDetail: false,
+            selectedProjectId: null, selectedTrackId: null,
+            showUpdate: false, showSampleRate: false, showBanner: false,
+            showDebugModal: false, footerOverride: "auto",
+          });
+        } else if (p === "timeline") {
+          Object.assign(state, {
+            auth: "logged-in", help: false, tab: "projects",
+            inProjectDetail: true, projectDetailState: "ready",
+            selectedProjectId: "p1", selectedTrackId: null,
+            showUpdate: false, showSampleRate: false, showBanner: false,
+            showDebugModal: false, footerOverride: "auto",
+          });
+        } else if (p === "help") {
+          Object.assign(state, {
+            auth: "logged-in", help: true, showDebugModal: false,
+          });
+        } else if (p === "warnings") {
+          Object.assign(state, {
+            auth: "logged-in", help: false, tab: "tracks",
+            tracksState: "populated", selectedTrackId: 1,
+            showUpdate: true, showSampleRate: true, showBanner: true,
+            showDebugBtn: true, showDebugModal: false, footerOverride: "auto",
+          });
+        }
+        syncHarnessFromState();
+        render();
+      });
+    });
+
+    /* Start on a useful demo state: logged in, tracks populated */
+    Object.assign(state, {
+      auth: "logged-in",
+      tracksState: "populated",
+      selectedTrackId: 1,
+    });
+    syncHarnessFromState();
+    render();
+  </script>
+</body>
+</html>
