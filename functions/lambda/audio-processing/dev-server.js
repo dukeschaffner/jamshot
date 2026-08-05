@@ -64,7 +64,7 @@ async function repairInconsistentProjectAssets() {
        SET processing_status = 'completed',
            processing_error = NULL
        WHERE processing_status IN ('failed', 'processing')
-         AND storage_key LIKE 'projects/%/audio.wav'
+         AND storage_key ~ '^projects/[^/]+\\.wav$'
        RETURNING id`
     );
 

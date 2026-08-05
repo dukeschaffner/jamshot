@@ -5,6 +5,7 @@ import {
 import pool from '../config/db.js';
 import { checkTrackAccess } from '../utils/trackUtils.js';
 import {
+  generateProjectAssetFilenameBase,
   copyProjectAssetAudioFromSource,
   copyProjectAssetWaveformFromSource,
 } from '../utils/projectAssetUtils.js';
@@ -281,16 +282,15 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
       ]
     );
     const assetId = placeholder.rows[0].id;
+    const filenameBase = generateProjectAssetFilenameBase();
 
     const { storageKey, fileSizeBytes } = await copyProjectAssetAudioFromSource(
       sourceTrack.audio_url,
-      project.id,
-      assetId
+      filenameBase
     );
     const waveformKey = await copyProjectAssetWaveformFromSource(
       sourceTrack.waveform_url,
-      project.id,
-      assetId
+      filenameBase
     );
 
     const updated = await client.query(
@@ -506,16 +506,15 @@ export async function importTrackIntoProject(
       [project.id, plan.title, plan.durationSeconds, userId, plan.stem.track_id]
     );
     const assetId = placeholder.rows[0].id;
+    const filenameBase = generateProjectAssetFilenameBase();
 
     const { storageKey, fileSizeBytes } = await copyProjectAssetAudioFromSource(
       plan.audioKey,
-      project.id,
-      assetId
+      filenameBase
     );
     const waveformKey = await copyProjectAssetWaveformFromSource(
       plan.waveformKey,
-      project.id,
-      assetId
+      filenameBase
     );
 
     await client.query(

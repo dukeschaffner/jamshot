@@ -39,6 +39,7 @@ import { deleteProjectSnapshot } from '../utils/projectSnapshotDeleteUtils.js';
 import { getActiveUploadBan, checkTrackAccess } from '../utils/trackUtils.js';
 import { getTrackScope } from '../utils/projectScopeUtils.js';
 import {
+  generateProjectAssetFilenameBase,
   buildProjectAssetTempKey,
   uploadLocalFileToR2,
   emitProjectAssetCreatedEvent,
@@ -2035,9 +2036,9 @@ router.post(
         );
         assetId = assetInsert.rows[0].id;
 
+        const filenameBase = generateProjectAssetFilenameBase();
         tempStorageKey = buildProjectAssetTempKey(
-          projectId,
-          assetId,
+          filenameBase,
           req.file.originalname
         );
         await client.query(

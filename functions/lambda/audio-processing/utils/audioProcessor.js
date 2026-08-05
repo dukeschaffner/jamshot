@@ -274,12 +274,22 @@ class AudioProcessor {
     }
   }
 
-  buildProjectAssetFinalKey(projectId, assetId) {
-    return `projects/${projectId}/${assetId}/audio.wav`;
+  buildProjectAssetFinalKey(filenameBase) {
+    return `projects/${filenameBase}.wav`;
   }
 
-  buildProjectAssetWaveformKey(projectId, assetId) {
-    return `waveforms/projects/${projectId}/${assetId}.json`;
+  buildProjectAssetWaveformKey(filenameBase) {
+    return `waveforms/projects/${filenameBase}.json`;
+  }
+
+  /** Extract filename base from temp/projects/{base}/source.{ext} */
+  extractProjectAssetFilenameBaseFromTempKey(tempKey) {
+    const parts = (tempKey || '').split('/');
+    // temp / projects / {base} / source.ext
+    if (parts.length < 4 || parts[0] !== 'temp' || parts[1] !== 'projects') {
+      throw new Error(`Invalid project asset temp key: ${tempKey}`);
+    }
+    return parts[2];
   }
 
   async processProjectAsset(assetId, s3KeyOverride = null) {
@@ -299,8 +309,6 @@ class AudioProcessor {
       }
 
       const asset = assetResult.rows[0];
-      const projectId = asset.project_id;
-      const finalStorageKey = this.buildProjectAssetFinalKey(projectId, assetId);
 
       if (
         asset.processing_status === 'completed' &&
@@ -318,6 +326,9 @@ class AudioProcessor {
       if (!tempS3Key || !tempS3Key.startsWith('temp/projects/')) {
         throw new Error(`Could not locate source audio for project asset ${assetId}`);
       }
+
+      const filenameBase = this.extractProjectAssetFilenameBaseFromTempKey(tempS3Key);
+      const finalStorageKey = this.buildProjectAssetFinalKey(filenameBase);
 
       const claimResult = await getPool().query(
         `UPDATE project_assets
@@ -372,7 +383,7 @@ class AudioProcessor {
       let waveformUrl = null;
       try {
         const peaks = await this.generateWaveformPeaks(wavPath, 256);
-        const waveformKey = this.buildProjectAssetWaveformKey(projectId, assetId);
+        const waveformKey = this.buildProjectAssetWaveformKey(filenameBase);
         await this.saveWaveformPeaks(peaks, waveformKey, 256);
         waveformUrl = waveformKey;
       } catch (waveformError) {

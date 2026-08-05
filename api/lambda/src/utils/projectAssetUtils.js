@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { CopyObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { s3Client } from './trackUtils.js';
@@ -15,17 +16,24 @@ function getEventBusName() {
   return 'sterio-test-events';
 }
 
-function buildProjectAssetFinalKey(projectId, assetId) {
-  return `projects/${projectId}/${assetId}/audio.wav`;
+/** Random {timestamp}-{16hex} base, same pattern as track audio filenames. */
+function generateProjectAssetFilenameBase() {
+  const timestamp = Date.now();
+  const guid = crypto.randomBytes(8).toString('hex');
+  return `${timestamp}-${guid}`;
 }
 
-function buildProjectAssetWaveformKey(projectId, assetId) {
-  return `waveforms/projects/${projectId}/${assetId}.json`;
+function buildProjectAssetFinalKey(filenameBase) {
+  return `projects/${filenameBase}.wav`;
 }
 
-function buildProjectAssetTempKey(projectId, assetId, originalFilename) {
+function buildProjectAssetWaveformKey(filenameBase) {
+  return `waveforms/projects/${filenameBase}.json`;
+}
+
+function buildProjectAssetTempKey(filenameBase, originalFilename) {
   const ext = path.extname(originalFilename || '') || '.wav';
-  return `temp/projects/${projectId}/${assetId}/source${ext}`;
+  return `temp/projects/${filenameBase}/source${ext}`;
 }
 
 async function uploadLocalFileToR2(localPath, key, contentType = 'audio/*') {
@@ -79,12 +87,12 @@ async function emitProjectAssetCreatedEvent({
  * Copy existing stem waveform peaks into a project asset (e.g. import-track).
  * Returns the destination R2 key, or null if copy failed or source missing.
  */
-async function copyProjectAssetWaveformFromSource(sourceWaveformKey, projectId, assetId) {
+async function copyProjectAssetWaveformFromSource(sourceWaveformKey, filenameBase) {
   if (!sourceWaveformKey || !sourceWaveformKey.startsWith('waveforms/')) {
     return null;
   }
 
-  const destKey = buildProjectAssetWaveformKey(projectId, assetId);
+  const destKey = buildProjectAssetWaveformKey(filenameBase);
 
   try {
     await s3Client.send(
@@ -151,11 +159,10 @@ async function getR2ObjectByteSize(keyOrUrl) {
 /**
  * Copy a social-track audio object into a project asset storage key.
  * @param {string} sourceAudioKey - R2 key (e.g. tracks/...)
- * @param {number|string} projectId
- * @param {number|string} assetId
+ * @param {string} filenameBase - random {timestamp}-{16hex} base
  * @returns {Promise<{ storageKey: string, fileSizeBytes: number|null }>}
  */
-async function copyProjectAssetAudioFromSource(sourceAudioKey, projectId, assetId) {
+async function copyProjectAssetAudioFromSource(sourceAudioKey, filenameBase) {
   if (!sourceAudioKey || typeof sourceAudioKey !== 'string') {
     throw new Error('Source audio key is required');
   }
@@ -165,7 +172,7 @@ async function copyProjectAssetAudioFromSource(sourceAudioKey, projectId, assetI
     throw new Error('Cannot copy audio from an external URL');
   }
 
-  const destKey = buildProjectAssetFinalKey(projectId, assetId);
+  const destKey = buildProjectAssetFinalKey(filenameBase);
 
   await s3Client.send(
     new CopyObjectCommand({
@@ -180,6 +187,7 @@ async function copyProjectAssetAudioFromSource(sourceAudioKey, projectId, assetI
 }
 
 export {
+  generateProjectAssetFilenameBase,
   buildProjectAssetFinalKey,
   buildProjectAssetWaveformKey,
   buildProjectAssetTempKey,

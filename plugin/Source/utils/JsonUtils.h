@@ -107,26 +107,6 @@ struct JsonUtils
         return regions;
     }
 
-    static int parseProjectAssetIdFromUrl(const juce::String& audioUrl)
-    {
-        const int projectsMarker = audioUrl.indexOf("/projects/");
-        if (projectsMarker < 0)
-            return 0;
-
-        auto remainder = audioUrl.substring(projectsMarker + juce::String("/projects/").length());
-        const int projectIdEnd = remainder.indexOfChar('/');
-        if (projectIdEnd < 0)
-            return 0;
-
-        auto assetSegment = remainder.substring(projectIdEnd + 1);
-        const int assetIdEnd = assetSegment.indexOfChar('/');
-        if (assetIdEnd < 0)
-            return 0;
-
-        const int assetId = assetSegment.substring(0, assetIdEnd).getIntValue();
-        return assetId > 0 ? assetId : 0;
-    }
-
     static ProjectClip parseProjectClip(const juce::var& clipJson)
     {
         ProjectClip clip;
@@ -136,8 +116,6 @@ struct JsonUtils
         clip.assetId = static_cast<int>(clipJson.getProperty("assetId", 0));
         if (clip.assetId <= 0)
             clip.assetId = static_cast<int>(clipJson.getProperty("asset_id", 0));
-        if (clip.assetId <= 0)
-            clip.assetId = parseProjectAssetIdFromUrl(clip.audioUrl);
         clip.startTime = static_cast<double>(clipJson.getProperty("startTime", 0.0));
         clip.trimStart = static_cast<double>(clipJson.getProperty("trimStart", 0.0));
 
