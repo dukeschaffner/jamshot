@@ -5,10 +5,11 @@
 #include "../../PluginProcessor.h"
 #include "../../Services.h"
 #include "../../Colors.h"
+#include "../ListStatusView.h"
 #include "ProjectTimelineView.h"
 
 //==============================================================================
-/** Container for a selected project's header, load status, and timeline. */
+/** Project detail: floating back, status or timeline (title/BPM live in footer). */
 class ProjectView : public juce::Component, private juce::ChangeListener
 {
 public:
@@ -21,10 +22,7 @@ public:
     void resized() override;
 
     void setBackCallback(BackCallback callback);
-
-    /** Show project header and refresh timeline when stems finish loading. */
     void showProject(const ProjectSummary& project);
-
     void clear();
 
 private:
@@ -38,9 +36,7 @@ private:
     bool hasProject = false;
 
     juce::TextButton backButton;
-    juce::Label titleLabel;
-    juce::Label detailsLabel;
-    juce::Label statusLabel;
+    ListStatusView statusView;
     ProjectTimelineView timelineView;
 
     BackCallback backCallback;

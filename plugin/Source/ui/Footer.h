@@ -2,7 +2,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Services.h"
-#include <juce_events/juce_events.h> 
+#include "StatusIndicator.h"
+#include <juce_events/juce_events.h>
 
 class Footer : public juce::Component, public juce::ChangeListener
 {
@@ -16,11 +17,13 @@ public:
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
 
 private:
+    enum class Mode { Prompt, Fetching, Track, Project };
+
     PluginState& pluginStateRef;
+    Mode mode = Mode::Prompt;
 
-    juce::Label trackNameLabel;
-    juce::Label artistLabel;
-    juce::Label detailsLabel;
+    StatusIndicator statusDot;
+    juce::Label primaryLabel;
+    juce::Label secondaryLabel;
     juce::Label messageLabel;
-
 };

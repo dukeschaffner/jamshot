@@ -5,6 +5,7 @@
 #include "TrackListPanel.h"
 #include "projects/ProjectListPanel.h"
 #include "projects/ProjectView.h"
+#include "LoginPromptCard.h"
 #include <juce_events/juce_events.h>
 
 class SterioPluginProcessor;
@@ -15,11 +16,12 @@ public:
     MainContentComponent(Services& services, SterioPluginProcessor& processor);
     ~MainContentComponent() override;
 
+    void paint(juce::Graphics& g) override;
     void resized() override;
 
     void changeListenerCallback(juce::ChangeBroadcaster* source) override;
 
-    void updateView(); // called when auth state changes
+    void updateView();
 
     TrackListPanel trackListPanel;
     ProjectListPanel projectListPanel;
@@ -41,15 +43,14 @@ private:
     void showProjectList();
     void showProjectDetail(const ProjectSummary& project);
     void updateLoggedInContentVisibility();
-
-    /** Navigate to the detail view for the project currently loaded in PluginState. */
     void openLoadedProjectView();
+    void updateTabStyles();
 
     AuthManager& authRef;
     PluginState& pluginStateRef;
     SterioPluginProcessor& processorRef;
 
-    juce::Label loginMessage;
+    LoginPromptCard loginPrompt;
     juce::TextButton tracksTabButton;
     juce::TextButton projectsTabButton;
     ProjectView projectView;

@@ -15,16 +15,15 @@ MainContentComponent::MainContentComponent(Services& services, SterioPluginProce
     authRef.addChangeListener(this);
     processorRef.getRemoteProjectOpenBroadcaster().addChangeListener(this);
 
+    addAndMakeVisible(loginPrompt);
     addAndMakeVisible(tracksTabButton);
     addAndMakeVisible(projectsTabButton);
     addAndMakeVisible(trackListPanel);
     addAndMakeVisible(projectListPanel);
     addAndMakeVisible(projectView);
-    addAndMakeVisible(loginMessage);
 
-    loginMessage.setText("Log in to view liked tracks and projects", juce::dontSendNotification);
-    loginMessage.setJustificationType(juce::Justification::centred);
-    loginMessage.setColour(juce::Label::textColourId, Colors::GREY);
+    SterioButtonStyle::apply(tracksTabButton, SterioButtonStyle::tabActive);
+    SterioButtonStyle::apply(projectsTabButton, SterioButtonStyle::tab);
 
     tracksTabButton.onClick = [this] { setActiveTab(ContentTab::Tracks); };
     projectsTabButton.onClick = [this] { setActiveTab(ContentTab::Projects); };
@@ -41,8 +40,6 @@ MainContentComponent::MainContentComponent(Services& services, SterioPluginProce
 
     updateView();
 
-    // If a project is already loaded (e.g. sent from the web DAW while the
-    // editor was closed), land directly on its project view.
     if (authRef.isLoggedIn() && pluginStateRef.getCurrentProject().hasValue())
         openLoadedProjectView();
 }
@@ -53,11 +50,22 @@ MainContentComponent::~MainContentComponent()
     authRef.removeChangeListener(this);
 }
 
+void MainContentComponent::paint(juce::Graphics& g)
+{
+    g.fillAll(Colors::BACKGROUND);
+
+    if (authRef.isLoggedIn())
+    {
+        g.setColour(Colors::GREY_2);
+        g.fillRect(0, UiMetrics::tabBarH - 1, getWidth(), 1);
+    }
+}
+
 void MainContentComponent::updateView()
 {
     const bool loggedIn = authRef.isLoggedIn();
 
-    loginMessage.setVisible(!loggedIn);
+    loginPrompt.setVisible(!loggedIn);
     tracksTabButton.setVisible(loggedIn);
     projectsTabButton.setVisible(loggedIn);
 
@@ -96,9 +104,6 @@ void MainContentComponent::setActiveTab(ContentTab tab)
 {
     activeTab = tab;
 
-    // Always land on the projects list when entering the Projects tab.
-    // Restoring a stale detail view after visiting Tracks leaves a project UI
-    // that was never reloaded, while the footer can still show a selected track.
     if (tab == ContentTab::Projects)
     {
         processorRef.clearSelection();
@@ -136,7 +141,6 @@ void MainContentComponent::openLoadedProjectView()
     summary.timeSignature = info.timeSignature;
     summary.durationSeconds = info.durationSeconds;
 
-    // Bypass setActiveTab: it clears the selection and lands on the list view.
     activeTab = ContentTab::Projects;
     showProjectDetail(summary);
 }
@@ -147,6 +151,15 @@ void MainContentComponent::showProjectDetail(const ProjectSummary& project)
     projectView.showProject(project);
     updateLoggedInContentVisibility();
     resized();
+}
+
+void MainContentComponent::updateTabStyles()
+{
+    const bool tracksActive = activeTab == ContentTab::Tracks;
+    SterioButtonStyle::apply(tracksTabButton,
+                             tracksActive ? SterioButtonStyle::tabActive : SterioButtonStyle::tab);
+    SterioButtonStyle::apply(projectsTabButton,
+                             !tracksActive ? SterioButtonStyle::tabActive : SterioButtonStyle::tab);
 }
 
 void MainContentComponent::updateLoggedInContentVisibility()
@@ -164,11 +177,7 @@ void MainContentComponent::updateLoggedInContentVisibility()
     trackListPanel.setVisible(showTracks);
     projectListPanel.setVisible(showProjectListView);
     projectView.setVisible(showProjectDetailView);
-
-    tracksTabButton.setColour(juce::TextButton::buttonColourId,
-                              showTracks ? Colors::SEAFOAM : Colors::LIGHT_GREY);
-    projectsTabButton.setColour(juce::TextButton::buttonColourId,
-                                activeTab == ContentTab::Projects ? Colors::SEAFOAM : Colors::LIGHT_GREY);
+    updateTabStyles();
 }
 
 void MainContentComponent::resized()
@@ -177,13 +186,24 @@ void MainContentComponent::resized()
 
     if (!authRef.isLoggedIn())
     {
-        loginMessage.setBounds(bounds);
+        loginPrompt.setBounds(bounds);
+        tracksTabButton.setBounds({});
+        projectsTabButton.setBounds({});
+        trackListPanel.setBounds({});
+        projectListPanel.setBounds({});
+        projectView.setBounds({});
         return;
     }
 
-    auto tabBar = bounds.removeFromTop(28);
-    tracksTabButton.setBounds(tabBar.removeFromLeft(tabBar.getWidth() / 2).reduced(2, 2));
-    projectsTabButton.setBounds(tabBar.reduced(2, 2));
+    loginPrompt.setBounds({});
+
+    auto tabBar = bounds.removeFromTop(UiMetrics::tabBarH);
+    tabBar.removeFromLeft(UiMetrics::tabPadX);
+
+    const int tabW = 80;
+    tracksTabButton.setBounds(tabBar.removeFromLeft(tabW));
+    tabBar.removeFromLeft(2);
+    projectsTabButton.setBounds(tabBar.removeFromLeft(tabW));
 
     if (trackListPanel.isVisible())
         trackListPanel.setBounds(bounds);

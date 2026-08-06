@@ -6,6 +6,7 @@
 #include <vector>
 #include "../../PluginProcessor.h"
 #include "../../Colors.h"
+#include "../SmoothViewport.h"
 
 //==============================================================================
 /** Project timeline with track lanes, clip waveforms, DAW-synced playhead, and M/S. */
@@ -24,11 +25,10 @@ public:
     void setProjectDuration(double durationSeconds);
 
 private:
-    static constexpr int kLabelWidth = 88;
-    static constexpr int kLaneHeight = 48;
-    static constexpr int kLaneGap = 2;
-    static constexpr int kMixButtonSize = 16;
-    static constexpr int kMixButtonGap = 3;
+    static constexpr int kLabelWidth = UiMetrics::timelineLabelW;
+    static constexpr int kLaneHeight = UiMetrics::timelineLaneH;
+    static constexpr int kLaneGap = UiMetrics::timelineLaneGap;
+    static constexpr int kMixButtonH = 20;
     static constexpr double kDefaultSampleRate = 44100.0;
 
     struct ClipVisual
@@ -69,8 +69,12 @@ private:
     public:
         void paint(juce::Graphics& g) override
         {
-            g.setColour(Colors::RUSTIC_PINK);
+            g.setColour(Colors::S2);
             g.fillRect(0, 0, 2, getHeight());
+            // Triangle tip at top
+            juce::Path tip;
+            tip.addTriangle(-4.0f, 0.0f, 6.0f, 0.0f, 1.0f, 6.0f);
+            g.fillPath(tip);
         }
     };
 
@@ -91,7 +95,7 @@ private:
     double projectDurationSeconds = 60.0;
     double playheadSeconds = 0.0;
 
-    juce::Viewport viewport;
+    SmoothViewport viewport;
     TimelineContent content;
     PlayheadOverlay playhead;
 

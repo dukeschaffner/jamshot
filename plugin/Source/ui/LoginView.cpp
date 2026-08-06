@@ -9,24 +9,18 @@ LoginView::LoginView(Services& services)
     : authManagerRef(services.auth),
       apiClientRef(services.api)
 {
+    addAndMakeVisible(statusDot);
+    addAndMakeVisible(statusLabel);
+    statusLabel.setJustificationType(Justification::centredLeft);
+    statusLabel.setColour(Label::textColourId, Colors::TEXT_SECONDARY);
+    statusLabel.setFont(Font(UiMetrics::fontAuth, Font::plain));
+
     authButton.setButtonText("Log in to Sterio");
+    SterioButtonStyle::apply(authButton, SterioButtonStyle::primary);
     authButton.onClick = [this] { authManagerRef.login(); };
-
-    // Style auth button with seafoam color initially
-    authButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
-    authButton.setColour(TextButton::textColourOffId, Colors::WHITE);
-
     addAndMakeVisible(authButton);
 
-    addAndMakeVisible(statusLabel);
-    statusLabel.setJustificationType(juce::Justification::centredRight);
-    
-    // Style status label
-    statusLabel.setColour(Label::textColourId, Colors::GREY);
-
-    // Set initial state
     updateLoginState();
-
     startTimerHz(30);
 }
 
@@ -37,36 +31,35 @@ LoginView::~LoginView()
 
 void LoginView::timerCallback()
 {
-    // Update the button state based on current login status
     updateLoginState();
 }
 
 void LoginView::paint(Graphics& g)
 {
-    g.fillAll(Colors::WHITE);
+    g.fillAll(Colors::BACKGROUND);
+    g.setColour(Colors::GREY_2);
+    g.fillRect(0, getHeight() - 1, getWidth(), 1);
 }
 
 void LoginView::resized()
 {
-    auto bounds = getLocalBounds().toFloat().reduced(10);
+    auto bounds = getLocalBounds().reduced(UiMetrics::contentPadX, 7);
 
-    juce::FlexBox loginLayout;
-    loginLayout.flexDirection = juce::FlexBox::Direction::row;
+    const int btnW = authButton.getButtonText() == "Log in to Sterio" ? 128 : 72;
+    const int btnH = 22;
+    authButton.setBounds(bounds.removeFromRight(btnW)
+                             .withSizeKeepingCentre(btnW, btnH));
 
-    auto buttonWidth = 110.0f;
+    bounds.removeFromRight(UiMetrics::space3);
 
-    loginLayout.items.add(
-        juce::FlexItem(statusLabel)
-            .withFlex(1.0f)
-            .withMargin({0, 0, 0, 8}) // gap before button
-    );
+    if (statusDot.isVisible())
+    {
+        statusDot.setBounds(bounds.removeFromLeft(UiMetrics::statusDot)
+                                  .withSizeKeepingCentre(UiMetrics::statusDot, UiMetrics::statusDot));
+        bounds.removeFromLeft(7);
+    }
 
-    loginLayout.items.add(
-        juce::FlexItem(authButton)
-            .withWidth(buttonWidth)
-    );
-
-    loginLayout.performLayout(bounds);
+    statusLabel.setBounds(bounds);
 }
 
 void LoginView::loadUserInfo()
@@ -76,9 +69,11 @@ void LoginView::loadUserInfo()
 
     isLoadingUserInfo = true;
     userInfoLoadAttempted = true;
+    userInfoFailed = false;
     statusLabel.setText("Loading user info...", dontSendNotification);
+    statusDot.setMode(StatusIndicator::Mode::Loading);
+    resized();
 
-    // Load user info on background thread
     Thread::launch([this]() {
         auto result = apiClientRef.getMe();
 
@@ -89,13 +84,18 @@ void LoginView::loadUserInfo()
             {
                 statusLabel.setText("Failed to load user info", dontSendNotification);
                 currentUsername.clear();
+                userInfoFailed = true;
+                statusDot.setMode(StatusIndicator::Mode::Error);
             }
             else
             {
                 const auto& userInfo = *result;
                 currentUsername = userInfo.username;
                 statusLabel.setText("Logged in as " + currentUsername, dontSendNotification);
+                userInfoFailed = false;
+                statusDot.setMode(StatusIndicator::Mode::Success);
             }
+            resized();
         });
     });
 }
@@ -107,27 +107,45 @@ void LoginView::updateLoginState()
     if (loggedIn)
     {
         authButton.setButtonText("Log out");
-        authButton.setColour(TextButton::buttonColourId, Colors::RUSTIC_PINK);
+        SterioButtonStyle::apply(authButton, SterioButtonStyle::standard);
         authButton.onClick = [this] {
             authManagerRef.logout();
             currentUsername.clear();
             userInfoLoadAttempted = false;
+            userInfoFailed = false;
             statusLabel.setText("", dontSendNotification);
+            statusDot.setMode(StatusIndicator::Mode::Hidden);
         };
 
-        if (currentUsername.isEmpty() && !isLoadingUserInfo)
+        if (currentUsername.isEmpty() && !isLoadingUserInfo && !userInfoFailed)
         {
             loadUserInfo();
+        }
+        else if (isLoadingUserInfo)
+        {
+            statusDot.setMode(StatusIndicator::Mode::Loading);
+        }
+        else if (userInfoFailed)
+        {
+            statusDot.setMode(StatusIndicator::Mode::Error);
+        }
+        else if (currentUsername.isNotEmpty())
+        {
+            statusDot.setMode(StatusIndicator::Mode::Success);
         }
     }
     else
     {
         authButton.setButtonText("Log in to Sterio");
-        authButton.setColour(TextButton::buttonColourId, Colors::SEAFOAM);
+        SterioButtonStyle::apply(authButton, SterioButtonStyle::primary);
         authButton.onClick = [this] { authManagerRef.login(); };
 
         currentUsername.clear();
         userInfoLoadAttempted = false;
+        userInfoFailed = false;
         statusLabel.setText("", dontSendNotification);
+        statusDot.setMode(StatusIndicator::Mode::Hidden);
     }
+
+    resized();
 }

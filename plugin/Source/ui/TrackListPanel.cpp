@@ -10,80 +10,24 @@ using namespace juce;
 TrackListPanel::TrackListPanel(Services& services)
     : apiClientRef(services.api),
       pluginStateRef(services.pluginState),
-      titleLabel({}, "Liked Tracks"),
-      trackListBox("Tracks", nullptr),
-      scrollBar(false),
-      refreshButton("Refresh", DrawableButton::ImageFitted)
+      sectionHeader("Liked Tracks"),
+      trackListBox("Tracks")
 {
     pluginStateRef.addChangeListener(this);
-    addAndMakeVisible(titleLabel);
-    addAndMakeVisible(refreshButton);
-    
-    // Load refresh icon from SVG file
-    auto svgFile = File::getSpecialLocation(File::currentExecutableFile)
-                      .getParentDirectory()
-                      .getChildFile("Assets")
-                      .getChildFile("icons")
-                      .getChildFile("refresh.svg");
-    
-    // Try alternative path (for development/build scenarios)
-    if (!svgFile.existsAsFile())
-    {
-        svgFile = File(__FILE__).getParentDirectory()
-                     .getParentDirectory()
-                     .getParentDirectory()
-                     .getChildFile("Assets")
-                     .getChildFile("icons")
-                     .getChildFile("refresh.svg");
-    }
-    
-    if (svgFile.existsAsFile())
-    {
-        auto svgContent = svgFile.loadFileAsString();
-        // Replace currentColor with white in the SVG
-        svgContent = svgContent.replace("currentColor", "black");
-        
-        // Parse SVG string into XmlElement
-        auto svgXml = XmlDocument::parse(svgContent);
-        if (svgXml != nullptr)
-        {
-            refreshIcon = Drawable::createFromSVG(*svgXml);
-            
-            if (refreshIcon != nullptr)
-            {
-                // Set the drawable on the button (normal, over, down states all use same icon)
-                refreshButton.setImages(refreshIcon.get(), refreshIcon.get(), refreshIcon.get());
-            }
-        }
-    }
-    
-    refreshButton.onClick = [this] { refreshTracks(); };
 
-    // Style refresh button with seafoam color
-    refreshButton.setColour(DrawableButton::backgroundColourId, Colors::WHITE);
+    addAndMakeVisible(sectionHeader);
+    sectionHeader.setOnRefresh([this] { refreshTracks(); });
 
+    addAndMakeVisible(statusView);
+    statusView.setState(ListStatusView::State::Empty, "No tracks loaded");
 
-
-    addAndMakeVisible(statusLabel);
-    statusLabel.setText("No tracks loaded", dontSendNotification);
-    statusLabel.setJustificationType(Justification::centred);
-    statusLabel.setColour(Label::textColourId, Colors::GREY);
-
-    titleLabel.setJustificationType(Justification::centredLeft);
-    titleLabel.setColour(Label::textColourId, Colors::BLACK);
-
-    // Set up the list box
     trackListBox.setModel(new TrackListPanel::TrackListBoxModel(*this));
-    trackListBox.setRowHeight(40);
+    trackListBox.setRowHeight(UiMetrics::listRowH);
     trackListBox.setMultipleSelectionEnabled(false);
-
-    // Override the default JUCE grey background
-    trackListBox.setColour(ListBox::backgroundColourId, Colours::white);
+    trackListBox.setColour(ListBox::backgroundColourId, Colors::BACKGROUND);
     trackListBox.setColour(ListBox::outlineColourId, Colours::transparentBlack);
-
     addAndMakeVisible(trackListBox);
 
-    // Start timer to check for loading state updates
     startTimer(100);
 }
 
@@ -97,76 +41,44 @@ void TrackListPanel::changeListenerCallback(juce::ChangeBroadcaster*)
 {
     DBG("TrackListPanel::changeListenerCallback()");
     auto track = pluginStateRef.getCurrentTrack();
-    juce::String trackId;
-    if (track.hasValue())
-    {
-        trackId = (*track).id;
-    }
-    else
-    {
-        trackId = "";
-    }
-
-    selectTrackById(trackId);
+    selectTrackById(track.hasValue() ? (*track).id : juce::String());
 }
 
 void TrackListPanel::paint(Graphics& g)
 {
-    // Use white background
-    g.fillAll(Colors::WHITE);
+    g.fillAll(Colors::BACKGROUND);
 }
 
 void TrackListPanel::resized()
 {
-    auto bounds = getLocalBounds().toFloat();
-    const bool showEmptyState = tracks.isEmpty();
+    auto bounds = getLocalBounds();
+    sectionHeader.setBounds(bounds.removeFromTop(UiMetrics::sectionChromeH));
 
-    trackListBox.setVisible(!showEmptyState);
-    statusLabel.setVisible(showEmptyState);
+    updateStatusView();
 
-    juce::FlexBox main;
-    main.flexDirection = juce::FlexBox::Direction::column;
+    const bool showList = !tracks.isEmpty() && !isLoading;
+    trackListBox.setVisible(showList);
+    statusView.setVisible(!showList);
 
-    // --- Button row ---
-    juce::FlexBox buttonRow;
-    buttonRow.flexDirection = juce::FlexBox::Direction::row;
-    buttonRow.justifyContent = juce::FlexBox::JustifyContent::spaceBetween;
+    auto content = bounds.withTrimmedLeft(UiMetrics::listPadX)
+                         .withTrimmedRight(UiMetrics::listPadX)
+                         .withTrimmedBottom(UiMetrics::space3);
 
-    buttonRow.items.add(
-        juce::FlexItem(titleLabel)
-            .withMinWidth(100.0f)
-            .withFlex(1.0f)
-            .withHeight(20.0f)
-    );
-
-    buttonRow.items.add(
-        juce::FlexItem(refreshButton)
-            .withWidth(20.0f)
-            .withHeight(20.0f)
-    );
-
-    main.items.add(
-        juce::FlexItem(buttonRow)
-            .withHeight(20.0f)
-    );
-
-    if (showEmptyState)
-    {
-        main.items.add(
-            juce::FlexItem(statusLabel)
-                .withFlex(1.0f)
-        );
-    }
+    if (showList)
+        trackListBox.setBounds(content);
     else
-    {
-        // Track list fills remaining space
-        main.items.add(
-            juce::FlexItem(trackListBox)
-                .withFlex(1.0f)
-        );
-    }
+        statusView.setBounds(bounds);
+}
 
-    main.performLayout(bounds);
+void TrackListPanel::updateStatusView()
+{
+    if (isLoading)
+        statusView.setState(ListStatusView::State::Loading, "Loading tracks...");
+    else if (hasLoadError)
+        statusView.setState(ListStatusView::State::Error, "Failed to load tracks");
+    else if (tracks.isEmpty())
+        statusView.setState(ListStatusView::State::Empty,
+                            currentUsername.isEmpty() ? "No tracks loaded" : "No liked tracks");
 }
 
 void TrackListPanel::setUsername(const String& username)
@@ -221,31 +133,14 @@ void TrackListPanel::clearTracks()
     hasLoadError = false;
     trackListBox.deselectAllRows();
     trackListBox.updateContent();
-    statusLabel.setText("No liked tracks", dontSendNotification);
-    resized(); // Trigger layout recalculation when visibility changes
+    updateStatusView();
+    resized();
 }
 
 void TrackListPanel::timerCallback()
 {
-    // Update UI based on loading state
-    resized(); // Trigger layout recalculation when visibility changes
-
-    if (isLoading)
-    {
-        statusLabel.setText("Loading tracks...", dontSendNotification);
-    }
-    else if (hasLoadError)
-    {
-        statusLabel.setText("Failed to load tracks", dontSendNotification);
-    }
-    else if (tracks.isEmpty())
-    {
-        statusLabel.setText("No liked tracks", dontSendNotification);
-    }
-    else
-    {
-        statusLabel.setText(String(tracks.size()) + " tracks loaded", dontSendNotification);
-    }
+    updateStatusView();
+    resized();
 }
 
 void TrackListPanel::loadTracksInternal(int page)
@@ -254,8 +149,8 @@ void TrackListPanel::loadTracksInternal(int page)
         return;
 
     isLoading = true;
+    resized();
 
-    // Run API call on background thread
     Thread::launch([this, page]() {
         auto result = apiClientRef.getLikedTracks(currentUsername, page, 15);
 
@@ -276,13 +171,15 @@ void TrackListPanel::loadTracksInternal(int page)
             if (result.failed())
             {
                 hasLoadError = true;
-                statusLabel.setText("Failed to load tracks", dontSendNotification);
+                updateStatusView();
+                resized();
                 return;
             }
 
             hasLoadError = false;
             currentPage = page;
             updateTracksDisplay(*result);
+            resized();
         });
     });
 }
@@ -302,10 +199,8 @@ void TrackListPanel::updateTracksDisplay(const LikedTracksResponse& response)
     pagination = response.pagination;
     trackListBox.updateContent();
     auto currentTrack = pluginStateRef.getCurrentTrack();
-    if(currentTrack.hasValue())
-    {
+    if (currentTrack.hasValue())
         selectTrackById((*currentTrack).id);
-    }
 }
 
 void TrackListPanel::selectTrack(int trackIndex)

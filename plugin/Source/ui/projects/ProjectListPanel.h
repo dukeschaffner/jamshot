@@ -5,6 +5,10 @@
 #include "../../api/SterioApiClient.h"
 #include "../../Colors.h"
 #include "../../Services.h"
+#include "../SectionHeaderBar.h"
+#include "../ListStatusView.h"
+#include "../ListRowPainter.h"
+#include "../HoverTrackingListBox.h"
 
 //==============================================================================
 /** A panel that displays the user's projects with refresh and selection. */
@@ -19,17 +23,11 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
 
-    /** Refresh the project list from the API. */
     void refreshProjects();
-
-    /** Set callback for when a project is selected. */
     void setProjectSelectedCallback(ProjectSelectedCallback callback);
-
-    /** Clear the project list and selection. */
     void clearProjects();
 
 private:
-    //==============================================================================
     class ProjectListBoxModel : public juce::ListBoxModel
     {
     public:
@@ -46,66 +44,24 @@ private:
                 return;
 
             const auto& project = ownerPanel.projects[rowNumber];
+            const bool hovered = rowNumber == ownerPanel.projectListBox.getHoveredRow();
 
-            if (rowIsSelected)
-            {
-                juce::ColourGradient gradient(Colors::SEAFOAM, 0, 0, Colors::RUSTIC_PINK, width, 0, false);
-                g.setGradientFill(gradient);
-                g.fillAll();
-            }
-            else
-            {
-                g.fillAll(Colors::WHITE);
-            }
-
-            g.setColour(rowIsSelected ? Colors::WHITE : Colors::BLACK);
-
-            juce::Font titleFont(14.0f, juce::Font::bold);
-            juce::Font infoFont(11.0f);
-
-            juce::Rectangle<int> bounds(8, 0, width - 16, height);
-
-            g.setFont(titleFont);
-            auto titleBounds = bounds.removeFromTop(static_cast<int>(height * 0.4f));
-            if (project.name.isNotEmpty())
-                g.drawText(project.name, titleBounds, juce::Justification::left, true);
-
-            juce::String infoText;
+            juce::String meta;
             if (project.role.isNotEmpty())
-                infoText = project.role;
-
+                meta = project.role;
             if (project.bpm > 0)
             {
-                if (infoText.isNotEmpty())
-                    infoText += " • ";
-                infoText += "BPM: " + juce::String(project.bpm);
+                if (meta.isNotEmpty()) meta += metaSeparator();
+                meta += "BPM: " + juce::String(project.bpm);
             }
-
             if (project.timeSignature.isNotEmpty())
             {
-                if (infoText.isNotEmpty())
-                    infoText += " • ";
-                infoText += project.timeSignature;
+                if (meta.isNotEmpty()) meta += metaSeparator();
+                meta += project.timeSignature;
             }
 
-            if (infoText.isNotEmpty())
-            {
-                g.setFont(infoFont);
-                if (!rowIsSelected)
-                    g.setColour(Colors::GREY);
-                g.drawText(infoText, bounds, juce::Justification::left, true);
-            }
-
-            if (rowIsSelected)
-            {
-                g.setColour(Colors::WHITE.withAlpha(0.9f));
-                juce::Path tickPath;
-                tickPath.addTriangle(4, height / 2 - 4, 4, height / 2 + 4, 12, height / 2);
-                g.fillPath(tickPath);
-            }
-
-            g.setColour(Colors::LIGHT_GREY);
-            g.drawLine(0, height - 1, width, height - 1, 1.0f);
+            ListRowPainter::paintRow(g, width, height, rowIsSelected, hovered,
+                                     project.name, meta);
         }
 
         juce::MouseCursor getMouseCursorForRow(int) override
@@ -126,6 +82,7 @@ private:
     void loadProjectsInternal();
     void updateProjectsDisplay(const juce::Array<ProjectSummary>& loaded);
     void selectProject(int projectIndex);
+    void updateStatusView();
 
     SterioApiClient& apiClientRef;
 
@@ -135,11 +92,9 @@ private:
 
     ProjectSelectedCallback projectSelectedCallback;
 
-    juce::Label titleLabel;
-    juce::DrawableButton refreshButton;
-    juce::Label statusLabel;
-    juce::ListBox projectListBox;
-    std::unique_ptr<juce::Drawable> refreshIcon;
+    SectionHeaderBar sectionHeader;
+    ListStatusView statusView;
+    HoverTrackingListBox projectListBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProjectListPanel)
 };

@@ -144,6 +144,15 @@ target_sources(SterioPlugin
         Source/ui/Footer.cpp
         Source/ui/Footer.h
         Source/ui/HelpView.h
+        Source/ui/AppHeaderComponent.h
+        Source/ui/SectionHeaderBar.h
+        Source/ui/ListRowPainter.h
+        Source/ui/ListStatusView.h
+        Source/ui/HoverTrackingListBox.h
+        Source/ui/SmoothViewport.h
+        Source/ui/StatusIndicator.h
+        Source/ui/SampleRateWarningBar.h
+        Source/ui/LoginPromptCard.h
         Source/ui/projects/ProjectListPanel.cpp
         Source/ui/projects/ProjectListPanel.h
         Source/ui/projects/ProjectView.cpp
@@ -209,6 +218,15 @@ source_group("Sterio" FILES
     Source/ui/Footer.cpp
     Source/ui/Footer.h
     Source/ui/HelpView.h
+    Source/ui/AppHeaderComponent.h
+    Source/ui/SectionHeaderBar.h
+    Source/ui/ListRowPainter.h
+    Source/ui/ListStatusView.h
+    Source/ui/HoverTrackingListBox.h
+    Source/ui/SmoothViewport.h
+    Source/ui/StatusIndicator.h
+    Source/ui/SampleRateWarningBar.h
+    Source/ui/LoginPromptCard.h
     Source/ui/projects/ProjectListPanel.cpp
     Source/ui/projects/ProjectListPanel.h
     Source/ui/projects/ProjectView.cpp

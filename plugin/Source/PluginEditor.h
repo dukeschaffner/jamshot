@@ -9,8 +9,10 @@
 #include "CacheManager.h"
 #include "ui/MessageDisplay.h"
 #include "ui/DebugMessageComponent.h"
+#include "ui/DebugMessageModal.h"
 #include "ui/MainContentComponent.h"
-#include "ui/LogoComponent.h"
+#include "ui/AppHeaderComponent.h"
+#include "ui/SampleRateWarningBar.h"
 #include "ui/Footer.h"
 #include "ui/HelpView.h"
 #include "Services.h"
@@ -27,40 +29,25 @@ public:
 
 private:
     void timerCallback() override;
-
-    /** Handle track selection from the track list panel. */
     void onTrackSelected(const TrackInfo& track);
-
-    /** Check if we should show high sample rate warning */
     void updateSampleRateWarning();
-
-    /** Toggle between help view and main content */
     void toggleHelp();
+    void showDebugConsole();
 
     SterioPluginProcessor& processorRef;
     Services& services;
+
+    SterioLookAndFeel lookAndFeel;
+    AppHeaderComponent appHeader;
     LoginView loginView;
+    SampleRateWarningBar sampleRateWarning;
     MessageDisplay messageDisplay;
     MainContentComponent mainContentComponent;
     HelpView helpView;
-    SterioLookAndFeel lookAndFeel;
-    DebugMessageComponent debugComponent;
-    juce::TextButton debugToggleButton;
-    juce::TextButton helpButton;
-    juce::TextButton updateButton;
-    LogoComponent logoComponent;
     Footer footer;
 
-    /** Flag to show high sample rate warning */
     bool showHighSampleRateWarning = false;
-    
-    /** Flag to track debug component visibility */
-    bool debugComponentVisible = false;
-
-    /** Flag to track help view visibility */
     bool showingHelp = false;
-
-    /** Flag to track update button visibility */
     bool showingUpdateButton = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SterioPluginEditor)

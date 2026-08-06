@@ -1,17 +1,22 @@
 #include "MessageDisplay.h"
 #include "../utils/MessageStore.h"
+#include "../Colors.h"
 
 MessageDisplay::MessageDisplay()
 {
     addAndMakeVisible(messageLabel);
-    messageLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    messageLabel.setColour(juce::Label::textColourId, Colors::TEXT_PRIMARY);
+    messageLabel.setFont(juce::Font(UiMetrics::fontBanner, juce::Font::bold));
     messageLabel.setJustificationType(juce::Justification::centredLeft);
 
     addAndMakeVisible(okButton);
+    okButton.setButtonText("OK");
+    SterioButtonStyle::apply(okButton, SterioButtonStyle::standard);
     okButton.onClick = [this]() { clearMessage(); };
 
-    startTimerHz(5); // poll for messages
+    startTimerHz(5);
     setVisible(false);
+    setOpaque(true);
 }
 
 MessageDisplay::~MessageDisplay() = default;
@@ -24,9 +29,7 @@ void MessageDisplay::timerCallback()
     {
         juce::String currentMessage = messageLabel.getText();
         if (currentMessage.isEmpty())
-        {
             setVisible(false);
-        }
         return;
     }
 
@@ -39,27 +42,14 @@ void MessageDisplay::timerCallback()
         {
             messageLabel.setText(msg.content, juce::dontSendNotification);
             currentSeverity = static_cast<int>(msg.severity);
-            
-            // Set text color based on severity
-            if (msg.severity == PluginMessage::Severity::Info)
-            {
-                messageLabel.setColour(juce::Label::textColourId, juce::Colours::black);
-            }
-            else if (msg.severity == PluginMessage::Severity::Warning)
-            {
-                messageLabel.setColour(juce::Label::textColourId, juce::Colours::black);
-            }
-            else // Error or Critical
-            {
-                messageLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-            }
-            
+            messageLabel.setColour(juce::Label::textColourId, Colors::TEXT_PRIMARY);
+
             setVisible(true);
 
             if (auto* p = getParentComponent())
                 p->resized();
 
-            break; // show first message
+            break;
         }
     }
 }
@@ -76,35 +66,43 @@ void MessageDisplay::clearMessage()
 
 void MessageDisplay::paint(juce::Graphics& g)
 {
-    juce::String message = messageLabel.getText();
-    // Background color based on severity
-    juce::Colour bgColour = juce::Colours::darkgrey; // default
-    
+    juce::Colour accent = Colors::RED;
+    juce::Colour bg = Colors::BANNER_BG;
+
     switch (currentSeverity)
     {
         case static_cast<int>(PluginMessage::Severity::Info):
-            bgColour = juce::Colour(0xFF1E90FF); // Dodger blue
+            accent = Colors::SEAFOAM_DARK;
+            bg = Colors::SEAFOAM_LIGHT;
             break;
         case static_cast<int>(PluginMessage::Severity::Warning):
-            bgColour = juce::Colour(0xFFFFB347); // Pastel orange
+            accent = Colors::RUSTIC_PINK;
+            bg = Colors::RUSTIC_PINK_LIGHT;
             break;
         case static_cast<int>(PluginMessage::Severity::Error):
-            bgColour = juce::Colours::darkred;
-            break;
         case static_cast<int>(PluginMessage::Severity::Critical):
-            bgColour = juce::Colour(0xFF8B0000); // Dark red
+            accent = Colors::RED;
+            bg = Colors::BANNER_BG;
             break;
         default:
-            bgColour = juce::Colours::darkgrey;
+            break;
     }
-    
-    g.fillAll(bgColour);
+
+    g.fillAll(bg);
+    g.setColour(accent);
+    g.fillRect(0, 0, 3, getHeight());
+    g.setColour(Colors::GREY_2);
+    g.fillRect(0, getHeight() - 1, getWidth(), 1);
 }
 
 void MessageDisplay::resized()
 {
-    auto bounds = getLocalBounds().reduced(8);
-    auto buttonWidth = 60;
-    okButton.setBounds(bounds.removeFromRight(buttonWidth));
+    auto bounds = getLocalBounds().withTrimmedLeft(12).withTrimmedRight(14)
+                      .withTrimmedTop(8).withTrimmedBottom(8);
+
+    const int btnW = 44;
+    const int btnH = 22;
+    okButton.setBounds(bounds.removeFromRight(btnW).withSizeKeepingCentre(btnW, btnH));
+    bounds.removeFromRight(UiMetrics::space3);
     messageLabel.setBounds(bounds);
 }

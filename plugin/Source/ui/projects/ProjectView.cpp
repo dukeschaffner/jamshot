@@ -6,38 +6,23 @@ using namespace juce;
 ProjectView::ProjectView(SterioPluginProcessor& processor, Services& services)
     : processorRef(processor),
       pluginStateRef(services.pluginState),
-      backButton("Back"),
-      titleLabel({}, ""),
-      detailsLabel({}, ""),
-      statusLabel({}, ""),
+      backButton(String(CharPointer_UTF8("\xe2\x86\x90"))),
       timelineView(processor)
 {
     pluginStateRef.addChangeListener(this);
 
-    addAndMakeVisible(backButton);
-    addAndMakeVisible(titleLabel);
-    addAndMakeVisible(detailsLabel);
-    addAndMakeVisible(statusLabel);
+    addAndMakeVisible(statusView);
     addAndMakeVisible(timelineView);
+    addAndMakeVisible(backButton);
 
+    SterioButtonStyle::apply(backButton, SterioButtonStyle::projectBack);
+    backButton.setTooltip("Back to projects");
     backButton.onClick = [this] {
         if (backCallback)
             backCallback();
     };
 
-    titleLabel.setFont(Font(16.0f, Font::bold));
-    titleLabel.setColour(Label::textColourId, Colors::BLACK);
-    titleLabel.setJustificationType(Justification::centredLeft);
-
-    detailsLabel.setFont(Font(12.0f));
-    detailsLabel.setColour(Label::textColourId, Colors::GREY);
-    detailsLabel.setJustificationType(Justification::centredLeft);
-
-    statusLabel.setFont(Font(12.0f));
-    statusLabel.setColour(Label::textColourId, Colors::GREY);
-    statusLabel.setJustificationType(Justification::centred);
-    statusLabel.setVisible(false);
-
+    statusView.setVisible(false);
     timelineView.setVisible(false);
 }
 
@@ -48,28 +33,25 @@ ProjectView::~ProjectView()
 
 void ProjectView::paint(Graphics& g)
 {
-    g.fillAll(Colors::WHITE);
+    g.fillAll(Colors::BACKGROUND);
 }
 
 void ProjectView::resized()
 {
     auto bounds = getLocalBounds();
 
-    auto header = bounds.removeFromTop(48);
-    backButton.setBounds(header.removeFromLeft(60).reduced(4, 10));
+    backButton.setBounds(6, 6, UiMetrics::projectBackSize, UiMetrics::projectBackSize);
+    backButton.toFront(false);
 
-    auto titleArea = header.reduced(4, 4);
-    titleLabel.setBounds(titleArea.removeFromTop(22));
-    detailsLabel.setBounds(titleArea);
-
-    if (statusLabel.isVisible())
+    if (statusView.isVisible())
     {
-        statusLabel.setBounds(bounds);
+        statusView.setBounds(bounds);
         timelineView.setBounds({});
     }
     else
     {
-        timelineView.setBounds(bounds.reduced(0, 2));
+        timelineView.setBounds(bounds);
+        statusView.setBounds({});
     }
 }
 
@@ -83,18 +65,10 @@ void ProjectView::showProject(const ProjectSummary& project)
     hasProject = true;
     currentProject = project;
 
-    titleLabel.setText(project.name.isNotEmpty() ? project.name : "Untitled Project",
-                       dontSendNotification);
-
-    juce::String details = "BPM: " + String(project.bpm);
-    if (project.timeSignature.isNotEmpty())
-        details += "  |  " + project.timeSignature;
-    detailsLabel.setText(details, dontSendNotification);
-
     timelineView.setProjectDuration(project.durationSeconds);
     timelineView.setVisible(false);
-    statusLabel.setText("Loading project...", dontSendNotification);
-    statusLabel.setVisible(true);
+    statusView.setState(ListStatusView::State::Loading, "Loading project...");
+    statusView.setVisible(true);
     resized();
 
     updateStatusFromState();
@@ -104,9 +78,7 @@ void ProjectView::clear()
 {
     hasProject = false;
     currentProject = {};
-    titleLabel.setText("", dontSendNotification);
-    detailsLabel.setText("", dontSendNotification);
-    statusLabel.setVisible(false);
+    statusView.setVisible(false);
     timelineView.setVisible(false);
 }
 
@@ -127,8 +99,8 @@ void ProjectView::updateStatusFromState()
         juce::String text = progress.total > 0
             ? "Loading audio (" + String(progress.current) + " of " + String(progress.total) + ")..."
             : "Loading project...";
-        statusLabel.setText(text, dontSendNotification);
-        statusLabel.setVisible(true);
+        statusView.setState(ListStatusView::State::Loading, text);
+        statusView.setVisible(true);
         timelineView.setVisible(false);
         resized();
         return;
@@ -138,11 +110,10 @@ void ProjectView::updateStatusFromState()
     if (projectOpt.hasValue() && (*projectOpt).guid == currentProject.guid)
     {
         const auto& project = *projectOpt;
-        titleLabel.setText(project.name, dontSendNotification);
-        juce::String details = "BPM: " + String(project.bpm);
-        if (project.timeSignature.isNotEmpty())
-            details += "  |  " + project.timeSignature;
-        detailsLabel.setText(details, dontSendNotification);
+        currentProject.name = project.name;
+        currentProject.bpm = project.bpm;
+        currentProject.timeSignature = project.timeSignature;
+        currentProject.durationSeconds = project.durationSeconds;
         timelineView.setProjectDuration(project.durationSeconds > 0.0
                                             ? project.durationSeconds
                                             : currentProject.durationSeconds);
@@ -153,14 +124,14 @@ void ProjectView::updateStatusFromState()
 
     if (stems.isEmpty() && clips.isEmpty())
     {
-        statusLabel.setText("No playable clips in this project", dontSendNotification);
-        statusLabel.setVisible(true);
+        statusView.setState(ListStatusView::State::Empty, "No playable clips in this project");
+        statusView.setVisible(true);
         timelineView.setVisible(false);
         resized();
         return;
     }
 
-    statusLabel.setVisible(false);
+    statusView.setVisible(false);
     timelineView.setVisible(true);
     timelineView.refreshFromProcessor();
     resized();

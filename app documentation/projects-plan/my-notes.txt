@@ -16,7 +16,7 @@
     - add email preferences for these emails
     - email when a track from elsewhere in the tree is imported into the project (if the user isn't already in the project)?
 - "This file is referenced by a snapshot. Deleting it may affect snapshot restore. Continue?" message showed when the asset was still in the project. if asset is still in project, it should say something like "This file is currently used in this project. Are you sure you want to delete it?"
-
+- if the plugin is connected to the web DAW and they have the same project open, they should aautomatically statrt syncing if the user has autosync enabled.
 
 optimize:
 - im pretty happy with the projects implementation. but i have a couple concerns. the project DAW is calling /assets and /plugin-payload VERY frequently. and these endpoints have decent sized payloads... is this going to drive high api costs? would it be better to move to an event based model instead of state based? so only updates are pushed out, and not the entire project state every time? if so, how big of an effort is that? also, does the plugin-payload endpoint REALLY need to exist? can't the web DAW just forward the project state to the plugin? seems a little redundant.

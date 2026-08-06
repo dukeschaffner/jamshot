@@ -3,11 +3,12 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../api/SterioApiClient.h"
 #include "../Services.h"
+#include "StatusIndicator.h"
 
 class AuthManager;
 
 //==============================================================================
-/** Login/logout UI for the Sterio plugin (Increment 2 & 3). */
+/** Auth strip: status + login/logout control. */
 class LoginView : public juce::Component, private juce::Timer
 {
 public:
@@ -22,22 +23,20 @@ public:
 
 private:
     void timerCallback() override;
-
-    /** Load user info from API. */
     void loadUserInfo();
-
-    /** Update the UI state based on login status. */
     void updateLoginState();
 
     AuthManager& authManagerRef;
     SterioApiClient& apiClientRef;
 
+    StatusIndicator statusDot;
     juce::TextButton authButton;
     juce::Label statusLabel;
 
     juce::String currentUsername;
     bool isLoadingUserInfo = false;
-    bool userInfoLoadAttempted = false; // Track if we've already tried to load user info
+    bool userInfoLoadAttempted = false;
+    bool userInfoFailed = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LoginView)
 };

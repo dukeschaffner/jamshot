@@ -6,28 +6,30 @@ Footer::Footer(Services& services)
 {
     pluginStateRef.addChangeListener(this);
 
-    addAndMakeVisible(trackNameLabel);
-    addAndMakeVisible(artistLabel);
-    addAndMakeVisible(detailsLabel);
+    addAndMakeVisible(statusDot);
+    addAndMakeVisible(primaryLabel);
+    addAndMakeVisible(secondaryLabel);
     addAndMakeVisible(messageLabel);
 
-    juce::Font titleFont(16.0f, juce::Font::bold);
-    trackNameLabel.setFont(titleFont);
-    artistLabel.setFont(juce::Font(14.0f));
-    detailsLabel.setFont(juce::Font(14.0f));
+    primaryLabel.setFont(juce::Font(UiMetrics::fontFooterPrimary, juce::Font::bold));
+    primaryLabel.setColour(juce::Label::textColourId, Colors::TEXT_PRIMARY);
+    primaryLabel.setJustificationType(juce::Justification::centredLeft);
 
+    secondaryLabel.setFont(juce::Font(UiMetrics::fontFooterSecondary, juce::Font::plain));
+    secondaryLabel.setColour(juce::Label::textColourId, Colors::TEXT_SECONDARY);
+    secondaryLabel.setJustificationType(juce::Justification::centredLeft);
 
-    messageLabel.setFont(juce::Font(14.0f));
-    messageLabel.setColour(juce::Label::textColourId, Colors::GREY);
+    messageLabel.setFont(juce::Font(UiMetrics::fontFooterSecondary, juce::Font::plain));
+    messageLabel.setColour(juce::Label::textColourId, Colors::TEXT_SECONDARY);
     messageLabel.setJustificationType(juce::Justification::centred);
-    messageLabel.setText("Select a track from the list or click 'Open in Plugin' on a track in Sterio app", juce::dontSendNotification);
+    messageLabel.setText("Select a track from the list, or use Open in Plugin from the Sterio web app",
+                         juce::dontSendNotification);
 
-    trackNameLabel.setVisible(false);
-    artistLabel.setVisible(false);
-    detailsLabel.setVisible(false);
+    primaryLabel.setVisible(false);
+    secondaryLabel.setVisible(false);
     messageLabel.setVisible(true);
+    statusDot.setMode(StatusIndicator::Mode::Hidden);
 
-    // Initial update
     changeListenerCallback(nullptr);
 }
 
@@ -36,8 +38,7 @@ Footer::~Footer()
     pluginStateRef.removeChangeListener(this);
 }
 
-
-void Footer::changeListenerCallback(juce::ChangeBroadcaster* source)
+void Footer::changeListenerCallback(juce::ChangeBroadcaster*)
 {
     auto progressOpt = pluginStateRef.getProjectLoadProgress();
     if (progressOpt.hasValue())
@@ -47,11 +48,12 @@ void Footer::changeListenerCallback(juce::ChangeBroadcaster* source)
             ? "Fetching audio assets (" + juce::String(progress.current) + " of " + juce::String(progress.total) + ")"
             : "Fetching audio assets...";
 
-        trackNameLabel.setVisible(false);
-        artistLabel.setVisible(false);
-        detailsLabel.setVisible(false);
-        messageLabel.setText(text, juce::dontSendNotification);
-        messageLabel.setVisible(true);
+        mode = Mode::Fetching;
+        primaryLabel.setText(text, juce::dontSendNotification);
+        primaryLabel.setVisible(true);
+        secondaryLabel.setVisible(false);
+        messageLabel.setVisible(false);
+        statusDot.setMode(StatusIndicator::Mode::Fetching);
         resized();
         return;
     }
@@ -61,24 +63,29 @@ void Footer::changeListenerCallback(juce::ChangeBroadcaster* source)
     if (trackOpt.hasValue())
     {
         const auto& track = *trackOpt;
+        mode = Mode::Track;
 
-        trackNameLabel.setText(track.title, juce::dontSendNotification);
-        trackNameLabel.setColour(juce::Label::textColourId, Colors::BLACK);
-        trackNameLabel.setJustificationType(juce::Justification::left);
+        primaryLabel.setText(track.title, juce::dontSendNotification);
 
-        artistLabel.setText(track.username, juce::dontSendNotification);
-        artistLabel.setColour(juce::Label::textColourId, Colors::GREY);
-        artistLabel.setJustificationType(juce::Justification::left);
+        juce::String secondary = track.username;
+        if (track.metronome.isNotEmpty())
+        {
+            if (secondary.isNotEmpty())
+                secondary += metaSeparator();
+            secondary += track.metronome + " BPM";
+        }
+        if (track.timeSignature.isNotEmpty())
+        {
+            if (secondary.isNotEmpty())
+                secondary += metaSeparator();
+            secondary += track.timeSignature;
+        }
 
-        juce::String combined = "BPM: " + track.metronome + " | Time Sig: " + track.timeSignature;
-        detailsLabel.setText(combined, juce::dontSendNotification);
-        detailsLabel.setColour(juce::Label::textColourId, Colors::GREY);
-        detailsLabel.setJustificationType(juce::Justification::right);
-
-        trackNameLabel.setVisible(true);
-        artistLabel.setVisible(true);
-        detailsLabel.setVisible(true);
+        secondaryLabel.setText(secondary, juce::dontSendNotification);
+        primaryLabel.setVisible(true);
+        secondaryLabel.setVisible(secondary.isNotEmpty());
         messageLabel.setVisible(false);
+        statusDot.setMode(StatusIndicator::Mode::Success);
     }
     else
     {
@@ -86,27 +93,27 @@ void Footer::changeListenerCallback(juce::ChangeBroadcaster* source)
         if (projectOpt.hasValue())
         {
             const auto& project = *projectOpt;
+            mode = Mode::Project;
 
-            trackNameLabel.setText("Project: " + project.name, juce::dontSendNotification);
-            trackNameLabel.setColour(juce::Label::textColourId, Colors::BLACK);
-            trackNameLabel.setJustificationType(juce::Justification::left);
+            primaryLabel.setText("Project: " + project.name, juce::dontSendNotification);
 
-            juce::String combined = "BPM: " + juce::String(project.bpm) + " | Time Sig: " + project.timeSignature;
-            detailsLabel.setText(combined, juce::dontSendNotification);
-            detailsLabel.setColour(juce::Label::textColourId, Colors::GREY);
-            detailsLabel.setJustificationType(juce::Justification::right);
+            juce::String meta = juce::String(project.bpm) + " BPM";
+            if (project.timeSignature.isNotEmpty())
+                meta += metaSeparator() + project.timeSignature;
+            secondaryLabel.setText(meta, juce::dontSendNotification);
 
-            trackNameLabel.setVisible(true);
-            artistLabel.setVisible(false);
-            detailsLabel.setVisible(true);
+            primaryLabel.setVisible(true);
+            secondaryLabel.setVisible(true);
             messageLabel.setVisible(false);
+            statusDot.setMode(StatusIndicator::Mode::Success);
         }
         else
         {
-            trackNameLabel.setVisible(false);
-            artistLabel.setVisible(false);
-            detailsLabel.setVisible(false);
+            mode = Mode::Prompt;
+            primaryLabel.setVisible(false);
+            secondaryLabel.setVisible(false);
             messageLabel.setVisible(true);
+            statusDot.setMode(StatusIndicator::Mode::Hidden);
         }
     }
 
@@ -115,36 +122,36 @@ void Footer::changeListenerCallback(juce::ChangeBroadcaster* source)
 
 void Footer::resized()
 {
+    auto area = getLocalBounds().reduced(UiMetrics::contentPadX, 6);
+
     if (messageLabel.isVisible())
     {
-        messageLabel.setBounds(getLocalBounds().withSizeKeepingCentre(getWidth(), 20));
+        statusDot.setBounds({});
+        messageLabel.setBounds(area);
+        return;
+    }
+
+    if (statusDot.isVisible())
+    {
+        auto dotArea = area.removeFromLeft(UiMetrics::footerDot);
+        statusDot.setBounds(dotArea.withSizeKeepingCentre(UiMetrics::footerDot, UiMetrics::footerDot));
+        area.removeFromLeft(7);
+    }
+
+    if (secondaryLabel.isVisible())
+    {
+        primaryLabel.setBounds(area.removeFromTop(16));
+        secondaryLabel.setBounds(area.removeFromTop(14));
     }
     else
     {
-        auto area = getLocalBounds();
-
-        auto detailsArea = area.removeFromRight(200);
-        detailsLabel.setBounds(detailsArea);
-
-        juce::FlexBox leftFlex;
-        leftFlex.flexDirection = juce::FlexBox::Direction::column;
-        leftFlex.alignItems = juce::FlexBox::AlignItems::stretch;
-
-        // gap
-        leftFlex.items.add(juce::FlexItem().withHeight(10.0f));
-        leftFlex.items.add(juce::FlexItem(trackNameLabel).withHeight(20.0f));
-        if (artistLabel.isVisible())
-        {
-            leftFlex.items.add(juce::FlexItem().withHeight(2.0f));
-            leftFlex.items.add(juce::FlexItem(artistLabel).withHeight(18.0f));
-        }
-
-        leftFlex.performLayout(area);
+        primaryLabel.setBounds(area);
     }
 }
 
 void Footer::paint(juce::Graphics& g)
 {
-    g.setColour(Colors::LIGHT_GREY);
-    g.drawLine(0, 0, getWidth(), 0, 4.0f);
+    g.fillAll(Colors::GREY_1);
+    g.setColour(Colors::GREY_2);
+    g.fillRect(0, 0, getWidth(), 1);
 }

@@ -69,7 +69,7 @@ ProjectTimelineView::ProjectTimelineView(SterioPluginProcessor& processor)
 {
     addAndMakeVisible(viewport);
     viewport.setViewedComponent(&content, false);
-    viewport.setScrollBarsShown(true, false);
+    viewport.setScrollBarsShown(true, true);
 
     content.addAndMakeVisible(playhead);
     playhead.setInterceptsMouseClicks(false, false);
@@ -84,16 +84,28 @@ ProjectTimelineView::~ProjectTimelineView()
 
 void ProjectTimelineView::paint(Graphics& g)
 {
-    g.fillAll(Colors::LIGHT_GREY);
+    g.fillAll(Colors::BACKGROUND);
 }
 
 void ProjectTimelineView::resized()
 {
-    viewport.setBounds(getLocalBounds());
+    viewport.setBounds(getLocalBounds().reduced(UiMetrics::timelinePad - 2, 10)
+                                       .withTrimmedBottom(2));
 
-    const int contentHeight = jmax(getHeight(),
-                                   lanes.size() * (kLaneHeight + kLaneGap) + 4);
-    content.setSize(getWidth(), contentHeight);
+    const int laneStackH = lanes.isEmpty()
+        ? 0
+        : lanes.size() * (kLaneHeight + kLaneGap) - kLaneGap;
+
+    // Two-pass size so scrollbar appearance doesn't leave a white strip beside lanes.
+    auto syncContentSize = [this, laneStackH]() {
+        const int contentHeight = jmax(viewport.getMaximumVisibleHeight(), laneStackH);
+        const int contentWidth = jmax(UiMetrics::timelineMinContentW,
+                                      viewport.getMaximumVisibleWidth());
+        content.setSize(contentWidth, contentHeight);
+    };
+
+    syncContentSize();
+    syncContentSize();
     updatePlayheadPosition();
 }
 
@@ -249,25 +261,50 @@ float ProjectTimelineView::secondsToX(double seconds, int timelineWidth) const
 
 Colour ProjectTimelineView::laneColour(int index) const
 {
-    static const Colour palette[] = {
-        Colors::SEAFOAM.withAlpha(0.55f),
-        Colors::RUSTIC_PINK.withAlpha(0.55f),
-        Colors::SEAFOAM_LIGHT.withAlpha(0.7f),
-        Colors::RUSTIC_PINK_LIGHT.withAlpha(0.7f),
+    // Artifact hue families: fill alphas match .lane[data-hue]
+    static const Colour fills[] = {
+        Colors::SEAFOAM.withAlpha(0.28f),
+        Colors::P2.withAlpha(0.20f),
+        Colors::P1.withAlpha(0.24f),
+        Colors::S1.withAlpha(0.24f),
     };
-    return palette[static_cast<size_t>(index) % (sizeof(palette) / sizeof(palette[0]))];
+    return fills[static_cast<size_t>(index) % 4u];
+}
+
+static Colour laneBorderColour(int index)
+{
+    static const Colour borders[] = {
+        Colors::SEAFOAM_DARK.withAlpha(0.85f),
+        Colors::P2.withAlpha(0.85f),
+        Colors::P1.withAlpha(0.90f),
+        Colors::S1.withAlpha(0.90f),
+    };
+    return borders[static_cast<size_t>(index) % 4u];
+}
+
+static Colour laneWaveColour(int index)
+{
+    static const Colour waves[] = {
+        Colour(0xff3ea37c),
+        Colour(0xffcf6d40),
+        Colour(0xffbd7458),
+        Colour(0xff5e8271),
+    };
+    return waves[static_cast<size_t>(index) % 4u];
 }
 
 Rectangle<int> ProjectTimelineView::muteButtonBounds(int laneIndex) const
 {
-    const int y = laneIndex * (kLaneHeight + kLaneGap) + kLaneHeight - kMixButtonSize - 4;
-    return { 4, y, kMixButtonSize, kMixButtonSize };
+    const int y = laneIndex * (kLaneHeight + kLaneGap) + (kLaneHeight - kMixButtonH);
+    const int half = kLabelWidth / 2;
+    return { 0, y, half, kMixButtonH };
 }
 
 Rectangle<int> ProjectTimelineView::soloButtonBounds(int laneIndex) const
 {
-    const int y = laneIndex * (kLaneHeight + kLaneGap) + kLaneHeight - kMixButtonSize - 4;
-    return { 4 + kMixButtonSize + kMixButtonGap, y, kMixButtonSize, kMixButtonSize };
+    const int y = laneIndex * (kLaneHeight + kLaneGap) + (kLaneHeight - kMixButtonH);
+    const int half = kLabelWidth / 2;
+    return { half, y, kLabelWidth - half, kMixButtonH };
 }
 
 void ProjectTimelineView::handleContentMouseDown(const MouseEvent& event)
@@ -293,11 +330,16 @@ void ProjectTimelineView::handleContentMouseDown(const MouseEvent& event)
 
 void ProjectTimelineView::paintContent(Graphics& g)
 {
-    g.fillAll(Colors::WHITE);
+    g.fillAll(Colors::BACKGROUND);
 
     const int width = content.getWidth();
     const int timelineWidth = jmax(1, width - kLabelWidth);
     const auto mixState = processorRef.getProjectMixState();
+    const float radius = UiMetrics::radiusSm;
+
+    // Back button floats over the first lane; keep its label clear of the control.
+    const int firstLabelPadL = jmax(8, (6 + UiMetrics::projectBackSize)
+                                         - (UiMetrics::timelinePad - 2) + 4);
 
     for (int i = 0; i < lanes.size(); ++i)
     {
@@ -306,152 +348,174 @@ void ProjectTimelineView::paintContent(Graphics& g)
         const bool isMuted = mixState && mixState->isTrackMuted(lane.info.trackId);
         const bool isSolo = mixState && mixState->soloTrackId == lane.info.trackId;
 
-        // Lane background
-        g.setColour(i % 2 == 0 ? Colors::WHITE : Colors::LIGHT_GREY);
-        g.fillRect(0, y, width, kLaneHeight);
+        auto laneBounds = Rectangle<float>(0.0f, (float) y, (float) width, (float) kLaneHeight);
 
-        // Track label (above M/S buttons)
-        g.setColour(Colors::BLACK);
-        g.setFont(Font(11.0f, Font::bold));
-        g.drawText(lane.info.name.isNotEmpty() ? lane.info.name : ("Track " + String(lane.info.trackId)),
-                   4, y + 2, kLabelWidth - 8, 18,
-                   Justification::centredLeft, true);
-
-        // Mute / Solo toggles
-        auto drawMixButton = [&](Rectangle<int> bounds, const char* label, bool active, Colour activeColour) {
-            g.setColour(active ? activeColour : Colors::LIGHT_GREY.darker(0.05f));
-            g.fillRoundedRectangle(bounds.toFloat(), 3.0f);
-            g.setColour(active ? Colors::BLACK : Colors::GREY);
-            g.drawRoundedRectangle(bounds.toFloat(), 3.0f, 1.0f);
-            g.setFont(Font(10.0f, Font::bold));
-            g.setColour(Colors::BLACK);
-            g.drawText(label, bounds, Justification::centred, false);
-        };
-
-        drawMixButton(muteButtonBounds(i), "M", isMuted, Colors::RUSTIC_PINK);
-        drawMixButton(soloButtonBounds(i), "S", isSolo, Colors::SEAFOAM);
-
-        // Clips
-        for (const auto& clip : lane.clips)
+        // Match artifact: overflow:hidden rounded lane — controls flush to track (no white gutters).
         {
-            const bool isLooped = clip.loopEnd > clip.endTime;
-            const double visualEnd = isLooped ? clip.loopEnd : clip.endTime;
-            const float x1 = static_cast<float>(kLabelWidth) + secondsToX(clip.startTime, timelineWidth);
-            const float xEnd = static_cast<float>(kLabelWidth) + secondsToX(clip.endTime, timelineWidth);
-            const float xLoop = static_cast<float>(kLabelWidth) + secondsToX(visualEnd, timelineWidth);
-            const float clipW = jmax(2.0f, xLoop - x1);
-            const float audibleW = jmax(1.0f, xEnd - x1);
-            Rectangle<float> clipBounds(x1, static_cast<float>(y + 4), clipW, static_cast<float>(kLaneHeight - 8));
-            Rectangle<float> audibleBounds(x1, clipBounds.getY(), audibleW, clipBounds.getHeight());
+            Path clipPath;
+            clipPath.addRoundedRectangle(laneBounds, radius);
+            Graphics::ScopedSaveState clipped(g);
+            g.reduceClipRegion(clipPath);
 
-            g.setColour(laneColour(i));
-            g.fillRoundedRectangle(clipBounds, 3.0f);
+            g.setColour(Colors::GREY_1);
+            g.fillRect(laneBounds);
 
-            g.setColour(Colors::BLACK.withAlpha(0.15f));
-            g.drawRoundedRectangle(clipBounds, 3.0f, 1.0f);
+            g.setColour(Colors::BACKGROUND);
+            g.fillRect(0.0f, (float) y, (float) kLabelWidth, (float) kLaneHeight);
 
-            auto drawWaveformInBounds = [&](Rectangle<float> bounds, float alpha) {
-                if (!clip.peaksReady || clip.peaks.empty())
-                    return;
+            // Track label (vertically centred above the M/S row)
+            const int labelPadL = (i == 0) ? firstLabelPadL : 8;
+            const int msY = y + kLaneHeight - kMixButtonH;
+            auto labelArea = Rectangle<int>(labelPadL, y,
+                                            kLabelWidth - labelPadL - 8,
+                                            msY - y);
+            g.setColour(Colors::TEXT_SECONDARY);
+            g.setFont(Font(UiMetrics::fontLaneLabel, Font::bold));
+            g.drawFittedText(lane.info.name.isNotEmpty() ? lane.info.name
+                                                         : ("Track " + String(lane.info.trackId)),
+                             labelArea, Justification::centredLeft, 2);
 
-                const int numBuckets = static_cast<int>(clip.peaks.size() / 2);
-                Path waveform;
-                const float midY = bounds.getCentreY();
-                const float halfH = bounds.getHeight() * 0.4f;
-
-                bool started = false;
-                for (int b = 0; b < numBuckets; ++b)
+            // Mute / Solo toggles (fills only — borders drawn after so they stay visible)
+            auto drawMixButton = [&](Rectangle<int> bounds, const char* label, bool active, bool isMute) {
+                Colour fill = Colors::BACKGROUND;
+                Colour text = Colors::TEXT_DISABLED;
+                if (active && isMute)
                 {
-                    const float t = static_cast<float>(b) / static_cast<float>(jmax(1, numBuckets - 1));
-                    const float x = bounds.getX() + t * bounds.getWidth();
-                    const float maxVal = clip.peaks[static_cast<size_t>(b) * 2u + 1u];
-                    const float yTop = midY - maxVal * halfH;
-
-                    if (!started)
-                    {
-                        waveform.startNewSubPath(x, yTop);
-                        started = true;
-                    }
-                    else
-                    {
-                        waveform.lineTo(x, yTop);
-                    }
+                    fill = Colors::RUSTIC_PINK;
+                    text = Colors::BACKGROUND;
+                }
+                else if (active)
+                {
+                    fill = Colors::SEAFOAM;
+                    text = Colors::GREY_4;
                 }
 
-                for (int b = numBuckets - 1; b >= 0; --b)
-                {
-                    const float t = static_cast<float>(b) / static_cast<float>(jmax(1, numBuckets - 1));
-                    const float x = bounds.getX() + t * bounds.getWidth();
-                    const float minVal = clip.peaks[static_cast<size_t>(b) * 2u];
-                    const float yBottom = midY - minVal * halfH;
-                    waveform.lineTo(x, yBottom);
-                }
-
-                waveform.closeSubPath();
-                g.setColour(Colors::BLACK.withAlpha(alpha));
-                g.fillPath(waveform);
+                g.setColour(fill);
+                g.fillRect(bounds);
+                g.setFont(Font(UiMetrics::fontMs, Font::bold));
+                g.setColour(text);
+                g.drawText(label, bounds, Justification::centred, false);
             };
 
-            // Audible portion — full opacity waveform
-            drawWaveformInBounds(audibleBounds, 0.35f);
+            drawMixButton(muteButtonBounds(i), "M", isMuted, true);
+            drawMixButton(soloButtonBounds(i), "S", isSolo, false);
 
-            if (isLooped)
+            // Header chrome last (matches artifact .lane-label / .lane-controls / .lane-ms)
+            g.setColour(Colors::GREY_2);
+            g.fillRect(0, msY, kLabelWidth, 1);                         // title | M/S
+            g.fillRect(kLabelWidth / 2, msY, 1, kMixButtonH);           // M | S
+            g.fillRect(kLabelWidth - 1, y, 1, kLaneHeight);             // controls | track
+
+            // Clips
+            for (const auto& clip : lane.clips)
             {
-                // Light wash over the loop area
-                Rectangle<float> loopArea(xEnd, clipBounds.getY(),
-                                          jmax(0.0f, xLoop - xEnd), clipBounds.getHeight());
-                g.setColour(Colors::WHITE.withAlpha(0.12f));
-                g.fillRect(loopArea);
+                const bool isLooped = clip.loopEnd > clip.endTime;
+                const double visualEnd = isLooped ? clip.loopEnd : clip.endTime;
+                const float x1 = static_cast<float>(kLabelWidth) + secondsToX(clip.startTime, timelineWidth);
+                const float xEnd = static_cast<float>(kLabelWidth) + secondsToX(clip.endTime, timelineWidth);
+                const float xLoop = static_cast<float>(kLabelWidth) + secondsToX(visualEnd, timelineWidth);
+                const float clipW = jmax(2.0f, xLoop - x1);
+                const float audibleW = jmax(1.0f, xEnd - x1);
+                Rectangle<float> clipBounds(x1, static_cast<float>(y + 5), clipW, static_cast<float>(kLaneHeight - 10));
+                Rectangle<float> audibleBounds(x1, clipBounds.getY(), audibleW, clipBounds.getHeight());
 
-                const double audibleLength = clip.endTime - clip.startTime;
-                if (audibleLength > 0.0)
-                {
-                    double tileStart = clip.endTime;
-                    int tileIndex = 0;
-                    while (tileStart < clip.loopEnd && tileIndex < kMaxVisibleLoopTiles)
+                g.setColour(laneColour(i));
+                g.fillRoundedRectangle(clipBounds, 4.0f);
+                g.setColour(laneBorderColour(i));
+                g.drawRoundedRectangle(clipBounds, 4.0f, 1.0f);
+
+                auto drawWaveformInBounds = [&](Rectangle<float> bounds, float alpha) {
+                    if (!clip.peaksReady || clip.peaks.empty())
+                        return;
+
+                    const int numBuckets = static_cast<int>(clip.peaks.size() / 2);
+                    Path waveform;
+                    const float midY = bounds.getCentreY();
+                    const float halfH = bounds.getHeight() * 0.36f;
+
+                    bool started = false;
+                    for (int b = 0; b < numBuckets; ++b)
                     {
-                        const double tileDuration = jmin(audibleLength, clip.loopEnd - tileStart);
-                        const float tileX = static_cast<float>(kLabelWidth)
-                            + secondsToX(tileStart, timelineWidth);
-                        const float tileW = secondsToX(tileStart + tileDuration, timelineWidth)
-                            - secondsToX(tileStart, timelineWidth);
+                        const float t = static_cast<float>(b) / static_cast<float>(jmax(1, numBuckets - 1));
+                        const float x = bounds.getX() + t * bounds.getWidth();
+                        const float maxVal = clip.peaks[static_cast<size_t>(b) * 2u + 1u];
+                        const float yTop = midY - maxVal * halfH;
 
-                        // Boundary line at each tile start
-                        g.setColour(Colors::BLACK.withAlpha(0.18f));
-                        g.fillRect(tileX, clipBounds.getY(), 1.0f, clipBounds.getHeight());
-
-                        // Faded waveform tile (partial last tile clipped)
-                        if (clip.peaksReady && !clip.peaks.empty() && tileW > 0.5f)
+                        if (!started)
                         {
-                            const float fullTileW = secondsToX(tileStart + audibleLength, timelineWidth)
-                                - secondsToX(tileStart, timelineWidth);
-                            Rectangle<float> fullTileBounds(tileX, clipBounds.getY(),
-                                                            jmax(1.0f, fullTileW), clipBounds.getHeight());
-                            Rectangle<float> visibleTileBounds(tileX, clipBounds.getY(),
-                                                               tileW, clipBounds.getHeight());
-
-                            Graphics::ScopedSaveState saved(g);
-                            g.reduceClipRegion(visibleTileBounds.toNearestInt());
-                            drawWaveformInBounds(fullTileBounds, 0.175f);
+                            waveform.startNewSubPath(x, yTop);
+                            started = true;
                         }
+                        else
+                        {
+                            waveform.lineTo(x, yTop);
+                        }
+                    }
 
-                        tileStart += audibleLength;
-                        ++tileIndex;
+                    for (int b = numBuckets - 1; b >= 0; --b)
+                    {
+                        const float t = static_cast<float>(b) / static_cast<float>(jmax(1, numBuckets - 1));
+                        const float x = bounds.getX() + t * bounds.getWidth();
+                        const float minVal = clip.peaks[static_cast<size_t>(b) * 2u];
+                        const float yBottom = midY - minVal * halfH;
+                        waveform.lineTo(x, yBottom);
+                    }
+
+                    waveform.closeSubPath();
+                    g.setColour(laneWaveColour(i).withMultipliedAlpha(alpha));
+                    g.fillPath(waveform);
+                };
+
+                drawWaveformInBounds(audibleBounds, 0.95f);
+
+                if (isLooped)
+                {
+                    Rectangle<float> loopArea(xEnd, clipBounds.getY(),
+                                              jmax(0.0f, xLoop - xEnd), clipBounds.getHeight());
+                    g.setColour(Colors::BACKGROUND.withAlpha(0.12f));
+                    g.fillRect(loopArea);
+
+                    const double audibleLength = clip.endTime - clip.startTime;
+                    if (audibleLength > 0.0)
+                    {
+                        double tileStart = clip.endTime;
+                        int tileIndex = 0;
+                        while (tileStart < clip.loopEnd && tileIndex < kMaxVisibleLoopTiles)
+                        {
+                            const double tileDuration = jmin(audibleLength, clip.loopEnd - tileStart);
+                            const float tileX = static_cast<float>(kLabelWidth)
+                                + secondsToX(tileStart, timelineWidth);
+                            const float tileW = secondsToX(tileStart + tileDuration, timelineWidth)
+                                - secondsToX(tileStart, timelineWidth);
+
+                            g.setColour(Colors::TEXT_PRIMARY.withAlpha(0.18f));
+                            g.fillRect(tileX, clipBounds.getY(), 1.0f, clipBounds.getHeight());
+
+                            if (clip.peaksReady && !clip.peaks.empty() && tileW > 0.5f)
+                            {
+                                const float fullTileW = secondsToX(tileStart + audibleLength, timelineWidth)
+                                    - secondsToX(tileStart, timelineWidth);
+                                Rectangle<float> fullTileBounds(tileX, clipBounds.getY(),
+                                                                jmax(1.0f, fullTileW), clipBounds.getHeight());
+                                Rectangle<float> visibleTileBounds(tileX, clipBounds.getY(),
+                                                                   tileW, clipBounds.getHeight());
+
+                                Graphics::ScopedSaveState saved(g);
+                                g.reduceClipRegion(visibleTileBounds.toNearestInt());
+                                drawWaveformInBounds(fullTileBounds, 0.45f);
+                            }
+
+                            tileStart += audibleLength;
+                            ++tileIndex;
+                        }
                     }
                 }
             }
         }
 
-        // Separator
-        g.setColour(Colors::LIGHT_GREY.darker(0.1f));
-        g.drawLine(0.0f, static_cast<float>(y + kLaneHeight), static_cast<float>(width),
-                   static_cast<float>(y + kLaneHeight), 1.0f);
+        g.setColour(Colors::GREY_2);
+        g.drawRoundedRectangle(laneBounds.reduced(0.5f), radius, 1.0f);
     }
-
-    // Label / timeline divider
-    g.setColour(Colors::GREY.withAlpha(0.4f));
-    g.drawLine(static_cast<float>(kLabelWidth), 0.0f,
-               static_cast<float>(kLabelWidth), static_cast<float>(content.getHeight()), 1.0f);
 }
 
 void ProjectTimelineView::computePeaksAsync(int clipId,

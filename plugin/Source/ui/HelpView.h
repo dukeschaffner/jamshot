@@ -11,24 +11,48 @@ public:
         instructionsEditor.setMultiLine(true);
         instructionsEditor.setReadOnly(true);
         instructionsEditor.setScrollbarsShown(true);
-        instructionsEditor.setFont(juce::Font(14.0f));
-        instructionsEditor.setColour(juce::TextEditor::backgroundColourId, Colors::WHITE);
-        instructionsEditor.setColour(juce::TextEditor::textColourId, Colors::BLACK);
-        instructionsEditor.setText("Instructions:\n"
-                                   "- Use 44.1 kHz project sample rate for best results\n"
-                                   "- Log in with your Sterio account or click the \"...\" button on a track in the website and click \"Open in Plugin\"\n"
-                                   "- Set the metronome and time signature in your DAW and start playback from the timeline start. the plugin will sync the selected track playback with the DAW timeline, allowing you to record a new track\n"
-                                   "- When finished recording, bounce and export audio file as .wav for best results (time sync in Sterio DAW may be slightly off for non PCM audio formats). Then import your file to the Sterio website DAW and upload from there.\n"
-                                   "- NOTE: You can sync edits made in the web DAW to the plugin by clicking the \"...\" button in the web DAW and selecting \"Sync edits to plugin\"");
+        instructionsEditor.setFont(juce::Font(UiMetrics::fontHelpBody, juce::Font::plain));
+        instructionsEditor.setColour(juce::TextEditor::backgroundColourId, Colors::BACKGROUND);
+        instructionsEditor.setColour(juce::TextEditor::textColourId, Colors::TEXT_SECONDARY);
+        instructionsEditor.setColour(juce::TextEditor::outlineColourId, juce::Colours::transparentBlack);
+        instructionsEditor.setColour(juce::TextEditor::focusedOutlineColourId, juce::Colours::transparentBlack);
+        instructionsEditor.setColour(juce::CaretComponent::caretColourId, juce::Colours::transparentBlack);
+        instructionsEditor.setText(
+            "1. Prefer a 44.1 kHz host/project sample rate for best results.\n\n"
+            "2. Log in with your Sterio account, or open a track from the website via "
+            "\"Open in Plugin\".\n\n"
+            "3. Set the metronome and time signature in your DAW, then start playback from "
+            "the timeline start so the plugin can sync.\n\n"
+            "4. When finished recording, bounce/export as WAV, then import and upload in the "
+            "Sterio web DAW.\n\n"
+            "5. Sync web DAW edits back to the plugin with \"Sync edits to plugin\" in the web DAW.");
         addAndMakeVisible(instructionsEditor);
+        setOpaque(true);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(Colors::BACKGROUND);
+
+        auto bounds = getLocalBounds().withTrimmedLeft(18).withTrimmedRight(18).withTrimmedTop(14);
+        auto titleRow = bounds.removeFromTop(20);
+        g.setFont(juce::Font(UiMetrics::fontHelpTitle, juce::Font::bold));
+        g.setColour(Colors::TEXT_PRIMARY);
+        g.drawText("Help", titleRow, juce::Justification::centredLeft, true);
+
+        juce::ColourGradient grad(Colors::SEAFOAM, (float) titleRow.getX(), 0.0f,
+                                  Colors::RUSTIC_PINK, (float) titleRow.getX() + 42.0f, 0.0f, false);
+        g.setGradientFill(grad);
+        g.fillRoundedRectangle((float) titleRow.getX(), (float) titleRow.getBottom() + 4.0f,
+                               42.0f, 3.0f, 2.0f);
     }
 
     void resized() override
     {
-        juce::FlexBox flexBox;
-        flexBox.flexDirection = juce::FlexBox::Direction::column;
-        flexBox.items.add(juce::FlexItem(instructionsEditor).withFlex(1));
-        flexBox.performLayout(getLocalBounds());
+        auto bounds = getLocalBounds();
+        bounds.removeFromTop(44);
+        instructionsEditor.setBounds(bounds.withTrimmedLeft(18).withTrimmedRight(18)
+                                           .withTrimmedBottom(18));
     }
 
 private:

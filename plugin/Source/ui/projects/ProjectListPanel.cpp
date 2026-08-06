@@ -8,59 +8,19 @@ using namespace juce;
 //==============================================================================
 ProjectListPanel::ProjectListPanel(Services& services)
     : apiClientRef(services.api),
-      titleLabel({}, "Projects"),
-      projectListBox("Projects", nullptr),
-      refreshButton("Refresh", DrawableButton::ImageFitted)
+      sectionHeader("Projects"),
+      projectListBox("Projects")
 {
-    addAndMakeVisible(titleLabel);
-    addAndMakeVisible(refreshButton);
+    addAndMakeVisible(sectionHeader);
+    sectionHeader.setOnRefresh([this] { refreshProjects(); });
 
-    auto svgFile = File::getSpecialLocation(File::currentExecutableFile)
-                      .getParentDirectory()
-                      .getChildFile("Assets")
-                      .getChildFile("icons")
-                      .getChildFile("refresh.svg");
-
-    if (!svgFile.existsAsFile())
-    {
-        svgFile = File(__FILE__).getParentDirectory()
-                     .getParentDirectory()
-                     .getParentDirectory()
-                     .getParentDirectory()
-                     .getChildFile("Assets")
-                     .getChildFile("icons")
-                     .getChildFile("refresh.svg");
-    }
-
-    if (svgFile.existsAsFile())
-    {
-        auto svgContent = svgFile.loadFileAsString();
-        svgContent = svgContent.replace("currentColor", "black");
-
-        auto svgXml = XmlDocument::parse(svgContent);
-        if (svgXml != nullptr)
-        {
-            refreshIcon = Drawable::createFromSVG(*svgXml);
-            if (refreshIcon != nullptr)
-                refreshButton.setImages(refreshIcon.get(), refreshIcon.get(), refreshIcon.get());
-        }
-    }
-
-    refreshButton.onClick = [this] { refreshProjects(); };
-    refreshButton.setColour(DrawableButton::backgroundColourId, Colors::WHITE);
-
-    addAndMakeVisible(statusLabel);
-    statusLabel.setText("No projects loaded", dontSendNotification);
-    statusLabel.setJustificationType(Justification::centred);
-    statusLabel.setColour(Label::textColourId, Colors::GREY);
-
-    titleLabel.setJustificationType(Justification::centredLeft);
-    titleLabel.setColour(Label::textColourId, Colors::BLACK);
+    addAndMakeVisible(statusView);
+    statusView.setState(ListStatusView::State::Empty, "No projects loaded");
 
     projectListBox.setModel(new ProjectListPanel::ProjectListBoxModel(*this));
-    projectListBox.setRowHeight(40);
+    projectListBox.setRowHeight(UiMetrics::listRowH);
     projectListBox.setMultipleSelectionEnabled(false);
-    projectListBox.setColour(ListBox::backgroundColourId, Colours::white);
+    projectListBox.setColour(ListBox::backgroundColourId, Colors::BACKGROUND);
     projectListBox.setColour(ListBox::outlineColourId, Colours::transparentBlack);
     addAndMakeVisible(projectListBox);
 
@@ -74,45 +34,38 @@ ProjectListPanel::~ProjectListPanel()
 
 void ProjectListPanel::paint(Graphics& g)
 {
-    g.fillAll(Colors::WHITE);
+    g.fillAll(Colors::BACKGROUND);
 }
 
 void ProjectListPanel::resized()
 {
-    auto bounds = getLocalBounds().toFloat();
-    const bool showEmptyState = projects.isEmpty();
+    auto bounds = getLocalBounds();
+    sectionHeader.setBounds(bounds.removeFromTop(UiMetrics::sectionChromeH));
 
-    projectListBox.setVisible(!showEmptyState);
-    statusLabel.setVisible(showEmptyState);
+    updateStatusView();
 
-    FlexBox main;
-    main.flexDirection = FlexBox::Direction::column;
+    const bool showList = !projects.isEmpty() && !isLoading;
+    projectListBox.setVisible(showList);
+    statusView.setVisible(!showList);
 
-    FlexBox buttonRow;
-    buttonRow.flexDirection = FlexBox::Direction::row;
-    buttonRow.justifyContent = FlexBox::JustifyContent::spaceBetween;
+    auto content = bounds.withTrimmedLeft(UiMetrics::listPadX)
+                         .withTrimmedRight(UiMetrics::listPadX)
+                         .withTrimmedBottom(UiMetrics::space3);
 
-    buttonRow.items.add(
-        FlexItem(titleLabel)
-            .withMinWidth(100.0f)
-            .withFlex(1.0f)
-            .withHeight(20.0f)
-    );
-
-    buttonRow.items.add(
-        FlexItem(refreshButton)
-            .withWidth(20.0f)
-            .withHeight(20.0f)
-    );
-
-    main.items.add(FlexItem(buttonRow).withHeight(20.0f));
-
-    if (showEmptyState)
-        main.items.add(FlexItem(statusLabel).withFlex(1.0f));
+    if (showList)
+        projectListBox.setBounds(content);
     else
-        main.items.add(FlexItem(projectListBox).withFlex(1.0f));
+        statusView.setBounds(bounds);
+}
 
-    main.performLayout(bounds);
+void ProjectListPanel::updateStatusView()
+{
+    if (isLoading)
+        statusView.setState(ListStatusView::State::Loading, "Loading projects...");
+    else if (hasLoadError)
+        statusView.setState(ListStatusView::State::Error, "Failed to load projects");
+    else if (projects.isEmpty())
+        statusView.setState(ListStatusView::State::Empty, "No projects");
 }
 
 void ProjectListPanel::refreshProjects()
@@ -135,22 +88,14 @@ void ProjectListPanel::clearProjects()
     hasLoadError = false;
     projectListBox.deselectAllRows();
     projectListBox.updateContent();
-    statusLabel.setText("No projects", dontSendNotification);
+    updateStatusView();
     resized();
 }
 
 void ProjectListPanel::timerCallback()
 {
+    updateStatusView();
     resized();
-
-    if (isLoading)
-        statusLabel.setText("Loading projects...", dontSendNotification);
-    else if (hasLoadError)
-        statusLabel.setText("Failed to load projects", dontSendNotification);
-    else if (projects.isEmpty())
-        statusLabel.setText("No projects", dontSendNotification);
-    else
-        statusLabel.setText(String(projects.size()) + " projects loaded", dontSendNotification);
 }
 
 void ProjectListPanel::loadProjectsInternal()
@@ -159,6 +104,7 @@ void ProjectListPanel::loadProjectsInternal()
         return;
 
     isLoading = true;
+    resized();
 
     Thread::launch([this]() {
         auto result = apiClientRef.getProjects();
@@ -180,7 +126,8 @@ void ProjectListPanel::loadProjectsInternal()
             if (result.failed())
             {
                 hasLoadError = true;
-                statusLabel.setText("Failed to load projects", dontSendNotification);
+                updateStatusView();
+                resized();
                 return;
             }
 
