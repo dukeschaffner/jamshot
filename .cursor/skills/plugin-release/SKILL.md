@@ -6,7 +6,8 @@ description: Steps for releasing a new version of the plugin
 - when releasing a new version:
     - update version in Config.h, CMakeLists.txt, and create-plugin-pkg.sh
     - ensure Config.h points to prod urls
-    - update API Env Var to point to the latest version
+    - update API Env Var to point to the latest version:
+        - here's an example plugin meta: `PLUGIN_META={"currentVersion": "0.1.3", "minSupportedVersion": "0.1.0"}`
 
 
 

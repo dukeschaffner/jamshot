@@ -2,7 +2,7 @@
 set -e
 
 PLUGIN_NAME="Sterio"
-VERSION="0.1.2"
+VERSION="0.1.3"
 BUILD_DIR="build/SterioPlugin_artefacts/Release"
 PKG_ROOT="pkgroot"
 OUTPUT="Sterio-$VERSION.pkg"
