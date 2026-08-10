@@ -9,7 +9,6 @@
 - if i've loaded a project and then switch between the projects and tracks tabs, after it clears the state it shows "Fetching audio assets (4 of 4)" even though there is no project or track selected... its just a stale message
 - in two sepatate windows with different users, I recorded on the same track one after another... the first window finished recording and the second window was able to start recording after the lock was released and before the region from the first window appeared on the timeline... both regions started at the beginning of the track. both regions we saved successully. this should not happen, because the regions are overlapping.
 - [can't reproduce] i clicked "create from project" on a track, then canceled on the project create page, then went to the projects page and clicked create, and it was seemed to have preserved the state from the previous project create page... it was still trying to create from the same track. this shouldnt happen. if i go to projects page, then to create project, it should just be a plain project with no camp/team/track context/scope.
-- creating project from track didnt send email to all contributors on the collab
 - add audit trail as premium feature
 - indicator on plugin about sync and connection state
 - option to invite all collaborators on a collab to a project when creating project from collab - maybe consolidate emails so users dont get multiple emails
@@ -17,6 +16,8 @@
     - email when a track from elsewhere in the tree is imported into the project (if the user isn't already in the project)?
 - "This file is referenced by a snapshot. Deleting it may affect snapshot restore. Continue?" message showed when the asset was still in the project. if asset is still in project, it should say something like "This file is currently used in this project. Are you sure you want to delete it?"
 - if the plugin is connected to the web DAW and they have the same project open, they should aautomatically statrt syncing if the user has autosync enabled.
+- timeline view for tracks in plugin
+
 
 optimize:
 - im pretty happy with the projects implementation. but i have a couple concerns. the project DAW is calling /assets and /plugin-payload VERY frequently. and these endpoints have decent sized payloads... is this going to drive high api costs? would it be better to move to an event based model instead of state based? so only updates are pushed out, and not the entire project state every time? if so, how big of an effort is that? also, does the plugin-payload endpoint REALLY need to exist? can't the web DAW just forward the project state to the plugin? seems a little redundant.

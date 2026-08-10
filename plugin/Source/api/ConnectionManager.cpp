@@ -90,6 +90,20 @@ void ConnectionManager::connect(const std::string& url)
                             messageCallback(msg->str);
                     }
                 });
+
+                // Announce current plugin state directly to this client (avoid
+                // racing getClients() before the connection is fully registered).
+                ClientConnectedCallback connectedCb;
+                {
+                    juce::ScopedLock lock(callbackLock);
+                    connectedCb = clientConnectedCallback;
+                }
+                if (connectedCb)
+                {
+                    const std::string hello = connectedCb();
+                    if (!hello.empty())
+                        client->send(hello);
+                }
             });
 
         auto res = webSocketServer->listen();
@@ -149,6 +163,12 @@ void ConnectionManager::onStatusChange(StatusCallback cb)
 {
     juce::ScopedLock lock(callbackLock);
     statusCallback = std::move(cb);
+}
+
+void ConnectionManager::onClientConnected(ClientConnectedCallback cb)
+{
+    juce::ScopedLock lock(callbackLock);
+    clientConnectedCallback = std::move(cb);
 }
 
 ConnectionManager::Status ConnectionManager::getStatus() const

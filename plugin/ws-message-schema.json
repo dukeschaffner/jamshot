@@ -56,6 +56,16 @@
     "error": "Failed to download project asset audio"
 }
 
+// plugin_project_status (sent to each new web WS client on connect):
+{
+    "type": "plugin_project_status",
+    "project_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+// When no project is loaded, project_id is omitted:
+{
+    "type": "plugin_project_status"
+}
+
 
 // project_sync:
 {

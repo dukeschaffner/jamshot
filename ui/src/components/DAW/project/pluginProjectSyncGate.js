@@ -42,7 +42,7 @@ function toReady(gate, projectId) {
 /**
  * Pure reducer for whether the local plugin currently has a project ready for project_sync.
  * UNKNOWN allows a single probe attempt after (re)connect; NOT_READY blocks auto-sync until
- * project_load_complete / project_sync_complete.
+ * project_load_complete / project_sync_complete / plugin_project_status with a matching id.
  */
 export function reducePluginSyncGate(gate, event) {
   switch (event?.type) {
@@ -51,6 +51,13 @@ export function reducePluginSyncGate(gate, event) {
         return gate;
       }
       return createInitialPluginSyncGate();
+    }
+    case 'plugin_project_status': {
+      const projectId = event.projectId || null;
+      if (!projectId) {
+        return toNotReady(gate);
+      }
+      return toReady(gate, projectId);
     }
     case 'project_load_complete':
     case 'project_sync_complete': {
@@ -89,4 +96,15 @@ export function canAutoSyncProjectToPlugin(gate, projectGuid, connectionStatus) 
 
   // UNKNOWN: allow one probe so a page refresh with the project already loaded still works.
   return true;
+}
+
+/**
+ * True when plugin has announced (or completed load of) the same project the web DAW has open.
+ */
+export function isMatchingPluginProjectReady(gate, projectGuid) {
+  return (
+    Boolean(projectGuid) &&
+    gate?.status === PLUGIN_SYNC_GATE.READY &&
+    gate.loadedProjectId === projectGuid
+  );
 }

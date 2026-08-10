@@ -64,6 +64,12 @@ SterioPluginProcessor::SterioPluginProcessor()
         handleIncomingMessage(msg);
     });
 
+    connectionManager.onClientConnected([this]() -> std::string
+    {
+        // WS thread — only read locked project id and build JSON (no UI).
+        return buildPluginProjectStatusMessage();
+    });
+
             // Set up cache manager
     auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
     DBG("PluginEditor: Application data directory: " + appDataDir.getFullPathName());
@@ -539,6 +545,21 @@ void SterioPluginProcessor::sendProjectSyncError(const juce::String& projectId,
     obj->setProperty("project_id", projectId);
     obj->setProperty("error", error);
     connectionManager.send(juce::JSON::toString(juce::var(obj)).toStdString());
+}
+
+std::string SterioPluginProcessor::buildPluginProjectStatusMessage() const
+{
+    juce::String projectId;
+    {
+        const juce::ScopedLock lock(projectPayloadLock);
+        projectId = loadedProjectId;
+    }
+
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("type", "plugin_project_status");
+    if (projectId.isNotEmpty())
+        obj->setProperty("project_id", projectId);
+    return juce::JSON::toString(juce::var(obj)).toStdString();
 }
 
 void SterioPluginProcessor::handleSetTrackMessage(juce::DynamicObject* obj)

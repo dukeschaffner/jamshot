@@ -12,6 +12,7 @@ import { buildProjectSyncMessage } from '@/components/DAW/project/projectPluginS
 import {
   canAutoSyncProjectToPlugin,
   createInitialPluginSyncGate,
+  isMatchingPluginProjectReady,
   reducePluginSyncGate,
 } from '@/components/DAW/project/pluginProjectSyncGate';
 
@@ -28,6 +29,8 @@ function parsePluginMessage(rawMessage) {
  * Debounced project_sync to the local plugin after REST saves (Step 31).
  * Default auto-sync on; manual sync always available via syncToPluginNow.
  * Auto-sync is gated when the plugin has no matching project loaded.
+ * When both sides already have the same project open, plugin_project_status
+ * (or a successful probe) enables catch-up sync without "Open in Plugin".
  */
 export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
   const { status, send, subscribeToMessages } = usePluginWebSocket();
@@ -44,6 +47,7 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
   const projectGuidRef = useRef(projectGuid);
   const syncGateRef = useRef(syncGate);
   const autoSyncEnabledRef = useRef(autoSyncEnabled);
+  const catchUpKeyRef = useRef(null);
 
   useEffect(() => {
     projectGuidRef.current = projectGuid;
@@ -178,13 +182,12 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
         return;
       }
 
-      // Resume auto-sync once the matching project finishes loading in the plugin.
-      if (
-        parsed.type === 'project_load_complete' &&
-        parsed.project_id === projectGuidRef.current &&
-        autoSyncEnabledRef.current &&
-        isPluginStaleRef.current
-      ) {
+      // Matching project became ready in the plugin — start/resume auto-sync.
+      const matchingLoadEvent =
+        (parsed.type === 'project_load_complete' || parsed.type === 'plugin_project_status') &&
+        parsed.project_id === projectGuidRef.current;
+
+      if (matchingLoadEvent && autoSyncEnabledRef.current) {
         scheduleDebouncedSync();
       }
     });
@@ -205,18 +208,34 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
       setSyncGate(nextGate);
     }
 
-    const wasConnected = previousStatus === 'connected';
-    if (!wasConnected && status === 'connected' && autoSyncEnabled && isPluginStaleRef.current) {
-      // UNKNOWN after reconnect: allow a probe if still stale.
+    // New connection: allow catch-up / UNKNOWN probe without requiring a prior edit.
+    if (previousStatus !== 'connected' && status === 'connected' && autoSyncEnabled) {
+      catchUpKeyRef.current = null;
       scheduleDebouncedSync();
     }
   }, [autoSyncEnabled, scheduleDebouncedSync, status]);
 
+  // When the gate becomes ready for this project (status announce or load), catch up once.
   useEffect(() => {
-    if (autoSyncEnabled && isPluginStaleRef.current && canAutoSync()) {
-      scheduleDebouncedSync();
-    }
-  }, [autoSyncEnabled, canAutoSync, scheduleDebouncedSync, syncGate]);
+    if (!autoSyncEnabled || !canEdit || !projectGuid || status !== 'connected') return;
+    if (!canAutoSync()) return;
+
+    const catchUpKey = isMatchingPluginProjectReady(syncGate, projectGuid)
+      ? `ready:${projectGuid}`
+      : `probe:${projectGuid}`;
+
+    if (catchUpKeyRef.current === catchUpKey) return;
+    catchUpKeyRef.current = catchUpKey;
+    scheduleDebouncedSync();
+  }, [
+    autoSyncEnabled,
+    canAutoSync,
+    canEdit,
+    projectGuid,
+    scheduleDebouncedSync,
+    status,
+    syncGate,
+  ]);
 
   return {
     autoSyncEnabled,

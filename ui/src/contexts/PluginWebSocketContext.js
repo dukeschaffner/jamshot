@@ -105,6 +105,11 @@ export function PluginWebSocketProvider({ children }) {
       return;
     }
 
+    // Status announce on connect — not a user-facing open action.
+    if (parsed.type === 'plugin_project_status') {
+      return;
+    }
+
     if (parsed.type === 'project_load_error') {
       showErrorRef.current(
         parsed.error || errorMessages.set_project

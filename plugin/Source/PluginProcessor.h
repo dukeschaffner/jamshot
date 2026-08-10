@@ -129,6 +129,7 @@ private:
     void sendProjectLoadError(const juce::String& projectId, const juce::String& error);
     void sendProjectSyncComplete(const juce::String& projectId);
     void sendProjectSyncError(const juce::String& projectId, const juce::String& error);
+    std::string buildPluginProjectStatusMessage() const;
 
     /** Handle sample rate changes and convert stems if necessary */
     void handleSampleRateChange(double newSampleRate);
@@ -167,7 +168,7 @@ private:
     // Track and stem state management (thread-safe)
     std::shared_ptr<juce::Array<StemTrack>> stems;
     ProjectMixController projectMixController;
-    juce::CriticalSection projectPayloadLock;
+    mutable juce::CriticalSection projectPayloadLock;
     juce::String loadedProjectId;
     juce::Array<ProjectClip> loadedProjectClips;
     juce::Array<ProjectTrackInfo> loadedProjectTracks;
