@@ -6,6 +6,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   border-left: 1px solid var(--grey-2);
   background: var(--background);
   transition: width 0.18s ease, min-width 0.18s ease, max-width 0.18s ease;
@@ -67,8 +68,23 @@
 
 .listSection {
   flex: 1;
+  min-width: 0;
   min-height: 0;
+}
+
+/* Radix ScrollArea wraps children in display:table; force a normal block so
+   long filenames cannot expand the list past the panel width. */
+.listSection :global([data-slot="scroll-area-viewport"] > div) {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: 100%;
+}
+
+.listSectionInner {
   padding: 8px 10px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .assetList {
@@ -78,16 +94,27 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.assetList > li {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .assetItem {
   border: 1px solid var(--grey-2);
   border-radius: 8px;
   background: var(--grey-1);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .assetCardContent {
   padding: 10px;
+  min-width: 0;
 }
 
 .assetItem.draggable {
@@ -108,6 +135,8 @@
 
 .assetName {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);

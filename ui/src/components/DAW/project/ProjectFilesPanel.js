@@ -314,6 +314,18 @@ export default function ProjectFilesPanel() {
     (asset) => {
       if (!canEdit) return;
 
+      const isUsedInProject =
+        asset.usageStatus === 'live' || Number(asset.liveClipCount) > 0;
+
+      if (isUsedInProject) {
+        setDeleteConfirm({
+          asset,
+          message:
+            'This file is currently used in this project. Are you sure you want to delete it?',
+        });
+        return;
+      }
+
       if (asset.snapshotReferenced) {
         setDeleteConfirm({
           asset,
@@ -325,7 +337,7 @@ export default function ProjectFilesPanel() {
 
       setDeleteConfirm({
         asset,
-        message: `Delete "${asset.name || 'this file'}"? Clips using it will be removed from the timeline.`,
+        message: `Are you sure you want to delete "${asset.name || 'this file'}"?`,
       });
     },
     [canEdit]
@@ -419,25 +431,27 @@ export default function ProjectFilesPanel() {
         )}
 
         <ScrollArea className={styles.listSection}>
-          {panelView === 'collabs' && hasCollabTree ? (
-            <ProjectCollabTracksList projectGuid={projectGuid} canEdit={canEdit} />
-          ) : isLoading && assets.length === 0 ? (
-            <p className={styles.emptyState}>Loading files…</p>
-          ) : filteredAssets.length === 0 ? (
-            <p className={styles.emptyState}>No files match this filter.</p>
-          ) : (
-            <ul className={styles.assetList}>
-              {filteredAssets.map((asset) => (
-                <ProjectFilesAssetRow
-                  key={asset.id}
-                  asset={asset}
-                  canEdit={canEdit}
-                  onDelete={handleDeleteRequest}
-                  isDeletePending={deletePendingId === asset.id}
-                />
-              ))}
-            </ul>
-          )}
+          <div className={styles.listSectionInner}>
+            {panelView === 'collabs' && hasCollabTree ? (
+              <ProjectCollabTracksList projectGuid={projectGuid} canEdit={canEdit} />
+            ) : isLoading && assets.length === 0 ? (
+              <p className={styles.emptyState}>Loading files…</p>
+            ) : filteredAssets.length === 0 ? (
+              <p className={styles.emptyState}>No files match this filter.</p>
+            ) : (
+              <ul className={styles.assetList}>
+                {filteredAssets.map((asset) => (
+                  <ProjectFilesAssetRow
+                    key={asset.id}
+                    asset={asset}
+                    canEdit={canEdit}
+                    onDelete={handleDeleteRequest}
+                    isDeletePending={deletePendingId === asset.id}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         </ScrollArea>
 
         {canEdit && (
