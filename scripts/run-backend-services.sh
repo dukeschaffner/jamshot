@@ -24,8 +24,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+DEV_LOG_PORT="${DEV_LOG_PORT:-5099}"
+export DEV_LOG_PORT
+
 PIDS=()
 NAMES=()
+LOG_SERVER_PID=""
 
 kill_tree() {
   local pid="$1"
@@ -48,15 +52,36 @@ cleanup() {
       echo "  stopped $name (pid $pid)"
     fi
   done
+  if [[ -n "$LOG_SERVER_PID" ]] && kill -0 "$LOG_SERVER_PID" 2>/dev/null; then
+    kill_tree "$LOG_SERVER_PID"
+    wait "$LOG_SERVER_PID" 2>/dev/null || true
+    echo "  stopped DevLog (pid $LOG_SERVER_PID)"
+  fi
 }
 
 trap cleanup EXIT INT TERM
 
-prefix_output() {
-  local name="$1"
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    printf '[%s] %s\n' "$name" "$line"
+wait_for_log_server() {
+  local attempts=0
+  local max_attempts=50
+  while (( attempts < max_attempts )); do
+    if curl -sf "http://127.0.0.1:${DEV_LOG_PORT}/health" >/dev/null 2>&1; then
+      return 0
+    fi
+    attempts=$((attempts + 1))
+    sleep 0.1
   done
+  echo "Dev log server failed to become healthy on port ${DEV_LOG_PORT}" >&2
+  return 1
+}
+
+start_log_server() {
+  echo "Starting DevLog on port ${DEV_LOG_PORT}..."
+  node "$ROOT/scripts/dev-log-server/index.js" &
+  LOG_SERVER_PID=$!
+  if ! wait_for_log_server; then
+    exit 1
+  fi
 }
 
 # start_service NAME WORKDIR COMMAND [ARGS...]
@@ -73,7 +98,7 @@ start_service() {
   echo "Starting $name..."
   (
     cd "$dir"
-    "$@" 2>&1 | prefix_output "$name"
+    "$@" 2>&1 | node "$ROOT/scripts/dev-log-server/bridge.js" --source "$name"
   ) &
   PIDS+=($!)
   NAMES+=("$name")
@@ -100,16 +125,23 @@ if [[ ${#SERVICES[@]} -eq 0 ]]; then
   exit 1
 fi
 
+start_log_server
+
 for service in "${SERVICES[@]}"; do
   launch_service "$service"
 done
 
 echo ""
-echo "Backend services running. Ctrl+C to stop all."
+echo "Backend services running (logs via DevLog :${DEV_LOG_PORT}). Ctrl+C to stop all."
 echo ""
 
 # If any child exits, stop the rest
 while true; do
+  if [[ -n "$LOG_SERVER_PID" ]] && ! kill -0 "$LOG_SERVER_PID" 2>/dev/null; then
+    echo ""
+    echo "DevLog exited — shutting down remaining services."
+    exit 1
+  fi
   for i in "${!PIDS[@]}"; do
     if ! kill -0 "${PIDS[$i]}" 2>/dev/null; then
       wait "${PIDS[$i]}" 2>/dev/null || true

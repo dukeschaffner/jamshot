@@ -2,6 +2,14 @@ ALL BACKEND SERVICES (toggle in script):
 ./scripts/run-backend-services.sh
 # or: npm run dev:backend
 
+# Starts DevLog on :5099 first, then API / Stripe / Audio / ProjectWS (etc).
+# All service stdout is printed through DevLog with [API]/[Stripe]/… prefixes.
+# Plugin (debug builds / MessageStore) and UI (ui/src/lib/logger.js locally) POST to
+# http://127.0.0.1:5099/log and appear as [Plugin] / [UI] in the same terminal.
+# Cursor MCP "jamshot-dev-logs" tool get_logs reads the same ring buffer
+# (optional sources filter: API, UI, Plugin, …).
+# First-time MCP setup: cd scripts/dev-log-mcp && npm install  (then reload MCP in Cursor).
+
 
 
 RUNNING STRIPE: 

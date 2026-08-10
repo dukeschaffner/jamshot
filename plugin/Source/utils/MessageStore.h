@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream> // for DBG/debugging
 #include <chrono>
+#include "DevLogShipper.h"
 
 struct PluginMessage {
     enum class Severity { Info, Warning, Error, Critical };
@@ -42,6 +43,9 @@ public:
         auto newAllVec = std::make_shared<std::vector<PluginMessage>>(*oldAllPtr);
         newAllVec->push_back(msg);
         std::atomic_store(&allMessages, newAllVec);
+
+        if (debugMode.load())
+            shipToDevLog(msg);
     }
 
     void setDebugMode(bool enable) { debugMode.store(enable); }
@@ -68,6 +72,27 @@ public:
 
 private:
     MessageStore() : messages(std::make_shared<std::vector<PluginMessage>>()), allMessages(std::make_shared<std::vector<PluginMessage>>()) {}
+
+    static juce::String severityToLevel(PluginMessage::Severity severity)
+    {
+        switch (severity)
+        {
+            case PluginMessage::Severity::Warning:  return "warn";
+            case PluginMessage::Severity::Error:    return "error";
+            case PluginMessage::Severity::Critical: return "error";
+            case PluginMessage::Severity::Info:
+            default:                                return "info";
+        }
+    }
+
+    static void shipToDevLog(const PluginMessage& msg)
+    {
+        juce::String message = msg.content;
+        if (msg.sourceModule.isNotEmpty())
+            message = msg.sourceModule + ": " + msg.content;
+
+        DevLogShipper::getInstance().ship(severityToLevel(msg.severity), message);
+    }
 
     // Atomic pointer to the vector
     std::shared_ptr<std::vector<PluginMessage>> messages;

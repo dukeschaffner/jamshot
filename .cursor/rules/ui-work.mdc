@@ -14,3 +14,6 @@ There's a new project preference for shadcn/ui components. Use them whenever pos
 - ALWAYS install shadcn/ui components using the `npx shadcn@latest add <component>` command.
 - ALWAYS use shadcn tooltip instead of titles or popovers.
 - ALWAYS use shimmering skeleton UI for loading states.
+
+### Logging
+ALWAYS use the logger in `src/lib/logger.js` to log messages.

@@ -39,6 +39,16 @@ public:
         }
     };
 
+    /** Local unified log aggregator (npm run dev:backend) */
+    class DevLog
+    {
+    public:
+        static juce::String getBaseUrl()
+        {
+            return "http://127.0.0.1:5099";
+        }
+    };
+
     /** Plugin metadata configuration */
     class PluginMeta
     {

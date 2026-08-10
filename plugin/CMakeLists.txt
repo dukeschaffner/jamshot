@@ -104,6 +104,8 @@ target_sources(SterioPlugin
         Source/WebDawConnectionIndicatorModel.h
         Source/utils/JsonUtils.h
         Source/utils/MessageStore.h
+        Source/utils/DevLogShipper.cpp
+        Source/utils/DevLogShipper.h
         Source/utils/PluginMetaHelper.cpp
         Source/utils/PluginMetaHelper.h
         Source/api/ApiConfig.h
@@ -180,6 +182,8 @@ source_group("Sterio" FILES
     Source/WebDawConnectionIndicatorModel.h
     Source/utils/JsonUtils.h
     Source/utils/MessageStore.h
+    Source/utils/DevLogShipper.cpp
+    Source/utils/DevLogShipper.h
     Source/utils/PluginMetaHelper.cpp
     Source/utils/PluginMetaHelper.h
     Source/api/ApiConfig.h
