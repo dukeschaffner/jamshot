@@ -101,6 +101,7 @@ target_sources(SterioPlugin
         Source/Services.h
         Source/PluginState.cpp
         Source/PluginState.h
+        Source/WebDawConnectionIndicatorModel.h
         Source/utils/JsonUtils.h
         Source/utils/MessageStore.h
         Source/utils/PluginMetaHelper.cpp
@@ -145,6 +146,7 @@ target_sources(SterioPlugin
         Source/ui/Footer.h
         Source/ui/HelpView.h
         Source/ui/AppHeaderComponent.h
+        Source/ui/WebDawConnectionBadge.h
         Source/ui/SectionHeaderBar.h
         Source/ui/ListRowPainter.h
         Source/ui/ListStatusView.h
@@ -175,6 +177,7 @@ source_group("Sterio" FILES
     Source/Services.h
     Source/PluginState.cpp
     Source/PluginState.h
+    Source/WebDawConnectionIndicatorModel.h
     Source/utils/JsonUtils.h
     Source/utils/MessageStore.h
     Source/utils/PluginMetaHelper.cpp
@@ -219,6 +222,7 @@ source_group("Sterio" FILES
     Source/ui/Footer.h
     Source/ui/HelpView.h
     Source/ui/AppHeaderComponent.h
+    Source/ui/WebDawConnectionBadge.h
     Source/ui/SectionHeaderBar.h
     Source/ui/ListRowPainter.h
     Source/ui/ListStatusView.h

@@ -15,6 +15,7 @@
 #include "StemModels.h"
 #include "Services.h"
 #include "PluginState.h"
+#include "WebDawConnectionIndicatorModel.h"
 
 
 //==============================================================================
@@ -115,6 +116,8 @@ public:
     /** Fires on the message thread after a project is opened remotely via set_project. */
     juce::ChangeBroadcaster& getRemoteProjectOpenBroadcaster() { return remoteProjectOpenBroadcaster; }
 
+    WebDawConnectionIndicatorModel& getWebDawConnectionIndicator() { return webDawConnectionIndicator; }
+
     Services& getServices() { return services; }
 
 private:
@@ -123,6 +126,7 @@ private:
     void handleStemMetadataSyncMessage(juce::DynamicObject* obj);
     void handleSetProjectMessage(juce::DynamicObject* obj);
     void handleProjectSyncMessage(juce::DynamicObject* obj);
+    void handleWebDawSyncStatusMessage(juce::DynamicObject* obj);
 
     void sendProjectLoadProgress(const juce::String& projectId, int current, int total);
     void sendProjectLoadComplete(const juce::String& projectId);
@@ -130,6 +134,9 @@ private:
     void sendProjectSyncComplete(const juce::String& projectId);
     void sendProjectSyncError(const juce::String& projectId, const juce::String& error);
     std::string buildPluginProjectStatusMessage() const;
+    /** Push current loaded-project id (or none) to all connected web clients. */
+    void announcePluginProjectStatus();
+    void ensureLocalWebSocketServer();
 
     /** Handle sample rate changes and convert stems if necessary */
     void handleSampleRateChange(double newSampleRate);
@@ -164,6 +171,7 @@ private:
 
     // Notifies the UI (async, message thread) when set_project opens a project
     juce::ChangeBroadcaster remoteProjectOpenBroadcaster;
+    WebDawConnectionIndicatorModel webDawConnectionIndicator;
 
     // Track and stem state management (thread-safe)
     std::shared_ptr<juce::Array<StemTrack>> stems;

@@ -75,21 +75,33 @@ void ConnectionManager::connect(const std::string& url)
 
         // When a client connects, register its message callback to forward messages
         webSocketServer->setOnConnectionCallback(
-            [this](std::weak_ptr<ix::WebSocket> clientWeak, std::shared_ptr<ix::ConnectionState> connState)
+            [this](std::weak_ptr<ix::WebSocket> clientWeak, std::shared_ptr<ix::ConnectionState> /*connState*/)
             {
                 auto client = clientWeak.lock();
                 if (!client) return;
 
-                client->setOnMessageCallback([this, client, connState](const ix::WebSocketMessagePtr& msg)
+                auto closed = std::make_shared<std::atomic<bool>>(false);
+
+                client->setOnMessageCallback([this, closed](const ix::WebSocketMessagePtr& msg)
                 {
-                    // forward to app callback
                     if (msg->type == ix::WebSocketMessageType::Message)
                     {
                         juce::ScopedLock lock(callbackLock);
                         if (messageCallback)
                             messageCallback(msg->str);
+                        return;
+                    }
+
+                    if (msg->type == ix::WebSocketMessageType::Close
+                        || msg->type == ix::WebSocketMessageType::Error)
+                    {
+                        if (closed->exchange(true))
+                            return;
+                        noteClientDisconnected();
                     }
                 });
+
+                noteClientConnected();
 
                 // Announce current plugin state directly to this client (avoid
                 // racing getClients() before the connection is fully registered).
@@ -114,7 +126,6 @@ void ConnectionManager::connect(const std::string& url)
         }
 
         webSocketServer->start();
-        
 
         setStatus(Status::Connected, "Server listening");
     }
@@ -131,6 +142,7 @@ void ConnectionManager::disconnect()
         webSocketServer->stop();
         webSocketServer.reset();
     }
+    resetClientPresence();
     setStatus(Status::Disconnected);
 }
 
@@ -171,17 +183,81 @@ void ConnectionManager::onClientConnected(ClientConnectedCallback cb)
     clientConnectedCallback = std::move(cb);
 }
 
+void ConnectionManager::onClientPresenceChange(ClientPresenceCallback cb)
+{
+    juce::ScopedLock lock(callbackLock);
+    clientPresenceCallback = std::move(cb);
+}
+
 ConnectionManager::Status ConnectionManager::getStatus() const
 {
     return currentStatus.load();
 }
 
+bool ConnectionManager::hasWebClients() const
+{
+    return webClientCount.load() > 0;
+}
+
+juce::String ConnectionManager::getLastErrorReason() const
+{
+    juce::ScopedLock lock(callbackLock);
+    return lastErrorReason;
+}
 
 void ConnectionManager::setStatus(Status status, const std::string& reason)
 {
     currentStatus = status;
 
+    {
+        juce::ScopedLock lock(callbackLock);
+        if (status == Status::Error)
+            lastErrorReason = juce::String(reason);
+        else if (status == Status::Disconnected || status == Status::Connected)
+            lastErrorReason = {};
+    }
+
     juce::ScopedLock lock(callbackLock);
     if (statusCallback)
         statusCallback(status, reason);
+}
+
+void ConnectionManager::noteClientConnected()
+{
+    const bool previouslyHadClients = webClientCount.load() > 0;
+    webClientCount.fetch_add(1);
+    notifyPresenceIfChanged(previouslyHadClients);
+}
+
+void ConnectionManager::noteClientDisconnected()
+{
+    const bool previouslyHadClients = webClientCount.load() > 0;
+    int previous = webClientCount.load();
+    while (previous > 0)
+    {
+        if (webClientCount.compare_exchange_weak(previous, previous - 1))
+            break;
+    }
+    notifyPresenceIfChanged(previouslyHadClients);
+}
+
+void ConnectionManager::resetClientPresence()
+{
+    const bool previouslyHadClients = webClientCount.exchange(0) > 0;
+    notifyPresenceIfChanged(previouslyHadClients);
+}
+
+void ConnectionManager::notifyPresenceIfChanged(bool previouslyHadClients)
+{
+    const bool nowHasClients = webClientCount.load() > 0;
+    if (previouslyHadClients == nowHasClients)
+        return;
+
+    ClientPresenceCallback presenceCb;
+    {
+        juce::ScopedLock lock(callbackLock);
+        presenceCb = clientPresenceCallback;
+    }
+    if (presenceCb)
+        presenceCb(nowHasClients);
 }

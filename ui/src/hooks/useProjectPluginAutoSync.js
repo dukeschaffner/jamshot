@@ -15,6 +15,7 @@ import {
   isMatchingPluginProjectReady,
   reducePluginSyncGate,
 } from '@/components/DAW/project/pluginProjectSyncGate';
+import { useReportWebDawSyncStatus } from '@/hooks/useReportWebDawSyncStatus';
 
 function parsePluginMessage(rawMessage) {
   if (!rawMessage || typeof rawMessage !== 'string') return null;
@@ -236,6 +237,14 @@ export function useProjectPluginAutoSync({ projectGuid, canEdit }) {
     status,
     syncGate,
   ]);
+
+  const reportingSyncing =
+    status === 'connected' &&
+    Boolean(canEdit) &&
+    Boolean(autoSyncEnabled) &&
+    isMatchingPluginProjectReady(syncGate, projectGuid);
+
+  useReportWebDawSyncStatus({ syncing: reportingSyncing });
 
   return {
     autoSyncEnabled,

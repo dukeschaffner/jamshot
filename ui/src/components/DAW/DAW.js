@@ -34,6 +34,7 @@ import { useTimelineWheelControls } from './hooks/useTimelineWheelControls';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
+import { useReportWebDawSyncStatus } from '@/hooks/useReportWebDawSyncStatus';
 
 function DAWContent({ track, isVisible = true }) {
   const {
@@ -99,6 +100,13 @@ function DAWContent({ track, isVisible = true }) {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [isSnapshotsOpen, setIsSnapshotsOpen] = useState(false);
   const isProjectMode = dawMode === 'project';
+
+  // Track DAW: connect + report Connected (never Syncing — no track auto-sync).
+  // Project DAW reports via useProjectPluginAutoSync instead.
+  useReportWebDawSyncStatus({
+    syncing: false,
+    enabled: !isProjectMode,
+  });
 
   useEffect(() => {
     if (!isVisible) return;

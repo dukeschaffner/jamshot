@@ -39,6 +39,22 @@ SterioPluginProcessor::SterioPluginProcessor()
 
     connectionManager.onStatusChange([this](ConnectionManager::Status s, const std::string& reason)
     {
+        if (s == ConnectionManager::Status::Connected)
+        {
+            webDawConnectionIndicator.setServerListening(true);
+        }
+        else if (s == ConnectionManager::Status::Error)
+        {
+            webDawConnectionIndicator.setServerError(
+                reason.empty()
+                    ? "The WebSocket server failed to start (port may be in use)."
+                    : juce::String(reason));
+        }
+        else
+        {
+            webDawConnectionIndicator.setServerListening(false);
+        }
+
         // dispatch to message thread if you need to update UI
         juce::MessageManager::callAsync([this, s, reason]()
         {
@@ -70,6 +86,11 @@ SterioPluginProcessor::SterioPluginProcessor()
         return buildPluginProjectStatusMessage();
     });
 
+    connectionManager.onClientPresenceChange([this](bool hasClients)
+    {
+        webDawConnectionIndicator.setWebClientConnected(hasClients);
+    });
+
             // Set up cache manager
     auto appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
     DBG("PluginEditor: Application data directory: " + appDataDir.getFullPathName());
@@ -82,6 +103,7 @@ SterioPluginProcessor::SterioPluginProcessor()
 
 SterioPluginProcessor::~SterioPluginProcessor()
 {
+    connectionManager.disconnect();
 }
 
 //==============================================================================
@@ -162,26 +184,15 @@ void SterioPluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock
     // Prepare playback engine
     playbackEngine.prepareToPlay(sampleRate, samplesPerBlock);
 
-    // Setup WebSocket connection if not already connecting or connected
-    auto status = connectionManager.getStatus();
-    if (status == ConnectionManager::Status::Disconnected)
-    {
-        connectionManager.connect("ws://localhost:59327");
-    }
+    ensureLocalWebSocketServer();
 
     juce::ignoreUnused(samplesPerBlock);
 }
 
 void SterioPluginProcessor::releaseResources()
 {
-    // Safely disconnect WebSocket if connected
-    auto status = connectionManager.getStatus();
-    if (status == ConnectionManager::Status::Connected || 
-        status == ConnectionManager::Status::Connecting ||
-        status == ConnectionManager::Status::Error)
-    {
-        connectionManager.disconnect();
-    }
+    // Keep the local WebSocket server running so the web DAW can stay connected
+    // while the plugin instance is alive (UI sync / connection badge).
 }
 
 bool SterioPluginProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -282,13 +293,20 @@ void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
 {
     pluginState.clearCurrentProject();
     pluginState.clearProjectLoadProgress();
+    bool clearedProject = false;
     {
         const juce::ScopedLock lock(projectPayloadLock);
+        clearedProject = loadedProjectId.isNotEmpty();
         loadedProjectId.clear();
         loadedProjectClips.clear();
+        loadedProjectTracks.clear();
     }
     pluginState.setCurrentTrack(track);
     loadStemsForTrack();
+
+    // Web auto-sync gate must leave READY when the plugin leaves the project.
+    if (clearedProject)
+        announcePluginProjectStatus();
 }
 
 void SterioPluginProcessor::clearSelection()
@@ -296,14 +314,19 @@ void SterioPluginProcessor::clearSelection()
     pluginState.clearCurrentTrack();
     pluginState.clearCurrentProject();
     pluginState.clearProjectLoadProgress();
+    bool clearedProject = false;
     {
         const juce::ScopedLock lock(projectPayloadLock);
+        clearedProject = loadedProjectId.isNotEmpty();
         loadedProjectId.clear();
         loadedProjectClips.clear();
         loadedProjectTracks.clear();
     }
     clearLoadedStems();
     projectMixController.clearActive();
+
+    if (clearedProject)
+        announcePluginProjectStatus();
 }
 
 juce::Optional<TrackInfo> SterioPluginProcessor::getCurrentTrack() const
@@ -562,6 +585,11 @@ std::string SterioPluginProcessor::buildPluginProjectStatusMessage() const
     return juce::JSON::toString(juce::var(obj)).toStdString();
 }
 
+void SterioPluginProcessor::announcePluginProjectStatus()
+{
+    connectionManager.send(buildPluginProjectStatusMessage());
+}
+
 void SterioPluginProcessor::handleSetTrackMessage(juce::DynamicObject* obj)
 {
     if (!obj->hasProperty("track_id"))
@@ -678,6 +706,11 @@ void SterioPluginProcessor::handleSetProjectMessage(juce::DynamicObject* obj)
         }
 
         projectMixController.resetIfProjectChanged(previousId, projectId);
+
+        // Announce immediately so web clears Syncing when the plugin project changes
+        // (before project_load_complete). Same-id reloads are a no-op for the gate.
+        if (previousId != projectId)
+            announcePluginProjectStatus();
     }
 
     loadProjectClips(projectId, payload.clips);
@@ -750,6 +783,9 @@ void SterioPluginProcessor::selectProject(const ProjectSummary& project)
                 }
 
                 projectMixController.resetIfProjectChanged(previousId, project.guid);
+
+                if (previousId != project.guid)
+                    announcePluginProjectStatus();
             }
 
             loadProjectClips(project.guid, payload.clips);
@@ -814,6 +850,12 @@ void SterioPluginProcessor::handleProjectSyncMessage(juce::DynamicObject* obj)
     syncProjectClips(projectId, previousClips, newClips);
 }
 
+void SterioPluginProcessor::handleWebDawSyncStatusMessage(juce::DynamicObject* obj)
+{
+    const bool syncing = (bool) obj->getProperty("syncing");
+    webDawConnectionIndicator.setWebReportsSyncing(syncing);
+}
+
 void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
 {
     try
@@ -828,6 +870,10 @@ void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
         auto* obj = parsed.getDynamicObject();
         if (obj == nullptr)
             return;
+
+        // Any inbound web message means a client is connected.
+        webDawConnectionIndicator.setServerListening(true);
+        webDawConnectionIndicator.setWebClientConnected(true);
 
         juce::String type = obj->getProperty("type");
         DBG("Received message of type " + type);
@@ -853,6 +899,12 @@ void SterioPluginProcessor::handleIncomingMessage(const std::string& json)
         if (type == "stem_metadata_sync")
         {
             handleStemMetadataSyncMessage(obj);
+            return;
+        }
+
+        if (type == "web_daw_sync_status")
+        {
+            handleWebDawSyncStatusMessage(obj);
             return;
         }
 
@@ -902,7 +954,24 @@ bool SterioPluginProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* SterioPluginProcessor::createEditor()
 {
+    // Start the local WS as soon as the UI opens so the web DAW can connect
+    // without waiting for the host to call prepareToPlay.
+    ensureLocalWebSocketServer();
     return new SterioPluginEditor(*this);
+}
+
+void SterioPluginProcessor::ensureLocalWebSocketServer()
+{
+    const auto status = connectionManager.getStatus();
+    if (status == ConnectionManager::Status::Connected
+        || status == ConnectionManager::Status::Connecting)
+        return;
+
+    // Failed listen leaves Error status; reset before retrying bind.
+    if (status == ConnectionManager::Status::Error)
+        connectionManager.disconnect();
+
+    connectionManager.connect("ws://localhost:59327");
 }
 
 //==============================================================================

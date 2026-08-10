@@ -56,7 +56,9 @@
     "error": "Failed to download project asset audio"
 }
 
-// plugin_project_status (sent to each new web WS client on connect):
+// plugin_project_status (sent to each new web WS client on connect,
+// and re-broadcast whenever the plugin's loaded project changes —
+// e.g. opening a track, clearing selection, or selecting another project):
 {
     "type": "plugin_project_status",
     "project_id": "550e8400-e29b-41d4-a716-446655440000"
@@ -65,6 +67,15 @@
 {
     "type": "plugin_project_status"
 }
+
+// web → plugin (connection badge / sync indicator)
+// web_daw_sync_status:
+{
+    "type": "web_daw_sync_status",
+    "syncing": true
+}
+// syncing=false when the web DAW is connected but auto-sync is inactive
+// (different project, autosync off, or left the project editor).
 
 
 // project_sync:

@@ -38,6 +38,7 @@ private:
     Services& services;
 
     SterioLookAndFeel lookAndFeel;
+    juce::TooltipWindow tooltipWindow { this, 400 };
     AppHeaderComponent appHeader;
     LoginView loginView;
     SampleRateWarningBar sampleRateWarning;
