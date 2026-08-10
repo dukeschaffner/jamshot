@@ -66,8 +66,12 @@ struct JsonUtils
 
         stem.trackId = stemJson.getProperty("track_id", 0);
         stem.audioUrl = stemJson.getProperty("audio_url", "").toString();
+        stem.title = stemJson.getProperty("title", "").toString();
+        stem.username = stemJson.getProperty("username", "").toString();
         stem.gain = (float)stemJson.getProperty("gain", 0.8);
         stem.order = stemJson.getProperty("order", 0);
+        // Track-mode mix lane id defaults to stem id (project mode overwrites).
+        stem.projectTrackId = stem.trackId;
 
         // Parse regions if present
         juce::var regionsJson = stemJson.getProperty("regions", juce::var());

@@ -455,8 +455,8 @@ const TransportControls = ({
               Snapshots
             </button>
           )}
-          {isProjectMode && canEditProject ? (
-            <ProjectPluginSync setShowMenu={setShowMenu} />
+          {isProjectMode ? (
+            canEditProject ? <ProjectPluginSync setShowMenu={setShowMenu} /> : null
           ) : (
             <PluginSync setShowMenu={setShowMenu} />
           )}

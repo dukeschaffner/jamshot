@@ -1,11 +1,13 @@
 import { PROJECT_PLUGIN_AUTO_SYNC_STORAGE_KEY } from './ProjectsConfig';
+import {
+  readPluginAutoSyncEnabled,
+  writePluginAutoSyncEnabled,
+} from '@/components/DAW/pluginSync/pluginAutoSyncStorage';
 
 export function readProjectPluginAutoSyncEnabled() {
-  if (typeof window === 'undefined') return true;
-  return localStorage.getItem(PROJECT_PLUGIN_AUTO_SYNC_STORAGE_KEY) !== 'false';
+  return readPluginAutoSyncEnabled(PROJECT_PLUGIN_AUTO_SYNC_STORAGE_KEY);
 }
 
 export function writeProjectPluginAutoSyncEnabled(enabled) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(PROJECT_PLUGIN_AUTO_SYNC_STORAGE_KEY, enabled ? 'true' : 'false');
+  writePluginAutoSyncEnabled(PROJECT_PLUGIN_AUTO_SYNC_STORAGE_KEY, enabled);
 }

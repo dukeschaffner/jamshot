@@ -80,10 +80,13 @@ SterioPluginProcessor::SterioPluginProcessor()
         handleIncomingMessage(msg);
     });
 
-    connectionManager.onClientConnected([this]() -> std::string
+    connectionManager.onClientConnected([this]() -> std::vector<std::string>
     {
-        // WS thread — only read locked project id and build JSON (no UI).
-        return buildPluginProjectStatusMessage();
+        // WS thread — only read locked state and build JSON (no UI).
+        return {
+            buildPluginProjectStatusMessage(),
+            buildPluginTrackStatusMessage(),
+        };
     });
 
     connectionManager.onClientPresenceChange([this](bool hasClients)
@@ -291,6 +294,13 @@ void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& newStems)
 
 void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
 {
+    juce::String previousTrackId;
+    {
+        auto previous = pluginState.getCurrentTrack();
+        if (previous.hasValue())
+            previousTrackId = (*previous).id;
+    }
+
     pluginState.clearCurrentProject();
     pluginState.clearProjectLoadProgress();
     bool clearedProject = false;
@@ -301,16 +311,20 @@ void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
         loadedProjectClips.clear();
         loadedProjectTracks.clear();
     }
+
+    projectMixController.resetIfProjectChanged(previousTrackId, track.id);
     pluginState.setCurrentTrack(track);
     loadStemsForTrack();
 
     // Web auto-sync gate must leave READY when the plugin leaves the project.
     if (clearedProject)
         announcePluginProjectStatus();
+    announcePluginTrackStatus();
 }
 
 void SterioPluginProcessor::clearSelection()
 {
+    const bool hadTrack = pluginState.getCurrentTrack().hasValue();
     pluginState.clearCurrentTrack();
     pluginState.clearCurrentProject();
     pluginState.clearProjectLoadProgress();
@@ -324,9 +338,12 @@ void SterioPluginProcessor::clearSelection()
     }
     clearLoadedStems();
     projectMixController.clearActive();
+    pluginState.setTrackStemsLoading(false);
 
     if (clearedProject)
         announcePluginProjectStatus();
+    if (hadTrack || clearedProject)
+        announcePluginTrackStatus();
 }
 
 juce::Optional<TrackInfo> SterioPluginProcessor::getCurrentTrack() const
@@ -360,13 +377,36 @@ void SterioPluginProcessor::loadStemsForTrack()
         return;
     }
 
+    const juce::String trackId = (*track).id;
+    pluginState.setTrackStemsLoading(true);
+
     // Load stems asynchronously to avoid blocking UI
-    juce::Thread::launch([this, track]() {
+    juce::Thread::launch([this, track, trackId]() {
         try {
             // Load stems with sample rate conversion to match host sample rate
             double targetSampleRate = getCurrentSampleRate();
-            auto stems = trackLoader.loadStemsForTrack((*track).id, targetSampleRate);
-            setLoadedStems(stems);
+            auto loaded = trackLoader.loadStemsForTrack(trackId, targetSampleRate);
+
+            // Track-mode mix uses stem ids as mix lane ids (projectTrackId).
+            juce::Array<int> stemMixIds;
+            for (auto& stem : loaded)
+            {
+                if (stem.projectTrackId <= 0)
+                    stem.projectTrackId = stem.trackId;
+                if (stem.trackId > 0)
+                    stemMixIds.addIfNotAlreadyThere(stem.trackId);
+            }
+
+            setLoadedStems(loaded);
+
+            juce::MessageManager::callAsync([this, trackId, stemMixIds]() {
+                auto current = getCurrentTrack();
+                if (!current.hasValue() || (*current).id != trackId)
+                    return;
+                projectMixController.onProjectLoaded(trackId, stemMixIds);
+                pluginState.setTrackStemsLoading(false);
+                sendTrackLoadComplete(trackId);
+            });
         }
         catch (const std::exception& e) {
             MessageStore::getInstance().pushMessage(PluginMessage{
@@ -375,8 +415,13 @@ void SterioPluginProcessor::loadStemsForTrack()
                 .sourceModule = "SterioPluginProcessor",
                 .timestamp = std::chrono::system_clock::now()
             });
-            DBG("Failed to load stems for track " + (*track).id + ": " + e.what());
+            DBG("Failed to load stems for track " + trackId + ": " + e.what());
             clearLoadedStems();
+            const juce::String errorMessage = e.what();
+            juce::MessageManager::callAsync([this, trackId, errorMessage]() {
+                pluginState.setTrackStemsLoading(false);
+                sendTrackLoadError(trackId, errorMessage);
+            });
         }
     });
 }
@@ -590,6 +635,57 @@ void SterioPluginProcessor::announcePluginProjectStatus()
     connectionManager.send(buildPluginProjectStatusMessage());
 }
 
+std::string SterioPluginProcessor::buildPluginTrackStatusMessage() const
+{
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("type", "plugin_track_status");
+    auto track = getCurrentTrack();
+    if (track.hasValue() && (*track).id.isNotEmpty())
+        obj->setProperty("track_id", (*track).id);
+    return juce::JSON::toString(juce::var(obj)).toStdString();
+}
+
+void SterioPluginProcessor::announcePluginTrackStatus()
+{
+    connectionManager.send(buildPluginTrackStatusMessage());
+}
+
+void SterioPluginProcessor::sendTrackLoadComplete(const juce::String& trackId)
+{
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("type", "track_load_complete");
+    obj->setProperty("track_id", trackId);
+    connectionManager.send(juce::JSON::toString(juce::var(obj)).toStdString());
+}
+
+void SterioPluginProcessor::sendTrackLoadError(const juce::String& trackId,
+                                               const juce::String& error)
+{
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("type", "track_load_error");
+    obj->setProperty("track_id", trackId);
+    obj->setProperty("error", error);
+    connectionManager.send(juce::JSON::toString(juce::var(obj)).toStdString());
+}
+
+void SterioPluginProcessor::sendStemMetadataSyncComplete(const juce::String& trackId)
+{
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("type", "stem_metadata_sync_complete");
+    obj->setProperty("track_id", trackId);
+    connectionManager.send(juce::JSON::toString(juce::var(obj)).toStdString());
+}
+
+void SterioPluginProcessor::sendStemMetadataSyncError(const juce::String& trackId,
+                                                      const juce::String& error)
+{
+    juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+    obj->setProperty("type", "stem_metadata_sync_error");
+    obj->setProperty("track_id", trackId);
+    obj->setProperty("error", error);
+    connectionManager.send(juce::JSON::toString(juce::var(obj)).toStdString());
+}
+
 void SterioPluginProcessor::handleSetTrackMessage(juce::DynamicObject* obj)
 {
     if (!obj->hasProperty("track_id"))
@@ -599,7 +695,11 @@ void SterioPluginProcessor::handleSetTrackMessage(juce::DynamicObject* obj)
     }
 
     auto trackData = JsonUtils::parseTrackInfo(obj->getProperty("payload"));
+    // Ensure id is set even if payload omits it.
+    if (trackData.id.isEmpty())
+        trackData.id = obj->getProperty("track_id").toString();
     setCurrentTrack(trackData);
+    remoteTrackOpenBroadcaster.sendChangeMessage();
 }
 
 void SterioPluginProcessor::handleStemMetadataSyncMessage(juce::DynamicObject* obj)
@@ -610,37 +710,61 @@ void SterioPluginProcessor::handleStemMetadataSyncMessage(juce::DynamicObject* o
         return;
     }
 
-    int trackId = static_cast<int>(obj->getProperty("track_id"));
+    const juce::String trackId = obj->getProperty("track_id").toString();
 
     auto currentTrackObj = getCurrentTrack();
     if (!currentTrackObj.hasValue())
     {
         DBG("No current track set. Cannot process stem metadata sync.");
+        sendStemMetadataSyncError(
+            trackId,
+            "No matching track loaded in plugin. Open the track in the plugin first.");
         return;
     }
 
-    int currentTrackId = (*currentTrackObj).id.getIntValue();
-    if (trackId != currentTrackId)
+    if (trackId != (*currentTrackObj).id)
     {
-        DBG("Received stem metadata sync for track " + juce::String(trackId)
-            + " but current track is " + juce::String(currentTrackId));
+        DBG("Received stem metadata sync for track " + trackId
+            + " but current track is " + (*currentTrackObj).id);
+        sendStemMetadataSyncError(
+            trackId,
+            "No matching track loaded in plugin. Open the track in the plugin first.");
         return;
     }
 
-    auto oldStems = getLoadedStems();
-    auto stemsFromPayload = JsonUtils::parseStemData(obj->getProperty("payload"));
-
-    for (auto& stem : stemsFromPayload)
+    try
     {
-        int index = oldStems.indexOf(stem);
-        if (index >= 0)
-            stem.audioBuffer = oldStems[index].audioBuffer;
-        else
-            throw std::runtime_error("Stem not found in old stems. Stem sync failed.");
-    }
+        auto oldStems = getLoadedStems();
+        auto stemsFromPayload = JsonUtils::parseStemData(obj->getProperty("payload"));
 
-    setLoadedStems(stemsFromPayload);
-    DBG("Loaded stems from metadata sync");
+        for (auto& stem : stemsFromPayload)
+        {
+            int index = oldStems.indexOf(stem);
+            if (index >= 0)
+            {
+                stem.audioBuffer = oldStems[index].audioBuffer;
+                if (stem.projectTrackId <= 0)
+                    stem.projectTrackId = oldStems[index].projectTrackId > 0
+                        ? oldStems[index].projectTrackId
+                        : stem.trackId;
+                if (stem.title.isEmpty())
+                    stem.title = oldStems[index].title;
+            }
+            else
+            {
+                throw std::runtime_error("Stem not found in old stems. Stem sync failed.");
+            }
+        }
+
+        setLoadedStems(stemsFromPayload);
+        DBG("Loaded stems from metadata sync");
+        pluginState.notifyChanged();
+        sendStemMetadataSyncComplete(trackId);
+    }
+    catch (const std::exception& e)
+    {
+        sendStemMetadataSyncError(trackId, e.what());
+    }
 }
 
 void SterioPluginProcessor::handleSetProjectMessage(juce::DynamicObject* obj)
@@ -652,7 +776,10 @@ void SterioPluginProcessor::handleSetProjectMessage(juce::DynamicObject* obj)
         return;
     }
 
+    const bool hadTrack = pluginState.getCurrentTrack().hasValue();
     pluginState.clearCurrentTrack();
+    if (hadTrack)
+        announcePluginTrackStatus();
 
     juce::var payloadVar = obj->getProperty("payload");
     ProjectPluginPayload payload;
@@ -728,7 +855,10 @@ void SterioPluginProcessor::selectProject(const ProjectSummary& project)
         return;
     }
 
+    const bool hadTrack = pluginState.getCurrentTrack().hasValue();
     pluginState.clearCurrentTrack();
+    if (hadTrack)
+        announcePluginTrackStatus();
 
     ProjectInfo pendingInfo;
     pendingInfo.guid = project.guid;
@@ -1001,12 +1131,18 @@ void SterioPluginProcessor::toggleProjectTrackSolo(int projectTrackId)
 
 void SterioPluginProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    juce::String projectId;
+    juce::String mixScopeId;
     {
         const juce::ScopedLock lock(projectPayloadLock);
-        projectId = loadedProjectId;
+        mixScopeId = loadedProjectId;
     }
-    projectMixController.writeToMemoryBlock(destData, projectId);
+    if (mixScopeId.isEmpty())
+    {
+        auto track = getCurrentTrack();
+        if (track.hasValue())
+            mixScopeId = (*track).id;
+    }
+    projectMixController.writeToMemoryBlock(destData, mixScopeId);
 }
 
 void SterioPluginProcessor::setStateInformation(const void* data, int sizeInBytes)
@@ -1018,6 +1154,19 @@ void SterioPluginProcessor::setStateInformation(const void* data, int sizeInByte
         projectId = loadedProjectId;
         for (const auto& track : loadedProjectTracks)
             trackIds.add(track.trackId);
+    }
+    if (projectId.isEmpty())
+    {
+        auto track = getCurrentTrack();
+        if (track.hasValue())
+        {
+            projectId = (*track).id;
+            for (const auto& stem : getLoadedStems())
+            {
+                if (stem.trackId > 0)
+                    trackIds.addIfNotAlreadyThere(stem.trackId);
+            }
+        }
     }
     projectMixController.readFromMemory(data, sizeInBytes, projectId, trackIds);
 }

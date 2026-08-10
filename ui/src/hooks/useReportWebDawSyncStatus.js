@@ -6,12 +6,11 @@ import { buildWebDawSyncStatusMessage } from '@/components/DAW/project/webDawSyn
 
 /**
  * Ensures a plugin WS connect attempt when a web DAW mounts, and reports
- * Connected / Syncing to the plugin badge. Track DAW always passes
- * syncing: false (no auto-sync); project DAW passes the auto-sync gate.
+ * Connected / Syncing to the plugin badge from the auto-sync gate.
  *
  * @param {{ syncing: boolean, enabled?: boolean }} options
- *   enabled defaults to true; set false so project mode can own reporting
- *   without a second track-mode reporter fighting it.
+ *   enabled defaults to true; set false so only one reporter is active
+ *   (e.g. project vs track mode).
  */
 export function useReportWebDawSyncStatus({ syncing, enabled = true }) {
   const { status, send, connect } = usePluginWebSocket();

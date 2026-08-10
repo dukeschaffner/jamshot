@@ -80,7 +80,12 @@ const DAWConfig = {
 
     singleTrackDAW: {
       dawDurationExtensionLookahead: 2, // seconds
-    }
+    },
+
+    plugin: {
+      autoSyncDebounceMs: 500,
+      trackAutoSyncStorageKey: 'track_plugin_auto_sync_enabled',
+    },
 };
 
 // Environment-specific overrides

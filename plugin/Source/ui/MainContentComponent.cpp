@@ -10,10 +10,12 @@ MainContentComponent::MainContentComponent(Services& services, SterioPluginProce
       processorRef(processor),
       tracksTabButton("Tracks"),
       projectsTabButton("Projects"),
-      projectView(processor, services)
+      projectView(processor, services),
+      trackView(processor, services)
 {
     authRef.addChangeListener(this);
     processorRef.getRemoteProjectOpenBroadcaster().addChangeListener(this);
+    processorRef.getRemoteTrackOpenBroadcaster().addChangeListener(this);
 
     addAndMakeVisible(loginPrompt);
     addAndMakeVisible(tracksTabButton);
@@ -21,6 +23,7 @@ MainContentComponent::MainContentComponent(Services& services, SterioPluginProce
     addAndMakeVisible(trackListPanel);
     addAndMakeVisible(projectListPanel);
     addAndMakeVisible(projectView);
+    addAndMakeVisible(trackView);
 
     SterioButtonStyle::apply(tracksTabButton, SterioButtonStyle::tabActive);
     SterioButtonStyle::apply(projectsTabButton, SterioButtonStyle::tab);
@@ -34,18 +37,23 @@ MainContentComponent::MainContentComponent(Services& services, SterioPluginProce
     });
 
     projectView.setBackCallback([this] { showProjectList(); });
+    trackView.setBackCallback([this] { showTrackList(); });
 
     projectView.setVisible(false);
     projectListPanel.setVisible(false);
+    trackView.setVisible(false);
 
     updateView();
 
     if (authRef.isLoggedIn() && pluginStateRef.getCurrentProject().hasValue())
         openLoadedProjectView();
+    else if (authRef.isLoggedIn() && pluginStateRef.getCurrentTrack().hasValue())
+        openLoadedTrackView();
 }
 
 MainContentComponent::~MainContentComponent()
 {
+    processorRef.getRemoteTrackOpenBroadcaster().removeChangeListener(this);
     processorRef.getRemoteProjectOpenBroadcaster().removeChangeListener(this);
     authRef.removeChangeListener(this);
 }
@@ -74,6 +82,8 @@ void MainContentComponent::updateView()
         updateLoggedInContentVisibility();
         if (activeTab == ContentTab::Projects && projectsSubView == ProjectsSubView::List)
             projectListPanel.refreshProjects();
+        if (activeTab == ContentTab::Tracks && tracksSubView == TracksSubView::List)
+            trackListPanel.refreshTracks();
     }
     else
     {
@@ -81,7 +91,10 @@ void MainContentComponent::updateView()
         projectListPanel.setVisible(false);
         projectView.setVisible(false);
         projectView.clear();
+        trackView.setVisible(false);
+        trackView.clear();
         projectsSubView = ProjectsSubView::List;
+        tracksSubView = TracksSubView::List;
     }
 
     resized();
@@ -93,6 +106,13 @@ void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster* sourc
     {
         DBG("MainContentComponent::changeListenerCallback() - remote project opened");
         openLoadedProjectView();
+        return;
+    }
+
+    if (source == &processorRef.getRemoteTrackOpenBroadcaster())
+    {
+        DBG("MainContentComponent::changeListenerCallback() - remote track opened");
+        openLoadedTrackView();
         return;
     }
 
@@ -111,8 +131,8 @@ void MainContentComponent::setActiveTab(ContentTab tab)
         return;
     }
 
-    updateLoggedInContentVisibility();
-    resized();
+    // Tracks tab: return to list (do not clear an already-loaded track unless switching from projects)
+    showTrackList();
 }
 
 void MainContentComponent::showProjectList()
@@ -120,6 +140,14 @@ void MainContentComponent::showProjectList()
     projectsSubView = ProjectsSubView::List;
     projectView.clear();
     projectListPanel.refreshProjects();
+    updateLoggedInContentVisibility();
+    resized();
+}
+
+void MainContentComponent::showTrackList()
+{
+    tracksSubView = TracksSubView::List;
+    trackView.clear();
     updateLoggedInContentVisibility();
     resized();
 }
@@ -145,10 +173,31 @@ void MainContentComponent::openLoadedProjectView()
     showProjectDetail(summary);
 }
 
+void MainContentComponent::openLoadedTrackView()
+{
+    if (!authRef.isLoggedIn())
+        return;
+
+    auto trackOpt = pluginStateRef.getCurrentTrack();
+    if (!trackOpt.hasValue())
+        return;
+
+    activeTab = ContentTab::Tracks;
+    showTrackDetail(*trackOpt);
+}
+
 void MainContentComponent::showProjectDetail(const ProjectSummary& project)
 {
     projectsSubView = ProjectsSubView::Detail;
     projectView.showProject(project);
+    updateLoggedInContentVisibility();
+    resized();
+}
+
+void MainContentComponent::showTrackDetail(const TrackInfo& track)
+{
+    tracksSubView = TracksSubView::Detail;
+    trackView.showTrack(track);
     updateLoggedInContentVisibility();
     resized();
 }
@@ -168,13 +217,17 @@ void MainContentComponent::updateLoggedInContentVisibility()
     if (!loggedIn)
         return;
 
-    const bool showTracks = activeTab == ContentTab::Tracks;
+    const bool showTrackListView = activeTab == ContentTab::Tracks
+                                   && tracksSubView == TracksSubView::List;
+    const bool showTrackDetailView = activeTab == ContentTab::Tracks
+                                     && tracksSubView == TracksSubView::Detail;
     const bool showProjectListView = activeTab == ContentTab::Projects
                                      && projectsSubView == ProjectsSubView::List;
     const bool showProjectDetailView = activeTab == ContentTab::Projects
                                        && projectsSubView == ProjectsSubView::Detail;
 
-    trackListPanel.setVisible(showTracks);
+    trackListPanel.setVisible(showTrackListView);
+    trackView.setVisible(showTrackDetailView);
     projectListPanel.setVisible(showProjectListView);
     projectView.setVisible(showProjectDetailView);
     updateTabStyles();
@@ -192,6 +245,7 @@ void MainContentComponent::resized()
         trackListPanel.setBounds({});
         projectListPanel.setBounds({});
         projectView.setBounds({});
+        trackView.setBounds({});
         return;
     }
 
@@ -207,6 +261,8 @@ void MainContentComponent::resized()
 
     if (trackListPanel.isVisible())
         trackListPanel.setBounds(bounds);
+    else if (trackView.isVisible())
+        trackView.setBounds(bounds);
     else if (projectListPanel.isVisible())
         projectListPanel.setBounds(bounds);
     else if (projectView.isVisible())

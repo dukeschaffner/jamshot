@@ -68,6 +68,30 @@
     "type": "plugin_project_status"
 }
 
+// plugin_track_status (sent to each new web WS client on connect,
+// and re-broadcast whenever the plugin's loaded track changes):
+{
+    "type": "plugin_track_status",
+    "track_id": "1234567890"
+}
+// When no track is loaded, track_id is omitted:
+{
+    "type": "plugin_track_status"
+}
+
+// track_load_complete:
+{
+    "type": "track_load_complete",
+    "track_id": "1234567890"
+}
+
+// track_load_error:
+{
+    "type": "track_load_error",
+    "track_id": "1234567890",
+    "error": "Failed to load stems for track"
+}
+
 // web → plugin (connection badge / sync indicator)
 // web_daw_sync_status:
 {
@@ -165,4 +189,17 @@
             }
         ]
     }
+}
+
+// stem_metadata_sync_complete:
+{
+    "type": "stem_metadata_sync_complete",
+    "track_id": "1234567890"
+}
+
+// stem_metadata_sync_error:
+{
+    "type": "stem_metadata_sync_error",
+    "track_id": "1234567890",
+    "error": "No matching track loaded in plugin. Open the track in the plugin first."
 }

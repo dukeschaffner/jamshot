@@ -1,50 +1,38 @@
 'use client';
 
-import { useState } from 'react';
-import { useDAW } from '../DAWContext';
-import { buildStemsObject } from '../misc/DAWUtils';
-import { usePluginWebSocket } from '../../../contexts/PluginWebSocketContext';
-import styles from '../DAW.module.css';
+import PluginAutoSyncMenu from '../pluginSync/PluginAutoSyncMenu';
+import { useTrackPluginSync } from '../pluginSync/TrackPluginSyncContext';
 
 export default function PluginSync({ setShowMenu }) {
-  const { send } = usePluginWebSocket();
-  const {trackManagerRef, trackData} = useDAW();
+  const {
+    autoSyncEnabled,
+    setAutoSyncEnabled,
+    isPluginStale,
+    syncToPluginNow,
+    openTrackInPlugin,
+  } = useTrackPluginSync();
 
-
-  const openInPlugin = async () => {
-    if(!trackData || trackData.length === 0) return;
-    let msg = {
-      type: 'set_track',
-      track_id: trackData[0].id,
-      payload: trackData[0]
-    }
-    try {
-      await send(JSON.stringify(msg));
-    } catch (err) {
-    }
-    setShowMenu(false);
+  const handleAutoSyncToggle = (event) => {
+    setAutoSyncEnabled(event.target.checked);
   };
 
-  const handleSync = async () => {
-    if(!trackData || trackData.length === 0) return;
+  const handleOpenInPlugin = async () => {
+    await openTrackInPlugin();
+    setShowMenu?.(false);
+  };
 
-    const stems = buildStemsObject(trackManagerRef.current.getAllTracks(), false);
-    const message = {
-      type: 'stem_metadata_sync',
-      track_id: trackData[0].id,
-      payload: { stems }
-    }
-    try {
-      await send(JSON.stringify(message));
-    } catch (err) {
-    }
-    setShowMenu(false);
-  }
+  const handleSyncToPlugin = async () => {
+    await syncToPluginNow();
+    setShowMenu?.(false);
+  };
 
   return (
-    <>
-      <div className={styles.menuItem} onClick={openInPlugin}>Open in Plugin</div>
-      <div className={styles.menuItem} onClick={handleSync}>Sync Edits to Plugin</div>
-    </>
+    <PluginAutoSyncMenu
+      autoSyncEnabled={autoSyncEnabled}
+      onAutoSyncToggle={handleAutoSyncToggle}
+      onOpenInPlugin={handleOpenInPlugin}
+      onSyncToPlugin={handleSyncToPlugin}
+      isPluginStale={isPluginStale}
+    />
   );
-} 
+}

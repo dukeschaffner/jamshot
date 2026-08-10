@@ -38,7 +38,12 @@ function waitForWebSocketOpen(socket, { timeoutMs = 5000 } = {}) {
   });
 }
 
-const DEFERRED_SUCCESS_TYPES = new Set(['set_project', 'project_sync']);
+const DEFERRED_SUCCESS_TYPES = new Set([
+  'set_project',
+  'project_sync',
+  'set_track',
+  'stem_metadata_sync',
+]);
 
 function parseIncomingMessage(data) {
   if (!data || typeof data !== 'string') return null;
@@ -96,6 +101,11 @@ export function PluginWebSocketProvider({ children }) {
     const parsed = parseIncomingMessage(rawMessage);
     if (!parsed?.type) return;
 
+    // Status announce on connect — not a user-facing open action.
+    if (parsed.type === 'plugin_project_status' || parsed.type === 'plugin_track_status') {
+      return;
+    }
+
     if (parsed.type === 'project_load_complete') {
       if (!silentSuccessTypesRef.current.has('set_project')) {
         showSuccessRef.current(successMessages.set_project);
@@ -105,8 +115,12 @@ export function PluginWebSocketProvider({ children }) {
       return;
     }
 
-    // Status announce on connect — not a user-facing open action.
-    if (parsed.type === 'plugin_project_status') {
+    if (parsed.type === 'track_load_complete') {
+      if (!silentSuccessTypesRef.current.has('set_track')) {
+        showSuccessRef.current(successMessages.set_track);
+      } else {
+        silentSuccessTypesRef.current.delete('set_track');
+      }
       return;
     }
 
@@ -117,11 +131,28 @@ export function PluginWebSocketProvider({ children }) {
       return;
     }
 
+    if (parsed.type === 'track_load_error') {
+      if (silentSuccessTypesRef.current.has('set_track')) {
+        silentSuccessTypesRef.current.delete('set_track');
+      }
+      showErrorRef.current(parsed.error || errorMessages.set_track);
+      return;
+    }
+
     if (parsed.type === 'project_sync_complete') {
       if (!silentSuccessTypesRef.current.has('project_sync')) {
         showSuccessRef.current(successMessages.project_sync);
       } else {
         silentSuccessTypesRef.current.delete('project_sync');
+      }
+      return;
+    }
+
+    if (parsed.type === 'stem_metadata_sync_complete') {
+      if (!silentSuccessTypesRef.current.has('stem_metadata_sync')) {
+        showSuccessRef.current(successMessages.stem_metadata_sync);
+      } else {
+        silentSuccessTypesRef.current.delete('stem_metadata_sync');
       }
       return;
     }
@@ -135,6 +166,17 @@ export function PluginWebSocketProvider({ children }) {
       }
       showErrorRef.current(
         parsed.error || errorMessages.project_sync
+      );
+      return;
+    }
+
+    if (parsed.type === 'stem_metadata_sync_error') {
+      if (silentSuccessTypesRef.current.has('stem_metadata_sync')) {
+        silentSuccessTypesRef.current.delete('stem_metadata_sync');
+        return;
+      }
+      showErrorRef.current(
+        parsed.error || errorMessages.stem_metadata_sync
       );
     }
   }, []);

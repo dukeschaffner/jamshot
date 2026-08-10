@@ -116,6 +116,9 @@ public:
     /** Fires on the message thread after a project is opened remotely via set_project. */
     juce::ChangeBroadcaster& getRemoteProjectOpenBroadcaster() { return remoteProjectOpenBroadcaster; }
 
+    /** Fires on the message thread after a track is opened remotely via set_track. */
+    juce::ChangeBroadcaster& getRemoteTrackOpenBroadcaster() { return remoteTrackOpenBroadcaster; }
+
     WebDawConnectionIndicatorModel& getWebDawConnectionIndicator() { return webDawConnectionIndicator; }
 
     Services& getServices() { return services; }
@@ -133,9 +136,16 @@ private:
     void sendProjectLoadError(const juce::String& projectId, const juce::String& error);
     void sendProjectSyncComplete(const juce::String& projectId);
     void sendProjectSyncError(const juce::String& projectId, const juce::String& error);
+    void sendTrackLoadComplete(const juce::String& trackId);
+    void sendTrackLoadError(const juce::String& trackId, const juce::String& error);
+    void sendStemMetadataSyncComplete(const juce::String& trackId);
+    void sendStemMetadataSyncError(const juce::String& trackId, const juce::String& error);
     std::string buildPluginProjectStatusMessage() const;
+    std::string buildPluginTrackStatusMessage() const;
     /** Push current loaded-project id (or none) to all connected web clients. */
     void announcePluginProjectStatus();
+    /** Push current loaded-track id (or none) to all connected web clients. */
+    void announcePluginTrackStatus();
     void ensureLocalWebSocketServer();
 
     /** Handle sample rate changes and convert stems if necessary */
@@ -171,6 +181,8 @@ private:
 
     // Notifies the UI (async, message thread) when set_project opens a project
     juce::ChangeBroadcaster remoteProjectOpenBroadcaster;
+    // Notifies the UI (async, message thread) when set_track opens a track
+    juce::ChangeBroadcaster remoteTrackOpenBroadcaster;
     WebDawConnectionIndicatorModel webDawConnectionIndicator;
 
     // Track and stem state management (thread-safe)

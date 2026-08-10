@@ -1,110 +1,52 @@
-export const PLUGIN_SYNC_GATE = {
-  UNKNOWN: 'unknown',
-  READY: 'ready',
-  NOT_READY: 'not_ready',
-};
+/**
+ * Project-specific thin wrappers over the shared entity sync gate.
+ */
+import {
+  PLUGIN_SYNC_GATE,
+  PROJECT_NOT_LOADED_IN_PLUGIN_ERROR,
+  PROJECT_SYNC_GATE_CONFIG,
+  canAutoSyncEntityToPlugin,
+  createInitialPluginSyncGate as createInitialSharedGate,
+  isMatchingPluginEntityReady,
+  reducePluginEntitySyncGate,
+} from '@/components/DAW/pluginSync/pluginEntitySyncGate';
 
-export const PROJECT_NOT_LOADED_IN_PLUGIN_ERROR =
-  'No matching project loaded in plugin. Open the project in the plugin first.';
+export { PLUGIN_SYNC_GATE, PROJECT_NOT_LOADED_IN_PLUGIN_ERROR };
 
 export function createInitialPluginSyncGate() {
-  return {
-    status: PLUGIN_SYNC_GATE.UNKNOWN,
-    loadedProjectId: null,
-  };
+  return createInitialSharedGate(PROJECT_SYNC_GATE_CONFIG.entityIdField);
 }
 
 export function isProjectNotLoadedInPluginError(error) {
-  if (!error || typeof error !== 'string') return false;
-  return error.includes('No matching project loaded in plugin');
+  return PROJECT_SYNC_GATE_CONFIG.isNotLoadedError(error);
 }
 
-function toNotReady(gate) {
-  if (gate.status === PLUGIN_SYNC_GATE.NOT_READY && gate.loadedProjectId == null) {
-    return gate;
-  }
-  return {
-    status: PLUGIN_SYNC_GATE.NOT_READY,
-    loadedProjectId: null,
-  };
-}
-
-function toReady(gate, projectId) {
-  if (gate.status === PLUGIN_SYNC_GATE.READY && gate.loadedProjectId === projectId) {
-    return gate;
-  }
-  return {
-    status: PLUGIN_SYNC_GATE.READY,
-    loadedProjectId: projectId,
-  };
-}
-
-/**
- * Pure reducer for whether the local plugin currently has a project ready for project_sync.
- * UNKNOWN allows a single probe attempt after (re)connect; NOT_READY blocks auto-sync until
- * project_load_complete / project_sync_complete / plugin_project_status with a matching id.
- */
 export function reducePluginSyncGate(gate, event) {
-  switch (event?.type) {
-    case 'connection': {
-      if (gate.status === PLUGIN_SYNC_GATE.UNKNOWN && gate.loadedProjectId == null) {
-        return gate;
-      }
-      return createInitialPluginSyncGate();
-    }
-    case 'plugin_project_status': {
-      const projectId = event.projectId || null;
-      if (!projectId) {
-        return toNotReady(gate);
-      }
-      return toReady(gate, projectId);
-    }
-    case 'project_load_complete':
-    case 'project_sync_complete': {
-      const projectId = event.projectId || null;
-      if (!projectId) {
-        return createInitialPluginSyncGate();
-      }
-      return toReady(gate, projectId);
-    }
-    case 'project_sync_error': {
-      if (!isProjectNotLoadedInPluginError(event.error)) {
-        return gate;
-      }
-      return toNotReady(gate);
-    }
-    case 'project_load_error': {
-      const failedId = event.projectId || null;
-      if (failedId && gate.loadedProjectId && gate.loadedProjectId !== failedId) {
-        return gate;
-      }
-      return toNotReady(gate);
-    }
-    default:
-      return gate;
-  }
+  return reducePluginEntitySyncGate(
+    gate,
+    {
+      type: event?.type,
+      entityId: event?.projectId ?? null,
+      error: event?.error ?? null,
+      status: event?.status,
+    },
+    PROJECT_SYNC_GATE_CONFIG
+  );
 }
 
 export function canAutoSyncProjectToPlugin(gate, projectGuid, connectionStatus) {
-  if (connectionStatus !== 'connected' || !projectGuid) return false;
-
-  if (gate.status === PLUGIN_SYNC_GATE.NOT_READY) return false;
-
-  if (gate.status === PLUGIN_SYNC_GATE.READY) {
-    return gate.loadedProjectId === projectGuid;
-  }
-
-  // UNKNOWN: allow one probe so a page refresh with the project already loaded still works.
-  return true;
+  return canAutoSyncEntityToPlugin(
+    gate,
+    projectGuid,
+    connectionStatus,
+    PROJECT_SYNC_GATE_CONFIG.entityIdField
+  );
 }
 
-/**
- * True when plugin has announced (or completed load of) the same project the web DAW has open.
- */
 export function isMatchingPluginProjectReady(gate, projectGuid) {
-  return (
-    Boolean(projectGuid) &&
-    gate?.status === PLUGIN_SYNC_GATE.READY &&
-    gate.loadedProjectId === projectGuid
+  return isMatchingPluginEntityReady(
+    gate,
+    projectGuid,
+    PROJECT_SYNC_GATE_CONFIG.entityIdField
   );
 }

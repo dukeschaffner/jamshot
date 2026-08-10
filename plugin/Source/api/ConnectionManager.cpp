@@ -112,9 +112,12 @@ void ConnectionManager::connect(const std::string& url)
                 }
                 if (connectedCb)
                 {
-                    const std::string hello = connectedCb();
-                    if (!hello.empty())
-                        client->send(hello);
+                    const std::vector<std::string> hellos = connectedCb();
+                    for (const auto& hello : hellos)
+                    {
+                        if (!hello.empty())
+                            client->send(hello);
+                    }
                 }
             });
 

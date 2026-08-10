@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <juce_events/juce_events.h>
 #include "StemModels.h"
 
@@ -32,10 +33,17 @@ public:
     void clearProjectLoadProgress();
     juce::Optional<ProjectLoadProgress> getProjectLoadProgress() const;
 
+    /** Track-mode stem download in progress (safe from any thread). */
+    void setTrackStemsLoading(bool loading);
+    bool isTrackStemsLoading() const;
+
     //==============================================================================
     // Add your listeners to get notified when the track changes
     void addChangeListener(juce::ChangeListener* listener);
     void removeChangeListener(juce::ChangeListener* listener);
+
+    /** Notify listeners without changing selection (e.g. stems finished loading). */
+    void notifyChanged();
 
 private:
     //==============================================================================
@@ -45,6 +53,7 @@ private:
     std::shared_ptr<juce::Optional<TrackInfo>> currentTrack;
     std::shared_ptr<juce::Optional<ProjectInfo>> currentProject;
     std::shared_ptr<juce::Optional<ProjectLoadProgress>> projectLoadProgress;
+    std::atomic<bool> trackStemsLoading { false };
     juce::ListenerList<juce::ChangeListener> listeners;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginState)

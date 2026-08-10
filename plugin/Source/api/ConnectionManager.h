@@ -5,6 +5,7 @@
 #include <ixwebsocket/IXWebSocketServer.h>
 #include <functional>
 #include <string>
+#include <vector>
 
 class ConnectionManager
 {
@@ -13,8 +14,8 @@ public:
 
     using MessageCallback = std::function<void(const std::string& message)>;
     using StatusCallback  = std::function<void(Status status, const std::string& reason)>;
-    /** Returns a hello/status payload to send only to the newly connected client. */
-    using ClientConnectedCallback = std::function<std::string()>;
+    /** Returns hello/status payloads to send only to the newly connected client. */
+    using ClientConnectedCallback = std::function<std::vector<std::string>()>;
     /** Fired when the first web client connects or the last web client disconnects. */
     using ClientPresenceCallback = std::function<void(bool hasClients)>;
 

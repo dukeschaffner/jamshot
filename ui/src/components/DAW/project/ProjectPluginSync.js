@@ -1,8 +1,7 @@
 'use client';
 
 import { useProjectEditor } from './ProjectEditorContext';
-import styles from '../DAW.module.css';
-import pluginStyles from './ProjectPluginSync.module.css';
+import PluginAutoSyncMenu from '../pluginSync/PluginAutoSyncMenu';
 
 export default function ProjectPluginSync({ setShowMenu }) {
   const {
@@ -31,30 +30,14 @@ export default function ProjectPluginSync({ setShowMenu }) {
     setShowMenu?.(false);
   };
 
-  if (!isActive || !canEdit) {
-    return null;
-  }
-
   return (
-    <>
-      <label className={pluginStyles.autoSyncRow}>
-        <input
-          type="checkbox"
-          className={pluginStyles.autoSyncInput}
-          checked={pluginAutoSyncEnabled}
-          onChange={handleAutoSyncToggle}
-        />
-        <span>Auto-sync edits to plugin</span>
-      </label>
-      <button type="button" className={styles.menuItem} onClick={handleOpenInPlugin}>
-        Open in Plugin
-      </button>
-      {!pluginAutoSyncEnabled ? (
-        <button type="button" className={styles.menuItem} onClick={handleSyncToPlugin}>
-          Sync edits to plugin
-          {isPluginStale ? <span className={pluginStyles.staleBadge}>stale</span> : null}
-        </button>
-      ) : null}
-    </>
+    <PluginAutoSyncMenu
+      visible={isActive && canEdit}
+      autoSyncEnabled={pluginAutoSyncEnabled}
+      onAutoSyncToggle={handleAutoSyncToggle}
+      onOpenInPlugin={handleOpenInPlugin}
+      onSyncToPlugin={handleSyncToPlugin}
+      isPluginStale={isPluginStale}
+    />
   );
 }

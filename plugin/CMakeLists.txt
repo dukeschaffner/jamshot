@@ -163,6 +163,15 @@ target_sources(SterioPlugin
         Source/ui/projects/ProjectView.h
         Source/ui/projects/ProjectTimelineView.cpp
         Source/ui/projects/ProjectTimelineView.h
+        Source/ui/tracks/TrackView.cpp
+        Source/ui/tracks/TrackView.h
+        Source/ui/timeline/StemTimelineModels.h
+        Source/ui/timeline/StemTimelineView.cpp
+        Source/ui/timeline/StemTimelineView.h
+        Source/ui/timeline/buildProjectTimelineLanes.cpp
+        Source/ui/timeline/buildProjectTimelineLanes.h
+        Source/ui/timeline/buildTrackTimelineLanes.cpp
+        Source/ui/timeline/buildTrackTimelineLanes.h
 )
 
 source_group("Sterio" FILES
@@ -241,6 +250,15 @@ source_group("Sterio" FILES
     Source/ui/projects/ProjectView.h
     Source/ui/projects/ProjectTimelineView.cpp
     Source/ui/projects/ProjectTimelineView.h
+    Source/ui/tracks/TrackView.cpp
+    Source/ui/tracks/TrackView.h
+    Source/ui/timeline/StemTimelineModels.h
+    Source/ui/timeline/StemTimelineView.cpp
+    Source/ui/timeline/StemTimelineView.h
+    Source/ui/timeline/buildProjectTimelineLanes.cpp
+    Source/ui/timeline/buildProjectTimelineLanes.h
+    Source/ui/timeline/buildTrackTimelineLanes.cpp
+    Source/ui/timeline/buildTrackTimelineLanes.h
 )
 
 set_property(TARGET SterioPlugin PROPERTY FOLDER "Sterio")

@@ -125,6 +125,7 @@ void SterioPluginEditor::resized()
 void SterioPluginEditor::onTrackSelected(const TrackInfo& track)
 {
     processorRef.setCurrentTrack(track);
+    mainContentComponent.showTrackDetail(track);
 }
 
 void SterioPluginEditor::updateSampleRateWarning()

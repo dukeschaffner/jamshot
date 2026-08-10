@@ -82,6 +82,17 @@ juce::Optional<PluginState::ProjectLoadProgress> PluginState::getProjectLoadProg
     return {};
 }
 
+void PluginState::setTrackStemsLoading(bool loading)
+{
+    trackStemsLoading.store(loading);
+    triggerAsyncUpdate();
+}
+
+bool PluginState::isTrackStemsLoading() const
+{
+    return trackStemsLoading.load();
+}
+
 //==============================================================================
 void PluginState::handleAsyncUpdate()
 {
@@ -98,4 +109,9 @@ void PluginState::addChangeListener(juce::ChangeListener* listener)
 void PluginState::removeChangeListener(juce::ChangeListener* listener)
 {
     listeners.remove(listener);
+}
+
+void PluginState::notifyChanged()
+{
+    triggerAsyncUpdate();
 }

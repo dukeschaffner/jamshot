@@ -34,7 +34,7 @@ import { useTimelineWheelControls } from './hooks/useTimelineWheelControls';
 import { useToast } from '../../lib/ToastContext';
 import ConfirmationDialog from '../ConfirmationDialog';
 import { captureDawLeaveUnsavedConfirmed, captureDawUploadFormOpened } from '../../lib/posthogAnalytics';
-import { useReportWebDawSyncStatus } from '@/hooks/useReportWebDawSyncStatus';
+import { TrackPluginSyncProvider } from './pluginSync/TrackPluginSyncContext';
 
 function DAWContent({ track, isVisible = true }) {
   const {
@@ -101,12 +101,8 @@ function DAWContent({ track, isVisible = true }) {
   const [isSnapshotsOpen, setIsSnapshotsOpen] = useState(false);
   const isProjectMode = dawMode === 'project';
 
-  // Track DAW: connect + report Connected (never Syncing — no track auto-sync).
-  // Project DAW reports via useProjectPluginAutoSync instead.
-  useReportWebDawSyncStatus({
-    syncing: false,
-    enabled: !isProjectMode,
-  });
+  // Track DAW sync status is reported by TrackPluginSyncProvider / useTrackPluginAutoSync.
+  // Project DAW reports via useProjectPluginAutoSync.
 
   useEffect(() => {
     if (!isVisible) return;
@@ -640,7 +636,9 @@ function DAW({ track, isVisible = true }) {
 
   return (
     <DAWProvider trackData={trackData} isCollab={isCollab}>
-      <DAWWrapper track={track} isVisible={isVisible} />
+      <TrackPluginSyncProvider enabled>
+        <DAWWrapper track={track} isVisible={isVisible} />
+      </TrackPluginSyncProvider>
     </DAWProvider>
   );
 }

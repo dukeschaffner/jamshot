@@ -21,6 +21,8 @@ struct StemTrack
     int trackId = 0;                    // Clip/stem ID (legacy + project clip id)
     int projectTrackId = 0;             // Project track id for mute/solo gating (0 = N/A)
     juce::String audioUrl;              // CDN URL for the audio file
+    juce::String title;                 // Stem/track title (track mode timeline labels)
+    juce::String username;              // Contributor username (optional)
     float gain = 1.0f;                  // Gain multiplier (0.0 to 1.0)
     int order = 0;                      // Playback order
     std::shared_ptr<juce::AudioBuffer<float>> audioBuffer; // Decoded audio data (shared to avoid duplication)
