@@ -1,0 +1,7 @@
+---
+description: Reading or updating the database schema
+alwaysApply: false
+---
+
+- The database schema is defined in `docs/database/schema/{schema-name}.sql`. Each file contains one table or a logic grouping of tables and associated indexes, constraints, etc.
+- Any updates to the database schema should be recorded as a migration in `docs/database/migrations/{dd-mm-yy}-{migration-name}.sql`.

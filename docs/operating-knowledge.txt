@@ -1,6 +1,0 @@
-
-
-
-Building Packages:
-- all third party packages are externalized in the esbuild.config.js file
-- third party dependencies of local shared packages must be manually added to consuming package.json files

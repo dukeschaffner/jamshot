@@ -1,0 +1,62 @@
+-- Landing Page Feature Tables
+-- Table for early access codes
+CREATE TABLE access_codes (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(50) UNIQUE NOT NULL,
+  description TEXT, -- Optional description for the code
+  max_uses INTEGER DEFAULT 10, -- How many times this code can be used
+  current_uses INTEGER DEFAULT 0, -- How many times it has been used
+  is_active BOOLEAN DEFAULT TRUE, -- Whether the code is currently active
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP -- Optional expiration date
+);
+
+-- Table for tracking access code usage
+CREATE TABLE access_code_usage (
+  id SERIAL PRIMARY KEY,
+  code_id INTEGER REFERENCES access_codes(id) ON DELETE CASCADE,
+  ip_address VARCHAR(45) NOT NULL,
+  country_code VARCHAR(2),
+  region VARCHAR(100),
+  city VARCHAR(100),
+  user_agent TEXT,
+  used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for waitlist entries
+CREATE TABLE waitlist (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  ip_address VARCHAR(45),
+  country_code VARCHAR(2),
+  region VARCHAR(100),
+  city VARCHAR(100),
+  user_agent TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+  referral_code VARCHAR(10) UNIQUE
+);
+
+-- Create indexes for performance
+CREATE INDEX idx_access_codes_code ON access_codes(code);
+CREATE INDEX idx_access_codes_active ON access_codes(is_active);
+CREATE INDEX idx_access_code_usage_code_id ON access_code_usage(code_id);
+CREATE INDEX idx_access_code_usage_ip ON access_code_usage(ip_address);
+CREATE INDEX idx_waitlist_email ON waitlist(email);
+
+-- Create index for referral_code lookups
+CREATE INDEX IF NOT EXISTS idx_waitlist_referral_code ON waitlist(referral_code);
+
+-- Create referrals table to track referral usage
+CREATE TABLE IF NOT EXISTS referrals (
+  id SERIAL PRIMARY KEY,
+  referrer_waitlist_id INT REFERENCES waitlist(id) ON DELETE CASCADE NOT NULL,
+  referred_waitlist_id INT REFERENCES waitlist(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (referred_waitlist_id) -- Each waitlist entry can only be referred once
+);
+
+-- Create indexes for referrals table
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_waitlist_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_waitlist_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_created_at ON referrals(created_at);
