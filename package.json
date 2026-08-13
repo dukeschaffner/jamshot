@@ -15,5 +15,8 @@
   "scripts": {
     "build:packages": "npm run build --workspaces --if-present",
     "dev:backend": "./scripts/run-backend-services.sh"
+  },
+  "devDependencies": {
+    "wrangler": "^4.120.1"
   }
 }

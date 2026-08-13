@@ -265,13 +265,14 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
       };
     }
 
-    // Insert placeholder row to get asset id, then copy R2 objects, then update keys.
+    // Insert placeholder, copy stem with honest extension/mime, then finalize.
+    // Imports keep source format (usually MP3); uploads still convert to WAV.
     const placeholder = await client.query(
       `INSERT INTO project_assets (
          project_id, storage_key, name, duration_seconds, mime_type,
          uploaded_by, processing_status, source_track_id
        )
-       VALUES ($1, 'pending', $2, $3, 'audio/wav', $4, 'processing', $5)
+       VALUES ($1, 'pending', $2, $3, 'audio/*', $4, 'processing', $5)
        RETURNING id`,
       [
         project.id,
@@ -284,7 +285,7 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
     const assetId = placeholder.rows[0].id;
     const filenameBase = generateProjectAssetFilenameBase();
 
-    const { storageKey, fileSizeBytes } = await copyProjectAssetAudioFromSource(
+    const { storageKey, fileSizeBytes, mimeType } = await copyProjectAssetAudioFromSource(
       sourceTrack.audio_url,
       filenameBase
     );
@@ -299,12 +300,13 @@ export async function copySingleTrackAsset(project, trackIdOrGuid, userId, optio
            audio_url = $1,
            waveform_url = $2,
            file_size_bytes = $3,
+           mime_type = $4,
            processing_status = 'completed',
            last_referenced_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
+       WHERE id = $5
        RETURNING *`,
-      [storageKey, waveformKey, fileSizeBytes, assetId]
+      [storageKey, waveformKey, fileSizeBytes, mimeType, assetId]
     );
 
     if (shouldManageTransaction) {
@@ -501,14 +503,14 @@ export async function importTrackIntoProject(
          project_id, storage_key, name, duration_seconds, mime_type,
          uploaded_by, processing_status, source_track_id
        )
-       VALUES ($1, 'pending', $2, $3, 'audio/wav', $4, 'processing', $5)
+       VALUES ($1, 'pending', $2, $3, 'audio/*', $4, 'processing', $5)
        RETURNING id`,
       [project.id, plan.title, plan.durationSeconds, userId, plan.stem.track_id]
     );
     const assetId = placeholder.rows[0].id;
     const filenameBase = generateProjectAssetFilenameBase();
 
-    const { storageKey, fileSizeBytes } = await copyProjectAssetAudioFromSource(
+    const { storageKey, fileSizeBytes, mimeType } = await copyProjectAssetAudioFromSource(
       plan.audioKey,
       filenameBase
     );
@@ -523,10 +525,11 @@ export async function importTrackIntoProject(
            audio_url = $1,
            waveform_url = $2,
            file_size_bytes = $3,
+           mime_type = $4,
            processing_status = 'completed',
            last_referenced_at = CURRENT_TIMESTAMP
-       WHERE id = $4`,
-      [storageKey, waveformKey, fileSizeBytes, assetId]
+       WHERE id = $5`,
+      [storageKey, waveformKey, fileSizeBytes, mimeType, assetId]
     );
 
     const trackResult = await client.query(
