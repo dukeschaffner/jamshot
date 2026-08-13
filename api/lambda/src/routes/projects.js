@@ -75,7 +75,7 @@ import {
   importTrackIntoProject,
   isGuid,
 } from '../services/projectImportService.js';
-import { notifyLineageContributorsOfProject } from '../services/projectFromTrackNotifyService.js';
+// import { notifyLineageContributorsOfProject } from '../services/projectFromTrackNotifyService.js';
 import {
   createProjectCollabAsset,
   listProjectCollabTracks,
@@ -788,20 +788,21 @@ router.post('/', contentCreationLimiter, async (req, res, next) => {
       client.release();
     }
 
+    // Disabled: do not email collab members when a project is created from a track
     // Await so Lambda (callbackWaitsForEmptyEventLoop=false) does not freeze before SMTP finishes
-    if (importResult?.sourceTrack) {
-      try {
-        await notifyLineageContributorsOfProject({
-          sourceTrackId: importResult.sourceTrack.id,
-          sourceTrackGuid: importResult.sourceTrack.guid,
-          sourceTrackTitle: importResult.sourceTrack.title,
-          projectName: createdProject.name,
-          creatorUserId: userId,
-        });
-      } catch (err) {
-        console.error('Lineage notify failed after project create:', err);
-      }
-    }
+    // if (importResult?.sourceTrack) {
+    //   try {
+    //     await notifyLineageContributorsOfProject({
+    //       sourceTrackId: importResult.sourceTrack.id,
+    //       sourceTrackGuid: importResult.sourceTrack.guid,
+    //       sourceTrackTitle: importResult.sourceTrack.title,
+    //       projectName: createdProject.name,
+    //       creatorUserId: userId,
+    //     });
+    //   } catch (err) {
+    //     console.error('Lineage notify failed after project create:', err);
+    //   }
+    // }
 
     res.status(201).json(formatProjectSummary(createdProject, 'owner'));
   } catch (err) {
