@@ -36,14 +36,25 @@ void StemPlaybackEngine::processBlock(juce::AudioBuffer<float>& buffer, const Tr
     if (!stemsProvider)
         return;
 
-    auto stems = stemsProvider(); // Atomic read from processor's storage
+    // IMPORTANT: hold the shared_ptr — do not copy Array<StemTrack> on the audio thread
+    // (StemTrack contains juce::String fields; copying allocates and causes glitches).
+    auto stemsPtr = stemsProvider();
+    if (!stemsPtr || stemsPtr->isEmpty())
+    {
+        if (transport.hasValidPosition)
+            previousTransportPosition = transport.timeInSamples;
+        wasPlaying = transport.isPlaying;
+        return;
+    }
+
+    const auto& stems = *stemsPtr;
 
     std::shared_ptr<const ProjectMixState> mixState;
     if (mixStateProvider)
         mixState = mixStateProvider();
 
     // Process all stems if transport is playing
-    if (transport.isPlaying && transport.hasValidPosition && !stems.isEmpty())
+    if (transport.isPlaying && transport.hasValidPosition)
     {
         const int numSamples = buffer.getNumSamples();
 
@@ -79,15 +90,22 @@ void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<fl
     if (sampleRate <= 0.0)
         return;
 
-    // Find the region that should be playing at the current transport time
-    // (including any loop area past endTime).
+    // Find the region that should be playing at the current transport sample
+    // (including any loop area past endTime). Use integer timeline samples —
+    // never re-quantize float seconds to a buffer index per output sample.
     const StemRegion* activeRegion = nullptr;
+    int64_t regionStartSamples = 0;
+    int64_t effectiveEndSamples = 0;
+
     for (auto& region : stem.regions)
     {
-        const double effectiveEnd = RegionLoopMath::regionEffectiveEnd(region);
-        if (transport.timeInSeconds >= region.startTime && transport.timeInSeconds < effectiveEnd)
+        const int64_t startSamples = RegionLoopMath::regionStartSamples(region, sampleRate);
+        const int64_t endSamples = RegionLoopMath::regionEffectiveEndSamples(region, sampleRate);
+        if (transport.timeInSamples >= startSamples && transport.timeInSamples < endSamples)
         {
             activeRegion = &region;
+            regionStartSamples = startSamples;
+            effectiveEndSamples = endSamples;
             break;
         }
     }
@@ -96,15 +114,15 @@ void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<fl
     if (activeRegion == nullptr)
         return;
 
-    const double effectiveEnd = RegionLoopMath::regionEffectiveEnd(*activeRegion);
     const bool looped = RegionLoopMath::isRegionLooped(*activeRegion);
-    const double audibleLength = RegionLoopMath::regionAudibleLength(*activeRegion);
+    const int64_t audibleLengthSamples = RegionLoopMath::regionAudibleLengthSamples(*activeRegion, sampleRate);
+    const int64_t offsetSamples = RegionLoopMath::regionOffsetSamples(*activeRegion, sampleRate);
     const int stemChannels = stemBuffer.getNumChannels();
     const int bufferChannels = buffer.getNumChannels();
     const int stemNumSamples = stemBuffer.getNumSamples();
 
     // Mix stem audio into output buffer (upmix mono stems to all output channels).
-    // Per-sample wrap so blocks that cross a loop tile boundary (or loopEnd) are correct.
+    // Integer index from host timeline samples + block offset (with loop wrap in samples).
     for (int channel = 0; channel < bufferChannels; ++channel)
     {
         auto* outputPtr = buffer.getWritePointer(channel);
@@ -112,21 +130,20 @@ void StemPlaybackEngine::processStem(const StemTrack& stem, juce::AudioBuffer<fl
 
         for (int sample = 0; sample < numSamples; ++sample)
         {
-            const double posInRegion = (transport.timeInSeconds - activeRegion->startTime)
-                + (static_cast<double>(sample) / sampleRate);
+            const int64_t timelineSample = transport.timeInSamples + static_cast<int64_t>(sample);
 
-            if (activeRegion->startTime + posInRegion >= effectiveEnd)
+            if (timelineSample >= effectiveEndSamples)
                 break;
 
-            if (posInRegion < 0.0)
+            if (timelineSample < regionStartSamples)
                 continue;
 
-            const double wrappedPos = (looped && audibleLength > 0.0)
-                ? RegionLoopMath::wrapTimeIntoRegion(*activeRegion, posInRegion)
-                : posInRegion;
+            const int64_t posInRegionSamples = timelineSample - regionStartSamples;
+            const int64_t wrappedPos = (looped && audibleLengthSamples > 0)
+                ? RegionLoopMath::wrapSamplesIntoRegion(*activeRegion, posInRegionSamples, audibleLengthSamples)
+                : posInRegionSamples;
 
-            const int64_t stemSampleIndex = static_cast<int64_t>(
-                (activeRegion->offset + wrappedPos) * sampleRate);
+            const int64_t stemSampleIndex = offsetSamples + wrappedPos;
 
             if (stemSampleIndex >= 0 && stemSampleIndex < stemNumSamples)
             {

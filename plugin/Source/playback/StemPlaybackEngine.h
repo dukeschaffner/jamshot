@@ -14,8 +14,8 @@
 class StemPlaybackEngine
 {
 public:
-    /** Function type for providing stems atomically */
-    using StemsProvider = std::function<juce::Array<StemTrack>()>;
+    /** Function type for providing stems atomically (shared_ptr only — no Array copy on audio thread). */
+    using StemsProvider = std::function<std::shared_ptr<juce::Array<StemTrack>>()>;
     /** Function type for providing project mix state atomically (lock-free read). */
     using MixStateProvider = std::function<std::shared_ptr<const ProjectMixState>()>;
 

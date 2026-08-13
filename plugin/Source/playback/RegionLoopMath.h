@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include "../StemModels.h"
 
 //==============================================================================
@@ -49,6 +50,65 @@ namespace RegionLoopMath
         double wrapped = std::fmod(timeIntoRegion, audibleLength);
         if (wrapped < 0.0)
             wrapped += audibleLength;
+        return wrapped;
+    }
+
+    /** Convert a seconds-domain timeline value to a sample index. */
+    inline int64_t secondsToSamples(double seconds, double sampleRate)
+    {
+        return static_cast<int64_t>(std::llround(seconds * sampleRate));
+    }
+
+    inline int64_t regionStartSamples(const StemRegion& region, double sampleRate)
+    {
+        return secondsToSamples(region.startTime, sampleRate);
+    }
+
+    inline int64_t regionEndSamples(const StemRegion& region, double sampleRate)
+    {
+        return secondsToSamples(region.endTime, sampleRate);
+    }
+
+    inline int64_t regionLoopEndSamples(const StemRegion& region, double sampleRate)
+    {
+        return secondsToSamples(region.loopEnd, sampleRate);
+    }
+
+    inline int64_t regionOffsetSamples(const StemRegion& region, double sampleRate)
+    {
+        return secondsToSamples(region.offset, sampleRate);
+    }
+
+    inline int64_t regionAudibleLengthSamples(const StemRegion& region, double sampleRate)
+    {
+        return std::max(int64_t(0),
+                        regionEndSamples(region, sampleRate) - regionStartSamples(region, sampleRate));
+    }
+
+    inline int64_t regionEffectiveEndSamples(const StemRegion& region, double sampleRate)
+    {
+        if (isRegionLooped(region))
+            return regionLoopEndSamples(region, sampleRate);
+        return regionEndSamples(region, sampleRate);
+    }
+
+    /**
+     * Wrap samples-into-region into the audible source window (sample domain).
+     * Non-looped regions return the input unchanged.
+     */
+    inline int64_t wrapSamplesIntoRegion(const StemRegion& region,
+                                         int64_t samplesIntoRegion,
+                                         int64_t audibleLengthSamples)
+    {
+        if (!isRegionLooped(region))
+            return samplesIntoRegion;
+
+        if (audibleLengthSamples <= 0)
+            return 0;
+
+        int64_t wrapped = samplesIntoRegion % audibleLengthSamples;
+        if (wrapped < 0)
+            wrapped += audibleLengthSamples;
         return wrapped;
     }
 }

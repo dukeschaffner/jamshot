@@ -24,10 +24,15 @@ SterioPluginProcessor::SterioPluginProcessor()
 
     // Set up provider function for playback engine to atomically access stems
     playbackEngine.setStemsProvider([this]() {
-        return this->getLoadedStems(); // Thread-safe atomic read
+        return std::atomic_load(&stems); // shared_ptr only — no Array/String copy on audio thread
     });
     playbackEngine.setMixStateProvider([this]() {
         return this->projectMixController.getState();
+    });
+    // Must be wired for prepareToPlay / host SR changes — setStems() is unused by
+    // track/project load paths, which call setLoadedStems() instead.
+    playbackEngine.setStemReloadCallback([this]() {
+        this->requestStemReload();
     });
 
 #ifdef JUCE_DEBUG
@@ -285,11 +290,6 @@ void SterioPluginProcessor::setStems(const juce::Array<StemTrack>& newStems)
 {
     // Store stems in processor state (atomic)
     setLoadedStems(newStems);
-    
-    // Set up the reload callback chain
-    playbackEngine.setStemReloadCallback([this]() {
-        this->requestStemReload();
-    });
 }
 
 void SterioPluginProcessor::setCurrentTrack(const TrackInfo& track)
