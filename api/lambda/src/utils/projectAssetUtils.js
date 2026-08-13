@@ -23,14 +23,8 @@ function generateProjectAssetFilenameBase() {
   return `${timestamp}-${guid}`;
 }
 
-/**
- * Final project asset object key. Uploads/recordings use .wav (default).
- * Collab imports may pass the source extension (e.g. .mp3) so key matches bytes.
- */
-function buildProjectAssetFinalKey(filenameBase, extension = '.wav') {
-  const raw = extension || '.wav';
-  const ext = raw.startsWith('.') ? raw.toLowerCase() : `.${raw.toLowerCase()}`;
-  return `projects/${filenameBase}${ext}`;
+function buildProjectAssetFinalKey(filenameBase) {
+  return `projects/${filenameBase}.wav`;
 }
 
 function buildProjectAssetWaveformKey(filenameBase) {
@@ -162,24 +156,11 @@ async function getR2ObjectByteSize(keyOrUrl) {
   }
 }
 
-function mimeTypeForAudioExtension(extension) {
-  const ext = (extension || '').toLowerCase();
-  if (ext === '.wav') return 'audio/wav';
-  if (ext === '.mp3') return 'audio/mpeg';
-  if (ext === '.ogg') return 'audio/ogg';
-  if (ext === '.flac') return 'audio/flac';
-  if (ext === '.m4a' || ext === '.mp4') return 'audio/mp4';
-  return 'audio/*';
-}
-
 /**
- * Copy a social-track audio object into a project asset key using the source
- * extension (usually .mp3). Key + Content-Type + returned mime must match bytes —
- * never write MPEG under a .wav key.
- *
+ * Copy a social-track audio object into a project asset storage key.
  * @param {string} sourceAudioKey - R2 key (e.g. tracks/...)
  * @param {string} filenameBase - random {timestamp}-{16hex} base
- * @returns {Promise<{ storageKey: string, fileSizeBytes: number|null, mimeType: string }>}
+ * @returns {Promise<{ storageKey: string, fileSizeBytes: number|null }>}
  */
 async function copyProjectAssetAudioFromSource(sourceAudioKey, filenameBase) {
   if (!sourceAudioKey || typeof sourceAudioKey !== 'string') {
@@ -191,22 +172,18 @@ async function copyProjectAssetAudioFromSource(sourceAudioKey, filenameBase) {
     throw new Error('Cannot copy audio from an external URL');
   }
 
-  const sourceExtension = path.extname(sourceKey) || '.mp3';
-  const mimeType = mimeTypeForAudioExtension(sourceExtension);
-  const destKey = buildProjectAssetFinalKey(filenameBase, sourceExtension);
+  const destKey = buildProjectAssetFinalKey(filenameBase);
 
   await s3Client.send(
     new CopyObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: destKey,
       CopySource: `${process.env.R2_BUCKET}/${encodeURIComponent(sourceKey)}`,
-      ContentType: mimeType,
-      MetadataDirective: 'REPLACE',
     })
   );
 
   const fileSizeBytes = await getR2ObjectByteSize(destKey);
-  return { storageKey: destKey, fileSizeBytes, mimeType };
+  return { storageKey: destKey, fileSizeBytes };
 }
 
 export {

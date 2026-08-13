@@ -30,13 +30,6 @@ SterioPluginProcessor::SterioPluginProcessor()
         return this->projectMixController.getState();
     });
 
-    // Always register reload callback. Project/track loads use setLoadedStems() and never
-    // call setStems(), so without this a host sample-rate change leaves buffers at the
-    // wrong rate (indexes at host SR into 44.1k buffers → aliased / "bit crushed" audio).
-    playbackEngine.setStemReloadCallback([this]() {
-        this->requestStemReload();
-    });
-
 #ifdef JUCE_DEBUG
     MessageStore::getInstance().setDebugMode(true);
 #else
@@ -483,9 +476,7 @@ void SterioPluginProcessor::loadProjectClips(const juce::String& projectId,
     juce::Thread::launch([this, projectId, clips]() {
         try
         {
-            // Prefer the live AudioProcessor sample rate once the host has prepared us.
-            const double juceSr = getSampleRate();
-            double targetSampleRate = juceSr > 0.0 ? juceSr : getCurrentSampleRate();
+            double targetSampleRate = getCurrentSampleRate();
             auto stems = projectLoader.loadProjectClips(projectId, clips, targetSampleRate);
             setLoadedStems(stems);
 
@@ -536,8 +527,7 @@ void SterioPluginProcessor::syncProjectClips(const juce::String& projectId,
             juce::Array<StemTrack> stems;
             if (!newClips.isEmpty())
             {
-                const double juceSr = getSampleRate();
-                const double targetSampleRate = juceSr > 0.0 ? juceSr : getCurrentSampleRate();
+                const double targetSampleRate = getCurrentSampleRate();
                 stems = projectLoader.syncProjectClips(
                     projectId, previousClips, newClips, existingStems, targetSampleRate);
             }
