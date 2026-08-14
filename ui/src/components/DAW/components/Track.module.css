@@ -94,7 +94,7 @@
     opacity: 0.9;
     box-sizing: border-box;
     outline: 2px solid var(--seafoam);
-    border-radius: 5px;
+    border-radius: 10px;
     overflow: hidden;
   }
 

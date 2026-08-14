@@ -1584,6 +1584,7 @@ export default function Region({
           height: '100%',
           overflow: 'hidden',
           zIndex: 3,
+          borderRadius: '10px',
         }}
       >
         <div 

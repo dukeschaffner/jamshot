@@ -5,6 +5,18 @@
     z-index: 5;
 }
 
+/* Drawn above the waveform canvas so edges stay visible; omitted when selected (seafoam outline) */
+.region:not(.selected)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--grey-2);
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 30;
+    box-sizing: border-box;
+}
+
 /* Region dragging styles */
 .region.dragging {
     cursor: grabbing !important;
@@ -28,7 +40,7 @@
 /* Selected region styling */
 .region.selected {
   outline: 2px solid var(--seafoam);
-  border-radius: 5px;
+  border-radius: 10px;
 }
 
 .region.selected:not(.dragging):not(.cropping) {
