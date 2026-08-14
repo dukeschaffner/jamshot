@@ -28,7 +28,6 @@ CREATE INDEX idx_competitions_enddate ON competitions(enddate);
 CREATE INDEX idx_competitions_pinned ON competitions(pinned);
 CREATE INDEX idx_competitions_sponsored ON competitions(sponsored);
 CREATE INDEX idx_competitions_winner_id ON competitions(winner_id);
-CREATE INDEX idx_competitions_active ON competitions(startdate, enddate) WHERE startdate <= NOW() AND enddate >= NOW();
 
 -- Add indexes for competition entries
 CREATE INDEX idx_tracks_is_competition_entry ON tracks(is_competition_entry);

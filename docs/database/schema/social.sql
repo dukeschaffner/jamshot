@@ -95,6 +95,7 @@ BEGIN
   
   RETURN mentions;
 END;
+$$ LANGUAGE plpgsql;
 
 CREATE INDEX IF NOT EXISTS idx_likes_track_id_created_at ON likes(track_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_comments_track_id_created_at ON comments(track_id, created_at);

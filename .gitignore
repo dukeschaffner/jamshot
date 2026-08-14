@@ -59,6 +59,3 @@ pkgroot/
 Sterio-*.pkg
 
 plugin/.vs/*
-
-# Local ephemeral R2 persist (wrangler / miniflare)
-.local/

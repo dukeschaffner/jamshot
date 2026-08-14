@@ -16,14 +16,12 @@
     "build:packages": "npm run build --workspaces --if-present",
     "dev:backend": "./scripts/run-backend-services.sh",
     "dev:ephemeral": "JAMSHOT_ENV=ephemeral ./scripts/run-backend-services.sh",
-    "ephemeral:setup": "./scripts/ephemeral-env/setup.sh",
+    "ephemeral:setup": "JAMSHOT_ENV=ephemeral node scripts/ephemeral-env/apply-schema.mjs",
+    "ephemeral:wipe": "JAMSHOT_ENV=ephemeral node scripts/ephemeral-env/wipe.mjs --confirm",
     "ephemeral:teardown": "./scripts/ephemeral-env/teardown.sh"
   },
   "dependencies": {
     "@sterio/dev-env": "file:packages/dev-env",
     "dotenv": "^16.4.7"
-  },
-  "devDependencies": {
-    "wrangler": "^4.123.0"
   }
 }

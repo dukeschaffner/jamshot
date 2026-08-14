@@ -9,12 +9,13 @@ ALL BACKEND SERVICES (toggle in script):
 #   (loads env/.env.dev then env/.env.ephemeral)
 # Delete the overlay / unset JAMSHOT_ENV to return to env/.env.dev.
 
-EPHEMERAL LOCAL DB + R2 (does not touch jamshot / cloud R2):
-npm run ephemeral:setup          # create jamshot_ephemeral, apply schema, write env/.env.ephemeral
+EPHEMERAL LOCAL DB (uses cloud R2 via env/.env.ephemeral bucket overlay):
+npm run ephemeral:setup          # create sterio-ephemeral DB, apply schema
 JAMSHOT_ENV=ephemeral npm run dev:backend
 JAMSHOT_ENV=ephemeral npm run dev --workspace=ui
 # optional alias: npm run dev:ephemeral
-npm run ephemeral:teardown       # drop DB, wipe .local/ephemeral-r2, delete overlay
+npm run ephemeral:wipe           # truncate DB (keep feature_flags) and empty ephemeral R2 bucket
+npm run ephemeral:teardown       # drop DB, delete overlay
 
 # Starts DevLog on :5099 first, then API / Stripe / Audio / ProjectWS (etc).
 # All service stdout is printed through DevLog with [API]/[Stripe]/… prefixes.

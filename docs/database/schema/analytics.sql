@@ -1,27 +1,3 @@
-CREATE TABLE track_plays (
-  id SERIAL PRIMARY KEY,
-  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
-  user_id TEXT REFERENCES users(id) ON DELETE SET NULL, -- Can be NULL for anonymous plays,
-  listen_duration FLOAT, -- Seconds listened,
-  discovery_method discovery_method DEFAULT 'unknown',
-  ip_address VARCHAR(45),
-  country_code VARCHAR(2),
-  region VARCHAR(100),
-  city VARCHAR(100),
-  referrer_url TEXT,
-  is_complete_play BOOLEAN DEFAULT FALSE,
-  skip_time FLOAT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create indexes for analytics queries
-CREATE INDEX IF NOT EXISTS idx_track_plays_discovery_method ON track_plays(discovery_method);
-CREATE INDEX IF NOT EXISTS idx_track_plays_listen_duration ON track_plays(listen_duration);
-CREATE INDEX IF NOT EXISTS idx_track_plays_country_code ON track_plays(country_code);
-CREATE INDEX IF NOT EXISTS idx_track_plays_created_at ON track_plays(created_at);
-CREATE INDEX IF NOT EXISTS idx_track_plays_track_id_created_at ON track_plays(track_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_track_plays_user_id_created_at ON track_plays(user_id, created_at);
-
 -- ANALYTICS DATABASE STRUCTURE
 -- =============================
 
@@ -62,6 +38,29 @@ CREATE TYPE time_period AS ENUM (
   'year'
 );
 
+CREATE TABLE track_plays (
+  id SERIAL PRIMARY KEY,
+  track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL, -- Can be NULL for anonymous plays,
+  listen_duration FLOAT, -- Seconds listened,
+  discovery_method discovery_method DEFAULT 'unknown',
+  ip_address VARCHAR(45),
+  country_code VARCHAR(2),
+  region VARCHAR(100),
+  city VARCHAR(100),
+  referrer_url TEXT,
+  is_complete_play BOOLEAN DEFAULT FALSE,
+  skip_time FLOAT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for analytics queries
+CREATE INDEX IF NOT EXISTS idx_track_plays_discovery_method ON track_plays(discovery_method);
+CREATE INDEX IF NOT EXISTS idx_track_plays_listen_duration ON track_plays(listen_duration);
+CREATE INDEX IF NOT EXISTS idx_track_plays_country_code ON track_plays(country_code);
+CREATE INDEX IF NOT EXISTS idx_track_plays_created_at ON track_plays(created_at);
+CREATE INDEX IF NOT EXISTS idx_track_plays_track_id_created_at ON track_plays(track_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_track_plays_user_id_created_at ON track_plays(user_id, created_at);
 
 -- Table for tracking user engagement events
 CREATE TABLE user_engagement (
@@ -69,7 +68,7 @@ CREATE TABLE user_engagement (
   user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   track_id INT REFERENCES tracks(id) ON DELETE CASCADE,
   engagement_type engagement_type NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_user_engagement_user_id ON user_engagement(user_id);

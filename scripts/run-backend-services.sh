@@ -35,12 +35,6 @@ if ! EVAL_ENV="$(node "$ROOT/packages/dev-env/src/print-exports.js")"; then
 fi
 eval "$EVAL_ENV"
 
-if [[ "$JAMSHOT_ENV" == "ephemeral" ]]; then
-  if [[ ! " ${SERVICES[*]} " =~ " r2 " ]]; then
-    SERVICES=(r2 "${SERVICES[@]}")
-  fi
-fi
-
 DEV_LOG_PORT="${DEV_LOG_PORT:-5099}"
 export DEV_LOG_PORT
 
@@ -130,12 +124,6 @@ launch_service() {
     project-ws) start_service "ProjectWS" "functions/lambda/project-ws" npm run dev ;;
     email)      start_service "Email" "functions/lambda/email-notifications" node local.js ;;
     issues)     start_service "Issues" "issues-visualizer" npm run dev ;;
-    r2)
-      start_service "R2" "scripts/ephemeral-env" "$ROOT/node_modules/.bin/wrangler" dev \
-        --ip 127.0.0.1 \
-        --port "${R2_PORT:-8787}" \
-        --persist-to "$ROOT/.local/ephemeral-r2"
-      ;;
     *)
       echo "Unknown service: $1" >&2
       exit 1
