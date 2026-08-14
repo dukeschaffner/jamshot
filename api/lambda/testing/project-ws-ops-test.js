@@ -5,14 +5,9 @@
  * Usage:
  *   node api/lambda/testing/project-ws-ops-test.js --projectId=1 --clipId=1 --trackId=1
  */
-import dotenv from 'dotenv';
-import path from 'path';
+import '@sterio/dev-env/config';
 import { randomUUID } from 'crypto';
-import { fileURLToPath } from 'url';
 import WebSocket from 'ws';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const { PROJECT_WS_DEV_PORT } = await import('../src/projectWs/projectWsConfig.js');
 const pool = (await import('../src/config/db.js')).default;

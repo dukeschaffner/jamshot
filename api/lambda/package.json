@@ -10,8 +10,8 @@
     "dev": "node dev-server.js",
     "lambda": "node handler.js",
     "test-built": "node test-built.js",
-    "wipe-projects": "DOTENV_CONFIG_PATH=./.env node --import dotenv/config testing/wipe-all-projects.js",
-    "wipe-projects:confirm": "DOTENV_CONFIG_PATH=./.env node --import dotenv/config testing/wipe-all-projects.js --confirm",
+    "wipe-projects": "node testing/wipe-all-projects.js",
+    "wipe-projects:confirm": "node testing/wipe-all-projects.js --confirm",
     "deploy": "serverless deploy",
     "build": "node esbuild.config.js"
   },
@@ -46,6 +46,7 @@
     "stripe": "^17.7.0"
   },
   "devDependencies": {
+    "@sterio/dev-env": "file:../../packages/dev-env",
     "esbuild": "^0.23.0",
     "serverless": "^3.38.0",
     "serverless-dotenv-plugin": "^6.0.0",

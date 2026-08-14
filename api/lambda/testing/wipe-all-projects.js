@@ -1,6 +1,6 @@
 /**
  * Local-only script to wipe all project data (DB + R2).
- * Loads api/lambda/.env before connecting to the database.
+ * Loads env/.env.dev (and overlays) before connecting to the database.
  *
  * Usage (from api/lambda):
  *   npm run wipe-projects

@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# Load env vars
-[ -f ".env" ] && source .env
+# Load env vars from the shared repo env (env/.env.dev + overlays)
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+eval "$(node "$ROOT/packages/dev-env/src/print-exports.js")"
 
 # Check required env vars
 for var in R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_ENDPOINT R2_BUCKET_NAME; do

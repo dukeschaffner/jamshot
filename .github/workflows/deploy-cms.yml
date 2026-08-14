@@ -7,6 +7,7 @@ on:
       - dev
     paths:
       - 'cms/**'
+      - 'packages/dev-env/**'
   workflow_dispatch:
     inputs:
       environment:

@@ -8,14 +8,9 @@
  *
  * Requires project-ws dev server running (npm run dev in functions/lambda/project-ws).
  */
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import '@sterio/dev-env/config';
 import WebSocket from 'ws';
 import pg from 'pg';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const { PROJECT_WS_DEV_PORT } = await import('../src/projectWs/projectWsConfig.js');
 

@@ -1,18 +1,7 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import '@sterio/dev-env/config';
 import { handler, timerHandler, cleanupHandler } from './dist/index.mjs';
 
-// Get the directory path in ESM
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Load environment variables from .env file if it exists
-try {
-  dotenv.config({ path: path.join(__dirname, '.env') });
-  console.log('🌍 Environment variables loaded from .env');
-} catch (error) {
-  console.log('⚠️  No .env file found, using environment defaults');
-}
+console.log('🌍 Environment variables loaded from env/.env.dev');
 
 console.log('🔧 Handler imported from dist/index.mjs');
 

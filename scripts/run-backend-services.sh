@@ -4,6 +4,8 @@
 # Usage (from repo root):
 #   ./scripts/run-backend-services.sh
 #   npm run dev:backend
+#   JAMSHOT_ENV=ephemeral npm run dev:backend   # env/.env.dev then env/.env.ephemeral
+#   npm run ephemeral:setup                     # create DB + write overlay first
 
 # =============================================================================
 # Toggle: comment out any service you don't want to run
@@ -23,6 +25,21 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# Shared local env (env/.env.dev + optional overlays). Children inherit these values.
+export JAMSHOT_ENV="${JAMSHOT_ENV:-dev}"
+if ! EVAL_ENV="$(node "$ROOT/packages/dev-env/src/print-exports.js")"; then
+  echo "Failed to load local env from env/.env.dev" >&2
+  echo "Copy env/.env.dev.example to env/.env.dev and fill in values." >&2
+  exit 1
+fi
+eval "$EVAL_ENV"
+
+if [[ "$JAMSHOT_ENV" == "ephemeral" ]]; then
+  if [[ ! " ${SERVICES[*]} " =~ " r2 " ]]; then
+    SERVICES=(r2 "${SERVICES[@]}")
+  fi
+fi
 
 DEV_LOG_PORT="${DEV_LOG_PORT:-5099}"
 export DEV_LOG_PORT
@@ -111,8 +128,14 @@ launch_service() {
     audio)      start_service "Audio" "functions/lambda/audio-processing" npm run dev ;;
     video)      start_service "Video" "functions/lambda/video-export" npm run dev ;;
     project-ws) start_service "ProjectWS" "functions/lambda/project-ws" npm run dev ;;
-    email)      start_service "Email" "functions/lambda/email-notifications" node index.js ;;
+    email)      start_service "Email" "functions/lambda/email-notifications" node local.js ;;
     issues)     start_service "Issues" "issues-visualizer" npm run dev ;;
+    r2)
+      start_service "R2" "scripts/ephemeral-env" "$ROOT/node_modules/.bin/wrangler" dev \
+        --ip 127.0.0.1 \
+        --port "${R2_PORT:-8787}" \
+        --persist-to "$ROOT/.local/ephemeral-r2"
+      ;;
     *)
       echo "Unknown service: $1" >&2
       exit 1

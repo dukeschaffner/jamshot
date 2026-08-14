@@ -1,14 +1,5 @@
-import dotenv from 'dotenv';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import '@sterio/dev-env/config';
 import { createApiPool } from '@sterio/db-config';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-dotenv.config({
-  path: path.resolve(__dirname, '../.env')
-});
 
 const TRACK_ID = 140;
 const action = process.argv[2];

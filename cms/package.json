@@ -19,7 +19,9 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "sharp": "^0.34.5",
-    "thread-stream": "^4.0.0"
+    "thread-stream": "^4.0.0",
+    "@sterio/dev-env": "file:../packages/dev-env",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",

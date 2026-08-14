@@ -1,14 +1,12 @@
+import '@sterio/dev-env/config';
 import { spawn } from 'child_process';
 import { createLambdaPool } from '@sterio/db-config';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import dotenv from 'dotenv';
+import { dirname } from 'path';
 import { logProcessFailure } from './utils/devProcessFailure.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-dotenv.config({ path: join(__dirname, '.env') });
 
 // Database connection
 const pool = createLambdaPool();

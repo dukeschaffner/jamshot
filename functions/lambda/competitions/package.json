@@ -21,6 +21,7 @@
     "nodemailer": "^6.9.7"
   },
   "devDependencies": {
+    "@sterio/dev-env": "file:../../../packages/dev-env",
     "esbuild": "^0.23.0",
     "dotenv": "^16.3.1"
   },

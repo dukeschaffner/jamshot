@@ -1,20 +1,9 @@
 /**
  * Local execution support
  */
+import '@sterio/dev-env/config';
 import { handler, timerHandler, cleanupHandler } from './index.js';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 import { createLambdaPool } from '@sterio/db-config';
-
-// Get the directory path in ESM
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Load environment variables first, before importing db config
-if (!process.env.DB_HOST) {
-    dotenv.config({ path: path.join(__dirname, '.env') });
-}
 
 // Mock Lambda context
 const mockContext = {
@@ -167,14 +156,6 @@ async function main() {
   const testType = args[0];
   const period = args[1];
   const date = args[2];
-  
-  // Check if .env file exists
-  if (!fs.existsSync(path.join(__dirname, '.env'))) {
-    console.error('❌ .env file not found. Please copy .env.example to .env and configure it:');
-    console.error('   cp .env.example .env');
-    console.error('   # Edit .env with your database configuration');
-    process.exit(1);
-  }
   
   console.log('🎵 Jamshot Analytics Lambda - Local Testing');
   console.log('==========================================');

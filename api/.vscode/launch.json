@@ -8,7 +8,7 @@
         "skipFiles": ["<node_internals>/**"],
         "program": "${workspaceFolder}/lambda/dev-server.js",
         "runtimeArgs": ["--inspect"],
-        "envFile": "${workspaceFolder}/lambda/.env",
+        "envFile": "${workspaceFolder}/../env/.env.dev",
         "console": "integratedTerminal",
         "cwd": "${workspaceFolder}/lambda"
       },
@@ -19,7 +19,7 @@
         "skipFiles": ["<node_internals>/**"],
         "program": "${workspaceFolder}/lambda/handler.js",
         "args": ["test"],
-        "envFile": "${workspaceFolder}/lambda/.env",
+        "envFile": "${workspaceFolder}/../env/.env.dev",
         "console": "integratedTerminal",
         "cwd": "${workspaceFolder}/lambda"
       },
@@ -30,7 +30,7 @@
         "skipFiles": ["<node_internals>/**"],
         "runtimeExecutable": "npm",
         "runtimeArgs": ["run", "dev"],
-        "envFile": "${workspaceFolder}/lambda/.env",
+        "envFile": "${workspaceFolder}/../env/.env.dev",
         "console": "integratedTerminal",
         "cwd": "${workspaceFolder}/lambda",
         "outputCapture": "std"

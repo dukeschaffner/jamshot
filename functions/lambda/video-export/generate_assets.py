@@ -11,10 +11,10 @@ Outputs a folder with:
 
 Usage:
   1. Set TRACK_ID below
-  2. Ensure .env is configured (same as video export)
+  2. Ensure env/.env.dev is configured (shared local env)
   3. Run from this directory: python generate_assets.py
 
-  Use prod values without swapping .env:
+  Extra overlay without swapping env/.env.dev:
     DOTENV_PATH=.env.prod python generate_assets.py
 """
 import io

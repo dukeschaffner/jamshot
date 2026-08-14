@@ -9,6 +9,7 @@ on:
       - 'ui/**'
       - 'packages/subscription-utils/**'
       - 'packages/formatting-utils/**'
+      - 'packages/dev-env/**'
   workflow_dispatch:
     inputs:
       environment:

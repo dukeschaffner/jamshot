@@ -1,0 +1,5 @@
+# Secrets stay local. Only the example files are committed.
+*
+!.gitignore
+!.env.dev.example
+!.env.local.example

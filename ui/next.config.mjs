@@ -1,5 +1,8 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { loadDevEnv } from '@sterio/dev-env'
+
+loadDevEnv({ required: false })
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -16,6 +19,11 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'pub-0b5b4b5c33744ae8907300ffc31c99c9.r2.dev',
+      },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
+        pathname: '/cdn-cgi/local/r2/public/**',
       },
       {
         protocol: 'https',

@@ -1,11 +1,7 @@
-import 'dotenv/config';
+import '@sterio/dev-env/config';
 import { handler } from './dist/index.mjs';
 
-// Load environment variables from .env file
-const envPath = new URL('./.env', import.meta.url).pathname;
-process.loadEnvFile(envPath);
-
-console.log('🌍 Environment variables loaded from .env');
+console.log('🌍 Environment variables loaded from env/.env.dev');
 console.log('🔧 Handler imported from dist/index.mjs');
 
 // Create a dummy Lambda context

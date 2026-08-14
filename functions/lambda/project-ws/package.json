@@ -24,6 +24,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@sterio/dev-env": "file:../../../packages/dev-env",
     "esbuild": "^0.23.0"
   }
 }

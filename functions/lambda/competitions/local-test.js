@@ -15,28 +15,7 @@
  *   node test/local-test.js all
  */
 
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
-
-// Get the directory path in ESM
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Load environment variables FIRST, before any other imports that might use them
-// This must happen synchronously before any modules that import email transport
-// Try .env in current directory first, then parent directory
-if (!process.env.DB_HOST) {
-    const envPath = path.join(__dirname, '.env');
-    const envPathParent = path.join(__dirname, '../.env');
-    if (existsSync(envPath)) {
-        dotenv.config({ path: envPath });
-    } else if (existsSync(envPathParent)) {
-        dotenv.config({ path: envPathParent });
-    } else {
-        console.warn('⚠️  No .env file found. Environment variables may not be loaded.');
-    }
-}
+import '@sterio/dev-env/config';
 
 // Now import modules that depend on environment variables
 // Using dynamic imports ensures env vars are loaded first

@@ -1,0 +1,17 @@
+{
+  "name": "@sterio/dev-env",
+  "version": "1.0.0",
+  "description": "Shared local env loader for Jamshot. Not used in Lambda/production.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./config": "./src/config.js"
+  },
+  "scripts": {
+    "export": "node src/print-exports.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  }
+}

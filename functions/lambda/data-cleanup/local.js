@@ -1,15 +1,6 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
+import '@sterio/dev-env/config';
 import { createLambdaPool } from '@sterio/db-config';
 import { handler, timerHandler } from './index.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-if (!process.env.DB_HOST) {
-  dotenv.config({ path: path.join(__dirname, '.env') });
-}
 
 const mockContext = {
   callbackWaitsForEmptyEventLoop: false,
@@ -33,8 +24,8 @@ async function main() {
   const mode = process.argv[2] || 'dry-run';
   const projectIdArg = process.argv[3];
 
-  if (!fs.existsSync(path.join(__dirname, '.env')) && !process.env.DB_HOST) {
-    console.error('Missing .env — copy api/lambda/.env or configure DB_* env vars.');
+  if (!process.env.DB_HOST) {
+    console.error('Missing DB_HOST — check env/.env.dev.');
     process.exit(1);
   }
 

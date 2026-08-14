@@ -5,13 +5,8 @@
  * Usage:
  *   node api/lambda/testing/project-ws-presence-test.js --projectId=1
  */
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import '@sterio/dev-env/config';
 import WebSocket from 'ws';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const { PROJECT_WS_DEV_PORT } = await import('../src/projectWs/projectWsConfig.js');
 

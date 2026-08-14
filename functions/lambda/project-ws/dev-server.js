@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import '@sterio/dev-env/config';
 import path from 'path';
 import crypto from 'crypto';
 import http from 'http';
@@ -9,7 +9,6 @@ const require = createRequire(import.meta.url);
 const { WebSocketServer } = require('ws');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../../../api/lambda/.env') });
 
 process.env.NODE_ENV = process.env.NODE_ENV || 'dev';
 

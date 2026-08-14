@@ -15,6 +15,9 @@
   "dependencies": {
     "@sterio/db-config": "file:../../../packages/db-config",
     "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@sterio/dev-env": "file:../../../packages/dev-env"
   }
 }
 

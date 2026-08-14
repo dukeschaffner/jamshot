@@ -1,18 +1,8 @@
 /**
  * Local execution support
  */
+import '@sterio/dev-env/config';
 import { processEmailNotifications } from './index.js';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Get the directory path in ESM
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Load environment variables first, before importing db config
-if (!process.env.DB_HOST) {
-    dotenv.config({ path: path.join(__dirname, '.env') });
-}
 
 
 const args = process.argv.slice(2);

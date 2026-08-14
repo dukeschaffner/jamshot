@@ -1,26 +1,47 @@
 """Configuration module for video export functionality"""
 import os
+from pathlib import Path
+
 import psycopg2.pool
-from dotenv import load_dotenv
 
 VIDEO_EXPORT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def _resolve_env_path() -> str:
-    env_path = os.getenv('DOTENV_PATH', '.env')
-    if os.path.isabs(env_path):
-        return env_path
-    return os.path.join(VIDEO_EXPORT_DIR, env_path)
+def _load_shared_dev_env():
+    """Load env/.env.dev (+ overlays). No-op in Lambda."""
+    if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+        return
+
+    repo_root = Path(VIDEO_EXPORT_DIR).resolve()
+    load_py = None
+    for parent in [repo_root, *repo_root.parents]:
+        candidate = parent / 'packages' / 'dev-env' / 'load.py'
+        if candidate.is_file():
+            load_py = candidate
+            break
+
+    extra = os.getenv('DOTENV_PATH')
+    extra_path = None
+    if extra:
+        extra_path = extra if os.path.isabs(extra) else os.path.join(VIDEO_EXPORT_DIR, extra)
+
+    if load_py is None:
+        from dotenv import load_dotenv
+        env_path = extra_path or os.path.join(VIDEO_EXPORT_DIR, '.env')
+        if os.path.isfile(env_path):
+            load_dotenv(env_path, override=bool(extra))
+        else:
+            print(f"⚠️  Env file not found: {env_path}")
+        return
+
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('jamshot_dev_env', load_py)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.load_dev_env(required=True, extra_path=extra_path)
 
 
-# Load environment variables from .env file (only if not in Lambda)
-# Lambda provides env vars directly, so we don't need to load .env file
-# Override with DOTENV_PATH=.env.prod for prod values when running locally
-if not os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
-    env_path = _resolve_env_path()
-    if not os.path.isfile(env_path):
-        print(f"⚠️  Env file not found: {env_path}")
-    load_dotenv(env_path, override=bool(os.getenv('DOTENV_PATH')))
+_load_shared_dev_env()
 
 # Database configuration from environment variables
 DB_HOST = os.getenv('DB_HOST', 'localhost')
