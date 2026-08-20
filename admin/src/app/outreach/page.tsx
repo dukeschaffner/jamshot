@@ -84,7 +84,7 @@ export default function OutreachCampaignsPage() {
                 <input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  placeholder="artist_outreach"
+                  placeholder="leave blank for a random slug"
                 />
               </label>
             </div>

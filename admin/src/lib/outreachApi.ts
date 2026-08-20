@@ -40,6 +40,7 @@ export type OutreachLink = {
   platform: string;
   method: string;
   artist_handle: string | null;
+  destination_path: string;
   code: string;
   short_url: string;
   click_count?: number;
@@ -91,6 +92,7 @@ export const outreachApi = {
     platform: string;
     method: string;
     artistHandle?: string;
+    destinationPath?: string;
   }) =>
     request<{ link: OutreachLink }>('/outreach/links', {
       method: 'POST',

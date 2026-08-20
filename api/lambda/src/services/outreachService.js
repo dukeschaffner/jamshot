@@ -7,11 +7,14 @@ import {
 import { getGeolocationFromRequest } from '../utils/geolocation.js';
 import {
   buildOutreachShortUrl,
-  ensureUniqueSlug,
   generateUniqueOutreachCode,
   normalizeArtistHandle,
-  slugifyOutreachName,
+  resolveOutreachSlug,
 } from '../utils/outreachCodeUtils.js';
+import {
+  buildOutreachRedirectUrl,
+  normalizeOutreachDestinationPath,
+} from '../utils/outreachDestinationPath.js';
 
 function userFacingError(message, status = 400) {
   const err = new Error(message);
@@ -54,12 +57,7 @@ export async function createCampaign({ name, slug, createdBy }) {
     throw userFacingError('Campaign name is required');
   }
 
-  const baseSlug = slug || slugifyOutreachName(name);
-  if (!baseSlug) {
-    throw userFacingError('Campaign slug is required');
-  }
-
-  const uniqueSlug = await ensureUniqueSlug('outreach_campaigns', baseSlug);
+  const uniqueSlug = await resolveOutreachSlug('outreach_campaigns', slug);
 
   try {
     const result = await pool.query(
@@ -101,12 +99,7 @@ export async function createMessageVariant({ name, slug, body, createdBy }) {
     throw userFacingError('Message variant name is required');
   }
 
-  const baseSlug = slug || slugifyOutreachName(name);
-  if (!baseSlug) {
-    throw userFacingError('Message variant slug is required');
-  }
-
-  const uniqueSlug = await ensureUniqueSlug('outreach_message_variants', baseSlug);
+  const uniqueSlug = await resolveOutreachSlug('outreach_message_variants', slug);
 
   try {
     const result = await pool.query(
@@ -134,7 +127,8 @@ export async function listLinks({ campaignId } = {}) {
 
   const result = await pool.query(
     `SELECT l.id, l.campaign_id, l.message_variant_id, l.platform, l.method,
-            l.artist_handle, l.code, l.created_by, l.created_at, l.updated_at,
+            l.artist_handle, l.destination_path, l.code, l.created_by,
+            l.created_at, l.updated_at,
             c.name AS campaign_name, c.slug AS campaign_slug,
             v.name AS message_variant_name, v.slug AS message_variant_slug,
             COUNT(cl.id)::int AS click_count
@@ -160,6 +154,7 @@ export async function createLink({
   platform,
   method,
   artistHandle,
+  destinationPath,
   createdBy,
 }) {
   if (!campaignId) {
@@ -186,21 +181,24 @@ export async function createLink({
   }
 
   const normalizedHandle = normalizeArtistHandle(artistHandle);
+  const normalizedDestination = normalizeOutreachDestinationPath(destinationPath);
   const code = await generateUniqueOutreachCode();
 
   try {
     const result = await pool.query(
       `INSERT INTO outreach_links
-         (campaign_id, message_variant_id, platform, method, artist_handle, code, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (campaign_id, message_variant_id, platform, method, artist_handle,
+          destination_path, code, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, campaign_id, message_variant_id, platform, method, artist_handle,
-                 code, created_by, created_at, updated_at`,
+                 destination_path, code, created_by, created_at, updated_at`,
       [
         campaignId,
         messageVariantId,
         platform,
         method,
         normalizedHandle,
+        normalizedDestination,
         code,
         createdBy,
       ]
@@ -216,7 +214,7 @@ export async function createLink({
   } catch (error) {
     if (error.code === '23505') {
       throw userFacingError(
-        'An outreach link with this campaign, platform, method, message, and artist already exists'
+        'An outreach link with this campaign, platform, method, message, artist, and destination already exists'
       );
     }
     throw error;
@@ -232,7 +230,7 @@ export async function resolveAndRecordClick(code, requestMeta = {}) {
   }
 
   const linkResult = await pool.query(
-    `SELECT l.id, l.code, l.platform, l.method,
+    `SELECT l.id, l.code, l.platform, l.method, l.destination_path,
             c.slug AS campaign_slug,
             v.slug AS message_variant_slug
      FROM outreach_links l
@@ -273,16 +271,18 @@ export async function resolveAndRecordClick(code, requestMeta = {}) {
     ]
   );
 
-  const frontendUrl = (process.env.FRONTEND_URL || 'https://sterio.fm').replace(/\/$/, '');
-  const redirectUrl = new URL(`${frontendUrl}/`);
-  redirectUrl.searchParams.set('utm_source', link.platform);
-  redirectUrl.searchParams.set('utm_medium', link.method);
-  redirectUrl.searchParams.set('utm_campaign', link.campaign_slug);
-  redirectUrl.searchParams.set('utm_content', link.message_variant_slug);
-  redirectUrl.searchParams.set(OUTREACH_CODE_QUERY_PARAM, link.code);
+  const redirectUrl = buildOutreachRedirectUrl({
+    destinationPath: link.destination_path,
+    platform: link.platform,
+    method: link.method,
+    campaignSlug: link.campaign_slug,
+    messageVariantSlug: link.message_variant_slug,
+    code: link.code,
+    outreachCodeParam: OUTREACH_CODE_QUERY_PARAM,
+  });
 
   return {
-    redirectUrl: redirectUrl.toString(),
+    redirectUrl,
     code: link.code,
   };
 }

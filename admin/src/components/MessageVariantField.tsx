@@ -117,7 +117,7 @@ export const MessageVariantField = forwardRef<MessageVariantFieldHandle, Props>(
                 <input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  placeholder="v1"
+                  placeholder="leave blank for a random slug"
                 />
               </label>
             </div>

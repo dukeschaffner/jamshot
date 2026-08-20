@@ -1,7 +1,19 @@
 import pool from '../config/db.js';
-import { OUTREACH_CODE_LENGTH } from '../config/outreachConfig.js';
+import {
+  OUTREACH_CODE_LENGTH,
+  OUTREACH_RANDOM_SLUG_LENGTH,
+} from '../config/outreachConfig.js';
 
 const CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+const SLUG_TABLES = new Set(['outreach_campaigns', 'outreach_message_variants']);
+
+function randomToken(length) {
+  let token = '';
+  for (let i = 0; i < length; i++) {
+    token += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
+  }
+  return token;
+}
 
 /**
  * Generate a unique short tracking code for an outreach link.
@@ -12,11 +24,7 @@ export async function generateUniqueOutreachCode() {
   const maxAttempts = 20;
 
   while (attempts < maxAttempts) {
-    let code = '';
-    for (let i = 0; i < OUTREACH_CODE_LENGTH; i++) {
-      code += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
-    }
-
+    const code = randomToken(OUTREACH_CODE_LENGTH);
     const existing = await pool.query(
       'SELECT id FROM outreach_links WHERE code = $1',
       [code]
@@ -50,14 +58,65 @@ export function slugifyOutreachName(name) {
 }
 
 /**
+ * Random unique slug when none is provided (used in UTM params).
+ * @param {string} table - outreach_campaigns | outreach_message_variants
+ * @returns {Promise<string>}
+ */
+export async function generateUniqueRandomSlug(table) {
+  if (!SLUG_TABLES.has(table)) {
+    throw new Error('Invalid table for slug uniqueness check');
+  }
+
+  let attempts = 0;
+  const maxAttempts = 20;
+
+  while (attempts < maxAttempts) {
+    const slug = randomToken(OUTREACH_RANDOM_SLUG_LENGTH);
+    const existing = await pool.query(
+      `SELECT id FROM ${table} WHERE slug = $1`,
+      [slug]
+    );
+    if (existing.rows.length === 0) {
+      return slug;
+    }
+    attempts++;
+  }
+
+  throw new Error('Failed to generate unique slug');
+}
+
+/**
+ * Use a provided slug, or generate a short random unique slug if omitted.
+ * @param {string} table - outreach_campaigns | outreach_message_variants
+ * @param {string|null|undefined} providedSlug
+ * @returns {Promise<string>}
+ */
+export async function resolveOutreachSlug(table, providedSlug) {
+  const trimmed =
+    typeof providedSlug === 'string' ? providedSlug.trim() : '';
+  if (!trimmed) {
+    return generateUniqueRandomSlug(table);
+  }
+
+  const baseSlug = slugifyOutreachName(trimmed);
+  if (!baseSlug) {
+    const err = new Error('Enter a valid slug or leave it blank');
+    err.status = 400;
+    err.userFacing = true;
+    throw err;
+  }
+
+  return ensureUniqueSlug(table, baseSlug);
+}
+
+/**
  * Ensure slug is unique in the given table; append numeric suffix if needed.
  * @param {string} table - outreach_campaigns | outreach_message_variants
  * @param {string} baseSlug
  * @returns {Promise<string>}
  */
 export async function ensureUniqueSlug(table, baseSlug) {
-  const allowed = new Set(['outreach_campaigns', 'outreach_message_variants']);
-  if (!allowed.has(table)) {
+  if (!SLUG_TABLES.has(table)) {
     throw new Error('Invalid table for slug uniqueness check');
   }
 

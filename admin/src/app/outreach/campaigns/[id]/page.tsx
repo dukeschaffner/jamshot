@@ -9,6 +9,7 @@ import {
   MessageVariantField,
   type MessageVariantFieldHandle,
 } from '@/components/MessageVariantField';
+import { OutreachDestinationField } from '@/components/OutreachDestinationField';
 import {
   outreachApi,
   type OutreachCampaign,
@@ -30,6 +31,7 @@ export default function CampaignDetailPage() {
   const [platform, setPlatform] = useState('');
   const [method, setMethod] = useState('');
   const [artistHandle, setArtistHandle] = useState('');
+  const [destinationPath, setDestinationPath] = useState('');
   const [createdUrl, setCreatedUrl] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -92,9 +94,13 @@ export default function CampaignDetailPage() {
         ...(artistHandle.trim()
           ? { artistHandle: artistHandle.trim() }
           : {}),
+        ...(destinationPath.trim()
+          ? { destinationPath: destinationPath.trim() }
+          : {}),
       });
       setCreatedUrl(link.short_url);
       setArtistHandle('');
+      setDestinationPath('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create link');
@@ -183,6 +189,10 @@ export default function CampaignDetailPage() {
                     setMessageVariantId(String(variant.id));
                   }}
                 />
+                <OutreachDestinationField
+                  value={destinationPath}
+                  onChange={setDestinationPath}
+                />
                 {error ? <p className="error">{error}</p> : null}
                 {createdUrl ? (
                   <div className="copy-row">
@@ -214,6 +224,7 @@ export default function CampaignDetailPage() {
                       <th>Method</th>
                       <th>Message</th>
                       <th>Artist</th>
+                      <th>Destination</th>
                       <th>Short URL</th>
                       <th>Clicks</th>
                     </tr>
@@ -227,6 +238,7 @@ export default function CampaignDetailPage() {
                           {link.message_variant_slug || link.message_variant_id}
                         </td>
                         <td>{link.artist_handle ? `@${link.artist_handle}` : '—'}</td>
+                        <td className="code">{link.destination_path || '/'}</td>
                         <td>
                           <div className="copy-row">
                             <span className="code">{link.short_url}</span>

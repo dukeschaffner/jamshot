@@ -162,6 +162,7 @@ router.post('/links', async (req, res, next) => {
       platform,
       method,
       artistHandle,
+      destinationPath,
     } = req.body || {};
 
     const link = await outreachService.createLink({
@@ -171,6 +172,7 @@ router.post('/links', async (req, res, next) => {
       platform,
       method,
       artistHandle,
+      destinationPath,
       createdBy: req.user.id,
     });
     res.status(201).json({ link });

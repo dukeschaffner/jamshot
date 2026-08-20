@@ -32,6 +32,7 @@ CREATE TABLE outreach_links (
   platform VARCHAR(50) NOT NULL,
   method VARCHAR(50) NOT NULL,
   artist_handle VARCHAR(255),
+  destination_path VARCHAR(500) NOT NULL DEFAULT '/',
   code VARCHAR(16) UNIQUE NOT NULL,
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -41,7 +42,8 @@ CREATE TABLE outreach_links (
     platform,
     method,
     message_variant_id,
-    artist_handle
+    artist_handle,
+    destination_path
   )
 );
 
