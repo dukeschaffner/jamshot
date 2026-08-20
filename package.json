@@ -24,5 +24,8 @@
   "dependencies": {
     "@sterio/dev-env": "file:packages/dev-env",
     "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "wrangler": "^4.125.0"
   }
 }

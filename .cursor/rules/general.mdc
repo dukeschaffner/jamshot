@@ -14,3 +14,4 @@ docs/attention.md is meant to hold any operational issues, contradictory instruc
     - instructions content tells you to run a script that doesn't exist or is in a different location than expected
     - a project doesn't build or run as expected according to the instructions
     - instructions content tells you to use a tool that is not capable of doing what is needed
+    - You try to use a shell command that is not installed/available/doesn't work as expected
