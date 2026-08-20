@@ -8,6 +8,7 @@
     "api/lambda",
     "ui",
     "cms",
+    "admin",
     "issues-visualizer",
     "infrastructure/cdk",
     "functions/lambda/*"
@@ -18,7 +19,7 @@
     "dev:ephemeral": "JAMSHOT_ENV=ephemeral ./scripts/run-backend-services.sh",
     "ephemeral:setup": "JAMSHOT_ENV=ephemeral node scripts/ephemeral-env/apply-schema.mjs",
     "ephemeral:wipe": "JAMSHOT_ENV=ephemeral node scripts/ephemeral-env/wipe.mjs --confirm",
-    "ephemeral:teardown": "./scripts/ephemeral-env/teardown.sh"
+    "ephemeral:teardown": "JAMSHOT_ENV=ephemeral node scripts/ephemeral-env/teardown.mjs --confirm"
   },
   "dependencies": {
     "@sterio/dev-env": "file:packages/dev-env",

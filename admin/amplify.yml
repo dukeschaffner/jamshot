@@ -1,0 +1,25 @@
+version: 1
+applications:
+  - appRoot: admin
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - cd ..
+            - npm ci --cache .npm --prefer-offline
+            - cd admin
+        build:
+          commands:
+            # Amplify console vars are build-only unless written into .env.production for SSR runtime.
+            - echo "NEXT_PUBLIC_API_URL=\"$NEXT_PUBLIC_API_URL\"" > .env.production
+            - echo "NEXT_PUBLIC_BETTER_AUTH_URL=\"$NEXT_PUBLIC_BETTER_AUTH_URL\"" >> .env.production
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - .next/cache/**/*
+          - .npm/**/*
+          - ../node_modules/**/*

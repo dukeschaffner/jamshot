@@ -16,6 +16,7 @@ import landingRoutes from './routes/landing.js';
 import featureFlagsRoutes from './routes/featureFlags.js';
 import projectsRoutes from './routes/projects.js';
 import adminRoutes from './routes/admin.js';
+import outreachRoutes from './routes/outreach.js';
 
 
 import express from 'express';
@@ -55,6 +56,7 @@ const corsOptions = {
 
     // Allow local development
     if (origin === 'http://localhost:3000' || 
+        origin === 'http://localhost:3002' ||
         origin === 'http://localhost:8081' || 
         origin === 'http://localhost:5173' || 
         process.env.NODE_ENV === 'dev') {
@@ -65,7 +67,9 @@ const corsOptions = {
     if (origin === 'https://dev.d3cx888lrkmdbn.amplifyapp.com' ||
         origin === 'https://sterio.fm' ||
         origin === 'https://test.sterio.fm' ||
-        origin === 'https://www.sterio.fm') {
+        origin === 'https://www.sterio.fm' ||
+        origin === 'https://admin.sterio.fm' ||
+        origin === 'https://admin.test.sterio.fm') {
       return callback(null, true);
     }
 
@@ -130,6 +134,7 @@ app.use(`${stagePrefix}/api`, landingRoutes);
 app.use(`${stagePrefix}/api/feature-flags`, featureFlagsRoutes);
 app.use(`${stagePrefix}/api/projects`, projectsRoutes);
 app.use(`${stagePrefix}/api/admin`, adminRoutes);
+app.use(`${stagePrefix}/api/outreach`, outreachRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {

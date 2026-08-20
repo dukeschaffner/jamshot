@@ -3,6 +3,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { validateDateOfBirth } from '../../shared/utils/validation';
 import { captureAuthProfileCompleted } from '../lib/posthogAnalytics';
+import {
+  flushOutreachAttribution,
+  getStoredOutreachCode,
+} from '../lib/outreachAttribution';
 
 export default function CompleteProfileForm({ 
   onSuccess, 
@@ -34,7 +38,8 @@ export default function CompleteProfileForm({
     setIsSubmitting(true);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+      const outreachCode = getStoredOutreachCode();
       const response = await fetch(`${apiUrl}/users/me/complete-profile`, {
         method: 'PUT',
         headers: {
@@ -44,6 +49,7 @@ export default function CompleteProfileForm({
         body: JSON.stringify({
           dateOfBirth,
           acceptTerms: true,
+          ...(outreachCode ? { outreachCode } : {}),
         }),
       });
 
@@ -53,6 +59,9 @@ export default function CompleteProfileForm({
       }
 
       await response.json();
+
+      // Also flush via dedicated endpoint in case complete-profile ignored code
+      await flushOutreachAttribution();
 
       captureAuthProfileCompleted();
 

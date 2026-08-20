@@ -686,7 +686,7 @@ router.put('/me', betterAuthMiddleware, async (req, res, next) => {
 // Complete profile - update date of birth and terms/privacy acceptance (for OAuth signups)
 router.put('/me/complete-profile', betterAuthMiddleware, async (req, res, next) => {
   try {
-    const { dateOfBirth, acceptTerms } = req.body;
+    const { dateOfBirth, acceptTerms, outreachCode } = req.body;
     const { validateDateOfBirth } = await import('@sterio/validation-utils');
     
     // Validate date of birth
@@ -731,6 +731,16 @@ router.put('/me/complete-profile', betterAuthMiddleware, async (req, res, next) 
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (outreachCode) {
+      try {
+        const { attributeUserToOutreachCode } = await import('../services/outreachService.js');
+        await attributeUserToOutreachCode(req.user.id, outreachCode);
+      } catch (attrErr) {
+        // Attribution failure should not block profile completion
+        console.error('Outreach attribution during complete-profile failed:', attrErr);
+      }
     }
     
     res.json({ 

@@ -15,6 +15,10 @@ import {
   captureAuthSignupFailed,
   captureAuthSignupSucceeded,
 } from '../lib/posthogAnalytics';
+import {
+  flushOutreachAttribution,
+  getStoredOutreachCode,
+} from '../lib/outreachAttribution';
 
 export default function LoginForm({ 
   onSuccess, 
@@ -220,6 +224,7 @@ export default function LoginForm({
     setIsLoggingIn(true);
 
     try {
+      const outreachCode = getStoredOutreachCode();
       const result = await authClient.signUp.email({
         email,
         password,
@@ -227,6 +232,7 @@ export default function LoginForm({
         username,
         dateOfBirth,
         acceptTerms,
+        ...(outreachCode ? { outreachCode } : {}),
       });
 
       if (result.data?.user) {
@@ -234,7 +240,7 @@ export default function LoginForm({
         const isEmailVerified = result.data.user.emailVerified;
         
         if (!isEmailVerified) {
-          // User signed up but email is not verified
+          // Keep stored outreach code so AppChrome can flush it after verification.
           setNeedsVerification(true);
           setSuccess('');
           setError('');
@@ -243,6 +249,7 @@ export default function LoginForm({
           setUser(result.data.user);
           setSuccess('Account created successfully!');
           captureAuthSignupSucceeded({ email_verification_pending: false });
+          await flushOutreachAttribution();
           if (onSuccess) {
             onSuccess();
           }

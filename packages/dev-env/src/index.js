@@ -54,9 +54,10 @@ function existingFile(filePath) {
  *   3. env/.env.local                       (optional machine overlay)
  *   4. $JAMSHOT_ENV_FILE or $DOTENV_PATH    (optional extra overlay)
  *
- * Switch the whole repo to a temporary overlay:
- *   JAMSHOT_ENV=ephemeral npm run dev:backend
- *   # with env/.env.ephemeral containing only the keys to change
+ * Switch the whole repo to a named overlay:
+ *   JAMSHOT_ENV=<name> npm run dev:backend
+ *   # with env/.env.<name> containing only the keys to change
+ * Isolated ephemeral testing: tests/ai-managed/ephemeral-testing/SKILL.md
  *
  * Or drop overrides in env/.env.local and delete that file to revert.
  *

@@ -50,13 +50,17 @@ export const betterAuthMiddleware = async (req, res, next) => {
       const allowedPaths = [
         '/api/users/me',
         '/api/users/me/complete-profile',
+        '/api/outreach/attribution',
         '/users/me', // Also check without /api prefix for flexibility
         '/users/me/complete-profile',
+        '/outreach/attribution',
         ...(stagePrefix ? [
           `${stagePrefix}/api/users/me`,
           `${stagePrefix}/api/users/me/complete-profile`,
+          `${stagePrefix}/api/outreach/attribution`,
           `${stagePrefix}/users/me`,
           `${stagePrefix}/users/me/complete-profile`,
+          `${stagePrefix}/outreach/attribution`,
         ] : []),
       ];
       

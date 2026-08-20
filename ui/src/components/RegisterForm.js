@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { authClient } from '../lib/auth-client';
 import { validatePassword, validateUsername, validateName, validateEmail, checkPasswordRequirements } from '../lib/validation';
 import { validateDateOfBirth } from '../../shared/utils/validation';
+import {
+  getStoredOutreachCode,
+} from '../lib/outreachAttribution';
 
 export default function RegisterForm({ 
   onSuccess, 
@@ -95,6 +98,7 @@ export default function RegisterForm({
     setIsRegistering(true);
     
     try {
+      const outreachCode = getStoredOutreachCode();
       const result = await authClient.signUp.email({
         email,
         password,
@@ -102,9 +106,11 @@ export default function RegisterForm({
         username: username.toLowerCase(),
         dateOfBirth,
         acceptTerms,
+        ...(outreachCode ? { outreachCode } : {}),
       });
 
       if (result.data?.user) {
+        // Keep stored outreach code for first-touch flush after email verification.
         setSuccess('Registration successful! Please check your email to verify your account.');
         setIsRegistered(true);
         

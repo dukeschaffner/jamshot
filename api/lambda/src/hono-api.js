@@ -92,9 +92,12 @@ app.use(
   cors({
     origin: [
       'http://localhost:3000',
+      'http://localhost:3002',
       'https://dev.d3cx888lrkmdbn.amplifyapp.com',
       'https://test.sterio.fm',
       'https://sterio.fm',
+      'https://admin.sterio.fm',
+      'https://admin.test.sterio.fm',
       process.env.FRONTEND_URL,
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

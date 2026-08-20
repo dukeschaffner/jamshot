@@ -5,7 +5,7 @@
 #   ./scripts/run-backend-services.sh
 #   npm run dev:backend
 #   JAMSHOT_ENV=ephemeral npm run dev:backend   # env/.env.dev then env/.env.ephemeral
-#   npm run ephemeral:setup                     # create DB + write overlay first
+#   Isolated testing: tests/ai-managed/ephemeral-testing/SKILL.md
 
 # =============================================================================
 # Toggle: comment out any service you don't want to run

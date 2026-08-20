@@ -31,8 +31,11 @@ CREATE TABLE users (
   analytics_consent_at TIMESTAMP,
   analytics_consent_ip VARCHAR(45),
   stripe_account_id VARCHAR(255),
-  is_admin BOOLEAN NOT NULL DEFAULT FALSE
+  is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+  outreach_link_id INT -- FK added in outreach.sql (after outreach_links exists)
 );
+
+CREATE INDEX IF NOT EXISTS idx_users_outreach_link_id ON users(outreach_link_id);
 
 CREATE INDEX idx_users_subscription_tier ON users(subscription_tier);
 CREATE INDEX idx_users_subscription_expires_at ON users(subscription_expires_at);

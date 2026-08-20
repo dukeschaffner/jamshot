@@ -123,6 +123,24 @@ function isPrivateIP(ipAddress) {
 }
 
 /**
+ * Prefer Cloudflare geo headers (same as track play recording), then IP lookup.
+ * @param {Object} headers - Request headers (Express lowercased keys)
+ * @param {string|null} ipAddress
+ * @returns {Promise<{country_code: string|null, region: string|null, city: string|null}>}
+ */
+async function getGeolocationFromRequest(headers = {}, ipAddress = null) {
+  if (headers['cf-ipcity'] && headers['cf-region-code'] && headers['cf-ipcountry']) {
+    return {
+      country_code: headers['cf-ipcountry'] || null,
+      region: headers['cf-region'] || null,
+      city: headers['cf-ipcity'] || null,
+    };
+  }
+
+  return getGeolocationData(ipAddress);
+}
+
+/**
  * Extract the real IP address from request headers
  * @param {Object} req - Express request object
  * @returns {string|null} - The real IP address or null
@@ -158,6 +176,7 @@ function getRealIP(req) {
 
 export {
   getGeolocationData,
+  getGeolocationFromRequest,
   getRealIP,
   isPrivateIP
 }; 

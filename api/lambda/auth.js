@@ -4,6 +4,7 @@ import { customSession, bearer } from "better-auth/plugins";
 import pool from './src/config/db.js';
 import bcrypt from 'bcryptjs';
 import { sendVerificationEmail as sendLegacyVerificationEmail, sendPasswordResetEmail as sendLegacyPasswordResetEmail } from './src/utils/emailService.js';
+import { logDevEmailLink } from './src/utils/devEmailLog.js';
 import { validateDateOfBirth } from '@sterio/validation-utils';
 
 /**
@@ -27,6 +28,8 @@ const sendVerificationEmail = async ({ user, url, token }, request) => {
     const urlObj = new URL(url);
     urlObj.searchParams.set('callbackURL', homePageUrl);
     const urlWithCallback = urlObj.toString();
+
+    logDevEmailLink('verification', user.email, urlWithCallback);
 
     // Send email and properly handle the promise
     // Use Promise.resolve to ensure we return a settled promise
@@ -75,8 +78,11 @@ export const auth = betterAuth({
 	trustedOrigins: [
 		'https://sterio.fm', // production UI
 		'https://test.sterio.fm', // test UI
+		'https://admin.sterio.fm', // production admin
+		'https://admin.test.sterio.fm', // test admin
 		'https://api.sterio.fm', // API (both environments)
-    'http://localhost:3000', // local development
+    'http://localhost:3000', // local development UI
+    'http://localhost:3002', // local development admin
 	],
   logger: {
     level: 'debug',
@@ -353,7 +359,7 @@ export const auth = betterAuth({
         },
         after: async (user, ctx) => {
           // Write DOB and policy acceptance fields for email/password signups
-          const { dateOfBirth, acceptTerms } = ctx.body || {};
+          const { dateOfBirth, acceptTerms, outreachCode } = ctx.body || {};
           const isOAuthSignup = ctx.path === '/callback/:id' || ctx.path?.includes('/callback/');
           
           // Only write these fields for email/password signups (OAuth signups use complete-profile flow)
@@ -405,6 +411,15 @@ export const auth = betterAuth({
                 `UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
                 values
               );
+            }
+          }
+
+          if (outreachCode && user?.id) {
+            try {
+              const { attributeUserToOutreachCode } = await import('./src/services/outreachService.js');
+              await attributeUserToOutreachCode(user.id, outreachCode);
+            } catch (attrErr) {
+              console.error('Outreach attribution during signup failed:', attrErr);
             }
           }
           

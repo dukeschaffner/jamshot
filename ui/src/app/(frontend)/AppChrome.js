@@ -19,6 +19,10 @@ import CompleteProfileForm from '@/components/CompleteProfileForm';
 import { isDedicatedMarketingPath } from '@/lib/marketing/constants';
 import { consumeMarketingHomeNavigation } from '@/lib/marketing/marketingHomeNav';
 import { PluginWebSocketProvider } from '@/contexts/PluginWebSocketContext';
+import {
+  captureOutreachCodeFromUrl,
+  flushOutreachAttribution,
+} from '@/lib/outreachAttribution';
 
 function AppContent({ children }) {
   const {
@@ -37,6 +41,15 @@ function AppContent({ children }) {
   const playerVisible = !!currentTrack;
   const showMarketingShell =
     pathname === '/' || isDedicatedMarketingPath(pathname);
+
+  useEffect(() => {
+    captureOutreachCodeFromUrl();
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+    flushOutreachAttribution();
+  }, [isAuthenticated, isLoading]);
 
   useEffect(() => {
     if (pathname !== '/' || isLoading) return;

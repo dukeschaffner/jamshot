@@ -2,20 +2,18 @@ ALL BACKEND SERVICES (toggle in script):
 ./scripts/run-backend-services.sh
 # or: npm run dev:backend
 
+
+admin ui:
+cd admin && npm run dev
+
+
+
 # Shared local env lives in env/.env.dev (all services, UI, and CMS read from there).
 # Overlay keys: copy env/.env.local.example → env/.env.local
-# Or switch a named overlay for the whole repo:
-#   JAMSHOT_ENV=ephemeral npm run dev:backend
-#   (loads env/.env.dev then env/.env.ephemeral)
+# Named overlays: JAMSHOT_ENV=<name> loads env/.env.dev then env/.env.<name>
 # Delete the overlay / unset JAMSHOT_ENV to return to env/.env.dev.
-
-EPHEMERAL LOCAL DB (uses cloud R2 via env/.env.ephemeral bucket overlay):
-npm run ephemeral:setup          # create sterio-ephemeral DB, apply schema
-JAMSHOT_ENV=ephemeral npm run dev:backend
-JAMSHOT_ENV=ephemeral npm run dev --workspace=ui
-# optional alias: npm run dev:ephemeral
-npm run ephemeral:wipe           # truncate DB (keep feature_flags) and empty ephemeral R2 bucket
-npm run ephemeral:teardown       # drop DB, delete overlay
+#
+# Isolated ephemeral testing: tests/ai-managed/ephemeral-testing/SKILL.md
 
 # Starts DevLog on :5099 first, then API / Stripe / Audio / ProjectWS (etc).
 # All service stdout is printed through DevLog with [API]/[Stripe]/… prefixes.

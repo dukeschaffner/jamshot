@@ -4,4 +4,13 @@ alwaysApply: true
 
 YOU MUST avoid creating large monolith files. If adding new functionality/features to an existing file, you MUST create a new file for the new functionality/features. If you're only updating existing functionality, you may add the edits to the existing file. But in general, prefer encapsulating new functionality/features in a new file to improve readability and maintainability.
 
+docs/app-notes.txt describes the application
+
 When testing locally, you are encouraged to use the `get_local_logs` MCP tool to view the logs of the local services.
+
+
+### Operational Auditing
+docs/attention.md is meant to hold any operational issues, contradictory instructions involved with coding and testing. Whenever you encounter these things, add a very concise note to the file. This includes things like:
+    - instructions content tells you to run a script that doesn't exist or is in a different location than expected
+    - a project doesn't build or run as expected according to the instructions
+    - instructions content tells you to use a tool that is not capable of doing what is needed

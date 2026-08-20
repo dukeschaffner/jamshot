@@ -37,6 +37,7 @@ const SCHEMA_FILES = [
   'projects.sql',
   'project_realtime.sql',
   'notifications.sql',
+  'outreach.sql',
 ];
 
 const TRACKS_COMPETITION_FK = `
