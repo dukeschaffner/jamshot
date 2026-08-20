@@ -97,7 +97,7 @@ app.use(
       'https://test.sterio.fm',
       'https://sterio.fm',
       'https://admin.sterio.fm',
-      'https://admin.test.sterio.fm',
+      'https://admin-test.sterio.fm',
       process.env.FRONTEND_URL,
     ],
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

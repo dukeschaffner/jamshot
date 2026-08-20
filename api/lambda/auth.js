@@ -79,7 +79,7 @@ export const auth = betterAuth({
 		'https://sterio.fm', // production UI
 		'https://test.sterio.fm', // test UI
 		'https://admin.sterio.fm', // production admin
-		'https://admin.test.sterio.fm', // test admin
+		'https://admin-test.sterio.fm', // test admin
 		'https://api.sterio.fm', // API (both environments)
     'http://localhost:3000', // local development UI
     'http://localhost:3002', // local development admin

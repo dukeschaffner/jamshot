@@ -1,6 +1,8 @@
 {
   "JamshotAmplifyStack": {
     "CmsAmplifyDefaultDomain": "d2hk8duup0wzus.amplifyapp.com",
-    "CmsAmplifyAppId": "d2hk8duup0wzus"
+    "AdminAmplifyAppId": "d1n1a7juf34ak6",
+    "CmsAmplifyAppId": "d2hk8duup0wzus",
+    "AdminAmplifyDefaultDomain": "d1n1a7juf34ak6.amplifyapp.com"
   }
 }

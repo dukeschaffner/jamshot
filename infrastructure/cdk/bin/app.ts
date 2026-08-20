@@ -17,5 +17,5 @@ new JamshotStack(app, 'JamshotStack', { env });
 // CMS Amplify apps only — safe to deploy without touching JamshotStack resources.
 new JamshotAmplifyStack(app, 'JamshotAmplifyStack', {
   env,
-  description: 'Sterio CMS Amplify hosting (test + prod apps)',
+  description: 'Sterio CMS + Admin Amplify hosting',
 });

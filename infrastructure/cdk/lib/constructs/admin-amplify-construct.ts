@@ -91,7 +91,7 @@ function branchEnvironmentVariables(
 
 /**
  * Amplify Hosting app for Sterio Admin (outreach + future admin tools).
- * Custom domain admin.sterio.fm should be mapped in Amplify Console / DNS after deploy.
+ * Custom domains: admin.sterio.fm (main) and admin-test.sterio.fm (dev).
  */
 export class AdminAmplifyConstruct extends Construct {
   public readonly adminApp: amplify.CfnApp;
@@ -132,9 +132,13 @@ export class AdminAmplifyConstruct extends Construct {
       iamServiceRole: amplifyServiceRole.roleArn,
       computeRoleArn: amplifyComputeRole.roleArn,
       enableBranchAutoDeletion: false,
-      environmentVariables: [{ name: 'NODE_ENV', value: 'production' }],
+      environmentVariables: [
+        { name: 'NODE_ENV', value: 'production' },
+        { name: 'AMPLIFY_MONOREPO_APP_ROOT', value: 'admin' },
+      ],
     });
 
+    const branches: amplify.CfnBranch[] = [];
     for (const config of ADMIN_AMPLIFY_BRANCHES) {
       const branch = new amplify.CfnBranch(this, `${config.id}Branch`, {
         appId: this.adminApp.attrAppId,
@@ -145,6 +149,20 @@ export class AdminAmplifyConstruct extends Construct {
       });
 
       branch.addDependency(this.adminApp);
+      branches.push(branch);
+    }
+
+    const domain = new amplify.CfnDomain(this, 'AdminDomain', {
+      appId: this.adminApp.attrAppId,
+      domainName: 'sterio.fm',
+      enableAutoSubDomain: false,
+      subDomainSettings: [
+        { prefix: 'admin', branchName: 'main' },
+        { prefix: 'admin-test', branchName: 'dev' },
+      ],
+    });
+    for (const branch of branches) {
+      domain.addDependency(branch);
     }
 
     new cdk.CfnOutput(stack, 'AdminAmplifyAppId', {
@@ -154,7 +172,7 @@ export class AdminAmplifyConstruct extends Construct {
 
     new cdk.CfnOutput(stack, 'AdminAmplifyDefaultDomain', {
       value: this.adminApp.attrDefaultDomain,
-      description: 'Sterio Admin Amplify default domain (map admin.sterio.fm in Amplify Console)',
+      description: 'Sterio Admin Amplify default domain',
     });
   }
 }

@@ -69,7 +69,7 @@ const corsOptions = {
         origin === 'https://test.sterio.fm' ||
         origin === 'https://www.sterio.fm' ||
         origin === 'https://admin.sterio.fm' ||
-        origin === 'https://admin.test.sterio.fm') {
+        origin === 'https://admin-test.sterio.fm') {
       return callback(null, true);
     }
 
