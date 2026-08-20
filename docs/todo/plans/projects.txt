@@ -2,7 +2,7 @@ TOP:
 - add audit trail as premium feature
 - comments/chat
 - separate file upload in web DAW + import file from project functionality in plugin
-
+- activity email notifications
 
 - what if on clip upload retry, both the original and the new region are uploaded?
 - need a way to indicate who recorded audio/made what changes
