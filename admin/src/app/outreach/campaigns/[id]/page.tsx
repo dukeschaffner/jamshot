@@ -9,7 +9,12 @@ import {
   MessageVariantField,
   type MessageVariantFieldHandle,
 } from '@/components/MessageVariantField';
+import {
+  CopyOutreachMessage,
+  copyOutreachMessage,
+} from '@/components/CopyOutreachMessage';
 import { OutreachDestinationField } from '@/components/OutreachDestinationField';
+import { resolveOutreachMessageBody } from '@/lib/formatOutreachMessage';
 import {
   outreachApi,
   type OutreachCampaign,
@@ -33,6 +38,8 @@ export default function CampaignDetailPage() {
   const [artistHandle, setArtistHandle] = useState('');
   const [destinationPath, setDestinationPath] = useState('');
   const [createdUrl, setCreatedUrl] = useState('');
+  const [createdMessageBody, setCreatedMessageBody] = useState('');
+  const [copiedOnCreate, setCopiedOnCreate] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,15 +87,17 @@ export default function CampaignDetailPage() {
     setSaving(true);
     setError('');
     setCreatedUrl('');
+    setCreatedMessageBody('');
+    setCopiedOnCreate(false);
     try {
-      const resolvedVariantId = await variantFieldRef.current?.resolveVariantId();
-      if (!resolvedVariantId) {
+      const resolvedVariant = await variantFieldRef.current?.resolveVariant();
+      if (!resolvedVariant) {
         throw new Error('Select or create a message variant');
       }
 
       const { link } = await outreachApi.createLink({
         campaignId,
-        messageVariantId: resolvedVariantId,
+        messageVariantId: resolvedVariant.id,
         platform,
         method,
         ...(artistHandle.trim()
@@ -98,7 +107,18 @@ export default function CampaignDetailPage() {
           ? { destinationPath: destinationPath.trim() }
           : {}),
       });
+      const messageBody =
+        link.message_variant_body ||
+        resolvedVariant.body ||
+        resolveOutreachMessageBody(
+          null,
+          variants,
+          link.message_variant_id
+        );
       setCreatedUrl(link.short_url);
+      setCreatedMessageBody(messageBody);
+      const copied = await copyOutreachMessage(messageBody, link.short_url);
+      setCopiedOnCreate(copied);
       setArtistHandle('');
       setDestinationPath('');
       await load();
@@ -195,15 +215,27 @@ export default function CampaignDetailPage() {
                 />
                 {error ? <p className="error">{error}</p> : null}
                 {createdUrl ? (
-                  <div className="copy-row">
-                    <span className="success code">{createdUrl}</span>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => copyUrl(createdUrl)}
-                    >
-                      Copy
-                    </button>
+                  <div className="stack">
+                    <div className="copy-row">
+                      <span className="success code">{createdUrl}</span>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => copyUrl(createdUrl)}
+                      >
+                        Copy URL
+                      </button>
+                    </div>
+                    {createdMessageBody ? (
+                      <CopyOutreachMessage
+                        body={createdMessageBody}
+                        shortUrl={createdUrl}
+                        showResolved
+                      />
+                    ) : null}
+                    {copiedOnCreate ? (
+                      <p className="success">Message copied to clipboard</p>
+                    ) : null}
                   </div>
                 ) : null}
                 <button type="submit" disabled={saving}>
@@ -217,45 +249,58 @@ export default function CampaignDetailPage() {
               {links.length === 0 ? (
                 <p className="muted">No links for this campaign yet.</p>
               ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Platform</th>
-                      <th>Method</th>
-                      <th>Message</th>
-                      <th>Artist</th>
-                      <th>Destination</th>
-                      <th>Short URL</th>
-                      <th>Clicks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {links.map((link) => (
-                      <tr key={link.id}>
-                        <td>{link.platform}</td>
-                        <td>{link.method}</td>
-                        <td className="code">
-                          {link.message_variant_slug || link.message_variant_id}
-                        </td>
-                        <td>{link.artist_handle ? `@${link.artist_handle}` : '—'}</td>
-                        <td className="code">{link.destination_path || '/'}</td>
-                        <td>
-                          <div className="copy-row">
-                            <span className="code">{link.short_url}</span>
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => copyUrl(link.short_url)}
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        </td>
-                        <td>{link.click_count ?? 0}</td>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Platform</th>
+                        <th>Method</th>
+                        <th>Message</th>
+                        <th>Artist</th>
+                        <th>Destination</th>
+                        <th>Short URL</th>
+                        <th>Clicks</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {links.map((link) => (
+                        <tr key={link.id}>
+                          <td>{link.platform}</td>
+                          <td>{link.method}</td>
+                          <td className="message-cell">
+                            <CopyOutreachMessage
+                              body={resolveOutreachMessageBody(
+                                link.message_variant_body,
+                                variants,
+                                link.message_variant_id
+                              )}
+                              shortUrl={link.short_url}
+                              variantLabel={
+                                link.message_variant_slug ||
+                                String(link.message_variant_id)
+                              }
+                            />
+                          </td>
+                          <td>{link.artist_handle ? `@${link.artist_handle}` : '—'}</td>
+                          <td className="code">{link.destination_path || '/'}</td>
+                          <td>
+                            <div className="copy-row">
+                              <span className="code">{link.short_url}</span>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => copyUrl(link.short_url)}
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          </td>
+                          <td>{link.click_count ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </>

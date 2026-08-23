@@ -17,6 +17,7 @@ import GlobalPlayer from '@/components/GlobalPlayer';
 import ReleaseNotesToast from '@/components/ReleaseNotesToast';
 import CompleteProfileForm from '@/components/CompleteProfileForm';
 import { isDedicatedMarketingPath } from '@/lib/marketing/constants';
+import { isOutreachShortPath } from '@/lib/outreachShortPath';
 import { consumeMarketingHomeNavigation } from '@/lib/marketing/marketingHomeNav';
 import { PluginWebSocketProvider } from '@/contexts/PluginWebSocketContext';
 import {
@@ -40,7 +41,9 @@ function AppContent({ children }) {
   const pathname = usePathname();
   const playerVisible = !!currentTrack;
   const showMarketingShell =
-    pathname === '/' || isDedicatedMarketingPath(pathname);
+    pathname === '/' ||
+    isDedicatedMarketingPath(pathname) ||
+    isOutreachShortPath(pathname);
 
   useEffect(() => {
     captureOutreachCodeFromUrl();

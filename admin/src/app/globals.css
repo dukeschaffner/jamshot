@@ -34,7 +34,7 @@ a:hover {
 }
 
 main {
-  max-width: 960px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 24px 20px 64px;
 }
@@ -186,6 +186,72 @@ th {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+td.message-cell {
+  min-width: 260px;
+  width: 34%;
+}
+
+.copy-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.copy-message-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.copy-message-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.copy-message-icon-btn:hover {
+  color: var(--text);
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+}
+
+.copy-message-body {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin-left: -6px;
+  text-align: left;
+  font-weight: 400;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.copy-message-body:hover {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
 }
 
 .field-label {

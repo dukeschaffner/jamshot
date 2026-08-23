@@ -14,6 +14,19 @@ function handleServiceError(err, res, next) {
 }
 
 /**
+ * Public: look up an outreach short code without recording a click.
+ * GET /api/outreach/r/:code
+ */
+router.get('/r/:code', apiEndpointLimiter, async (req, res, next) => {
+  try {
+    const link = await outreachService.getPublicOutreachLink(req.params.code);
+    res.json(link);
+  } catch (err) {
+    handleServiceError(err, res, next);
+  }
+});
+
+/**
  * Public: resolve outreach short code — record click and return redirect URL.
  * POST /api/outreach/r/:code/click
  */

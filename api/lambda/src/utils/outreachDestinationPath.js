@@ -112,3 +112,45 @@ export function buildOutreachRedirectUrl({
 
   return url.toString();
 }
+
+const SHORT_URL_KIND_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+/**
+ * Split a stored destination into the first path segment (kind) and id.
+ * `/track/abc?x=1` → { path, kind: 'track', id: 'abc' }
+ * `/` → { path: '/', kind: null, id: null }
+ */
+export function parseOutreachDestination(
+  destinationPath,
+  frontendUrl = getFrontendBaseUrl()
+) {
+  let path = '/';
+  try {
+    path = normalizeOutreachDestinationPath(destinationPath, frontendUrl);
+  } catch {
+    path = '/';
+  }
+
+  const pathname = path.split('?')[0] || '/';
+  const segments = pathname.split('/').filter(Boolean);
+  const rawKind = segments[0] ? segments[0].toLowerCase() : null;
+  const kind =
+    rawKind && SHORT_URL_KIND_PATTERN.test(rawKind) ? rawKind : null;
+
+  return {
+    path,
+    kind,
+    id: segments[1] || null,
+  };
+}
+
+/**
+ * First path segment used in typed short URLs (`/r/track/{code}`).
+ * Homepage destinations have no kind.
+ */
+export function getOutreachShortUrlKind(
+  destinationPath,
+  frontendUrl = getFrontendBaseUrl()
+) {
+  return parseOutreachDestination(destinationPath, frontendUrl).kind;
+}

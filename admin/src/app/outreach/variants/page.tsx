@@ -65,6 +65,8 @@ export default function MessageVariantsPage() {
           <h1>Message variants</h1>
           <p className="muted">
             Reusable message copy. The same variant can be used across campaigns.
+            Put <span className="code">{'{link}'}</span> in the body to insert the
+            short URL when the message is copied.
           </p>
         </div>
 
@@ -96,7 +98,7 @@ export default function MessageVariantsPage() {
                 rows={4}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Hey — check out Sterio…"
+                placeholder="Hey — check this out {link}"
               />
             </label>
             {error ? <p className="error">{error}</p> : null}

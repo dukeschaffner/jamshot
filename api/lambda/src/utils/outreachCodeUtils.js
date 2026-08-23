@@ -3,6 +3,7 @@ import {
   OUTREACH_CODE_LENGTH,
   OUTREACH_RANDOM_SLUG_LENGTH,
 } from '../config/outreachConfig.js';
+import { getOutreachShortUrlKind } from './outreachDestinationPath.js';
 
 const CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
 const SLUG_TABLES = new Set(['outreach_campaigns', 'outreach_message_variants']);
@@ -154,10 +155,17 @@ export function normalizeArtistHandle(handle) {
 
 /**
  * Build public short URL for an outreach code.
+ * Track destinations become /r/track/{code}; other pages use their first
+ * path segment the same way. Homepage stays /r/{code}.
  * @param {string} code
+ * @param {string|null|undefined} [destinationPath]
  * @returns {string}
  */
-export function buildOutreachShortUrl(code) {
+export function buildOutreachShortUrl(code, destinationPath) {
   const frontendUrl = (process.env.FRONTEND_URL || 'https://sterio.fm').replace(/\/$/, '');
+  const kind = getOutreachShortUrlKind(destinationPath);
+  if (kind) {
+    return `${frontendUrl}/r/${kind}/${code}`;
+  }
   return `${frontendUrl}/r/${code}`;
 }

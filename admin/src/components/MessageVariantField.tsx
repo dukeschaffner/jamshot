@@ -7,7 +7,7 @@ import {
 } from '@/lib/outreachApi';
 
 export type MessageVariantFieldHandle = {
-  resolveVariantId: () => Promise<number>;
+  resolveVariant: () => Promise<{ id: number; body: string | null }>;
 };
 
 type Props = {
@@ -25,15 +25,19 @@ export const MessageVariantField = forwardRef<MessageVariantFieldHandle, Props>(
     const [name, setName] = useState('');
     const [slug, setSlug] = useState('');
     const [body, setBody] = useState('');
+    const selectedVariant = variants.find(
+      (variant) => String(variant.id) === value
+    );
 
     useImperativeHandle(ref, () => ({
-      async resolveVariantId() {
+      async resolveVariant() {
         if (mode === 'existing') {
           const id = Number(value);
           if (!Number.isFinite(id) || id <= 0) {
             throw new Error('Select a message variant');
           }
-          return id;
+          const existing = variants.find((variant) => variant.id === id);
+          return { id, body: existing?.body || null };
         }
 
         if (!name.trim()) {
@@ -52,7 +56,10 @@ export const MessageVariantField = forwardRef<MessageVariantFieldHandle, Props>(
         setSlug('');
         setBody('');
         setMode('existing');
-        return messageVariant.id;
+        return {
+          id: messageVariant.id,
+          body: messageVariant.body || null,
+        };
       },
     }));
 
@@ -82,24 +89,35 @@ export const MessageVariantField = forwardRef<MessageVariantFieldHandle, Props>(
         </div>
 
         {mode === 'existing' ? (
-          <label>
-            Variant
-            <select
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              required
-            >
-              {variants.length === 0 ? (
-                <option value="">No variants yet</option>
-              ) : (
-                variants.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} ({v.slug})
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
+          <>
+            <label>
+              Variant
+              <select
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                required
+              >
+                {variants.length === 0 ? (
+                  <option value="">No variants yet</option>
+                ) : (
+                  variants.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} ({v.slug})
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            {selectedVariant?.body ? (
+              <p className="muted" style={{ whiteSpace: 'pre-wrap' }}>
+                {selectedVariant.body}
+              </p>
+            ) : null}
+            <p className="muted">
+              Use <span className="code">{'{link}'}</span> in the variant body to
+              insert the short URL when the message is copied.
+            </p>
+          </>
         ) : (
           <>
             <div className="row">
@@ -127,9 +145,13 @@ export const MessageVariantField = forwardRef<MessageVariantFieldHandle, Props>(
                 rows={3}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Hey — check out Sterio…"
+                placeholder="Hey — check this out {link}"
               />
             </label>
+            <p className="muted">
+              Use <span className="code">{'{link}'}</span> to insert the short URL
+              when the message is copied.
+            </p>
           </>
         )}
       </div>

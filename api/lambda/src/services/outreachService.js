@@ -14,6 +14,7 @@ import {
 import {
   buildOutreachRedirectUrl,
   normalizeOutreachDestinationPath,
+  parseOutreachDestination,
 } from '../utils/outreachDestinationPath.js';
 
 function userFacingError(message, status = 400) {
@@ -131,20 +132,21 @@ export async function listLinks({ campaignId } = {}) {
             l.created_at, l.updated_at,
             c.name AS campaign_name, c.slug AS campaign_slug,
             v.name AS message_variant_name, v.slug AS message_variant_slug,
+            v.body AS message_variant_body,
             COUNT(cl.id)::int AS click_count
      FROM outreach_links l
      JOIN outreach_campaigns c ON c.id = l.campaign_id
      JOIN outreach_message_variants v ON v.id = l.message_variant_id
      LEFT JOIN outreach_clicks cl ON cl.outreach_link_id = l.id
      ${where}
-     GROUP BY l.id, c.name, c.slug, v.name, v.slug
+     GROUP BY l.id, c.name, c.slug, v.name, v.slug, v.body
      ORDER BY l.created_at DESC`,
     params
   );
 
   return result.rows.map((row) => ({
     ...row,
-    short_url: buildOutreachShortUrl(row.code),
+    short_url: buildOutreachShortUrl(row.code, row.destination_path),
   }));
 }
 
@@ -209,7 +211,9 @@ export async function createLink({
       ...link,
       campaign_slug: campaign.slug,
       message_variant_slug: variant.slug,
-      short_url: buildOutreachShortUrl(link.code),
+      message_variant_name: variant.name,
+      message_variant_body: variant.body,
+      short_url: buildOutreachShortUrl(link.code, link.destination_path),
     };
   } catch (error) {
     if (error.code === '23505') {
@@ -219,6 +223,36 @@ export async function createLink({
     }
     throw error;
   }
+}
+
+/**
+ * Public lookup for short-link previews. Does not record a click.
+ */
+export async function getPublicOutreachLink(code) {
+  if (!code || typeof code !== 'string') {
+    throw userFacingError('Invalid outreach code', 404);
+  }
+
+  const linkResult = await pool.query(
+    `SELECT l.code, l.destination_path
+     FROM outreach_links l
+     WHERE l.code = $1`,
+    [code.trim()]
+  );
+
+  if (linkResult.rows.length === 0) {
+    throw userFacingError('Outreach link not found', 404);
+  }
+
+  const link = linkResult.rows[0];
+  const destination = parseOutreachDestination(link.destination_path);
+
+  return {
+    code: link.code,
+    destinationPath: link.destination_path,
+    destinationKind: destination.kind,
+    destinationId: destination.id,
+  };
 }
 
 /**

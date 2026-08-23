@@ -47,6 +47,7 @@ export type OutreachLink = {
   campaign_slug?: string;
   message_variant_slug?: string;
   message_variant_name?: string;
+  message_variant_body?: string | null;
 };
 
 export const outreachApi = {
