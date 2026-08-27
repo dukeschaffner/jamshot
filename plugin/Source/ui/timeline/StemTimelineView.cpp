@@ -199,14 +199,14 @@ Colour StemTimelineView::laneColour(int index) const
     return fills[static_cast<size_t>(index) % 4u];
 }
 
-Rectangle<int> StemTimelineView::muteButtonBounds(int laneIndex) const
+juce::Rectangle<int> StemTimelineView::muteButtonBounds(int laneIndex) const
 {
     const int y = laneIndex * (kLaneHeight + kLaneGap) + (kLaneHeight - kMixButtonH);
     const int half = kLabelWidth / 2;
     return { 0, y, half, kMixButtonH };
 }
 
-Rectangle<int> StemTimelineView::soloButtonBounds(int laneIndex) const
+juce::Rectangle<int> StemTimelineView::soloButtonBounds(int laneIndex) const
 {
     const int y = laneIndex * (kLaneHeight + kLaneGap) + (kLaneHeight - kMixButtonH);
     const int half = kLabelWidth / 2;
@@ -253,7 +253,7 @@ void StemTimelineView::paintContent(Graphics& g)
         const bool isMuted = mixState && mixState->isTrackMuted(lane.mixId);
         const bool isSolo = mixState && mixState->soloTrackId == lane.mixId;
 
-        auto laneBounds = Rectangle<float>(0.0f, (float) y, (float) width, (float) kLaneHeight);
+        auto laneBounds = juce::Rectangle<float>(0.0f, (float) y, (float) width, (float) kLaneHeight);
 
         {
             Path clipPath;
@@ -269,16 +269,16 @@ void StemTimelineView::paintContent(Graphics& g)
 
             const int labelPadL = (i == 0) ? firstLabelPadL : 8;
             const int msY = y + kLaneHeight - kMixButtonH;
-            auto labelArea = Rectangle<int>(labelPadL, y,
-                                            kLabelWidth - labelPadL - 8,
-                                            msY - y);
+            auto labelArea = juce::Rectangle<int>(labelPadL, y,
+                                                  kLabelWidth - labelPadL - 8,
+                                                  msY - y);
             g.setColour(Colors::TEXT_SECONDARY);
             g.setFont(Font(UiMetrics::fontLaneLabel, Font::bold));
             g.drawFittedText(lane.name.isNotEmpty() ? lane.name
                                                     : ("Track " + String(lane.mixId)),
                              labelArea, Justification::centredLeft, 2);
 
-            auto drawMixButton = [&](Rectangle<int> bounds, const char* label, bool active, bool isMute) {
+            auto drawMixButton = [&](juce::Rectangle<int> bounds, const char* label, bool active, bool isMute) {
                 Colour fill = Colors::BACKGROUND;
                 Colour text = Colors::TEXT_DISABLED;
                 if (active && isMute)
@@ -316,15 +316,15 @@ void StemTimelineView::paintContent(Graphics& g)
                 const float xLoop = static_cast<float>(kLabelWidth) + secondsToX(visualEnd, timelineWidth);
                 const float clipW = jmax(2.0f, xLoop - x1);
                 const float audibleW = jmax(1.0f, xEnd - x1);
-                Rectangle<float> clipBounds(x1, static_cast<float>(y + 5), clipW, static_cast<float>(kLaneHeight - 10));
-                Rectangle<float> audibleBounds(x1, clipBounds.getY(), audibleW, clipBounds.getHeight());
+                juce::Rectangle<float> clipBounds(x1, static_cast<float>(y + 5), clipW, static_cast<float>(kLaneHeight - 10));
+                juce::Rectangle<float> audibleBounds(x1, clipBounds.getY(), audibleW, clipBounds.getHeight());
 
                 g.setColour(laneColour(i));
                 g.fillRoundedRectangle(clipBounds, 4.0f);
                 g.setColour(laneBorderColour(i));
                 g.drawRoundedRectangle(clipBounds, 4.0f, 1.0f);
 
-                auto drawWaveformInBounds = [&](Rectangle<float> bounds, float alpha) {
+                auto drawWaveformInBounds = [&](juce::Rectangle<float> bounds, float alpha) {
                     if (!clip.peaksReady || clip.peaks.empty())
                         return;
 
@@ -370,8 +370,8 @@ void StemTimelineView::paintContent(Graphics& g)
 
                 if (isLooped)
                 {
-                    Rectangle<float> loopArea(xEnd, clipBounds.getY(),
-                                              jmax(0.0f, xLoop - xEnd), clipBounds.getHeight());
+                    juce::Rectangle<float> loopArea(xEnd, clipBounds.getY(),
+                                                    jmax(0.0f, xLoop - xEnd), clipBounds.getHeight());
                     g.setColour(Colors::BACKGROUND.withAlpha(0.12f));
                     g.fillRect(loopArea);
 
@@ -395,10 +395,10 @@ void StemTimelineView::paintContent(Graphics& g)
                             {
                                 const float fullTileW = secondsToX(tileStart + audibleLength, timelineWidth)
                                     - secondsToX(tileStart, timelineWidth);
-                                Rectangle<float> fullTileBounds(tileX, clipBounds.getY(),
-                                                                jmax(1.0f, fullTileW), clipBounds.getHeight());
-                                Rectangle<float> visibleTileBounds(tileX, clipBounds.getY(),
-                                                                   tileW, clipBounds.getHeight());
+                                juce::Rectangle<float> fullTileBounds(tileX, clipBounds.getY(),
+                                                                       jmax(1.0f, fullTileW), clipBounds.getHeight());
+                                juce::Rectangle<float> visibleTileBounds(tileX, clipBounds.getY(),
+                                                                          tileW, clipBounds.getHeight());
 
                                 Graphics::ScopedSaveState saved(g);
                                 g.reduceClipRegion(visibleTileBounds.toNearestInt());
