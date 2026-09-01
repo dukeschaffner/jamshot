@@ -66,7 +66,9 @@ juce_add_plugin(SterioPlugin
     IS_MIDI_EFFECT FALSE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
-    COPY_PLUGIN_AFTER_BUILD TRUE
+    # Avoid copying into the protected system VST3 directory on Windows.
+    # Keep automatic installation enabled for macOS development builds.
+    COPY_PLUGIN_AFTER_BUILD ${APPLE}
     FORMATS ${PLUGIN_FORMATS}
     PRODUCT_NAME "Sterio")
 
