@@ -84,3 +84,4 @@ Existing Sterio analytics track:
 
 TODO:
 - add analytics graphs (reuse existing visualizer)
+- make sure outreach tracks who generated the link

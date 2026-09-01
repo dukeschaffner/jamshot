@@ -1,8 +1,2 @@
 - `ui/next.config.mjs` `images.remotePatterns` still includes `127.0.0.1` `/cdn-cgi/local/r2/public/**` (leftover Wrangler local R2 emulator). Ephemeral mode uses a real R2 public hostname that is not in that list.
-- `package.json` `ephemeral:teardown` pointed at missing `scripts/ephemeral-env/teardown.sh`; replaced with `scripts/ephemeral-env/teardown.mjs`.
-- Ephemeral/UI `next dev` warns about non-standard `NODE_ENV` because `env/.env.dev` sets `NODE_ENV=dev` (Next wants `development`).
-- Ephemeral backend does not start CMS. Homepage SSR fetches `http://localhost:3001` and logs `ECONNREFUSED`; the page still 200s via `MarketingFallback`.
-- `isPrivateIP` does `ipAddress.split(':')[0]`, which turns `::1` into `""`, so IPv6 localhost is not treated as private. Outreach click recording then calls ipgeolocation with `ip=::1`, gets 423 bogon, and AxiosError dumps `IPGEO_API_KEY` in API logs. Click still records; geo stays null.
-- Wrangler 4.x has no DNS subcommand, and Wrangler OAuth lacks Zone.DNS edit. `admin` / `admin-test` CNAMEs need a Cloudflare API token with Zone.DNS edit or a dashboard change.
-- Amplify subdomain prefixes cannot contain dots. Admin test host is `admin-test.sterio.fm`, not `admin.test.sterio.fm`.
-- CloudFormation rejects `ssm-secure` refs on Amplify AccessToken and branch env vars. `cdk deploy JamshotAmplifyStack` must pass those values as `--context`.
+

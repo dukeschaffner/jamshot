@@ -1,3 +1,9 @@
+- project invite link in email didnt work
+
+
+
+
+
 
 
 RELEASE CHECKLIST
