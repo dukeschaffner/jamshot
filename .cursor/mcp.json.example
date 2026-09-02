@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "sterio-local-db": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgres://postgres:YOUR_LOCAL_PASSWORD@localhost:5432/jamshot"
+      ]
+    },
+    "sterio-ephemeral-db": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgres://postgres:YOUR_LOCAL_PASSWORD@localhost:5432/sterio-ephemeral"
+      ]
+    },
+    "sterio-local-logs": {
+      "command": "node",
+      "args": [
+        "scripts/dev-log-mcp/index.js"
+      ]
+    }
+  }
+}

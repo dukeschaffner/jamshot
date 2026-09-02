@@ -59,3 +59,5 @@ pkgroot/
 Sterio-*.pkg
 
 plugin/.vs/*
+
+.cursor/mcp.json
