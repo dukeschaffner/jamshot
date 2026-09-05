@@ -1,14 +1,11 @@
 import type { Payload } from 'payload'
 
-/** Flat guide slugs → nested /guides/... paths. */
-export const LEGACY_GUIDE_SLUGS: Record<string, string> = {
-  'guide-find-producer': 'guides/find-producer',
-  'guide-long-distance-collab': 'guides/long-distance-collab',
-}
+const LEGACY_GUIDE_SLUG_PREFIX = 'guide-'
 
-const LEGACY_PATH_REPLACEMENTS: Array<[string, string]> = Object.entries(LEGACY_GUIDE_SLUGS).map(
-  ([oldSlug, newSlug]) => [`/${oldSlug}`, `/${newSlug}`],
-)
+export function nestedGuideSlugFromLegacy(slug: string) {
+  if (!slug.startsWith(LEGACY_GUIDE_SLUG_PREFIX)) return null
+  return `guides/${slug.slice(LEGACY_GUIDE_SLUG_PREFIX.length)}`
+}
 
 async function findPageBySlug(payload: Payload, slug: string) {
   const result = await payload.find({
@@ -19,12 +16,9 @@ async function findPageBySlug(payload: Payload, slug: string) {
   return result.docs[0] || null
 }
 
+/** `/guide-foo` → `/guides/foo` (and same inside absolute URLs). */
 function replaceLegacyPathsInString(value: string) {
-  let next = value
-  for (const [from, to] of LEGACY_PATH_REPLACEMENTS) {
-    next = next.split(from).join(to)
-  }
-  return next
+  return value.split(`/${LEGACY_GUIDE_SLUG_PREFIX}`).join('/guides/')
 }
 
 /** Deep-walk JSON-like values and rewrite legacy guide paths in strings only. */
@@ -59,22 +53,32 @@ function rewriteLegacyPaths(value: unknown): { value: unknown; changed: boolean 
 }
 
 /**
- * Renames legacy flat guide slugs and rewrites old href/canonical strings in place.
- * Does not replace page content with seed data.
+ * Renames every legacy `guide-*` page to `guides/...` and rewrites old href/canonical
+ * strings in place. Does not replace page content with seed data.
  */
 export async function migrateLegacyGuideSlugs(payload: Payload) {
   const results: Array<{ from?: string; to?: string; slug?: string; action: string }> = []
 
-  for (const [oldSlug, newSlug] of Object.entries(LEGACY_GUIDE_SLUGS)) {
-    const oldPage = await findPageBySlug(payload, oldSlug)
-    if (!oldPage) continue
+  const pages = await payload.find({
+    collection: 'pages',
+    limit: 100,
+    depth: 0,
+  })
+
+  const legacyPages = pages.docs.filter(
+    (page) => typeof page.slug === 'string' && page.slug.startsWith(LEGACY_GUIDE_SLUG_PREFIX),
+  )
+
+  for (const oldPage of legacyPages) {
+    const oldSlug = oldPage.slug as string
+    const newSlug = nestedGuideSlugFromLegacy(oldSlug)
+    if (!newSlug) continue
 
     const existingNewPage = await findPageBySlug(payload, newSlug)
     const rewrittenLayout = rewriteLegacyPaths(oldPage.layout)
     const rewrittenSeo = rewriteLegacyPaths(oldPage.seo)
 
     if (existingNewPage) {
-      // Prefer keeping whichever page already has the new slug; drop the legacy duplicate.
       await payload.delete({
         collection: 'pages',
         id: oldPage.id,
@@ -99,16 +103,15 @@ export async function migrateLegacyGuideSlugs(payload: Payload) {
     })
   }
 
-  // Patch remaining old guide links on any existing pages (e.g. /guides index cards).
-  const pages = await payload.find({
+  // Re-fetch so link rewrites see post-rename docs (e.g. /guides index cards).
+  const pagesAfterRename = await payload.find({
     collection: 'pages',
     limit: 100,
     depth: 0,
   })
 
-  for (const page of pages.docs) {
-    if (typeof page.slug === 'string' && page.slug in LEGACY_GUIDE_SLUGS) {
-      // Still being handled / already handled above.
+  for (const page of pagesAfterRename.docs) {
+    if (typeof page.slug === 'string' && page.slug.startsWith(LEGACY_GUIDE_SLUG_PREFIX)) {
       continue
     }
 

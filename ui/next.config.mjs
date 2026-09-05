@@ -17,13 +17,8 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: '/guide-find-producer',
-        destination: '/guides/find-producer',
-        permanent: true,
-      },
-      {
-        source: '/guide-long-distance-collab',
-        destination: '/guides/long-distance-collab',
+        source: '/guide-:slug',
+        destination: '/guides/:slug',
         permanent: true,
       },
     ]

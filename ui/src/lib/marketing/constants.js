@@ -2,16 +2,12 @@ export const MARKETING_ROUTE_SLUGS = [
   'about',
   'guides',
   'plugin',
-  'guides/find-producer',
-  'guides/long-distance-collab',
 ]
 
 export const DEDICATED_MARKETING_PATHS = [
   '/about',
   '/guides',
   '/plugin',
-  '/guides/find-producer',
-  '/guides/long-distance-collab',
 ]
 
 /** Routes that always render CMS marketing pages, regardless of auth. */
