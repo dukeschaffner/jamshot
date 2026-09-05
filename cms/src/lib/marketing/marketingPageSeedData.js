@@ -265,7 +265,7 @@ export const marketingPages = [
             meta: 'Collaboration',
             title: 'How to Find a Music Producer to Collaborate With Online',
             text: 'Look for sound fit, communication style, and a low-friction way to trade ideas before you commit to a full project.',
-            href: '/guide-find-producer',
+            href: '/guides/find-producer',
             linkLabel: 'Read guide',
             featured: true,
           },
@@ -273,7 +273,7 @@ export const marketingPages = [
             meta: 'Remote sessions',
             title: 'How to Start a Long-Distance Collab Without Losing Momentum',
             text: 'Keep the creative spark alive when nobody is in the same room.',
-            href: '/guide-long-distance-collab',
+            href: '/guides/long-distance-collab',
             linkLabel: 'Read guide',
           },
           {
@@ -317,7 +317,7 @@ export const marketingPages = [
   },
   {
     title: 'How to Find a Music Producer to Collaborate With Online',
-    slug: 'guide-find-producer',
+    slug: 'guides/find-producer',
     status: 'published',
     seo: {
       metaTitle: 'How to Find a Music Producer to Collaborate With Online | Sterio.fm',
@@ -330,7 +330,7 @@ export const marketingPages = [
         '@type': 'Article',
         headline: 'How to Find a Music Producer to Collaborate With Online',
         description: 'A practical guide for artists looking for online music producers.',
-        mainEntityOfPage: 'https://sterio.fm/guide-find-producer',
+        mainEntityOfPage: 'https://sterio.fm/guides/find-producer',
         author: { '@type': 'Organization', name: 'Sterio.fm' },
       },
     },
@@ -392,7 +392,7 @@ export const marketingPages = [
   },
   {
     title: 'How to Start a Long-Distance Collab Without Losing Momentum',
-    slug: 'guide-long-distance-collab',
+    slug: 'guides/long-distance-collab',
     status: 'published',
     seo: {
       metaTitle: 'How to Start a Long-Distance Collab Without Losing Momentum | Sterio.fm',
@@ -405,7 +405,7 @@ export const marketingPages = [
         '@type': 'Article',
         headline: 'How to Start a Long-Distance Collab Without Losing Momentum',
         description: 'A guide to keeping remote music collaboration moving.',
-        mainEntityOfPage: 'https://sterio.fm/guide-long-distance-collab',
+        mainEntityOfPage: 'https://sterio.fm/guides/long-distance-collab',
         author: { '@type': 'Organization', name: 'Sterio.fm' },
       },
     },

@@ -14,6 +14,20 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/guide-find-producer',
+        destination: '/guides/find-producer',
+        permanent: true,
+      },
+      {
+        source: '/guide-long-distance-collab',
+        destination: '/guides/long-distance-collab',
+        permanent: true,
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {

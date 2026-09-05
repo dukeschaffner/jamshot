@@ -19,7 +19,7 @@ You don't have server session reading wired up yet, so the current pattern is a 
 
 Other gaps to address
 Issue	Impact
-Static sitemap is incomplete — missing /guide-find-producer, /guide-long-distance-collab, /privacy, /terms	Medium — crawlers may discover these slower
+Static sitemap is incomplete — missing /guides/find-producer, /guides/long-distance-collab, /privacy, /terms	Medium — crawlers may discover these slower
 Sitemap isn’t CMS-driven — new published pages won’t appear automatically	Medium
 Guides hub has placeholder cards linking to /register instead of real articles	Medium — missed long-tail SEO
 Reveal animations start at opacity: 0	Low — content is still in DOM; Google can read it

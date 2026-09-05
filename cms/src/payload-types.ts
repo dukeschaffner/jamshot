@@ -152,7 +152,7 @@ export interface Page {
   id: number;
   title: string;
   /**
-   * URL path segment, e.g. "home", "about", or "guide-find-producer".
+   * URL path segment, e.g. "home", "about", or "guides/find-producer".
    */
   slug: string;
   status: 'draft' | 'published';

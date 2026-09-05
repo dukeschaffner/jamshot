@@ -4,7 +4,7 @@ import { getPublishedMarketingSlugs } from '@/lib/marketing/getMarketingPage';
 function sitemapPriority(slug) {
   if (slug === 'home') return 1;
   if (slug === 'plugin') return 0.9;
-  if (slug.startsWith('guide-')) return 0.7;
+  if (slug.startsWith('guides/')) return 0.7;
   return 0.8;
 }
 

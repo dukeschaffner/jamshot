@@ -53,7 +53,7 @@ export const Pages: CollectionConfig = {
       required: true,
       unique: true,
       admin: {
-        description: 'URL path segment, e.g. "home", "about", or "guide-find-producer".',
+        description: 'URL path segment, e.g. "home", "about", or "guides/find-producer".',
       },
     },
     {

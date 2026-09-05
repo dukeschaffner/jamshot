@@ -2,22 +2,22 @@ export const MARKETING_ROUTE_SLUGS = [
   'about',
   'guides',
   'plugin',
-  'guide-find-producer',
-  'guide-long-distance-collab',
+  'guides/find-producer',
+  'guides/long-distance-collab',
 ]
 
 export const DEDICATED_MARKETING_PATHS = [
   '/about',
   '/guides',
   '/plugin',
-  '/guide-find-producer',
-  '/guide-long-distance-collab',
+  '/guides/find-producer',
+  '/guides/long-distance-collab',
 ]
 
 /** Routes that always render CMS marketing pages, regardless of auth. */
 export function isDedicatedMarketingPath(pathname) {
   if (!pathname) return false
-  return DEDICATED_MARKETING_PATHS.includes(pathname) || pathname.startsWith('/guide-')
+  return DEDICATED_MARKETING_PATHS.includes(pathname) || pathname.startsWith('/guides/')
 }
 
 /** All public marketing URLs, including the smart-routed homepage. */
