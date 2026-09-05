@@ -1,8 +1,8 @@
 import type { Payload } from 'payload'
 
 import { marketingPages } from './marketingPageSeedData.js'
-import { migrateLegacyGuideSlugs } from './migrateLegacyGuideSlugs.js'
-import { normalizeMarketingPage } from './normalizeMarketingPage.js'
+import { migrateLegacyGuideSlugs } from './migrateLegacyGuideSlugs'
+import { normalizeMarketingPage } from './normalizeMarketingPage'
 
 export async function seedMarketingPages(payload: Payload, { force = false } = {}) {
   const migrations = await migrateLegacyGuideSlugs(payload)
