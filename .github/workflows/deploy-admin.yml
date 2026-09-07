@@ -23,7 +23,7 @@ jobs:
   deploy-to-test:
     runs-on: ubuntu-latest
     environment:
-      name: admin-test
+      name: test
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
     steps:
     - name: Configure AWS credentials
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-to-test
     environment:
-      name: admin-prod
+      name: prod
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
     steps:
     - name: Configure AWS credentials

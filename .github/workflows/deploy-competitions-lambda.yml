@@ -27,6 +27,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: test
     outputs:
       build-artifact: competitions-lambda-build-${{ github.run_number }}
     defaults:
@@ -84,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     environment:
-      name: competitions-test
+      name: test
       url: ${{ vars.COMPETITIONS_LAMBDA_TEST_URL }}
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
 
@@ -149,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, deploy-to-test]
     environment:
-      name: competitions-prod
+      name: prod
       url: ${{ vars.COMPETITIONS_LAMBDA_PROD_URL }}
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
 
@@ -196,7 +197,7 @@ jobs:
           --environment Variables="{
             DB_HOST=${{ secrets.DB_HOST_PROD }},
             DB_NAME=${{ secrets.DB_NAME }},
-            DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }},
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }},
             DB_PORT=${{ secrets.DB_PORT }},
             DB_USER=${{ secrets.DB_USER }},
             EMAIL=${{ secrets.EMAIL }},
@@ -206,7 +207,7 @@ jobs:
             SMTP_PORT=${{ secrets.SMTP_PORT }},
             SMTP_SECURE=${{ secrets.SMTP_SECURE }},
             FRONTEND_URL=${{ secrets.FRONTEND_URL_PROD }},
-            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY_PROD }}
+            STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
           }"
 
     # - name: Create deployment tag
