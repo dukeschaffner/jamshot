@@ -59,7 +59,7 @@ Audio uploads need **R2 `sterio-dev` credentials** and the **audio** worker (on 
 
 ## Environment
 
-All local services, UI, CMS, and admin load env through `@sterio/dev-env`. Files apply in order; later files overwrite earlier keys:
+All local services, UI, and admin load env through `@sterio/dev-env`. Files apply in order; later files overwrite earlier keys:
 
 1. `env/.env.dev` (required locally)
 2. `env/.env.${JAMSHOT_ENV}` if `JAMSHOT_ENV` is set and not `dev`
