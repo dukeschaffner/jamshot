@@ -14,8 +14,8 @@ const env = {
 // Existing lambda / log-retention infrastructure — deploy separately if needed.
 new JamshotStack(app, 'JamshotStack', { env });
 
-// CMS Amplify apps only — safe to deploy without touching JamshotStack resources.
+// Admin Amplify hosting — safe to deploy without touching JamshotStack resources.
 new JamshotAmplifyStack(app, 'JamshotAmplifyStack', {
   env,
-  description: 'Sterio CMS + Admin Amplify hosting',
+  description: 'Sterio Admin Amplify hosting',
 });

@@ -1,16 +1,28 @@
 export const MARKETING_ROUTE_SLUGS = [
   'about',
   'guides',
+  'guides/find-producer',
+  'guides/long-distance-collab',
+  'guides/share-music-projects',
+  'guides/unfinished-songs',
+  'guides/collaborate-on-music-online-without-same-daw',
+  'guides/find-musicians-to-collaborate-with',
   'plugin',
 ]
 
 export const DEDICATED_MARKETING_PATHS = [
   '/about',
   '/guides',
+  '/guides/find-producer',
+  '/guides/long-distance-collab',
+  '/guides/share-music-projects',
+  '/guides/unfinished-songs',
+  '/guides/collaborate-on-music-online-without-same-daw',
+  '/guides/find-musicians-to-collaborate-with',
   '/plugin',
 ]
 
-/** Routes that always render CMS marketing pages, regardless of auth. */
+/** Routes that always render marketing pages, regardless of auth. */
 export function isDedicatedMarketingPath(pathname) {
   if (!pathname) return false
   return DEDICATED_MARKETING_PATHS.includes(pathname) || pathname.startsWith('/guides/')

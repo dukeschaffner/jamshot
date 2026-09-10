@@ -1,6 +1,6 @@
 # Sterio (jamshot)
 
-Sterio is a music collaboration product: artists post short clips, and others attach audio as new versions — more like a conversation than a portfolio. The public site is [sterio.fm](https://sterio.fm). This repo is the full stack (web, API, workers, CMS, admin, and the desktop plugin).
+Sterio is a music collaboration product: artists post short clips, and others attach audio as new versions — more like a conversation than a portfolio. The public site is [sterio.fm](https://sterio.fm). This repo is the full stack (web, API, workers, admin, and the desktop plugin).
 
 Product context, privacy rules, and roadmap live in [`docs/app-notes.txt`](docs/app-notes.txt). Local setup, env keys, and day-to-day workflow live in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
@@ -10,7 +10,6 @@ Product context, privacy rules, and roadmap live in [`docs/app-notes.txt`](docs/
 |------|------|
 | `ui/` | Next.js web app (`:3000`) |
 | `api/lambda/` | Express + Hono API (`:5001` / `:5002`) |
-| `cms/` | Payload CMS (`:3001`) |
 | `admin/` | Admin app (`:3002`) |
 | `plugin/` | JUCE desktop plugin (C++) |
 | `functions/lambda/` | Workers (audio, project WebSocket, analytics, competitions, …) |

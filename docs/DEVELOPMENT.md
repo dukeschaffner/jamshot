@@ -59,7 +59,7 @@ Audio uploads need **R2 `sterio-dev` credentials** and the **audio** worker (on 
 
 ## Environment
 
-All local services, UI, CMS, and admin load env through `@sterio/dev-env`. Files apply in order; later files overwrite earlier keys:
+All local services, UI, and admin load env through `@sterio/dev-env`. Files apply in order; later files overwrite earlier keys:
 
 1. `env/.env.dev` (required locally)
 2. `env/.env.${JAMSHOT_ENV}` if `JAMSHOT_ENV` is set and not `dev`
@@ -98,7 +98,6 @@ Fill `env/.env.dev` from the password manager. Blank keys in the example are sec
 |-----|---------|
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL` | Postgres |
 | `DB_CONNECTION_STRING` | Same DB as a URL; keep in sync with the fields above |
-| `CMS_DATABASE_URL` | Payload CMS Postgres URL (CMS only) |
 
 **R2 / CDN**
 
@@ -124,17 +123,15 @@ Fill `env/.env.dev` from the password manager. Blank keys in the example are sec
 | `EMAIL` / `EMAIL_PASSWORD` / `SMTP_*` | Outbound mail. Local signup often prints verification URLs in API logs instead |
 | `TEST_EMAIL` | Optional override for notification testing |
 
-**UI / analytics / CMS**
+**UI / analytics**
 
 | Key | Purpose |
 |-----|---------|
 | `NEXT_PUBLIC_API_URL` | `http://localhost:5001/api` |
 | `NEXT_PUBLIC_BETTER_AUTH_URL` | `http://localhost:5002/api` |
 | `NEXT_PUBLIC_PROJECT_WS_URL` | `ws://localhost:5003` |
-| `CMS_URL` / `NEXT_PUBLIC_CMS_URL` | Payload (`http://localhost:3001`) |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Optional locally |
 | `NEXT_PUBLIC_POSTHOG_TOKEN` / `NEXT_PUBLIC_POSTHOG_HOST` | Optional locally |
-| `PAYLOAD_SECRET` / `PREVIEW_SECRET` | CMS only |
 | `AWS_*` | Not required for typical local UI/API work |
 | `IPGEO_API_KEY` | Listener geolocation |
 | `PLUGIN_META` | JSON string, e.g. `{"currentVersion":"0.1.3","minSupportedVersion":"0.1.0"}` |
@@ -160,7 +157,6 @@ UI logs in local Next.js POST to DevLog (`[UI]`). Plugin debug builds can do the
 | Port | Service |
 |------|---------|
 | 3000 | UI |
-| 3001 | CMS (optional) |
 | 3002 | Admin (optional) |
 | 5001 | Express API |
 | 5002 | Hono / Better Auth |
@@ -173,7 +169,6 @@ Interactive `jamshot` and ephemeral mode **share these ports**. Stop one stack b
 ### Optional processes
 
 ```bash
-cd cms && npm run dev          # :3001
 cd admin && npm run dev        # :3002
 cd issues-visualizer && npm run dev
 # or uncomment video / email / issues in run-backend-services.sh
