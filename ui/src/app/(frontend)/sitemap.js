@@ -1,5 +1,17 @@
 import { pathFromSlug, SITE_URL } from '@/lib/marketing/constants';
-import { getPublishedMarketingSlugs } from '@/lib/marketing/getMarketingPage';
+
+const MARKETING_SITEMAP_SLUGS = [
+  'home',
+  'about',
+  'guides',
+  'guides/find-producer',
+  'guides/long-distance-collab',
+  'guides/share-music-projects',
+  'guides/unfinished-songs',
+  'guides/collaborate-on-music-online-without-same-daw',
+  'guides/find-musicians-to-collaborate-with',
+  'plugin',
+];
 
 function sitemapPriority(slug) {
   if (slug === 'home') return 1;
@@ -13,10 +25,8 @@ function sitemapChangeFrequency(slug) {
   return 'monthly';
 }
 
-export default async function sitemap() {
-  const slugs = await getPublishedMarketingSlugs();
-
-  return slugs.map((slug) => ({
+export default function sitemap() {
+  return MARKETING_SITEMAP_SLUGS.map((slug) => ({
     url: `${SITE_URL}${pathFromSlug(slug)}`,
     lastModified: new Date(),
     changeFrequency: sitemapChangeFrequency(slug),

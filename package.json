@@ -7,7 +7,6 @@
     "packages/*",
     "api/lambda",
     "ui",
-    "cms",
     "admin",
     "issues-visualizer",
     "infrastructure/cdk",
