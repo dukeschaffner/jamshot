@@ -15,7 +15,8 @@ import { eventBus } from '../misc/EventBus';
 import { DAW_EVENTS } from '../misc/DAWEvents';
 import { useDAW } from '../DAWContext';
 import { useFeatureFlags } from '../../../contexts/FeatureFlagsContext';
-import { buildStemsObject } from '../misc/DAWUtils';
+import { snapshotUploadStems } from '../misc/uploadStemsSnapshot';
+import logger from '../../../lib/logger';
 
 /**
  * Sanitizes error messages to prevent exposing detailed server-side errors.
@@ -255,7 +256,8 @@ export default function UploadForm({
 
     let buffer = null;
 
-    const recordingTrack = trackManagerRef.current.getTrack('recording-track');
+    const trackManager = trackManagerRef.current;
+    const recordingTrack = trackManager?.getTrack('recording-track');
     if (!recordingTrack) {
       setError('No recording track found');
       return;
@@ -266,6 +268,16 @@ export default function UploadForm({
         setError('Error exporting recording track');
         return;
       }
+    }
+
+    // Snapshot the stems payload now, before any async work. The TrackManager can be
+    // destroyed while the S3 upload is in flight (DAW unmount), after which it would
+    // report zero tracks and the API would reject the upload.
+    const { stems, error: stemsError } = snapshotUploadStems(trackManager, { isCollab });
+    if (stemsError) {
+      logger.warn('Upload aborted: invalid stems snapshot', { isCollab, stemsError });
+      setError(stemsError);
+      return;
     }
 
     setIsUploading(true);
@@ -291,8 +303,7 @@ export default function UploadForm({
       console.log('S3 upload completed');
 
       // Phase 3: Process upload - create database record and trigger audio processing
-      const stems = buildStemsObject(trackManagerRef.current.getAllTracks());
-      
+      // (uses the stems snapshot captured before the S3 upload; do not re-read the manager here)
       const uploadData = {
         title,
         s3Key,
