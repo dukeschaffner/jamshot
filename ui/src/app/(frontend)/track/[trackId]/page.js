@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense, useMemo } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { trackApi } from '@/lib/api';
@@ -9,7 +9,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import './collaborate.css';
 import { FaCheckCircle, FaShareAlt, FaProjectDiagram, FaLock, FaLockOpen, FaTrash, FaDesktop} from 'react-icons/fa';
 import { useUser } from '@/contexts/UserContext';
-import { useMobile } from '@/contexts/MobileContext';
+import { useStickyDesktopDaw } from '@/components/DAW/hooks/useStickyDesktopDaw';
 import { useAudio } from '@/lib/AudioContext';
 import { useFeatureFlags } from '@/contexts/FeatureFlagsContext';
 import DAW from '@/components/DAW/DAW';
@@ -27,7 +27,7 @@ function TrackContent() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('collab');
   const { user, isAuthenticated } = useUser();
-  const { isMobile } = useMobile();
+  const { shouldMountDaw, isMobile } = useStickyDesktopDaw();
   const { isFeatureEnabled } = useFeatureFlags();
   const [isTrackOwner, setIsTrackOwner] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -39,19 +39,24 @@ function TrackContent() {
   const pollingStartTimeRef = useRef(null);
   const { setSpaceShortcutEnabled } = useAudio();
 
-  const dawElement = useMemo(() => 
+  // Once mounted on desktop, the DAW stays mounted even if `isMobile` flips (resize/zoom/
+  // rotation). Unmounting it destroys the TrackManager and breaks in-flight uploads.
+  const dawElement = (
     <div style={{display: activeTab === 'collab' ? 'block' : 'none'}}>
-      {isMobile ? (
+      {isMobile && (
         <div className="mobile-collab-message">
           <FaDesktop className="mobile-collab-icon" />
           <h3>Desktop Required</h3>
           <p>Use Desktop version to record or upload file to collaborate</p>
         </div>
-      ) : (
-        <DAW track={track} isVisible={activeTab === 'collab'}/>
+      )}
+      {shouldMountDaw && (
+        <div style={{display: isMobile ? 'none' : 'block'}}>
+          <DAW track={track} isVisible={activeTab === 'collab' && !isMobile}/>
+        </div>
       )}
     </div>
-  , [track, activeTab, isMobile]);
+  );
 
 
   // Disable space shortcut for global player when DAW is active
